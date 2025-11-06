@@ -2,6 +2,7 @@
 //! prototype but wraps it in a full-screen experience driven by `ratatui`.
 
 mod codex_session;
+mod pty_session;
 
 use std::{
     env,
@@ -95,11 +96,16 @@ fn app_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
     loop {
         terminal.draw(|frame| ui(frame, app))?;
 
-        // Check for streaming output from Codex session
+        // Check for streaming output from PTY session
         if let Some(ref session) = app.codex_session {
             let output = session.read_output();
             if !output.is_empty() {
-                app.append_output(output);
+                // Join output chunks and split by lines
+                let text = output.join("");
+                let lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+                if !lines.is_empty() {
+                    app.append_output(lines);
+                }
             }
         }
 
@@ -343,31 +349,41 @@ fn send_prompt(app: &mut App) -> Result<Option<Vec<String>>> {
         return Ok(None);
     }
 
-    // Ensure we have a Codex session
+    // Ensure we have a persistent Codex session
     app.ensure_codex_session()?;
 
-    app.status = "Sending to Codex...".into();
+    app.status = "Sending to persistent Codex...".into();
 
-    // Send prompt to persistent session
+    // Send prompt to persistent PTY session
     let lines = if let Some(ref mut session) = app.codex_session {
-        session.send_prompt(&prompt)?;
+        session.send(&prompt)?;
 
         // Give Codex a moment to process
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(200));
 
         // Read response with timeout
-        let response_lines = session.read_output_timeout(Duration::from_secs(5));
+        let response_lines = session.read_output_timeout(Duration::from_secs(3));
 
         let mut lines = Vec::new();
         lines.push(format!("> {}", prompt));
-        lines.extend(response_lines);
 
-        app.status = format!("Codex responded with {} lines.", lines.len() - 1);
+        // Join response lines (they may come in chunks)
+        let response_text = response_lines.join("");
+        lines.extend(response_text.lines().map(|line| line.to_string()));
+
+        app.status = format!("Codex responded (session alive)");
         app.input.clear();
 
         lines
     } else {
-        bail!("No Codex session available");
+        // Fallback to old method if PTY fails
+        app.status = "PTY failed, using fallback...".into();
+        let codex_output = call_codex(&app.config, &prompt)?;
+        let mut lines = Vec::new();
+        lines.push(format!("> {}", prompt));
+        lines.extend(codex_output.lines().map(|line| line.to_string()));
+        app.input.clear();
+        lines
     };
 
     if app.voice_enabled {
@@ -850,7 +866,7 @@ struct App {
     status: String,
     voice_enabled: bool,
     scroll_offset: u16,
-    codex_session: Option<codex_session::CodexSession>,
+    codex_session: Option<pty_session::PtyCodexSession>,
 }
 
 impl App {
@@ -870,21 +886,21 @@ impl App {
     /// Initialize or get the persistent Codex session
     fn ensure_codex_session(&mut self) -> Result<()> {
         if self.codex_session.is_none() {
-            self.status = "Starting Codex session...".into();
+            self.status = "Starting persistent Codex session...".into();
             let working_dir = env::current_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
 
-            match codex_session::CodexSession::new(
+            match pty_session::PtyCodexSession::new(
                 &self.config.codex_cmd,
                 working_dir.to_str().unwrap_or(".")
             ) {
                 Ok(session) => {
                     self.codex_session = Some(session);
-                    self.status = "Codex session ready.".into();
-                    log_debug("Codex session started successfully");
+                    self.status = "Codex session ready (persistent).".into();
+                    log_debug("PTY Codex session started successfully");
                 }
                 Err(e) => {
-                    let msg = format!("Failed to start Codex: {}", e);
+                    let msg = format!("Failed to start Codex PTY: {}", e);
                     self.status = msg.clone();
                     log_debug(&msg);
                     bail!(msg);
@@ -892,17 +908,11 @@ impl App {
             }
         } else {
             // Check if session is still alive
-            if let Some(ref mut session) = self.codex_session {
+            if let Some(ref session) = self.codex_session {
                 if !session.is_alive() {
-                    self.status = "Restarting Codex session...".into();
-                    let working_dir = env::current_dir()
-                        .unwrap_or_else(|_| PathBuf::from("."));
-
-                    session.restart(
-                        &self.config.codex_cmd,
-                        working_dir.to_str().unwrap_or(".")
-                    )?;
-                    self.status = "Codex session restarted.".into();
+                    self.status = "Codex session died, restarting...".into();
+                    self.codex_session = None;
+                    self.ensure_codex_session()?;
                 }
             }
         }

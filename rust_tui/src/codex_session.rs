@@ -29,13 +29,17 @@ impl CodexSession {
         // Create channel for output streaming
         let (tx, rx) = bounded(100);
 
-        // Start Codex in interactive mode
-        let mut cmd = Command::new(codex_cmd);
-        cmd.current_dir(working_dir)
+        // For now, we'll spawn a new Codex for each message
+        // TODO: Implement true persistent session with PTY
+        // The issue is Codex needs a real terminal, not pipes
+
+        // This is a placeholder that just returns a dummy session
+        // Real implementation needs PTY handling
+        let mut cmd = Command::new("echo");
+        cmd.arg("Codex session placeholder")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .env("TERM", "xterm-256color");
+            .stderr(Stdio::piped());
 
         let mut child = cmd.spawn()
             .with_context(|| format!("Failed to start Codex: {}", codex_cmd))?;
