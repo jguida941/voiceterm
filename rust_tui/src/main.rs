@@ -1,6 +1,8 @@
 //! Terminal UI shell for the `codex_voice` pipeline. It mirrors the Python
 //! prototype but wraps it in a full-screen experience driven by `ratatui`.
 
+mod codex_session;
+
 use std::{
     env,
     ffi::OsStr,
@@ -93,7 +95,15 @@ fn app_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
     loop {
         terminal.draw(|frame| ui(frame, app))?;
 
-        if event::poll(Duration::from_millis(250)).context("failed to poll events")? {
+        // Check for streaming output from Codex session
+        if let Some(ref session) = app.codex_session {
+            let output = session.read_output();
+            if !output.is_empty() {
+                app.append_output(output);
+            }
+        }
+
+        if event::poll(Duration::from_millis(100)).context("failed to poll events")? {
             if let Event::Key(key) = event::read().context("failed to read key event")? {
                 if handle_key_event(app, key)? {
                     break;
@@ -325,7 +335,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<bool> {
     Ok(false)
 }
 
-/// Dispatch the current prompt to the Codex CLI and format the output lines.
+/// Dispatch the current prompt to the persistent Codex session.
 fn send_prompt(app: &mut App) -> Result<Option<Vec<String>>> {
     let prompt = app.input.trim().to_string();
     if prompt.is_empty() {
@@ -333,14 +343,32 @@ fn send_prompt(app: &mut App) -> Result<Option<Vec<String>>> {
         return Ok(None);
     }
 
-    app.status = "Calling Codex…".into();
-    let codex_output = call_codex(&app.config, &prompt)?;
+    // Ensure we have a Codex session
+    app.ensure_codex_session()?;
 
-    let mut lines = Vec::new();
-    lines.push(format!("> {}", prompt));
-    lines.extend(codex_output.lines().map(|line| line.to_string()));
-    app.status = format!("Codex returned {} lines.", codex_output.lines().count());
-    app.input.clear();
+    app.status = "Sending to Codex...".into();
+
+    // Send prompt to persistent session
+    let lines = if let Some(ref mut session) = app.codex_session {
+        session.send_prompt(&prompt)?;
+
+        // Give Codex a moment to process
+        std::thread::sleep(Duration::from_millis(100));
+
+        // Read response with timeout
+        let response_lines = session.read_output_timeout(Duration::from_secs(5));
+
+        let mut lines = Vec::new();
+        lines.push(format!("> {}", prompt));
+        lines.extend(response_lines);
+
+        app.status = format!("Codex responded with {} lines.", lines.len() - 1);
+        app.input.clear();
+
+        lines
+    } else {
+        bail!("No Codex session available");
+    };
 
     if app.voice_enabled {
         // Use terminal wrapper for voice capture in continuous mode
@@ -822,6 +850,7 @@ struct App {
     status: String,
     voice_enabled: bool,
     scroll_offset: u16,
+    codex_session: Option<codex_session::CodexSession>,
 }
 
 impl App {
@@ -831,10 +860,53 @@ impl App {
             config,
             input: String::new(),
             output: Vec::new(),
-            status: "Ready.".into(),
+            status: "Ready. Press Ctrl+R for voice capture.".into(),
             voice_enabled: false,
             scroll_offset: 0,
+            codex_session: None,
         }
+    }
+
+    /// Initialize or get the persistent Codex session
+    fn ensure_codex_session(&mut self) -> Result<()> {
+        if self.codex_session.is_none() {
+            self.status = "Starting Codex session...".into();
+            let working_dir = env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."));
+
+            match codex_session::CodexSession::new(
+                &self.config.codex_cmd,
+                working_dir.to_str().unwrap_or(".")
+            ) {
+                Ok(session) => {
+                    self.codex_session = Some(session);
+                    self.status = "Codex session ready.".into();
+                    log_debug("Codex session started successfully");
+                }
+                Err(e) => {
+                    let msg = format!("Failed to start Codex: {}", e);
+                    self.status = msg.clone();
+                    log_debug(&msg);
+                    bail!(msg);
+                }
+            }
+        } else {
+            // Check if session is still alive
+            if let Some(ref mut session) = self.codex_session {
+                if !session.is_alive() {
+                    self.status = "Restarting Codex session...".into();
+                    let working_dir = env::current_dir()
+                        .unwrap_or_else(|_| PathBuf::from("."));
+
+                    session.restart(
+                        &self.config.codex_cmd,
+                        working_dir.to_str().unwrap_or(".")
+                    )?;
+                    self.status = "Codex session restarted.".into();
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Append output lines while trimming the scrollback when it grows large.
