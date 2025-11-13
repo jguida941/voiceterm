@@ -24,6 +24,9 @@ use unicode_width::UnicodeWidthStr;
 
 /// Spinner frames used by the UI when a Codex request is inflight.
 pub const CODEX_SPINNER_FRAMES: &[char] = &['-', '\\', '|', '/'];
+const PTY_FIRST_BYTE_TIMEOUT_MS: u64 = 150;
+const PTY_OVERALL_TIMEOUT_MS: u64 = 500;
+const PTY_QUIET_GRACE_MS: u64 = 350;
 
 /// Handle to an asynchronous Codex invocation.
 pub struct CodexJob {
@@ -51,13 +54,16 @@ pub enum CodexJobMessage {
         lines: Vec<String>,
         status: String,
         codex_session: Option<PtyCodexSession>,
+        disable_pty: bool,
     },
     Failed {
         error: String,
         codex_session: Option<PtyCodexSession>,
+        disable_pty: bool,
     },
     Canceled {
         codex_session: Option<PtyCodexSession>,
+        disable_pty: bool,
     },
 }
 
@@ -150,16 +156,23 @@ fn run_codex_job(
         return CodexJobMessage::Failed {
             error: "Prompt is empty.".into(),
             codex_session,
+            disable_pty: false,
         };
     }
 
     let codex_start = Instant::now();
     let mut used_persistent = false;
     let mut codex_output: Option<String> = None;
+    let mut disable_pty = false;
+    let mut pty_attempted = false;
+    let mut pty_elapsed_ms = 0.0;
+    let mut cli_elapsed_ms = 0.0;
 
     if config.persistent_codex {
         if let Some(mut session) = codex_session.take() {
+            pty_attempted = true;
             log_debug("CodexJob: Trying persistent Codex session");
+            let pty_start = Instant::now();
             match call_codex_via_session(&mut session, &prompt, &cancel) {
                 Ok(text) => {
                     used_persistent = true;
@@ -167,46 +180,67 @@ fn run_codex_job(
                     codex_output = Some(text);
                 }
                 Err(CodexCallError::Cancelled) => {
+                    pty_elapsed_ms = elapsed_ms(pty_start);
                     return CodexJobMessage::Canceled {
                         codex_session: Some(session),
+                        disable_pty,
                     };
                 }
                 Err(err) => {
+                    pty_elapsed_ms = elapsed_ms(pty_start);
+                    disable_pty = true;
                     log_debug(&format!(
-                        "Persistent Codex session failed, falling back: {err:?}"
+                        "Persistent Codex session failed, disabling PTY: {err:?}"
                     ));
                 }
+            }
+            if pty_elapsed_ms == 0.0 {
+                pty_elapsed_ms = elapsed_ms(pty_start);
             }
         }
     }
 
     if cancel.is_cancelled() {
-        return CodexJobMessage::Canceled { codex_session };
+        return CodexJobMessage::Canceled {
+            codex_session,
+            disable_pty,
+        };
     }
 
     let output_text = match codex_output {
         Some(text) => text,
-        None => match call_codex_cli(&config, &prompt, &cancel) {
-            Ok(text) => text,
-            Err(CodexCallError::Cancelled) => {
-                return CodexJobMessage::Canceled { codex_session };
+        None => {
+            let cli_start = Instant::now();
+            match call_codex_cli(&config, &prompt, &cancel) {
+                Ok(text) => {
+                    cli_elapsed_ms = elapsed_ms(cli_start);
+                    text
+                }
+                Err(CodexCallError::Cancelled) => {
+                    cli_elapsed_ms = elapsed_ms(cli_start);
+                    return CodexJobMessage::Canceled {
+                        codex_session,
+                        disable_pty,
+                    };
+                }
+                Err(CodexCallError::Failure(err)) => {
+                    cli_elapsed_ms = elapsed_ms(cli_start);
+                    return CodexJobMessage::Failed {
+                        error: format!("{err:#}"),
+                        codex_session,
+                        disable_pty,
+                    };
+                }
             }
-            Err(CodexCallError::Failure(err)) => {
-                return CodexJobMessage::Failed {
-                    error: format!("{err:#}"),
-                    codex_session,
-                };
-            }
-        },
+        }
     };
 
     let elapsed = codex_start.elapsed().as_secs_f64();
     let line_count = output_text.lines().count();
     if config.log_timings {
         log_debug(&format!(
-            "timing|phase=codex_job|persistent_used={}|elapsed_s={:.3}|lines={}|chars={}",
-            used_persistent,
-            elapsed,
+            "timing|phase=codex_job|pty_attempted={pty_attempted}|pty_ms={pty_elapsed_ms:.1}|cli_ms={cli_elapsed_ms:.1}|disable_pty={disable_pty}|total_ms={:.1}|lines={}|chars={}",
+            elapsed * 1000.0,
             line_count,
             output_text.len()
         ));
@@ -243,6 +277,7 @@ fn run_codex_job(
         lines,
         status: format!("Codex returned {line_count} lines."),
         codex_session,
+        disable_pty,
     }
 }
 
@@ -334,8 +369,9 @@ fn call_codex_via_session(
 
     let mut combined_raw = Vec::new();
     let start_time = Instant::now();
-    let overall_timeout = Duration::from_secs(30);
-    let quiet_grace = Duration::from_millis(350);
+    let overall_timeout = Duration::from_millis(PTY_OVERALL_TIMEOUT_MS);
+    let first_output_deadline = start_time + Duration::from_millis(PTY_FIRST_BYTE_TIMEOUT_MS);
+    let quiet_grace = Duration::from_millis(PTY_QUIET_GRACE_MS);
     let mut last_progress = Instant::now();
     let mut last_len = 0usize;
 
@@ -344,7 +380,8 @@ fn call_codex_via_session(
             return Err(CodexCallError::Cancelled);
         }
 
-        let output_chunks = session.read_output_timeout(Duration::from_millis(500));
+        // Use 50ms polling interval (much smaller than overall timeout)
+        let output_chunks = session.read_output_timeout(Duration::from_millis(50));
         for chunk in output_chunks {
             // Removed excessive debug logging - was writing 100k+ lines per request
             combined_raw.extend_from_slice(&chunk);
@@ -368,8 +405,20 @@ fn call_codex_via_session(
                 }
                 return Ok(sanitized);
             }
-        } else if Instant::now().duration_since(start_time) >= overall_timeout {
-            break;
+        } else {
+            let now = Instant::now();
+            if now >= first_output_deadline {
+                log_debug(&format!(
+                    "Persistent Codex session produced no output within {}ms; falling back",
+                    PTY_FIRST_BYTE_TIMEOUT_MS
+                ));
+                return Err(CodexCallError::Failure(anyhow!(
+                    "persistent Codex session timed out before producing output"
+                )));
+            }
+            if now.duration_since(start_time) >= overall_timeout {
+                break;
+            }
         }
     }
 
@@ -377,6 +426,10 @@ fn call_codex_via_session(
     Err(CodexCallError::Failure(anyhow!(
         "persistent Codex session returned no text"
     )))
+}
+
+fn elapsed_ms(start: Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1000.0
 }
 
 /// Outcome of the optional Python PTY helper invocation.
@@ -804,6 +857,7 @@ mod tests {
                 lines: vec![prompt.to_string()],
                 status: "ok".into(),
                 codex_session: None,
+                disable_pty: false,
             }),
             || start_codex_job("hello".into(), config, None),
         );
@@ -825,6 +879,7 @@ mod tests {
             Box::new(|_, _| CodexJobMessage::Failed {
                 error: "boom".into(),
                 codex_session: None,
+                disable_pty: false,
             }),
             || start_codex_job("hello".into(), config, None),
         );
@@ -846,6 +901,7 @@ mod tests {
                 }
                 CodexJobMessage::Canceled {
                     codex_session: None,
+                    disable_pty: false,
                 }
             }),
             || start_codex_job("hello".into(), config, None),

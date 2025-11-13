@@ -90,9 +90,38 @@ Codex must audit the following:
 	•	CI/CD and testing harness
 	•	Future IDE-style tooling
 	•	Codex must not overengineer internals or reinvent subsystems unnecessarily
-	•	Codex must preserve the architecture unless explicit approval is granted
+		•	Codex must preserve the architecture unless explicit approval is granted
 
-⸻
+	⸻
+
+## Codex Integration & UX Parity (Hard Requirements)
+
+- **Strict superset**: The wrapper must expose everything the native Codex client/CLI can do (all `/` commands, multi-step conversations, tool invocations, streaming/thinking indicators, workspace/file operations, etc.) plus additional modalities such as voice and future orchestration helpers. No Codex capability may be removed or degraded.
+- **Codex as source of truth**: Do not reimplement or fork Codex features with divergent semantics. Commands like `/edit`, `/undo`, `/explain`, `/files`, `/stack`, etc. must be forwarded directly to Codex’s real interfaces; the wrapper may decorate or extend behavior but never change outcomes silently.
+- **Backend abstraction**: Implement and maintain a `CodexBackend` interface that defines operations such as `send_prompt`, `send_slash_command`, `stream_tokens`, `list_files`, and related workspace actions. All UI/voice code interacts only with `CodexBackend`, not raw CLI stdout.
+- **Multiple backends**: Default backend is the existing PTY/CLI (driving the `codex` binary). Designs must be compatible with a future HTTP/WebSocket backend that talks to the official API without rewriting UI/voice layers.
+- **Slash command routing**: The input layer must parse `/` prefixes, map them to typed `Command` variants, and dispatch through `CodexBackend`. Streaming responses must emit incremental events so the TUI can show “thinking…” state and live tokens.
+- **Working directory control**: Provide configuration (and smart defaults) for Codex’s working directory. Auto-detect a project root (e.g., nearest `.git`) when unset so Codex operations always run in the expected workspace.
+
+	⸻
+
+## Wrapper Scope Correction Instruction (Paste Before Work)
+
+> **INSTRUCTION TO CODEX — WRAPPER SCOPE CORRECTION**  
+> 1. **Target = Codex UX parity + extras**  
+>    - Everything the Codex client/CLI can do today (all `/` commands, multi-step conversations, tool integrations, streaming/thinking indicators, workspace/file ops, etc.) **must** work through this wrapper. Voice and future orchestration features are additional layers, not replacements.  
+> 2. **Codex is the source of truth**  
+>    - Do **not** re-implement or fork Codex features. `/edit`, `/undo`, `/explain`, `/files`, `/stack`, etc. must forward to Codex’s real interfaces with identical semantics.  
+> 3. **Backend abstraction, not hard-wired CLI**  
+>    - Implement a `CodexBackend` trait with methods such as `send_message`, `send_slash_command`, `stream_tokens`, `list_files`, etc. All UI/voice code must depend only on this trait. Support both the PTY/CLI backend today and a future HTTP/WebSocket backend without rewriting UI layers.  
+> 4. **Slash commands & streaming UX**  
+>    - Input must detect `/` commands, map them to typed enums, and dispatch via the backend. Backends emit streaming events so the TUI can show “thinking…” state and incremental tokens.  
+> 5. **Working directory / project context**  
+>    - Expose configuration (and auto-detect a `.git` root when unset) for Codex’s working directory so all commands operate in the correct repo.  
+> 6. **Plan before code (per AgentMD)**  
+>    - Before coding: read AgentMD + relevant design docs, propose 2–3 architectural approaches if choices exist, document the design in `docs/architecture/YYYY-MM-DD/ARCHITECTURE.md`, and wait for approval. After approval, implement the backend abstraction, routed slash commands, streaming indicators, and tests proving the routing works end-to-end. No coding begins without this plan/approval cycle.
+
+Use this block verbatim before starting any work on Codex integration to ensure scope cannot be down-scoped.
 
 4. Interaction Rules for Codex
 

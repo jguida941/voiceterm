@@ -109,6 +109,26 @@ impl PtyCodexSession {
         output
     }
 
+    /// Probe whether the PTY echoes back within a tight timeout.
+    /// Drains all stale output first to avoid false positives from buffered data.
+    pub fn is_responsive(&mut self, timeout: Duration) -> bool {
+        // Aggressively drain all stale bytes to avoid false positives
+        for _ in 0..5 {
+            if self.read_output().is_empty() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        // Send newline and check for ANY response
+        if self.send("\n").is_err() {
+            return false;
+        }
+
+        // Any output within timeout indicates responsiveness
+        !self.read_output_timeout(timeout).is_empty()
+    }
+
     /// Peek whether the child is still running (without reaping it).
     pub fn is_alive(&self) -> bool {
         unsafe {

@@ -21,6 +21,19 @@ use serde::Deserialize;
 const OUTPUT_MAX_LINES: usize = 500;
 /// Spinner cadence for Codex worker status updates.
 const CODEX_SPINNER_INTERVAL: Duration = Duration::from_millis(150);
+/// Health-check timeout for the persistent PTY session.
+const PTY_HEALTHCHECK_TIMEOUT_MS: u64 = 200;
+
+macro_rules! state_change {
+    ($self:expr, $field:ident, $value:expr) => {{
+        $self.$field = $value;
+        $self.request_redraw();
+    }};
+    ($self:expr, $body:block) => {{
+        $body
+        $self.request_redraw();
+    }};
+}
 
 /// Path to the temp log file we rotate between runs.
 pub fn log_file_path() -> PathBuf {
@@ -196,6 +209,7 @@ pub struct App {
     voice_enabled: bool,
     scroll_offset: u16,
     codex_session: Option<pty_session::PtyCodexSession>,
+    pty_disabled: bool,
     codex_job: Option<CodexJob>,
     codex_spinner_index: usize,
     codex_spinner_last_tick: Option<Instant>,
@@ -216,6 +230,7 @@ impl App {
             voice_enabled: false,
             scroll_offset: 0,
             codex_session: None,
+            pty_disabled: false,
             codex_job: None,
             codex_spinner_index: 0,
             codex_spinner_last_tick: None,
@@ -253,11 +268,14 @@ impl App {
 
     /// Ensure a long-lived PTY session exists so repeated prompts avoid Codex cold-start costs.
     fn ensure_codex_session(&mut self) -> Result<()> {
+        if self.pty_disabled {
+            bail!("persistent Codex disabled at runtime");
+        }
         if !self.config.persistent_codex {
             bail!("persistent Codex disabled via CLI flag");
         }
         if self.codex_session.is_none() {
-            self.status = "Starting persistent Codex session...".into();
+            state_change!(self, status, "Starting persistent Codex session...".into());
             let working_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
             match pty_session::PtyCodexSession::new(
@@ -266,15 +284,20 @@ impl App {
                 &self.config.codex_args,
                 &self.config.term_value,
             ) {
-                Ok(session) => {
-                    self.codex_session = Some(session);
-                    self.status = "Codex session ready (persistent).".into();
-                    log_debug("PTY Codex session started successfully");
+                Ok(mut session) => {
+                    let health_timeout = Duration::from_millis(PTY_HEALTHCHECK_TIMEOUT_MS);
+                    if session.is_responsive(health_timeout) {
+                        self.codex_session = Some(session);
+                        state_change!(self, status, "Codex session ready (persistent).".into());
+                        log_debug("PTY Codex session started successfully");
+                    } else {
+                        self.disable_persistent_codex("Persistent Codex unresponsive.");
+                        bail!("persistent Codex unresponsive");
+                    }
                 }
                 Err(e) => {
                     let msg = format!("Failed to start Codex PTY: {e}");
-                    self.status = msg.clone();
-                    log_debug(&msg);
+                    self.disable_persistent_codex(&msg);
                     bail!(msg);
                 }
             }
@@ -282,7 +305,7 @@ impl App {
             // Check if session is still alive
             if let Some(ref session) = self.codex_session {
                 if !session.is_alive() {
-                    self.status = "Codex session died, restarting...".into();
+                    state_change!(self, status, "Codex session died, restarting...".into());
                     self.codex_session = None;
                     self.ensure_codex_session()?;
                 }
@@ -292,18 +315,25 @@ impl App {
     }
 
     fn take_codex_session_for_job(&mut self) -> Option<pty_session::PtyCodexSession> {
-        if !self.config.persistent_codex {
+        if !self.config.persistent_codex || self.pty_disabled {
             return None;
         }
         if self.codex_session.is_none() {
             if let Err(err) = self.ensure_codex_session() {
-                let msg = format!("Persistent Codex unavailable: {err:#}");
-                log_debug(&msg);
-                self.status = msg;
+                log_debug(&format!("Persistent Codex unavailable: {err:#}"));
                 return None;
             }
         }
         self.codex_session.take()
+    }
+    fn disable_persistent_codex(&mut self, reason: &str) {
+        if self.pty_disabled {
+            return;
+        }
+        self.pty_disabled = true;
+        log_debug(&format!("Persistent Codex disabled: {reason}"));
+        let status_message = format!("Persistent Codex unavailable ({reason}); using direct CLI.");
+        state_change!(self, status, status_message);
     }
 
     /// Append output lines while trimming scrollback so the terminal stays snappy on long sessions.
@@ -408,15 +438,17 @@ impl App {
 
     pub(crate) fn send_current_input(&mut self) -> Result<()> {
         if self.codex_job.is_some() {
-            self.status = "Codex request already running; press Esc to cancel.".into();
-            self.request_redraw();
+            state_change!(
+                self,
+                status,
+                "Codex request already running; press Esc to cancel.".into()
+            );
             return Ok(());
         }
 
         let prompt = self.input.trim().to_string();
         if prompt.is_empty() {
-            self.status = "Nothing to send; prompt is empty.".into();
-            self.request_redraw();
+            state_change!(self, status, "Nothing to send; prompt is empty.".into());
             return Ok(());
         }
 
@@ -426,8 +458,14 @@ impl App {
         self.codex_spinner_index = 0;
         self.codex_spinner_last_tick = Some(Instant::now());
         let spinner = CODEX_SPINNER_FRAMES.first().copied().unwrap_or('-');
-        self.status = format!("Waiting for Codex {spinner} (Esc/Ctrl+C to cancel)");
-        self.request_redraw();
+        state_change!(
+            self,
+            status,
+            format!("Waiting for Codex {spinner} (Esc/Ctrl+C to cancel)")
+        );
+        state_change!(self, {
+            self.input.clear();
+        });
         Ok(())
     }
 
@@ -486,9 +524,11 @@ impl App {
             }
         }
 
+        // CRITICAL: Handle message BEFORE clearing job to avoid race condition
         if let Some(message) = message_to_handle {
             self.handle_codex_job_message(message);
         }
+
         if finished {
             self.codex_job = None;
             self.codex_spinner_last_tick = None;
@@ -502,30 +542,57 @@ impl App {
                 lines,
                 status,
                 codex_session,
+                disable_pty,
             } => {
                 self.append_output(lines);
-                self.status = status;
-                self.codex_session = codex_session;
-                self.input.clear();
+                state_change!(self, status, status);
+                self.codex_session = if disable_pty { None } else { codex_session };
+                state_change!(self, {
+                    self.input.clear();
+                });
+                if disable_pty {
+                    self.disable_persistent_codex(
+                        "Codex job disabled persistent session after success.",
+                    );
+                }
                 if self.voice_enabled {
                     if let Err(err) = self.start_voice_capture(VoiceCaptureTrigger::Auto) {
-                        self.status = format!("Voice capture failed after Codex call: {err:#}");
+                        state_change!(
+                            self,
+                            status,
+                            format!("Voice capture failed after Codex call: {err:#}")
+                        );
                     }
                 }
             }
             CodexJobMessage::Failed {
                 error,
                 codex_session,
+                disable_pty,
             } => {
-                self.status = format!("Codex failed: {error}");
-                self.codex_session = codex_session;
+                state_change!(self, status, format!("Codex failed: {error}"));
+                self.codex_session = if disable_pty { None } else { codex_session };
+                state_change!(self, {
+                    self.input.clear();
+                });
+                if disable_pty {
+                    self.disable_persistent_codex("Codex job reported PTY failure.");
+                }
             }
-            CodexJobMessage::Canceled { codex_session } => {
-                self.status = "Codex request canceled.".into();
-                self.codex_session = codex_session;
+            CodexJobMessage::Canceled {
+                codex_session,
+                disable_pty,
+            } => {
+                state_change!(self, status, "Codex request canceled.".into());
+                self.codex_session = if disable_pty { None } else { codex_session };
+                state_change!(self, {
+                    self.input.clear();
+                });
+                if disable_pty {
+                    self.disable_persistent_codex("Codex job canceled PTY usage.");
+                }
             }
         }
-        self.request_redraw();
     }
 
     pub(crate) fn cancel_codex_job_if_active(&mut self) -> bool {
@@ -586,29 +653,29 @@ impl App {
 
     pub(crate) fn scroll_up(&mut self) {
         if self.scroll_offset > 0 {
-            self.scroll_offset = self.scroll_offset.saturating_sub(1);
+            state_change!(self, scroll_offset, self.scroll_offset.saturating_sub(1));
         }
     }
 
     pub(crate) fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(1);
+        state_change!(self, scroll_offset, self.scroll_offset.saturating_add(1));
     }
 
     pub(crate) fn page_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(10);
+        state_change!(self, scroll_offset, self.scroll_offset.saturating_sub(10));
     }
 
     pub(crate) fn page_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(10);
+        state_change!(self, scroll_offset, self.scroll_offset.saturating_add(10));
     }
 
     pub(crate) fn scroll_to_top(&mut self) {
-        self.scroll_offset = 0;
+        state_change!(self, scroll_offset, 0);
     }
 
     pub(crate) fn scroll_to_bottom(&mut self) {
         let offset = self.output.len().saturating_sub(10).min(u16::MAX as usize);
-        self.scroll_offset = offset as u16;
+        state_change!(self, scroll_offset, offset as u16);
     }
 
     /// Returns the current input text for rendering in the UI.
@@ -643,15 +710,21 @@ impl App {
     }
 
     pub(crate) fn push_input_char(&mut self, ch: char) {
-        self.input.push(ch);
+        state_change!(self, {
+            self.input.push(ch);
+        });
     }
 
     pub(crate) fn backspace_input(&mut self) {
-        self.input.pop();
+        state_change!(self, {
+            self.input.pop();
+        });
     }
 
     pub(crate) fn clear_input(&mut self) {
-        self.input.clear();
+        state_change!(self, {
+            self.input.clear();
+        });
     }
 
     /// Keep the UI in sync with the persistent Codex PTY without blocking.
@@ -720,6 +793,7 @@ mod tests {
                 lines: vec![format!("> {prompt}"), String::from("result line")],
                 status: "ok".into(),
                 codex_session: None,
+                disable_pty: false,
             }),
             || {
                 app.send_current_input().unwrap();
@@ -747,6 +821,7 @@ mod tests {
                 }
                 CodexJobMessage::Canceled {
                     codex_session: None,
+                    disable_pty: false,
                 }
             }),
             || {
@@ -758,6 +833,34 @@ mod tests {
         drop(hook_guard);
         assert_eq!(app.status_text(), "Codex request canceled.");
         assert!(!app.cancel_codex_job_if_active());
+    }
+
+    #[test]
+    fn input_and_scroll_changes_request_redraw() {
+        let config = test_config();
+        let mut app = App::new(config);
+        assert!(app.take_redraw_request()); // clear initial draw
+        assert!(!app.take_redraw_request());
+        app.push_input_char('a');
+        assert!(app.take_redraw_request());
+        assert!(!app.take_redraw_request());
+        app.scroll_down();
+        assert!(app.take_redraw_request());
+    }
+
+    #[test]
+    fn worker_disable_flag_blocks_future_sessions() {
+        let mut config = AppConfig::parse_from(["codex-voice-tests"]);
+        config.persistent_codex = true;
+        let mut app = App::new(config);
+        assert!(!app.pty_disabled);
+        app.handle_codex_job_message(CodexJobMessage::Failed {
+            error: "boom".into(),
+            codex_session: None,
+            disable_pty: true,
+        });
+        assert!(app.pty_disabled);
+        assert!(app.take_codex_session_for_job().is_none());
     }
 
     fn wait_for_codex_job(app: &mut App) {

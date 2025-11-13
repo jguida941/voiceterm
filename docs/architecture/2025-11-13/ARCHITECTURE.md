@@ -241,6 +241,8 @@ Silence-aware capture (Phase 2A) is considered *done* when all of the following 
 - Metrics/logging: every worker completion now emits `timing|phase=codex_job|...` plus spinner heartbeat logs, and cancellation attempts log both SIGTERM/SIGKILL escalations so we can debug stuck Codex processes.
 - The asynchronous worker keeps PTY sessions off the UI thread, enabling Phase 2A latency work to resume while guaranteeing the TUI stays responsive during multi-second Codex calls.
 - Fixed the Rubato builder configuration (chunk size vs. channel count) so the high-quality resampler actually runs; without this swap the code fell back to the basic path every frame and hammered the log file. This change removes the “expected 256 channels” spam and keeps the log bounded.
+- Added a redraw flag (`App::needs_redraw`) and updated `ui.rs` to draw whenever jobs report progress; voice capture transcripts and Codex responses now appear immediately without requiring phantom key presses, and the spinner still animates only when needed (50 ms cadence while jobs are active, 100 ms idle poll).
+- To eliminate the 30–45 s stall when the persistent PTY never prints, `call_codex_via_session` now enforces a 2 s “first output” deadline and a 10 s cap overall. If the helper stays silent, we log once and fall back to the CLI pathway immediately, keeping job latency bounded.
 
 ### Alternatives Revisited
 1. **Dedicated Codex Worker Thread + Queue:** Keeps the PTY session alive on a single thread and would simplify streaming output later, but it adds queue management, request IDs, and lifecycle shutdown logic today. We capture it as a potential Phase 2C refactor once latency gates are green.

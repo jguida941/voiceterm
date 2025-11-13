@@ -46,6 +46,9 @@ pub fn run_app(app: &mut App) -> Result<()> {
 
 /// Core event/render loop for the test-friendly UI entrypoint.
 fn app_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
+    // Initial render to show UI immediately on startup
+    terminal.draw(|frame| crate::ui::draw(frame, app))?;
+
     loop {
         app.poll_codex_job()?;
         app.poll_voice_job()?;
@@ -62,13 +65,22 @@ fn app_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
             Duration::from_millis(100)
         };
 
-        let mut should_draw = app.take_redraw_request();
+        // Always draw when there's an active job to show spinner animation
+        let mut should_draw = app.take_redraw_request() || has_active_job;
         let mut should_quit = false;
 
         if event::poll(poll_duration)? {
-            if let Event::Key(key) = event::read()? {
-                should_quit = handle_key_event(app, key)?;
-                should_draw = true;
+            match event::read()? {
+                Event::Key(key) => {
+                    // Handle key BEFORE drawing to avoid input lag
+                    should_quit = handle_key_event(app, key)?;
+                    should_draw = true;
+                }
+                Event::Resize(_, _) => {
+                    // Terminal resize requires immediate redraw
+                    should_draw = true;
+                }
+                _ => {} // Ignore other events
             }
         }
 
