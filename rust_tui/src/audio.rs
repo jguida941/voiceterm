@@ -591,8 +591,8 @@ fn resample_with_rubato(input: &[f32], device_rate: u32) -> Result<Vec<f32>> {
         window: WindowFunction::BlackmanHarris2,
     };
 
-    //           ratio,  drift, params, channels, chunk
-    let mut rs = SincFixedIn::<f32>::new(ratio, 2.0, params, 1, chunk)
+    //           ratio,  drift, params, chunk_size, channels
+    let mut rs = SincFixedIn::<f32>::new(ratio, 2.0, params, chunk, 1)
         .map_err(|e| anyhow!("failed to construct sinc resampler: {e:?}"))?;
 
     // pre-allocate

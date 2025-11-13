@@ -346,11 +346,7 @@ fn call_codex_via_session(
 
         let output_chunks = session.read_output_timeout(Duration::from_millis(500));
         for chunk in output_chunks {
-            log_debug(&format!(
-                "pty_raw_chunk[{}] {}",
-                combined_raw.len(),
-                format_bytes_for_log(&chunk)
-            ));
+            // Removed excessive debug logging - was writing 100k+ lines per request
             combined_raw.extend_from_slice(&chunk);
             last_progress = Instant::now();
         }
@@ -361,10 +357,7 @@ fn call_codex_via_session(
                 last_len = sanitized.len();
                 last_progress = Instant::now();
             }
-            log_debug(&format!(
-                "pty_sanitized_output {} chars",
-                sanitized.chars().count()
-            ));
+            // Removed excessive debug logging that writes 500k+ lines per request
             let idle = Instant::now().duration_since(last_progress);
             if !sanitized.trim().is_empty() && idle >= quiet_grace {
                 return Ok(sanitized);

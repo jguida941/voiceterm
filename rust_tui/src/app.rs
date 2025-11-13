@@ -199,6 +199,7 @@ pub struct App {
     codex_job: Option<CodexJob>,
     codex_spinner_index: usize,
     codex_spinner_last_tick: Option<Instant>,
+    needs_redraw: bool,
     audio_recorder: Option<Arc<Mutex<audio::Recorder>>>,
     transcriber: Option<Arc<Mutex<stt::Transcriber>>>,
     voice_job: Option<VoiceJob>,
@@ -218,6 +219,7 @@ impl App {
             codex_job: None,
             codex_spinner_index: 0,
             codex_spinner_last_tick: None,
+            needs_redraw: true,
             audio_recorder: None,
             transcriber: None,
             voice_job: None,
@@ -314,6 +316,7 @@ impl App {
         // Scroll near the bottom when new content arrives.
         let offset = self.output.len().saturating_sub(10).min(u16::MAX as usize);
         self.scroll_offset = offset as u16;
+        self.request_redraw();
     }
 
     /// Start the background worker that records speech and pipes it through STT without blocking the UI.
@@ -384,6 +387,7 @@ impl App {
             self.status.push(' ');
             self.status.push_str(&note);
         }
+        self.request_redraw();
         Ok(true)
     }
 
@@ -393,9 +397,11 @@ impl App {
             if !self.start_voice_capture(VoiceCaptureTrigger::Auto)? {
                 self.voice_enabled = false;
                 self.status = "Voice mode failed to start; disabled voice mode.".into();
+                self.request_redraw();
             }
         } else {
             self.status = "Voice mode disabled.".into();
+            self.request_redraw();
         }
         Ok(())
     }
@@ -403,12 +409,14 @@ impl App {
     pub(crate) fn send_current_input(&mut self) -> Result<()> {
         if self.codex_job.is_some() {
             self.status = "Codex request already running; press Esc to cancel.".into();
+            self.request_redraw();
             return Ok(());
         }
 
         let prompt = self.input.trim().to_string();
         if prompt.is_empty() {
             self.status = "Nothing to send; prompt is empty.".into();
+            self.request_redraw();
             return Ok(());
         }
 
@@ -419,6 +427,7 @@ impl App {
         self.codex_spinner_last_tick = Some(Instant::now());
         let spinner = CODEX_SPINNER_FRAMES.first().copied().unwrap_or('-');
         self.status = format!("Waiting for Codex {spinner} (Esc/Ctrl+C to cancel)");
+        self.request_redraw();
         Ok(())
     }
 
@@ -516,12 +525,14 @@ impl App {
                 self.codex_session = codex_session;
             }
         }
+        self.request_redraw();
     }
 
     pub(crate) fn cancel_codex_job_if_active(&mut self) -> bool {
         if let Some(job) = self.codex_job.as_ref() {
             job.cancel();
             self.status = "Canceling Codex request...".into();
+            self.request_redraw();
             true
         } else {
             false
@@ -546,6 +557,7 @@ impl App {
         self.codex_spinner_index = (self.codex_spinner_index + 1) % CODEX_SPINNER_FRAMES.len();
         let spinner = CODEX_SPINNER_FRAMES[self.codex_spinner_index];
         self.status = format!("Waiting for Codex {spinner} (Esc/Ctrl+C to cancel)");
+        self.request_redraw();
     }
 
     /// Update UI state based on whatever the voice worker reported (transcript, silence, or error).
@@ -569,6 +581,7 @@ impl App {
                 self.status = format!("Voice capture failed: {err}");
             }
         }
+        self.request_redraw();
     }
 
     pub(crate) fn scroll_up(&mut self) {
@@ -619,6 +632,16 @@ impl App {
         self.codex_job.is_some() || self.voice_job.is_some()
     }
 
+    pub(crate) fn request_redraw(&mut self) {
+        self.needs_redraw = true;
+    }
+
+    pub(crate) fn take_redraw_request(&mut self) -> bool {
+        let requested = self.needs_redraw;
+        self.needs_redraw = false;
+        requested
+    }
+
     pub(crate) fn push_input_char(&mut self, ch: char) {
         self.input.push(ch);
     }
@@ -663,7 +686,7 @@ mod tests {
 
     fn test_config() -> AppConfig {
         let mut config = AppConfig::parse_from(["codex-voice-tests"]);
-        config.persistent_codex = false;  // Disable PTY in tests
+        config.persistent_codex = false; // Disable PTY in tests
         config
     }
 

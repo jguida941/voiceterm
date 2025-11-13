@@ -11,15 +11,16 @@
 - Captured the detailed Option 1 Codex worker design (state flow, cancellation, spinner plan, telemetry) in `ARCHITECTURE.md` so implementation can proceed under SDLC.
 - Implemented the nonblocking Codex worker (`rust_tui/src/codex.rs` + `App::poll_codex_job`), spinner/cancel UX, and session handoff; TUI no longer freezes during 30–60 s Codex calls and cancellation now surfaces via Esc/Ctrl+C.
 - Added unit tests for the worker success/error/cancel paths plus new UI-level tests that drive the spinner/cancel flow via the job hook harness; `cargo test --no-default-features` is now part of the daily verification until the `earshot` crate is reachable.
+- Reworked the render loop (`rust_tui/src/ui.rs`) and `App` state (`needs_redraw`) so job completions and spinner ticks trigger redraws automatically, eliminating the “press any key to see output” behavior during voice capture or Codex runs.
 
 ## Fixed
-- Resolved Earshot API compilation errors (VoiceActivityProfile constants were already correct; cargo clean fixed caching issue).
-- Applied `cargo fix` to remove unused imports and unnecessary `mut` qualifiers (4 warnings fixed).
+- Corrected the Earshot profile mapping (`rust_tui/src/vad_earshot.rs`) to use the actual `VoiceActivityProfile::QUALITY/LBR/AGGRESSIVE/VERY_AGGRESSIVE` constants so release builds succeed once the crate is available.
+- Swapped the Rubato `SincFixedIn` constructor arguments (`rust_tui/src/audio.rs`) so chunk size and channel count are not inverted; this stops the “expected 256 channels” spam, keeps high-quality resampling enabled, and prevents runaway log growth during idle TUI sessions.
 
 ## Pending
 - Implementation of Earshot-based silence-aware capture and the accompanying metrics/tests.
 - Addition of `perf_smoke` and `memory_guard` workflows tied to the new metrics.
-- Manual testing of async Codex worker UI responsiveness and cancellation behavior.
+- Manual testing of async Codex worker UI responsiveness and cancellation behavior once the reference environment is back online.
 
 ## Notes
 - Future updates to this file must capture concrete code/doc changes completed on 2025-11-13.

@@ -240,6 +240,7 @@ Silence-aware capture (Phase 2A) is considered *done* when all of the following 
 - Tests: `cargo test --no-default-features` (necessary until `earshot` can be fetched) now exercises the codex worker success/error/cancellation flows via the new `with_job_hook` harness plus integration tests covering spinner/cancellation from `app.rs`. Hooks serialize themselves via a mutex guard so parallel tests cannot race each other.
 - Metrics/logging: every worker completion now emits `timing|phase=codex_job|...` plus spinner heartbeat logs, and cancellation attempts log both SIGTERM/SIGKILL escalations so we can debug stuck Codex processes.
 - The asynchronous worker keeps PTY sessions off the UI thread, enabling Phase 2A latency work to resume while guaranteeing the TUI stays responsive during multi-second Codex calls.
+- Fixed the Rubato builder configuration (chunk size vs. channel count) so the high-quality resampler actually runs; without this swap the code fell back to the basic path every frame and hammered the log file. This change removes the “expected 256 channels” spam and keeps the log bounded.
 
 ### Alternatives Revisited
 1. **Dedicated Codex Worker Thread + Queue:** Keeps the PTY session alive on a single thread and would simplify streaming output later, but it adds queue management, request IDs, and lifecycle shutdown logic today. We capture it as a potential Phase 2C refactor once latency gates are green.
