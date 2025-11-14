@@ -1,5 +1,7 @@
 use std::f32::consts::PI;
 
+#[cfg(not(feature = "vad_earshot"))]
+use anyhow::bail;
 use anyhow::Result;
 use clap::Parser;
 use rust_tui::audio::{self, VadEngine};
@@ -77,6 +79,7 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    ensure_vad_engine_supported(&args)?;
     let clip = synthesize_clip(args.speech_ms, args.silence_ms, args.voice_sample_rate);
     let pipeline_cfg = build_pipeline_config(&args);
     let vad_cfg: audio::VadConfig = (&pipeline_cfg).into();
@@ -140,5 +143,53 @@ fn build_vad_engine(cfg: &VoicePipelineConfig) -> Box<dyn VadEngine> {
                 unreachable!("earshot VAD requested without enabling the 'vad_earshot' feature")
             }
         }
+    }
+}
+
+/// Keep the benchmark binary in lockstep with the main TUI validation.
+#[cfg(not(feature = "vad_earshot"))]
+fn ensure_vad_engine_supported(args: &Args) -> Result<()> {
+    if matches!(args.voice_vad_engine, VadEngineKind::Earshot) {
+        bail!("--voice-vad-engine earshot requires building with the 'vad_earshot' feature");
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "vad_earshot")]
+fn ensure_vad_engine_supported(_args: &Args) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[cfg(not(feature = "vad_earshot"))]
+    #[test]
+    fn earshot_flag_errors_without_feature() {
+        let args =
+            Args::try_parse_from(["voice_benchmark", "--voice-vad-engine", "earshot"]).unwrap();
+        let err = ensure_vad_engine_supported(&args).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("requires building with the 'vad_earshot' feature"));
+    }
+
+    #[cfg(not(feature = "vad_earshot"))]
+    #[test]
+    fn simple_flag_allowed_without_earshot_feature() {
+        let args =
+            Args::try_parse_from(["voice_benchmark", "--voice-vad-engine", "simple"]).unwrap();
+        ensure_vad_engine_supported(&args).expect("simple should remain available");
+    }
+
+    #[cfg(feature = "vad_earshot")]
+    #[test]
+    fn earshot_flag_passes_when_feature_enabled() {
+        let args =
+            Args::try_parse_from(["voice_benchmark", "--voice-vad-engine", "earshot"]).unwrap();
+        ensure_vad_engine_supported(&args).expect("earshot feature enabled");
     }
 }

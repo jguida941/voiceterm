@@ -38,6 +38,14 @@ Silence-aware capture (Phase 2A) is considered *done* when all of the following 
 7. `perf_smoke` and `memory_guard` workflows consume the new metrics (even if marked TODO, the scripts must exist and fail when budgets exceeded).
 8. Daily `ARCHITECTURE.md` + `CHANGELOG.md` entries capture progress; `project_overview.md` + `master_index.md` point to the latest folder.
 
+### Voice benchmark VAD flag parity
+- **Problem:** Reviewer caught that `voice_benchmark` still called `unreachable!()` when the CLI used `--voice-vad-engine earshot` without compiling with `vad_earshot`, so the benchmark crashed instead of surfacing the friendly validation message that the main TUI emits.
+- **Alternatives considered:**
+  1. **Runtime guard at CLI entry (selected):** Parse args once, bail if Earshot is requested without the feature, and keep the rest of the binary unchanged.
+  2. **Conditional Clap surface:** Remove the Earshot enum variant entirely when the feature is disabled. This keeps users from seeing the option but diverges from the TUI CLI and documentation, so it was rejected.
+  3. **Shared validation helper inside `VoicePipelineConfig`:** Export a reusable validator across binaries. That would touch more files and wasn't needed for today’s small review fix, so it was deferred.
+- **Decision:** Added `ensure_vad_engine_supported` in `voice_benchmark.rs`, called it immediately after `Args::parse()`, and wrote unit tests for both feature combinations. This keeps the benchmark aligned with the TUI behavior while we evaluate whether a shared validator makes sense during the upcoming Phase 2B cleanup.
+
 ## Work Plan for 2025-11-13 Session
 1. **Design & Config Prep**
    - Add the `voice.*` config keys with sensible defaults mirroring the latency plan.
@@ -233,7 +241,7 @@ Silence-aware capture (Phase 2A) is considered *done* when all of the following 
 
 ## Known Technical Debt (Phase 2B Consideration)
 - **Padding inconsistency (audio.rs:687-690)**: `offline_capture_from_pcm` pads incomplete frames with zeros while live capture (`adjust_frame_length`, line 984) pads with the last sample value. This creates minor VAD behavior differences between benchmark and production, though it has no practical impact since benchmark clips have complete silence frames. Fixing this would require re-running benchmarks and updating BENCHMARKS.md. Deferred until Phase 2B streaming refactor where consistency can be verified without invalidating existing SLA evidence.
-- **Error handling in voice_benchmark.rs**: Currently uses `unreachable!()` when Earshot VAD is requested without the feature flag (line 140). While technically correct (default_vad_engine() prevents this in normal usage), returning a Result with a clear error message would improve UX for edge cases. Low priority since this is a developer-facing benchmark tool, not production code. Can be addressed if benchmark tooling is formalized in Phase 2B+.
+- **Benchmark CLI validation parity**: Mirrored the `AppConfig::validate` guard in `voice_benchmark.rs` so `cargo run --bin voice_benchmark -- --voice-vad-engine earshot` now produces the same friendly error as the main TUI when the `vad_earshot` feature is disabled. Retained the internal `unreachable!()` in `build_vad_engine()` purely as a safety net for future refactors.
 
 ## Next Steps
 - Complete the implementation tasks above, log results in `docs/architecture/2025-11-13/` along with benchmarks, then begin Phase 2B design updates once exit criteria are met.

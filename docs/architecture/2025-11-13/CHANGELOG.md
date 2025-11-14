@@ -28,10 +28,10 @@
 - Added a fallback branch in `audio::offline_capture_from_pcm` that classifies the stop reason as `vad_silence` whenever the synthetic clip already accumulated the required trailing silence but ran out of frames before a timeout, keeping benchmark results aligned with the real capture loop.
 - Corrected the Earshot profile mapping (`rust_tui/src/vad_earshot.rs`) to use the actual `VoiceActivityProfile::QUALITY/LBR/AGGRESSIVE/VERY_AGGRESSIVE` constants so release builds succeed once the crate is available.
 - Swapped the Rubato `SincFixedIn` constructor arguments (`rust_tui/src/audio.rs`) so chunk size and channel count are not inverted; this stops the "expected 256 channels" spam, keeps high-quality resampling enabled, and prevents runaway log growth during idle TUI sessions.
+- Mirrored the AppConfig validation in `rust_tui/src/bin/voice_benchmark.rs` via the shared `ensure_vad_engine_supported` helper and added clap-driven unit tests so requesting `--voice-vad-engine earshot` without the `vad_earshot` feature now surfaces a friendly error instead of unwinding via `unreachable!()` inside the benchmark harness.
 
 ## Deferred (Phase 2B+)
 - **Padding inconsistency**: `offline_capture_from_pcm` pads incomplete frames with zeros while live capture pads with the last sample value (audio.rs:687-690 vs 984). No production impact since benchmark clips have complete silence frames, but creates minor VAD behavior differences. Fixing requires re-running benchmarks; deferred to Phase 2B streaming refactor to avoid invalidating Phase 2A SLA evidence.
-- **Benchmark error handling**: `voice_benchmark.rs:140` uses `unreachable!()` when Earshot VAD requested without feature flag. Technically correct (default prevents this), but Result-based error would improve UX. Low priority (developer tool); can address if benchmark tooling formalized in Phase 2B+.
 - **CRITICAL:** Fixed race condition in `App::poll_codex_job` (`app.rs:527-536`) where job was cleared before handling completion message, causing state inconsistency.
 - **CRITICAL:** Changed atomic ordering to `AcqRel` for `RESAMPLER_WARNING_SHOWN` flag (`audio.rs:575`) to prevent data race in multi-threaded audio capture.
 - **HIGH:** Improved `PtyCodexSession::is_responsive()` (`pty_session.rs:114-130`) to drain stale output 5 times before probing, preventing false positives from buffered data.
