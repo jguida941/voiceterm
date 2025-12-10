@@ -24,58 +24,61 @@ This document defines how agents (Codex and others) must operate on this reposit
 
 ## Codex Requirements Summary for Rust Voice-to-Codex Wrapper
 
-1. SDLC Discipline (Mandatory)
+### SDLC Discipline (Mandatory)
 
 Codex must follow a structured SDLC process. Every change must include:
-	1.	Design reasoning before coding
-	•	Explain the design choice
-	•	Provide alternative options
-	•	State why the selected design is optimal
-	•	Ask for approval before implementing any nontrivial architectural change
-	2.	Implementation with traceability
-	•	All variables, methods, structs, enums must be self-describing
-	•	No cryptic names (no a, x1, buf1 unless it represents a specific abstraction)
-	•	Every module needs docstrings and concise comments
-	•	Every change must update a CHANGELOG entry
-	•	Architectural notes must be written daily under docs/architecture/YYYY-MM-DD/
-	•	Document: what changed, why, alternatives considered, tradeoffs, benchmarks
-	3.	Testing requirements
-	•	Unit tests for every module
-	•	Regression tests for major features
-	•	Mutation testing when applicable
-	•	Fast CI/CD pipeline must be set up early (GitHub Actions or equivalent)
 
+1.	Design reasoning before coding
+- Explain the design choice
+- Provide alternative options
+- State why the selected design is optimal
+- Ask for approval before implementing any nontrivial architectural change
+
+2.	Implementation with traceability
+- All variables, methods, structs, enums must be self-describing
+- No cryptic names (no a, x1, buf1 unless it represents a specific abstraction)
+- Every module needs docstrings and concise comments
+- Every change must update a CHANGELOG entry
+- Architectural notes must be written daily under docs/architecture/YYYY-MM-DD/
+- Document: what changed, why, alternatives considered, tradeoffs, benchmarks
+
+3.	Testing requirements
+- Unit tests for every module
+- Regression tests for major features
+- Mutation testing when applicable
+- Fast CI/CD pipeline must be set up early (GitHub Actions or equivalent)
 
 
 2. Coding Requirements
 
 General
-	•	Code must be modular, not monolithic
-	•	Target file size: 200–300 lines max
-	•	Everything should fit together like composable components
-	•	No hidden global state
-	•	Explicit error handling using Result<T, E>
-	•	Logging must be minimal, async, and configurable
+- Code must be modular, not monolithic
+- Target file size: 200–300 lines max
+- Everything should fit together like composable components
+- No hidden global state
+- Explicit error handling using Result<T, E>
+- Logging must be minimal, async, and configurable
 
 Rust-Specific
-	•	Use idiomatic Rust
-	•	Use proper ownership and lifetime management
-	•	Avoid unnecessary cloning
-	•	Investigate potential race conditions in the async-runtime
-	•	Audit all blocking calls inside async functions
-	•	Never introduce Python fallbacks or Python-like architecture
-	•	Performance must match what is expected from Rust (no unexplained latency)
+- Use idiomatic Rust
+- Use proper ownership and lifetime management
+- Avoid unnecessary cloning
+- Investigate potential race conditions in the async-runtime
+- Audit all blocking calls inside async functions
+- Never introduce Python fallbacks or Python-like architecture
+- Performance must match what is expected from Rust (no unexplained latency)
 
 Python Reference
-	•	Python is only a fallback reference, not a runtime dependency
-	•	Codex must document when Rust behavior differs from Python
-	•	AgentMD must contain pointers to the Rust std docs and Python std docs
+- Python is only a fallback reference, not a runtime dependency
+- Codex must document when Rust behavior differs from Python
+- AgentMD must contain pointers to the Rust std docs and Python std docs
 
 
 
 3. Voice-to-Codex Wrapper Requirements
 
 Codex must audit the following:
+
 - **Latency**
   - Voice processing (capture + STT) should target <750ms on CI hardware for short utterances; <2s is acceptable with good UX.
   - Total voice→Codex round-trip includes external Codex API latency (5-30s typical) which is not under wrapper control.
@@ -83,16 +86,17 @@ Codex must audit the following:
   - Implementation requires: non-blocking audio callback, streaming mel + Whisper FFI OR cloud STT, bounded queues with drop-oldest backpressure, graded fallback ladder (streaming → batch → manual), and per-request latency metrics with CI gates.
   - Investigate race conditions, async vs sync boundaries, blocking file/log I/O, misconfigured channels, cross-thread contention, and unintended Python fallbacks.
   - Provide diagnostic logs and a performance trace for each call path.
+  - 
 	2.	Architecture Goal
-	•	The wrapper must sit on top of Codex, not Codex on top of the wrapper
-	•	The wrapper extends Codex with:
-	•	Voice input
-	•	Standardized formatting
-	•	Module structure
-	•	CI/CD and testing harness
-	•	Future IDE-style tooling
-	•	Codex must not overengineer internals or reinvent subsystems unnecessarily
-		•	Codex must preserve the architecture unless explicit approval is granted
+    - The wrapper must sit on top of Codex, not Codex on top of the wrapper
+    - The wrapper extends Codex with:
+    - Voice input
+    - Standardized formatting
+    - Module structure
+    - CI/CD and testing harness
+    - Future IDE-style tooling
+    - Codex must not overengineer internals or reinvent subsystems unnecessarily
+    - Codex must preserve the architecture unless explicit approval is granted
 
 
 ## Codex Integration & UX Parity (Hard Requirements)
@@ -108,7 +112,7 @@ Codex must audit the following:
 
 ## Wrapper Scope Correction Instruction
 
-> **INSTRUCTION TO CODEX — WRAPPER SCOPE CORRECTION**  
+> **INSTRUCTION TO CODEX:  WRAPPER SCOPE CORRECTION**  
 > 1. **Target = Codex UX parity + extras**  
 >    - Everything the Codex client/CLI can do today (all `/` commands, multi-step conversations, tool integrations, streaming/thinking indicators, workspace/file ops, etc.) **must** work through this wrapper. Voice and future orchestration features are additional layers, not replacements.  
 > 2. **Codex is the source of truth**  
@@ -122,58 +126,56 @@ Codex must audit the following:
 > 6. **Plan before code (per AgentMD)**  
 >    - Before coding: read AgentMD + relevant design docs, propose 2–3 architectural approaches if choices exist, document the design in `docs/architecture/YYYY-MM-DD/ARCHITECTURE.md`, and wait for approval. After approval, implement the backend abstraction, routed slash commands, streaming indicators, and tests proving the routing works end-to-end. No coding begins without this plan/approval cycle.
 
-Use this block verbatim before starting any work on Codex integration to ensure scope cannot be down-scoped.
-
-4. Interaction Rules for Codex
+4. Interaction Rules for Codex and Agents
 
 Codex must obey the following rules on every interaction:
+
 	1.	No autonomous coding
-	•	Do not modify architecture without prior approval
-	•	For every proposed change, provide:
-	•	Explanation
-	•	Alternatives
-	•	Tradeoffs
-	•	Recommendation
-	•	Wait for approval before producing code
+	- Do not modify architecture without prior approval
+	
+	For every proposed change, provide: 
+	
+	- Explanation
+	- Alternatives
+	- Tradeoffs
+	- Recommendation
+	- Wait for approval before producing code
 	
 	2.	Explain everything
-	•	Every change must have:
-	•	Reasoning
-	•	Explanation of purpose
-	•	Expected effect
-	•	Impact on SDLC
-	•	Possible risks
+	- Every change must have:
+	- Reasoning
+	- Explanation of purpose
+	- Expected effect
+	- Impact on SDLC
+	- Possible risks
 	
 	3.	Fully traceable output
-	•	Insert docstrings and comments
-	•	Include architectural notes
-	•	Update change logs
-	•	Use clear variable and method names
-	•	Map each module to a single responsibility
+	- Insert docstrings and comments
+	- Include architectural notes
+	- Update change logs
+	- Use clear variable and method names
+	- Map each module to a single responsibility
 	
 	4.	No over-engineering
-	•	Prefer the simplest correct solution
-	•	If complexity is required, state why
-	•	If Codex proposes an advanced design, it must justify the value and ask before implementing
-
-
-
-INSTRUCTION TO CODEX
+	- Prefer the simplest correct solution
+	- If complexity is required, state why
+	- If Codex proposes an advanced design, it must justify the value and ask before implementing
 
 You are not allowed to code until you first:
+	
 	1.	Explain the problem
 	2.	Identify race conditions or performance bottlenecks
 	3.	Propose 2 to 4 architectural approaches
 	4.	Ask for approval
 	5.	After approval, produce:
-	•	Modular Rust code
-	•	Clean variable and method names
-	•	Docstrings and comments
-	•	Updated CHANGELOG
-	•	Architecture notes under dated folder
-	•	Unit tests, regression tests, mutation tests
-	•	CI config
-	•	Benchmarks for latency improvements
+	- Modular Rust code
+	- Clean variable and method names
+	- Docstrings and comments
+	- Updated CHANGELOG
+	- Architecture notes under dated folder
+	- Unit tests, regression tests, mutation tests
+	- CI config
+	- Benchmarks for latency improvements
 
 You must follow SDLC. No hidden complexity. No unapproved architecture. No Python fallbacks.
 Your job is to audit the Rust code for performance, race conditions, async errors, blocking I/O, misconfigured channels, or anything that could cause multi-second delays.
@@ -184,7 +186,6 @@ Reference documentation:
 
 - Rust standard library: https://doc.rust-lang.org/std/
 - Python standard library: https://docs.python.org/3/library/
-
 
 ## Architectural Integration Plan
 
