@@ -20,9 +20,9 @@ This document defines how agents (Codex and others) must operate on this reposit
 3. Ask for approval if any requirement conflicts or is unclear.
 4. Only after understanding the rules, begin editing or coding.
 
-⸻
 
-Codex Requirements Summary for Rust Voice-to-Codex Wrapper
+
+## Codex Requirements Summary for Rust Voice-to-Codex Wrapper
 
 1. SDLC Discipline (Mandatory)
 
@@ -45,7 +45,7 @@ Codex must follow a structured SDLC process. Every change must include:
 	•	Mutation testing when applicable
 	•	Fast CI/CD pipeline must be set up early (GitHub Actions or equivalent)
 
-⸻
+
 
 2. Coding Requirements
 
@@ -71,7 +71,7 @@ Python Reference
 	•	Codex must document when Rust behavior differs from Python
 	•	AgentMD must contain pointers to the Rust std docs and Python std docs
 
-⸻
+
 
 3. Voice-to-Codex Wrapper Requirements
 
@@ -94,7 +94,6 @@ Codex must audit the following:
 	•	Codex must not overengineer internals or reinvent subsystems unnecessarily
 		•	Codex must preserve the architecture unless explicit approval is granted
 
-	⸻
 
 ## Codex Integration & UX Parity (Hard Requirements)
 
@@ -105,9 +104,9 @@ Codex must audit the following:
 - **Slash command routing**: The input layer must parse `/` prefixes, map them to typed `Command` variants, and dispatch through `CodexBackend`. Streaming responses must emit incremental events so the TUI can show “thinking…” state and live tokens.
 - **Working directory control**: Provide configuration (and smart defaults) for Codex’s working directory. Auto-detect a project root (e.g., nearest `.git`) when unset so Codex operations always run in the expected workspace.
 
-	⸻
+  
 
-## Wrapper Scope Correction Instruction (Paste Before Work)
+## Wrapper Scope Correction Instruction
 
 > **INSTRUCTION TO CODEX — WRAPPER SCOPE CORRECTION**  
 > 1. **Target = Codex UX parity + extras**  
@@ -136,6 +135,7 @@ Codex must obey the following rules on every interaction:
 	•	Tradeoffs
 	•	Recommendation
 	•	Wait for approval before producing code
+	
 	2.	Explain everything
 	•	Every change must have:
 	•	Reasoning
@@ -143,24 +143,20 @@ Codex must obey the following rules on every interaction:
 	•	Expected effect
 	•	Impact on SDLC
 	•	Possible risks
+	
 	3.	Fully traceable output
 	•	Insert docstrings and comments
 	•	Include architectural notes
 	•	Update change logs
 	•	Use clear variable and method names
 	•	Map each module to a single responsibility
+	
 	4.	No over-engineering
 	•	Prefer the simplest correct solution
 	•	If complexity is required, state why
 	•	If Codex proposes an advanced design, it must justify the value and ask before implementing
 
-⸻
 
-Final Instruction Block to Give Codex
-
-Paste this block exactly:
-
-⸻
 
 INSTRUCTION TO CODEX
 
@@ -183,14 +179,12 @@ You must follow SDLC. No hidden complexity. No unapproved architecture. No Pytho
 Your job is to audit the Rust code for performance, race conditions, async errors, blocking I/O, misconfigured channels, or anything that could cause multi-second delays.
 Produce detailed reasoning before making changes and request confirmation before generating any code.
 
-⸻
 
 Reference documentation:
 
 - Rust standard library: https://doc.rust-lang.org/std/
 - Python standard library: https://docs.python.org/3/library/
 
-⸻
 
 ## Architectural Integration Plan
 
@@ -216,7 +210,6 @@ CI must reject any change that modifies code without these documentation updates
 5. Guided Scope Control for Codex
 	Codex proposes 2–3 architectural approaches for any new feature, details pros/cons, and waits for approval before writing code. The wrapper may not over-engineer or diverge from Codex’s architecture without explicit authorization.
 
-⸻
 
 ## Organizational Plan for Traceability
 
