@@ -128,12 +128,9 @@ impl PtyCodexSession {
     /// Wait up to `timeout` for at least one output chunk, then drain any remaining bytes.
     pub fn wait_for_output(&self, timeout: Duration) -> Vec<Vec<u8>> {
         let mut output = Vec::new();
-        match self.output_rx.recv_timeout(timeout) {
-            Ok(chunk) => {
-                output.push(chunk);
-                output.extend(self.read_output());
-            }
-            Err(_) => {}
+        if let Ok(chunk) = self.output_rx.recv_timeout(timeout) {
+            output.push(chunk);
+            output.extend(self.read_output());
         }
         output
     }
@@ -198,6 +195,7 @@ unsafe fn spawn_codex_child(
     winsize.ws_xpixel = 0;
     winsize.ws_ypixel = 0;
 
+    #[allow(clippy::unnecessary_mut_passed)]
     if libc::openpty(
         &mut master_fd,
         &mut slave_fd,

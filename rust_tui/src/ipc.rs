@@ -265,7 +265,7 @@ impl IpcState {
                 Some(Arc::new(Mutex::new(r)))
             }
             Err(e) => {
-                log_debug(&format!("Audio recorder not available: {}", e));
+                log_debug(&format!("Audio recorder not available: {e}"));
                 None
             }
         };
@@ -278,7 +278,7 @@ impl IpcState {
                     Some(Arc::new(Mutex::new(t)))
                 }
                 Err(e) => {
-                    log_debug(&format!("Whisper not available: {}", e));
+                    log_debug(&format!("Whisper not available: {e}"));
                     None
                 }
             }
@@ -338,7 +338,7 @@ impl IpcState {
 fn send_event(event: &IpcEvent) {
     if let Ok(json) = serde_json::to_string(event) {
         let mut stdout = io::stdout().lock();
-        let _ = writeln!(stdout, "{}", json);
+        let _ = writeln!(stdout, "{json}");
         let _ = stdout.flush();
     }
 }
@@ -371,7 +371,7 @@ fn spawn_stdin_reader(tx: Sender<IpcCommand>) -> thread::JoinHandle<()> {
                 }
                 Err(e) => {
                     send_event(&IpcEvent::Error {
-                        message: format!("Invalid command: {}", e),
+                        message: format!("Invalid command: {e}"),
                         recoverable: true,
                     });
                 }
@@ -405,7 +405,7 @@ fn start_claude_job(claude_cmd: &str, prompt: &str) -> Result<ClaudeJob, String>
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start claude: {}", e))?;
+        .map_err(|e| format!("Failed to start claude: {e}"))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
@@ -428,10 +428,8 @@ fn start_claude_job(claude_cmd: &str, prompt: &str) -> Result<ClaudeJob, String>
         let reader = io::BufReader::new(stderr);
         for line in reader.lines().map_while(Result::ok) {
             // Only show non-empty stderr lines
-            if !line.trim().is_empty() {
-                if tx_err.send(format!("[info] {}", line)).is_err() {
-                    break;
-                }
+            if !line.trim().is_empty() && tx_err.send(format!("[info] {line}")).is_err() {
+                break;
             }
         }
     });
@@ -466,13 +464,13 @@ fn run_login_command(command: &str) -> AuthResult {
             .read(true)
             .write(true)
             .open("/dev/tty")
-            .map_err(|err| format!("failed to open /dev/tty: {}", err))?;
+            .map_err(|err| format!("failed to open /dev/tty: {err}"))?;
         let tty_in = tty
             .try_clone()
-            .map_err(|err| format!("failed to clone tty for stdin: {}", err))?;
+            .map_err(|err| format!("failed to clone tty for stdin: {err}"))?;
         let tty_out = tty
             .try_clone()
-            .map_err(|err| format!("failed to clone tty for stdout: {}", err))?;
+            .map_err(|err| format!("failed to clone tty for stdout: {err}"))?;
         let tty_err = tty;
 
         let status = Command::new(command)
@@ -481,7 +479,7 @@ fn run_login_command(command: &str) -> AuthResult {
             .stdout(Stdio::from(tty_out))
             .stderr(Stdio::from(tty_err))
             .status()
-            .map_err(|err| format!("failed to spawn {command} login: {}", err))?;
+            .map_err(|err| format!("failed to spawn {command} login: {err}"))?;
 
         if status.success() {
             Ok(())
@@ -490,7 +488,7 @@ fn run_login_command(command: &str) -> AuthResult {
                 .code()
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            Err(format!("login exited with code {}", code))
+            Err(format!("login exited with code {code}"))
         }
     }
 
@@ -581,7 +579,7 @@ pub fn run_ipc_mode(config: AppConfig) -> Result<()> {
     let mut loop_count: u64 = 0;
     loop {
         loop_count += 1;
-        if loop_count % 1000 == 0 {
+        if loop_count.is_multiple_of(1000) {
             log_debug(&format!(
                 "IPC loop iteration {}, job active: {}",
                 loop_count,
@@ -592,7 +590,7 @@ pub fn run_ipc_mode(config: AppConfig) -> Result<()> {
         // Check for new commands (non-blocking)
         match cmd_rx.try_recv() {
             Ok(cmd) => {
-                log_debug(&format!("IPC command received: {:?}", cmd));
+                log_debug(&format!("IPC command received: {cmd:?}"));
                 state.cancelled = false;
 
                 match cmd {
@@ -701,16 +699,15 @@ fn handle_send_prompt(state: &mut IpcState, prompt: &str, provider_override: Opt
             // Forward to provider only if Codex is active
             if provider == Provider::Codex {
                 let full_prompt = if args.is_empty() {
-                    format!("/{}", command)
+                    format!("/{command}")
                 } else {
-                    format!("/{} {}", command, args)
+                    format!("/{command} {args}")
                 };
                 start_provider_job(state, provider, &full_prompt);
             } else {
                 send_event(&IpcEvent::ProviderError {
                     message: format!(
-                        "/{} is a Codex command. Switch with /provider codex or use /codex /{} {}",
-                        command, command, args
+                        "/{command} is a Codex command. Switch with /provider codex or use /codex /{command} {args}"
                     ),
                 });
             }
@@ -894,10 +891,7 @@ fn handle_set_provider(state: &mut IpcState, provider_str: &str) {
         }
         None => {
             send_event(&IpcEvent::Error {
-                message: format!(
-                    "Unknown provider: {}. Use 'codex' or 'claude'.",
-                    provider_str
-                ),
+                message: format!("Unknown provider: {provider_str}. Use 'codex' or 'claude'."),
                 recoverable: true,
             });
         }
@@ -926,7 +920,7 @@ fn handle_auth_command(state: &mut IpcState, provider_override: Option<String>) 
             Some(parsed) => parsed,
             None => {
                 send_event(&IpcEvent::Error {
-                    message: format!("Unknown provider: {}. Use 'codex' or 'claude'.", name),
+                    message: format!("Unknown provider: {name}. Use 'codex' or 'claude'."),
                     recoverable: true,
                 });
                 return;
@@ -964,7 +958,7 @@ fn process_codex_events(job: &mut BackendJob, cancelled: bool) -> bool {
         return true;
     }
 
-    let mut handle_event = |event: BackendEvent| -> bool {
+    let handle_event = |event: BackendEvent| -> bool {
         match event.kind {
             BackendEventKind::Token { text } => {
                 send_event(&IpcEvent::Token { text });
@@ -983,7 +977,7 @@ fn process_codex_events(job: &mut BackendJob, cancelled: bool) -> bool {
             BackendEventKind::Finished { lines, .. } => {
                 for line in lines {
                     send_event(&IpcEvent::Token {
-                        text: format!("{}\n", line),
+                        text: format!("{line}\n"),
                     });
                 }
                 send_event(&IpcEvent::JobEnd {
@@ -1003,7 +997,7 @@ fn process_codex_events(job: &mut BackendJob, cancelled: bool) -> bool {
             }
             BackendEventKind::RecoverableError { message, .. } => {
                 send_event(&IpcEvent::Status {
-                    message: format!("Retrying: {}", message),
+                    message: format!("Retrying: {message}"),
                 });
                 false
             }
@@ -1066,7 +1060,7 @@ fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
                 &line[..line.len().min(50)]
             ));
             send_event(&IpcEvent::Token {
-                text: format!("{}\n", line),
+                text: format!("{line}\n"),
             });
             false
         }
@@ -1075,8 +1069,7 @@ fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
             match job.child.try_wait() {
                 Ok(Some(status)) => {
                     log_debug(&format!(
-                        "Claude job: process exited with status {:?}",
-                        status
+                        "Claude job: process exited with status {status:?}"
                     ));
                     send_event(&IpcEvent::JobEnd {
                         provider: "claude".to_string(),
@@ -1094,7 +1087,7 @@ fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
                     send_event(&IpcEvent::JobEnd {
                         provider: "claude".to_string(),
                         success: false,
-                        error: Some(format!("Process error: {}", e)),
+                        error: Some(format!("Process error: {e}")),
                     });
                     true
                 }
@@ -1106,8 +1099,7 @@ fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
             match job.child.try_wait() {
                 Ok(Some(status)) => {
                     log_debug(&format!(
-                        "Claude job: process already exited with {:?}",
-                        status
+                        "Claude job: process already exited with {status:?}"
                     ));
                     send_event(&IpcEvent::JobEnd {
                         provider: "claude".to_string(),
@@ -1131,7 +1123,7 @@ fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
                     send_event(&IpcEvent::JobEnd {
                         provider: "claude".to_string(),
                         success: false,
-                        error: Some(format!("Wait error: {}", e)),
+                        error: Some(format!("Wait error: {e}")),
                     });
                     true
                 }

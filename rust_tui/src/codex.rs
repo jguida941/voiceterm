@@ -355,7 +355,7 @@ impl CliBackend {
                 }
             }
             Err(err) => {
-                log_debug(&format!("Failed to create PTY session: {:#}", err));
+                log_debug(&format!("Failed to create PTY session: {err:#}"));
                 Err(err.context("failed to start Codex PTY"))
             }
         }
@@ -808,7 +808,6 @@ fn call_codex_via_session(
     )))
 }
 
-/// Outcome of the optional Python PTY helper invocation.
 // Python PTY helper removed - we have a proper Rust PTY implementation (PtyCodexSession)
 // that handles all PTY requirements without needing external Python scripts
 

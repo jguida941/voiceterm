@@ -62,10 +62,8 @@ struct LatencyMeasurement {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    if args.synthetic {
-        if args.speech_ms.is_none() || args.silence_ms.is_none() {
-            bail!("--synthetic requires both --speech-ms and --silence-ms");
-        }
+    if args.synthetic && (args.speech_ms.is_none() || args.silence_ms.is_none()) {
+        bail!("--synthetic requires both --speech-ms and --silence-ms");
     }
 
     // Parse base config from environment/defaults and enable timing logs
@@ -144,10 +142,7 @@ fn collect_synthetic_measurements(
 
     for i in 1..=args.count {
         eprintln!("\n=== Measurement {}/{} ===", i, args.count);
-        eprintln!(
-            "Running synthetic clip: {}ms speech + {}ms silence",
-            speech_ms, silence_ms
-        );
+        eprintln!("Running synthetic clip: {speech_ms}ms speech + {silence_ms}ms silence");
 
         let measurement = measure_synthetic_run(
             &args.label,
@@ -188,12 +183,12 @@ fn measure_single_run(
             bail!("Voice capture returned empty transcript");
         }
         VoiceJobMessage::Error(err) => {
-            bail!("Voice capture failed: {}", err);
+            bail!("Voice capture failed: {err}");
         }
     };
 
-    eprintln!("Voice capture complete: {} ms", voice_total_ms);
-    eprintln!("Transcript: {}", transcript);
+    eprintln!("Voice capture complete: {voice_total_ms} ms");
+    eprintln!("Transcript: {transcript}");
 
     // Extract capture and STT timing from logs if available
     let (voice_capture_ms, voice_stt_ms) = extract_voice_timings(voice_total_ms);
@@ -206,7 +201,7 @@ fn measure_single_run(
 
         let job = match backend.start(request) {
             Ok(job) => job,
-            Err(err) => bail!("Failed to start Codex job: {:?}", err),
+            Err(err) => bail!("Failed to start Codex job: {err:?}"),
         };
 
         let t2 = Instant::now();
@@ -216,7 +211,7 @@ fn measure_single_run(
         let codex_elapsed_ms = t3.duration_since(t2).as_millis() as u64;
         let total_elapsed_ms = t3.duration_since(t0).as_millis() as u64;
 
-        eprintln!("Codex complete: {} ms", codex_elapsed_ms);
+        eprintln!("Codex complete: {codex_elapsed_ms} ms");
         eprintln!(
             "Output preview: {}...",
             codex_output.chars().take(100).collect::<String>()
@@ -286,9 +281,9 @@ fn measure_synthetic_run(
     let voice_stt_ms = t1.duration_since(t_capture).as_millis() as u64;
     let voice_total_ms = t1.duration_since(t0).as_millis() as u64;
 
-    eprintln!("Voice capture: {} ms", voice_capture_ms);
-    eprintln!("STT: {} ms", voice_stt_ms);
-    eprintln!("Transcript: {}", transcript);
+    eprintln!("Voice capture: {voice_capture_ms} ms");
+    eprintln!("STT: {voice_stt_ms} ms");
+    eprintln!("Transcript: {transcript}");
 
     let (codex_ms, codex_output_chars, total_ms) = if voice_only {
         (None, 0, voice_total_ms)
@@ -298,7 +293,7 @@ fn measure_synthetic_run(
 
         let job = match backend.start(request) {
             Ok(job) => job,
-            Err(err) => bail!("Failed to start Codex job: {:?}", err),
+            Err(err) => bail!("Failed to start Codex job: {err:?}"),
         };
 
         let t2 = Instant::now();
@@ -308,7 +303,7 @@ fn measure_synthetic_run(
         let codex_elapsed_ms = t3.duration_since(t2).as_millis() as u64;
         let total_elapsed_ms = t3.duration_since(t0).as_millis() as u64;
 
-        eprintln!("Codex complete: {} ms", codex_elapsed_ms);
+        eprintln!("Codex complete: {codex_elapsed_ms} ms");
 
         (Some(codex_elapsed_ms), codex_output.len(), total_elapsed_ms)
     };
@@ -361,7 +356,7 @@ fn wait_for_codex_job(mut job: rust_tui::codex::BackendJob) -> Result<String> {
                             return Ok(output_lines.join("\n"));
                         }
                         BackendEventKind::FatalError { message, .. } => {
-                            bail!("Codex failed: {}", message);
+                            bail!("Codex failed: {message}");
                         }
                         BackendEventKind::Canceled { .. } => {
                             bail!("Codex job was canceled");
@@ -400,7 +395,7 @@ fn extract_voice_timings(total_ms: u64) -> (u64, u64) {
         if let Ok(file) = File::open(log_file) {
             let reader = BufReader::new(file);
             // Collect last 100 lines and search in reverse
-            let lines: Vec<_> = reader.lines().filter_map(Result::ok).collect();
+            let lines: Vec<_> = reader.lines().map_while(Result::ok).collect();
             for line in lines.iter().rev().take(100) {
                 if line.contains("timing|phase=voice_capture|") {
                     // Parse: timing|phase=voice_capture|record_s=1.234|stt_s=0.567|chars=42
@@ -487,7 +482,7 @@ fn print_analysis(measurements: &[LatencyMeasurement], voice_only: bool) {
         / measurements.len() as f64;
 
     println!("Voice Pipeline:");
-    println!("  Average total: {:.1} ms", avg_voice);
+    println!("  Average total: {avg_voice:.1} ms");
 
     if !voice_only && measurements.iter().any(|m| m.codex_ms.is_some()) {
         let codex_times: Vec<u64> = measurements.iter().filter_map(|m| m.codex_ms).collect();
@@ -497,31 +492,27 @@ fn print_analysis(measurements: &[LatencyMeasurement], voice_only: bool) {
                 / measurements.len() as f64;
 
             println!("\nCodex API:");
-            println!("  Average: {:.1} ms", avg_codex);
+            println!("  Average: {avg_codex:.1} ms");
 
             println!("\nTotal Round-Trip:");
-            println!("  Average: {:.1} ms", avg_total);
+            println!("  Average: {avg_total:.1} ms");
 
             let voice_pct = (avg_voice / avg_total) * 100.0;
             let codex_pct = (avg_codex / avg_total) * 100.0;
 
             println!("\nBottleneck Analysis:");
-            println!("  Voice:  {:.1}% of total time", voice_pct);
-            println!("  Codex:  {:.1}% of total time", codex_pct);
+            println!("  Voice:  {voice_pct:.1}% of total time");
+            println!("  Codex:  {codex_pct:.1}% of total time");
 
             println!("\nRecommendations:");
             if codex_pct > 70.0 {
+                println!("  ⚠️  Codex API is the primary bottleneck ({codex_pct:.1}%)");
                 println!(
-                    "  ⚠️  Codex API is the primary bottleneck ({:.1}%)",
-                    codex_pct
-                );
-                println!(
-                    "  → Voice optimization (Phase 2B) would save <{:.0}% of total latency",
-                    voice_pct
+                    "  → Voice optimization (Phase 2B) would save <{voice_pct:.0}% of total latency"
                 );
                 println!("  → Consider deferring Phase 2B until Codex latency is improved");
             } else if voice_pct > 50.0 {
-                println!("  ✓ Voice is significant bottleneck ({:.1}%)", voice_pct);
+                println!("  ✓ Voice is significant bottleneck ({voice_pct:.1}%)");
                 println!("  → Phase 2B streaming architecture justified");
                 println!("  → Target: reduce voice latency to <750ms");
             } else {
