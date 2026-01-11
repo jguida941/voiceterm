@@ -59,7 +59,7 @@ read -p "Press Enter to launch the TUI..."
 
 # Launch the TUI
 echo -e "${GREEN}Launching TUI...${NC}"
-./scripts/run_tui.sh
+./start.sh
 
 # After TUI exits, show log summary
 echo ""

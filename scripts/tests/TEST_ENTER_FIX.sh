@@ -30,7 +30,7 @@ read -p "Press Enter to start the test..."
 
 # Launch the fixed TUI
 cd /Users/jguida941/new_github_projects/codex_voice
-./scripts/run_tui.sh
+./start.sh
 
 echo ""
 echo "=========================================="

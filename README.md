@@ -168,23 +168,26 @@ Options:
 
 ```
 codex-voice/
+├── Codex Voice.app/     # macOS double-click launcher
 ├── ts_cli/              # TypeScript frontend
-│   ├── src/
-│   │   ├── index.ts     # Main entry, input handling
-│   │   ├── bridge/      # Rust IPC communication
-│   │   └── ui/          # Spinner, colors, banner
-│   └── package.json
+│   └── src/
+│       ├── index.ts     # Main entry, input handling
+│       ├── bridge/      # Rust IPC communication
+│       └── ui/          # Spinner, colors, banner
 ├── rust_tui/            # Rust backend
-│   ├── src/
-│   │   ├── main.rs      # Entry point
-│   │   ├── ipc.rs       # JSON IPC protocol
-│   │   ├── codex.rs     # Codex backend
-│   │   ├── voice.rs     # Voice capture orchestration
-│   │   ├── audio.rs     # CPAL recording, VAD
-│   │   └── stt.rs       # Whisper transcription
-│   └── Cargo.toml
+│   └── src/
+│       ├── main.rs      # Entry point
+│       ├── ipc.rs       # JSON IPC protocol
+│       ├── codex.rs     # Codex/Claude backend
+│       ├── voice.rs     # Voice capture orchestration
+│       ├── audio.rs     # CPAL recording, VAD
+│       ├── stt.rs       # Whisper transcription
+│       └── pty_session.rs # PTY wrapper
+├── scripts/             # Setup and test scripts
 ├── models/              # Whisper GGML models
-└── docs/                # Architecture documentation
+├── docs/                # Architecture documentation
+├── start.sh             # Linux/macOS launcher
+└── start.bat            # Windows launcher
 ```
 
 ### Building

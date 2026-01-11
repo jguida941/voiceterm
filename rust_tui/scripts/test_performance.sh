@@ -6,7 +6,7 @@ echo
 
 # Check if model exists (default tiny)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODEL_PATH=${MODEL_PATH:-"$SCRIPT_DIR/../models/ggml-tiny.en.bin"}
+MODEL_PATH=${MODEL_PATH:-"$SCRIPT_DIR/../../models/ggml-tiny.en.bin"}
 if [ ! -f "$MODEL_PATH" ]; then
     echo "⚠️  No Whisper model found. Will use Python fallback (slower)."
     echo "   Download a model with:"

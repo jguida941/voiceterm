@@ -86,6 +86,7 @@ src/
 ├── index.ts          # Main entry, input handling, event loop
 ├── bridge/
 │   └── rust-ipc.ts   # JSON-IPC communication with Rust backend
+├── types/            # TypeScript type definitions
 └── ui/
     ├── banner.ts     # Welcome banner
     ├── colors.ts     # Theme and formatting

@@ -1,11 +1,11 @@
 #!/bin/bash
 echo "Testing Codex Voice TUI..."
-echo "Model found: ../models/ggml-tiny.en.bin ✓"
+echo "Model found: ../../models/ggml-tiny.en.bin ✓"
 echo
 echo "Starting TUI in background..."
 
 # Run TUI with test input
-(sleep 2; echo "v"; sleep 4; echo "q") | ./target/release/rust_tui --log-file test.log --log-timings --seconds 3 2>&1 &
+(sleep 2; echo "v"; sleep 4; echo "q") | ../target/release/rust_tui --log-file test.log --log-timings --seconds 3 2>&1 &
 
 PID=$!
 sleep 8

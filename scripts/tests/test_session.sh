@@ -13,4 +13,4 @@ echo "Starting in 3 seconds..."
 sleep 3
 
 cd /Users/jguida941/new_github_projects/codex_voice
-./scripts/run_tui.sh
+./start.sh

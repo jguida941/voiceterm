@@ -5,7 +5,7 @@ export RUST_LOG=debug
 export CODEX_LOG=1
 
 LOG_FILE="${TMPDIR:-/tmp}/codex_voice_tui.log"
-MODEL_PATH=${MODEL_PATH:-../models/ggml-base.en.bin}
+MODEL_PATH=${MODEL_PATH:-../../models/ggml-base.en.bin}
 
 echo "Starting TUI with debug logging..."
 echo "Press Ctrl+R to start voice capture when the TUI opens"

@@ -84,14 +84,17 @@ src/
 ├── main.rs          # Entry point, CLI parsing
 ├── lib.rs           # Module exports
 ├── ipc.rs           # JSON-IPC protocol handler
-├── codex.rs         # Codex backend (PTY + CLI modes)
+├── codex.rs         # Codex/Claude backend (PTY + CLI modes)
 ├── voice.rs         # Voice capture orchestration
 ├── audio.rs         # CPAL recording, VAD
 ├── stt.rs           # Whisper transcription
 ├── pty_session.rs   # Unix PTY wrapper
 ├── config.rs        # Configuration and validation
+├── utf8_safe.rs     # UTF-8 safety utilities
+├── vad_earshot.rs   # Voice activity detection
 ├── ui.rs            # TUI rendering (standalone mode)
-└── app.rs           # TUI state machine (standalone mode)
+├── app.rs           # TUI state machine (standalone mode)
+└── bin/             # Additional binaries
 ```
 
 ## Providers

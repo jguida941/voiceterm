@@ -5,7 +5,7 @@ echo "     CODEX VOICE TUI - QUICK TEST"
 echo "=========================================="
 echo
 echo "✓ Models available:"
-ls -lh ../models/*.bin | awk '{print "    •", $NF, "("$5")"}'
+ls -lh ../../models/*.bin | awk '{print "    •", $NF, "("$5")"}'
 echo
 echo "✓ Audio devices:"
 cargo run --release -- --list-input-devices 2>&1 | sed 's/^/    /'
@@ -15,7 +15,7 @@ echo "  TO RUN THE TUI:"
 echo "=========================================="
 echo
 echo "  cd $(pwd)"
-echo "  cargo run --release -- --whisper-model-path ../models/ggml-tiny.en.bin"
+echo "  cargo run --release -- --whisper-model-path ../../models/ggml-tiny.en.bin"
 echo
 echo "  Then:"
 echo "    • Press Ctrl+R to start voice capture"

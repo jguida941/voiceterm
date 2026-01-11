@@ -2,7 +2,7 @@
 echo "=== TESTING CODEX VOICE TUI ==="
 echo
 echo "Available models:"
-ls -lh ../models/*.bin 2>/dev/null | awk '{print "  ✓", $NF, "("$5")"}'
+ls -lh ../../models/*.bin 2>/dev/null | awk '{print "  ✓", $NF, "("$5")"}'
 echo
 echo "Starting TUI test (will run for ~8 seconds)..."
 echo
@@ -48,5 +48,5 @@ fi
 echo
 echo "To run manually:"
 echo "  cd $(pwd)"
-echo "  cargo run --release -- --whisper-model-path ../models/ggml-base.en.bin"
+echo "  cargo run --release -- --whisper-model-path ../../models/ggml-base.en.bin"
 echo "Then press Ctrl+R for voice and Ctrl+C to quit."

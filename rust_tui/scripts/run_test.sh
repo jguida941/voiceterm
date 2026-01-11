@@ -14,7 +14,7 @@ echo
   echo "v"  # Start voice capture
   sleep 4   # Record for a bit
   echo "q"  # Quit
-) | CODEX_LOG=1 ./target/release/rust_tui --log-timings 2>debug_output.txt &
+) | CODEX_LOG=1 ../target/release/rust_tui --log-timings 2>debug_output.txt &
 
 PID=$!
 sleep 6
