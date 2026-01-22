@@ -4,6 +4,11 @@ All notable changes to this project will be documented here, following the SDLC 
 
 ## [Unreleased]
 
+### Simplified Install Flow (2026-01-23) - COMPLETE
+- **New installer**: added `install.sh` plus `scripts/setup.sh install` to download the Whisper model, build the Rust overlay, and install a `codex-voice` wrapper.
+- **Overlay-first defaults**: `scripts/setup.sh` now defaults to `install` so it no longer builds the TypeScript CLI unless requested.
+- **Docs updated**: README + QUICK_START now point to `./install.sh` and `codex-voice` for the simplest path.
+
 ### Rust Overlay Mode + Packaging (2026-01-22) - COMPLETE
 - **Added Rust overlay mode**: new `codex_overlay` binary runs Codex in a PTY, forwards raw ANSI output, and injects voice transcripts as keystrokes.
 - **Prompt-aware auto-voice**: prompt detection with idle fallback plus configurable regex overrides for auto-voice triggering.

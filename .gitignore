@@ -55,6 +55,7 @@ logs/
 /tmp/
 /temp/
 *.tmp
+/bin/
 
 # Environment variables
 .env

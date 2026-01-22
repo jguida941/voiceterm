@@ -56,6 +56,20 @@ get_model_size() {
     esac
 }
 
+resolve_single_model() {
+    case "$1" in
+        ""|--base|base|base.en) echo "base.en" ;;
+        --tiny|tiny|tiny.en) echo "tiny.en" ;;
+        --small|small|small.en) echo "small.en" ;;
+        --medium|medium|medium.en) echo "medium.en" ;;
+        *)
+            print_error "Unknown model option: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
 download_whisper_model() {
     local model_name="$1"
     local model_file="ggml-${model_name}.bin"
@@ -166,6 +180,20 @@ build_rust_backend() {
     fi
 }
 
+build_rust_overlay() {
+    print_step "Building Rust overlay..."
+
+    cd "$PROJECT_ROOT/rust_tui"
+
+    if cargo build --release --bin codex_overlay; then
+        print_success "Rust overlay built successfully"
+        return 0
+    else
+        print_error "Failed to build Rust overlay"
+        return 1
+    fi
+}
+
 build_typescript_cli() {
     print_step "Building TypeScript CLI..."
 
@@ -188,11 +216,54 @@ build_typescript_cli() {
     fi
 }
 
+install_wrapper() {
+    local install_dir=""
+
+    if [ -n "${CODEX_VOICE_INSTALL_DIR:-}" ]; then
+        install_dir="$CODEX_VOICE_INSTALL_DIR"
+    else
+        if mkdir -p "$HOME/.local/bin" 2>/dev/null && [ -w "$HOME/.local/bin" ]; then
+            install_dir="$HOME/.local/bin"
+        elif mkdir -p "$PROJECT_ROOT/bin" 2>/dev/null && [ -w "$PROJECT_ROOT/bin" ]; then
+            install_dir="$PROJECT_ROOT/bin"
+        else
+            print_error "No writable install directory found."
+            print_warning "Set CODEX_VOICE_INSTALL_DIR to a writable path and rerun."
+            return 1
+        fi
+    fi
+
+    local wrapper_path="$install_dir/codex-voice"
+
+    print_step "Installing codex-voice wrapper into $install_dir"
+
+    mkdir -p "$install_dir"
+    cat > "$wrapper_path" <<EOF
+#!/bin/bash
+export CODEX_VOICE_CWD="\$(pwd)"
+export CODEX_VOICE_MODE=overlay
+exec "$PROJECT_ROOT/start.sh" "\$@"
+EOF
+    chmod 0755 "$wrapper_path"
+
+    print_success "Installed $wrapper_path"
+
+    case ":$PATH:" in
+        *":$install_dir:"*) ;;
+        *)
+            print_warning "Add $install_dir to PATH to run 'codex-voice' from anywhere."
+            echo "         Example: echo 'export PATH=\"$install_dir:\$PATH\"' >> ~/.zshrc"
+            ;;
+    esac
+}
+
 show_usage() {
     echo "Usage: $0 [command] [options]"
     echo ""
     echo "Commands:"
-    echo "  all              Run full setup (default)"
+    echo "  install          Full overlay install (model + build + wrapper) (recommended, default)"
+    echo "  all              Run full setup (Rust + TypeScript, legacy)"
+    echo "  overlay          Setup overlay only (model + build)"
     echo "  models           Download Whisper models only"
     echo "  check            Check dependencies only"
     echo "  build            Build Rust and TypeScript only"
@@ -212,15 +283,42 @@ show_usage() {
 }
 
 main() {
-    local command="${1:-all}"
+    local command="${1:-install}"
     shift || true
 
     print_header
 
     case "$command" in
+        install)
+            local model
+            model="$(resolve_single_model "${1:-}")"
+
+            check_rust || exit 1
+            check_codex
+
+            echo ""
+            download_whisper_model "$model"
+
+            echo ""
+            build_rust_overlay || exit 1
+
+            echo ""
+            install_wrapper
+
+            echo ""
+            echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${GREEN}║${NC}                    Install Complete!                         ${GREEN}║${NC}"
+            echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo ""
+            echo "Run from any project:"
+            echo "  codex-voice"
+            echo ""
+            ;;
+
         all)
             # Default: download base.en model
-            local model="${1:-base.en}"
+            local model
+            model="$(resolve_single_model "${1:-}")"
 
             check_rust || exit 1
             check_node
@@ -244,10 +342,33 @@ main() {
             echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
             echo ""
             echo "To start Codex Voice:"
-            echo "  cd rust_tui && cargo run --release"
+            echo "  ./start.sh"
             echo ""
             echo "Or with TypeScript CLI:"
             echo "  cd ts_cli && npm start"
+            echo ""
+            ;;
+
+        overlay)
+            local model
+            model="$(resolve_single_model "${1:-}")"
+
+            check_rust || exit 1
+            check_codex
+
+            echo ""
+            download_whisper_model "$model"
+
+            echo ""
+            build_rust_overlay || exit 1
+
+            echo ""
+            echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+            echo -e "${GREEN}║${NC}                    Overlay Ready!                            ${GREEN}║${NC}"
+            echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+            echo ""
+            echo "To start Codex Voice:"
+            echo "  ./start.sh"
             echo ""
             ;;
 

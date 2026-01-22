@@ -7,7 +7,6 @@ Voice-enabled CLI wrapper for Codex and Claude. Speak your prompts, get AI respo
 - Voice input via microphone (Whisper STT)
 - Supports both **Codex** and **Claude** providers
 - Rust overlay mode that preserves the full Codex TUI (PTY passthrough)
-- Legacy TypeScript CLI with Rust backend for low-latency audio processing
 - Auto-voice mode for continuous conversation
 
 ## Quick Start
@@ -16,7 +15,6 @@ If you want the shortest path, see `QUICK_START.md`.
 
 ### Prerequisites
 
-- Node.js 18+ (legacy TypeScript CLI only)
 - Rust toolchain (stable)
 - Codex CLI (`npm install -g @anthropic-ai/codex`) and/or Claude CLI
 - Whisper model (GGML format) in `models/` directory
@@ -27,9 +25,16 @@ If you want the shortest path, see `QUICK_START.md`.
 # Clone and enter project
 cd codex-voice
 
-# Build everything and run
-./start.sh
+# One-time install (downloads model, builds overlay, installs wrapper)
+./install.sh
+
+# Run from any project
+cd ~/my-project
+codex-voice
 ```
+
+If `codex-voice` is not found, add `~/.local/bin` to PATH or set `CODEX_VOICE_INSTALL_DIR`
+before running `./install.sh`.
 
 Or manually:
 ```bash
@@ -54,7 +59,11 @@ cd ts_cli && npm install && npm start
 
 ### Homebrew (optional, global command)
 
-1. Install Homebrew (see https://brew.sh).
+1. Install Homebrew (if needed):
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 2. Tap and install:
 
 ```bash
@@ -113,8 +122,8 @@ Set `CODEX_VOICE_MODE=legacy` to use the TypeScript CLI instead of the overlay.
 ### Install Globally (All Platforms)
 
 ```bash
-cd /path/to/codex-voice/ts_cli
-npm link
+cd /path/to/codex-voice
+./install.sh
 
 # Now run from any project
 cd ~/my-project
@@ -147,6 +156,8 @@ slash commands; you interact directly with Codex's native UI.
 | `--voice-send-mode <auto|insert>` | Auto-send transcript or insert for editing |
 
 ### Legacy TypeScript CLI
+
+Requires Node.js 18+ and npm.
 
 #### Commands
 
