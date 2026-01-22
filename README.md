@@ -378,6 +378,20 @@ cd ts_cli && DEBUG=1 npm start
 2. Check for compilation errors
 3. Verify binary exists: `ls rust_tui/target/release/rust_tui`
 
+### Homebrew link conflict
+
+If `brew install codex-voice` cannot link because `codex-voice` already exists (often from npm):
+
+```bash
+brew link --overwrite codex-voice
+```
+
+Or uninstall the npm CLI:
+
+```bash
+npm uninstall -g codex-voice-cli
+```
+
 ## License
 
 MIT

@@ -45,7 +45,17 @@ That launcher will:
 ```bash
 brew tap jguida941/homebrew-codex-voice
 brew install codex-voice
+```
+
+Download a Whisper model once:
+
+```bash
 $(brew --prefix)/opt/codex-voice/libexec/scripts/setup.sh models --base
+```
+
+Run from any project:
+
+```bash
 cd ~/my-project
 codex-voice
 ```
@@ -56,5 +66,7 @@ codex-voice
   `./scripts/setup.sh models --base`
 - Force native Whisper only:
   `./start.sh --no-python-fallback`
+- If Homebrew cannot link `codex-voice` because it already exists:
+  `brew link --overwrite codex-voice` or uninstall the npm CLI (`npm uninstall -g codex-voice-cli`).
 - Logs: `${TMPDIR}/codex_voice_tui.log`
 - Prompt detection log: `${TMPDIR}/codex_overlay_prompt.log`
