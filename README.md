@@ -201,7 +201,7 @@ Keyboard / voice
    +--> PTY -> Codex CLI -> ANSI output -> your terminal
 ```
 
-The overlay does not parse slash commands; it keeps Codex’s native UI intact and only handles
+The overlay does not parse slash commands; it keeps Codex's native UI intact and only handles
 its own hotkeys (Ctrl+R/Ctrl+V/Ctrl+Q).
 
 ## Commands Reference

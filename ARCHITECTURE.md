@@ -1,7 +1,7 @@
 # Codex Voice (Rust Overlay) Architecture
 
 This document describes the Rust-only overlay mode. It runs the Codex CLI in a PTY and
-adds voice capture + a minimal status overlay without touching Codex’s native UI.
+adds voice capture + a minimal status overlay without touching Codex's native UI.
 
 ## Goals
 
@@ -29,7 +29,7 @@ graph LR
 ```
 
 What this means:
-- The **terminal is the frontend**; the overlay doesn’t replace Codex’s UI.
+- The **terminal is the frontend**; the overlay doesn't replace Codex's UI.
 - The overlay **injects transcripts** as if typed by the user.
 - The status line is drawn at the bottom using ANSI save/restore.
 
@@ -77,7 +77,7 @@ sequenceDiagram
 
 ## Core Flows
 
-### 1) Keyboard → Codex → Terminal
+### 1) Keyboard -> Codex -> Terminal
 
 ```mermaid
 sequenceDiagram
@@ -99,7 +99,7 @@ sequenceDiagram
   Writer->>Terminal: raw ANSI output
 ```
 
-### 2) Voice → Whisper → Transcript → Codex
+### 2) Voice -> Whisper -> Transcript -> Codex
 
 ```mermaid
 sequenceDiagram
@@ -250,25 +250,25 @@ sequenceDiagram
 
 All terminal output is serialized through one writer thread to avoid
 interleaving PTY output with the status line. The status line is drawn using
-ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex’s screen.
+ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex's screen.
 
 ## Key Files
 
-- `rust_tui/src/bin/codex_overlay.rs` – main loop, input handling, prompt detection
-- `rust_tui/src/pty_session.rs` – raw PTY passthrough + query replies
-- `rust_tui/src/voice.rs` – voice capture job orchestration
-- `rust_tui/src/audio.rs` – CPAL recorder + VAD
-- `rust_tui/src/stt.rs` – Whisper transcription
-- `rust_tui/src/config.rs` – CLI flags + validation
+- `rust_tui/src/bin/codex_overlay.rs` - main loop, input handling, prompt detection
+- `rust_tui/src/pty_session.rs` - raw PTY passthrough + query replies
+- `rust_tui/src/voice.rs` - voice capture job orchestration
+- `rust_tui/src/audio.rs` - CPAL recorder + VAD
+- `rust_tui/src/stt.rs` - Whisper transcription
+- `rust_tui/src/config.rs` - CLI flags + validation
 
 ## Config Knobs
 
-- `--whisper-model-path` – load native Whisper model
-- `--voice-send-mode auto|insert` – auto-send transcript or insert for editing
-- `--auto-voice` – enable auto mode on startup
-- `--auto-voice-idle-ms` – idle timeout before auto-voice triggers
-- `--prompt-regex` – override prompt detection
-- `CODEX_VOICE_CWD` – run Codex in a chosen project directory
+- `--whisper-model-path` - load native Whisper model
+- `--voice-send-mode auto|insert` - auto-send transcript or insert for editing
+- `--auto-voice` - enable auto mode on startup
+- `--auto-voice-idle-ms` - idle timeout before auto-voice triggers
+- `--prompt-regex` - override prompt detection
+- `CODEX_VOICE_CWD` - run Codex in a chosen project directory
 
 ## Debugging + Logs
 

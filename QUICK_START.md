@@ -10,7 +10,7 @@ This is the shortest path to run Codex with voice in your terminal.
 npm install -g @anthropic-ai/codex
 ```
 
-- Install Rust (if you don’t have it): https://rustup.rs
+- Install Rust (if you don't have it): https://rustup.rs
 
 ## 2) Run from any project
 
@@ -27,10 +27,10 @@ That launcher will:
 
 ## 3) Voice controls
 
-- `Ctrl+R` – start voice capture
-- `Ctrl+V` – toggle auto-voice
-- `Ctrl+Q` – exit overlay
-- `Ctrl+C` – forwarded to Codex
+- `Ctrl+R` - start voice capture
+- `Ctrl+V` - toggle auto-voice
+- `Ctrl+Q` - exit overlay
+- `Ctrl+C` - forwarded to Codex
 
 ## Common flags
 
