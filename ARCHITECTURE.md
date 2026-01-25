@@ -13,18 +13,18 @@ adds voice capture + a minimal status overlay without touching Codex's native UI
 
 ```mermaid
 graph LR
-  Terminal[Terminal (TTY)] <--> Input[Raw input reader]
-  Input --> Overlay[codex_overlay main loop]
-  Overlay --> PTY[PtyOverlaySession]
-  PTY --> Codex[Codex CLI]
+  Terminal["Terminal TTY"] <--> Input["Raw input reader"]
+  Input --> Overlay["codex_overlay main loop"]
+  Overlay --> PTY["PtyOverlaySession"]
+  PTY --> Codex["Codex CLI"]
   Codex --> PTY
-  PTY --> Writer[Serialized writer]
+  PTY --> Writer["Serialized writer"]
   Writer --> Terminal
 
-  Voice[Voice pipeline] --> Overlay
+  Voice["Voice pipeline"] --> Overlay
   Overlay -->|transcript| PTY
 
-  Prompt[Prompt detector] <-- PTY
+  Prompt["Prompt detector"] <-- PTY
   Prompt --> Overlay
 ```
 
@@ -37,11 +37,11 @@ What this means:
 
 ```mermaid
 graph TD
-  Main[codex_overlay main loop]
-  InputThread[Input thread\n(reads stdin bytes)]
-  PtyReader[PTY reader thread\n(raw ANSI output)]
-  WriterThread[Writer thread\n(serializes output + status)]
-  VoiceThread[Voice worker thread\n(capture + STT)]
+  Main["codex_overlay main loop"]
+  InputThread["Input thread<br>reads stdin bytes"]
+  PtyReader["PTY reader thread<br>raw ANSI output"]
+  WriterThread["Writer thread<br>serializes output + status"]
+  VoiceThread["Voice worker thread<br>capture + STT"]
 
   InputThread -->|InputEvent| Main
   PtyReader -->|PTY output| Main
@@ -190,7 +190,7 @@ Notes:
 graph LR
   Capture[Capture audio with VAD] --> STT[Whisper transcription]
   STT --> Inject[Inject transcript into PTY]
-  Inject --> Codex[Codex response (external)]
+  Inject --> Codex["Codex response"]
 ```
 
 Timing observability:
@@ -203,7 +203,7 @@ Timing observability:
 ```mermaid
 graph TD
   Overlay[codex_overlay] --> Codex[Codex CLI]
-  Overlay --> Whisper[Whisper (native, whisper-rs)]
+  Overlay --> Whisper["Whisper native via whisper-rs"]
   Overlay --> Py[Python fallback]
   Py --> WhisperCli[whisper CLI]
   Py --> FFmpeg[ffmpeg]
