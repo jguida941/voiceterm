@@ -9,6 +9,10 @@ All notable changes to this project will be documented here, following the SDLC 
 - **Added feature to README**: "Fast local transcription - ~250ms processing after speech ends, no cloud API calls".
 - **Verified code path**: latency_measurement binary uses identical code path as codex_overlay (same voice::start_voice_job → stt::Transcriber).
 
+### Bug Fixes
+- **Filter [BLANK_AUDIO]**: Whisper's `[BLANK_AUDIO]` token is now filtered from transcripts, preventing spam in auto-voice mode when user stops talking.
+- **Mermaid diagram**: Converted ASCII "How It Works" diagram to proper Mermaid flowchart for GitHub rendering.
+
 ## [1.0.3] - 2026-01-25
 
 ### UI Styling Refresh
