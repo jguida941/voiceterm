@@ -168,7 +168,12 @@ fn main() -> Result<()> {
                         let msg = if auto_voice_enabled {
                             "Auto-voice enabled"
                         } else {
-                            "Auto-voice disabled"
+                            // Cancel any running capture when disabling auto-voice
+                            if voice_manager.cancel_capture() {
+                                "Auto-voice disabled (capture cancelled)"
+                            } else {
+                                "Auto-voice disabled"
+                            }
                         };
                         set_status(
                             &writer_tx,
@@ -673,6 +678,17 @@ impl VoiceManager {
 
     fn is_idle(&self) -> bool {
         self.job.is_none()
+    }
+
+    /// Cancel any running voice capture. Returns true if a capture was cancelled.
+    fn cancel_capture(&mut self) -> bool {
+        if self.job.is_some() {
+            self.job = None;
+            log_debug("voice capture cancelled");
+            true
+        } else {
+            false
+        }
     }
 
     fn start_capture(&mut self, trigger: VoiceCaptureTrigger) -> Result<Option<VoiceStartInfo>> {
