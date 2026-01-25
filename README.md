@@ -41,7 +41,8 @@ If you want the shortest path, see [QUICK_START.md](QUICK_START.md).
 git clone https://github.com/jguida941/codex-voice.git
 cd codex-voice
 
-# One-time install (downloads model, builds overlay, installs wrapper)
+# One-time install (builds overlay, installs wrapper)
+# This also downloads a whisper model to the correct path for the CLI
 ./install.sh
 
 # Run from any project
