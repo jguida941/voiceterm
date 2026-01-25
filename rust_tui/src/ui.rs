@@ -14,9 +14,9 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    text::{Line, Text},
-    widgets::{Block, Borders, Paragraph},
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, BorderType, Borders, Paragraph},
     Terminal,
 };
 use std::io;
@@ -205,12 +205,32 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &App) {
         Text::from(lines)
     };
 
+    // Theme colors - Vibrant red
+    let border_color = Color::Rgb(255, 90, 90); // Vibrant red accent
+    let title_color = Color::Rgb(255, 110, 110); // Bright red for titles
+    let dim_border = Color::Rgb(130, 70, 70); // Dimmer border for less important areas
+    let output_text_color = Color::Rgb(210, 205, 200); // Soft white for output
+    let input_text_color = Color::Rgb(255, 220, 100); // Warm yellow for input
+    let status_text_color = Color::Rgb(160, 150, 150); // Dimmer for status
+
     // CRITICAL: Disable text wrapping entirely to avoid ratatui's underflow bug
     // The bug in tui/src/wrapping.rs:21 causes integer underflow when calculating
     // slice positions, leading to "byte index 18446... out of bounds" panics.
     // Until ratatui fixes this, we must avoid text wrapping completely.
     let output_block = Paragraph::new(output_text)
-        .block(Block::default().borders(Borders::ALL).title("Codex Output"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(border_color))
+                .title(Span::styled(
+                    " Codex Output ",
+                    Style::default()
+                        .fg(title_color)
+                        .add_modifier(Modifier::BOLD),
+                )),
+        )
+        .style(Style::default().fg(output_text_color))
         .scroll((app.get_scroll_offset(), 0));
     frame.render_widget(output_block, chunks[0]);
 
@@ -221,14 +241,36 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &App) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Prompt (Ctrl+R voice, Ctrl+V toggle voice mode)"),
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(border_color))
+                .title(Span::styled(
+                    " Prompt ",
+                    Style::default()
+                        .fg(title_color)
+                        .add_modifier(Modifier::BOLD),
+                ))
+                .title_bottom(Line::from(vec![
+                    Span::styled(" Ctrl+R ", Style::default().fg(input_text_color).add_modifier(Modifier::BOLD)),
+                    Span::styled("voice  ", Style::default().fg(dim_border)),
+                    Span::styled("Ctrl+V ", Style::default().fg(input_text_color).add_modifier(Modifier::BOLD)),
+                    Span::styled("toggle ", Style::default().fg(dim_border)),
+                ])),
         )
-        .style(Style::default().fg(Color::Yellow));
+        .style(Style::default().fg(input_text_color));
     frame.render_widget(input_block, chunks[1]);
 
     let status_block = Paragraph::new(app.status_text())
-        .block(Block::default().borders(Borders::ALL).title("Status"))
-        .style(Style::default().fg(Color::White));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(dim_border))
+                .title(Span::styled(
+                    " Status ",
+                    Style::default().fg(status_text_color),
+                )),
+        )
+        .style(Style::default().fg(status_text_color));
     frame.render_widget(status_block, chunks[2]);
 
     let inner_width = chunks[1].width.saturating_sub(2);

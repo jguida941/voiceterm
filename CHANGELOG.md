@@ -4,10 +4,17 @@ All notable changes to this project will be documented here, following the SDLC 
 
 ## [Unreleased]
 
+### UI Styling Refresh (2026-01-25) - COMPLETE
+- **Modern TUI styling**: rounded borders, vibrant red theme, bold titles in Rust overlay.
+- **Startup tables refresh**: Unicode box-drawing characters, matching red theme.
+- **Updated banner**: accurate description - "Rust overlay wrapping Codex CLI / Speak to Codex with Whisper STT".
+- **README screenshot**: added startup screenshot to img/startup.png.
+
 ### Startup UX Polish (2026-01-24) - COMPLETE
 - **Codex Voice banner**: `start.sh` now uses the Rust launch banner from the TS CLI.
 - **Compact quickstart tables**: launch output shows quick controls + common commands in green tables.
 - **Adaptive layout**: smaller banner + dual-color columns keep tables visible in shorter terminals.
+- **Startup output test**: `scripts/tests/startup_output_test.sh` guards line widths.
 
 ### Simplified Install Flow (2026-01-23) - COMPLETE
 - **New installer**: added `install.sh` plus `scripts/setup.sh install` to download the Whisper model, build the Rust overlay, and install a `codex-voice` wrapper.

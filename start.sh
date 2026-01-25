@@ -10,18 +10,22 @@ export CODEX_VOICE_CWD="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Colors
+# Colors - Vibrant red theme
+CORAL='\033[38;2;255;90;90m'
+CORAL_BRIGHT='\033[38;2;255;110;110m'
 GREEN='\033[0;32m'
 GOLD='\033[38;5;214m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+DIM='\033[2m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-TERM_COLS=$(tput cols 2>/dev/null || true)
+TERM_COLS="${CODEX_VOICE_FORCE_COLUMNS:-${COLUMNS:-$(tput cols 2>/dev/null || true)}}"
 if ! [ "$TERM_COLS" -gt 0 ] 2>/dev/null; then
     TERM_COLS=80
 fi
-TERM_LINES=$(tput lines 2>/dev/null || true)
+TERM_LINES="${CODEX_VOICE_FORCE_LINES:-${LINES:-$(tput lines 2>/dev/null || true)}}"
 if ! [ "$TERM_LINES" -gt 0 ] 2>/dev/null; then
     TERM_LINES=24
 fi
@@ -45,10 +49,11 @@ BANNER
 
 print_small_banner() {
     cat <<'BANNER'
-  ┌─────────────────────────────────────┐
-  │  CODEX VOICE                        │
-  │  AI-powered coding with voice       │
-  └─────────────────────────────────────┘
+  ┌───────────────────────────────────────┐
+  │  CODEX VOICE                          │
+  │  Rust overlay wrapping Codex CLI      │
+  │  Speak to Codex with Whisper STT      │
+  └───────────────────────────────────────┘
 BANNER
 }
 
@@ -80,10 +85,11 @@ truncate() {
 }
 
 echo ""
-echo -e "${GREEN}"
+echo -e "${CORAL}"
 print_banner
 echo -e "${NC}"
-echo -e "${GREEN}Starting Codex Voice...${NC}"
+echo -e "${CORAL_BRIGHT}Starting Codex Voice...${NC}"
+echo ""
 EXAMPLE_CMD="codex-voice"
 if ! command -v codex-voice &> /dev/null; then
     EXAMPLE_CMD="./start.sh"
@@ -100,13 +106,13 @@ print_controls_table_wide() {
         col_action=14
     fi
 
-    border_key=$(printf '%*s' $((col_key + 2)) '' | tr ' ' '-')
-    border_action=$(printf '%*s' $((col_action + 2)) '' | tr ' ' '-')
+    border_key=$(printf '%*s' "$col_key" '' | tr ' ' '─')
+    border_action=$(printf '%*s' "$col_action" '' | tr ' ' '─')
 
-    printf "${GREEN}+%s+%s+${GOLD}%s+%s+${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
-    printf "${GREEN}| %-*s | %-*s |${GOLD} %-*s | %-*s |${NC}\n" \
+    printf "${CORAL}╭─%s─┬─%s─┬─%s─┬─%s─╮${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
+    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" \
         "$col_key" "Control" "$col_action" "Action" "$col_key" "Control" "$col_action" "Action"
-    printf "${GREEN}+%s+%s+${GOLD}%s+%s+${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
+    printf "${CORAL}├─%s─┼─%s─┼─%s─┼─%s─┤${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
 
     for row in \
         "Ctrl+R|Record (push-to-talk)|Ctrl+V|Toggle auto-voice" \
@@ -117,12 +123,12 @@ print_controls_table_wide() {
         action_left="$(truncate "$action_left" "$col_action")"
         key_right="$(truncate "$key_right" "$col_key")"
         action_right="$(truncate "$action_right" "$col_action")"
-        printf "${GREEN}| %-*s | %-*s |${GOLD} %-*s | %-*s |${NC}\n" \
+        printf "${CORAL}│${NC} %-*s ${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" \
             "$col_key" "$key_left" "$col_action" "$action_left" \
             "$col_key" "$key_right" "$col_action" "$action_right"
     done
 
-    printf "${GREEN}+%s+%s+${GOLD}%s+%s+${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
+    printf "${CORAL}╰─%s─┴─%s─┴─%s─┴─%s─╯${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
 }
 
 print_controls_table_narrow() {
@@ -136,12 +142,12 @@ print_controls_table_narrow() {
         col2=10
     fi
 
-    border1=$(printf '%*s' $((col1 + 2)) '' | tr ' ' '-')
-    border2=$(printf '%*s' $((col2 + 2)) '' | tr ' ' '-')
+    border1=$(printf '%*s' "$col1" '' | tr ' ' '─')
+    border2=$(printf '%*s' "$col2" '' | tr ' ' '─')
 
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
-    printf "${GREEN}| %-*s |${GOLD} %-*s |${NC}\n" "$col1" "Control" "$col2" "Action"
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
+    printf "${CORAL}╭─%s─┬─%s─╮${NC}\n" "$border1" "$border2"
+    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" "$col1" "Control" "$col2" "Action"
+    printf "${CORAL}├─%s─┼─%s─┤${NC}\n" "$border1" "$border2"
 
     for row in \
         "Ctrl+R|Record (push-to-talk)" \
@@ -153,14 +159,14 @@ print_controls_table_narrow() {
         IFS='|' read -r key action <<< "$row"
         key="$(truncate "$key" "$col1")"
         action="$(truncate "$action" "$col2")"
-        printf "${GREEN}| %-*s |${GOLD} %-*s |${NC}\n" "$col1" "$key" "$col2" "$action"
+        printf "${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" "$col1" "$key" "$col2" "$action"
     done
 
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
+    printf "${CORAL}╰─%s─┴─%s─╯${NC}\n" "$border1" "$border2"
 }
 
 print_controls_table() {
-    if [ "$TERM_COLS" -ge 68 ]; then
+    if [ "$TERM_COLS" -ge 90 ]; then
         print_controls_table_wide
     else
         print_controls_table_narrow
@@ -187,12 +193,12 @@ print_commands_table() {
         col1=$((TERM_COLS - col2 - 7))
     fi
 
-    border1=$(printf '%*s' $((col1 + 2)) '' | tr ' ' '-')
-    border2=$(printf '%*s' $((col2 + 2)) '' | tr ' ' '-')
+    border1=$(printf '%*s' "$col1" '' | tr ' ' '─')
+    border2=$(printf '%*s' "$col2" '' | tr ' ' '─')
 
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
-    printf "${GREEN}| %-*s |${GOLD} %-*s |${NC}\n" "$col1" "Command" "$col2" "Purpose"
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
+    printf "${CORAL}╭─%s─┬─%s─╮${NC}\n" "$border1" "$border2"
+    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" "$col1" "Command" "$col2" "Purpose"
+    printf "${CORAL}├─%s─┼─%s─┤${NC}\n" "$border1" "$border2"
 
     for row in \
         "$EXAMPLE_CMD --auto-voice|Start in auto-voice" \
@@ -202,17 +208,25 @@ print_commands_table() {
         IFS='|' read -r command purpose <<< "$row"
         command="$(truncate "$command" "$col1")"
         purpose="$(truncate "$purpose" "$col2")"
-        printf "${GREEN}| %-*s |${GOLD} %-*s |${NC}\n" "$col1" "$command" "$col2" "$purpose"
+        printf "${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" "$col1" "$command" "$col2" "$purpose"
     done
 
-    printf "${GREEN}+%s+${GOLD}%s+${NC}\n" "$border1" "$border2"
+    printf "${CORAL}╰─%s─┴─%s─╯${NC}\n" "$border1" "$border2"
 }
 
+echo -e "${CORAL_BRIGHT}${BOLD}Quick Controls${NC}"
 print_controls_table
-echo -e "${GOLD}Note: Ctrl++ is often Ctrl+=; Ctrl+- may require Ctrl+Shift+-${NC}"
-print_commands_table
-echo -e "${GOLD}Auto-voice idle default: 1200ms (set with --auto-voice-idle-ms)${NC}"
+echo -e "${DIM}Note: Ctrl++ is often Ctrl+=, Ctrl+- may require Ctrl+Shift+-${NC}"
 echo ""
+echo -e "${CORAL_BRIGHT}${BOLD}Common Commands${NC}"
+print_commands_table
+echo -e "${DIM}Auto-voice idle default: 1200ms • Set with --auto-voice-idle-ms${NC}"
+echo ""
+
+# Startup output-only mode for tests
+if [ "${CODEX_VOICE_STARTUP_ONLY:-0}" = "1" ]; then
+    exit 0
+fi
 
 # Resolve overlay binary (prefer local build, fall back to PATH)
 OVERLAY_BIN=""
@@ -303,7 +317,7 @@ if [ -z "$MODEL_PATH" ]; then
 fi
 MODEL_PATH_ABS="$MODEL_PATH"
 
-echo -e "${GREEN}Launching overlay mode...${NC}"
+echo -e "${CORAL_BRIGHT}Launching overlay mode...${NC}"
 if [ -z "$OVERLAY_BIN" ]; then
     echo -e "${RED}Overlay binary not found. Please run ./install.sh or build rust_tui.${NC}"
     exit 1

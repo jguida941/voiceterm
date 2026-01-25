@@ -1,6 +1,8 @@
 # Codex Voice
 
-Voice-enabled CLI wrapper for Codex. Speak your prompts, get AI responses.
+Rust overlay wrapping Codex CLI. Speak to Codex with Whisper STT.
+
+![Codex Voice Startup](img/startup.png)
 
 ## Features
 
