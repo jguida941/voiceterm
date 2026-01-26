@@ -441,7 +441,10 @@ fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thread::JoinHan
 }
 
 /// Continuously read from the PTY and forward raw chunks to the main thread.
-fn spawn_passthrough_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thread::JoinHandle<()> {
+fn spawn_passthrough_reader_thread(
+    master_fd: RawFd,
+    tx: Sender<Vec<u8>>,
+) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
         loop {

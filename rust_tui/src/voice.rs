@@ -7,9 +7,9 @@ use crate::config::VadEngineKind;
 use crate::log_debug;
 use crate::stt;
 use anyhow::{anyhow, Result};
+use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -354,10 +354,9 @@ mod tests {
     #[test]
     fn python_fallback_returns_trimmed_transcript() {
         let config = test_config();
-        let message = with_python_hook(
-            Box::new(|_, _| Ok(pipeline_result("  hello "))),
-            || run_python_fallback(&config, "native unavailable", None),
-        );
+        let message = with_python_hook(Box::new(|_, _| Ok(pipeline_result("  hello "))), || {
+            run_python_fallback(&config, "native unavailable", None)
+        });
 
         match message {
             VoiceJobMessage::Transcript { text, source } => {
@@ -371,10 +370,9 @@ mod tests {
     #[test]
     fn python_fallback_reports_empty_transcripts() {
         let config = test_config();
-        let message = with_python_hook(
-            Box::new(|_, _| Ok(pipeline_result("   "))),
-            || run_python_fallback(&config, "no native path", None),
-        );
+        let message = with_python_hook(Box::new(|_, _| Ok(pipeline_result("   "))), || {
+            run_python_fallback(&config, "no native path", None)
+        });
 
         match message {
             VoiceJobMessage::Empty { source } => {
@@ -387,10 +385,9 @@ mod tests {
     #[test]
     fn python_fallback_surfaces_errors() {
         let config = test_config();
-        let message = with_python_hook(
-            Box::new(|_, _| Err(anyhow!("python boom"))),
-            || run_python_fallback(&config, "native blew up", None),
-        );
+        let message = with_python_hook(Box::new(|_, _| Err(anyhow!("python boom"))), || {
+            run_python_fallback(&config, "native blew up", None)
+        });
 
         match message {
             VoiceJobMessage::Error(text) => {

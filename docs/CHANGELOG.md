@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 
+## [1.0.8] - 2026-01-25
+
+### Build Fixes
+- **SIGWINCH handler type**: cast the handler to `libc::sighandler_t` to satisfy libc 0.2.180 on Unix.
+- **CI formatting cleanup**: apply `cargo fmt` so the rust-tui workflow passes.
+
 ## [1.0.7] - 2026-01-25
 
 ### Build Fixes

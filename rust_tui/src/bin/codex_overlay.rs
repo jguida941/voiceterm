@@ -95,7 +95,11 @@ fn main() -> Result<()> {
 
     let working_dir = env::var("CODEX_VOICE_CWD")
         .ok()
-        .or_else(|| env::current_dir().ok().map(|dir| dir.to_string_lossy().to_string()))
+        .or_else(|| {
+            env::current_dir()
+                .ok()
+                .map(|dir| dir.to_string_lossy().to_string())
+        })
         .unwrap_or_else(|| ".".to_string());
 
     let prompt_logger = PromptLogger::new(resolve_prompt_log(&config));
@@ -347,10 +351,7 @@ fn list_input_devices() -> Result<()> {
 
 fn install_sigwinch_handler() {
     unsafe {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
         let handler = handle_sigwinch as libc::sighandler_t;
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let handler = Some(handle_sigwinch);
         if libc::signal(libc::SIGWINCH, handler) == libc::SIG_ERR {
             log_debug("failed to install SIGWINCH handler");
         }
@@ -516,7 +517,8 @@ fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHandle<()> {
                 }
                 Ok(WriterMessage::Status { text }) => {
                     status = Some(text);
-                    let _ = write_status_line(&mut stdout, status.as_deref().unwrap_or(""), rows, cols);
+                    let _ =
+                        write_status_line(&mut stdout, status.as_deref().unwrap_or(""), rows, cols);
                     let _ = stdout.flush();
                 }
                 Ok(WriterMessage::ClearStatus) => {
@@ -569,7 +571,13 @@ fn clear_status_line(stdout: &mut io::Stdout, rows: u16, cols: u16) -> io::Resul
 
 fn sanitize_status(text: &str) -> String {
     text.chars()
-        .map(|ch| if ch.is_ascii_graphic() || ch == ' ' { ch } else { ' ' })
+        .map(|ch| {
+            if ch.is_ascii_graphic() || ch == ' ' {
+                ch
+            } else {
+                ' '
+            }
+        })
         .collect()
 }
 
@@ -634,7 +642,12 @@ fn handle_voice_message(
         VoiceJobMessage::Transcript { text, source } => {
             let label = source.label();
             let status = format!("Transcript ready ({label})");
-            set_status(writer_tx, status_clear_deadline, &status, Some(Duration::from_secs(2)));
+            set_status(
+                writer_tx,
+                status_clear_deadline,
+                &status,
+                Some(Duration::from_secs(2)),
+            );
             if let Err(err) = send_transcript(session, &text, config.voice_send_mode) {
                 log_debug(&format!("failed to send transcript: {err:#}"));
                 set_status(
@@ -649,12 +662,7 @@ fn handle_voice_message(
             let label = source.label();
             if auto_voice_enabled {
                 log_debug(&format!("auto voice capture detected no speech ({label})"));
-                set_status(
-                    writer_tx,
-                    status_clear_deadline,
-                    "Auto-voice enabled",
-                    None,
-                );
+                set_status(writer_tx, status_clear_deadline, "Auto-voice enabled", None);
             } else {
                 let status = format!("No speech detected ({label})");
                 set_status(
@@ -677,11 +685,7 @@ fn handle_voice_message(
     }
 }
 
-fn send_transcript(
-    session: &mut PtyOverlaySession,
-    text: &str,
-    mode: VoiceSendMode,
-) -> Result<()> {
+fn send_transcript(session: &mut PtyOverlaySession, text: &str, mode: VoiceSendMode) -> Result<()> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Ok(());
@@ -793,7 +797,9 @@ impl VoiceManager {
 
         let transcriber = self.get_transcriber()?;
         if transcriber.is_none() {
-            log_debug("No native Whisper model configured; using python fallback for voice capture.");
+            log_debug(
+                "No native Whisper model configured; using python fallback for voice capture.",
+            );
             if self.config.no_python_fallback {
                 return Err(anyhow!(
                     "Native Whisper model not configured and --no-python-fallback is set."
@@ -843,7 +849,9 @@ impl VoiceManager {
             VoiceCaptureTrigger::Manual => "manual",
             VoiceCaptureTrigger::Auto => "auto",
         };
-        log_debug(&format!("voice capture started ({status}) using {pipeline_label}"));
+        log_debug(&format!(
+            "voice capture started ({status}) using {pipeline_label}"
+        ));
 
         Ok(Some(VoiceStartInfo {
             pipeline_label,

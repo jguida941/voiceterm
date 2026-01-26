@@ -250,9 +250,19 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &App) {
                         .add_modifier(Modifier::BOLD),
                 ))
                 .title_bottom(Line::from(vec![
-                    Span::styled(" Ctrl+R ", Style::default().fg(input_text_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        " Ctrl+R ",
+                        Style::default()
+                            .fg(input_text_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled("voice  ", Style::default().fg(dim_border)),
-                    Span::styled("Ctrl+V ", Style::default().fg(input_text_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        "Ctrl+V ",
+                        Style::default()
+                            .fg(input_text_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled("toggle ", Style::default().fg(dim_border)),
                 ])),
         )
