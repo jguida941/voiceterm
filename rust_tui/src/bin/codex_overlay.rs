@@ -299,23 +299,24 @@ fn main() -> Result<()> {
                     }
                 }
 
-                if auto_voice_enabled && voice_manager.is_idle() {
-                    if should_auto_trigger(
+                if auto_voice_enabled
+                    && voice_manager.is_idle()
+                    && should_auto_trigger(
                         &prompt_tracker,
                         now,
                         idle_timeout,
                         last_auto_trigger_at,
+                    )
+                {
+                    if let Err(err) = start_voice_capture(
+                        &mut voice_manager,
+                        VoiceCaptureTrigger::Auto,
+                        &writer_tx,
+                        &mut status_clear_deadline,
                     ) {
-                        if let Err(err) = start_voice_capture(
-                            &mut voice_manager,
-                            VoiceCaptureTrigger::Auto,
-                            &writer_tx,
-                            &mut status_clear_deadline,
-                        ) {
-                            log_debug(&format!("auto voice capture failed: {err:#}"));
-                        } else {
-                            last_auto_trigger_at = Some(now);
-                        }
+                        log_debug(&format!("auto voice capture failed: {err:#}"));
+                    } else {
+                        last_auto_trigger_at = Some(now);
                     }
                 }
 
@@ -351,7 +352,7 @@ fn list_input_devices() -> Result<()> {
 
 fn install_sigwinch_handler() {
     unsafe {
-        let handler = handle_sigwinch as libc::sighandler_t;
+        let handler = handle_sigwinch as *const () as libc::sighandler_t;
         if libc::signal(libc::SIGWINCH, handler) == libc::SIG_ERR {
             log_debug("failed to install SIGWINCH handler");
         }
@@ -488,10 +489,8 @@ fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<()> {
                     _ => pending.push(byte),
                 }
             }
-            if !pending.is_empty() {
-                if tx.send(InputEvent::Bytes(pending)).is_err() {
-                    return;
-                }
+            if !pending.is_empty() && tx.send(InputEvent::Bytes(pending)).is_err() {
+                return;
             }
         }
     })
@@ -707,14 +706,14 @@ fn should_auto_trigger(
         return false;
     }
     if let Some(prompt_at) = prompt_tracker.last_prompt_seen_at() {
-        if last_trigger_at.map_or(true, |last| prompt_at > last) {
+        if last_trigger_at.is_none_or(|last| prompt_at > last) {
             return true;
         }
     }
-    if prompt_tracker.idle_ready(now, idle_timeout) {
-        if last_trigger_at.map_or(true, |last| prompt_tracker.last_output_at() > last) {
-            return true;
-        }
+    if prompt_tracker.idle_ready(now, idle_timeout)
+        && last_trigger_at.is_none_or(|last| prompt_tracker.last_output_at() > last)
+    {
+        return true;
     }
     false
 }
@@ -749,11 +748,7 @@ impl VoiceManager {
         const MIN_DB: f32 = -80.0;
         const MAX_DB: f32 = -10.0;
         let mut next = self.config.voice_vad_threshold_db + delta_db;
-        if next < MIN_DB {
-            next = MIN_DB;
-        } else if next > MAX_DB {
-            next = MAX_DB;
-        }
+        next = next.clamp(MIN_DB, MAX_DB);
         self.config.voice_vad_threshold_db = next;
         next
     }
@@ -860,9 +855,7 @@ impl VoiceManager {
     }
 
     fn poll_message(&mut self) -> Option<VoiceJobMessage> {
-        let Some(job) = self.job.as_mut() else {
-            return None;
-        };
+        let job = self.job.as_mut()?;
         match job.receiver.try_recv() {
             Ok(message) => {
                 if let Some(handle) = job.handle.take() {

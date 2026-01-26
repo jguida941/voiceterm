@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 
+## [1.0.9] - 2026-01-25
+
+### Build Fixes
+- **Clippy cleanup in codex_overlay**: resolve collapsible-if, map_or, clamp, and question-mark lints under `-D warnings`.
+
 ## [1.0.8] - 2026-01-25
 
 ### Build Fixes
