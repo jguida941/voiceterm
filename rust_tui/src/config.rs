@@ -316,6 +316,8 @@ impl AppConfig {
             &["whisper", "whisper.cpp"],
         )?;
 
+        #[cfg(test)]
+        ensure_test_pipeline_script(&self.pipeline_script);
         // Keep helper scripts inside this repo.
         self.pipeline_script =
             canonicalize_within_repo(&self.pipeline_script, "pipeline script", &repo_root)?;
@@ -434,6 +436,23 @@ fn canonical_repo_root() -> Result<PathBuf> {
     repo_root
         .canonicalize()
         .with_context(|| format!("failed to canonicalize repo root '{}'", repo_root.display()))
+}
+
+#[cfg(test)]
+fn ensure_test_pipeline_script(path: &Path) {
+    if path.exists() {
+        return;
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).unwrap_or_else(|err| {
+            panic!(
+                "failed to create '{parent}': {err}",
+                parent = parent.display()
+            )
+        });
+    }
+    fs::write(path, "#!/usr/bin/env python3\n")
+        .unwrap_or_else(|err| panic!("failed to write '{path}': {err}", path = path.display()));
 }
 
 /// Canonicalize a path and ensure it still lives under the repo root.

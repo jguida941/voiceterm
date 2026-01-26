@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 
+## [1.0.10] - 2026-01-25
+
+### Build Fixes
+- **Mutation testing baseline**: create a stub pipeline script during tests when the repo root is not present.
+
 ## [1.0.9] - 2026-01-25
 
 ### Build Fixes
