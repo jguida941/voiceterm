@@ -96,4 +96,4 @@ $(brew --prefix)/opt/codex-voice/libexec/scripts/setup.sh models --base
 - If Homebrew cannot link `codex-voice` because it already exists:
   `brew link --overwrite codex-voice` or remove the conflicting binary.
 - Logs: `${TMPDIR}/codex_voice_tui.log`
-- Prompt detection log: `${TMPDIR}/codex_overlay_prompt.log`
+- Prompt detection log: `${TMPDIR}/codex_voice_prompt.log`

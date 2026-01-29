@@ -155,7 +155,7 @@ build_rust_overlay() {
 
     cd "$PROJECT_ROOT/rust_tui"
 
-    if cargo build --release --bin codex_overlay; then
+    if cargo build --release --bin codex-voice; then
         print_success "Rust overlay built successfully"
         return 0
     else
@@ -216,6 +216,7 @@ install_wrapper() {
 cat > "$wrapper_path" <<EOF
 #!/bin/bash
 export CODEX_VOICE_CWD="\$(pwd)"
+export CODEX_VOICE_WRAPPER=1
 exec "$PROJECT_ROOT/start.sh" "\$@"
 EOF
     chmod 0755 "$wrapper_path"

@@ -3,10 +3,18 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.16] - 2026-01-29
+
+### Changes
+- **Binary rename**: `codex-voice` is now the only user-facing command (no `codex-overlay`).
+- **Prompt log defaults**: default prompt log path is `${TMPDIR}/codex_voice_prompt.log`.
+- **Env cleanup**: `CODEX_OVERLAY_PROMPT_*` is no longer supported; use `CODEX_VOICE_PROMPT_*`.
+- **Docs/scripts**: update build/run instructions to use `codex-voice`.
+
 ## [1.0.15] - 2026-01-29
 
 ### Fixes
-- **Overlay build fix**: remove stray duplicate block that broke compilation in `codex_overlay`.
+- **Overlay build fix**: remove stray duplicate block that broke compilation in `codex-voice` (source: `codex_overlay.rs`).
 
 ## [1.0.14] - 2026-01-29
 
@@ -42,7 +50,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ## [1.0.9] - 2026-01-25
 
 ### Build Fixes
-- **Clippy cleanup in codex_overlay**: resolve collapsible-if, map_or, clamp, and question-mark lints under `-D warnings`.
+- **Clippy cleanup in codex-voice**: resolve collapsible-if, map_or, clamp, and question-mark lints under `-D warnings` (source: `codex_overlay.rs`).
 
 ## [1.0.8] - 2026-01-25
 
@@ -78,7 +86,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Fast Local Transcription Feature
 - **Benchmarked STT latency**: ~250ms processing after speech ends (tested with real microphone input).
 - **Added feature to README**: "Fast local transcription - ~250ms processing after speech ends, no cloud API calls".
-- **Verified code path**: latency_measurement binary uses identical code path as codex_overlay (same voice::start_voice_job → stt::Transcriber).
+- **Verified code path**: latency_measurement binary uses identical code path as codex-voice (same voice::start_voice_job → stt::Transcriber).
 
 ### Bug Fixes
 - **Filter [BLANK_AUDIO]**: Whisper's `[BLANK_AUDIO]` token is now filtered from transcripts, preventing spam in auto-voice mode when user stops talking.
@@ -113,13 +121,13 @@ Note: Some historical entries reference internal documents that are not publishe
 - **Startup hints**: `start.sh` prints the key controls and common flag examples for non-programmers.
 
 ### Homebrew Runtime Fixes (2026-01-23) - COMPLETE
-- **Prebuilt overlay reuse**: `start.sh` now uses `codex-overlay` from PATH when available, skipping builds in Homebrew installs.
+- **Prebuilt overlay reuse**: `start.sh` now uses `codex-voice` from PATH when available, skipping builds in Homebrew installs.
 - **User-writable model storage**: model downloads fall back to `~/.local/share/codex-voice/models` when the repo/libexec is not writable.
 - **Homebrew detection**: Homebrew installs always use the user model directory instead of libexec, even if libexec is writable.
 - **Install wrapper safety**: skip existing global `codex-voice` commands and prefer safe locations unless overridden.
 
 ### Rust Overlay Mode + Packaging (2026-01-22) - COMPLETE
-- **Added Rust overlay mode**: new `codex_overlay` binary runs Codex in a PTY, forwards raw ANSI output, and injects voice transcripts as keystrokes.
+- **Added Rust overlay mode**: new `codex-voice` binary runs Codex in a PTY, forwards raw ANSI output, and injects voice transcripts as keystrokes.
 - **Prompt-aware auto-voice**: prompt detection with idle fallback plus configurable regex overrides for auto-voice triggering.
 - **Serialized output writer**: PTY output + status line rendering go through a single writer thread to avoid terminal corruption.
 - **PTY passthrough improvements**: new raw PTY session that answers DSR/DA queries without stripping ANSI.

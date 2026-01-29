@@ -19,7 +19,7 @@ We track key decisions in ADRs so the rationale stays visible over time. See
 ```mermaid
 graph LR
   Terminal["Terminal TTY"] <--> Input["Raw input reader"]
-  Input --> Overlay["codex_overlay main loop"]
+  Input --> Overlay["codex-voice main loop"]
   Overlay --> PTY["PtyOverlaySession"]
   PTY --> Codex["Codex CLI"]
   Codex --> PTY
@@ -42,7 +42,7 @@ What this means:
 
 ```mermaid
 graph TD
-  Main["codex_overlay main loop"]
+  Main["codex-voice main loop"]
   InputThread["Input thread<br>reads stdin bytes"]
   PtyReader["PTY reader thread<br>raw ANSI output"]
   WriterThread["Writer thread<br>serializes output + status"]
@@ -67,13 +67,13 @@ Why this matters:
 sequenceDiagram
   participant User
   participant Start as start.sh
-  participant Overlay as codex_overlay
+  participant Overlay as codex-voice
   participant PTY as PTY Session
   participant Threads as Threads
 
   User->>Start: run start.sh
   Start->>Start: locate/download Whisper model
-  Start->>Overlay: launch codex_overlay\n(+ --whisper-model-path)
+  Start->>Overlay: launch codex-voice\n(+ --whisper-model-path)
   Overlay->>Overlay: parse & validate config
   Overlay->>PTY: spawn Codex in PTY
   Overlay->>Threads: start input/reader/writer
@@ -88,7 +88,7 @@ sequenceDiagram
 sequenceDiagram
   participant User
   participant Input as InputThread
-  participant Main as codex_overlay
+  participant Main as codex-voice
   participant PTY as PTY Session
   participant Codex
   participant Writer as WriterThread
@@ -109,7 +109,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant User
-  participant Main as codex_overlay
+  participant Main as codex-voice
   participant Voice as VoiceThread
   participant Whisper as Whisper STT
   participant PTY as PTY Session
@@ -129,7 +129,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant PTY as PTY Session
-  participant Main as codex_overlay
+  participant Main as codex-voice
   participant Prompt as PromptTracker
 
   PTY-->>Main: output chunk
@@ -159,7 +159,7 @@ stateDiagram-v2
 
 Common setup path:
 - `./scripts/setup.sh models --base` downloads `models/ggml-base.en.bin`.
-- `start.sh` passes `--whisper-model-path` into `codex_overlay`.
+- `start.sh` passes `--whisper-model-path` into `codex-voice`.
 
 ## Voice Error + Fallback Flow
 
@@ -207,7 +207,7 @@ Timing observability:
 
 ```mermaid
 graph TD
-  Overlay[codex_overlay] --> Codex[Codex CLI]
+  Overlay[codex-voice] --> Codex[Codex CLI]
   Overlay --> Whisper["Whisper native via whisper-rs"]
   Overlay --> Py[Python fallback]
   Py --> WhisperCli[whisper CLI]
@@ -224,7 +224,7 @@ Safety constraints in code:
 
 ```mermaid
 sequenceDiagram
-  participant Main as codex_overlay
+  participant Main as codex-voice
   participant PTY as PTY Session
   participant Threads as Input/Reader/Writer
 
@@ -260,7 +260,7 @@ ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex's screen.
 
 ## Key Files
 
-- `rust_tui/src/bin/codex_overlay.rs` - main loop, input handling, prompt detection
+- `rust_tui/src/bin/codex_overlay.rs` - main loop, input handling, prompt detection (binary: `codex-voice`)
 - `rust_tui/src/pty_session.rs` - raw PTY passthrough + query replies
 - `rust_tui/src/voice.rs` - voice capture job orchestration
 - `rust_tui/src/audio.rs` - CPAL recorder + VAD
@@ -279,5 +279,5 @@ ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex's screen.
 ## Debugging + Logs
 
 - Logs: `${TMPDIR}/codex_voice_tui.log`
-- Prompt detection log: `${TMPDIR}/codex_overlay_prompt.log`
+- Prompt detection log: `${TMPDIR}/codex_voice_prompt.log`
 - Use `--no-python-fallback` to force native Whisper and surface errors early.

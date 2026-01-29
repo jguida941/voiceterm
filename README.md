@@ -64,8 +64,8 @@ binary or set `CODEX_VOICE_INSTALL_DIR` to override.
 
 Manual build (Rust only):
 ```bash
-cd rust_tui && cargo build --release --bin codex_overlay
-./target/release/codex_overlay
+cd rust_tui && cargo build --release --bin codex-voice
+./target/release/codex-voice
 ```
 
 Use `./start.sh` if you want automatic model download and setup.
@@ -239,7 +239,7 @@ flowchart LR
         MIC[Microphone]
     end
 
-    subgraph "codex_overlay (Rust)"
+    subgraph "codex-voice (Rust)"
         VP[Voice Pipeline<br>cpal + Whisper]
         PTY[PTY Session]
     end
@@ -261,7 +261,7 @@ its own hotkeys (Ctrl+R/Ctrl+V/Ctrl+Q).
 
 ## Architecture
 
-Overlay mode is Rust-only: `codex_overlay` spawns Codex in a PTY, forwards raw terminal output, and
+Overlay mode is Rust-only: `codex-voice` spawns Codex in a PTY, forwards raw terminal output, and
 injects voice transcripts as keystrokes. The terminal itself is the UI, with a minimal status line.
 
 ### Components
@@ -284,8 +284,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full diagrams and data flow
 | `CODEX_VOICE_MODEL_DIR` | Override model storage directory | auto (`models/` or `~/.local/share/codex-voice/models`) |
 | `CODEX_VOICE_CWD` | Run Codex in a chosen project directory | current directory |
 | `CODEX_VOICE_INSTALL_DIR` | Override install location for `./install.sh` | unset |
-| `CODEX_OVERLAY_PROMPT_REGEX` | Override prompt detection regex | unset |
-| `CODEX_OVERLAY_PROMPT_LOG` | Prompt detection log path | `${TMPDIR}/codex_overlay_prompt.log` |
+| `CODEX_VOICE_PROMPT_REGEX` | Override prompt detection regex | unset |
+| `CODEX_VOICE_PROMPT_LOG` | Prompt detection log path | `${TMPDIR}/codex_voice_prompt.log` |
 
 See [CLI Flags](#cli-flags) for all command-line options.
 
@@ -307,6 +307,9 @@ codex-voice/
 │       ├── codex.rs     # Provider backend
 │       ├── voice.rs     # Voice capture orchestration
 │       ├── audio.rs     # CPAL recording, VAD
+│       ├── audio/
+│       │   └── recorder.rs # CPAL device capture and resample
+│       ├── mic_meter.rs # Ambient/speech level sampler
 │       ├── stt.rs       # Whisper transcription
 │       └── pty_session.rs # PTY wrapper
 ├── scripts/             # Setup and test scripts
@@ -319,7 +322,7 @@ codex-voice/
 
 ```bash
 # Rust overlay
-cd rust_tui && cargo build --release --bin codex_overlay
+cd rust_tui && cargo build --release --bin codex-voice
 
 # Rust backend (optional dev binary)
 cd rust_tui && cargo build --release
@@ -332,7 +335,7 @@ cd rust_tui && cargo build --release
 cd rust_tui && cargo test
 
 # Overlay tests
-cd rust_tui && cargo test --bin codex_overlay
+cd rust_tui && cargo test --bin codex-voice
 
 # Mutation tests (CI enforces 80% minimum score)
 cd rust_tui && cargo mutants --timeout 300 -o mutants.out
@@ -357,7 +360,7 @@ python3 ../scripts/check_mutation_score.py --path mutants.out/outcomes.json --th
 ### Logs
 
 - `${TMPDIR}/codex_voice_tui.log`
-- `${TMPDIR}/codex_overlay_prompt.log`
+- `${TMPDIR}/codex_voice_prompt.log`
 
 ### Homebrew link conflict
 

@@ -1,8 +1,9 @@
 [package]
 name = "rust_tui"
-version = "1.0.15"
+version = "1.0.16"
 edition = "2021"
-default-run = "rust_tui"
+default-run = "codex-voice"
+autobins = false
 
 [features]
 default = ["high-quality-audio", "vad_earshot"]
@@ -32,9 +33,25 @@ rubato = { version = "0.12", optional = true }
 earshot = { version = "0.1", optional = true }
 
 [[bin]]
+name = "codex-voice"
+path = "src/bin/codex_overlay.rs"
+
+[[bin]]
+name = "rust_tui"
+path = "src/main.rs"
+
+[[bin]]
 name = "voice_benchmark"
 path = "src/bin/voice_benchmark.rs"
 
 [[bin]]
 name = "latency_measurement"
 path = "src/bin/latency_measurement.rs"
+
+[[bin]]
+name = "test_crash"
+path = "src/bin/test_crash.rs"
+
+[[bin]]
+name = "test_utf8_bug"
+path = "src/bin/test_utf8_bug.rs"

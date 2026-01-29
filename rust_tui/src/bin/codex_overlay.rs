@@ -32,7 +32,7 @@ enum VoiceSendMode {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[command(about = "Codex Voice overlay mode", author, version)]
+#[command(about = "Codex Voice", author, version)]
 struct OverlayConfig {
     #[command(flatten)]
     app: AppConfig,
@@ -489,17 +489,17 @@ fn resolve_prompt_log(config: &OverlayConfig) -> PathBuf {
     if let Some(path) = &config.prompt_log {
         return path.clone();
     }
-    if let Ok(path) = env::var("CODEX_OVERLAY_PROMPT_LOG") {
+    if let Ok(path) = env::var("CODEX_VOICE_PROMPT_LOG") {
         return PathBuf::from(path);
     }
-    env::temp_dir().join("codex_overlay_prompt.log")
+    env::temp_dir().join("codex_voice_prompt.log")
 }
 
 fn resolve_prompt_regex(config: &OverlayConfig) -> Result<Option<Regex>> {
     let raw = config
         .prompt_regex
         .clone()
-        .or_else(|| env::var("CODEX_OVERLAY_PROMPT_REGEX").ok());
+        .or_else(|| env::var("CODEX_VOICE_PROMPT_REGEX").ok());
     let Some(pattern) = raw else {
         return Ok(None);
     };
@@ -1421,7 +1421,7 @@ mod tests {
     #[test]
     fn resolve_prompt_log_uses_env() {
         let env_path = PathBuf::from("/tmp/codex_prompt_env.log");
-        env::set_var("CODEX_OVERLAY_PROMPT_LOG", &env_path);
+        env::set_var("CODEX_VOICE_PROMPT_LOG", &env_path);
         let config = OverlayConfig {
             app: AppConfig::parse_from(["test"]),
             prompt_regex: None,
@@ -1431,9 +1431,10 @@ mod tests {
             voice_send_mode: VoiceSendMode::Auto,
         };
         let resolved = resolve_prompt_log(&config);
-        env::remove_var("CODEX_OVERLAY_PROMPT_LOG");
+        env::remove_var("CODEX_VOICE_PROMPT_LOG");
         assert_eq!(resolved, env_path);
     }
+
 
     #[test]
     fn resolve_prompt_regex_honors_config() {
@@ -1662,7 +1663,7 @@ mod tests {
 
     #[test]
     fn prompt_tracker_learns_prompt_on_idle() {
-        let logger = PromptLogger::new(env::temp_dir().join("codex_overlay_prompt_test.log"));
+        let logger = PromptLogger::new(env::temp_dir().join("codex_voice_prompt_test.log"));
         let mut tracker = PromptTracker::new(None, logger);
         tracker.feed_output(b"codex> ");
         let now = tracker.last_output_at() + Duration::from_millis(2000);
@@ -1672,7 +1673,7 @@ mod tests {
 
     #[test]
     fn prompt_tracker_matches_regex() {
-        let logger = PromptLogger::new(env::temp_dir().join("codex_overlay_prompt_test.log"));
+        let logger = PromptLogger::new(env::temp_dir().join("codex_voice_prompt_test.log"));
         let regex = Regex::new(r"^codex> $").unwrap();
         let mut tracker = PromptTracker::new(Some(regex), logger);
         tracker.feed_output(b"codex> \n");

@@ -229,24 +229,22 @@ if [ "${CODEX_VOICE_STARTUP_ONLY:-0}" = "1" ]; then
     exit 0
 fi
 
-# Resolve overlay binary (prefer local build, fall back to PATH)
+# Resolve binary (prefer local build; avoid wrapper recursion)
 OVERLAY_BIN=""
-if [ -x "$SCRIPT_DIR/rust_tui/target/release/codex_overlay" ]; then
-    OVERLAY_BIN="$SCRIPT_DIR/rust_tui/target/release/codex_overlay"
-elif command -v codex-overlay &> /dev/null; then
-    OVERLAY_BIN="$(command -v codex-overlay)"
+if [ -x "$SCRIPT_DIR/rust_tui/target/release/codex-voice" ]; then
+    OVERLAY_BIN="$SCRIPT_DIR/rust_tui/target/release/codex-voice"
 fi
 
 # Check if Rust overlay exists
 if [ -z "$OVERLAY_BIN" ]; then
-    echo -e "${YELLOW}Building Rust overlay (first time setup)...${NC}"
-    cd rust_tui && cargo build --release --bin codex_overlay
+    echo -e "${YELLOW}Building Codex Voice (first time setup)...${NC}"
+    cd rust_tui && cargo build --release --bin codex-voice
     if [ $? -ne 0 ]; then
         echo -e "${RED}Build failed. Please check the error above.${NC}"
         exit 1
     fi
     cd ..
-    OVERLAY_BIN="$SCRIPT_DIR/rust_tui/target/release/codex_overlay"
+    OVERLAY_BIN="$SCRIPT_DIR/rust_tui/target/release/codex-voice"
 fi
 
 # Check if whisper model exists

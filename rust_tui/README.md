@@ -17,13 +17,13 @@ cd rust_tui
 cargo build --release
 ```
 
-The binary is at `target/release/rust_tui`.
+The main binary is at `target/release/rust_tui`.
 
-Overlay binary:
+Overlay binary (Codex PTY passthrough):
 
 ```bash
 cd rust_tui
-cargo build --release --bin codex_overlay
+cargo build --release --bin codex-voice
 ```
 
 ## Usage
@@ -49,7 +49,7 @@ cargo run --release -- --seconds 5 --whisper-model-path ../models/ggml-base.en.b
 Runs Codex in a PTY and overlays voice status in your terminal:
 
 ```bash
-./target/release/codex_overlay
+./target/release/codex-voice
 ```
 
 ## CLI Options
