@@ -3,6 +3,12 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.23] - 2026-01-29
+
+### Docs
+- **README layout**: move macOS app (folder picker) section below UI modes.
+- **macOS app version**: align `Codex Voice.app` Info.plist to 1.0.23.
+
 ## [1.0.22] - 2026-01-29
 
 ### Docs
