@@ -2,6 +2,17 @@
 
 This doc covers all install and run options, plus model setup.
 
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Option A: Install from source (recommended)](#option-a-install-from-source-recommended)
+- [Option B: macOS App (folder picker)](#option-b-macos-app-folder-picker)
+- [Option C: Homebrew (optional, global command)](#option-c-homebrew-optional-global-command)
+- [Option D: Manual run (no install)](#option-d-manual-run-no-install)
+- [Using with your own projects](#using-with-your-own-projects)
+- [Windows](#windows)
+- [See Also](#see-also)
+
 ## Prerequisites
 
 - Codex CLI: `npm install -g @openai/codex`
@@ -145,3 +156,12 @@ force the working directory.
 
 Windows native is not supported yet (the overlay uses a Unix PTY). Use WSL2 or a macOS/Linux
 machine.
+
+## See Also
+
+| Topic | Link |
+|-------|------|
+| Quick Start | [QUICK_START.md](../QUICK_START.md) |
+| Usage | [USAGE.md](USAGE.md) |
+| CLI Flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
+| Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |

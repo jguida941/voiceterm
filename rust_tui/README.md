@@ -92,7 +92,7 @@ src/
 ├── voice.rs         # Voice capture orchestration
 ├── audio.rs         # CPAL recording, VAD
 ├── stt.rs           # Whisper transcription
-├── pty_session.rs   # Unix PTY wrapper
+├── pty_session/     # Unix PTY wrapper
 ├── config.rs        # Configuration and validation
 ├── utf8_safe.rs     # UTF-8 safety utilities
 ├── vad_earshot.rs   # Voice activity detection

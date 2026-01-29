@@ -1,4 +1,16 @@
-use super::*;
+use super::capture::{CaptureMetrics, CaptureResult};
+#[cfg(not(test))]
+use super::capture::{CaptureState, FrameAccumulator, StopReason};
+use super::dispatch::append_downmixed_samples;
+#[cfg(not(test))]
+use super::dispatch::FrameDispatcher;
+#[cfg(not(test))]
+use super::resample::convert_frame_to_target;
+use super::resample::resample_to_target_rate;
+#[cfg(not(test))]
+use super::vad::{FrameLabel, VadSmoother};
+use super::vad::{VadConfig, VadEngine};
+use crate::log_debug;
 use anyhow::{anyhow, Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};

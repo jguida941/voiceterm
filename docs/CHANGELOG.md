@@ -1,13 +1,48 @@
 # Changelog
 
-All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
+All notable changes to this project will be documented here, following the SDLC policy defined in `docs/dev/SDLC.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
+
+## [1.0.24] - 2026-01-29
+
+### Build + Release
+- **Version bump**: update `rust_tui/Cargo.toml` to 1.0.24 and align `Codex Voice.app` Info.plist.
+
+### Refactor
+- **Rust modularization**: split large modules (`ipc`, `pty_session`, `codex`, `audio`, `config`, `app`, and overlay helpers) into focused submodules with tests preserved.
+- **Test access**: keep test-only hooks and visibility intact to avoid mutation/test regressions.
+
+### Docs
+- **Doc layout sync**: update architecture/development/visual docs to match the new module layout.
+- **Active plan**: mark the modularization plan complete and document the post-split layout.
+- **Policy links**: align SDLC/changelog references and backlog paths for consistent navigation.
 
 ## [1.0.23] - 2026-01-29
 
 ### Docs
 - **README layout**: move macOS app (folder picker) section below UI modes.
 - **macOS app version**: align `Codex Voice.app` Info.plist to 1.0.23.
+- **Auto-voice status copy**: clarify that "Auto-voice enabled" means auto-voice is on while idle.
+- **Usage guidance**: tighten wording for mode selection and long-dictation tips.
+- **Usage layout**: add a mode matrix table that shows how listening and send modes combine.
+- **Usage modes**: consolidate voice mode details into a single chart and move long-dictation notes into the same section.
+- **Usage notes**: add prompt-detection fallback and Python fallback behavior notes.
+- **Usage polish**: add a contents list, fix Quick Start wording, and include a `--lang` example.
+- **Troubleshooting layout**: reorganize sections to reduce repetition and improve scanability.
+- **Docs structure**: move dev docs under `docs/dev` and active plans under `docs/active` (update links).
+- **Troubleshooting links**: make Quick Fixes entries clickable jump links.
+- **Docs navigation**: add contents lists to README and Install docs.
+- **CLI flags accuracy**: correct prompt log defaults and voice silence tail default.
+- **ADR tracking**: keep ADRs under `docs/dev/adr` and track them in git.
+- **Backlog cleanup**: remove duplicate queue item and normalize headings.
+- **Dev docs navigation**: add contents lists to architecture, development, and modularization docs.
+- **Docs formatting**: replace em dashes with hyphen separators for consistency.
+- **SDLC policy**: move policy to `docs/dev/SDLC.md` and point the changelog at a tracked file.
+- **Repo hygiene**: add `LICENSE`, `CONTRIBUTING.md`, and `SECURITY.md`.
+- **README badges**: add CI, perf, memory guard, mutation testing, and license badges.
+- **Docs navigation**: add "See Also" tables to install, CLI flags, and troubleshooting docs.
+- **Dev docs**: expand contribution workflow, code style, and testing philosophy guidance.
+- **TS CLI docs**: clarify deprecated status and mark quick start as non-functional.
 
 ## [1.0.22] - 2026-01-29
 
@@ -76,7 +111,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Changes
 - **Binary rename**: `codex-voice` is now the only user-facing command (no `codex-overlay`).
-- **Prompt log defaults**: default prompt log path is `${TMPDIR}/codex_voice_prompt.log`.
+- **Prompt log path**: configured via `--prompt-log` or `CODEX_VOICE_PROMPT_LOG` (no default unless set).
 - **Env cleanup**: `CODEX_OVERLAY_PROMPT_*` is no longer supported; use `CODEX_VOICE_PROMPT_*`.
 - **Docs/scripts**: update build/run instructions to use `codex-voice`.
 
@@ -183,7 +218,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Rust-Only Docs + Launchers (2026-01-23) - COMPLETE
 - **Docs sweep**: removed legacy CLI references from user-facing docs and the audit.
 - **Launchers aligned**: `start.sh` and `scripts/setup.sh` now run overlay-only; Windows launcher points to WSL/macos/linux.
-- **Backlog added**: `docs/BACKLOG.md` tracks follow-up work and open UX items.
+- **Backlog added**: `docs/active/BACKLOG.md` tracks follow-up work and open UX items.
 
 ### Overlay UX (2026-01-23) - COMPLETE
 - **New hotkeys**: Ctrl+T toggles send mode (auto vs insert), Ctrl++/Ctrl+- adjust mic sensitivity in 5 dB steps.

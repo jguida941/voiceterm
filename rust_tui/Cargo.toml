@@ -1,6 +1,6 @@
 [package]
 name = "rust_tui"
-version = "1.0.23"
+version = "1.0.24"
 edition = "2021"
 default-run = "codex-voice"
 autobins = false
@@ -33,7 +33,7 @@ earshot = { version = "0.1", optional = true }
 
 [[bin]]
 name = "codex-voice"
-path = "src/bin/codex_overlay.rs"
+path = "src/bin/codex_overlay/main.rs"
 
 [[bin]]
 name = "rust_tui"

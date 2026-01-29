@@ -1,11 +1,32 @@
 # Codex Voice
 
+![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
+![Whisper STT](https://img.shields.io/badge/Whisper-Local%20STT-74aa9c)
+![macOS | Linux](https://img.shields.io/badge/macOS%20%7C%20Linux-blue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[![Rust TUI CI](https://github.com/jguida941/codex-voice/actions/workflows/rust_tui.yml/badge.svg)](https://github.com/jguida941/codex-voice/actions/workflows/rust_tui.yml)
+[![Mutation Testing](https://github.com/jguida941/codex-voice/actions/workflows/mutation-testing.yml/badge.svg)](https://github.com/jguida941/codex-voice/actions/workflows/mutation-testing.yml)
+
 **Rust voice overlay for the official Codex CLI. Speak to Codex using local Whisper speech-to-text.**
 
 Voice transcription runs entirely on your machine via `whisper.cpp`. The overlay wraps Codex in a PTY,
 preserving its native TUI while injecting voice transcripts.
 
 ![Codex Voice Startup](img/startup.png)
+
+## Contents
+
+- [Quick Start](#quick-start)
+- [Logs](#logs-opt-in)
+- [Controls](#controls-essentials)
+- [Features](#features)
+- [UI modes](#ui-modes)
+- [macOS App](#macos-app-folder-picker)
+- [Project layout](#project-layout-contributor-view)
+- [Docs](#docs)
+- [How It Works](#how-it-works)
+- [License](#license)
 
 ## Quick Start
 
@@ -70,7 +91,7 @@ Double-click **Codex Voice.app** and choose your project folder. It launches the
 
 ## Project layout (contributor view)
 
-- `rust_tui/src/bin/codex_overlay.rs` - overlay entrypoint
+- `rust_tui/src/bin/codex_overlay/main.rs` - overlay entrypoint
 - `rust_tui/src/audio/recorder.rs` - CPAL capture + resample
 - `rust_tui/src/mic_meter.rs` - mic meter + threshold recommendation
 - `rust_tui/src/stt.rs` - Whisper transcription
@@ -83,16 +104,21 @@ Double-click **Codex Voice.app** and choose your project folder. It launches the
 - [docs/USAGE.md](docs/USAGE.md)
 - [docs/CLI_FLAGS.md](docs/CLI_FLAGS.md)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- [docs/active/BACKLOG.md](docs/active/BACKLOG.md)
+- [docs/active/MODULARIZATION_PLAN.md](docs/active/MODULARIZATION_PLAN.md)
+- [docs/dev/ARCHITECTURE.md](docs/dev/ARCHITECTURE.md)
+- [docs/dev/DEVELOPMENT.md](docs/dev/DEVELOPMENT.md)
+- [docs/dev/SDLC.md](docs/dev/SDLC.md)
+- [CONTRIBUTING.md](.github/CONTRIBUTING.md)
+- [SECURITY.md](.github/SECURITY.md)
 - [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 ## How It Works
 
 Codex Voice runs the Codex CLI in a real PTY and forwards raw ANSI output directly to your terminal.
 Voice transcripts are injected as keystrokes, so Codex stays fully native. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams and data flow.
+[docs/dev/ARCHITECTURE.md](docs/dev/ARCHITECTURE.md) for diagrams and data flow.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

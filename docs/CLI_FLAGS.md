@@ -11,6 +11,7 @@ Everything is grouped by binary so you don't have to cross-reference.
 
 - [codex-voice](#codex-voice)
 - [rust_tui](#rust_tui)
+- [See Also](#see-also)
 
 Tip: run `codex-voice --help` or `rust_tui --help` for the live CLI output.
 
@@ -25,7 +26,7 @@ Tip: run `codex-voice --help` or `rust_tui --help` for the live CLI output.
 | `--transcript-idle-ms <MS>` | Idle time before transcripts auto-send when a prompt has not been detected | 250 |
 | `--voice-send-mode <auto\|insert>` | Auto sends newline, insert leaves transcript for editing | auto |
 | `--prompt-regex <REGEX>` | Override prompt detection regex | auto-learned |
-| `--prompt-log <PATH>` | Prompt detection log path | `${TMPDIR}/codex_voice_prompt.log` |
+| `--prompt-log <PATH>` | Prompt detection log path | unset (disabled) |
 
 Prompt detection notes:
 - If `--prompt-regex` is not set, the overlay auto-learns the prompt line after output goes idle.
@@ -69,7 +70,7 @@ Prompt detection notes:
 |------|---------|---------|
 | `--voice-sample-rate <HZ>` | Target sample rate for the voice pipeline | 16000 |
 | `--voice-max-capture-ms <MS>` | Max capture duration before hard stop (max 60000) | 30000 |
-| `--voice-silence-tail-ms <MS>` | Trailing silence required to stop capture | 3000 |
+| `--voice-silence-tail-ms <MS>` | Trailing silence required to stop capture | 1000 |
 | `--voice-min-speech-ms-before-stt <MS>` | Minimum speech before STT can begin | 300 |
 | `--voice-lookback-ms <MS>` | Audio retained prior to silence stop | 500 |
 | `--voice-buffer-ms <MS>` | Total buffered audio budget (max 120000) | 30000 |
@@ -100,7 +101,7 @@ Prompt detection notes:
 | `CODEX_VOICE_CWD` | Run Codex in a chosen project directory | current directory |
 | `CODEX_VOICE_INSTALL_DIR` | Override install location for `./install.sh` | unset |
 | `CODEX_VOICE_PROMPT_REGEX` | Override prompt detection regex | unset |
-| `CODEX_VOICE_PROMPT_LOG` | Prompt detection log path | `${TMPDIR}/codex_voice_prompt.log` |
+| `CODEX_VOICE_PROMPT_LOG` | Prompt detection log path | unset |
 | `CODEX_VOICE_LOGS` | Enable debug logging | unset |
 | `CODEX_VOICE_NO_LOGS` | Disable debug logging | unset |
 | `CODEX_VOICE_LOG_CONTENT` | Allow prompt/transcript snippets in logs | unset |
@@ -156,7 +157,7 @@ Prompt detection notes:
 |------|---------|---------|
 | `--voice-sample-rate <HZ>` | Target sample rate for the voice pipeline | 16000 |
 | `--voice-max-capture-ms <MS>` | Max capture duration before hard stop (max 60000) | 30000 |
-| `--voice-silence-tail-ms <MS>` | Trailing silence required to stop capture | 3000 |
+| `--voice-silence-tail-ms <MS>` | Trailing silence required to stop capture | 1000 |
 | `--voice-min-speech-ms-before-stt <MS>` | Minimum speech before STT can begin | 300 |
 | `--voice-lookback-ms <MS>` | Audio retained prior to silence stop | 500 |
 | `--voice-buffer-ms <MS>` | Total buffered audio budget (max 120000) | 30000 |
@@ -190,3 +191,12 @@ Prompt detection notes:
 | `CODEX_VOICE_LOG_CONTENT` | Allow prompt/transcript snippets in logs | unset |
 | `CODEX_VOICE_PROVIDER` | Default provider for IPC mode | codex |
 | `CLAUDE_CMD` | Path to Claude CLI for IPC mode | claude |
+
+## See Also
+
+| Topic | Link |
+|-------|------|
+| Quick Start | [QUICK_START.md](../QUICK_START.md) |
+| Install | [INSTALL.md](INSTALL.md) |
+| Usage | [USAGE.md](USAGE.md) |
+| Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |

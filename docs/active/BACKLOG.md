@@ -1,5 +1,8 @@
 # Backlog
 
+## Priority
+- [ ] Transcript queue flush is unreliable; queued items sometimes never auto-send. (user-reported)
+
 ## UX
 - [ ] Auto-voice status: while a capture is active in auto mode, the status line should keep showing "Listening..." even after toggling send mode or other settings.
 - [ ] Add a mic-meter hotkey so users can calibrate VAD without restarting the app.

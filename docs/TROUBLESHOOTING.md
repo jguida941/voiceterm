@@ -1,50 +1,258 @@
 # Troubleshooting
 
-## Voice not working
+## Quick Fixes
 
-1. Check microphone permissions for your terminal (macOS: System Settings > Privacy & Security > Microphone; Windows: Settings > Privacy & Security > Microphone; Linux: PipeWire/PulseAudio permissions).
-2. Verify a Whisper model exists (or run `./scripts/setup.sh models --base`).
-3. List devices: `codex-voice --list-input-devices`.
-4. Run the mic meter: `codex-voice --mic-meter` to get a recommended VAD threshold.
-5. If you unplug or change microphones while running, restart `codex-voice` to re-detect devices.
+| Problem | Fix (jump to details) |
+|---------|------------------------|
+| No speech detected | See [Status Messages → No speech detected](#no-speech-detected) |
+| Voice not recording | See [Audio Setup → Check microphone permissions](#check-microphone-permissions) |
+| Codex not responding | See [Codex Issues → Codex not responding](#codex-not-responding) |
+| Auto-voice not triggering | See [Codex Issues → Auto-voice not triggering](#auto-voice-not-triggering) |
+| Wrong version after update | See [Install Issues → Wrong version after update](#wrong-version-after-update) |
 
-## Python fallback issues
+Other sections: [Status Messages](#status-messages) · [Audio Setup](#audio-setup) ·
+[Mic Sensitivity](#mic-sensitivity) · [Codex Issues](#codex-issues) ·
+[Install Issues](#install-issues) · [Enabling Logs](#enabling-logs) ·
+[Getting Help](#getting-help)
 
-If the status line shows "Python pipeline" and transcription fails:
+---
 
-- Install `python3`, `ffmpeg`, and the `whisper` CLI.
-- Or force native Whisper only: `./start.sh --no-python-fallback`.
+## Status Messages
 
-## Codex not responding
+### No speech detected
 
-1. Ensure Codex CLI is installed: `which codex`.
-2. Check authentication: `codex login`.
-3. Restart `codex-voice` if the PTY session is stuck.
+The mic recorded but no voice was heard above the threshold.
 
-## Auto-voice not triggering or prompt detection issues
+**Fixes:**
+1. Speak louder or closer to the mic
+2. Lower the threshold: press `Ctrl+\` to make it more sensitive
+3. Run `codex-voice --mic-meter` to calibrate for your environment
 
-- Prompt detection is auto-learned by default. If it guesses wrong, override it:
-  `codex-voice --prompt-regex '^codex> $'`.
-- Enable a prompt log (opt-in) to see detections:
-  `codex-voice --prompt-log /tmp/codex_voice_prompt.log`.
+### Voice capture failed (see log)
 
-## Homebrew link conflict
+The mic couldn't start recording.
 
-If `brew install codex-voice` cannot link because `codex-voice` already exists:
+**Fixes:**
+1. Check mic permissions for your terminal app
+2. Run `codex-voice --list-input-devices` to see available mics
+3. Try a specific device: `codex-voice --input-device "Your Mic Name"`
+4. Enable logs to see details: `codex-voice --logs`
+
+### Voice capture error (see log)
+
+Something went wrong during recording or transcription.
+
+**Fixes:**
+1. Enable logs: `codex-voice --logs`
+2. Check the log at `${TMPDIR}/codex_voice_tui.log`
+3. Restart `codex-voice`
+
+### Processing... (stuck)
+
+Transcription is taking too long.
+
+**Fixes:**
+1. Wait up to 60 seconds (large audio takes time)
+2. If still stuck, press `Ctrl+C` then restart `codex-voice`
+3. Try a smaller Whisper model
+
+### Transcript queue full (oldest dropped)
+
+You spoke 5+ times while Codex was busy. Oldest transcript was discarded.
+
+**Fix:** Wait for Codex to finish before speaking again. Queue flushing is unreliable and tracked in the [backlog](active/BACKLOG.md).
+
+### Voice capture already running
+
+You pressed `Ctrl+R` while already recording.
+
+**Fix:** Wait for the current recording to finish, or enable auto-voice (`Ctrl+V`) so you don't need to press `Ctrl+R`.
+
+### Python pipeline
+
+Native Whisper isn't available, using slower Python fallback. 
+
+**Fixes:**
+1. Verify model exists: `ls models/ggml-*.bin`
+2. Download model: `./scripts/setup.sh models --base`
+3. Or install Python dependencies: `python3`, `ffmpeg`, `whisper` CLI
+
+---
+
+## Audio Setup
+
+### Check microphone permissions
+
+**macOS:** System Settings → Privacy & Security → Microphone → Enable for your terminal app (Terminal, iTerm2, etc.)
+
+**Linux:** Ensure your user has access to PulseAudio/PipeWire. Check with `pactl list sources`.
+
+### Verify Whisper model exists
+
+```bash
+ls models/ggml-*.bin
+```
+
+If missing:
+```bash
+./scripts/setup.sh models --base
+```
+
+### List and select audio devices
+
+```bash
+codex-voice --list-input-devices
+```
+
+Use a specific device:
+```bash
+codex-voice --input-device "MacBook Pro Microphone"
+```
+
+### Microphone changed or unplugged
+
+Restart `codex-voice` after plugging in a new mic. Devices are detected at startup.
+
+---
+
+## Mic Sensitivity
+
+### Too sensitive (picks up background noise)
+
+Press `Ctrl+]` to raise the threshold (less sensitive). Repeat until background noise stops triggering recordings.
+
+Or set it at startup:
+```bash
+codex-voice --voice-vad-threshold-db -30
+```
+
+### Not sensitive enough (misses your voice)
+
+Press `Ctrl+\` to lower the threshold (more sensitive).
+
+Or set it at startup:
+```bash
+codex-voice --voice-vad-threshold-db -50
+```
+
+### Find the right threshold
+
+Run the mic meter to measure your environment:
+```bash
+codex-voice --mic-meter
+```
+
+It samples ambient noise and your speech, then suggests a threshold.
+
+**Range:** -80 dB (very sensitive) to -10 dB (less sensitive). Default: -40 dB.
+
+---
+
+## Codex Issues
+
+### Codex not responding
+
+1. Verify Codex CLI is installed:
+   ```bash
+   which codex
+   ```
+
+2. Check authentication:
+   ```bash
+   codex login
+   ```
+
+3. If the session is stuck, restart `codex-voice`.
+
+---
+
+### Auto-voice not triggering
+
+Auto-voice waits for Codex to show a prompt before listening. If detection fails:
+
+#### Override prompt detection
+
+```bash
+codex-voice --prompt-regex '^codex> $'
+```
+
+Adjust the regex to match your actual prompt.
+
+#### Enable prompt logging
+
+```bash
+codex-voice --prompt-log /tmp/codex_voice_prompt.log
+```
+
+Check the log to see what lines are being detected.
+
+---
+
+## Install Issues
+
+### Homebrew link conflict
+
+If `brew install codex-voice` fails because the command already exists:
 
 ```bash
 brew link --overwrite codex-voice
 ```
 
-## Older version still running
+### Wrong version after update
 
-If `codex-voice` still shows an older version after a brew update, you likely have another
-install earlier in PATH (often `~/.local/bin/codex-voice` from `./install.sh`). See
-[docs/INSTALL.md](INSTALL.md) for the full PATH cleanup steps and Homebrew cache refresh.
+Check for duplicate installs:
+```bash
+which -a codex-voice
+```
 
-## Logs
+Remove or rename the old one (often `~/.local/bin/codex-voice` from `./install.sh`):
+```bash
+mv ~/.local/bin/codex-voice ~/.local/bin/codex-voice.bak
+hash -r
+```
 
-- Logs are disabled by default. Enable them with `codex-voice --logs` (add `--log-content` for prompt/transcript snippets).
-- `--no-logs` disables all logging, including prompt logs.
-- Debug log: `${TMPDIR}/codex_voice_tui.log` (created only when logs are enabled).
-- Prompt log: only when `--prompt-log` or `CODEX_VOICE_PROMPT_LOG` is set (and logs are not disabled).
+See [INSTALL.md](INSTALL.md) for full PATH cleanup steps.
+
+---
+
+## Enabling Logs
+
+Logs are disabled by default for privacy.
+
+### Enable debug logging
+
+```bash
+codex-voice --logs
+```
+
+### Include transcript snippets in logs
+
+```bash
+codex-voice --logs --log-content
+```
+
+### Log file location
+
+Debug log: `${TMPDIR}/codex_voice_tui.log` (only created when `--logs` is enabled)
+
+### Disable all logging
+
+```bash
+codex-voice --no-logs
+```
+
+---
+
+## Getting Help
+
+- **Report bugs:** [GitHub Issues](https://github.com/jguida941/codex-voice/issues)
+- **Check known issues:** [Backlog](active/BACKLOG.md)
+
+## See Also
+
+| Topic | Link |
+|-------|------|
+| Quick Start | [QUICK_START.md](../QUICK_START.md) |
+| Install | [INSTALL.md](INSTALL.md) |
+| Usage | [USAGE.md](USAGE.md) |
+| CLI Flags | [CLI_FLAGS.md](CLI_FLAGS.md) |

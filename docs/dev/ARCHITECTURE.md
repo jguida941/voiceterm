@@ -3,6 +3,31 @@
 This document describes the Rust-only overlay mode. It runs the Codex CLI in a PTY and
 adds voice capture + a minimal status overlay without touching Codex's native UI.
 
+## Contents
+
+- [Goals](#goals)
+- [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
+- [System Overview (Rust Only)](#system-overview-rust-only)
+- [Components](#components)
+- [Threads and Channels](#threads-and-channels)
+- [Startup Sequence](#startup-sequence)
+- [Core Flows](#core-flows)
+- [Overlay State Machine](#overlay-state-machine)
+- [Whisper Integration (Rust)](#whisper-integration-rust)
+- [Voice Error and Fallback Flow](#voice-error-and-fallback-flow)
+- [Logging and privacy](#logging-and-privacy)
+- [STT behavior (non-streaming)](#stt-behavior-non-streaming)
+- [Audio device behavior](#audio-device-behavior)
+- [Timing and Latency](#timing-and-latency)
+- [Safety and External Dependencies](#safety-and-external-dependencies)
+- [Resource Lifecycle](#resource-lifecycle)
+- [Prompt Detection (Auto-Voice)](#prompt-detection-auto-voice)
+- [PTY Handling and Resize](#pty-handling-and-resize)
+- [Output Serialization](#output-serialization)
+- [Key Files](#key-files)
+- [Config Knobs](#config-knobs)
+- [Debugging and Logs](#debugging-and-logs)
+
 ## Goals
 
 - Preserve the **full Codex TUI** (raw ANSI passthrough).
@@ -12,7 +37,7 @@ adds voice capture + a minimal status overlay without touching Codex's native UI
 ## Architecture Decision Records (ADRs)
 
 We track key decisions in ADRs so the rationale stays visible over time. See
-`docs/adr/README.md` for the index, process, and template.
+`docs/dev/adr/README.md` for the index, process, and template.
 
 ## System Overview (Rust Only)
 
@@ -42,12 +67,12 @@ What this means:
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Rust Overlay | `rust_tui/src/bin/codex_overlay.rs` | PTY passthrough UI with voice overlay |
+| Rust Overlay | `rust_tui/src/bin/codex_overlay/main.rs` | PTY passthrough UI with voice overlay |
 | Voice Pipeline | `rust_tui/src/voice.rs` | Audio capture orchestration + STT |
-| PTY Session | `rust_tui/src/pty_session.rs` | Raw PTY passthrough and prompt-safe output |
+| PTY Session | `rust_tui/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
 | Python fallback | `scripts/codex_voice.py` | Optional fallback STT pipeline |
 
-## Threads + Channels
+## Threads and Channels
 
 ```mermaid
 graph TD
@@ -170,7 +195,7 @@ Common setup path:
 - `./scripts/setup.sh models --base` downloads `models/ggml-base.en.bin`.
 - `start.sh` passes `--whisper-model-path` into `codex-voice`.
 
-## Voice Error + Fallback Flow
+## Voice Error and Fallback Flow
 
 ```mermaid
 flowchart TD
@@ -214,7 +239,7 @@ Notes:
 - The input device is chosen at startup.
 - Device hotplug/recovery is not implemented; if the mic disconnects, restart or pick another device.
 
-## Timing + Latency (Voice + Codex)
+## Timing and Latency
 
 ```mermaid
 graph LR
@@ -228,7 +253,7 @@ Timing observability:
 - If `--log-timings` is set, also logs:
   `timing|phase=voice_capture|record_s=...|stt_s=...|chars=...`
 
-## Safety + External Dependencies
+## Safety and External Dependencies
 
 ```mermaid
 graph TD
@@ -245,7 +270,7 @@ Safety constraints in code:
 - `--whisper-model-path` must exist and is canonicalized.
 - Overlay only intercepts control hotkeys; all other bytes go directly to Codex.
 
-## Resource Lifecycle (Startup / Shutdown)
+## Resource Lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -271,7 +296,7 @@ sequenceDiagram
 - Otherwise, **learn** the prompt from the first idle line and match it later.
 - Fallback: if no prompt is known, trigger auto-voice after an idle timeout.
 
-## PTY Handling + Resize
+## PTY Handling and Resize
 
 - `PtyOverlaySession` uses `openpty` and forks Codex into the slave PTY.
 - It **replies to terminal queries** (DSR/DA) but leaves all ANSI intact.
@@ -285,12 +310,12 @@ ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex's screen.
 
 ## Key Files
 
-- `rust_tui/src/bin/codex_overlay.rs` - main loop, input handling, prompt detection (binary: `codex-voice`)
-- `rust_tui/src/pty_session.rs` - raw PTY passthrough + query replies
+- `rust_tui/src/bin/codex_overlay/main.rs` - main loop, input handling, prompt detection (binary: `codex-voice`)
+- `rust_tui/src/pty_session/` - raw PTY passthrough + query replies
 - `rust_tui/src/voice.rs` - voice capture job orchestration
-- `rust_tui/src/audio.rs` - CPAL recorder + VAD
+- `rust_tui/src/audio/` - CPAL recorder + VAD
 - `rust_tui/src/stt.rs` - Whisper transcription
-- `rust_tui/src/config.rs` - CLI flags + validation
+- `rust_tui/src/config/` - CLI flags + validation
 
 ## Config Knobs
 
@@ -301,7 +326,7 @@ ANSI save/restore (`ESC 7` / `ESC 8`) to avoid corrupting Codex's screen.
 - `--prompt-regex` - override prompt detection
 - `CODEX_VOICE_CWD` - run Codex in a chosen project directory
 
-## Debugging + Logs
+## Debugging and Logs
 
 - Logs are opt-in: enable with `--logs` (add `--log-content` for prompt/transcript snippets).
 - Debug log: `${TMPDIR}/codex_voice_tui.log` (created only when logs are enabled).

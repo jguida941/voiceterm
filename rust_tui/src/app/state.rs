@@ -1,18 +1,13 @@
-//! Terminal UI shell for the `codex_voice` pipeline. It mirrors the Python
-//! prototype but wraps it in a full-screen experience driven by `ratatui`.
-
 use std::{
-    env, fs,
-    io::{Read, Write},
-    path::PathBuf,
+    io::Read,
     process::{Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::TryRecvError,
-        Arc, Mutex, OnceLock,
+        Arc, Mutex,
     },
     thread,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use crate::codex::{
@@ -21,20 +16,17 @@ use crate::codex::{
 };
 use crate::config::AppConfig;
 use crate::voice::{self, VoiceCaptureTrigger, VoiceJob, VoiceJobMessage};
-use crate::{audio, stt};
+use crate::{audio, log_debug, stt};
 use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
 
 /// Maximum number of lines to retain in the scrollback buffer.
-const OUTPUT_MAX_LINES: usize = 500;
+pub(super) const OUTPUT_MAX_LINES: usize = 500;
 /// Maximum characters retained in the input buffer.
-const INPUT_MAX_CHARS: usize = 8_000;
+pub(super) const INPUT_MAX_CHARS: usize = 8_000;
 /// Spinner cadence for Codex worker status updates.
 const CODEX_SPINNER_INTERVAL: Duration = Duration::from_millis(150);
-const LOG_MAX_BYTES: u64 = 5 * 1024 * 1024;
-static LOG_ENABLED: AtomicBool = AtomicBool::new(false);
-static LOG_CONTENT_ENABLED: AtomicBool = AtomicBool::new(false);
-static LOG_STATE: OnceLock<Mutex<LogState>> = OnceLock::new();
+
 macro_rules! state_change {
     ($self:expr, $field:ident, $value:expr) => {{
         $self.$field = $value;
@@ -44,127 +36,6 @@ macro_rules! state_change {
         $body
         $self.request_redraw();
     }};
-}
-
-/// Path to the temp log file we rotate between runs.
-pub fn log_file_path() -> PathBuf {
-    env::temp_dir().join("codex_voice_tui.log")
-}
-
-struct LogWriter {
-    path: PathBuf,
-    file: fs::File,
-    max_bytes: u64,
-    bytes_written: u64,
-}
-
-impl LogWriter {
-    fn new(path: PathBuf, max_bytes: u64) -> Option<Self> {
-        let mut bytes_written = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-        if bytes_written > max_bytes {
-            let _ = fs::remove_file(&path);
-            bytes_written = 0;
-        }
-        let file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .ok()?;
-        Some(Self {
-            path,
-            file,
-            max_bytes,
-            bytes_written,
-        })
-    }
-
-    fn rotate_if_needed(&mut self, next_len: usize) {
-        if self.bytes_written.saturating_add(next_len as u64) <= self.max_bytes {
-            return;
-        }
-        if let Ok(file) = fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&self.path)
-        {
-            self.file = file;
-            self.bytes_written = 0;
-        }
-    }
-
-    fn write_line(&mut self, line: &str) {
-        self.rotate_if_needed(line.len());
-        if self.file.write_all(line.as_bytes()).is_ok() {
-            self.bytes_written = self.bytes_written.saturating_add(line.len() as u64);
-        }
-    }
-}
-
-#[derive(Default)]
-struct LogState {
-    writer: Option<LogWriter>,
-}
-
-fn log_state() -> &'static Mutex<LogState> {
-    LOG_STATE.get_or_init(|| Mutex::new(LogState::default()))
-}
-
-/// Configure logging based on CLI flags or environment.
-pub fn init_logging(config: &AppConfig) {
-    let enabled = (config.logs || config.log_timings) && !config.no_logs;
-    let content_enabled = enabled && config.log_content;
-    LOG_ENABLED.store(enabled, Ordering::Relaxed);
-    LOG_CONTENT_ENABLED.store(content_enabled, Ordering::Relaxed);
-
-    let mut state = log_state()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if enabled {
-        state.writer = LogWriter::new(log_file_path(), LOG_MAX_BYTES);
-    } else {
-        state.writer = None;
-    }
-}
-
-/// Write debug messages to a temp file so we can troubleshoot without corrupting the TUI.
-pub fn log_debug(msg: &str) {
-    if !LOG_ENABLED.load(Ordering::Relaxed) {
-        return;
-    }
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let line = format!("[{timestamp}] {msg}\n");
-    let mut state = log_state()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(writer) = state.writer.as_mut() {
-        writer.write_line(&line);
-    }
-}
-
-/// Write logs that may contain user content (prompt/transcript snippets).
-pub fn log_debug_content(msg: &str) {
-    if !LOG_CONTENT_ENABLED.load(Ordering::Relaxed) {
-        return;
-    }
-    log_debug(msg);
-}
-
-#[cfg(test)]
-pub(crate) fn set_logging_for_tests(enabled: bool, content_enabled: bool) {
-    LOG_ENABLED.store(enabled, Ordering::Relaxed);
-    LOG_CONTENT_ENABLED.store(content_enabled, Ordering::Relaxed);
-    let mut state = log_state()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if enabled {
-        state.writer = LogWriter::new(log_file_path(), LOG_MAX_BYTES);
-    } else {
-        state.writer = None;
-    }
 }
 
 /// JSON payload emitted by the Python fallback pipeline; we parse it to reuse the
@@ -345,13 +216,13 @@ pub(crate) fn run_python_transcription(
 /// Central application state shared between the event loop, renderer, and voice worker.
 pub struct App {
     config: AppConfig,
-    input: String,
+    pub(super) input: String,
     output: Vec<String>,
     status: String,
     voice_enabled: bool,
     scroll_offset: u16,
     codex_backend: Arc<dyn CodexBackend>,
-    codex_job: Option<BackendJob>,
+    pub(super) codex_job: Option<BackendJob>,
     codex_spinner_index: usize,
     codex_spinner_last_tick: Option<Instant>,
     needs_redraw: bool,
@@ -408,7 +279,7 @@ impl App {
     }
 
     /// Append output lines while trimming scrollback so the terminal stays snappy on long sessions.
-    fn append_output(&mut self, lines: Vec<String>) {
+    pub(super) fn append_output(&mut self, lines: Vec<String>) {
         self.output.extend(lines);
         if self.output.len() > OUTPUT_MAX_LINES {
             let excess = self.output.len().saturating_sub(OUTPUT_MAX_LINES);
@@ -658,7 +529,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_backend_event(&mut self, event: BackendEvent) -> bool {
+    pub(super) fn handle_backend_event(&mut self, event: BackendEvent) -> bool {
         match event.kind {
             BackendEventKind::Started { .. } => false,
             BackendEventKind::Status { message } => {
@@ -902,271 +773,5 @@ impl App {
     /// Drain any background Codex session output. The backend now owns PTY state so this is a no-op.
     pub(crate) fn drain_persistent_output(&mut self) {
         // Intentionally left blank until the backend exposes a PTY polling hook.
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::codex::{self, BackendEvent, BackendEventKind, BackendStats};
-    use clap::Parser;
-    use std::env;
-    use std::sync::{Mutex, OnceLock};
-    use std::thread;
-    use std::time::{Duration, Instant};
-
-    static LOG_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    fn with_logging_enabled(action: impl FnOnce()) {
-        let _guard = LOG_TEST_LOCK
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .expect("log test lock");
-        set_logging_for_tests(true, false);
-        action();
-        set_logging_for_tests(false, false);
-    }
-
-    fn with_log_lock(action: impl FnOnce()) {
-        let _guard = LOG_TEST_LOCK
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .expect("log test lock");
-        action();
-    }
-
-    fn clear_log_env() {
-        env::remove_var("CODEX_VOICE_LOGS");
-        env::remove_var("CODEX_VOICE_NO_LOGS");
-        env::remove_var("CODEX_VOICE_LOG_CONTENT");
-    }
-
-    fn test_config() -> AppConfig {
-        let mut config = AppConfig::parse_from(["codex-voice-tests"]);
-        config.persistent_codex = false; // Disable PTY in tests
-        config
-    }
-
-    #[test]
-    fn append_output_trims_history() {
-        let config = test_config();
-        let mut app = App::new(config);
-        let lines = (0..600).map(|i| format!("line {i}")).collect();
-        app.append_output(lines);
-        assert!(app.output_lines().len() <= OUTPUT_MAX_LINES);
-    }
-
-    #[test]
-    fn scroll_helpers_update_offset() {
-        let config = test_config();
-        let mut app = App::new(config);
-        app.append_output(vec!["one".into(), "two".into(), "three".into()]);
-        app.page_down();
-        assert_eq!(app.get_scroll_offset(), 10);
-        app.scroll_to_top();
-        assert_eq!(app.get_scroll_offset(), 0);
-    }
-
-    #[test]
-    fn codex_job_completion_updates_ui() {
-        let config = test_config();
-        let mut app = App::new(config);
-        app.input = "test prompt".into();
-        let (_result, hook_guard) = codex::with_job_hook(
-            Box::new(|prompt, _| {
-                vec![BackendEventKind::Finished {
-                    lines: vec![format!("> {prompt}"), String::from("result line")],
-                    status: "ok".into(),
-                    stats: test_stats(),
-                }]
-            }),
-            || {
-                app.send_current_input().unwrap();
-                wait_for_codex_job(&mut app);
-            },
-        );
-        drop(hook_guard);
-        let lines = app.output_lines();
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "> test prompt");
-        assert_eq!(lines[1], "result line");
-        assert_eq!(app.status_text(), "ok");
-        assert!(app.sanitized_input_text().is_empty());
-    }
-
-    #[test]
-    fn codex_job_cancellation_updates_status() {
-        let config = test_config();
-        let mut app = App::new(config);
-        app.input = "test prompt".into();
-        let (_result, hook_guard) = codex::with_job_hook(
-            Box::new(|_, cancel| {
-                let start = Instant::now();
-                while !cancel.is_cancelled() {
-                    if start.elapsed() > Duration::from_millis(200) {
-                        return vec![BackendEventKind::FatalError {
-                            phase: "cancel",
-                            message: "cancel did not propagate".into(),
-                            disable_pty: false,
-                        }];
-                    }
-                    thread::sleep(Duration::from_millis(10));
-                }
-                vec![BackendEventKind::Canceled { disable_pty: false }]
-            }),
-            || {
-                app.send_current_input().unwrap();
-                assert!(app.cancel_codex_job_if_active());
-                wait_for_codex_job(&mut app);
-            },
-        );
-        drop(hook_guard);
-        assert_eq!(app.status_text(), "Codex request canceled.");
-        assert!(!app.cancel_codex_job_if_active());
-    }
-
-    #[test]
-    fn input_and_scroll_changes_request_redraw() {
-        let config = test_config();
-        let mut app = App::new(config);
-        assert!(app.take_redraw_request()); // clear initial draw
-        assert!(!app.take_redraw_request());
-        app.push_input_char('a');
-        assert!(app.take_redraw_request());
-        assert!(!app.take_redraw_request());
-        app.scroll_down();
-        assert!(app.take_redraw_request());
-    }
-
-    #[test]
-    fn fatal_event_updates_status() {
-        let config = test_config();
-        let mut app = App::new(config);
-        app.handle_backend_event(BackendEvent {
-            job_id: 1,
-            kind: BackendEventKind::FatalError {
-                phase: "cli",
-                message: "boom".into(),
-                disable_pty: true,
-            },
-        });
-        assert_eq!(app.status_text(), "Codex failed: boom");
-    }
-
-    #[test]
-    fn perf_smoke_emits_voice_metrics() {
-        with_logging_enabled(|| {
-            let log_path = crate::log_file_path();
-            let _ = std::fs::remove_file(&log_path);
-            let metrics = audio::CaptureMetrics {
-                capture_ms: 800,
-                speech_ms: 600,
-                silence_tail_ms: 200,
-                frames_processed: 5,
-                frames_dropped: 0,
-                early_stop_reason: audio::StopReason::VadSilence { tail_ms: 200 },
-            };
-            voice::log_voice_metrics(&metrics);
-            let contents =
-                std::fs::read_to_string(&log_path).expect("perf smoke log file should exist");
-            assert!(
-                contents.contains("voice_metrics|"),
-                "voice metrics log not found"
-            );
-        });
-    }
-
-    #[test]
-    fn logging_disabled_by_default() {
-        with_log_lock(|| {
-            clear_log_env();
-            let log_path = crate::log_file_path();
-            let _ = std::fs::remove_file(&log_path);
-            let config = AppConfig::parse_from(["codex-voice-tests"]);
-            init_logging(&config);
-            log_debug("should-not-write");
-            assert!(std::fs::metadata(&log_path).is_err());
-        });
-    }
-
-    #[test]
-    fn logging_enabled_writes_log() {
-        with_log_lock(|| {
-            clear_log_env();
-            let log_path = crate::log_file_path();
-            let _ = std::fs::remove_file(&log_path);
-            let mut config = AppConfig::parse_from(["codex-voice-tests"]);
-            config.logs = true;
-            init_logging(&config);
-            log_debug("log-enabled");
-            let contents = std::fs::read_to_string(&log_path).expect("log file should be created");
-            assert!(contents.contains("log-enabled"));
-        });
-    }
-
-    #[test]
-    fn log_content_requires_flag() {
-        with_log_lock(|| {
-            clear_log_env();
-            let log_path = crate::log_file_path();
-            let _ = std::fs::remove_file(&log_path);
-            let mut config = AppConfig::parse_from(["codex-voice-tests"]);
-            config.logs = true;
-            config.log_content = false;
-            init_logging(&config);
-            log_debug_content("secret");
-            let contents = std::fs::read_to_string(&log_path).unwrap_or_default();
-            assert!(
-                !contents.contains("secret"),
-                "content should not be logged without --log-content"
-            );
-        });
-    }
-
-    #[test]
-    fn memory_guard_backend_threads_drop() {
-        let config = test_config();
-        let mut app = App::new(config);
-        app.input = "memory-guard".into();
-        let (_result, hook_guard) = codex::with_job_hook(
-            Box::new(|prompt, _| {
-                vec![BackendEventKind::Finished {
-                    lines: vec![format!("> {prompt}"), String::from("result line")],
-                    status: "ok".into(),
-                    stats: test_stats(),
-                }]
-            }),
-            || {
-                app.send_current_input().unwrap();
-                wait_for_codex_job(&mut app);
-            },
-        );
-        drop(hook_guard);
-        assert_eq!(codex::active_backend_threads(), 0);
-    }
-
-    fn wait_for_codex_job(app: &mut App) {
-        for _ in 0..50 {
-            app.poll_codex_job().unwrap();
-            if app.codex_job.is_none() {
-                return;
-            }
-            thread::sleep(Duration::from_millis(5));
-        }
-        panic!("Codex job did not complete in time");
-    }
-
-    fn test_stats() -> BackendStats {
-        BackendStats {
-            backend_type: "cli",
-            started_at: Instant::now(),
-            first_token_at: None,
-            finished_at: Instant::now(),
-            tokens_received: 0,
-            bytes_transferred: 0,
-            pty_attempts: 0,
-            cli_fallback_used: false,
-            disable_pty: false,
-        }
     }
 }
