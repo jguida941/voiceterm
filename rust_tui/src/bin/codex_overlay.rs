@@ -455,62 +455,6 @@ fn try_flush_pending(
         *last_enter_at = Some(Instant::now());
     }
 }
-                        }
-                        other => {
-                            handle_voice_message(
-                                other,
-                                &config,
-                                &mut session,
-                                &writer_tx,
-                                &mut status_clear_deadline,
-                                auto_voice_enabled,
-                            );
-                        }
-                    }
-                    if auto_voice_enabled && rearm_auto {
-                        // Treat empty/error captures as activity so auto-voice can re-arm after idle.
-                        prompt_tracker.note_activity(now);
-                    }
-                }
-
-                if auto_voice_enabled
-                    && voice_manager.is_idle()
-                    && should_auto_trigger(
-                        &prompt_tracker,
-                        now,
-                        idle_timeout,
-                        last_auto_trigger_at,
-                    )
-                {
-                    if let Err(err) = start_voice_capture(
-                        &mut voice_manager,
-                        VoiceCaptureTrigger::Auto,
-                        &writer_tx,
-                        &mut status_clear_deadline,
-                    ) {
-                        log_debug(&format!("auto voice capture failed: {err:#}"));
-                    } else {
-                        last_auto_trigger_at = Some(now);
-                    }
-                }
-
-                if let Some(deadline) = status_clear_deadline {
-                    if now >= deadline {
-                        let _ = writer_tx.send(WriterMessage::ClearStatus);
-                        status_clear_deadline = None;
-                    }
-                }
-            }
-        }
-    }
-
-    let _ = writer_tx.send(WriterMessage::ClearStatus);
-    let _ = writer_tx.send(WriterMessage::Shutdown);
-    disable_raw_mode()?;
-    log_debug("=== Codex Voice Overlay Exiting ===");
-    Ok(())
-}
-
 fn list_input_devices() -> Result<()> {
     match audio::Recorder::list_devices() {
         Ok(devices) => {

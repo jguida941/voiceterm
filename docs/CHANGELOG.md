@@ -3,6 +3,11 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.15] - 2026-01-29
+
+### Fixes
+- **Overlay build fix**: remove stray duplicate block that broke compilation in `codex_overlay`.
+
 ## [1.0.14] - 2026-01-29
 
 ### UX + Controls

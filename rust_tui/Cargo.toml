@@ -1,6 +1,6 @@
 [package]
 name = "rust_tui"
-version = "1.0.14"
+version = "1.0.15"
 edition = "2021"
 default-run = "rust_tui"
 
