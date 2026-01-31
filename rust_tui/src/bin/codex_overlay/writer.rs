@@ -9,7 +9,7 @@ use crate::status_style::StatusType;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone)]
-struct HelpOverlay {
+struct OverlayPanel {
     content: String,
     height: usize,
 }
@@ -23,14 +23,18 @@ pub(crate) enum WriterMessage {
     },
     /// Enhanced status line with full state
     EnhancedStatus(StatusLineState),
-    /// Help overlay content (multi-line box)
-    HelpOverlay {
+    /// Overlay panel content (multi-line box)
+    ShowOverlay {
         content: String,
         height: usize,
     },
-    /// Clear help overlay
-    ClearHelp,
+    /// Clear overlay panel
+    ClearOverlay,
     ClearStatus,
+    /// Emit terminal bell sound (optional)
+    Bell {
+        count: u8,
+    },
     Resize {
         rows: u16,
         cols: u16,
@@ -46,9 +50,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
         let mut enhanced_status: Option<StatusLineState> = None;
         let mut pending_status: Option<String> = None;
         let mut pending_enhanced: Option<StatusLineState> = None;
-        let mut help_overlay: Option<HelpOverlay> = None;
-        let mut pending_help: Option<HelpOverlay> = None;
-        let mut pending_help_clear = false;
+        let mut overlay_panel: Option<OverlayPanel> = None;
+        let mut pending_overlay: Option<OverlayPanel> = None;
+        let mut pending_overlay_clear = false;
         let mut pending_clear = false;
         let mut needs_redraw = false;
         let mut rows = 0u16;
@@ -64,7 +68,7 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         break;
                     }
                     last_output_at = Instant::now();
-                    if status.is_some() || enhanced_status.is_some() || help_overlay.is_some() {
+                    if status.is_some() || enhanced_status.is_some() || overlay_panel.is_some() {
                         needs_redraw = true;
                     }
                     let _ = stdout.flush();
@@ -82,9 +86,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -105,9 +109,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -115,9 +119,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         theme,
                     });
                 }
-                Ok(WriterMessage::HelpOverlay { content, height }) => {
-                    pending_help = Some(HelpOverlay { content, height });
-                    pending_help_clear = false;
+                Ok(WriterMessage::ShowOverlay { content, height }) => {
+                    pending_overlay = Some(OverlayPanel { content, height });
+                    pending_overlay_clear = false;
                     needs_redraw = true;
                     maybe_redraw_status(StatusRedraw {
                         stdout: &mut stdout,
@@ -127,9 +131,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -137,9 +141,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         theme,
                     });
                 }
-                Ok(WriterMessage::ClearHelp) => {
-                    pending_help = None;
-                    pending_help_clear = true;
+                Ok(WriterMessage::ClearOverlay) => {
+                    pending_overlay = None;
+                    pending_overlay_clear = true;
                     needs_redraw = true;
                     maybe_redraw_status(StatusRedraw {
                         stdout: &mut stdout,
@@ -149,9 +153,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -172,15 +176,20 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
                         last_status_draw_at: &mut last_status_draw_at,
                         theme,
                     });
+                }
+                Ok(WriterMessage::Bell { count }) => {
+                    let sequence = vec![0x07; count.max(1) as usize];
+                    let _ = stdout.write_all(&sequence);
+                    let _ = stdout.flush();
                 }
                 Ok(WriterMessage::Resize { rows: r, cols: c }) => {
                     rows = r;
@@ -189,8 +198,8 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         || enhanced_status.is_some()
                         || pending_status.is_some()
                         || pending_enhanced.is_some()
-                        || help_overlay.is_some()
-                        || pending_help.is_some()
+                        || overlay_panel.is_some()
+                        || pending_overlay.is_some()
                     {
                         needs_redraw = true;
                     }
@@ -202,9 +211,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -214,7 +223,7 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                 }
                 Ok(WriterMessage::SetTheme(new_theme)) => {
                     theme = new_theme;
-                    if status.is_some() || enhanced_status.is_some() || help_overlay.is_some() {
+                    if status.is_some() || enhanced_status.is_some() || overlay_panel.is_some() {
                         needs_redraw = true;
                     }
                 }
@@ -228,9 +237,9 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
                         pending_enhanced: &mut pending_enhanced,
-                        help_overlay: &mut help_overlay,
-                        pending_help: &mut pending_help,
-                        pending_help_clear: &mut pending_help_clear,
+                        overlay_panel: &mut overlay_panel,
+                        pending_overlay: &mut pending_overlay,
+                        pending_overlay_clear: &mut pending_overlay_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
@@ -281,9 +290,9 @@ struct StatusRedraw<'a> {
     enhanced_status: &'a mut Option<StatusLineState>,
     pending_status: &'a mut Option<String>,
     pending_enhanced: &'a mut Option<StatusLineState>,
-    help_overlay: &'a mut Option<HelpOverlay>,
-    pending_help: &'a mut Option<HelpOverlay>,
-    pending_help_clear: &'a mut bool,
+    overlay_panel: &'a mut Option<OverlayPanel>,
+    pending_overlay: &'a mut Option<OverlayPanel>,
+    pending_overlay_clear: &'a mut bool,
     pending_clear: &'a mut bool,
     needs_redraw: &'a mut bool,
     last_output_at: Instant,
@@ -316,15 +325,15 @@ fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
         *ctx.enhanced_status = None;
         *ctx.pending_clear = false;
     }
-    if *ctx.pending_help_clear {
-        if let Some(help) = ctx.help_overlay.as_ref() {
-            let _ = clear_help_overlay(ctx.stdout, *ctx.rows, help.height);
+    if *ctx.pending_overlay_clear {
+        if let Some(panel) = ctx.overlay_panel.as_ref() {
+            let _ = clear_overlay_panel(ctx.stdout, *ctx.rows, panel.height);
         }
-        *ctx.help_overlay = None;
-        *ctx.pending_help_clear = false;
+        *ctx.overlay_panel = None;
+        *ctx.pending_overlay_clear = false;
     }
-    if let Some(help) = ctx.pending_help.take() {
-        *ctx.help_overlay = Some(help);
+    if let Some(panel) = ctx.pending_overlay.take() {
+        *ctx.overlay_panel = Some(panel);
     }
     // Handle enhanced status (takes priority)
     if let Some(state) = ctx.pending_enhanced.take() {
@@ -337,8 +346,8 @@ fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
         *ctx.enhanced_status = None;
     }
     // Render help overlay or status line
-    if let Some(help) = ctx.help_overlay.as_ref() {
-        let _ = write_help_overlay(ctx.stdout, help, *ctx.rows);
+    if let Some(panel) = ctx.overlay_panel.as_ref() {
+        let _ = write_overlay_panel(ctx.stdout, panel, *ctx.rows);
     } else if let Some(state) = ctx.enhanced_status.as_ref() {
         let _ = write_enhanced_status_line(ctx.stdout, state, *ctx.rows, *ctx.cols, ctx.theme);
     } else if let Some(text) = ctx.status.as_deref() {
@@ -412,12 +421,12 @@ fn clear_status_line(stdout: &mut dyn Write, rows: u16, cols: u16) -> io::Result
     stdout.write_all(&sequence)
 }
 
-fn write_help_overlay(stdout: &mut dyn Write, help: &HelpOverlay, rows: u16) -> io::Result<()> {
+fn write_overlay_panel(stdout: &mut dyn Write, panel: &OverlayPanel, rows: u16) -> io::Result<()> {
     if rows == 0 {
         return Ok(());
     }
-    let lines: Vec<&str> = help.content.lines().collect();
-    let height = help.height.min(lines.len()).min(rows as usize);
+    let lines: Vec<&str> = panel.content.lines().collect();
+    let height = panel.height.min(lines.len()).min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
     let mut sequence = Vec::new();
     sequence.extend_from_slice(b"\x1b7");
@@ -431,7 +440,7 @@ fn write_help_overlay(stdout: &mut dyn Write, help: &HelpOverlay, rows: u16) -> 
     stdout.write_all(&sequence)
 }
 
-fn clear_help_overlay(stdout: &mut dyn Write, rows: u16, height: usize) -> io::Result<()> {
+fn clear_overlay_panel(stdout: &mut dyn Write, rows: u16, height: usize) -> io::Result<()> {
     if rows == 0 {
         return Ok(());
     }

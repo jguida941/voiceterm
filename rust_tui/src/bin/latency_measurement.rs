@@ -171,7 +171,7 @@ fn measure_single_run(
     eprintln!("Starting voice capture...");
     let t0 = Instant::now();
 
-    let job = voice::start_voice_job(recorder, transcriber, config.clone());
+    let job = voice::start_voice_job(recorder, transcriber, config.clone(), None);
     let message = wait_for_voice_job(job)?;
 
     let t1 = Instant::now();

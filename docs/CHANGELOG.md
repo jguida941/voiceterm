@@ -3,6 +3,20 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.28] - 2026-01-31
+
+### UX + Visuals
+- Theme picker overlay (Ctrl+Y) with numbered selection.
+- Live waveform + dB meter during recording in the status line.
+- Transcript preview snippet shown briefly after transcription.
+- Help/status shortcuts refreshed; overlay panels follow the active theme.
+
+### Audio Feedback
+- Optional notification sounds: `--sounds`, `--sound-on-complete`, `--sound-on-error`.
+
+### Docs
+- Updated usage, quick start, CLI flags, README, and startup controls to match the new options.
+
 ## [1.0.27] - 2026-01-31
 
 ### UX + Visuals

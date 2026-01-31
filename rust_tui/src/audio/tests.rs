@@ -530,7 +530,7 @@ fn record_with_vad_stub_returns_metrics() {
     let mut vad = MockVad;
     let cfg = VadConfig::default();
     let result = recorder
-        .record_with_vad(&cfg, &mut vad, None)
+        .record_with_vad(&cfg, &mut vad, None, None)
         .expect("stub should produce a CaptureResult");
     assert!(result.audio.is_empty());
     assert_eq!(result.metrics.frames_processed, 0);

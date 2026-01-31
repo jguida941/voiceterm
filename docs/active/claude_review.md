@@ -1,17 +1,21 @@
-# Release Review: 1.0.27 (2026-01-31)
+# Release Review: 1.0.28 (2026-01-31)
 
 ## Summary
-- Updated launcher tables to surface help overlay and theme options.
-- Documented overlay visual system in architecture docs.
-- Added modularization audit plan doc for reference.
+- Theme picker overlay with numbered selection.
+- Live waveform + dB meter and transcript preview in the status line.
+- Optional notification sounds and refreshed shortcut tables.
 
 ## Reviewed areas
-- `start.sh` startup tables and theme/help messaging.
-- Architecture doc alignment with overlay visuals.
-- Release version bump for Cargo.toml and Info.plist.
+- Overlay runtime (`rust_tui/src/bin/codex_overlay/main.rs`, `rust_tui/src/bin/codex_overlay/status_line.rs`).
+- Overlay panels and IO (`rust_tui/src/bin/codex_overlay/writer.rs`, `rust_tui/src/bin/codex_overlay/theme_picker.rs`).
+- Config + docs (`rust_tui/src/config/mod.rs`, `docs/CLI_FLAGS.md`, `docs/USAGE.md`).
+- Release metadata (`rust_tui/Cargo.toml`, `Codex Voice.app/Contents/Info.plist`).
 
 ## Verification
 - `cd rust_tui && cargo build --release --bin codex-voice`
+- `cd rust_tui && cargo clippy --workspace --all-features -- -D warnings`
+- `cd rust_tui && cargo test`
 
 ## Notes / risks
-- Help overlay is triggered with `?` after the overlay starts (launcher screen is static).
+- Terminal bell output depends on user terminal settings (may be muted).
+- Theme selection is session-only (no persistence).

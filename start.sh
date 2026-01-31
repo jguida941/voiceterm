@@ -116,9 +116,10 @@ print_controls_table_wide() {
 
     for row in \
         "Ctrl+R|Record (push-to-talk)|Ctrl+V|Toggle auto-voice" \
-        "Ctrl+T|Toggle send mode|?|Show help overlay" \
-        "Ctrl+]|Mic sensitivity +5 dB|Ctrl+\\|Mic sensitivity -5 dB" \
-        "Ctrl+Q|Quit overlay|Ctrl+C|Cancel / forward to Codex"; do
+        "Ctrl+T|Toggle send mode|Ctrl+Y|Theme picker" \
+        "?|Show help overlay|Ctrl+]|Mic sensitivity +5 dB" \
+        "Ctrl+\\|Mic sensitivity -5 dB|Ctrl+Q|Quit overlay" \
+        "Ctrl+C|Cancel / forward to Codex|Enter|Send prompt / Stop recording"; do
         IFS='|' read -r key_left action_left key_right action_right <<< "$row"
         key_left="$(truncate "$key_left" "$col_key")"
         action_left="$(truncate "$action_left" "$col_action")"
@@ -154,9 +155,11 @@ print_controls_table_narrow() {
         "Ctrl+R|Record (push-to-talk)" \
         "Ctrl+V|Toggle auto-voice" \
         "Ctrl+T|Toggle send mode" \
+        "Ctrl+Y|Theme picker" \
         "?|Show help overlay" \
         "Ctrl+]|Mic sensitivity +5 dB" \
         "Ctrl+\\|Mic sensitivity -5 dB" \
+        "Enter|Send prompt / Stop recording" \
         "Ctrl+C|Cancel / forward to Codex" \
         "Ctrl+Q|Quit overlay"; do
         IFS='|' read -r key action <<< "$row"

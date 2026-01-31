@@ -532,7 +532,7 @@ Components:
 - Current dB level
 - Recording duration
 
-**Status**: Not yet wired into the live overlay capture loop.
+**Status**: Implemented in the overlay status line (live waveform + dB during recording).
 
 ### Missing: Transcript Preview
 
@@ -542,6 +542,8 @@ Components:
 ```
 ◐ Processing... "Hello, can you help me with..."
 ```
+
+**Status**: Implemented as a short preview snippet after transcription completes.
 
 ### Missing: Mode Indicators in Prompt
 
@@ -560,6 +562,8 @@ Components:
 - Beep on transcript complete
 - Different tone for error
 - Configurable via `--sound-on-complete`, `--sound-on-error`
+
+**Status**: Implemented in the overlay (terminal bell).
 
 ### Additional Widget Ideas
 

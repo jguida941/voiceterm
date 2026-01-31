@@ -10,6 +10,9 @@ use super::dispatch::append_downmixed_samples;
 #[cfg(not(test))]
 use super::dispatch::FrameDispatcher;
 #[cfg(not(test))]
+use super::meter::rms_db;
+use super::meter::LiveMeter;
+#[cfg(not(test))]
 use super::resample::convert_frame_to_target;
 use super::resample::resample_to_target_rate;
 #[cfg(not(test))]
@@ -176,8 +179,9 @@ impl Recorder {
         cfg: &VadConfig,
         vad: &mut dyn VadEngine,
         stop_flag: Option<Arc<AtomicBool>>,
+        meter: Option<LiveMeter>,
     ) -> Result<CaptureResult> {
-        record_with_vad_impl(self, cfg, vad, stop_flag)
+        record_with_vad_impl(self, cfg, vad, stop_flag, meter)
     }
 
     #[cfg(test)]
@@ -186,6 +190,7 @@ impl Recorder {
         _cfg: &VadConfig,
         _vad: &mut dyn VadEngine,
         _stop_flag: Option<Arc<AtomicBool>>,
+        _meter: Option<LiveMeter>,
     ) -> Result<CaptureResult> {
         Ok(CaptureResult {
             audio: Vec::new(),
@@ -233,6 +238,7 @@ fn record_with_vad_impl(
     cfg: &VadConfig,
     vad: &mut dyn VadEngine,
     stop_flag: Option<Arc<AtomicBool>>,
+    meter: Option<LiveMeter>,
 ) -> Result<CaptureResult> {
     let default_config = recorder.device.default_input_config()?;
     let format = default_config.sample_format();
@@ -334,6 +340,10 @@ fn record_with_vad_impl(
                     continue;
                 }
 
+                if let Some(ref meter) = meter {
+                    meter.set_db(rms_db(&target_frame));
+                }
+
                 let decision = vad.process_frame(&target_frame);
                 metrics.frames_processed += 1;
 
@@ -361,6 +371,9 @@ fn record_with_vad_impl(
         log_debug(&format!("failed to pause audio stream: {err}"));
     }
     drop(stream);
+    if let Some(ref meter) = meter {
+        meter.set_db(-60.0);
+    }
 
     metrics.speech_ms = state.speech_ms();
     metrics.silence_tail_ms = state.silence_tail_ms();

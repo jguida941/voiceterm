@@ -40,6 +40,7 @@ First run downloads a Whisper model if missing.
 - `Ctrl+R` - start voice capture
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
+- `Ctrl+Y` - open theme picker
 - `Ctrl+]` - increase mic threshold by 5 dB (less sensitive)
 - `Ctrl+\` - decrease mic threshold by 5 dB (more sensitive; `Ctrl+/` also works)
 - `?` - show shortcut help

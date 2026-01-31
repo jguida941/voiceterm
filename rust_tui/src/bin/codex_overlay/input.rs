@@ -12,6 +12,7 @@ pub(crate) enum InputEvent {
     IncreaseSensitivity,
     DecreaseSensitivity,
     HelpToggle,
+    ThemePicker,
     EnterKey,
     Exit,
 }
@@ -98,6 +99,10 @@ impl InputParser {
                 0x1f => {
                     self.flush_pending(out);
                     out.push(InputEvent::DecreaseSensitivity);
+                }
+                0x19 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::ThemePicker);
                 }
                 b'?' => {
                     self.flush_pending(out);
@@ -217,6 +222,15 @@ mod tests {
                 InputEvent::DecreaseSensitivity,
             ]
         );
+    }
+
+    #[test]
+    fn input_parser_maps_theme_picker() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(&[0x19], &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::ThemePicker]);
     }
 
     #[test]

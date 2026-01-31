@@ -22,6 +22,7 @@ mod session_stats;
 mod status_line;
 mod status_style;
 mod theme;
+mod theme_picker;
 mod transcript;
 mod voice_control;
 mod writer;
@@ -50,6 +51,8 @@ use crate::prompt::{
 };
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::status_line::{Pipeline, RecordingState, StatusLineState, VoiceMode};
+use crate::theme::Theme;
+use crate::theme_picker::{format_theme_picker, theme_picker_height, THEME_OPTIONS};
 use crate::transcript::{
     deliver_transcript, push_pending_transcript, transcript_ready, try_flush_pending,
     PendingTranscript, TranscriptIo,
@@ -66,6 +69,18 @@ const WRITER_CHANNEL_CAPACITY: usize = 512;
 /// Max pending input events before backpressure.
 const INPUT_CHANNEL_CAPACITY: usize = 256;
 
+const METER_HISTORY_MAX: usize = 24;
+const METER_UPDATE_MS: u64 = 80;
+const PREVIEW_CLEAR_MS: u64 = 3000;
+const TRANSCRIPT_PREVIEW_MAX: usize = 60;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OverlayMode {
+    None,
+    Help,
+    ThemePicker,
+}
+
 /// Signal handler for terminal resize events.
 ///
 /// Sets a flag that the main loop checks to update PTY dimensions.
@@ -76,7 +91,9 @@ extern "C" fn handle_sigwinch(_: libc::c_int) {
 
 fn main() -> Result<()> {
     let mut config = OverlayConfig::parse();
-    let theme = config.theme();
+    let sound_on_complete = config.app.sounds || config.app.sound_on_complete;
+    let sound_on_error = config.app.sounds || config.app.sound_on_error;
+    let mut theme = config.theme();
     if config.app.list_input_devices {
         list_input_devices()?;
         return Ok(());
@@ -154,6 +171,7 @@ fn main() -> Result<()> {
     let auto_idle_timeout = Duration::from_millis(config.auto_voice_idle_ms.max(100));
     let transcript_idle_timeout = Duration::from_millis(config.transcript_idle_ms.max(50));
     let mut voice_manager = VoiceManager::new(config.app.clone());
+    let live_meter = voice_manager.meter();
     let mut auto_voice_enabled = config.auto_voice;
     let mut status_state = StatusLineState::new();
     status_state.sensitivity_db = config.app.voice_vad_threshold_db;
@@ -174,7 +192,10 @@ fn main() -> Result<()> {
     let mut last_recording_duration = 0.0_f32;
     let mut processing_spinner_index = 0usize;
     let mut last_processing_tick = Instant::now();
-    let mut help_visible = false;
+    let mut overlay_mode = OverlayMode::None;
+    let mut meter_levels: VecDeque<f32> = VecDeque::with_capacity(METER_HISTORY_MAX);
+    let mut last_meter_update = Instant::now();
+    let mut preview_clear_deadline: Option<Instant> = None;
     let mut session_stats = SessionStats::new();
 
     if auto_voice_enabled {
@@ -197,8 +218,15 @@ fn main() -> Result<()> {
             ) {
                 log_debug(&format!("auto voice capture failed: {err:#}"));
             } else {
-                last_auto_trigger_at = Some(Instant::now());
-                recording_started_at = Some(Instant::now());
+                let now = Instant::now();
+                last_auto_trigger_at = Some(now);
+                recording_started_at = Some(now);
+                reset_capture_visuals(
+                    &mut meter_levels,
+                    &mut status_state,
+                    &mut preview_clear_deadline,
+                    &mut last_meter_update,
+                );
             }
         }
     }
@@ -209,27 +237,89 @@ fn main() -> Result<()> {
             recv(input_rx) -> event => {
                 match event {
                     Ok(evt) => {
-                        if help_visible {
-                            match evt {
-                                InputEvent::Exit => running = false,
-                                _ => {
-                                    help_visible = false;
-                                    let _ = writer_tx.send(WriterMessage::ClearHelp);
+                        if overlay_mode != OverlayMode::None {
+                            match (overlay_mode, evt) {
+                                (_, InputEvent::Exit) => running = false,
+                                (OverlayMode::Help, InputEvent::HelpToggle) => {
+                                    overlay_mode = OverlayMode::None;
+                                    let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                }
+                                (OverlayMode::Help, InputEvent::ThemePicker) => {
+                                    let cols = resolved_cols(terminal_cols);
+                                    let content = format_theme_picker(theme, cols as usize);
+                                    let height = theme_picker_height();
+                                    let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                                    overlay_mode = OverlayMode::ThemePicker;
+                                }
+                                (OverlayMode::ThemePicker, InputEvent::HelpToggle) => {
+                                    let cols = resolved_cols(terminal_cols);
+                                    let content = format_help_overlay(theme, cols as usize);
+                                    let height = help_overlay_height();
+                                    let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                                    overlay_mode = OverlayMode::Help;
+                                }
+                                (OverlayMode::ThemePicker, InputEvent::ThemePicker) => {
+                                    overlay_mode = OverlayMode::None;
+                                    let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                }
+                                (OverlayMode::ThemePicker, InputEvent::EnterKey) => {
+                                    overlay_mode = OverlayMode::None;
+                                    let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                }
+                                (OverlayMode::ThemePicker, InputEvent::Bytes(bytes)) => {
+                                    if bytes.contains(&0x1b) {
+                                        overlay_mode = OverlayMode::None;
+                                        let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                    } else if let Some(idx) = bytes.iter().find_map(|b| theme_index_from_byte(*b)) {
+                                        if let Some((name, _)) = THEME_OPTIONS.get(idx) {
+                                            if let Some(requested) = Theme::from_name(name) {
+                                                config.theme_name = Some(name.to_string());
+                                                let (resolved, note) = resolve_theme_choice(&config, requested);
+                                                theme = resolved;
+                                                let _ = writer_tx.send(WriterMessage::SetTheme(theme));
+                                                let mut status = if resolved == Theme::None && requested != Theme::None {
+                                                    "Theme set: none".to_string()
+                                                } else {
+                                                    format!("Theme set: {name}")
+                                                };
+                                                if let Some(note) = note {
+                                                    status = format!("{status} ({note})");
+                                                }
+                                                set_status(
+                                                    &writer_tx,
+                                                    &mut status_clear_deadline,
+                                                    &mut current_status,
+                                                    &mut status_state,
+                                                    &status,
+                                                    Some(Duration::from_secs(2)),
+                                                );
+                                                overlay_mode = OverlayMode::None;
+                                                let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                            }
+                                        }
+                                    }
+                                }
+                                (_, _) => {
+                                    overlay_mode = OverlayMode::None;
+                                    let _ = writer_tx.send(WriterMessage::ClearOverlay);
                                 }
                             }
                             continue;
                         }
                         match evt {
                             InputEvent::HelpToggle => {
-                                let cols = if terminal_cols == 0 {
-                                    terminal_size().map(|(c, _)| c).unwrap_or(80)
-                                } else {
-                                    terminal_cols
-                                };
+                                let cols = resolved_cols(terminal_cols);
                                 let content = format_help_overlay(theme, cols as usize);
                                 let height = help_overlay_height();
-                                let _ = writer_tx.send(WriterMessage::HelpOverlay { content, height });
-                                help_visible = true;
+                                let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                                overlay_mode = OverlayMode::Help;
+                            }
+                            InputEvent::ThemePicker => {
+                                let cols = resolved_cols(terminal_cols);
+                                let content = format_theme_picker(theme, cols as usize);
+                                let height = theme_picker_height();
+                                let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                                overlay_mode = OverlayMode::ThemePicker;
                             }
                             InputEvent::Bytes(bytes) => {
                                 if let Err(err) = session.send_bytes(&bytes) {
@@ -257,6 +347,12 @@ fn main() -> Result<()> {
                                     log_debug(&format!("voice capture failed: {err:#}"));
                                 } else {
                                     recording_started_at = Some(Instant::now());
+                                    reset_capture_visuals(
+                                        &mut meter_levels,
+                                        &mut status_state,
+                                        &mut preview_clear_deadline,
+                                        &mut last_meter_update,
+                                    );
                                 }
                             }
                             InputEvent::ToggleAutoVoice => {
@@ -302,8 +398,15 @@ fn main() -> Result<()> {
                                     ) {
                                         log_debug(&format!("auto voice capture failed: {err:#}"));
                                     } else {
-                                        last_auto_trigger_at = Some(Instant::now());
-                                        recording_started_at = Some(Instant::now());
+                                        let now = Instant::now();
+                                        last_auto_trigger_at = Some(now);
+                                        recording_started_at = Some(now);
+                                        reset_capture_visuals(
+                                            &mut meter_levels,
+                                            &mut status_state,
+                                            &mut preview_clear_deadline,
+                                            &mut last_meter_update,
+                                        );
                                     }
                                 }
                             }
@@ -437,10 +540,18 @@ fn main() -> Result<()> {
                         terminal_cols = cols;
                         let _ = session.set_winsize(rows, cols);
                         let _ = writer_tx.send(WriterMessage::Resize { rows, cols });
-                        if help_visible {
-                            let content = format_help_overlay(theme, cols as usize);
-                            let height = help_overlay_height();
-                            let _ = writer_tx.send(WriterMessage::HelpOverlay { content, height });
+                        match overlay_mode {
+                            OverlayMode::Help => {
+                                let content = format_help_overlay(theme, cols as usize);
+                                let height = help_overlay_height();
+                                let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                            }
+                            OverlayMode::ThemePicker => {
+                                let content = format_theme_picker(theme, cols as usize);
+                                let height = theme_picker_height();
+                                let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+                            }
+                            OverlayMode::None => {}
                         }
                     }
                 }
@@ -461,6 +572,29 @@ fn main() -> Result<()> {
                 } else if status_state.recording_duration.is_some() {
                     status_state.recording_duration = None;
                     last_recording_duration = 0.0;
+                    send_enhanced_status(&writer_tx, &status_state);
+                }
+
+                if status_state.recording_state == RecordingState::Recording {
+                    if now.duration_since(last_meter_update) >= Duration::from_millis(METER_UPDATE_MS)
+                    {
+                        let level = live_meter.level_db();
+                        meter_levels.push_back(level);
+                        if meter_levels.len() > METER_HISTORY_MAX {
+                            meter_levels.pop_front();
+                        }
+                        status_state.meter_db = Some(level);
+                        status_state.meter_levels.clear();
+                        status_state
+                            .meter_levels
+                            .extend(meter_levels.iter().copied());
+                        last_meter_update = now;
+                        send_enhanced_status(&writer_tx, &status_state);
+                    }
+                } else if !meter_levels.is_empty() || status_state.meter_db.is_some() {
+                    meter_levels.clear();
+                    status_state.meter_levels.clear();
+                    status_state.meter_db = None;
                     send_enhanced_status(&writer_tx, &status_state);
                 }
 
@@ -502,6 +636,15 @@ fn main() -> Result<()> {
                                 VoiceCaptureSource::Native => Pipeline::Rust,
                                 VoiceCaptureSource::Python => Pipeline::Python,
                             };
+                            let preview = format_transcript_preview(&text, TRANSCRIPT_PREVIEW_MAX);
+                            if preview.is_empty() {
+                                status_state.transcript_preview = None;
+                                preview_clear_deadline = None;
+                            } else {
+                                status_state.transcript_preview = Some(preview);
+                                preview_clear_deadline =
+                                    Some(now + Duration::from_millis(PREVIEW_CLEAR_MS));
+                            }
                             let drop_note = metrics
                                 .as_ref()
                                 .filter(|metrics| metrics.frames_dropped > 0)
@@ -599,10 +742,22 @@ fn main() -> Result<()> {
                                 } else {
                                     last_auto_trigger_at = Some(now);
                                     recording_started_at = Some(now);
+                                    reset_capture_visuals(
+                                        &mut meter_levels,
+                                        &mut status_state,
+                                        &mut preview_clear_deadline,
+                                        &mut last_meter_update,
+                                    );
                                 }
+                            }
+                            if sound_on_complete {
+                                let _ = writer_tx.send(WriterMessage::Bell { count: 1 });
                             }
                         }
                         other => {
+                            if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
+                                let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
+                            }
                             handle_voice_message(
                                 other,
                                 &config,
@@ -664,6 +819,22 @@ fn main() -> Result<()> {
                     } else {
                         last_auto_trigger_at = Some(now);
                         recording_started_at = Some(now);
+                        reset_capture_visuals(
+                            &mut meter_levels,
+                            &mut status_state,
+                            &mut preview_clear_deadline,
+                            &mut last_meter_update,
+                        );
+                    }
+                }
+
+                if let Some(deadline) = preview_clear_deadline {
+                    if now >= deadline {
+                        preview_clear_deadline = None;
+                        if status_state.transcript_preview.is_some() {
+                            status_state.transcript_preview = None;
+                            send_enhanced_status(&writer_tx, &status_state);
+                        }
                     }
                 }
 
@@ -692,6 +863,83 @@ fn main() -> Result<()> {
     }
     log_debug("=== Codex Voice Overlay Exiting ===");
     Ok(())
+}
+
+fn resolved_cols(cached: u16) -> u16 {
+    if cached == 0 {
+        terminal_size().map(|(c, _)| c).unwrap_or(80)
+    } else {
+        cached
+    }
+}
+
+fn theme_index_from_byte(byte: u8) -> Option<usize> {
+    if (b'1'..=b'9').contains(&byte) {
+        Some((byte - b'1') as usize)
+    } else {
+        None
+    }
+}
+
+fn resolve_theme_choice(config: &OverlayConfig, requested: Theme) -> (Theme, Option<&'static str>) {
+    if config.no_color || std::env::var("NO_COLOR").is_ok() {
+        return (Theme::None, Some("colors disabled"));
+    }
+    let mode = config.color_mode();
+    if !mode.supports_color() {
+        return (Theme::None, Some("no color support"));
+    }
+    if !mode.supports_truecolor() {
+        let resolved = requested.fallback_for_ansi();
+        if resolved != requested {
+            return (resolved, Some("ansi fallback"));
+        }
+        return (resolved, None);
+    }
+    (requested, None)
+}
+
+fn reset_capture_visuals(
+    meter_levels: &mut VecDeque<f32>,
+    status_state: &mut StatusLineState,
+    preview_clear_deadline: &mut Option<Instant>,
+    last_meter_update: &mut Instant,
+) {
+    meter_levels.clear();
+    status_state.meter_levels.clear();
+    status_state.meter_db = None;
+    status_state.transcript_preview = None;
+    *preview_clear_deadline = None;
+    *last_meter_update = Instant::now();
+}
+
+fn format_transcript_preview(text: &str, max_len: usize) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let mut collapsed = String::new();
+    let mut last_space = false;
+    for ch in trimmed.chars() {
+        if ch.is_whitespace() || ch.is_ascii_control() {
+            if !last_space {
+                collapsed.push(' ');
+                last_space = true;
+            }
+        } else {
+            collapsed.push(ch);
+            last_space = false;
+        }
+    }
+    let cleaned = collapsed.trim();
+    let max_len = max_len.max(4);
+    if cleaned.chars().count() > max_len {
+        let keep = max_len.saturating_sub(3);
+        let prefix: String = cleaned.chars().take(keep).collect();
+        format!("{prefix}...")
+    } else {
+        cleaned.to_string()
+    }
 }
 
 fn list_input_devices() -> Result<()> {

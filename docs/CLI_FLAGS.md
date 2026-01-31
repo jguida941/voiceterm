@@ -29,6 +29,9 @@ Tip: run `codex-voice --help` or `rust_tui --help` for the live CLI output.
 | `--prompt-log <PATH>` | Prompt detection log path | unset (disabled) |
 | `--theme <NAME>` | Status line theme (`coral`, `catppuccin`, `dracula`, `nord`, `ansi`, `none`) | coral |
 | `--no-color` | Disable status line colors | off |
+| `--sounds` | Enable notification sounds (terminal bell) | off |
+| `--sound-on-complete` | Beep when a transcript completes | off |
+| `--sound-on-error` | Beep on voice capture errors | off |
 
 Prompt detection notes:
 - If `--prompt-regex` is not set, the overlay auto-learns the prompt line after output goes idle.
@@ -121,6 +124,14 @@ Prompt detection notes:
 | `--persistent-codex` | Keep a persistent Codex PTY session | off |
 | `--claude-skip-permissions` | Allow Claude CLI to run without permission prompts | off |
 | `--claude-cmd <PATH>` | Path to Claude CLI binary | claude |
+
+### Notifications (shared flags)
+
+| Flag | Purpose | Default |
+|------|---------|---------|
+| `--sounds` | Enable notification sounds (terminal bell) | off |
+| `--sound-on-complete` | Beep when a transcript completes | off |
+| `--sound-on-error` | Beep on voice capture errors | off |
 
 ### Logging (shared flags)
 

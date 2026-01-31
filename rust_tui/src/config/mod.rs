@@ -67,6 +67,18 @@ pub struct AppConfig {
     #[arg(long = "mic-meter-speech-ms", default_value_t = DEFAULT_MIC_METER_SPEECH_MS)]
     pub mic_meter_speech_ms: u64,
 
+    /// Enable notification sounds (terminal bell)
+    #[arg(long = "sounds", default_value_t = false)]
+    pub sounds: bool,
+
+    /// Play a sound when a transcript completes
+    #[arg(long = "sound-on-complete", default_value_t = false)]
+    pub sound_on_complete: bool,
+
+    /// Play a sound when a voice capture error occurs
+    #[arg(long = "sound-on-error", default_value_t = false)]
+    pub sound_on_error: bool,
+
     /// Enable persistent Codex PTY session (captures full TUI, use --persistent-codex to enable)
     #[arg(long = "persistent-codex", default_value_t = false)]
     pub persistent_codex: bool,

@@ -25,6 +25,7 @@ pub(crate) struct VoiceManager {
     job: Option<voice::VoiceJob>,
     cancel_pending: bool,
     active_source: Option<VoiceCaptureSource>,
+    live_meter: audio::LiveMeter,
 }
 
 impl VoiceManager {
@@ -36,6 +37,7 @@ impl VoiceManager {
             job: None,
             cancel_pending: false,
             active_source: None,
+            live_meter: audio::LiveMeter::new(),
         }
     }
 
@@ -54,6 +56,10 @@ impl VoiceManager {
 
     pub(crate) fn active_source(&self) -> Option<VoiceCaptureSource> {
         self.active_source
+    }
+
+    pub(crate) fn meter(&self) -> audio::LiveMeter {
+        self.live_meter.clone()
     }
 
     /// Cancel any running voice capture. Returns true if a capture was cancelled.
@@ -120,7 +126,12 @@ impl VoiceManager {
         };
 
         let using_native = using_native_pipeline(transcriber.is_some(), recorder.is_some());
-        let job = voice::start_voice_job(recorder, transcriber.clone(), self.config.clone());
+        let job = voice::start_voice_job(
+            recorder,
+            transcriber.clone(),
+            self.config.clone(),
+            Some(self.live_meter.clone()),
+        );
         self.job = Some(job);
         self.cancel_pending = false;
         self.active_source = Some(if using_native {

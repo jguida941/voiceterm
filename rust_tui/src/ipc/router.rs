@@ -253,6 +253,7 @@ pub(super) fn handle_start_voice(state: &mut IpcState) {
         state.recorder.clone(),
         state.transcriber.clone(),
         state.config.clone(),
+        None,
     );
     state.current_voice_job = Some(job);
 }

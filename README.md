@@ -56,9 +56,11 @@ First run downloads the Whisper model.
 | `Ctrl+R` | Record voice |
 | `Ctrl+V` | Toggle auto-voice (hands-free mode) |
 | `Ctrl+T` | Toggle auto-send vs manual send |
+| `Ctrl+Y` | Theme picker |
 | `Ctrl+]` | Mic sensitivity up |
 | `Ctrl+\` | Mic sensitivity down (also `Ctrl+/`) |
 | `?` | Show shortcut help |
+| `Enter` | Stop recording early (insert mode) / send prompt |
 | `Ctrl+Q` | Quit |
 | `Ctrl+C` | Send interrupt to Codex |
 

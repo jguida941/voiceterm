@@ -3,6 +3,7 @@
 //! Provides a structured status line with mode indicator, pipeline info,
 //! sensitivity level, status message, and keyboard shortcuts.
 
+use crate::audio_meter::format_waveform;
 use crate::status_style::StatusType;
 use crate::theme::{Theme, ThemeColors};
 
@@ -84,6 +85,12 @@ pub struct StatusLineState {
     pub recording_duration: Option<f32>,
     /// Whether auto-voice is enabled
     pub auto_voice_enabled: bool,
+    /// Recent audio meter samples in dBFS for waveform display
+    pub meter_levels: Vec<f32>,
+    /// Latest audio meter level in dBFS
+    pub meter_db: Option<f32>,
+    /// Optional transcript preview snippet
+    pub transcript_preview: Option<String>,
 }
 
 impl StatusLineState {
@@ -96,10 +103,22 @@ impl StatusLineState {
 }
 
 /// Keyboard shortcuts to display.
-const SHORTCUTS: &[(&str, &str)] = &[("Ctrl+R", "rec"), ("Ctrl+V", "auto")];
+const SHORTCUTS: &[(&str, &str)] = &[
+    ("Ctrl+R", "rec"),
+    ("Ctrl+V", "auto"),
+    ("Ctrl+T", "send"),
+    ("?", "help"),
+    ("Ctrl+Y", "theme"),
+];
 
 /// Compact shortcuts for narrow terminals.
-const SHORTCUTS_COMPACT: &[(&str, &str)] = &[("^R", "rec"), ("^V", "auto")];
+const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
+    ("^R", "rec"),
+    ("^V", "auto"),
+    ("^T", "send"),
+    ("?", "help"),
+    ("^Y", "theme"),
+];
 
 /// Terminal width breakpoints for responsive layout.
 mod breakpoints {
@@ -124,7 +143,7 @@ pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -
 
     if width < breakpoints::COMPACT {
         // Compact: indicator + message only
-        return format_compact(state, &colors, width);
+        return format_compact(state, &colors, theme, width);
     }
 
     // Build sections based on available width
@@ -142,7 +161,7 @@ pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -
         String::new()
     };
 
-    let center = format_message(state, &colors);
+    let center = format_message(state, &colors, theme, width);
 
     // Calculate display widths (excluding ANSI codes)
     let left_width = display_width(&left);
@@ -219,7 +238,12 @@ fn format_minimal(state: &StatusLineState, colors: &ThemeColors, width: usize) -
 }
 
 /// Format compact status for narrow terminals.
-fn format_compact(state: &StatusLineState, colors: &ThemeColors, width: usize) -> String {
+fn format_compact(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    theme: Theme,
+    width: usize,
+) -> String {
     let mode = match state.recording_state {
         RecordingState::Recording => format!("{}● R{}", colors.recording, colors.reset),
         RecordingState::Processing => format!("{}◐ ..{}", colors.processing, colors.reset),
@@ -245,7 +269,7 @@ fn format_compact(state: &StatusLineState, colors: &ThemeColors, width: usize) -
         }
     };
 
-    let msg = format_message(state, colors);
+    let msg = format_message(state, colors, theme, width);
     let mode_width = display_width(&mode);
     let available = width.saturating_sub(mode_width + 1);
     format!("{} {}", mode, truncate_display(&msg, available))
@@ -353,17 +377,56 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
     }
 }
 
-fn format_message(state: &StatusLineState, colors: &ThemeColors) -> String {
-    if state.message.is_empty() {
-        return String::new();
-    }
-    let status_type = StatusType::from_message(&state.message);
-    let color = status_type.color(colors);
-    if color.is_empty() {
-        state.message.clone()
+fn format_message(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    theme: Theme,
+    width: usize,
+) -> String {
+    let mut message = if state.message.is_empty() {
+        String::new()
     } else {
-        format!("{}{}{}", color, state.message, colors.reset)
+        state.message.clone()
+    };
+
+    if let Some(preview) = state.transcript_preview.as_ref() {
+        if message.is_empty() {
+            message = preview.clone();
+        } else {
+            message = format!("{message} \"{preview}\"");
+        }
     }
+
+    if message.is_empty() {
+        return message;
+    }
+
+    let mut prefix = String::new();
+    if state.recording_state == RecordingState::Recording && !state.meter_levels.is_empty() {
+        let wave_width = if width >= breakpoints::FULL {
+            10
+        } else if width >= breakpoints::MEDIUM {
+            8
+        } else {
+            6
+        };
+        let waveform = format_waveform(&state.meter_levels, wave_width, theme);
+        if let Some(db) = state.meter_db {
+            prefix = format!("{} {}{:>4.0}dB{} ", waveform, colors.info, db, colors.reset);
+        } else {
+            prefix = format!("{waveform} ");
+        }
+    }
+
+    let status_type = StatusType::from_message(&message);
+    let color = status_type.color(colors);
+    let colored_message = if color.is_empty() {
+        message
+    } else {
+        format!("{}{}{}", color, message, colors.reset)
+    };
+
+    format!("{prefix}{colored_message}")
 }
 
 fn format_shortcuts(colors: &ThemeColors) -> String {

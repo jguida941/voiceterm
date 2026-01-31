@@ -31,6 +31,10 @@ pub const SHORTCUTS: &[Shortcut] = &[
         description: "Toggle send mode (auto/insert)",
     },
     Shortcut {
+        key: "Ctrl+Y",
+        description: "Theme picker",
+    },
+    Shortcut {
         key: "Ctrl+]",
         description: "Increase mic sensitivity",
     },

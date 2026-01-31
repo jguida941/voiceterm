@@ -47,6 +47,7 @@ All shortcuts in one place:
 | `Ctrl+R` | **Record** - Start voice capture (manual mode) |
 | `Ctrl+V` | **Voice toggle** - Turn auto-voice on/off |
 | `Ctrl+T` | **Typing mode** - Switch between auto-send and insert mode |
+| `Ctrl+Y` | **Theme picker** - Choose a status line theme |
 | `Ctrl+]` | **Threshold up** - Make mic less sensitive (+5 dB) |
 | `Ctrl+\` | **Threshold down** - Make mic more sensitive (-5 dB) |
 | `?` | **Help** - Show shortcut help overlay |
@@ -130,7 +131,7 @@ Sections (left to right):
 - Mode indicator (auto/manual/idle)
 - Pipeline (Rust or Python)
 - Mic sensitivity in dB
-- Status message
+- Status message (recording adds a live waveform + dB readout)
 - Shortcut hints (on wide terminals)
 
 | Status | Meaning |
@@ -149,6 +150,11 @@ Sections (left to right):
 Theme tips:
 - `codex-voice --theme catppuccin` to change the status line palette.
 - `codex-voice --no-color` or `NO_COLOR=1` to disable colors.
+- `Ctrl+Y` opens the theme picker overlay while the app is running.
+
+Preview tips:
+- When a transcript completes, a short preview snippet appears in quotes for a few seconds.
+- During recording, the status line shows a live waveform and the current dB level.
 
 ---
 
@@ -171,6 +177,9 @@ codex-voice --voice-vad-threshold-db -35
 
 # Force Whisper language
 codex-voice --lang en
+
+# Enable notification sounds
+codex-voice --sounds
 ```
 
 ---

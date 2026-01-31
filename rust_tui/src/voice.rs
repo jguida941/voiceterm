@@ -71,6 +71,7 @@ pub fn start_voice_job(
     recorder: Option<Arc<Mutex<audio::Recorder>>>,
     transcriber: Option<Arc<Mutex<stt::Transcriber>>>,
     config: crate::config::AppConfig,
+    meter: Option<audio::LiveMeter>,
 ) -> VoiceJob {
     let (tx, rx) = mpsc::sync_channel(1);
     let stop_flag = Arc::new(AtomicBool::new(false));
@@ -78,7 +79,7 @@ pub fn start_voice_job(
 
     let handle = thread::spawn(move || {
         // Do the heavy work off the UI thread and send back one message.
-        let message = perform_voice_capture(recorder, transcriber, &config, stop_flag_clone);
+        let message = perform_voice_capture(recorder, transcriber, &config, stop_flag_clone, meter);
         let _ = tx.send(message);
     });
 
@@ -95,12 +96,24 @@ fn perform_voice_capture(
     transcriber: Option<Arc<Mutex<stt::Transcriber>>>,
     config: &crate::config::AppConfig,
     stop_flag: Arc<AtomicBool>,
+    meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     let (Some(recorder), Some(transcriber)) = (recorder, transcriber) else {
-        return fallback_or_error(config, "native pipeline unavailable", Some(stop_flag));
+        return fallback_or_error(
+            config,
+            "native pipeline unavailable",
+            Some(stop_flag),
+            meter.clone(),
+        );
     };
 
-    match capture_voice_native(recorder, transcriber, config, stop_flag.clone()) {
+    match capture_voice_native(
+        recorder,
+        transcriber,
+        config,
+        stop_flag.clone(),
+        meter.clone(),
+    ) {
         Ok((Some(transcript), metrics)) => VoiceJobMessage::Transcript {
             text: transcript,
             source: VoiceCaptureSource::Native,
@@ -110,7 +123,12 @@ fn perform_voice_capture(
             source: VoiceCaptureSource::Native,
             metrics: Some(metrics),
         },
-        Err(native_err) => fallback_or_error(config, &format!("{native_err:#}"), Some(stop_flag)),
+        Err(native_err) => fallback_or_error(
+            config,
+            &format!("{native_err:#}"),
+            Some(stop_flag),
+            meter.clone(),
+        ),
     }
 }
 
@@ -118,6 +136,7 @@ fn run_python_fallback(
     config: &crate::config::AppConfig,
     native_msg: &str,
     stop_flag: Option<Arc<AtomicBool>>,
+    meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     if config.no_python_fallback {
         return VoiceJobMessage::Error(format!(
@@ -128,6 +147,9 @@ fn run_python_fallback(
     log_debug(&format!(
         "Native voice capture unavailable/failed ({native_msg}). Falling back to python pipeline."
     ));
+    if let Some(ref meter) = meter {
+        meter.set_db(-60.0);
+    }
     match call_python_transcription(config, stop_flag) {
         Ok(pipeline) => {
             let transcript = sanitize_transcript(&pipeline.transcript);
@@ -154,13 +176,14 @@ fn fallback_or_error(
     config: &crate::config::AppConfig,
     native_msg: &str,
     stop_flag: Option<Arc<AtomicBool>>,
+    meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     if config.no_python_fallback {
         VoiceJobMessage::Error(format!(
             "native pipeline failed ({native_msg}); python fallback disabled (--no-python-fallback)"
         ))
     } else {
-        run_python_fallback(config, native_msg, stop_flag)
+        run_python_fallback(config, native_msg, stop_flag, meter)
     }
 }
 
@@ -206,6 +229,7 @@ fn capture_voice_native(
     transcriber: Arc<Mutex<stt::Transcriber>>,
     config: &crate::config::AppConfig,
     stop_flag: Arc<AtomicBool>,
+    meter: Option<audio::LiveMeter>,
 ) -> Result<(Option<String>, audio::CaptureMetrics)> {
     log_debug("capture_voice_native: Starting");
     let pipeline_cfg = config.voice_pipeline_config();
@@ -216,7 +240,12 @@ fn capture_voice_native(
             .lock()
             .map_err(|_| anyhow!("audio recorder lock poisoned"))?;
         let mut vad_engine = create_vad_engine(&pipeline_cfg);
-        recorder_guard.record_with_vad(&vad_cfg, vad_engine.as_mut(), Some(stop_flag))
+        recorder_guard.record_with_vad(
+            &vad_cfg,
+            vad_engine.as_mut(),
+            Some(stop_flag),
+            meter.clone(),
+        )
     }?;
     let metrics = capture.metrics.clone();
     log_voice_metrics(&metrics);
@@ -379,7 +408,7 @@ mod tests {
     fn python_fallback_returns_trimmed_transcript() {
         let config = test_config();
         let message = with_python_hook(Box::new(|_, _| Ok(pipeline_result("  hello "))), || {
-            run_python_fallback(&config, "native unavailable", None)
+            run_python_fallback(&config, "native unavailable", None, None)
         });
 
         match message {
@@ -399,7 +428,7 @@ mod tests {
     fn python_fallback_reports_empty_transcripts() {
         let config = test_config();
         let message = with_python_hook(Box::new(|_, _| Ok(pipeline_result("   "))), || {
-            run_python_fallback(&config, "no native path", None)
+            run_python_fallback(&config, "no native path", None, None)
         });
 
         match message {
@@ -414,7 +443,7 @@ mod tests {
     fn python_fallback_surfaces_errors() {
         let config = test_config();
         let message = with_python_hook(Box::new(|_, _| Err(anyhow!("python boom"))), || {
-            run_python_fallback(&config, "native blew up", None)
+            run_python_fallback(&config, "native blew up", None, None)
         });
 
         match message {
@@ -433,7 +462,7 @@ mod tests {
         let config = test_config();
         let message = with_python_hook(
             Box::new(|_, _| Ok(pipeline_result("fallback success"))),
-            || perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false))),
+            || perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)), None),
         );
 
         match message {
@@ -453,7 +482,8 @@ mod tests {
     fn error_when_fallback_disabled_and_native_unavailable() {
         let mut config = test_config();
         config.no_python_fallback = true;
-        let message = perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)));
+        let message =
+            perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)), None);
 
         match message {
             VoiceJobMessage::Error(text) => {

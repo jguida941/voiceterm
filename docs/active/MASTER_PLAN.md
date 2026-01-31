@@ -60,3 +60,5 @@
 ## Archive log
 - `docs/archive/2026-01-29-claudeaudit-completed.md`
 - `docs/archive/2026-01-29-docs-governance.md`
+- `docs/archive/2026-01-31-visual-md-complete.md`
+- `docs/archive/2026-01-31-claude-review-1.0.27.md`
