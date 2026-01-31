@@ -127,12 +127,14 @@ pub fn format_status(text: &str) -> String {
 }
 
 /// Format a status message with colored prefix using a specific theme.
+#[allow(dead_code)]
 pub fn format_status_with_theme(text: &str, theme: Theme) -> String {
     let status_type = StatusType::from_message(text);
     format!("{}{}", status_type.prefix_with_theme(theme), text)
 }
 
 /// Calculate the display width of a formatted status (excluding ANSI codes).
+#[allow(dead_code)]
 pub fn status_display_width(text: &str) -> usize {
     let status_type = StatusType::from_message(text);
     status_type.prefix_display_width() + text.chars().count()

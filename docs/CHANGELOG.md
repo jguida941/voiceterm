@@ -16,6 +16,11 @@ Note: Some historical entries reference internal documents that are not publishe
 - **New flags**: `--theme` (coral/catppuccin/dracula/nord/ansi/none) and `--no-color`.
 - **NO_COLOR support**: standard env var disables colors in the overlay.
 
+### Fixes
+- Status line refreshes when state changes even if the message text stays the same.
+- Truncated status messages keep their original indicator/color for consistent meaning.
+- Help overlay rendering clamps to terminal height to avoid scrolling in small terminals.
+
 ## [1.0.25] - 2026-01-29
 
 ### Docs

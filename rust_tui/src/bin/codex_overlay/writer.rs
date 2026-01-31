@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::status_line::{format_status_line, StatusLineState};
-use crate::status_style::{format_status_with_theme, status_display_width, StatusType};
+use crate::status_style::StatusType;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone)]
@@ -254,15 +254,15 @@ pub(crate) fn set_status(
     text: &str,
     clear_after: Option<Duration>,
 ) {
-    if current_status.as_deref() == Some(text) {
-        return;
-    }
+    let same_text = current_status.as_deref() == Some(text);
     status_state.message = text.to_string();
-    let _ = writer_tx.send(WriterMessage::Status {
-        text: status_state.message.clone(),
-    });
+    if !same_text {
+        let _ = writer_tx.send(WriterMessage::Status {
+            text: status_state.message.clone(),
+        });
+        *current_status = Some(text.to_string());
+    }
     let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
-    *current_status = Some(text.to_string());
     *clear_deadline = clear_after.map(|duration| Instant::now() + duration);
 }
 
@@ -360,15 +360,16 @@ fn write_status_line(
         return Ok(());
     }
     let sanitized = sanitize_status(text);
-    let display_width = status_display_width(&sanitized);
+    let status_type = StatusType::from_message(&sanitized);
+    let display_width = status_type.prefix_display_width() + sanitized.chars().count();
+    let prefix = status_type.prefix_with_theme(theme);
     let formatted = if display_width <= cols as usize {
-        format_status_with_theme(&sanitized, theme)
+        format!("{prefix}{sanitized}")
     } else {
         // Truncate the text portion, keeping room for the prefix
-        let max_text_len = (cols as usize)
-            .saturating_sub(StatusType::from_message(&sanitized).prefix_display_width());
+        let max_text_len = (cols as usize).saturating_sub(status_type.prefix_display_width());
         let truncated = truncate_status(&sanitized, max_text_len);
-        format_status_with_theme(&truncated, theme)
+        format!("{prefix}{truncated}")
     };
     let mut sequence = Vec::new();
     sequence.extend_from_slice(b"\x1b7");
@@ -416,7 +417,7 @@ fn write_help_overlay(stdout: &mut dyn Write, help: &HelpOverlay, rows: u16) -> 
         return Ok(());
     }
     let lines: Vec<&str> = help.content.lines().collect();
-    let height = help.height.min(lines.len());
+    let height = help.height.min(lines.len()).min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
     let mut sequence = Vec::new();
     sequence.extend_from_slice(b"\x1b7");
@@ -527,6 +528,19 @@ mod tests {
         write_status_line(&mut buf, "Transcript ready", 2, 80, theme).unwrap();
         let output = String::from_utf8_lossy(&buf);
         // Success status should have green prefix
+        assert!(output.contains("\u{1b}[92m")); // Green
+        assert!(output.contains("✓"));
+    }
+
+    #[test]
+    fn write_status_line_truncation_preserves_status_type() {
+        let theme = Theme::Coral;
+        let mut buf = Vec::new();
+        let long_msg = "Transcript ready (Rust pipeline with extra detail)";
+        // Force truncation so the status keyword would be removed from the visible text.
+        write_status_line(&mut buf, long_msg, 2, 12, theme).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        // Success status should still have green prefix even if text is truncated.
         assert!(output.contains("\u{1b}[92m")); // Green
         assert!(output.contains("✓"));
     }
