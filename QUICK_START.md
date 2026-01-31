@@ -42,6 +42,7 @@ First run downloads a Whisper model if missing.
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+]` - increase mic threshold by 5 dB (less sensitive)
 - `Ctrl+\` - decrease mic threshold by 5 dB (more sensitive; `Ctrl+/` also works)
+- `?` - show shortcut help
 - `Ctrl+Q` - exit overlay
 - `Ctrl+C` - forwarded to Codex
 - `Enter` - in insert mode, stop capture early and transcribe what was captured

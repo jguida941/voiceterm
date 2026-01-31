@@ -27,6 +27,8 @@ Tip: run `codex-voice --help` or `rust_tui --help` for the live CLI output.
 | `--voice-send-mode <auto\|insert>` | Auto sends newline, insert leaves transcript for editing | auto |
 | `--prompt-regex <REGEX>` | Override prompt detection regex | auto-learned |
 | `--prompt-log <PATH>` | Prompt detection log path | unset (disabled) |
+| `--theme <NAME>` | Status line theme (`coral`, `catppuccin`, `dracula`, `nord`, `ansi`, `none`) | coral |
+| `--no-color` | Disable status line colors | off |
 
 Prompt detection notes:
 - If `--prompt-regex` is not set, the overlay auto-learns the prompt line after output goes idle.
@@ -107,6 +109,7 @@ Prompt detection notes:
 | `CODEX_VOICE_LOG_CONTENT` | Allow prompt/transcript snippets in logs | unset |
 | `CODEX_VOICE_FORCE_COLUMNS` | Force terminal columns for `start.sh` | unset |
 | `CODEX_VOICE_FORCE_LINES` | Force terminal rows for `start.sh` | unset |
+| `NO_COLOR` | Disable ANSI colors (standard) | unset |
 
 ## rust_tui
 

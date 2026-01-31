@@ -334,6 +334,8 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         let resolved = resolve_prompt_log(&config);
         assert_eq!(
@@ -355,6 +357,8 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         let resolved = resolve_prompt_log(&config);
         env::remove_var("CODEX_VOICE_PROMPT_LOG");
@@ -373,6 +377,8 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         assert!(resolve_prompt_log(&config).is_none());
     }
@@ -387,6 +393,8 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         let regex = resolve_prompt_regex(&config).expect("regex should compile");
         assert!(regex.is_some());
@@ -402,6 +410,8 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         assert!(resolve_prompt_regex(&config).is_err());
     }

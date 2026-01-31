@@ -255,7 +255,7 @@ pub(super) fn wait_for_exit_elapsed(start: Instant) -> Duration {
 pub(super) fn write_all_limit(len: usize) -> usize {
     #[cfg(any(test, feature = "mutants"))]
     {
-        return WRITE_ALL_LIMIT.with(|limit| len.min(limit.get()));
+        WRITE_ALL_LIMIT.with(|limit| len.min(limit.get()))
     }
     #[cfg(not(any(test, feature = "mutants")))]
     {
@@ -266,11 +266,10 @@ pub(super) fn write_all_limit(len: usize) -> usize {
 pub(super) fn terminal_size_override() -> Option<(bool, u16, u16)> {
     #[cfg(any(test, feature = "mutants"))]
     {
-        return TERMINAL_SIZE_OVERRIDE
+        *TERMINAL_SIZE_OVERRIDE
             .get_or_init(|| Mutex::new(None))
             .lock()
             .unwrap()
-            .clone();
     }
     #[cfg(not(any(test, feature = "mutants")))]
     {

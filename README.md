@@ -58,6 +58,7 @@ First run downloads the Whisper model.
 | `Ctrl+T` | Toggle auto-send vs manual send |
 | `Ctrl+]` | Mic sensitivity up |
 | `Ctrl+\` | Mic sensitivity down (also `Ctrl+/`) |
+| `?` | Show shortcut help |
 | `Ctrl+Q` | Quit |
 | `Ctrl+C` | Send interrupt to Codex |
 

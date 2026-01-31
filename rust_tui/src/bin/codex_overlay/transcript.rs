@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::VoiceSendMode;
 use crate::prompt::PromptTracker;
+use crate::status_line::StatusLineState;
 use crate::writer::{set_status, WriterMessage};
 
 const MAX_PENDING_TRANSCRIPTS: usize = 5;
@@ -44,6 +45,7 @@ pub(crate) struct TranscriptIo<'a, S: TranscriptSession> {
     pub(crate) writer_tx: &'a Sender<WriterMessage>,
     pub(crate) status_clear_deadline: &'a mut Option<Instant>,
     pub(crate) current_status: &'a mut Option<String>,
+    pub(crate) status_state: &'a mut StatusLineState,
 }
 
 impl<'a, S: TranscriptSession> TranscriptIo<'a, S> {
@@ -52,6 +54,7 @@ impl<'a, S: TranscriptSession> TranscriptIo<'a, S> {
             self.writer_tx,
             self.status_clear_deadline,
             self.current_status,
+            self.status_state,
             text,
             clear_after,
         );
@@ -315,11 +318,13 @@ mod tests {
         let mut session = StubSession::default();
         let mut deadline = None;
         let mut current_status = None;
+        let mut status_state = crate::status_line::StatusLineState::new();
         let mut io = TranscriptIo {
             session: &mut session,
             writer_tx: &writer_tx,
             status_clear_deadline: &mut deadline,
             current_status: &mut current_status,
+            status_state: &mut status_state,
         };
         let idle_timeout = Duration::from_millis(50);
         let mut last_enter_at = None;

@@ -49,6 +49,7 @@ All shortcuts in one place:
 | `Ctrl+T` | **Typing mode** - Switch between auto-send and insert mode |
 | `Ctrl+]` | **Threshold up** - Make mic less sensitive (+5 dB) |
 | `Ctrl+\` | **Threshold down** - Make mic more sensitive (-5 dB) |
+| `?` | **Help** - Show shortcut help overlay |
 | `Enter` | **Send/Stop** - In insert mode: stop recording early, or send typed text |
 | `Ctrl+C` | Forward interrupt to Codex |
 | `Ctrl+Q` | **Quit** - Exit the overlay |
@@ -122,18 +123,32 @@ codex-voice --input-device "MacBook Pro Microphone"
 
 The bottom of your terminal shows the current state:
 
+Example layout:
+`◉ AUTO │ Rust │ -35dB │ Auto-voice enabled   Ctrl+R rec  Ctrl+V auto`
+
+Sections (left to right):
+- Mode indicator (auto/manual/idle)
+- Pipeline (Rust or Python)
+- Mic sensitivity in dB
+- Status message
+- Shortcut hints (on wide terminals)
+
 | Status | Meaning |
 |--------|---------|
 | `Auto-voice enabled` | Listening will start when Codex is ready |
 | `Listening Manual Mode (Rust pipeline)` | Recording now (you pressed Ctrl+R) |
 | `Listening Auto Mode (Rust pipeline)` | Recording now (auto-triggered) |
-| `Processing...` | Transcribing your speech |
+| `Processing …` | Transcribing your speech (spinner updates) |
 | `Transcript ready (Rust pipeline)` | Text sent to Codex |
 | `No speech detected` | Recording finished but no voice was heard |
 | `Transcript queued (2)` | 2 transcripts waiting for Codex to be ready |
 | `Mic sensitivity: -35 dB` | Threshold changed |
 
 "Rust pipeline" means fast native transcription. "Python pipeline" means fallback mode (slower but more compatible).
+
+Theme tips:
+- `codex-voice --theme catppuccin` to change the status line palette.
+- `codex-voice --no-color` or `NO_COLOR=1` to disable colors.
 
 ---
 

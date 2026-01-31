@@ -11,6 +11,7 @@ pub(crate) enum InputEvent {
     ToggleSendMode,
     IncreaseSensitivity,
     DecreaseSensitivity,
+    HelpToggle,
     EnterKey,
     Exit,
 }
@@ -97,6 +98,10 @@ impl InputParser {
                 0x1f => {
                     self.flush_pending(out);
                     out.push(InputEvent::DecreaseSensitivity);
+                }
+                b'?' => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::HelpToggle);
                 }
                 0x0d | 0x0a => {
                     self.flush_pending(out);
@@ -212,6 +217,15 @@ mod tests {
                 InputEvent::DecreaseSensitivity,
             ]
         );
+    }
+
+    #[test]
+    fn input_parser_maps_help_toggle() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"?", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::HelpToggle]);
     }
 
     #[test]

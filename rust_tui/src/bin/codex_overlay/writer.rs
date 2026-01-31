@@ -4,12 +4,38 @@ use std::io::{self, Write};
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[derive(Debug)]
+use crate::status_line::{format_status_line, StatusLineState};
+use crate::status_style::{format_status_with_theme, status_display_width, StatusType};
+use crate::theme::Theme;
+
+#[derive(Debug, Clone)]
+struct HelpOverlay {
+    content: String,
+    height: usize,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) enum WriterMessage {
     PtyOutput(Vec<u8>),
-    Status { text: String },
+    /// Simple status message (legacy format with auto-styled prefix)
+    Status {
+        text: String,
+    },
+    /// Enhanced status line with full state
+    EnhancedStatus(StatusLineState),
+    /// Help overlay content (multi-line box)
+    HelpOverlay {
+        content: String,
+        height: usize,
+    },
+    /// Clear help overlay
+    ClearHelp,
     ClearStatus,
-    Resize { rows: u16, cols: u16 },
+    Resize {
+        rows: u16,
+        cols: u16,
+    },
+    SetTheme(Theme),
     Shutdown,
 }
 
@@ -17,13 +43,19 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
     thread::spawn(move || {
         let mut stdout = io::stdout();
         let mut status: Option<String> = None;
+        let mut enhanced_status: Option<StatusLineState> = None;
         let mut pending_status: Option<String> = None;
+        let mut pending_enhanced: Option<StatusLineState> = None;
+        let mut help_overlay: Option<HelpOverlay> = None;
+        let mut pending_help: Option<HelpOverlay> = None;
+        let mut pending_help_clear = false;
         let mut pending_clear = false;
         let mut needs_redraw = false;
         let mut rows = 0u16;
         let mut cols = 0u16;
         let mut last_output_at = Instant::now();
         let mut last_status_draw_at = Instant::now();
+        let mut theme = Theme::default();
 
         loop {
             match rx.recv_timeout(Duration::from_millis(25)) {
@@ -32,13 +64,14 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         break;
                     }
                     last_output_at = Instant::now();
-                    if status.is_some() {
+                    if status.is_some() || enhanced_status.is_some() || help_overlay.is_some() {
                         needs_redraw = true;
                     }
                     let _ = stdout.flush();
                 }
                 Ok(WriterMessage::Status { text }) => {
                     pending_status = Some(text);
+                    pending_enhanced = None;
                     pending_clear = false;
                     needs_redraw = true;
                     maybe_redraw_status(StatusRedraw {
@@ -46,15 +79,89 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         rows: &mut rows,
                         cols: &mut cols,
                         status: &mut status,
+                        enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
                         last_status_draw_at: &mut last_status_draw_at,
+                        theme,
+                    });
+                }
+                Ok(WriterMessage::EnhancedStatus(state)) => {
+                    pending_enhanced = Some(state);
+                    pending_status = None;
+                    pending_clear = false;
+                    needs_redraw = true;
+                    maybe_redraw_status(StatusRedraw {
+                        stdout: &mut stdout,
+                        rows: &mut rows,
+                        cols: &mut cols,
+                        status: &mut status,
+                        enhanced_status: &mut enhanced_status,
+                        pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
+                        pending_clear: &mut pending_clear,
+                        needs_redraw: &mut needs_redraw,
+                        last_output_at,
+                        last_status_draw_at: &mut last_status_draw_at,
+                        theme,
+                    });
+                }
+                Ok(WriterMessage::HelpOverlay { content, height }) => {
+                    pending_help = Some(HelpOverlay { content, height });
+                    pending_help_clear = false;
+                    needs_redraw = true;
+                    maybe_redraw_status(StatusRedraw {
+                        stdout: &mut stdout,
+                        rows: &mut rows,
+                        cols: &mut cols,
+                        status: &mut status,
+                        enhanced_status: &mut enhanced_status,
+                        pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
+                        pending_clear: &mut pending_clear,
+                        needs_redraw: &mut needs_redraw,
+                        last_output_at,
+                        last_status_draw_at: &mut last_status_draw_at,
+                        theme,
+                    });
+                }
+                Ok(WriterMessage::ClearHelp) => {
+                    pending_help = None;
+                    pending_help_clear = true;
+                    needs_redraw = true;
+                    maybe_redraw_status(StatusRedraw {
+                        stdout: &mut stdout,
+                        rows: &mut rows,
+                        cols: &mut cols,
+                        status: &mut status,
+                        enhanced_status: &mut enhanced_status,
+                        pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
+                        pending_clear: &mut pending_clear,
+                        needs_redraw: &mut needs_redraw,
+                        last_output_at,
+                        last_status_draw_at: &mut last_status_draw_at,
+                        theme,
                     });
                 }
                 Ok(WriterMessage::ClearStatus) => {
                     pending_status = None;
+                    pending_enhanced = None;
                     pending_clear = true;
                     needs_redraw = true;
                     maybe_redraw_status(StatusRedraw {
@@ -62,17 +169,29 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         rows: &mut rows,
                         cols: &mut cols,
                         status: &mut status,
+                        enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
                         last_status_draw_at: &mut last_status_draw_at,
+                        theme,
                     });
                 }
                 Ok(WriterMessage::Resize { rows: r, cols: c }) => {
                     rows = r;
                     cols = c;
-                    if status.is_some() || pending_status.is_some() {
+                    if status.is_some()
+                        || enhanced_status.is_some()
+                        || pending_status.is_some()
+                        || pending_enhanced.is_some()
+                        || help_overlay.is_some()
+                        || pending_help.is_some()
+                    {
                         needs_redraw = true;
                     }
                     maybe_redraw_status(StatusRedraw {
@@ -80,12 +199,24 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         rows: &mut rows,
                         cols: &mut cols,
                         status: &mut status,
+                        enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
                         last_status_draw_at: &mut last_status_draw_at,
+                        theme,
                     });
+                }
+                Ok(WriterMessage::SetTheme(new_theme)) => {
+                    theme = new_theme;
+                    if status.is_some() || enhanced_status.is_some() || help_overlay.is_some() {
+                        needs_redraw = true;
+                    }
                 }
                 Ok(WriterMessage::Shutdown) => break,
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
@@ -94,11 +225,17 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
                         rows: &mut rows,
                         cols: &mut cols,
                         status: &mut status,
+                        enhanced_status: &mut enhanced_status,
                         pending_status: &mut pending_status,
+                        pending_enhanced: &mut pending_enhanced,
+                        help_overlay: &mut help_overlay,
+                        pending_help: &mut pending_help,
+                        pending_help_clear: &mut pending_help_clear,
                         pending_clear: &mut pending_clear,
                         needs_redraw: &mut needs_redraw,
                         last_output_at,
                         last_status_draw_at: &mut last_status_draw_at,
+                        theme,
                     });
                 }
                 Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
@@ -113,17 +250,27 @@ pub(crate) fn set_status(
     writer_tx: &Sender<WriterMessage>,
     clear_deadline: &mut Option<Instant>,
     current_status: &mut Option<String>,
+    status_state: &mut StatusLineState,
     text: &str,
     clear_after: Option<Duration>,
 ) {
     if current_status.as_deref() == Some(text) {
         return;
     }
+    status_state.message = text.to_string();
     let _ = writer_tx.send(WriterMessage::Status {
-        text: text.to_string(),
+        text: status_state.message.clone(),
     });
+    let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
     *current_status = Some(text.to_string());
     *clear_deadline = clear_after.map(|duration| Instant::now() + duration);
+}
+
+pub(crate) fn send_enhanced_status(
+    writer_tx: &Sender<WriterMessage>,
+    status_state: &StatusLineState,
+) {
+    let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
 }
 
 struct StatusRedraw<'a> {
@@ -131,11 +278,17 @@ struct StatusRedraw<'a> {
     rows: &'a mut u16,
     cols: &'a mut u16,
     status: &'a mut Option<String>,
+    enhanced_status: &'a mut Option<StatusLineState>,
     pending_status: &'a mut Option<String>,
+    pending_enhanced: &'a mut Option<StatusLineState>,
+    help_overlay: &'a mut Option<HelpOverlay>,
+    pending_help: &'a mut Option<HelpOverlay>,
+    pending_help_clear: &'a mut bool,
     pending_clear: &'a mut bool,
     needs_redraw: &'a mut bool,
     last_output_at: Instant,
     last_status_draw_at: &'a mut Instant,
+    theme: Theme,
 }
 
 fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
@@ -160,30 +313,88 @@ fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
     if *ctx.pending_clear {
         let _ = clear_status_line(ctx.stdout, *ctx.rows, *ctx.cols);
         *ctx.status = None;
+        *ctx.enhanced_status = None;
         *ctx.pending_clear = false;
     }
+    if *ctx.pending_help_clear {
+        if let Some(help) = ctx.help_overlay.as_ref() {
+            let _ = clear_help_overlay(ctx.stdout, *ctx.rows, help.height);
+        }
+        *ctx.help_overlay = None;
+        *ctx.pending_help_clear = false;
+    }
+    if let Some(help) = ctx.pending_help.take() {
+        *ctx.help_overlay = Some(help);
+    }
+    // Handle enhanced status (takes priority)
+    if let Some(state) = ctx.pending_enhanced.take() {
+        *ctx.enhanced_status = Some(state);
+        *ctx.status = None;
+    }
+    // Handle simple status
     if let Some(text) = ctx.pending_status.take() {
         *ctx.status = Some(text);
+        *ctx.enhanced_status = None;
     }
-    if let Some(text) = ctx.status.as_deref() {
-        let _ = write_status_line(ctx.stdout, text, *ctx.rows, *ctx.cols);
+    // Render help overlay or status line
+    if let Some(help) = ctx.help_overlay.as_ref() {
+        let _ = write_help_overlay(ctx.stdout, help, *ctx.rows);
+    } else if let Some(state) = ctx.enhanced_status.as_ref() {
+        let _ = write_enhanced_status_line(ctx.stdout, state, *ctx.rows, *ctx.cols, ctx.theme);
+    } else if let Some(text) = ctx.status.as_deref() {
+        let _ = write_status_line(ctx.stdout, text, *ctx.rows, *ctx.cols, ctx.theme);
     }
     *ctx.needs_redraw = false;
     *ctx.last_status_draw_at = Instant::now();
     let _ = ctx.stdout.flush();
 }
 
-fn write_status_line(stdout: &mut dyn Write, text: &str, rows: u16, cols: u16) -> io::Result<()> {
+fn write_status_line(
+    stdout: &mut dyn Write,
+    text: &str,
+    rows: u16,
+    cols: u16,
+    theme: Theme,
+) -> io::Result<()> {
     if rows == 0 || cols == 0 {
         return Ok(());
     }
     let sanitized = sanitize_status(text);
-    let trimmed = truncate_status(&sanitized, cols as usize);
+    let display_width = status_display_width(&sanitized);
+    let formatted = if display_width <= cols as usize {
+        format_status_with_theme(&sanitized, theme)
+    } else {
+        // Truncate the text portion, keeping room for the prefix
+        let max_text_len = (cols as usize)
+            .saturating_sub(StatusType::from_message(&sanitized).prefix_display_width());
+        let truncated = truncate_status(&sanitized, max_text_len);
+        format_status_with_theme(&truncated, theme)
+    };
     let mut sequence = Vec::new();
     sequence.extend_from_slice(b"\x1b7");
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
     sequence.extend_from_slice(b"\x1b[2K");
-    sequence.extend_from_slice(trimmed.as_bytes());
+    sequence.extend_from_slice(formatted.as_bytes());
+    sequence.extend_from_slice(b"\x1b8");
+    stdout.write_all(&sequence)
+}
+
+fn write_enhanced_status_line(
+    stdout: &mut dyn Write,
+    state: &StatusLineState,
+    rows: u16,
+    cols: u16,
+    theme: Theme,
+) -> io::Result<()> {
+    if rows == 0 || cols == 0 {
+        return Ok(());
+    }
+    let formatted = format_status_line(state, theme, cols as usize);
+    let mut sequence = Vec::new();
+    sequence.extend_from_slice(b"\x1b7");
+    sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
+    sequence.extend_from_slice(b"\x1b[2K");
+    sequence.extend_from_slice(formatted.as_bytes());
     sequence.extend_from_slice(b"\x1b8");
     stdout.write_all(&sequence)
 }
@@ -196,6 +407,42 @@ fn clear_status_line(stdout: &mut dyn Write, rows: u16, cols: u16) -> io::Result
     sequence.extend_from_slice(b"\x1b7");
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
     sequence.extend_from_slice(b"\x1b[2K");
+    sequence.extend_from_slice(b"\x1b8");
+    stdout.write_all(&sequence)
+}
+
+fn write_help_overlay(stdout: &mut dyn Write, help: &HelpOverlay, rows: u16) -> io::Result<()> {
+    if rows == 0 {
+        return Ok(());
+    }
+    let lines: Vec<&str> = help.content.lines().collect();
+    let height = help.height.min(lines.len());
+    let start_row = rows.saturating_sub(height as u16).saturating_add(1);
+    let mut sequence = Vec::new();
+    sequence.extend_from_slice(b"\x1b7");
+    for (idx, line) in lines.iter().take(height).enumerate() {
+        let row = start_row + idx as u16;
+        sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(b"\x1b[2K");
+        sequence.extend_from_slice(line.as_bytes());
+    }
+    sequence.extend_from_slice(b"\x1b8");
+    stdout.write_all(&sequence)
+}
+
+fn clear_help_overlay(stdout: &mut dyn Write, rows: u16, height: usize) -> io::Result<()> {
+    if rows == 0 {
+        return Ok(());
+    }
+    let height = height.min(rows as usize);
+    let start_row = rows.saturating_sub(height as u16).saturating_add(1);
+    let mut sequence = Vec::new();
+    sequence.extend_from_slice(b"\x1b7");
+    for idx in 0..height {
+        let row = start_row + idx as u16;
+        sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(b"\x1b[2K");
+    }
     sequence.extend_from_slice(b"\x1b8");
     stdout.write_all(&sequence)
 }
@@ -234,17 +481,20 @@ mod tests {
 
     #[test]
     fn write_and_clear_status_line_respect_dimensions() {
+        let theme = Theme::Coral;
         let mut buf = Vec::new();
-        write_status_line(&mut buf, "hi", 0, 10).unwrap();
+        write_status_line(&mut buf, "hi", 0, 10, theme).unwrap();
         assert!(buf.is_empty());
 
-        write_status_line(&mut buf, "hi", 2, 0).unwrap();
+        write_status_line(&mut buf, "hi", 2, 0, theme).unwrap();
         assert!(buf.is_empty());
 
-        write_status_line(&mut buf, "hi", 2, 10).unwrap();
+        write_status_line(&mut buf, "hi", 2, 80, theme).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[2;1H"));
         assert!(output.contains("hi"));
+        // Should contain color codes (info prefix for generic message)
+        assert!(output.contains("\u{1b}[94m")); // Blue for info
 
         buf.clear();
         clear_status_line(&mut buf, 2, 10).unwrap();
@@ -257,15 +507,55 @@ mod tests {
     }
 
     #[test]
+    fn write_status_line_includes_colored_prefix() {
+        let theme = Theme::Coral;
+        let mut buf = Vec::new();
+        write_status_line(&mut buf, "Listening Manual Mode", 2, 80, theme).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        // Recording status should have red prefix
+        assert!(output.contains("\u{1b}[91m")); // Red
+        assert!(output.contains("● REC"));
+
+        buf.clear();
+        write_status_line(&mut buf, "Processing...", 2, 80, theme).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        // Processing status should have yellow prefix
+        assert!(output.contains("\u{1b}[93m")); // Yellow
+        assert!(output.contains("◐"));
+
+        buf.clear();
+        write_status_line(&mut buf, "Transcript ready", 2, 80, theme).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        // Success status should have green prefix
+        assert!(output.contains("\u{1b}[92m")); // Green
+        assert!(output.contains("✓"));
+    }
+
+    #[test]
+    fn write_status_line_respects_no_color_theme() {
+        let mut buf = Vec::new();
+        write_status_line(&mut buf, "Processing...", 2, 80, Theme::None).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        // Should have the indicator but no escape codes for color
+        assert!(output.contains("◐"));
+        assert!(output.contains("Processing..."));
+        // The only escape codes should be cursor positioning, not color
+        let color_codes = output.matches("\u{1b}[9").count();
+        assert_eq!(color_codes, 0, "Should not contain color codes");
+    }
+
+    #[test]
     fn set_status_updates_deadline() {
         let (tx, rx) = crossbeam_channel::unbounded();
         let mut deadline = None;
         let mut current_status = None;
+        let mut status_state = StatusLineState::new();
         let now = Instant::now();
         set_status(
             &tx,
             &mut deadline,
             &mut current_status,
+            &mut status_state,
             "status",
             Some(Duration::from_millis(50)),
         );
@@ -278,7 +568,14 @@ mod tests {
         }
         assert!(deadline.expect("deadline set") > now);
 
-        set_status(&tx, &mut deadline, &mut current_status, "steady", None);
+        set_status(
+            &tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+            "steady",
+            None,
+        );
         assert!(deadline.is_none());
     }
 }

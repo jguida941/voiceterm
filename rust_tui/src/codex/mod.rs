@@ -10,7 +10,8 @@ mod pty_backend;
 mod tests;
 
 /// Spinner frames used by the UI when a Codex request is inflight.
-pub const CODEX_SPINNER_FRAMES: &[char] = &['-', '\\', '|', '/'];
+/// Uses Braille pattern characters for a smooth, modern animation.
+pub const CODEX_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 pub use backend::{
     BackendError, BackendEvent, BackendEventKind, BackendJob, BackendStats, CodexBackend,

@@ -418,7 +418,9 @@ pb.set_style(ProgressStyle::default_bar()
 
 ### Missing: Help System
 
-**Current state**: No built-in help screen or shortcut reference.
+**Current state**: Implemented in overlay (press `?` to toggle help; any key closes).
+
+**Implemented**: Help overlay renders a boxed shortcut list via `help.rs` and is toggled with `?`.
 
 **Shortcuts only documented in**:
 - README.md, QUICK_START.md (external docs)
@@ -444,11 +446,11 @@ pb.set_style(ProgressStyle::default_bar()
 
 ### Missing: Visual Configuration CLI Flags
 
-**Current state**: Zero CLI flags for visual settings.
+**Current state**: `--theme` and `--no-color` are implemented for overlay styling.
 
-**Proposed flags**:
+**Proposed flags (remaining)**:
 ```
---theme <name>        Color theme (coral, catppuccin, dracula, nord)
+--theme <name>        Color theme (coral, catppuccin, dracula, nord, ansi, none)
 --no-color            Disable colors (for pipes/logs)
 --color-mode <mode>   Force color mode (truecolor, 256, ansi, none)
 --no-unicode          Use ASCII-only characters
@@ -457,14 +459,12 @@ pb.set_style(ProgressStyle::default_bar()
 
 **Proposed env vars**:
 ```
-CODEX_VOICE_THEME=catppuccin
-CODEX_VOICE_NO_COLOR=1
-NO_COLOR=1              # Standard convention
+NO_COLOR=1              # Standard convention (supported)
 ```
 
 ### Missing: Terminal Capability Fallback
 
-**Current state**: Assumes 24-bit truecolor, no fallback.
+**Current state**: Implemented. Terminal color mode is detected and truecolor themes fall back to ANSI when needed (respects `NO_COLOR`).
 
 **Problem**: Some terminals (older SSH sessions, tmux without config) may not support truecolor.
 
@@ -487,7 +487,7 @@ fn detect_color_mode() -> ColorMode {
 
 ### Missing: Error Visual Differentiation
 
-**Current state**: Errors shown as plain text, same as info messages.
+**Current state**: Implemented. Status messages are color-coded by category.
 
 **Proposed error styling**:
 ```
@@ -499,7 +499,9 @@ fn detect_color_mode() -> ColorMode {
 
 ### Missing: Mic Meter Visualization
 
-**Current state** (`mic_meter.rs`): Text-only output:
+**Current state**: Implemented in overlay `--mic-meter` output with bar visualization.
+
+**Previous state** (`mic_meter.rs`): Text-only output:
 ```
 Results (dBFS)
 Ambient: RMS -45.2 dB, Peak -38.1 dB
@@ -530,6 +532,8 @@ Components:
 - Current dB level
 - Recording duration
 
+**Status**: Not yet wired into the live overlay capture loop.
+
 ### Missing: Transcript Preview
 
 **Current state**: Transcript appears after processing.
@@ -541,7 +545,7 @@ Components:
 
 ### Missing: Mode Indicators in Prompt
 
-**Current state**: No visual indication of current mode in overlay.
+**Current state**: Implemented. Overlay status line now includes a persistent mode indicator.
 
 **Proposed persistent status bar**:
 ```
@@ -591,56 +595,56 @@ Errors: 1
 
 ### Tier 0 - Quick Wins (High Impact, Low Effort)
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Add ANSI colors to overlay status line | writer.rs | Low | **High** |
-| Modern Braille spinner | codex/mod.rs | Low | Medium |
-| Unicode state indicators (●, ✓, ✗, ⚠) | writer.rs, main.rs | Low | Medium |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Add ANSI colors to overlay status line | writer.rs, status_style.rs | Low | **High** | ✅ Done |
+| Modern Braille spinner | codex/mod.rs, app/state.rs | Low | Medium | ✅ Done |
+| Unicode state indicators (●, ✓, ✗, ⚠) | status_style.rs | Low | Medium | ✅ Done |
 
 ### Tier 1 - Core Visual System
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Create `StatusType` enum for message categories | new status.rs | Medium | **High** |
-| Theme struct with coral/catppuccin/dracula | new theme.rs | Medium | Medium |
-| `--theme` and `--no-color` CLI flags | config/mod.rs | Low | Medium |
-| Color mode detection (truecolor/256/ansi) | new color.rs | Medium | Medium |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Create `StatusType` enum for message categories | status_style.rs | Medium | **High** | ✅ Done (Tier 0) |
+| Theme struct with coral/catppuccin/dracula | theme.rs | Medium | Medium | ✅ Done |
+| `--theme` and `--no-color` CLI flags | config.rs | Low | Medium | ✅ Done |
+| Color mode detection (truecolor/256/ansi) | color_mode.rs | Medium | Medium | ✅ Done |
 
 ### Tier 2 - Enhanced Status Line
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Redesign status line layout with sections | writer.rs | Medium | **High** |
-| Show keyboard shortcuts in overlay | writer.rs | Low | Medium |
-| Live recording duration display | voice_control.rs | Low | Medium |
-| Pipeline/device indicator | main.rs | Low | Low |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Redesign status line layout with sections | status_line.rs, writer.rs | Medium | **High** | ✅ Done |
+| Show keyboard shortcuts in overlay | status_line.rs | Low | Medium | ✅ Done |
+| Live recording duration display | status_line.rs | Low | Medium | ✅ Done |
+| Pipeline/device indicator | status_line.rs | Low | Low | ✅ Done |
 
 ### Tier 3 - Help and Discoverability
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Help overlay (`Ctrl+?` or `?`) | new help.rs | Medium | Medium |
-| Startup banner with version/config | main.rs | Low | Low |
-| Session stats on exit | main.rs | Low | Low |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Help overlay (`Ctrl+?` or `?`) | help.rs | Medium | Medium | ✅ Done |
+| Startup banner with version/config | banner.rs | Low | Low | ✅ Done |
+| Session stats on exit | session_stats.rs | Low | Low | ✅ Done |
 
 ### Tier 4 - Advanced Features
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Visual mic meter with bars | mic_meter.rs | Medium | Medium |
-| Real-time audio level during recording | voice_control.rs, writer.rs | High | Medium |
-| Output syntax highlighting | ui.rs + syntect | High | Medium |
-| Progress bar for model download | start.sh or new | Medium | Low |
-| Transcript preview during processing | voice_control.rs | Medium | Low |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Visual mic meter with bars | audio_meter.rs | Medium | Medium | ✅ Done |
+| Real-time audio level during recording | audio_meter.rs | High | Medium | ⏭️ Skipped |
+| Output syntax highlighting | ui.rs + syntect | High | Medium | ⏭️ Skipped |
+| Progress bar for model download | progress.rs | Medium | Low | ⏭️ Skipped |
+| Transcript preview during processing | - | Medium | Low | ⏭️ Skipped |
 
 ### Tier 5 - Polish
 
-| Task | File(s) | Effort | Impact |
-|------|---------|--------|--------|
-| Responsive narrow-terminal mode | writer.rs | Medium | Low |
-| Transcript history panel (TUI) | ui.rs | High | Low |
-| Optional notification sounds | new audio_feedback.rs | Medium | Low |
-| ANSI-only fallback mode | theme.rs | Medium | Low |
+| Task | File(s) | Effort | Impact | Status |
+|------|---------|--------|--------|--------|
+| Responsive narrow-terminal mode | status_line.rs | Medium | Low | ✅ Done |
+| Transcript history panel (TUI) | ui.rs | High | Low | ⏭️ Skipped |
+| Optional notification sounds | audio_feedback.rs | Medium | Low | ⏭️ Skipped |
+| ANSI-only fallback mode | theme.rs | Medium | Low | ✅ Done |
 
 ---
 
@@ -671,50 +675,68 @@ Errors: 1
 
 ## Next Steps
 
-### Phase 1: Immediate Visual Improvements (Tier 0)
+### Phase 1: Immediate Visual Improvements (Tier 0) ✅ COMPLETE
 
-1. **Add colors to overlay status** (`writer.rs`):
-   - Add ANSI color codes based on message type
-   - Recording = red, Processing = yellow, Success = green, Error = red
+1. ✅ **Add colors to overlay status** (`status_style.rs`, `writer.rs`):
+   - Added `StatusType` enum with 6 categories
+   - ANSI color codes based on message type
+   - Recording = red, Processing = yellow, Success = green, Error = red, Info = blue
 
-2. **Replace spinner** (`codex/mod.rs`):
-   - Change from `['-', '\\', '|', '/']` to Braille `["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]`
+2. ✅ **Replace spinner** (`codex/mod.rs`, `app/state.rs`):
+   - Changed from `['-', '\\', '|', '/']` to Braille `["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]`
 
-3. **Add unicode prefixes** to status messages:
+3. ✅ **Add unicode prefixes** to status messages:
    - `● REC` for recording
    - `✓` for success
    - `✗` for error
    - `⚠` for warning
+   - `◐` for processing
+   - `ℹ` for info
 
-### Phase 2: Theme System (Tier 1)
+### Phase 2: Theme System (Tier 1) ✅ COMPLETE
 
-4. Create `rust_tui/src/theme.rs`:
-   - Define `Theme` struct with all semantic colors
-   - Implement coral (current), catppuccin, dracula, nord presets
-   - Add `--theme` CLI flag to config/mod.rs
+4. ✅ Created `rust_tui/src/bin/codex_overlay/theme.rs`:
+   - `Theme` enum with Coral, Catppuccin, Dracula, Nord, None
+   - `ThemeColors` struct with semantic colors
+   - `--theme` CLI flag in config.rs
 
-5. Create `rust_tui/src/color.rs`:
-   - Detect terminal color capabilities
-   - Provide fallback for non-truecolor terminals
-   - Respect `NO_COLOR` environment variable
+5. ✅ Created `rust_tui/src/bin/codex_overlay/color_mode.rs`:
+   - `ColorMode` enum: TrueColor, Color256, Ansi16, None
+   - Auto-detection from COLORTERM/TERM environment
+   - Respects `NO_COLOR` standard
+   - `--no-color` CLI flag
 
-### Phase 3: Status Line Redesign (Tier 2)
+### Phase 3: Status Line Redesign (Tier 2) ✅ COMPLETE
 
-6. Redesign overlay status line format:
-   ```
-   ● AUTO │ Rust │ -40dB │ Ready            Ctrl+R rec  Ctrl+V toggle
-   ```
+6. ✅ Created `status_line.rs` with enhanced status line:
+   - `StatusLineState` struct with mode, pipeline, sensitivity, message, duration
+   - `format_status_line()` for formatted output with sections
+   - Layout: `● AUTO │ Rust │ -40dB │ Ready   Ctrl+R rec  Ctrl+V auto`
 
-7. Add recording duration display during capture
+7. ✅ Added recording duration display support
+   - `recording_duration` field in StatusLineState
+   - Shows "2.5s" during active recording
 
-### Phase 4: Help System (Tier 3)
+8. ✅ Updated writer.rs with `EnhancedStatus` message variant
+   - Backward compatible with simple `Status` messages
+   - Integrated in main overlay loop
 
-8. Add help overlay accessible via `?` key
-9. Show all keyboard shortcuts in formatted panel
+### Phase 4: Help System (Tier 3) ✅ COMPLETE
+
+8. ✅ Created `help.rs` with help overlay:
+   - `SHORTCUTS` constant with all keyboard shortcuts
+   - `format_help_overlay()` for boxed display
+   - Integrated with `?` toggle (press any key to close)
+
+9. ✅ Created `banner.rs` with startup banner:
+   - `format_startup_banner()` with version and config
+   - Printed at overlay startup
+
+10. ✅ Created `session_stats.rs` with exit stats:
+    - `SessionStats` struct for tracking activity
+    - Session summary printed on exit when activity is present
 
 ### Future Phases
 
-- Visual mic meter with ASCII bars
 - Real-time audio level indicator
 - Syntax highlighting in output
-- Session statistics on exit

@@ -527,14 +527,19 @@ fn outside_dir(repo_root: &Path, prefix: &str) -> Option<std::path::PathBuf> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let temp_dir = env::temp_dir().join(format!("{prefix}_{unique}"));
-    if !temp_dir.starts_with(repo_root) {
+    let repo_root = repo_root
+        .canonicalize()
+        .unwrap_or_else(|_| repo_root.to_path_buf());
+    let temp_root = env::temp_dir();
+    let temp_root = temp_root.canonicalize().unwrap_or(temp_root);
+    let temp_dir = temp_root.join(format!("{prefix}_{unique}"));
+    if !temp_dir.starts_with(&repo_root) {
         return Some(temp_dir);
     }
     repo_root
         .parent()
         .map(|parent| parent.join(format!("{prefix}_{unique}")))
-        .filter(|candidate| !candidate.starts_with(repo_root))
+        .filter(|candidate| !candidate.starts_with(&repo_root))
 }
 
 #[test]

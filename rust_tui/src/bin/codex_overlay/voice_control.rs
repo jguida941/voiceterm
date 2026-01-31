@@ -8,6 +8,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::config::OverlayConfig;
+use crate::session_stats::SessionStats;
+use crate::status_line::{Pipeline, RecordingState, StatusLineState};
 use crate::transcript::{send_transcript, TranscriptSession};
 use crate::writer::{set_status, WriterMessage};
 
@@ -215,9 +217,16 @@ pub(crate) fn start_voice_capture(
     writer_tx: &Sender<WriterMessage>,
     status_clear_deadline: &mut Option<Instant>,
     current_status: &mut Option<String>,
+    status_state: &mut StatusLineState,
 ) -> Result<()> {
     match voice_manager.start_capture(trigger)? {
         Some(info) => {
+            status_state.recording_state = RecordingState::Recording;
+            status_state.pipeline = if info.pipeline_label.contains("Python") {
+                Pipeline::Python
+            } else {
+                Pipeline::Rust
+            };
             let mode_label = match trigger {
                 VoiceCaptureTrigger::Manual => "Manual Mode",
                 VoiceCaptureTrigger::Auto => "Auto Mode",
@@ -231,6 +240,7 @@ pub(crate) fn start_voice_capture(
                 writer_tx,
                 status_clear_deadline,
                 current_status,
+                status_state,
                 &status,
                 None,
             );
@@ -242,6 +252,7 @@ pub(crate) fn start_voice_capture(
                     writer_tx,
                     status_clear_deadline,
                     current_status,
+                    status_state,
                     "Voice capture already running",
                     Some(Duration::from_secs(2)),
                 );
@@ -251,6 +262,7 @@ pub(crate) fn start_voice_capture(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_voice_message(
     message: VoiceJobMessage,
     config: &OverlayConfig,
@@ -258,6 +270,8 @@ pub(crate) fn handle_voice_message(
     writer_tx: &Sender<WriterMessage>,
     status_clear_deadline: &mut Option<Instant>,
     current_status: &mut Option<String>,
+    status_state: &mut StatusLineState,
+    session_stats: &mut SessionStats,
     auto_voice_enabled: bool,
 ) {
     match message {
@@ -266,6 +280,17 @@ pub(crate) fn handle_voice_message(
             source,
             metrics,
         } => {
+            let duration_secs = metrics
+                .as_ref()
+                .map(|metrics| metrics.speech_ms as f32 / 1000.0)
+                .unwrap_or(0.0);
+            session_stats.record_transcript(duration_secs);
+            status_state.recording_state = RecordingState::Idle;
+            status_state.recording_duration = None;
+            status_state.pipeline = match source {
+                VoiceCaptureSource::Native => Pipeline::Rust,
+                VoiceCaptureSource::Python => Pipeline::Python,
+            };
             let label = source.label();
             let drop_note = metrics
                 .as_ref()
@@ -280,6 +305,7 @@ pub(crate) fn handle_voice_message(
                 writer_tx,
                 status_clear_deadline,
                 current_status,
+                status_state,
                 &status,
                 Some(Duration::from_secs(2)),
             );
@@ -289,12 +315,20 @@ pub(crate) fn handle_voice_message(
                     writer_tx,
                     status_clear_deadline,
                     current_status,
+                    status_state,
                     "Failed to send transcript (see log)",
                     Some(Duration::from_secs(2)),
                 );
             }
         }
         VoiceJobMessage::Empty { source, metrics } => {
+            session_stats.record_empty();
+            status_state.recording_state = RecordingState::Idle;
+            status_state.recording_duration = None;
+            status_state.pipeline = match source {
+                VoiceCaptureSource::Native => Pipeline::Rust,
+                VoiceCaptureSource::Python => Pipeline::Python,
+            };
             let label = source.label();
             let drop_note = metrics
                 .as_ref()
@@ -307,6 +341,7 @@ pub(crate) fn handle_voice_message(
                         writer_tx,
                         status_clear_deadline,
                         current_status,
+                        status_state,
                         &format!("Auto-voice enabled ({note})"),
                         None,
                     );
@@ -315,6 +350,7 @@ pub(crate) fn handle_voice_message(
                         writer_tx,
                         status_clear_deadline,
                         current_status,
+                        status_state,
                         "Auto-voice enabled",
                         None,
                     );
@@ -329,16 +365,21 @@ pub(crate) fn handle_voice_message(
                     writer_tx,
                     status_clear_deadline,
                     current_status,
+                    status_state,
                     &status,
                     Some(Duration::from_secs(2)),
                 );
             }
         }
         VoiceJobMessage::Error(message) => {
+            session_stats.record_error();
+            status_state.recording_state = RecordingState::Idle;
+            status_state.recording_duration = None;
             set_status(
                 writer_tx,
                 status_clear_deadline,
                 current_status,
+                status_state,
                 "Voice capture error (see log)",
                 Some(Duration::from_secs(2)),
             );
@@ -504,12 +545,14 @@ mod tests {
         let (writer_tx, writer_rx) = crossbeam_channel::unbounded();
         let mut deadline = None;
         let mut current_status = None;
+        let mut status_state = StatusLineState::new();
         start_voice_capture(
             &mut manager,
             VoiceCaptureTrigger::Manual,
             &writer_tx,
             &mut deadline,
             &mut current_status,
+            &mut status_state,
         )
         .expect("start capture manual");
 
@@ -522,6 +565,7 @@ mod tests {
             }
             _ => panic!("unexpected writer message"),
         }
+        while writer_rx.try_recv().is_ok() {}
 
         start_voice_capture(
             &mut manager,
@@ -529,6 +573,7 @@ mod tests {
             &writer_tx,
             &mut deadline,
             &mut current_status,
+            &mut status_state,
         )
         .expect("start capture auto");
 
@@ -545,11 +590,15 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            theme_name: None,
+            no_color: false,
         };
         let mut session = StubSession::default();
         let (writer_tx, writer_rx) = crossbeam_channel::unbounded();
         let mut deadline = None;
         let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        let mut session_stats = SessionStats::new();
 
         handle_voice_message(
             VoiceJobMessage::Transcript {
@@ -562,6 +611,8 @@ mod tests {
             &writer_tx,
             &mut deadline,
             &mut current_status,
+            &mut status_state,
+            &mut session_stats,
             false,
         );
 

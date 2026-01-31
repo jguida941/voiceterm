@@ -3,6 +3,19 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.26] - 2026-01-31
+
+### UX + Visuals
+- **Overlay status line**: structured layout with mode/pipeline/sensitivity, themed colors, and automatic ANSI fallback.
+- **Help overlay**: press `?` to show the shortcut panel (any key closes it).
+- **Startup banner**: display version + config summary on launch.
+- **Mic meter**: `--mic-meter` now renders a visual bar display alongside the suggested threshold.
+- **Session summary**: print transcript/session stats on exit when activity is present.
+
+### CLI
+- **New flags**: `--theme` (coral/catppuccin/dracula/nord/ansi/none) and `--no-color`.
+- **NO_COLOR support**: standard env var disables colors in the overlay.
+
 ## [1.0.25] - 2026-01-29
 
 ### Docs

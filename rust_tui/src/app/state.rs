@@ -410,7 +410,7 @@ impl App {
         }
         self.codex_spinner_index = 0;
         self.codex_spinner_last_tick = Some(Instant::now());
-        let spinner = CODEX_SPINNER_FRAMES.first().copied().unwrap_or('-');
+        let spinner = CODEX_SPINNER_FRAMES.first().copied().unwrap_or("⠋");
         state_change!(
             self,
             status,
@@ -607,7 +607,7 @@ impl App {
         self.codex_spinner_last_tick = Some(now);
         self.codex_spinner_index = (self.codex_spinner_index + 1) % CODEX_SPINNER_FRAMES.len();
         let spinner = CODEX_SPINNER_FRAMES[self.codex_spinner_index];
-        self.status = format!("Waiting for Codex {spinner} (Esc/Ctrl+C to cancel)");
+        self.status = format!("Waiting for Codex {} (Esc/Ctrl+C to cancel)", spinner);
         self.request_redraw();
     }
 
