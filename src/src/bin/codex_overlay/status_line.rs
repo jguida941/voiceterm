@@ -273,10 +273,7 @@ fn format_main_row(
     let status_type = StatusType::from_message(&state.message);
     let status_color = status_type.color(colors);
     let message_section = if state.message.is_empty() {
-        format!(
-            " {}{}{}",
-            colors.dim, "Ready | Ctrl+O settings | ? help", colors.reset
-        )
+        format!(" {}Ready{}", colors.dim, colors.reset)
     } else {
         format!(" {}{}{}", status_color, state.message, colors.reset)
     };
