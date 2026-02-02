@@ -130,7 +130,7 @@ cargo test
 
 # Check mutation score (optional, CI enforces this)
 cargo mutants --timeout 300 -o mutants.out
-python3 ../scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+python3 ../scripts/dev/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
 ```
 
 **Check CI status:** [GitHub Actions](https://github.com/jguida941/voxterm/actions)
@@ -146,38 +146,28 @@ python3 ../scripts/check_mutation_score.py --path mutants.out/outcomes.json --th
 ### Create GitHub release
 
 ```bash
-# Tag the release
-git tag vX.Y.Z
-git push origin vX.Y.Z
+# Use the release script (recommended)
+./scripts/dev/release.sh X.Y.Z
 
-# Create release on GitHub (or use web UI)
+# Create release on GitHub
 gh release create vX.Y.Z --title "vX.Y.Z" --notes "See CHANGELOG.md"
 ```
 
 ### Update Homebrew tap
 
-1. Get the SHA256 of the release tarball:
 ```bash
-curl -sL https://github.com/jguida941/voxterm/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
+# Use the update script (recommended)
+./scripts/dev/update-homebrew.sh X.Y.Z
 ```
 
-2. Update `homebrew-voxterm/Formula/voxterm.rb`:
-   - Change `url` to new tag
-   - Change `version` to new version
-   - Change `sha256` to new hash
+This automatically fetches the SHA256 and updates the formula.
 
-3. Commit and push to homebrew-voxterm repo:
-```bash
-cd ../homebrew-voxterm
-git add Formula/voxterm.rb
-git commit -m "Update to vX.Y.Z"
-git push origin main
-```
-
-4. Users can now upgrade:
+Users can then upgrade:
 ```bash
 brew update && brew upgrade voxterm
 ```
+
+See `scripts/README.md` for full script documentation.
 
 ## Local development tips
 
