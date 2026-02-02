@@ -238,7 +238,7 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
     error: "\x1b[91m",      // Bright red
     info: "\x1b[94m",       // Bright blue
     reset: "\x1b[0m",
-    dim: "\x1b[2m",     // Dim attribute
+    dim: "\x1b[90m",    // Dark gray (not dim attribute - cleaner look)
     bg_primary: "",     // Transparent
     bg_secondary: "",   // Transparent
     border: "\x1b[91m", // Coral/red borders
@@ -325,7 +325,7 @@ pub const THEME_ANSI: ThemeColors = ThemeColors {
     error: "\x1b[31m",      // Red
     info: "\x1b[36m",       // Cyan
     reset: "\x1b[0m",
-    dim: "\x1b[2m",     // Dim attribute
+    dim: "\x1b[90m",    // Dark gray (bright black)
     bg_primary: "",     // Transparent
     bg_secondary: "",   // Transparent
     border: "\x1b[37m", // White

@@ -3,20 +3,23 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
-## [Unreleased] - 2026-02-02
+## [1.0.34] - 2026-02-02
 
 ### Bug Fixes
-- Drain voice capture results even while PTY output is streaming so “Processing” clears and transcripts queue/send while the CLI is busy.
+- Drain voice capture results even while PTY output is streaming so "Processing" clears and transcripts queue/send while the CLI is busy.
 - In manual mode, queue transcripts while the CLI is busy and send after prompt/idle instead of silently injecting mid-stream.
+- Fix dim text appearing blurry on Coral/ANSI themes by using dark gray instead of ANSI dim attribute.
 
 ### Documentation
 - Document queued transcript behavior in the usage guide and troubleshooting status messages.
 
 ### UX
-- Refresh the HUD control row with button-style pills, context-aware labels (auto/send), and a queue badge.
-- Auto-voice toggle now labels auto vs manual state directly in the HUD.
-- Hide mic threshold dB during recording to avoid duplicate dB readouts next to the live meter.
-- Clarify HUD labels for auto/manual and send mode states.
+- Refresh the HUD control row with button-style shortcuts: dim brackets/keys, colored labels when active.
+- Clearer button labels: `^V auto/ptt` (voice mode), `^T auto/insert` (send mode).
+- Recording button shows red when active, yellow when processing.
+- Auto-voice button shows blue when listening, dim when push-to-talk.
+- Send mode button shows green for auto-send, yellow for insert mode.
+- All button colors are theme-aware and match the current theme palette.
 
 ## [1.0.33] - 2026-02-02
 

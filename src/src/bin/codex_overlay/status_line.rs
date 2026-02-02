@@ -386,35 +386,35 @@ fn format_shortcuts_row(
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
     let mut items = Vec::new();
 
-    // [^R rec] - highlight if recording
+    // [^R rec] - RED when recording, yellow when processing, dim when idle
     let rec_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
         RecordingState::Idle => "",
     };
-    items.push(format_shortcut(colors, "^R", "rec", rec_color));
+    items.push(format_shortcut_colored(colors, "^R", "rec", rec_color));
 
-    // [^V auto/manual] - show auto-voice state
+    // [^V auto/ptt] - blue when auto-voice, dim when ptt
     let (voice_label, voice_color) = if state.auto_voice_enabled {
-        ("auto", colors.info)
+        ("auto", colors.info)  // blue = auto-voice on
     } else {
-        ("manual", colors.dim)
+        ("ptt", "")  // dim = push-to-talk mode
     };
-    items.push(format_shortcut(colors, "^V", voice_label, voice_color));
+    items.push(format_shortcut_colored(colors, "^V", voice_label, voice_color));
 
-    // [^T send:auto/insert] - show current send mode
+    // [^T auto/insert] - green when auto-send, yellow when insert
     let (send_label, send_color) = match state.send_mode {
-        VoiceSendMode::Auto => ("send:auto", colors.success),
-        VoiceSendMode::Insert => ("send:insert", colors.warning),
+        VoiceSendMode::Auto => ("auto", colors.success),    // green = auto-send
+        VoiceSendMode::Insert => ("insert", colors.warning), // yellow = insert mode
     };
-    items.push(format_shortcut(colors, "^T", send_label, send_color));
+    items.push(format_shortcut_colored(colors, "^T", send_label, send_color));
 
-    // Static shortcuts
-    items.push(format_shortcut(colors, "^O", "set", ""));
-    items.push(format_shortcut(colors, "?", "help", ""));
-    items.push(format_shortcut(colors, "^Y", "theme", ""));
+    // Static shortcuts - always dim
+    items.push(format_shortcut_colored(colors, "^O", "set", ""));
+    items.push(format_shortcut_colored(colors, "?", "help", ""));
+    items.push(format_shortcut_colored(colors, "^Y", "theme", ""));
 
-    // Queue indicator
+    // Queue indicator - warning color
     if state.queue_depth > 0 {
         items.push(format!(
             "{}[Q:{}]{}",
@@ -438,16 +438,18 @@ fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width:
     truncate_display(&compact.join(" "), inner_width)
 }
 
-/// Format a single shortcut as "[^K label]" with optional highlight color.
-fn format_shortcut(colors: &ThemeColors, key: &str, label: &str, highlight: &str) -> String {
-    let label_str = if highlight.is_empty() {
-        label.to_string()
+/// Format a shortcut - dim brackets/key, only label gets color when active.
+fn format_shortcut_colored(colors: &ThemeColors, key: &str, label: &str, highlight: &str) -> String {
+    // Brackets and key always dim (subtle background)
+    // Only label gets highlight color when active
+    let label_colored = if highlight.is_empty() {
+        format!("{}{}{}", colors.dim, label, colors.reset)
     } else {
         format!("{}{}{}", highlight, label, colors.reset)
     };
     format!(
-        "{}[{}{}{} {}]{}",
-        colors.dim, colors.info, key, colors.reset, label_str, colors.reset
+        "{}[{} {}]{}",
+        colors.dim, key, label_colored, colors.reset
     )
 }
 
