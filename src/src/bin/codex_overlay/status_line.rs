@@ -369,10 +369,9 @@ fn format_shortcuts_row(
 }
 
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
-    // Build shortcuts with state indicators
     let mut items = Vec::new();
 
-    // ^R rec (highlight if recording)
+    // [^R] rec - highlight if recording
     let rec_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
@@ -380,75 +379,38 @@ fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width:
     };
     items.push(format_shortcut(colors, "^R", "rec", rec_color));
 
-    // ^V auto/manual (highlight if auto enabled)
-    let auto_color = if state.auto_voice_enabled {
-        colors.info
-    } else {
-        ""
-    };
-    let auto_label = if state.auto_voice_enabled {
-        "auto"
-    } else {
-        "manual"
-    };
-    items.push(format_shortcut(colors, "^V", auto_label, auto_color));
+    // [^V] auto - highlight if enabled
+    let auto_color = if state.auto_voice_enabled { colors.info } else { "" };
+    items.push(format_shortcut(colors, "^V", "auto", auto_color));
 
-    // ^T send mode indicator
-    let (send_label, send_color) = match state.send_mode {
-        VoiceSendMode::Auto => ("auto", colors.success),
-        VoiceSendMode::Insert => ("insert", colors.warning),
+    // [^T] send - show current mode
+    let send_color = match state.send_mode {
+        VoiceSendMode::Auto => colors.success,
+        VoiceSendMode::Insert => colors.warning,
     };
-    items.push(format_shortcut(colors, "^T", send_label, send_color));
+    items.push(format_shortcut(colors, "^T", "send", send_color));
 
     // Static shortcuts
-    items.push(format_shortcut(colors, "^O", "settings", ""));
+    items.push(format_shortcut(colors, "^O", "set", ""));
     items.push(format_shortcut(colors, "?", "help", ""));
     items.push(format_shortcut(colors, "^Y", "theme", ""));
 
-    // Queue indicator if needed
+    // Queue indicator
     if state.queue_depth > 0 {
-        items.push(format!(
-            "{}[Q:{}]{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+        items.push(format!("{}[Q:{}]{}", colors.warning, state.queue_depth, colors.reset));
     }
 
-    let row = items.join("  ");
+    let row = items.join(" ");
     if display_width(&row) <= inner_width {
         return row;
     }
 
-    // Compact version for narrow terminals
-    let mut compact = Vec::new();
-    compact.push(format_shortcut(colors, "^R", "rec", rec_color));
-    let auto_compact = if state.auto_voice_enabled {
-        "auto"
-    } else {
-        "man"
-    };
-    compact.push(format_shortcut(colors, "^V", auto_compact, auto_color));
-    compact.push(format_shortcut(
-        colors,
-        "^T",
-        if state.send_mode == VoiceSendMode::Auto {
-            "A"
-        } else {
-            "I"
-        },
-        send_color,
-    ));
-    compact.push(format_shortcut(colors, "^O", "set", ""));
-    compact.push(format_shortcut(colors, "?", "help", ""));
-
+    // Compact: remove theme
+    let mut compact: Vec<String> = items[..5].to_vec();
     if state.queue_depth > 0 {
-        compact.push(format!(
-            "{}Q:{}{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+        compact.push(format!("{}Q:{}{}", colors.warning, state.queue_depth, colors.reset));
     }
-
-    let compact_row = compact.join(" ");
-    truncate_display(&compact_row, inner_width)
+    truncate_display(&compact.join(" "), inner_width)
 }
 
 /// Format a single shortcut as "[^K label]" with optional highlight color.
