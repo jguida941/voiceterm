@@ -9,11 +9,17 @@ use std::collections::VecDeque;
 /// Metrics collected during audio capture for observability and debugging.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureMetrics {
+    /// Total capture duration in milliseconds.
     pub capture_ms: u64,
+    /// Total speech duration in milliseconds.
     pub speech_ms: u64,
+    /// Trailing silence duration in milliseconds.
     pub silence_tail_ms: u64,
+    /// Total frames processed during capture.
     pub frames_processed: usize,
+    /// Frames dropped due to buffering limits.
     pub frames_dropped: usize,
+    /// Reason capture ended early (if any).
     pub early_stop_reason: StopReason,
 }
 
@@ -33,14 +39,20 @@ impl Default for CaptureMetrics {
 /// Explains why capture stopped so perf smoke tests can classify failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StopReason {
+    /// VAD detected sustained silence; includes silence tail duration.
     VadSilence { tail_ms: u64 },
+    /// Maximum capture duration reached.
     MaxDuration,
+    /// User manually stopped capture.
     ManualStop,
+    /// Capture timed out before speech.
     Timeout,
+    /// Capture or processing error.
     Error(String),
 }
 
 impl StopReason {
+    /// Compact label used in logs/metrics.
     pub fn label(&self) -> &'static str {
         match self {
             StopReason::VadSilence { .. } => "vad_silence",
@@ -55,7 +67,9 @@ impl StopReason {
 /// Caller-facing result: mono PCM plus metrics for observability/CI.
 #[derive(Debug, Clone)]
 pub struct CaptureResult {
+    /// Captured audio samples (mono f32 PCM).
     pub audio: Vec<f32>,
+    /// Metrics collected during capture.
     pub metrics: CaptureMetrics,
 }
 
@@ -245,7 +259,8 @@ impl<'a> CaptureState<'a> {
         }
     }
 
-    #[allow(dead_code)]
+    /// Test-only helper to model a manual stop.
+    #[cfg(any(test, feature = "mutants"))]
     pub(super) fn manual_stop(&self) -> StopReason {
         StopReason::ManualStop
     }

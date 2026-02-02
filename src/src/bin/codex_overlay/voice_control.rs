@@ -13,6 +13,8 @@ use crate::status_line::{Pipeline, RecordingState, StatusLineState};
 use crate::transcript::{send_transcript, TranscriptSession};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
 
+const STATUS_TOAST_SECS: u64 = 2;
+
 struct VoiceStartInfo {
     pipeline_display: &'static str,
     source: VoiceCaptureSource,
@@ -273,7 +275,7 @@ pub(crate) fn start_voice_capture(
                     current_status,
                     status_state,
                     "Voice capture already running",
-                    Some(Duration::from_secs(2)),
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
                 );
             }
             Ok(())
@@ -281,18 +283,21 @@ pub(crate) fn start_voice_capture(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_voice_message(
     message: VoiceJobMessage,
-    config: &OverlayConfig,
-    session: &mut impl TranscriptSession,
-    writer_tx: &Sender<WriterMessage>,
-    status_clear_deadline: &mut Option<Instant>,
-    current_status: &mut Option<String>,
-    status_state: &mut StatusLineState,
-    session_stats: &mut SessionStats,
-    auto_voice_enabled: bool,
+    ctx: &mut VoiceMessageContext<'_, impl TranscriptSession>,
 ) {
+    let VoiceMessageContext {
+        config,
+        session,
+        writer_tx,
+        status_clear_deadline,
+        current_status,
+        status_state,
+        session_stats,
+        auto_voice_enabled,
+    } = ctx;
+    let auto_voice_enabled = *auto_voice_enabled;
     match message {
         VoiceJobMessage::Transcript {
             text,
@@ -326,9 +331,9 @@ pub(crate) fn handle_voice_message(
                 current_status,
                 status_state,
                 &status,
-                Some(Duration::from_secs(2)),
+                Some(Duration::from_secs(STATUS_TOAST_SECS)),
             );
-            if let Err(err) = send_transcript(session, &text, config.voice_send_mode) {
+            if let Err(err) = send_transcript(*session, &text, config.voice_send_mode) {
                 log_debug(&format!("failed to send transcript: {err:#}"));
                 set_status(
                     writer_tx,
@@ -336,7 +341,7 @@ pub(crate) fn handle_voice_message(
                     current_status,
                     status_state,
                     "Failed to send transcript (see log)",
-                    Some(Duration::from_secs(2)),
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
                 );
             }
         }
@@ -364,7 +369,7 @@ pub(crate) fn handle_voice_message(
                         current_status,
                         status_state,
                         &format!("Listening... ({note})"),
-                        Some(std::time::Duration::from_secs(2)),
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
                     );
                 }
                 // Otherwise leave the message empty - mode indicator shows we're in auto mode
@@ -380,7 +385,7 @@ pub(crate) fn handle_voice_message(
                     current_status,
                     status_state,
                     &status,
-                    Some(Duration::from_secs(2)),
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
                 );
             }
         }
@@ -394,11 +399,22 @@ pub(crate) fn handle_voice_message(
                 current_status,
                 status_state,
                 "Voice capture error (see log)",
-                Some(Duration::from_secs(2)),
+                Some(Duration::from_secs(STATUS_TOAST_SECS)),
             );
             log_debug(&format!("voice capture error: {message}"));
         }
     }
+}
+
+pub(crate) struct VoiceMessageContext<'a, S: TranscriptSession> {
+    pub config: &'a OverlayConfig,
+    pub session: &'a mut S,
+    pub writer_tx: &'a Sender<WriterMessage>,
+    pub status_clear_deadline: &'a mut Option<Instant>,
+    pub current_status: &'a mut Option<String>,
+    pub status_state: &'a mut StatusLineState,
+    pub session_stats: &'a mut SessionStats,
+    pub auto_voice_enabled: bool,
 }
 
 fn using_native_pipeline(has_transcriber: bool, has_recorder: bool) -> bool {
@@ -580,8 +596,8 @@ mod tests {
             .recv_timeout(Duration::from_millis(200))
             .expect("status message");
         match msg {
-            WriterMessage::Status { text } => {
-                assert!(text.contains("already running"));
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("already running"));
             }
             _ => panic!("unexpected writer message"),
         }
@@ -627,6 +643,16 @@ mod tests {
         let mut current_status = None;
         let mut status_state = StatusLineState::new();
         let mut session_stats = SessionStats::new();
+        let mut ctx = VoiceMessageContext {
+            config: &config,
+            session: &mut session,
+            writer_tx: &writer_tx,
+            status_clear_deadline: &mut deadline,
+            current_status: &mut current_status,
+            status_state: &mut status_state,
+            session_stats: &mut session_stats,
+            auto_voice_enabled: false,
+        };
 
         handle_voice_message(
             VoiceJobMessage::Transcript {
@@ -634,22 +660,15 @@ mod tests {
                 source: VoiceCaptureSource::Native,
                 metrics: None,
             },
-            &config,
-            &mut session,
-            &writer_tx,
-            &mut deadline,
-            &mut current_status,
-            &mut status_state,
-            &mut session_stats,
-            false,
+            &mut ctx,
         );
 
         let msg = writer_rx
             .recv_timeout(Duration::from_millis(200))
             .expect("status message");
         match msg {
-            WriterMessage::Status { text } => {
-                assert!(text.contains("Transcript ready"));
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("Transcript ready"));
             }
             _ => panic!("unexpected writer message"),
         }

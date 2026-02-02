@@ -174,6 +174,7 @@ impl Recorder {
     }
 
     #[cfg(not(test))]
+    /// Record audio until VAD signals stop or the stop flag is set.
     pub fn record_with_vad(
         &self,
         cfg: &VadConfig,
@@ -185,6 +186,7 @@ impl Recorder {
     }
 
     #[cfg(test)]
+    /// Test stub for record_with_vad (returns empty audio and default metrics).
     pub fn record_with_vad(
         &self,
         _cfg: &VadConfig,

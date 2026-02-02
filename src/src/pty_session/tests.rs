@@ -2,7 +2,7 @@ use super::counters::*;
 use super::io::*;
 use super::osc::*;
 use super::pty::*;
-use crossbeam_channel::bounded;
+use crossbeam_channel::{bounded, RecvTimeoutError};
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::mem;
@@ -1241,6 +1241,20 @@ fn spawn_reader_thread_recovers_from_wouldblock() {
 }
 
 #[test]
+fn spawn_reader_thread_closes_channel_on_eof() {
+    let (read_fd, write_fd) = pipe_pair();
+    let (tx, rx) = bounded(1);
+    let handle = spawn_reader_thread(read_fd, tx);
+    unsafe {
+        libc::close(write_fd);
+    }
+    let err = rx.recv_timeout(Duration::from_millis(200)).unwrap_err();
+    assert!(matches!(err, RecvTimeoutError::Disconnected));
+    handle.join().unwrap();
+    unsafe { libc::close(read_fd) };
+}
+
+#[test]
 fn spawn_reader_thread_does_not_log_on_eof() {
     let (read_fd, write_fd) = pipe_pair();
     let (tx, _rx) = bounded(1);
@@ -1266,6 +1280,20 @@ fn spawn_passthrough_reader_thread_recovers_from_wouldblock() {
     }
     let data = rx.recv_timeout(Duration::from_secs(1)).unwrap();
     assert_eq!(data, b"pong");
+    handle.join().unwrap();
+    unsafe { libc::close(read_fd) };
+}
+
+#[test]
+fn spawn_passthrough_reader_thread_closes_channel_on_eof() {
+    let (read_fd, write_fd) = pipe_pair();
+    let (tx, rx) = bounded(1);
+    let handle = spawn_passthrough_reader_thread(read_fd, tx);
+    unsafe {
+        libc::close(write_fd);
+    }
+    let err = rx.recv_timeout(Duration::from_millis(200)).unwrap_err();
+    assert!(matches!(err, RecvTimeoutError::Disconnected));
     handle.join().unwrap();
     unsafe { libc::close(read_fd) };
 }

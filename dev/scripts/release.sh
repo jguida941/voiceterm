@@ -26,6 +26,7 @@ CHANGELOG="$REPO_ROOT/dev/CHANGELOG.md"
 
 echo "=== VoxTerm Release $TAG ==="
 
+# Safety checks: enforce branch + clean working tree + version alignment.
 # Check we're on master
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$BRANCH" != "master" ]]; then

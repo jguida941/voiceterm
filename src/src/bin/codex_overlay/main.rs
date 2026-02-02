@@ -59,7 +59,7 @@ use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsItem, SettingsMenuState, SettingsView,
 };
 use crate::status_line::{
-    status_banner_height, Pipeline, RecordingState, StatusLineState, VoiceMode,
+    status_banner_height, Pipeline, RecordingState, StatusLineState, VoiceMode, METER_HISTORY_MAX,
 };
 use crate::theme::Theme;
 use crate::theme_picker::{format_theme_picker, theme_picker_height, THEME_OPTIONS};
@@ -67,7 +67,9 @@ use crate::transcript::{
     deliver_transcript, push_pending_transcript, transcript_ready, try_flush_pending,
     PendingTranscript, TranscriptIo, TranscriptSession,
 };
-use crate::voice_control::{handle_voice_message, start_voice_capture, VoiceManager};
+use crate::voice_control::{
+    handle_voice_message, start_voice_capture, VoiceManager, VoiceMessageContext,
+};
 use crate::writer::{send_enhanced_status, set_status, spawn_writer_thread, WriterMessage};
 
 /// Flag set by SIGWINCH handler to trigger terminal resize.
@@ -79,10 +81,12 @@ const WRITER_CHANNEL_CAPACITY: usize = 512;
 /// Max pending input events before backpressure.
 const INPUT_CHANNEL_CAPACITY: usize = 256;
 
-const METER_HISTORY_MAX: usize = 24;
 const METER_UPDATE_MS: u64 = 80;
 const PREVIEW_CLEAR_MS: u64 = 3000;
 const TRANSCRIPT_PREVIEW_MAX: usize = 60;
+const EVENT_LOOP_IDLE_MS: u64 = 50;
+const RECORDING_DURATION_UPDATE_MS: u64 = 200;
+const PROCESSING_SPINNER_TICK_MS: u64 = 120;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OverlayMode {
@@ -102,8 +106,8 @@ extern "C" fn handle_sigwinch(_: libc::c_int) {
 
 fn main() -> Result<()> {
     let mut config = OverlayConfig::parse();
-    let sound_on_complete = config.app.sounds || config.app.sound_on_complete;
-    let sound_on_error = config.app.sounds || config.app.sound_on_error;
+    let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
+    let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let backend = config.resolve_backend();
     let backend_label = backend.label.clone();
     let mut theme = config.theme_for_backend(&backend_label);
@@ -185,13 +189,14 @@ fn main() -> Result<()> {
         sensitivity_db: config.app.voice_vad_threshold_db,
         backend: backend.label.clone(),
     };
-    let skip_banner = env::var("VOXTERM_WRAPPER")
+    let is_wrapper = env::var("VOXTERM_WRAPPER")
         .map(|v| v == "1")
-        .unwrap_or(false)
-        || env::var("VOXTERM_NO_STARTUP_BANNER").is_ok();
+        .unwrap_or(false);
+    let no_startup_banner = env::var("VOXTERM_NO_STARTUP_BANNER").is_ok();
+    let skip_banner = should_skip_banner(is_wrapper, no_startup_banner);
     if !skip_banner {
         let banner = match terminal_size() {
-            Ok((cols, _)) if cols < 60 => format_minimal_banner(theme),
+            Ok((cols, _)) if use_minimal_banner(cols) => format_minimal_banner(theme),
             _ => format_startup_banner(&banner_config, theme),
         };
         print!("{banner}");
@@ -226,7 +231,13 @@ fn main() -> Result<()> {
     if let Ok((cols, rows)) = terminal_size() {
         terminal_cols = cols;
         terminal_rows = rows;
-        apply_pty_winsize(&mut session, rows, cols, OverlayMode::None, initial_hud_style);
+        apply_pty_winsize(
+            &mut session,
+            rows,
+            cols,
+            OverlayMode::None,
+            initial_hud_style,
+        );
         let _ = writer_tx.send(WriterMessage::Resize { rows, cols });
     }
 
@@ -1120,7 +1131,7 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            default(Duration::from_millis(50)) => {
+            default(Duration::from_millis(EVENT_LOOP_IDLE_MS)) => {
                 if SIGWINCH_RECEIVED.swap(false, Ordering::SeqCst) {
                     if let Ok((cols, rows)) = terminal_size() {
                         terminal_cols = cols;
@@ -1157,7 +1168,9 @@ fn main() -> Result<()> {
                 let now = Instant::now();
                 if status_state.recording_state == RecordingState::Recording {
                     if let Some(start) = recording_started_at {
-                        if now.duration_since(last_recording_update) >= Duration::from_millis(200) {
+                        if now.duration_since(last_recording_update)
+                            >= Duration::from_millis(RECORDING_DURATION_UPDATE_MS)
+                        {
                             let duration = now.duration_since(start).as_secs_f32();
                             if (duration - last_recording_duration).abs() >= 0.1 {
                                 status_state.recording_duration = Some(duration);
@@ -1197,7 +1210,8 @@ fn main() -> Result<()> {
                 }
 
                 if status_state.recording_state == RecordingState::Processing
-                    && now.duration_since(last_processing_tick) >= Duration::from_millis(120)
+                    && now.duration_since(last_processing_tick)
+                        >= Duration::from_millis(PROCESSING_SPINNER_TICK_MS)
                 {
                     let spinner = progress::SPINNER_BRAILLE
                         [processing_spinner_index % progress::SPINNER_BRAILLE.len()];
@@ -1307,7 +1321,7 @@ fn main() -> Result<()> {
     let _ = writer_tx.send(WriterMessage::Shutdown);
     terminal_guard.restore();
     let stats_output = format_session_stats(&session_stats, theme);
-    if !stats_output.is_empty() {
+    if should_print_stats(&stats_output) {
         print!("{stats_output}");
         let _ = io::stdout().flush();
     }
@@ -1395,7 +1409,7 @@ fn show_settings_overlay(
     let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ArrowKey {
     Up,
     Down,
@@ -1405,8 +1419,8 @@ enum ArrowKey {
 
 fn parse_arrow_keys(bytes: &[u8]) -> Vec<ArrowKey> {
     let mut keys = Vec::new();
-    let mut idx = 0;
-    while idx + 2 < bytes.len() {
+    let mut idx: usize = 0;
+    while idx.checked_add(2).map_or(false, |next| next < bytes.len()) {
         if bytes[idx] == 0x1b && (bytes[idx + 1] == b'[' || bytes[idx + 1] == b'O') {
             match bytes[idx + 2] {
                 b'A' => keys.push(ArrowKey::Up),
@@ -1415,9 +1429,9 @@ fn parse_arrow_keys(bytes: &[u8]) -> Vec<ArrowKey> {
                 b'D' => keys.push(ArrowKey::Left),
                 _ => {}
             }
-            idx += 3;
+            idx = idx.saturating_add(3);
         } else {
-            idx += 1;
+            idx = idx.saturating_add(1);
         }
     }
     keys
@@ -1602,6 +1616,22 @@ fn update_hud_style(
         &label,
         Some(Duration::from_secs(2)),
     );
+}
+
+fn resolve_sound_flag(global: bool, specific: bool) -> bool {
+    global || specific
+}
+
+fn should_skip_banner(is_wrapper: bool, no_startup_banner: bool) -> bool {
+    is_wrapper || no_startup_banner
+}
+
+fn use_minimal_banner(cols: u16) -> bool {
+    cols < 60
+}
+
+fn should_print_stats(stats_output: &str) -> bool {
+    !stats_output.is_empty()
 }
 
 fn toggle_hud_panel_recording_only(
@@ -1810,8 +1840,7 @@ fn drain_voice_messages<S: TranscriptSession>(
                     status_state.last_latency_ms = Some(ms);
                 }
             }
-            handle_voice_message(
-                VoiceJobMessage::Empty { source, metrics },
+            let mut ctx = VoiceMessageContext {
                 config,
                 session,
                 writer_tx,
@@ -1820,14 +1849,17 @@ fn drain_voice_messages<S: TranscriptSession>(
                 status_state,
                 session_stats,
                 auto_voice_enabled,
+            };
+            handle_voice_message(
+                VoiceJobMessage::Empty { source, metrics },
+                &mut ctx,
             );
         }
         other => {
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
                 let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
             }
-            handle_voice_message(
-                other,
+            let mut ctx = VoiceMessageContext {
                 config,
                 session,
                 writer_tx,
@@ -1836,6 +1868,10 @@ fn drain_voice_messages<S: TranscriptSession>(
                 status_state,
                 session_stats,
                 auto_voice_enabled,
+            };
+            handle_voice_message(
+                other,
+                &mut ctx,
             );
         }
     }
@@ -1992,6 +2028,8 @@ fn list_input_devices() -> Result<()> {
 
 fn install_sigwinch_handler() -> Result<()> {
     unsafe {
+        // SAFETY: handle_sigwinch is an extern "C" signal handler with no side effects
+        // beyond flipping an atomic flag, which is async-signal-safe.
         let handler = handle_sigwinch as *const () as libc::sighandler_t;
         if libc::signal(libc::SIGWINCH, handler) == libc::SIG_ERR {
             log_debug("failed to install SIGWINCH handler");
@@ -2020,6 +2058,7 @@ mod tests {
         SIGWINCH_RECEIVED.store(false, Ordering::SeqCst);
         install_sigwinch_handler().expect("install sigwinch handler");
         unsafe {
+            // SAFETY: raising SIGWINCH in-process is used for test validation only.
             libc::raise(libc::SIGWINCH);
         }
         for _ in 0..20 {
@@ -2029,5 +2068,374 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
         panic!("SIGWINCH was not received");
+    }
+
+    #[test]
+    fn resolve_sound_flag_prefers_global() {
+        assert!(!resolve_sound_flag(false, false));
+        assert!(resolve_sound_flag(true, false));
+        assert!(resolve_sound_flag(false, true));
+        assert!(resolve_sound_flag(true, true));
+    }
+
+    #[test]
+    fn should_skip_banner_matches_flags() {
+        assert!(!should_skip_banner(false, false));
+        assert!(should_skip_banner(true, false));
+        assert!(should_skip_banner(false, true));
+        assert!(should_skip_banner(true, true));
+    }
+
+    #[test]
+    fn use_minimal_banner_threshold() {
+        assert!(use_minimal_banner(59));
+        assert!(!use_minimal_banner(60));
+    }
+
+    #[test]
+    fn should_print_stats_requires_non_empty() {
+        assert!(!should_print_stats(""));
+        assert!(should_print_stats("stats"));
+    }
+
+    #[test]
+    fn resolved_cols_rows_use_cache() {
+        assert_eq!(resolved_cols(123), 123);
+        assert_eq!(resolved_rows(45), 45);
+    }
+
+    #[test]
+    fn reserved_rows_for_mode_matches_helpers() {
+        let cols = 80;
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full),
+            status_banner_height(cols as usize, HudStyle::Full)
+        );
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full),
+            help_overlay_height()
+        );
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full),
+            theme_picker_height()
+        );
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::Settings, cols, HudStyle::Full),
+            settings_overlay_height()
+        );
+    }
+
+    #[test]
+    fn parse_arrow_keys_reads_sequences() {
+        let bytes = [
+            0x1b,
+            b'[',
+            b'A',
+            0x1b,
+            b'[',
+            b'B',
+            b'x',
+            0x1b,
+            b'O',
+            b'C',
+            0x1b,
+            b'[',
+            b'D',
+        ];
+        let keys = parse_arrow_keys(&bytes);
+        assert_eq!(
+            keys,
+            vec![ArrowKey::Up, ArrowKey::Down, ArrowKey::Right, ArrowKey::Left]
+        );
+        assert!(parse_arrow_keys(&[0x1b, b'[']).is_empty());
+    }
+
+    #[test]
+    fn toggle_send_mode_updates_state_and_status() {
+        let mut config = OverlayConfig::parse_from(["test-app"]);
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+
+        toggle_send_mode(
+            &mut config,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+        assert_eq!(config.voice_send_mode, VoiceSendMode::Insert);
+        assert_eq!(status_state.send_mode, VoiceSendMode::Insert);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("insert"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+
+        toggle_send_mode(
+            &mut config,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+        assert_eq!(config.voice_send_mode, VoiceSendMode::Auto);
+        assert_eq!(status_state.send_mode, VoiceSendMode::Auto);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("auto"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn adjust_sensitivity_updates_threshold_and_message() {
+        let config = OverlayConfig::parse_from(["test-app"]);
+        let mut voice_manager = VoiceManager::new(config.app.clone());
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+
+        adjust_sensitivity(
+            &mut voice_manager,
+            5.0,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+        let up_threshold = status_state.sensitivity_db;
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("less sensitive"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+
+        adjust_sensitivity(
+            &mut voice_manager,
+            -5.0,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+        assert!(status_state.sensitivity_db < up_threshold);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("more sensitive"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cycle_hud_right_panel_wraps() {
+        assert_eq!(
+            cycle_hud_right_panel(HudRightPanel::Ribbon, 1),
+            HudRightPanel::Dots
+        );
+        assert_eq!(
+            cycle_hud_right_panel(HudRightPanel::Ribbon, -1),
+            HudRightPanel::Off
+        );
+        assert_eq!(
+            cycle_hud_right_panel(HudRightPanel::Off, 1),
+            HudRightPanel::Ribbon
+        );
+    }
+
+    #[test]
+    fn update_hud_panel_updates_state_and_status() {
+        let mut config = OverlayConfig::parse_from(["test-app"]);
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+
+        update_hud_panel(
+            &mut config,
+            &mut status_state,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            1,
+        );
+        assert_eq!(config.hud_right_panel, HudRightPanel::Dots);
+        assert_eq!(status_state.hud_right_panel, HudRightPanel::Dots);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("HUD right panel"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cycle_hud_style_wraps() {
+        assert_eq!(cycle_hud_style(HudStyle::Full, 1), HudStyle::Minimal);
+        assert_eq!(cycle_hud_style(HudStyle::Full, -1), HudStyle::Hidden);
+        assert_eq!(cycle_hud_style(HudStyle::Hidden, 1), HudStyle::Full);
+    }
+
+    #[test]
+    fn update_hud_style_updates_state_and_status() {
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+
+        update_hud_style(
+            &mut status_state,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            1,
+        );
+        assert_eq!(status_state.hud_style, HudStyle::Minimal);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("HUD style"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn show_settings_overlay_sends_overlay() {
+        let config = OverlayConfig::parse_from(["test-app"]);
+        let settings_menu = SettingsMenuState::new();
+        let mut status_state = StatusLineState::new();
+        status_state.pipeline = Pipeline::Rust;
+        let (writer_tx, writer_rx) = bounded(4);
+        show_settings_overlay(
+            &writer_tx,
+            Theme::Coral,
+            80,
+            &settings_menu,
+            &config,
+            &status_state,
+            "codex",
+        );
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("overlay message") {
+            WriterMessage::ShowOverlay { height, .. } => {
+                assert_eq!(height, settings_overlay_height());
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn toggle_auto_voice_updates_state_and_status() {
+        let mut config = OverlayConfig::parse_from(["test-app"]);
+        config.app.no_python_fallback = true;
+        let mut voice_manager = VoiceManager::new(config.app.clone());
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        let mut auto_voice_enabled = false;
+        let mut last_auto_trigger_at = None;
+        let mut recording_started_at = None;
+        let mut meter_levels = VecDeque::new();
+        let mut preview_clear_deadline = None;
+        let mut last_meter_update = Instant::now();
+
+        toggle_auto_voice(
+            &mut auto_voice_enabled,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut meter_levels,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+        );
+        assert!(auto_voice_enabled);
+        assert_eq!(status_state.voice_mode, VoiceMode::Auto);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("Auto-voice enabled"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+
+        toggle_auto_voice(
+            &mut auto_voice_enabled,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut meter_levels,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+        );
+        assert!(!auto_voice_enabled);
+        assert_eq!(status_state.voice_mode, VoiceMode::Manual);
+        match writer_rx.recv_timeout(Duration::from_millis(200)).expect("status message") {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("Auto-voice disabled"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[cfg(all(unix, feature = "mutants"))]
+    #[test]
+    fn apply_pty_winsize_updates_session_size() {
+        let mut session =
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+        let rows = 30;
+        let cols = 100;
+        apply_pty_winsize(
+            &mut session,
+            rows,
+            cols,
+            OverlayMode::None,
+            HudStyle::Full,
+        );
+        let reserved = reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full) as u16;
+        let expected_rows = rows.saturating_sub(reserved).max(1);
+        let (set_rows, set_cols) = session.test_winsize();
+        assert_eq!(set_cols, cols);
+        assert_eq!(set_rows, expected_rows);
+
+        let before = session.test_winsize();
+        apply_pty_winsize(
+            &mut session,
+            0,
+            cols,
+            OverlayMode::None,
+            HudStyle::Full,
+        );
+        assert_eq!(session.test_winsize(), before);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn update_pty_winsize_updates_cached_dimensions() {
+        let mut session =
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+        let mut rows = 0;
+        let mut cols = 0;
+        update_pty_winsize(
+            &mut session,
+            &mut rows,
+            &mut cols,
+            OverlayMode::None,
+            HudStyle::Full,
+        );
+        assert!(rows > 0);
+        assert!(cols > 0);
     }
 }

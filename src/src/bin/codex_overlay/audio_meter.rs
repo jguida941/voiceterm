@@ -53,6 +53,7 @@ const BAR_HALF: char = '▌';
 const BAR_EMPTY: char = '░';
 const PEAK_MARKER: char = '│';
 
+#[inline]
 fn rms_db(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return RECOMMENDED_FLOOR_DB;
@@ -62,6 +63,7 @@ fn rms_db(samples: &[f32]) -> f32 {
     20.0 * rms.log10()
 }
 
+#[inline]
 fn peak_db(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return RECOMMENDED_FLOOR_DB;
@@ -166,6 +168,7 @@ pub(crate) fn run_mic_meter(config: &AppConfig, theme: Theme) -> Result<()> {
 }
 
 /// Format a horizontal audio level meter.
+#[must_use]
 pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme) -> String {
     let colors = theme.colors();
     let range = config.max_db - config.min_db;
@@ -202,6 +205,7 @@ pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme)
 }
 
 /// Get color for a position in the meter (green -> yellow -> red).
+#[inline]
 fn level_color(pos: usize, width: usize, colors: &ThemeColors) -> &str {
     let ratio = pos as f32 / width as f32;
     if ratio < 0.6 {
@@ -229,6 +233,7 @@ pub fn format_level_compact(level: AudioLevel, theme: Theme) -> String {
 }
 
 /// Format the mic meter calibration display.
+#[must_use]
 pub fn format_mic_meter_display(
     ambient: AudioLevel,
     speech: Option<AudioLevel>,
@@ -295,7 +300,9 @@ pub fn format_mic_meter_display(
 const WAVEFORM_CHARS: &[char] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
 /// Format a mini waveform from recent audio levels.
+/// Uses iterator chains to avoid Vec allocations in the hot path.
 #[allow(dead_code)]
+#[must_use]
 pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
     let colors = theme.colors();
 
@@ -305,17 +312,15 @@ pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
 
     let mut result = String::new();
 
-    // Take the last `width` samples or pad with zeros
+    // Take the last `width` samples or pad with leading zeros
+    // Uses iterator chain to avoid Vec allocation
     let start = levels.len().saturating_sub(width);
-    let samples: Vec<f32> = if start > 0 {
-        levels[start..].to_vec()
-    } else {
-        let mut padded = vec![0.0; width - levels.len()];
-        padded.extend_from_slice(levels);
-        padded
-    };
+    let pad_count = width.saturating_sub(levels.len());
+    let samples_iter = std::iter::repeat(0.0_f32)
+        .take(pad_count)
+        .chain(levels[start..].iter().copied());
 
-    for &level in &samples {
+    for level in samples_iter {
         // Convert dB to waveform character (assuming -60 to 0 range)
         let normalized = ((level + 60.0) / 60.0).clamp(0.0, 1.0);
         let char_idx = (normalized * (WAVEFORM_CHARS.len() - 1) as f32) as usize;

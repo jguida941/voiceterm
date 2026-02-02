@@ -27,6 +27,7 @@ use super::io::{spawn_passthrough_reader_thread, spawn_reader_thread, write_all}
 pub struct PtyCodexSession {
     pub(super) master_fd: RawFd,
     pub(super) child_pid: i32,
+    /// Stream of raw PTY output chunks from the child process.
     pub output_rx: Receiver<Vec<u8>>,
     pub(super) _output_thread: thread::JoinHandle<()>,
 }
@@ -56,6 +57,8 @@ impl PtyCodexSession {
             );
         }
 
+        // SAFETY: argv/cwd/TERM are valid CStrings; spawn_codex_child returns a valid master fd.
+        // set_nonblocking only touches the returned master fd.
         unsafe {
             let (master_fd, child_pid) = spawn_codex_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
@@ -154,6 +157,7 @@ impl PtyCodexSession {
     /// Peek whether the child is still running (without reaping it).
     pub fn is_alive(&self) -> bool {
         unsafe {
+            // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
             let mut status = 0;
             let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
             ret == 0 // 0 means still running
@@ -164,6 +168,8 @@ impl PtyCodexSession {
 impl Drop for PtyCodexSession {
     fn drop(&mut self) {
         unsafe {
+            // SAFETY: child_pid/master_fd come from spawn_codex_child; cleanup uses best-effort signals
+            // and closes the fd if still open.
             if let Err(err) = self.send("exit\n") {
                 log_debug(&format!("failed to send PTY exit command: {err:#}"));
             }
@@ -208,6 +214,7 @@ impl Drop for PtyCodexSession {
 pub struct PtyOverlaySession {
     pub(super) master_fd: RawFd,
     pub(super) child_pid: i32,
+    /// Stream of raw PTY output chunks from the child process.
     pub output_rx: Receiver<Vec<u8>>,
     pub(super) _output_thread: thread::JoinHandle<()>,
 }
@@ -237,6 +244,8 @@ impl PtyOverlaySession {
             );
         }
 
+        // SAFETY: argv/cwd/TERM are valid CStrings; spawn_codex_child returns a valid master fd.
+        // set_nonblocking only touches the returned master fd.
         unsafe {
             let (master_fd, child_pid) = spawn_codex_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
@@ -274,15 +283,18 @@ impl PtyOverlaySession {
 
     /// Update the PTY window size and notify the child.
     pub fn set_winsize(&self, rows: u16, cols: u16) -> Result<()> {
+        // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
         let mut ws: libc::winsize = unsafe { mem::zeroed() };
         ws.ws_row = rows.max(1);
         ws.ws_col = cols.max(1);
         ws.ws_xpixel = 0;
         ws.ws_ypixel = 0;
+        // SAFETY: ioctl writes to ws and reads master_fd; ws is initialized.
         let result = unsafe { libc::ioctl(self.master_fd, libc::TIOCSWINSZ, &ws) };
         if result != 0 {
             return Err(errno_error("ioctl(TIOCSWINSZ) failed"));
         }
+        // SAFETY: SIGWINCH is sent to the child pid owned by this session.
         let _ = unsafe { libc::kill(self.child_pid, libc::SIGWINCH) };
         Ok(())
     }
@@ -290,6 +302,7 @@ impl PtyOverlaySession {
     /// Peek whether the child is still running (without reaping it).
     pub fn is_alive(&self) -> bool {
         unsafe {
+            // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
             let mut status = 0;
             let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
             ret == 0 // 0 means still running
@@ -297,9 +310,18 @@ impl PtyOverlaySession {
     }
 }
 
+#[cfg(any(test, feature = "mutants"))]
+impl PtyOverlaySession {
+    pub fn test_winsize(&self) -> (u16, u16) {
+        super::osc::current_terminal_size(self.master_fd)
+    }
+}
+
 impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
         unsafe {
+            // SAFETY: child_pid/master_fd come from spawn_codex_child; cleanup uses best-effort signals
+            // and closes the fd if still open.
             if let Err(err) = self.send_text_with_newline("exit") {
                 log_debug(&format!("failed to send PTY exit command: {err:#}"));
             }
@@ -361,6 +383,7 @@ pub(super) unsafe fn spawn_codex_child(
     let mut slave_fd: RawFd = -1;
 
     // Set a proper terminal size - codex checks this for terminal detection
+    // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
     let mut winsize: libc::winsize = mem::zeroed();
     winsize.ws_row = 24;
     winsize.ws_col = 80;
@@ -368,6 +391,7 @@ pub(super) unsafe fn spawn_codex_child(
     winsize.ws_ypixel = 0;
 
     #[allow(clippy::unnecessary_mut_passed)]
+    // SAFETY: openpty expects valid pointers for master/slave/winsize; we pass stack locals.
     if libc::openpty(
         &mut master_fd,
         &mut slave_fd,
@@ -379,6 +403,7 @@ pub(super) unsafe fn spawn_codex_child(
         return Err(errno_error("openpty failed"));
     }
 
+    // SAFETY: fork is called before any unsafe Rust invariants are relied on.
     let pid = libc::fork();
     if pid < 0 {
         close_fd(master_fd);
@@ -409,41 +434,53 @@ pub(super) unsafe fn child_exec(
     working_dir: &CString,
     term_value: &CString,
 ) -> ! {
-    let fail = || -> ! {
+    let fail = |context: &str| -> ! {
+        let err = io::Error::last_os_error();
+        let msg = format!("child_exec {context} failed: {err}\n");
+        // SAFETY: write is async-signal-safe and stderr is a valid fd in the child.
+        let _ = libc::write(
+            libc::STDERR_FILENO,
+            msg.as_ptr() as *const libc::c_void,
+            msg.len(),
+        );
         libc::_exit(1);
     };
 
     if libc::setsid() == -1 {
-        fail();
+        fail("setsid");
     }
     if libc::ioctl(slave_fd, libc::TIOCSCTTY as libc::c_ulong, 0) == -1 {
-        fail();
+        fail("ioctl(TIOCSCTTY)");
     }
     if libc::dup2(slave_fd, libc::STDIN_FILENO) < 0
         || libc::dup2(slave_fd, libc::STDOUT_FILENO) < 0
         || libc::dup2(slave_fd, libc::STDERR_FILENO) < 0
     {
-        fail();
+        fail("dup2");
     }
     close_fd(slave_fd);
 
     if libc::chdir(working_dir.as_ptr()) != 0 {
-        fail();
+        fail("chdir");
     }
 
     let term_key = CString::new("TERM").expect("TERM constant is valid");
     if libc::setenv(term_key.as_ptr(), term_value.as_ptr(), 1) != 0 {
-        fail();
+        fail("setenv(TERM)");
     }
 
     let mut argv_ptrs: Vec<*const libc::c_char> = argv.iter().map(|s| s.as_ptr()).collect();
     argv_ptrs.push(ptr::null());
 
     libc::execvp(argv_ptrs[0], argv_ptrs.as_ptr());
-    fail();
+    fail("execvp");
 }
 
 /// Configure the PTY master for non-blocking reads.
+///
+/// # Safety
+///
+/// `fd` must be a valid, open file descriptor.
 pub(super) unsafe fn set_nonblocking(fd: RawFd) -> Result<()> {
     let flags = libc::fcntl(fd, libc::F_GETFL, 0);
     if flags < 0 {
@@ -461,6 +498,10 @@ pub(super) fn errno_error(context: &str) -> anyhow::Error {
 }
 
 /// Close a file descriptor while ignoring errors.
+///
+/// # Safety
+///
+/// `fd` must be a valid, open file descriptor (or -1 to ignore).
 pub(super) unsafe fn close_fd(fd: RawFd) {
     if fd >= 0 {
         let _ = libc::close(fd);
@@ -491,6 +532,7 @@ pub(super) fn wait_for_exit(child_pid: i32, timeout: Duration) -> bool {
         }
         #[cfg(any(test, feature = "mutants"))]
         record_wait_for_exit_poll();
+        // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
         let result = unsafe { libc::waitpid(child_pid, &mut status, libc::WNOHANG) };
         if result > 0 {
             #[cfg(any(test, feature = "mutants"))]

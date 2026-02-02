@@ -55,11 +55,12 @@ VoxTerm wraps your AI CLI in a PTY and adds voice input. You talk → Whisper tr
 | **Auto-voice** | Hands-free mode - no typing needed |
 | **Transcript queue** | Speak while CLI is busy, sends when ready |
 | **Multiple backends** | Codex + Claude supported; Gemini in works |
-| **Themes** | 6 built-in themes including Catppuccin, Dracula, Nord |
+| **Themes** | 9 built-in themes including ChatGPT, Catppuccin, Dracula, Nord |
 
 ### Theme Picker (Ctrl+Y)
 
 ![Theme Picker](https://raw.githubusercontent.com/jguida941/voxterm/master/img/theme-picker.png)
+_Note: screenshot needs refresh to show the 9-option theme picker._
 
 ### Settings Menu (Ctrl+O)
 

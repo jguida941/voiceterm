@@ -16,13 +16,17 @@ use std::time::Instant;
 /// Shows whether capture was started manually or by auto mode.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum VoiceCaptureTrigger {
+    /// User explicitly pressed the recording hotkey.
     Manual,
+    /// Auto-voice triggered capture based on prompt detection.
     Auto,
 }
 
 /// Handle the UI uses to poll the worker thread for results.
 pub struct VoiceJob {
+    /// Channel receiving the final transcript/error result.
     pub receiver: mpsc::Receiver<VoiceJobMessage>,
+    /// Join handle for the background worker thread.
     pub handle: Option<thread::JoinHandle<()>>,
     /// Flag to signal early stop (e.g., when Enter is pressed in insert mode)
     pub stop_flag: Arc<AtomicBool>,
@@ -38,15 +42,23 @@ impl VoiceJob {
 /// Messages sent from the worker back to the UI.
 #[derive(Debug, PartialEq, Eq)]
 pub enum VoiceJobMessage {
+    /// A transcript was produced successfully.
     Transcript {
+        /// Final transcript text.
         text: String,
+        /// Which pipeline produced the transcript.
         source: VoiceCaptureSource,
+        /// Capture metrics if available.
         metrics: Option<audio::CaptureMetrics>,
     },
+    /// Capture completed but produced no speech.
     Empty {
+        /// Which pipeline produced the capture.
         source: VoiceCaptureSource,
+        /// Capture metrics if available.
         metrics: Option<audio::CaptureMetrics>,
     },
+    /// Capture or transcription failed.
     Error(String),
 }
 
@@ -58,6 +70,7 @@ pub enum VoiceCaptureSource {
 }
 
 impl VoiceCaptureSource {
+    /// Human-readable pipeline label for status messages.
     pub fn label(self) -> &'static str {
         match self {
             VoiceCaptureSource::Native => "Rust pipeline",
@@ -247,9 +260,9 @@ fn capture_voice_native(
             meter.clone(),
         )
     }?;
-    let metrics = capture.metrics.clone();
+    let audio::CaptureResult { audio, metrics } = capture;
     log_voice_metrics(&metrics);
-    if capture.audio.is_empty() {
+    if audio.is_empty() {
         log_debug("capture_voice_native: empty audio capture");
         return Ok((None, metrics));
     }
@@ -262,7 +275,7 @@ fn capture_voice_native(
             .lock()
             .map_err(|_| anyhow!("transcriber lock poisoned"))?;
         // Output suppression is now handled inside transcribe() method
-        transcriber_guard.transcribe(&capture.audio, config)?
+        transcriber_guard.transcribe(&audio, config)?
     };
     let stt_elapsed = stt_start.elapsed().as_secs_f64();
 
@@ -342,6 +355,9 @@ mod tests {
     use crate::config::{AppConfig, VadEngineKind};
     use crate::{PipelineJsonResult, PipelineMetrics};
     use clap::Parser;
+    use std::collections::HashSet;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
 
     static TEST_HOOK_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -455,6 +471,51 @@ mod tests {
             }
             other => panic!("expected error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn start_voice_job_handles_concurrent_fallbacks() {
+        let config = test_config();
+        let job_count = 8;
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let counter_hook = Arc::clone(&counter);
+
+        let transcripts = with_python_hook(
+            Box::new(move |_, _| {
+                let idx = counter_hook.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(10));
+                Ok(pipeline_result(&format!("job-{idx}")))
+            }),
+            || {
+                let mut jobs = Vec::new();
+                for _ in 0..job_count {
+                    jobs.push(start_voice_job(None, None, config.clone(), None));
+                }
+
+                let mut seen = HashSet::new();
+                for mut job in jobs {
+                    let msg = job
+                        .receiver
+                        .recv_timeout(Duration::from_secs(1))
+                        .expect("voice job result");
+                    match msg {
+                        VoiceJobMessage::Transcript { text, source, .. } => {
+                            assert_eq!(source, VoiceCaptureSource::Python);
+                            seen.insert(text);
+                        }
+                        other => panic!("expected transcript, got {other:?}"),
+                    }
+                    if let Some(handle) = job.handle.take() {
+                        handle.join().expect("voice job thread");
+                    }
+                }
+                seen
+            },
+        );
+
+        assert_eq!(transcripts.len(), job_count);
+        assert_eq!(counter.load(Ordering::SeqCst), job_count);
     }
 
     #[test]

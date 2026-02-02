@@ -196,15 +196,22 @@ impl InputParser {
     }
 }
 
+/// Check if byte is a CSI final character (0x40-0x7e).
+#[inline]
 fn is_csi_final(byte: u8) -> bool {
     (0x40..=0x7e).contains(&byte)
 }
 
+/// Check if buffer is a valid CSI-u numeric sequence (e.g., ESC [ 114 ; 5 u).
+/// Requires at least 4 bytes: ESC, '[', at least one digit, and 'u'.
+#[inline]
 fn is_csi_u_numeric(buffer: &[u8]) -> bool {
-    if buffer.len() < 3 {
+    // Minimum valid: ESC [ <digit> u = 4 bytes
+    if buffer.len() < 4 {
         return false;
     }
-    if buffer[0] != 0x1b || buffer[1] != b'[' || *buffer.last().unwrap() != b'u' {
+    // Safe indexing: we've verified length >= 4
+    if buffer[0] != 0x1b || buffer[1] != b'[' || buffer[buffer.len() - 1] != b'u' {
         return false;
     }
     buffer[2..buffer.len() - 1]
@@ -212,8 +219,14 @@ fn is_csi_u_numeric(buffer: &[u8]) -> bool {
         .all(|b| b.is_ascii_digit() || *b == b';')
 }
 
+/// Parse a CSI-u keyboard event (e.g., ESC [ 114 ; 5 u for Ctrl+R).
+#[inline]
 fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
-    if buffer.len() < 4 || buffer[0] != 0x1b || buffer[1] != b'[' || *buffer.last().unwrap() != b'u'
+    // Minimum valid: ESC [ <digit> u = 4 bytes
+    if buffer.len() < 4
+        || buffer[0] != 0x1b
+        || buffer[1] != b'['
+        || buffer[buffer.len() - 1] != b'u'
     {
         return None;
     }

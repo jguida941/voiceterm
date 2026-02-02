@@ -342,7 +342,6 @@ quiet output intervals to avoid corrupting Codex's screen.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
 
-Design details and audit notes live in `dev/active/UI_ENHANCEMENT_PLAN.md`.
 
 ## Key Files
 

@@ -149,6 +149,8 @@ pub(super) fn send_signal_failures() -> usize {
 pub(super) fn send_signal(pid: u32, signal: Signal) {
     #[cfg(unix)]
     unsafe {
+        // SAFETY: libc::kill only needs a valid pid and signal number.
+        // The pid comes from the spawned child process, and we map to SIGTERM/SIGKILL.
         let signo = match signal {
             Signal::Term => libc::SIGTERM,
             Signal::Kill => libc::SIGKILL,

@@ -13,8 +13,11 @@ use crate::writer::{set_status, WriterMessage};
 
 const MAX_PENDING_TRANSCRIPTS: usize = 5;
 
+/// Abstraction over a destination that can accept transcript text.
 pub(crate) trait TranscriptSession {
+    /// Send text without a trailing newline (insert mode).
     fn send_text(&mut self, text: &str) -> Result<()>;
+    /// Send text and append a newline (auto-send mode).
     fn send_text_with_newline(&mut self, text: &str) -> Result<()>;
 }
 
@@ -28,9 +31,13 @@ impl TranscriptSession for PtyOverlaySession {
     }
 }
 
+/// Transcript queued while the CLI is busy.
 pub(crate) struct PendingTranscript {
+    /// Raw transcript text.
     pub(crate) text: String,
+    /// Pipeline that produced the transcript.
     pub(crate) source: VoiceCaptureSource,
+    /// Send mode to apply when flushing.
     pub(crate) mode: VoiceSendMode,
 }
 
@@ -40,11 +47,17 @@ struct PendingBatch {
     mode: VoiceSendMode,
 }
 
+/// Context bundle for transcript delivery and status updates.
 pub(crate) struct TranscriptIo<'a, S: TranscriptSession> {
+    /// Destination session that accepts transcript text.
     pub(crate) session: &'a mut S,
+    /// Writer channel for UI status updates.
     pub(crate) writer_tx: &'a Sender<WriterMessage>,
+    /// Deadline for clearing status text.
     pub(crate) status_clear_deadline: &'a mut Option<Instant>,
+    /// Last status message shown.
     pub(crate) current_status: &'a mut Option<String>,
+    /// Current status-line state for overlay rendering.
     pub(crate) status_state: &'a mut StatusLineState,
 }
 
@@ -101,6 +114,7 @@ pub(crate) fn try_flush_pending<S: TranscriptSession>(
 }
 
 fn merge_pending_transcripts(pending: &mut VecDeque<PendingTranscript>) -> Option<PendingBatch> {
+    // Batch consecutive transcripts with the same send mode to avoid mixing auto/insert.
     let mode = pending.front()?.mode;
     let mut parts: Vec<String> = Vec::new();
     let mut sources: Vec<VoiceCaptureSource> = Vec::new();
@@ -384,5 +398,32 @@ mod tests {
         TranscriptSession::send_text_with_newline(&mut session, "pong")
             .expect("send text with newline");
         assert!(recv_output_contains(&session.output_rx, "pong"));
+    }
+
+    #[test]
+    fn deliver_transcript_injects_into_pty() {
+        let mut session =
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+        let (writer_tx, _writer_rx) = crossbeam_channel::bounded(8);
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut status_state = crate::status_line::StatusLineState::new();
+        let mut io = TranscriptIo {
+            session: &mut session,
+            writer_tx: &writer_tx,
+            status_clear_deadline: &mut deadline,
+            current_status: &mut current_status,
+            status_state: &mut status_state,
+        };
+        let sent_newline = deliver_transcript(
+            "hello",
+            "Rust",
+            VoiceSendMode::Auto,
+            &mut io,
+            0,
+            None,
+        );
+        assert!(sent_newline);
+        assert!(recv_output_contains(&session.output_rx, "hello"));
     }
 }

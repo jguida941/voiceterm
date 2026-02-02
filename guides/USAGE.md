@@ -185,8 +185,9 @@ When recording/processing, the mode label includes a pipeline tag (e.g., `REC R`
 Press `Ctrl+Y` to open the theme picker:
 
 ![Theme Picker](https://raw.githubusercontent.com/jguida941/voxterm/master/img/theme-picker.png)
+_Note: screenshot needs refresh to show the 9-option theme picker._
 
-Available themes: **claude**, **codex**, **coral**, **catppuccin**, **dracula**, **nord**, **ansi** (16-color), **none**.
+Available themes: **chatgpt**, **claude**, **codex**, **coral**, **catppuccin**, **dracula**, **nord**, **ansi** (16-color), **none**.
 
 - `voxterm --theme catppuccin` to start with a specific theme.
 - If `--theme` is not set, VoxTerm picks a backend default (Claude → `claude`, Codex → `codex`, others → `coral`).

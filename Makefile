@@ -1,7 +1,7 @@
 # VoxTerm Developer Makefile
 # Run `make help` to see available commands
 
-.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw release homebrew model-base model-small model-tiny clean clean-tests
+.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-list dev-status dev-report release homebrew model-base model-small model-tiny clean clean-tests
 
 # Default target
 help:
@@ -27,6 +27,18 @@ help:
 	@echo "  make mutants-all       Test all modules (slow)"
 	@echo "  make mutants-audio     Test audio module only"
 	@echo "  make mutants-results   Show last results"
+	@echo ""
+	@echo "Dev CLI:"
+	@echo "  make dev-check         Run devctl check"
+	@echo "  make dev-ci            Run devctl check --ci"
+	@echo "  make dev-prepush       Run devctl check --prepush"
+	@echo "  make dev-mutants       Run devctl mutants"
+	@echo "  make dev-mutants-results Show devctl mutants results"
+	@echo "  make dev-mutation-score  Run devctl mutation-score"
+	@echo "  make dev-docs-check    Run devctl docs-check --user-facing"
+	@echo "  make dev-list          List devctl commands/profiles"
+	@echo "  make dev-status        Run devctl status"
+	@echo "  make dev-report        Run devctl report"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test-bin     Test overlay binary only"
@@ -154,6 +166,40 @@ mutants-results:
 mutants-raw:
 	cd src && cargo mutants --timeout 300 -o mutants.out
 	python3 dev/scripts/check_mutation_score.py --path src/mutants.out/outcomes.json --threshold 0.80
+
+# =============================================================================
+# Dev CLI (devctl)
+# =============================================================================
+
+dev-check:
+	python3 dev/scripts/devctl.py check
+
+dev-ci:
+	python3 dev/scripts/devctl.py check --ci
+
+dev-prepush:
+	python3 dev/scripts/devctl.py check --prepush
+
+dev-mutants:
+	python3 dev/scripts/devctl.py mutants
+
+dev-mutants-results:
+	python3 dev/scripts/devctl.py mutants --results-only
+
+dev-mutation-score:
+	python3 dev/scripts/devctl.py mutation-score
+
+dev-docs-check:
+	python3 dev/scripts/devctl.py docs-check --user-facing
+
+dev-list:
+	python3 dev/scripts/devctl.py list
+
+dev-status:
+	python3 dev/scripts/devctl.py status --format md
+
+dev-report:
+	python3 dev/scripts/devctl.py report --format md
 
 # =============================================================================
 # Release

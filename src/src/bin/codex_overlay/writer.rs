@@ -3,6 +3,7 @@ use crossterm::terminal::size as terminal_size;
 use std::io::{self, Write};
 use std::thread;
 use std::time::{Duration, Instant};
+use voxterm::log_debug;
 
 use crate::status_line::{format_status_banner, StatusBanner, StatusLineState};
 use crate::status_style::StatusType;
@@ -10,11 +11,229 @@ use crate::theme::Theme;
 
 const SAVE_CURSOR: &[u8] = b"\x1b[s\x1b7";
 const RESTORE_CURSOR: &[u8] = b"\x1b[u\x1b8";
+const WRITER_RECV_TIMEOUT_MS: u64 = 25;
 
 #[derive(Debug, Clone)]
 struct OverlayPanel {
     content: String,
     height: usize,
+}
+
+struct WriterState {
+    stdout: io::Stdout,
+    status: Option<String>,
+    enhanced_status: Option<StatusLineState>,
+    pending_status: Option<String>,
+    pending_enhanced: Option<StatusLineState>,
+    overlay_panel: Option<OverlayPanel>,
+    pending_overlay: Option<OverlayPanel>,
+    pending_overlay_clear: bool,
+    pending_clear: bool,
+    needs_redraw: bool,
+    rows: u16,
+    cols: u16,
+    last_output_at: Instant,
+    last_status_draw_at: Instant,
+    theme: Theme,
+    current_banner_height: usize,
+}
+
+impl WriterState {
+    fn new() -> Self {
+        Self {
+            stdout: io::stdout(),
+            status: None,
+            enhanced_status: None,
+            pending_status: None,
+            pending_enhanced: None,
+            overlay_panel: None,
+            pending_overlay: None,
+            pending_overlay_clear: false,
+            pending_clear: false,
+            needs_redraw: false,
+            rows: 0,
+            cols: 0,
+            last_output_at: Instant::now(),
+            last_status_draw_at: Instant::now(),
+            theme: Theme::default(),
+            current_banner_height: 0,
+        }
+    }
+
+    fn handle_message(&mut self, message: WriterMessage) -> bool {
+        match message {
+            WriterMessage::PtyOutput(bytes) => {
+                if let Err(err) = self.stdout.write_all(&bytes) {
+                    log_debug(&format!("stdout write_all failed: {err}"));
+                    return false;
+                }
+                self.last_output_at = Instant::now();
+                if self.status.is_some()
+                    || self.enhanced_status.is_some()
+                    || self.overlay_panel.is_some()
+                {
+                    self.needs_redraw = true;
+                }
+                if let Err(err) = self.stdout.flush() {
+                    log_debug(&format!("stdout flush failed: {err}"));
+                }
+            }
+            WriterMessage::Status { text } => {
+                self.pending_status = Some(text);
+                self.pending_enhanced = None;
+                self.pending_clear = false;
+                self.needs_redraw = true;
+                self.maybe_redraw_status();
+            }
+            WriterMessage::EnhancedStatus(state) => {
+                self.pending_enhanced = Some(state);
+                self.pending_status = None;
+                self.pending_clear = false;
+                self.needs_redraw = true;
+                self.maybe_redraw_status();
+            }
+            WriterMessage::ShowOverlay { content, height } => {
+                self.pending_overlay = Some(OverlayPanel { content, height });
+                self.pending_overlay_clear = false;
+                self.needs_redraw = true;
+                self.maybe_redraw_status();
+            }
+            WriterMessage::ClearOverlay => {
+                self.pending_overlay = None;
+                self.pending_overlay_clear = true;
+                self.needs_redraw = true;
+                self.maybe_redraw_status();
+            }
+            WriterMessage::ClearStatus => {
+                self.pending_status = None;
+                self.pending_enhanced = None;
+                self.pending_clear = true;
+                self.needs_redraw = true;
+                self.maybe_redraw_status();
+            }
+            WriterMessage::Bell { count } => {
+                let sequence = vec![0x07; count.max(1) as usize];
+                if let Err(err) = self.stdout.write_all(&sequence) {
+                    log_debug(&format!("bell write failed: {err}"));
+                }
+                if let Err(err) = self.stdout.flush() {
+                    log_debug(&format!("bell flush failed: {err}"));
+                }
+            }
+            WriterMessage::Resize { rows, cols } => {
+                self.rows = rows;
+                self.cols = cols;
+                if self.status.is_some()
+                    || self.enhanced_status.is_some()
+                    || self.pending_status.is_some()
+                    || self.pending_enhanced.is_some()
+                    || self.overlay_panel.is_some()
+                    || self.pending_overlay.is_some()
+                {
+                    self.needs_redraw = true;
+                }
+                self.maybe_redraw_status();
+            }
+            WriterMessage::SetTheme(new_theme) => {
+                self.theme = new_theme;
+                if self.status.is_some() || self.enhanced_status.is_some() || self.overlay_panel.is_some() {
+                    self.needs_redraw = true;
+                }
+            }
+            WriterMessage::Shutdown => return false,
+        }
+        true
+    }
+
+    fn maybe_redraw_status(&mut self) {
+        const STATUS_IDLE_MS: u64 = 50;
+        const STATUS_MAX_WAIT_MS: u64 = 500;
+        if !self.needs_redraw {
+            return;
+        }
+        let since_output = self.last_output_at.elapsed();
+        let since_draw = self.last_status_draw_at.elapsed();
+        if since_output < Duration::from_millis(STATUS_IDLE_MS)
+            && since_draw < Duration::from_millis(STATUS_MAX_WAIT_MS)
+        {
+            return;
+        }
+        if self.rows == 0 || self.cols == 0 {
+            if let Ok((c, r)) = terminal_size() {
+                self.rows = r;
+                self.cols = c;
+            }
+        }
+        if self.pending_clear {
+            let current_banner_height = self.current_banner_height;
+            if current_banner_height > 1 {
+                let _ = clear_status_banner(&mut self.stdout, self.rows, current_banner_height);
+            } else {
+                let _ = clear_status_line(&mut self.stdout, self.rows, self.cols);
+            }
+            self.status = None;
+            self.enhanced_status = None;
+            self.current_banner_height = 0;
+            self.pending_clear = false;
+        }
+        if self.pending_overlay_clear {
+            if let Some(panel) = self.overlay_panel.as_ref() {
+                let _ = clear_overlay_panel(&mut self.stdout, self.rows, panel.height);
+            }
+            self.overlay_panel = None;
+            self.pending_overlay_clear = false;
+        }
+        if let Some(panel) = self.pending_overlay.as_ref() {
+            if let Some(current) = self.overlay_panel.as_ref() {
+                if current.height != panel.height {
+                    let _ = clear_overlay_panel(&mut self.stdout, self.rows, current.height);
+                }
+            }
+        }
+        if let Some(panel) = self.pending_overlay.take() {
+            self.overlay_panel = Some(panel);
+        }
+        if let Some(state) = self.pending_enhanced.take() {
+            self.enhanced_status = Some(state);
+            self.status = None;
+        }
+        if let Some(text) = self.pending_status.take() {
+            self.status = Some(text);
+            self.enhanced_status = None;
+        }
+
+        let flush_error = {
+            let rows = self.rows;
+            let cols = self.cols;
+            let theme = self.theme;
+            let (stdout, overlay_panel, enhanced_status, status, current_banner_height) = (
+                &mut self.stdout,
+                &self.overlay_panel,
+                &self.enhanced_status,
+                &self.status,
+                &mut self.current_banner_height,
+            );
+            if let Some(panel) = overlay_panel.as_ref() {
+                let _ = write_overlay_panel(stdout, panel, rows);
+            } else if let Some(state) = enhanced_status.as_ref() {
+                let banner = format_status_banner(state, theme, cols as usize);
+                let clear_height = (*current_banner_height).max(banner.height);
+                if clear_height > 0 {
+                    let _ = clear_status_banner(stdout, rows, clear_height);
+                }
+                *current_banner_height = banner.height;
+                let _ = write_status_banner(stdout, &banner, rows);
+            } else if let Some(text) = status.as_deref() {
+                let _ = write_status_line(stdout, text, rows, cols, theme);
+            }
+            stdout.flush().err()
+        };
+        self.needs_redraw = false;
+        self.last_status_draw_at = Instant::now();
+        if let Some(err) = flush_error {
+            log_debug(&format!("status redraw flush failed: {err}"));
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -48,215 +267,16 @@ pub(crate) enum WriterMessage {
 
 pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut stdout = io::stdout();
-        let mut status: Option<String> = None;
-        let mut enhanced_status: Option<StatusLineState> = None;
-        let mut pending_status: Option<String> = None;
-        let mut pending_enhanced: Option<StatusLineState> = None;
-        let mut overlay_panel: Option<OverlayPanel> = None;
-        let mut pending_overlay: Option<OverlayPanel> = None;
-        let mut pending_overlay_clear = false;
-        let mut pending_clear = false;
-        let mut needs_redraw = false;
-        let mut rows = 0u16;
-        let mut cols = 0u16;
-        let mut last_output_at = Instant::now();
-        let mut last_status_draw_at = Instant::now();
-        let mut theme = Theme::default();
-        let mut current_banner_height: usize = 0; // Track banner height for clearing
-
+        let mut state = WriterState::new();
         loop {
-            match rx.recv_timeout(Duration::from_millis(25)) {
-                Ok(WriterMessage::PtyOutput(bytes)) => {
-                    if stdout.write_all(&bytes).is_err() {
+            match rx.recv_timeout(Duration::from_millis(WRITER_RECV_TIMEOUT_MS)) {
+                Ok(message) => {
+                    if !state.handle_message(message) {
                         break;
                     }
-                    last_output_at = Instant::now();
-                    if status.is_some() || enhanced_status.is_some() || overlay_panel.is_some() {
-                        needs_redraw = true;
-                    }
-                    let _ = stdout.flush();
                 }
-                Ok(WriterMessage::Status { text }) => {
-                    pending_status = Some(text);
-                    pending_enhanced = None;
-                    pending_clear = false;
-                    needs_redraw = true;
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::EnhancedStatus(state)) => {
-                    pending_enhanced = Some(state);
-                    pending_status = None;
-                    pending_clear = false;
-                    needs_redraw = true;
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::ShowOverlay { content, height }) => {
-                    pending_overlay = Some(OverlayPanel { content, height });
-                    pending_overlay_clear = false;
-                    needs_redraw = true;
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::ClearOverlay) => {
-                    pending_overlay = None;
-                    pending_overlay_clear = true;
-                    needs_redraw = true;
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::ClearStatus) => {
-                    pending_status = None;
-                    pending_enhanced = None;
-                    pending_clear = true;
-                    needs_redraw = true;
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::Bell { count }) => {
-                    let sequence = vec![0x07; count.max(1) as usize];
-                    let _ = stdout.write_all(&sequence);
-                    let _ = stdout.flush();
-                }
-                Ok(WriterMessage::Resize { rows: r, cols: c }) => {
-                    rows = r;
-                    cols = c;
-                    if status.is_some()
-                        || enhanced_status.is_some()
-                        || pending_status.is_some()
-                        || pending_enhanced.is_some()
-                        || overlay_panel.is_some()
-                        || pending_overlay.is_some()
-                    {
-                        needs_redraw = true;
-                    }
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
-                }
-                Ok(WriterMessage::SetTheme(new_theme)) => {
-                    theme = new_theme;
-                    if status.is_some() || enhanced_status.is_some() || overlay_panel.is_some() {
-                        needs_redraw = true;
-                    }
-                }
-                Ok(WriterMessage::Shutdown) => break,
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                    maybe_redraw_status(StatusRedraw {
-                        stdout: &mut stdout,
-                        rows: &mut rows,
-                        cols: &mut cols,
-                        status: &mut status,
-                        enhanced_status: &mut enhanced_status,
-                        pending_status: &mut pending_status,
-                        pending_enhanced: &mut pending_enhanced,
-                        overlay_panel: &mut overlay_panel,
-                        pending_overlay: &mut pending_overlay,
-                        pending_overlay_clear: &mut pending_overlay_clear,
-                        pending_clear: &mut pending_clear,
-                        needs_redraw: &mut needs_redraw,
-                        last_output_at,
-                        last_status_draw_at: &mut last_status_draw_at,
-                        theme,
-                        current_banner_height: &mut current_banner_height,
-                    });
+                    state.maybe_redraw_status();
                 }
                 Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
                     break;
@@ -277,10 +297,7 @@ pub(crate) fn set_status(
     let same_text = current_status.as_deref() == Some(text);
     status_state.message = text.to_string();
     if !same_text {
-        let _ = writer_tx.send(WriterMessage::Status {
-            text: status_state.message.clone(),
-        });
-        *current_status = Some(text.to_string());
+        *current_status = Some(status_state.message.clone());
     }
     let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
     *clear_deadline = clear_after.map(|duration| Instant::now() + duration);
@@ -291,102 +308,6 @@ pub(crate) fn send_enhanced_status(
     status_state: &StatusLineState,
 ) {
     let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
-}
-
-struct StatusRedraw<'a> {
-    stdout: &'a mut io::Stdout,
-    rows: &'a mut u16,
-    cols: &'a mut u16,
-    status: &'a mut Option<String>,
-    enhanced_status: &'a mut Option<StatusLineState>,
-    pending_status: &'a mut Option<String>,
-    pending_enhanced: &'a mut Option<StatusLineState>,
-    overlay_panel: &'a mut Option<OverlayPanel>,
-    pending_overlay: &'a mut Option<OverlayPanel>,
-    pending_overlay_clear: &'a mut bool,
-    pending_clear: &'a mut bool,
-    needs_redraw: &'a mut bool,
-    last_output_at: Instant,
-    last_status_draw_at: &'a mut Instant,
-    theme: Theme,
-    current_banner_height: &'a mut usize,
-}
-
-fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
-    const STATUS_IDLE_MS: u64 = 50;
-    const STATUS_MAX_WAIT_MS: u64 = 500;
-    if !*ctx.needs_redraw {
-        return;
-    }
-    let since_output = ctx.last_output_at.elapsed();
-    let since_draw = ctx.last_status_draw_at.elapsed();
-    if since_output < Duration::from_millis(STATUS_IDLE_MS)
-        && since_draw < Duration::from_millis(STATUS_MAX_WAIT_MS)
-    {
-        return;
-    }
-    if *ctx.rows == 0 || *ctx.cols == 0 {
-        if let Ok((c, r)) = terminal_size() {
-            *ctx.rows = r;
-            *ctx.cols = c;
-        }
-    }
-    if *ctx.pending_clear {
-        // Clear multi-line banner if we had one
-        if *ctx.current_banner_height > 1 {
-            let _ = clear_status_banner(ctx.stdout, *ctx.rows, *ctx.current_banner_height);
-        } else {
-            let _ = clear_status_line(ctx.stdout, *ctx.rows, *ctx.cols);
-        }
-        *ctx.status = None;
-        *ctx.enhanced_status = None;
-        *ctx.current_banner_height = 0;
-        *ctx.pending_clear = false;
-    }
-    if *ctx.pending_overlay_clear {
-        if let Some(panel) = ctx.overlay_panel.as_ref() {
-            let _ = clear_overlay_panel(ctx.stdout, *ctx.rows, panel.height);
-        }
-        *ctx.overlay_panel = None;
-        *ctx.pending_overlay_clear = false;
-    }
-    if let Some(panel) = ctx.pending_overlay.as_ref() {
-        if let Some(current) = ctx.overlay_panel.as_ref() {
-            if current.height != panel.height {
-                let _ = clear_overlay_panel(ctx.stdout, *ctx.rows, current.height);
-            }
-        }
-    }
-    if let Some(panel) = ctx.pending_overlay.take() {
-        *ctx.overlay_panel = Some(panel);
-    }
-    // Handle enhanced status (takes priority)
-    if let Some(state) = ctx.pending_enhanced.take() {
-        *ctx.enhanced_status = Some(state);
-        *ctx.status = None;
-    }
-    // Handle simple status
-    if let Some(text) = ctx.pending_status.take() {
-        *ctx.status = Some(text);
-        *ctx.enhanced_status = None;
-    }
-    // Render help overlay or status line
-    if let Some(panel) = ctx.overlay_panel.as_ref() {
-        let _ = write_overlay_panel(ctx.stdout, panel, *ctx.rows);
-    } else if let Some(state) = ctx.enhanced_status.as_ref() {
-        let banner = format_status_banner(state, ctx.theme, *ctx.cols as usize);
-        let clear_height = (*ctx.current_banner_height).max(banner.height);
-        if clear_height > 0 {
-            let _ = clear_status_banner(ctx.stdout, *ctx.rows, clear_height);
-        }
-        *ctx.current_banner_height = banner.height;
-        let _ = write_status_banner(ctx.stdout, &banner, *ctx.rows);
-    } else if let Some(text) = ctx.status.as_deref() {
-        let _ = write_status_line(ctx.stdout, text, *ctx.rows, *ctx.cols, ctx.theme);
-    }
-    *ctx.needs_redraw = false;
-    *ctx.last_status_draw_at = Instant::now();
-    let _ = ctx.stdout.flush();
 }
 
 fn write_status_line(
@@ -642,7 +563,7 @@ mod tests {
             .recv_timeout(Duration::from_millis(200))
             .expect("status message");
         match msg {
-            WriterMessage::Status { text } => assert_eq!(text, "status"),
+            WriterMessage::EnhancedStatus(state) => assert_eq!(state.message, "status"),
             _ => panic!("unexpected writer message"),
         }
         assert!(deadline.expect("deadline set") > now);

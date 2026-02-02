@@ -28,6 +28,9 @@ mod platform {
         /// Temporarily redirects stderr to `/dev/null` during loading because
         /// whisper.cpp emits verbose initialization messages.
         ///
+        /// Note: this is a process-wide redirect; we keep it brief and expect
+        /// model loading to happen during startup before other threads log.
+        ///
         /// # Errors
         ///
         /// Returns an error if the model file cannot be loaded or stderr
@@ -53,8 +56,10 @@ mod platform {
             }
 
             // Redirect stderr to /dev/null temporarily
+            // SAFETY: dup2 replaces stderr with /dev/null; both fds are valid.
             let dup_result = unsafe { libc::dup2(null_fd, 2) };
             if dup_result < 0 {
+                // SAFETY: orig_stderr is a valid fd from dup(2).
                 unsafe {
                     libc::close(orig_stderr);
                 }
@@ -69,7 +74,9 @@ mod platform {
                 WhisperContext::new_with_params(model_path, WhisperContextParameters::default());
 
             // Restore original stderr
+            // SAFETY: restore stderr using the saved fd from dup(2).
             let restore_result = unsafe { libc::dup2(orig_stderr, 2) };
+            // SAFETY: orig_stderr is a valid fd returned by dup(2).
             unsafe {
                 libc::close(orig_stderr);
             }
@@ -143,6 +150,8 @@ mod platform {
     fn install_whisper_log_silencer() {
         static INSTALL_LOG_CALLBACK: Once = Once::new();
         INSTALL_LOG_CALLBACK.call_once(|| unsafe {
+            // SAFETY: whisper_rs expects a valid callback pointer; we pass a function
+            // that ignores its inputs and never dereferences raw pointers.
             whisper_rs::set_log_callback(Some(whisper_log_callback), std::ptr::null_mut());
         });
     }
@@ -154,6 +163,7 @@ mod platform {
         _user_data: *mut c_void,
     ) {
         // Silence the default whisper.cpp logger so it does not corrupt the TUI.
+        // SAFETY: We do not dereference any incoming pointers.
     }
 }
 

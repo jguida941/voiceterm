@@ -37,6 +37,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 ### UI and HUD Architecture
 | ADR | Title | Status |
 |-----|-------|--------|
+| [0016](0016-modular-visual-styling.md) | Modular Visual Styling System | Accepted |
 | [0017](0017-focus-and-overlay-stack.md) | Focus and Overlay Stack Model | Proposed |
 | [0018](0018-selectable-menu-component.md) | SelectableMenu Component Contract | Proposed |
 | [0019](0019-preferences-and-config-migrations.md) | Preferences and Config Migrations | Proposed |
@@ -69,7 +70,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 - **Superseded** - Replaced by another ADR (link to replacement)
 
 ## Process
-1. Copy the template and increment the number (next: 0016)
+1. Copy the template and increment the number (next: 0023)
 2. Fill in Context, Decision, and Consequences
 3. Add links to related docs or code
 4. Update this index

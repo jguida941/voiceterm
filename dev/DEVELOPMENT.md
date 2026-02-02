@@ -5,7 +5,9 @@
 - [Project structure](#project-structure)
 - [Building](#building)
 - [Testing](#testing)
+- [Manual QA checklist](#manual-qa-checklist)
 - [Contribution workflow](#contribution-workflow)
+- [Pre-refactor docs readiness checklist](#pre-refactor-docs-readiness-checklist)
 - [Code style](#code-style)
 - [Testing philosophy](#testing-philosophy)
 
@@ -93,13 +95,95 @@ cd src && cargo test --no-default-features app::tests::memory_guard_backend_thre
 # Mutation tests (CI enforces 80% minimum score)
 cd src && cargo mutants --timeout 300 -o mutants.out
 python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+
+# Mutation tests (offline/sandboxed; use a writable cache)
+rsync -a ~/.cargo/ /tmp/cargo-home/
+cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out
+python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+
+# Mutation helper script (module filter + offline env)
+python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
+
+# Summarize top paths with survived mutants
+python3 ../dev/scripts/mutants.py --results-only --top 10
+
+# Plot hotspots (top 25% by default)
+python3 ../dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-top-pct 25
 ```
+
+`--results-only` auto-detects the most recent `outcomes.json` under `src/mutants.out/`.
+Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if needed.
+
+## Dev CLI (devctl)
+
+Unified CLI for common dev workflows:
+
+```bash
+# Core checks (fmt, clippy, tests, build)
+python3 dev/scripts/devctl.py check
+
+# Match CI scope (fmt-check + clippy + tests)
+python3 dev/scripts/devctl.py check --profile ci
+
+# Pre-push scope (CI + perf + mem loop)
+python3 dev/scripts/devctl.py check --profile prepush
+
+# Quick scope (fmt-check + clippy only)
+python3 dev/scripts/devctl.py check --profile quick
+
+# Mutants wrapper (offline cache)
+python3 dev/scripts/devctl.py mutants --module overlay --offline \
+  --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
+
+# Check mutation score only
+python3 dev/scripts/devctl.py mutation-score --threshold 0.80
+
+# Docs check (user-facing changes must update docs + changelog)
+python3 dev/scripts/devctl.py docs-check --user-facing
+
+# Generate a report (JSON/MD)
+python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.json
+
+# Include recent GitHub Actions runs (requires gh auth)
+python3 dev/scripts/devctl.py status --ci --format md
+
+# Pipe report output to a CLI that accepts stdin (requires login)
+python3 dev/scripts/devctl.py report --format md --pipe-command codex
+python3 dev/scripts/devctl.py report --format md --pipe-command claude
+# If your CLI needs a stdin flag, pass it via --pipe-args.
+```
+
+Implementation layout:
+- `dev/scripts/devctl.py`: thin entrypoint wrapper
+- `dev/scripts/devctl/cli.py`: argument parsing and dispatch
+- `dev/scripts/devctl/commands/`: per-command implementations
+- `dev/scripts/devctl/common.py`: shared helpers (run_cmd, env, output)
+- `dev/scripts/devctl/collect.py`: git/CI/mutation summaries for reports
+
+## Manual QA checklist
+
+- [ ] Auto-voice status visibility: REC tag + meter while capture is active.
+- [ ] Queue flush works in both insert and auto send modes.
+- [ ] Prompt logging is off by default unless explicitly enabled.
+- [ ] Two terminals can run independently without shared state leaks.
 
 ## Contribution workflow
 
 - Open or comment on an issue for non-trivial changes so scope and UX expectations are aligned.
 - Keep UX tables/controls lists and docs in sync with behavior.
 - Update `dev/CHANGELOG.md` for user-facing changes and note verification steps in PRs.
+
+## Pre-refactor docs readiness checklist
+
+Use this checklist before larger UI/behavior refactors to avoid documentation drift:
+
+- [ ] `README.md` updated (features list, screenshots, quick overview).
+- [ ] `QUICK_START.md` updated (install steps and common commands).
+- [ ] `guides/USAGE.md` updated (controls, status messages, theme list).
+- [ ] `guides/CLI_FLAGS.md` updated (flags and defaults).
+- [ ] `guides/INSTALL.md` updated (dependencies, setup steps, PATH notes).
+- [ ] `guides/TROUBLESHOOTING.md` updated (new known issues/fixes).
+- [ ] `img/` screenshots refreshed if UI output/controls changed.
 
 ## Code style
 

@@ -5,15 +5,66 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+**Remaining audit items (future work):**
+
+### Code Quality
+- Group writer thread state into a struct to simplify redraw logic (MP-049).
+
+### Documentation
+- Simplify backend docs to Codex + Claude, mark Gemini as in works, and remove references to other AI backends.
+- Clarify Whisper model selection in install/quick start docs and call out the optional `--codex` flag.
+
+## [1.0.35] - 2026-02-02
+
 ### Features
 - Add minimal mode HUD: `--hud-style minimal` or `--minimal-hud` shows a single-line strip (e.g., `◉ AUTO · Ready`, `● REC · -55dB`).
 - Add hidden mode HUD: `--hud-style hidden` keeps a blank row when idle, only shows `REC` while recording.
 - Add `Ctrl+U` hotkey to cycle HUD style (Full → Minimal → Hidden) at runtime.
 - Add Claude and Codex themes; default theme now follows backend when `--theme` is not set.
+- Add ChatGPT theme (`--theme chatgpt`) with emerald green brand color (#10a37f).
+
+### Bug Fixes
+- Stop duplicate status-line updates from spamming repeated "Transcript ready" messages by relying on the HUD banner.
+
+### Code Quality (Code Audit - Phase 1 Quick Wins)
+- Fix potential buffer bounds panic in CSI-u sequence parsing by validating minimum length before indexing.
+- Add I/O error logging for stdout write/flush operations to improve debugging.
+- Optimize waveform rendering by using iterator chains instead of Vec allocations.
+- Add `#[inline]` hints to hot-path functions (display_width, level_color, rms_db, peak_db).
+- Add `#[must_use]` attributes to key struct/function returns to catch accidental discards.
+- Pre-allocate `meter_levels` Vec with METER_HISTORY_MAX capacity to reduce clone overhead.
+- Consolidate METER_HISTORY_MAX constant to `status_line.rs` (single source of truth).
+- Optimize hot-path formatters (format_shortcut_colored, format_mode_indicator, format_chip, format_pulse_dots) to use push_str instead of format! macros.
+- Consolidate status-line formatting helpers to reduce duplication and improve maintainability.
+- Reduce oversized handle_voice_message parameter list by introducing a context struct.
+- Add pre-refactor docs readiness checklist to keep README/QUICK_START/USAGE/CLI_FLAGS/INSTALL/TROUBLESHOOTING and screenshots in sync.
+- Add SAFETY comments around unsafe blocks in PTY, signal, and Whisper integration code.
+- Add public API docs for core modules (voice, audio, pty_session) to clarify usage.
+- Document prompt tracking and transcript queue structures plus batching logic for maintainability.
+- Extract timing "magic numbers" into named constants in main loop, writer thread, and voice status handling.
+- Gate the manual_stop helper behind test/mutant cfg to avoid dead code in release builds.
+- Standardize PTY write error messages to use a consistent prefix.
+- Emit errno details for child_exec failures before exiting the PTY child process.
+- Document the brief, startup-only stderr redirect used during Whisper model load.
+- Remove a redundant CaptureMetrics clone in the voice capture path.
+- Add a manual QA checklist for auto-voice visibility, queue flush, prompt logging, and multi-terminal runs.
+- Add docstrings/comments across devctl and dev scripts to improve maintainability.
+- Add an integration test covering transcript delivery into the PTY session (voice → injection path).
+- Add PTY reader thread EOF/disconnect tests to cover child-exit recovery behavior.
+- Add IPC event-loop integration coverage for active job/voice/auth processing.
+- Add concurrency stress test coverage for parallel voice jobs via the fallback pipeline.
+- Harden arrow-key parsing against index overflow when scanning input bytes.
 
 ### Documentation
-- Simplify backend docs to Codex + Claude, mark Gemini as in works, and remove references to other AI backends.
-- Clarify Whisper model selection in install/quick start docs and call out the optional `--codex` flag.
+- Update README + usage theme counts to 9 and note that the theme picker screenshot needs refresh.
+- Document offline mutation testing workflow and new mutants.py cache/target overrides.
+- Extend mutants.py summaries with top files/directories and results paths for faster triage.
+- Add mutants.py matplotlib hotspot plotting (top 25% by default) with a CLI flag.
+- Add devctl.py unified dev CLI for checks, mutants, mutation score, releases, and reports.
+- Modularize devctl into command modules under dev/scripts/devctl/ for easier extension.
+- Allow devctl status/report outputs to be piped into other CLIs via --pipe-command.
+- Add devctl profiles, list command, and docs-check to enforce user-facing guide updates.
+- Note mutation runs can be long; recommend overnight runs and allow Ctrl+C to stop.
 
 ## [1.0.34] - 2026-02-02
 

@@ -429,6 +429,77 @@ fn run_ipc_loop_processes_commands() {
 }
 
 #[test]
+fn run_ipc_loop_processes_active_jobs() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+
+    let now = Instant::now();
+    let stats = BackendStats {
+        backend_type: "cli",
+        started_at: now,
+        first_token_at: None,
+        finished_at: now,
+        tokens_received: 0,
+        bytes_transferred: 0,
+        pty_attempts: 0,
+        cli_fallback_used: false,
+        disable_pty: false,
+    };
+    let events = vec![BackendEvent {
+        job_id: 1,
+        kind: BackendEventKind::Finished {
+            lines: vec!["ok".to_string()],
+            status: "ok".to_string(),
+            stats,
+        },
+    }];
+    state.current_job = Some(ActiveJob::Codex(build_test_backend_job(
+        events,
+        TestSignal::Ready,
+    )));
+
+    let (voice_tx, voice_rx) = mpsc::channel();
+    voice_tx
+        .send(VoiceJobMessage::Transcript {
+            text: "hello".to_string(),
+            source: voice::VoiceCaptureSource::Native,
+            metrics: None,
+        })
+        .unwrap();
+    state.current_voice_job = Some(VoiceJob {
+        receiver: voice_rx,
+        handle: None,
+        stop_flag: Arc::new(AtomicBool::new(false)),
+    });
+
+    let (auth_tx, auth_rx) = mpsc::channel();
+    auth_tx.send(Ok(())).unwrap();
+    state.current_auth_job = Some(AuthJob {
+        provider: Provider::Codex,
+        receiver: auth_rx,
+        started_at: Instant::now(),
+    });
+
+    let (_cmd_tx, cmd_rx) = mpsc::channel();
+    run_ipc_loop(&mut state, &cmd_rx, Some(2)).unwrap();
+
+    assert!(state.current_job.is_none());
+    assert!(state.current_voice_job.is_none());
+    assert!(state.current_auth_job.is_none());
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::JobEnd { provider, success, .. } if provider == "codex" && *success)
+    }));
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Transcript { text, .. } if text == "hello")
+    }));
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::AuthEnd { provider, success, .. } if provider == "codex" && *success)
+    }));
+}
+
+#[test]
 fn run_ipc_loop_respects_max_loops_with_live_channel() {
     ipc_loop_count_reset();
     let mut state = new_test_state(AppConfig::parse_from(["test-app"]));

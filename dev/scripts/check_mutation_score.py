@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Check a cargo-mutants outcomes.json against a minimum score."""
 import argparse
 import json
 import sys
@@ -6,6 +7,7 @@ from pathlib import Path
 
 
 def main() -> int:
+    """Parse outcomes.json, print score, and return non-zero if below threshold."""
     parser = argparse.ArgumentParser(description="Check mutation score threshold.")
     parser.add_argument(
         "--path",

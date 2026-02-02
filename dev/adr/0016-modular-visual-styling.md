@@ -25,7 +25,8 @@ Implement a modular visual styling system with these components:
    - Unicode prefixes: `● REC`, `◐`, `✓`, `⚠`, `✗`, `ℹ`
 
 2. **`theme.rs`** - Color theme system
-   - `Theme` enum: Coral (default), Catppuccin, Dracula, Nord, None
+   - `Theme` enum: ChatGpt, Claude, Codex, Coral, Catppuccin, Dracula, Nord, Ansi, None
+   - Backend-default themes: Claude backend → `claude`, Codex backend → `codex`, others → `coral`
    - `ThemeColors` struct with semantic colors (recording, success, error, etc.)
    - 24-bit RGB colors for modern terminals
 
@@ -93,7 +94,6 @@ Implement a modular visual styling system with these components:
 
 ## Links
 
-- [UI Enhancement Plan](../active/UI_ENHANCEMENT_PLAN.md) - Current UI roadmap
 - [NO_COLOR Standard](https://no-color.org/)
 - [Catppuccin Theme](https://github.com/catppuccin/catppuccin)
 - `src/src/bin/codex_overlay/` - Implementation location

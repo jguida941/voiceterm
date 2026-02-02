@@ -11,15 +11,25 @@ use std::collections::VecDeque;
 /// Configuration for silence-aware audio capture.
 #[derive(Debug, Clone)]
 pub struct VadConfig {
+    /// Input sample rate in Hz.
     pub sample_rate: u32,
+    /// Frame size in milliseconds.
     pub frame_ms: u64,
+    /// Threshold (dB) below which audio is considered silence.
     pub silence_threshold_db: f32,
+    /// Required silence duration (ms) before stopping capture.
     pub silence_duration_ms: u64,
+    /// Maximum capture duration (ms) before timing out.
     pub max_recording_duration_ms: u64,
+    /// Minimum capture duration (ms) before STT can run.
     pub min_recording_duration_ms: u64,
+    /// Amount of audio (ms) to keep before detected speech.
     pub lookback_ms: u64,
+    /// Total rolling buffer window (ms).
     pub buffer_ms: u64,
+    /// Channel capacity for inter-thread frame delivery.
     pub channel_capacity: usize,
+    /// Number of frames to smooth over.
     pub smoothing_frames: usize,
 }
 
@@ -69,8 +79,11 @@ impl From<&VoicePipelineConfig> for VadConfig {
 /// Callers must ensure frames passed to `process_frame` match the engine's
 /// expected frame size, or the VAD may produce incorrect results.
 pub trait VadEngine {
+    /// Process a frame and return a speech/silence decision.
     fn process_frame(&mut self, samples: &[f32]) -> VadDecision;
+    /// Reset internal state between recordings.
     fn reset(&mut self);
+    /// Engine name used for diagnostics.
     fn name(&self) -> &'static str {
         "unknown_vad"
     }
@@ -78,8 +91,11 @@ pub trait VadEngine {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum VadDecision {
+    /// Speech detected in the frame.
     Speech,
+    /// Silence detected in the frame.
     Silence,
+    /// Unable to confidently classify the frame.
     Uncertain,
 }
 
@@ -152,6 +168,7 @@ pub struct SimpleThresholdVad {
 }
 
 impl SimpleThresholdVad {
+    /// Create a threshold-based VAD using the provided dB cutoff.
     pub fn new(threshold_db: f32) -> Self {
         Self { threshold_db }
     }

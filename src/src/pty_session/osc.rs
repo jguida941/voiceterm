@@ -197,8 +197,10 @@ pub(super) fn current_terminal_size(master_fd: RawFd) -> (u16, u16) {
             (24, 80)
         };
     }
+    // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
     let mut ws: libc::winsize = unsafe { mem::zeroed() };
     unsafe {
+        // SAFETY: ioctl reads from master_fd and writes into ws, which is initialized.
         if libc::ioctl(master_fd, libc::TIOCGWINSZ, &mut ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0
         {
             (ws.ws_row, ws.ws_col)

@@ -10,13 +10,17 @@ Usage:
     python3 dev/scripts/mutants.py --all        # Run all modules
     python3 dev/scripts/mutants.py --module audio  # Specific module
     python3 dev/scripts/mutants.py --list       # List available modules
+    python3 dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
 """
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
+from collections import Counter
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -69,6 +73,85 @@ SRC_DIR = REPO_ROOT / "src"
 OUTPUT_DIR = SRC_DIR / "mutants.out"
 
 
+def find_latest_outcomes_file() -> Optional[Path]:
+    """Return the newest outcomes.json under mutants.out (if any)."""
+    primary = OUTPUT_DIR / "outcomes.json"
+    if primary.exists():
+        return primary
+    candidates = list(OUTPUT_DIR.rglob("outcomes.json"))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def normalize_top_pct(value: float) -> float:
+    """Normalize a percentage (0-1 or 0-100) into a 0-1 float."""
+    if value <= 0:
+        return 0.0
+    if value > 1:
+        return value / 100.0
+    return min(value, 1.0)
+
+
+def top_items(counter: Counter, top_pct: float) -> list[tuple[str, int]]:
+    """Return the top N items based on a percentage of the list length."""
+    items = counter.most_common()
+    if not items:
+        return []
+    pct = normalize_top_pct(top_pct)
+    if pct <= 0:
+        return []
+    count = max(1, int(math.ceil(len(items) * pct)))
+    return items[:count]
+
+
+def plot_hotspots(results, scope: str, top_pct: float, output_path: Optional[str], show: bool) -> None:
+    """Plot survived mutant hotspots (file or dir) using matplotlib."""
+    if results is None:
+        return
+    counter = results["survived_by_file"] if scope == "file" else results["survived_by_dir"]
+    items = top_items(counter, top_pct)
+    if not items:
+        print("No survived mutants to plot.")
+        return
+
+    try:
+        import matplotlib
+        if not os.environ.get("DISPLAY") and not os.environ.get("MPLBACKEND"):
+            # Headless-friendly default for CI/sandboxed runs.
+            matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib not installed. Install with: pip install matplotlib")
+        return
+
+    labels = [path for path, _ in items]
+    values = [count for _, count in items]
+    y_pos = list(range(len(labels)))
+
+    fig_height = max(3.0, 0.4 * len(labels))
+    fig, ax = plt.subplots(figsize=(10, fig_height))
+    ax.barh(y_pos, values, color="#3b82f6")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("Survived mutants")
+    ax.set_title(f"Top {scope} hotspots (top {normalize_top_pct(top_pct) * 100:.0f}%)")
+    fig.tight_layout()
+
+    results_dir = Path(results["results_dir"])
+    if output_path:
+        output_file = Path(output_path)
+    else:
+        output_file = results_dir / f"mutants-top-{scope}.png"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_file, dpi=150)
+    print(f"Plot saved to: {output_file}")
+    if show:
+        plt.show()
+    plt.close(fig)
+
+
 def list_modules():
     """Print available modules."""
     print("\nAvailable modules for mutation testing:\n")
@@ -114,7 +197,12 @@ def select_modules_interactive():
     return selected if selected else module_list[:1]  # Default to first module
 
 
-def run_mutants(modules, timeout=300):
+def cargo_home_has_cache(path: Path) -> bool:
+    """Detect whether a CARGO_HOME has registry/git cache data."""
+    return (path / "registry").exists() or (path / "git").exists()
+
+
+def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, offline=False):
     """Run cargo mutants on selected modules."""
     # Build file filter args
     file_args = []
@@ -138,18 +226,35 @@ def run_mutants(modules, timeout=300):
     print(f"Command: {' '.join(cmd)}\n")
     print("-" * 60)
 
+    env = os.environ.copy()
+    if cargo_home:
+        cargo_home_path = Path(cargo_home).expanduser()
+        cargo_home_path.mkdir(parents=True, exist_ok=True)
+        env["CARGO_HOME"] = str(cargo_home_path)
+        if offline and not cargo_home_has_cache(cargo_home_path):
+            print(
+                f"Warning: CARGO_HOME {cargo_home_path} looks empty while offline. "
+                "Seed it from your main cargo cache (e.g., rsync -a ~/.cargo/ /tmp/cargo-home/)."
+            )
+    if cargo_target_dir:
+        cargo_target_path = Path(cargo_target_dir).expanduser()
+        cargo_target_path.mkdir(parents=True, exist_ok=True)
+        env["CARGO_TARGET_DIR"] = str(cargo_target_path)
+    if offline:
+        env["CARGO_NET_OFFLINE"] = "true"
+
     os.chdir(SRC_DIR)
-    result = subprocess.run(cmd, capture_output=False)
+    result = subprocess.run(cmd, capture_output=False, env=env)
 
     return result.returncode
 
 
 def parse_results():
     """Parse mutation testing results."""
-    outcomes_file = OUTPUT_DIR / "outcomes.json"
+    outcomes_file = find_latest_outcomes_file()
 
-    if not outcomes_file.exists():
-        print(f"No results found at {outcomes_file}")
+    if outcomes_file is None:
+        print(f"No results found under {OUTPUT_DIR}")
         return None
 
     with open(outcomes_file) as f:
@@ -165,6 +270,8 @@ def parse_results():
     }
 
     survived_mutants = []
+    survived_by_file = Counter()
+    survived_by_dir = Counter()
 
     for outcome in data.get("outcomes", []):
         stats["total"] += 1
@@ -174,12 +281,15 @@ def parse_results():
             stats["killed"] += 1
         elif status == "Survived":
             stats["survived"] += 1
+            file_path = outcome.get("scenario", {}).get("file", "unknown")
             survived_mutants.append({
-                "file": outcome.get("scenario", {}).get("file", "unknown"),
+                "file": file_path,
                 "line": outcome.get("scenario", {}).get("line", 0),
                 "function": outcome.get("scenario", {}).get("function", "unknown"),
                 "mutation": outcome.get("scenario", {}).get("mutation", "unknown"),
             })
+            survived_by_file[file_path] += 1
+            survived_by_dir[str(Path(file_path).parent)] += 1
         elif status == "Timeout":
             stats["timeout"] += 1
         elif status == "Unviable":
@@ -193,11 +303,15 @@ def parse_results():
         "stats": stats,
         "score": score,
         "survived": survived_mutants,
+        "survived_by_file": survived_by_file,
+        "survived_by_dir": survived_by_dir,
+        "outcomes_path": str(outcomes_file),
+        "results_dir": str(outcomes_file.parent),
         "timestamp": datetime.now().isoformat(),
     }
 
 
-def output_results(results, format="markdown"):
+def output_results(results, format="markdown", top_n=5):
     """Output results in specified format."""
     if results is None:
         return
@@ -205,9 +319,16 @@ def output_results(results, format="markdown"):
     stats = results["stats"]
     score = results["score"]
     survived = results["survived"]
+    survived_by_file = results["survived_by_file"]
+    survived_by_dir = results["survived_by_dir"]
+    outcomes_path = results["outcomes_path"]
+    results_dir = results["results_dir"]
 
     if format == "json":
-        print(json.dumps(results, indent=2))
+        json_results = results.copy()
+        json_results["survived_by_file"] = survived_by_file.most_common()
+        json_results["survived_by_dir"] = survived_by_dir.most_common()
+        print(json.dumps(json_results, indent=2))
         return
 
     # Markdown format (AI-readable)
@@ -229,6 +350,9 @@ def output_results(results, format="markdown"):
 
 Threshold: 80%
 Status: {"PASS" if score >= 80 else "FAIL"}
+
+Results dir: {results_dir}
+Outcomes: {outcomes_path}
 """)
 
     if survived:
@@ -241,6 +365,18 @@ Status: {"PASS" if score >= 80 else "FAIL"}
         if len(survived) > 20:
             print(f"\n... and {len(survived) - 20} more")
 
+        print("\n## Top Files by Survived Mutants\n")
+        print("| File | Survived |")
+        print("|------|----------|")
+        for file_path, count in survived_by_file.most_common(top_n):
+            print(f"| {file_path} | {count} |")
+
+        print("\n## Top Directories by Survived Mutants\n")
+        print("| Directory | Survived |")
+        print("|-----------|----------|")
+        for dir_path, count in survived_by_dir.most_common(top_n):
+            print(f"| {dir_path} | {count} |")
+
     print()
 
     # Save to file
@@ -252,11 +388,21 @@ Status: {"PASS" if score >= 80 else "FAIL"}
         f.write(f"- Killed: {stats['killed']}\n")
         f.write(f"- Survived: {stats['survived']}\n")
         f.write(f"- Total: {stats['total']}\n")
+        f.write(f"- Results dir: {results_dir}\n")
+        f.write(f"- Outcomes: {outcomes_path}\n\n")
+        if survived:
+            f.write("## Top Files by Survived Mutants\n\n")
+            for file_path, count in survived_by_file.most_common(top_n):
+                f.write(f"- {file_path}: {count}\n")
+            f.write("\n## Top Directories by Survived Mutants\n\n")
+            for dir_path, count in survived_by_dir.most_common(top_n):
+                f.write(f"- {dir_path}: {count}\n")
 
     print(f"Results saved to: {output_file}")
 
 
 def main():
+    """CLI entrypoint for the mutation testing helper."""
     parser = argparse.ArgumentParser(description="VoxTerm Mutation Testing Helper")
     parser.add_argument("--all", action="store_true", help="Test all modules")
     parser.add_argument("--module", "-m", help="Specific module to test")
@@ -264,6 +410,25 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--timeout", "-t", type=int, default=300, help="Timeout in seconds")
     parser.add_argument("--results-only", action="store_true", help="Just parse existing results")
+    parser.add_argument("--offline", action="store_true", help="Set CARGO_NET_OFFLINE=true")
+    parser.add_argument("--cargo-home", help="Override CARGO_HOME for cargo mutants")
+    parser.add_argument("--cargo-target-dir", help="Override CARGO_TARGET_DIR for cargo mutants")
+    parser.add_argument("--top", type=int, default=5, help="Top N paths to summarize")
+    parser.add_argument("--plot", action="store_true", help="Render a matplotlib hotspot plot")
+    parser.add_argument(
+        "--plot-scope",
+        choices=["file", "dir"],
+        default="file",
+        help="Plot hotspots by file or directory",
+    )
+    parser.add_argument(
+        "--plot-top-pct",
+        type=float,
+        default=0.25,
+        help="Top percentage to plot (0-1 or 0-100)",
+    )
+    parser.add_argument("--plot-output", help="Output path for the plot image")
+    parser.add_argument("--plot-show", action="store_true", help="Display the plot window")
 
     args = parser.parse_args()
 
@@ -273,7 +438,15 @@ def main():
 
     if args.results_only:
         results = parse_results()
-        output_results(results, "json" if args.json else "markdown")
+        output_results(results, "json" if args.json else "markdown", top_n=args.top)
+        if args.plot:
+            plot_hotspots(
+                results,
+                args.plot_scope,
+                args.plot_top_pct,
+                args.plot_output,
+                args.plot_show,
+            )
         return
 
     # Select modules
@@ -287,11 +460,25 @@ def main():
     print(f"\nSelected modules: {', '.join(modules)}")
 
     # Run mutation tests
-    returncode = run_mutants(modules, args.timeout)
+    returncode = run_mutants(
+        modules,
+        args.timeout,
+        cargo_home=args.cargo_home,
+        cargo_target_dir=args.cargo_target_dir,
+        offline=args.offline,
+    )
 
     # Parse and output results
     results = parse_results()
-    output_results(results, "json" if args.json else "markdown")
+    output_results(results, "json" if args.json else "markdown", top_n=args.top)
+    if args.plot:
+        plot_hotspots(
+            results,
+            args.plot_scope,
+            args.plot_top_pct,
+            args.plot_output,
+            args.plot_show,
+        )
 
     # Exit with appropriate code
     if results and results["score"] < 80:

@@ -33,6 +33,7 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
                 assert!(guard_iters > prev);
                 guard_loop(guard_start, guard_iters, 10_000, "spawn_reader_thread");
             }
+            // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {
                 libc::read(
                     master_fd,
@@ -90,6 +91,7 @@ pub(super) fn spawn_passthrough_reader_thread(
                     "spawn_passthrough_reader_thread",
                 );
             }
+            // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {
                 libc::read(
                     master_fd,
@@ -137,6 +139,7 @@ pub(super) fn write_all(fd: RawFd, mut data: &[u8]) -> Result<()> {
             guard_loop(guard_start, guard_iters, 10_000, "write_all");
         }
         let write_len = write_all_limit(data.len());
+        // SAFETY: fd is the PTY master, data is a live slice, and write_len <= data.len().
         let written = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, write_len) };
         if written < 0 {
             let err = io::Error::last_os_error();
@@ -144,10 +147,10 @@ pub(super) fn write_all(fd: RawFd, mut data: &[u8]) -> Result<()> {
                 thread::sleep(Duration::from_millis(1));
                 continue;
             }
-            return Err(anyhow!("write to PTY failed: {err}"));
+            return Err(anyhow!("PTY write failed: {err}"));
         }
         if written == 0 {
-            return Err(anyhow!("write to PTY returned 0"));
+            return Err(anyhow!("PTY write returned 0"));
         }
         let written = written as usize;
         data = if written <= data.len() {

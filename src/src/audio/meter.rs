@@ -3,22 +3,26 @@ use std::sync::Arc;
 
 const DEFAULT_METER_DB: f32 = -60.0;
 
+/// Thread-safe meter that tracks the latest audio level in dB.
 #[derive(Clone, Debug)]
 pub struct LiveMeter {
     level_bits: Arc<AtomicU32>,
 }
 
 impl LiveMeter {
+    /// Create a new meter initialized to the default floor value.
     pub fn new() -> Self {
         Self {
             level_bits: Arc::new(AtomicU32::new(DEFAULT_METER_DB.to_bits())),
         }
     }
 
+    /// Store a new dB value.
     pub fn set_db(&self, db: f32) {
         self.level_bits.store(db.to_bits(), Ordering::Relaxed);
     }
 
+    /// Read the most recent dB value.
     pub fn level_db(&self) -> f32 {
         f32::from_bits(self.level_bits.load(Ordering::Relaxed))
     }
@@ -30,6 +34,7 @@ impl Default for LiveMeter {
     }
 }
 
+/// Compute RMS level in dB for the provided samples.
 pub(crate) fn rms_db(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return DEFAULT_METER_DB;

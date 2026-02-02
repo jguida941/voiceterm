@@ -149,6 +149,8 @@ pub enum Theme {
     Claude,
     /// Codex cool blue theme (neutral, OpenAI-style)
     Codex,
+    /// ChatGPT emerald theme (OpenAI ChatGPT brand)
+    ChatGpt,
     /// Catppuccin Mocha - pastel dark theme
     Catppuccin,
     /// Dracula - high contrast dark theme
@@ -168,6 +170,7 @@ impl Theme {
             "coral" | "default" => Some(Self::Coral),
             "claude" | "anthropic" => Some(Self::Claude),
             "codex" => Some(Self::Codex),
+            "chatgpt" | "gpt" | "openai" => Some(Self::ChatGpt),
             "catppuccin" | "mocha" => Some(Self::Catppuccin),
             "dracula" => Some(Self::Dracula),
             "nord" => Some(Self::Nord),
@@ -183,6 +186,7 @@ impl Theme {
             Self::Coral => THEME_CORAL,
             Self::Claude => THEME_CLAUDE,
             Self::Codex => THEME_CODEX,
+            Self::ChatGpt => THEME_CHATGPT,
             Self::Catppuccin => THEME_CATPPUCCIN,
             Self::Dracula => THEME_DRACULA,
             Self::Nord => THEME_NORD,
@@ -200,6 +204,7 @@ impl Theme {
     #[allow(dead_code)]
     pub fn available() -> &'static [&'static str] {
         &[
+            "chatgpt",
             "claude",
             "codex",
             "coral",
@@ -215,7 +220,12 @@ impl Theme {
     pub fn is_truecolor(&self) -> bool {
         matches!(
             self,
-            Self::Claude | Self::Codex | Self::Catppuccin | Self::Dracula | Self::Nord
+            Self::Claude
+                | Self::Codex
+                | Self::ChatGpt
+                | Self::Catppuccin
+                | Self::Dracula
+                | Self::Nord
         )
     }
 
@@ -241,6 +251,7 @@ impl std::fmt::Display for Theme {
             Self::Coral => write!(f, "coral"),
             Self::Claude => write!(f, "claude"),
             Self::Codex => write!(f, "codex"),
+            Self::ChatGpt => write!(f, "chatgpt"),
             Self::Catppuccin => write!(f, "catppuccin"),
             Self::Dracula => write!(f, "dracula"),
             Self::Nord => write!(f, "nord"),
@@ -274,7 +285,7 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
 /// Claude theme - warm neutrals (Anthropic-inspired palette)
 /// Uses transparent backgrounds for best compatibility across terminals
 pub const THEME_CLAUDE: ThemeColors = ThemeColors {
-    recording: "\x1b[38;2;217;119;87m",  // Orange #d97757
+    recording: "\x1b[38;2;217;119;87m",   // Orange #d97757
     processing: "\x1b[38;2;106;155;204m", // Blue #6a9bcc
     success: "\x1b[38;2;120;140;93m",     // Green #788c5d
     warning: "\x1b[38;2;217;119;87m",     // Orange #d97757
@@ -307,6 +318,28 @@ pub const THEME_CODEX: ThemeColors = ThemeColors {
     bg_secondary: "",                 // Transparent
     border: "\x1b[38;2;143;200;255m", // Sky #8fc8ff
     borders: BORDER_SINGLE,
+    indicator_rec: "●",
+    indicator_auto: "◉",
+    indicator_manual: "●",
+    indicator_idle: "○",
+};
+
+/// ChatGPT theme - emerald green (OpenAI ChatGPT brand)
+/// Uses the distinctive #10a37f emerald color
+/// Uses transparent backgrounds for best compatibility across terminals
+pub const THEME_CHATGPT: ThemeColors = ThemeColors {
+    recording: "\x1b[38;2;16;163;127m",  // ChatGPT emerald #10a37f
+    processing: "\x1b[38;2;244;190;92m", // Warm yellow #f4be5c
+    success: "\x1b[38;2;16;163;127m",    // ChatGPT emerald #10a37f
+    warning: "\x1b[38;2;244;190;92m",    // Warm yellow #f4be5c
+    error: "\x1b[38;2;255;107;107m",     // Soft red #ff6b6b
+    info: "\x1b[38;2;59;130;246m",       // Blue #3b82f6
+    reset: "\x1b[0m",
+    dim: "\x1b[38;2;107;114;128m",   // Gray #6b7280
+    bg_primary: "",                  // Transparent
+    bg_secondary: "",                // Transparent
+    border: "\x1b[38;2;16;163;127m", // ChatGPT emerald #10a37f
+    borders: BORDER_ROUNDED,
     indicator_rec: "●",
     indicator_auto: "◉",
     indicator_manual: "●",
@@ -430,6 +463,9 @@ mod tests {
         assert_eq!(Theme::from_name("claude"), Some(Theme::Claude));
         assert_eq!(Theme::from_name("anthropic"), Some(Theme::Claude));
         assert_eq!(Theme::from_name("codex"), Some(Theme::Codex));
+        assert_eq!(Theme::from_name("chatgpt"), Some(Theme::ChatGpt));
+        assert_eq!(Theme::from_name("gpt"), Some(Theme::ChatGpt));
+        assert_eq!(Theme::from_name("openai"), Some(Theme::ChatGpt));
         assert_eq!(Theme::from_name("CATPPUCCIN"), Some(Theme::Catppuccin));
         assert_eq!(Theme::from_name("Dracula"), Some(Theme::Dracula));
         assert_eq!(Theme::from_name("nord"), Some(Theme::Nord));
@@ -444,6 +480,7 @@ mod tests {
         assert!(!Theme::Coral.is_truecolor());
         assert!(Theme::Claude.is_truecolor());
         assert!(Theme::Codex.is_truecolor());
+        assert!(Theme::ChatGpt.is_truecolor());
         assert!(Theme::Catppuccin.is_truecolor());
         assert!(Theme::Dracula.is_truecolor());
         assert!(Theme::Nord.is_truecolor());
@@ -456,6 +493,7 @@ mod tests {
         assert_eq!(Theme::Coral.fallback_for_ansi(), Theme::Coral);
         assert_eq!(Theme::Claude.fallback_for_ansi(), Theme::Ansi);
         assert_eq!(Theme::Codex.fallback_for_ansi(), Theme::Ansi);
+        assert_eq!(Theme::ChatGpt.fallback_for_ansi(), Theme::Ansi);
         assert_eq!(Theme::Catppuccin.fallback_for_ansi(), Theme::Ansi);
         assert_eq!(Theme::Dracula.fallback_for_ansi(), Theme::Ansi);
         assert_eq!(Theme::None.fallback_for_ansi(), Theme::None);
@@ -482,12 +520,13 @@ mod tests {
         assert_eq!(format!("{}", Theme::Coral), "coral");
         assert_eq!(format!("{}", Theme::Claude), "claude");
         assert_eq!(format!("{}", Theme::Codex), "codex");
+        assert_eq!(format!("{}", Theme::ChatGpt), "chatgpt");
         assert_eq!(format!("{}", Theme::Catppuccin), "catppuccin");
     }
 
     #[test]
-    fn theme_has_unique_borders() {
-        // Each theme should have visually distinct borders
+    fn theme_has_expected_borders() {
+        // Spot-check representative border styles for a few themes.
         assert_eq!(Theme::Coral.colors().borders.horizontal, '─');
         assert_eq!(Theme::Catppuccin.colors().borders.horizontal, '═');
         assert_eq!(Theme::Dracula.colors().borders.horizontal, '━');

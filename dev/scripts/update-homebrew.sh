@@ -15,6 +15,7 @@ fi
 
 TAG="v$VERSION"
 
+# Resolve the tap repo path (env override -> brew repo -> fallback path).
 resolve_homebrew_repo() {
     if [[ -n "${HOMEBREW_VOXTERM_PATH:-}" ]]; then
         echo "$HOMEBREW_VOXTERM_PATH"
@@ -36,6 +37,7 @@ resolve_homebrew_repo() {
         fi
     fi
 
+    # Last-resort fallback for local dev setups.
     echo "$HOME/testing_upgrade/homebrew-voxterm"
 }
 
@@ -65,7 +67,7 @@ fi
 
 echo "SHA256: $SHA256"
 
-# Update formula
+# Update formula (URL, version, checksum).
 echo "Updating $FORMULA..."
 cd "$HOMEBREW_REPO"
 

@@ -35,4 +35,3 @@ and risked interfering with ESC-prefixed sequences.
 
 ## Links
 
-- [UI Enhancement Plan](../active/UI_ENHANCEMENT_PLAN.md)

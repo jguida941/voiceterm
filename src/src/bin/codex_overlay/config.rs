@@ -87,7 +87,7 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "voice-send-mode", value_enum, default_value_t = VoiceSendMode::Auto)]
     pub(crate) voice_send_mode: VoiceSendMode,
 
-    /// Color theme for status line (coral, catppuccin, dracula, nord, ansi, none)
+    /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, nord, ansi, none)
     #[arg(long = "theme", default_value = "coral")]
     pub(crate) theme_name: Option<String>,
 
@@ -134,6 +134,7 @@ pub(crate) struct OverlayConfig {
     pub(crate) gemini: bool,
 }
 
+#[must_use = "ResolvedBackend contains the command to execute"]
 pub(crate) struct ResolvedBackend {
     pub(crate) command: String,
     pub(crate) args: Vec<String>,
@@ -172,6 +173,7 @@ impl OverlayConfig {
     }
 
     /// Resolve the backend command, arguments, and prompt patterns.
+    #[must_use = "backend resolution affects command execution"]
     pub(crate) fn resolve_backend(&self) -> ResolvedBackend {
         // Check shorthand flags first
         let backend_raw = if self.claude {

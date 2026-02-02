@@ -75,6 +75,16 @@ impl Pipeline {
     }
 }
 
+fn pipeline_tag_short(pipeline: Pipeline) -> &'static str {
+    match pipeline {
+        Pipeline::Rust => "R",
+        Pipeline::Python => "PY",
+    }
+}
+
+/// Maximum number of meter level samples to keep for waveform display.
+pub const METER_HISTORY_MAX: usize = 24;
+
 /// State for the enhanced status line.
 #[derive(Debug, Clone, Default)]
 pub struct StatusLineState {
@@ -92,7 +102,7 @@ pub struct StatusLineState {
     pub recording_duration: Option<f32>,
     /// Whether auto-voice is enabled
     pub auto_voice_enabled: bool,
-    /// Recent audio meter samples in dBFS for waveform display
+    /// Recent audio meter samples in dBFS for waveform display (capped at METER_HISTORY_MAX)
     pub meter_levels: Vec<f32>,
     /// Latest audio meter level in dBFS
     pub meter_db: Option<f32>,
@@ -116,6 +126,7 @@ impl StatusLineState {
     pub fn new() -> Self {
         Self {
             sensitivity_db: -35.0,
+            meter_levels: Vec::with_capacity(METER_HISTORY_MAX),
             ..Default::default()
         }
     }
@@ -145,6 +156,7 @@ const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
 
 /// Multi-row status banner output.
 #[derive(Debug, Clone)]
+#[must_use = "StatusBanner contains the formatted output to display"]
 pub struct StatusBanner {
     /// Individual lines to render (top to bottom)
     pub lines: Vec<String>,
@@ -172,9 +184,10 @@ mod breakpoints {
 }
 
 /// Return the number of rows used by the status banner for a given width and HUD style.
+#[must_use]
 pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
     match hud_style {
-        HudStyle::Hidden => 1, // Reserve a row to avoid overlaying CLI output
+        HudStyle::Hidden => 1,  // Reserve a row to avoid overlaying CLI output
         HudStyle::Minimal => 1, // Single line
         HudStyle::Full => {
             if width < breakpoints::COMPACT {
@@ -503,10 +516,14 @@ fn format_right_panel(
     truncate_display(&with_pad, max_width)
 }
 
+#[inline]
 fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
     let active = (normalized * 5.0).round() as usize;
-    let mut dots = String::new();
+    // Pre-allocate for 5 dots with color codes
+    let mut result = String::with_capacity(128);
+    result.push_str(colors.dim);
+    result.push('[');
     for idx in 0..5 {
         if idx < active {
             let color = if normalized < 0.6 {
@@ -516,16 +533,19 @@ fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
             } else {
                 colors.error
             };
-            dots.push_str(color);
-            dots.push('•');
-            dots.push_str(colors.reset);
+            result.push_str(color);
+            result.push('•');
+            result.push_str(colors.reset);
         } else {
-            dots.push_str(colors.dim);
-            dots.push('·');
-            dots.push_str(colors.reset);
+            result.push_str(colors.dim);
+            result.push('·');
+            result.push_str(colors.reset);
         }
     }
-    format!("{}[{}{}]{}", colors.dim, dots, colors.dim, colors.reset)
+    result.push_str(colors.dim);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
 }
 
 fn format_state_chips(
@@ -557,38 +577,62 @@ fn format_state_chips(
     }
 }
 
+#[inline]
 fn format_chip(label: &str, accent: &str, colors: &ThemeColors) -> String {
-    format!(
-        "{}[{}{}{}]{}",
-        colors.dim, accent, label, colors.dim, colors.reset
-    )
+    let mut result = String::with_capacity(32);
+    result.push_str(colors.dim);
+    result.push('[');
+    result.push_str(accent);
+    result.push_str(label);
+    result.push_str(colors.dim);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
 }
 
 /// Format the mode indicator with appropriate color and symbol.
+/// Optimized to avoid intermediate string allocations.
+#[inline]
 fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let pipeline_tag = match state.pipeline {
-        Pipeline::Rust => "R",
-        Pipeline::Python => "PY",
-    };
-    let (indicator, label, color) = match state.recording_state {
-        RecordingState::Recording => (
-            colors.indicator_rec,
-            format!("REC {pipeline_tag}"),
-            colors.recording,
-        ),
-        RecordingState::Processing => ("◐", format!("... {pipeline_tag}"), colors.processing),
-        RecordingState::Idle => match state.voice_mode {
-            VoiceMode::Auto => (colors.indicator_auto, "AUTO".to_string(), colors.info),
-            VoiceMode::Manual => (colors.indicator_manual, "MANUAL".to_string(), ""),
-            VoiceMode::Idle => (colors.indicator_idle, "IDLE".to_string(), ""),
-        },
-    };
+    let pipeline_tag = pipeline_tag_short(state.pipeline);
 
-    if color.is_empty() {
-        format!(" {} {} ", indicator, label)
-    } else {
-        format!(" {}{} {}{} ", color, indicator, label, colors.reset)
+    let mut result = String::with_capacity(32);
+    result.push(' ');
+
+    match state.recording_state {
+        RecordingState::Recording => {
+            result.push_str(colors.recording);
+            result.push_str(colors.indicator_rec);
+            result.push_str(" REC ");
+            result.push_str(pipeline_tag);
+            result.push_str(colors.reset);
+        }
+        RecordingState::Processing => {
+            result.push_str(colors.processing);
+            result.push_str("◐ ... ");
+            result.push_str(pipeline_tag);
+            result.push_str(colors.reset);
+        }
+        RecordingState::Idle => {
+            let (indicator, label, color) = match state.voice_mode {
+                VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
+                VoiceMode::Manual => (colors.indicator_manual, "MANUAL", ""),
+                VoiceMode::Idle => (colors.indicator_idle, "IDLE", ""),
+            };
+            if !color.is_empty() {
+                result.push_str(color);
+            }
+            result.push_str(indicator);
+            result.push(' ');
+            result.push_str(label);
+            if !color.is_empty() {
+                result.push_str(colors.reset);
+            }
+        }
     }
+
+    result.push(' ');
+    result
 }
 
 /// Format the shortcuts row with dimmed styling.
@@ -689,20 +733,31 @@ fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width:
 }
 
 /// Format a shortcut - dim brackets/key, only label gets color when active.
+/// Optimized to avoid intermediate string allocations.
+#[inline]
 fn format_shortcut_colored(
     colors: &ThemeColors,
     key: &str,
     label: &str,
     highlight: &str,
 ) -> String {
-    // Brackets and key always dim (subtle background)
-    // Only label gets highlight color when active
-    let label_colored = if highlight.is_empty() {
-        format!("{}{}{}", colors.dim, label, colors.reset)
+    // Pre-allocate capacity for typical shortcut string
+    let mut result = String::with_capacity(64);
+    result.push_str(colors.dim);
+    result.push('[');
+    result.push_str(key);
+    result.push(' ');
+    // Label color: highlight if active, dim otherwise
+    if highlight.is_empty() {
+        result.push_str(colors.dim);
     } else {
-        format!("{}{}{}", highlight, label, colors.reset)
-    };
-    format!("{}[{} {}]{}", colors.dim, key, label_colored, colors.reset)
+        result.push_str(highlight);
+    }
+    result.push_str(label);
+    result.push_str(colors.reset);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
 }
 
 /// Format the bottom border.
@@ -716,6 +771,7 @@ fn format_bottom_border(colors: &ThemeColors, borders: &BorderSet, width: usize)
 }
 
 /// Format the enhanced status line with responsive layout.
+#[must_use]
 pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -> String {
     let colors = theme.colors();
 
@@ -786,24 +842,61 @@ pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -
     }
 }
 
-/// Format minimal status for very narrow terminals.
-fn format_minimal(state: &StatusLineState, colors: &ThemeColors, width: usize) -> String {
-    let indicator = match state.recording_state {
-        RecordingState::Recording => format!("{}●{}", colors.recording, colors.reset),
-        RecordingState::Processing => format!("{}◐{}", colors.processing, colors.reset),
+struct CompactModeParts<'a> {
+    indicator: &'a str,
+    label: &'a str,
+    color: &'a str,
+}
+
+fn compact_mode_parts<'a>(state: &'a StatusLineState, colors: &'a ThemeColors) -> CompactModeParts<'a> {
+    let pipeline_tag = pipeline_tag_short(state.pipeline);
+    match state.recording_state {
+        RecordingState::Recording => CompactModeParts {
+            indicator: "●",
+            label: pipeline_tag,
+            color: colors.recording,
+        },
+        RecordingState::Processing => CompactModeParts {
+            indicator: "◐",
+            label: pipeline_tag,
+            color: colors.processing,
+        },
         RecordingState::Idle => {
-            if state.voice_mode == VoiceMode::Auto {
-                format!(
-                    "{}{}{}",
-                    colors.info,
-                    state.voice_mode.indicator(),
-                    colors.reset
-                )
-            } else {
-                state.voice_mode.indicator().to_string()
+            let (label, color) = match state.voice_mode {
+                VoiceMode::Auto => ("A", colors.info),
+                VoiceMode::Manual => ("M", ""),
+                VoiceMode::Idle => ("", ""),
+            };
+            CompactModeParts {
+                indicator: state.voice_mode.indicator(),
+                label,
+                color,
             }
         }
-    };
+    }
+}
+
+fn format_compact_indicator(parts: &CompactModeParts<'_>, colors: &ThemeColors) -> String {
+    if parts.color.is_empty() {
+        parts.indicator.to_string()
+    } else {
+        format!("{}{}{}", parts.color, parts.indicator, colors.reset)
+    }
+}
+
+fn format_compact_mode(parts: &CompactModeParts<'_>, colors: &ThemeColors) -> String {
+    if parts.label.is_empty() {
+        format_compact_indicator(parts, colors)
+    } else if parts.color.is_empty() {
+        format!("{} {}", parts.indicator, parts.label)
+    } else {
+        format!("{}{} {}{}", parts.color, parts.indicator, parts.label, colors.reset)
+    }
+}
+
+/// Format minimal status for very narrow terminals.
+fn format_minimal(state: &StatusLineState, colors: &ThemeColors, width: usize) -> String {
+    let indicator = format_compact_indicator(&compact_mode_parts(state, colors), colors);
 
     let msg = if state.message.is_empty() {
         if state.voice_mode == VoiceMode::Auto {
@@ -827,38 +920,7 @@ fn format_compact(
     theme: Theme,
     width: usize,
 ) -> String {
-    let pipeline_tag = match state.pipeline {
-        Pipeline::Rust => "R",
-        Pipeline::Python => "PY",
-    };
-    let mode = match state.recording_state {
-        RecordingState::Recording => {
-            format!("{}● {}{}", colors.recording, pipeline_tag, colors.reset)
-        }
-        RecordingState::Processing => {
-            format!("{}◐ {}{}", colors.processing, pipeline_tag, colors.reset)
-        }
-        RecordingState::Idle => {
-            let label = match state.voice_mode {
-                VoiceMode::Auto => "A",
-                VoiceMode::Manual => "M",
-                VoiceMode::Idle => "",
-            };
-            if state.voice_mode == VoiceMode::Auto {
-                format!(
-                    "{}{} {}{}",
-                    colors.info,
-                    state.voice_mode.indicator(),
-                    label,
-                    colors.reset
-                )
-            } else if state.voice_mode == VoiceMode::Manual {
-                format!("{} {}", state.voice_mode.indicator(), label)
-            } else {
-                state.voice_mode.indicator().to_string()
-            }
-        }
-    };
+    let mode = format_compact_mode(&compact_mode_parts(state, colors), colors);
 
     let registry = compact_hud_registry();
     let hud_state = HudState {
@@ -900,36 +962,9 @@ fn compact_hud_registry() -> &'static HudRegistry {
 
 /// Format compact left section for medium terminals.
 fn format_left_compact(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let pipeline_tag = match state.pipeline {
-        Pipeline::Rust => "R",
-        Pipeline::Python => "PY",
-    };
-    let mode_indicator = match state.recording_state {
-        RecordingState::Recording => format!("{}●{}", colors.recording, colors.reset),
-        RecordingState::Processing => format!("{}◐{}", colors.processing, colors.reset),
-        RecordingState::Idle => {
-            if state.voice_mode == VoiceMode::Auto {
-                format!(
-                    "{}{}{}",
-                    colors.info,
-                    state.voice_mode.indicator(),
-                    colors.reset
-                )
-            } else {
-                state.voice_mode.indicator().to_string()
-            }
-        }
-    };
-
-    let mode_label = match state.recording_state {
-        RecordingState::Recording => pipeline_tag,
-        RecordingState::Processing => pipeline_tag,
-        RecordingState::Idle => match state.voice_mode {
-            VoiceMode::Auto => "A",
-            VoiceMode::Manual => "M",
-            VoiceMode::Idle => "",
-        },
-    };
+    let parts = compact_mode_parts(state, colors);
+    let mode_indicator = format_compact_indicator(&parts, colors);
+    let mode_label = parts.label;
 
     if mode_label.is_empty() {
         format!("{} │ {:.0}dB", mode_indicator, state.sensitivity_db)
@@ -943,18 +978,11 @@ fn format_left_compact(state: &StatusLineState, colors: &ThemeColors) -> String 
 
 /// Format compact shortcuts.
 fn format_shortcuts_compact(colors: &ThemeColors) -> String {
-    let mut parts = Vec::new();
-    for (key, action) in SHORTCUTS_COMPACT {
-        parts.push(format!("{}{}{} {}", colors.info, key, colors.reset, action));
-    }
-    parts.join(" ")
+    format_shortcuts_list(colors, SHORTCUTS_COMPACT, " ")
 }
 
 fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let pipeline_tag = match state.pipeline {
-        Pipeline::Rust => "R",
-        Pipeline::Python => "PY",
-    };
+    let pipeline_tag = pipeline_tag_short(state.pipeline);
     let mode_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
@@ -1054,14 +1082,23 @@ fn format_message(
 }
 
 fn format_shortcuts(colors: &ThemeColors) -> String {
-    let mut parts = Vec::new();
-    for (key, action) in SHORTCUTS {
+    format_shortcuts_list(colors, SHORTCUTS, "  ")
+}
+
+fn format_shortcuts_list(
+    colors: &ThemeColors,
+    shortcuts: &[(&str, &str)],
+    separator: &str,
+) -> String {
+    let mut parts = Vec::with_capacity(shortcuts.len());
+    for (key, action) in shortcuts {
         parts.push(format!("{}{}{} {}", colors.info, key, colors.reset, action));
     }
-    parts.join("  ")
+    parts.join(separator)
 }
 
 /// Calculate display width excluding ANSI escape codes.
+#[inline]
 fn display_width(s: &str) -> usize {
     let mut width: usize = 0;
     let mut in_escape = false;
@@ -1082,6 +1119,7 @@ fn display_width(s: &str) -> usize {
 }
 
 /// Truncate a string to a maximum display width.
+#[inline]
 fn truncate_display(s: &str, max_width: usize) -> String {
     if max_width == 0 {
         return String::new();
@@ -1331,5 +1369,23 @@ mod tests {
         // Minimal mode when processing should show PROC
         assert_eq!(banner.height, 1);
         assert!(banner.lines[0].contains("PROC"));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_recording_shows_rec_and_meter() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.voice_mode = VoiceMode::Auto;
+        state.auto_voice_enabled = true;
+        state.recording_state = RecordingState::Recording;
+        state.meter_levels
+            .extend_from_slice(&[-60.0, -45.0, -30.0, -15.0]);
+        state.meter_db = Some(-30.0);
+        state.message = "Recording...".to_string();
+
+        let banner = format_status_banner(&state, Theme::Coral, 80);
+        assert_eq!(banner.height, 4);
+        assert!(banner.lines.iter().any(|line| line.contains("REC")));
+        assert!(banner.lines.iter().any(|line| line.contains("dB")));
     }
 }

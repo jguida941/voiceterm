@@ -39,5 +39,4 @@ Negative:
 
 ## Links
 
-- `dev/active/UI_ENHANCEMENT_PLAN.md`
 - `dev/active/MASTER_PLAN.md` (MP-038)

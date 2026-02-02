@@ -133,16 +133,27 @@ impl PromptLogger {
     }
 }
 
+/// Tracks prompt detection state from PTY output to drive auto-voice behavior.
 pub(crate) struct PromptTracker {
+    /// Optional user-supplied prompt regex override.
     regex: Option<Regex>,
+    /// Auto-learned prompt string from recent output.
     learned_prompt: Option<String>,
+    /// Whether auto-learning is permitted.
     allow_auto_learn: bool,
+    /// Last time a prompt was detected.
     last_prompt_seen_at: Option<Instant>,
+    /// Last time any output (PTY or overlay) was seen.
     last_output_at: Instant,
+    /// Last time PTY output was observed.
     last_pty_output_at: Option<Instant>,
+    /// Whether any output has been seen yet (startup heuristic).
     has_seen_output: bool,
+    /// Current line buffer (ANSI-stripped) for prompt matching.
     current_line: Vec<u8>,
+    /// Last completed line (ANSI-stripped).
     last_line: Option<String>,
+    /// Optional prompt logging sink.
     prompt_logger: PromptLogger,
 }
 

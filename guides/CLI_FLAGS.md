@@ -118,7 +118,7 @@ voxterm --gemini              # Gemini CLI (in works; not yet supported)
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--theme <NAME>` | Theme: `coral`, `claude`, `codex`, `catppuccin`, `dracula`, `nord`, `ansi`, `none` | backend default |
+| `--theme <NAME>` | Theme: `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`, `nord`, `ansi`, `none` | backend default |
 | `--no-color` | Disable all colors | off |
 | `--hud-style <MODE>` | HUD display style: `full`, `minimal`, `hidden` | full |
 | `--minimal-hud` | Shorthand for `--hud-style minimal` | off |

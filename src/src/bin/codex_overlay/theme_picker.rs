@@ -7,6 +7,7 @@ use crate::theme::{Theme, ThemeColors};
 
 /// Theme options with labels and descriptions.
 pub const THEME_OPTIONS: &[(Theme, &str, &str)] = &[
+    (Theme::ChatGpt, "chatgpt", "Emerald green (ChatGPT)"),
     (Theme::Claude, "claude", "Warm neutrals (Anthropic)"),
     (Theme::Codex, "codex", "Cool blue (Codex-style)"),
     (Theme::Coral, "coral", "Default red accents"),
@@ -75,7 +76,7 @@ pub fn format_theme_picker(current_theme: Theme, width: usize) -> String {
     lines.push(format_title_line(
         &colors,
         borders,
-        "1-8 select • Esc close",
+        "1-9 select • Esc close",
         inner_width,
     ));
 
@@ -174,8 +175,8 @@ mod tests {
     #[test]
     fn theme_picker_contains_options() {
         let output = format_theme_picker(Theme::Coral, 60);
-        assert!(output.contains("1. claude"));
-        assert!(output.contains("8. none"));
+        assert!(output.contains("1. chatgpt"));
+        assert!(output.contains("9. none"));
     }
 
     #[test]
@@ -191,9 +192,9 @@ mod tests {
     #[test]
     fn theme_picker_shows_current_theme() {
         let output = format_theme_picker(Theme::Dracula, 60);
-        // Should have marker for current theme (Dracula = option 5)
+        // Should have marker for current theme (Dracula = option 6)
         assert!(output.contains(">"));
-        assert!(output.contains("5. dracula"));
+        assert!(output.contains("6. dracula"));
     }
 
     #[test]
