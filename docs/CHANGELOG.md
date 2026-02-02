@@ -3,6 +3,14 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [Unreleased] - 2026-02-02
+
+### Privacy
+- Avoid logging full panic details to the debug log unless `--log-content` is enabled.
+
+### UX
+- Refresh the startup banner styling and show backend/theme/auto state (header now shows "VoxTerm").
+
 ## [1.0.29] - 2026-02-02
 
 ### Reliability

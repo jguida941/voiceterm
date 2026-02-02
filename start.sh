@@ -21,6 +21,18 @@ DIM='\033[2m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+if [ -n "${NO_COLOR:-}" ]; then
+    CORAL=''
+    CORAL_BRIGHT=''
+    GREEN=''
+    GOLD=''
+    YELLOW=''
+    RED=''
+    DIM=''
+    BOLD=''
+    NC=''
+fi
+
 TERM_COLS="${CODEX_VOICE_FORCE_COLUMNS:-${COLUMNS:-$(tput cols 2>/dev/null || true)}}"
 if ! [ "$TERM_COLS" -gt 0 ] 2>/dev/null; then
     TERM_COLS=80
@@ -30,40 +42,52 @@ if ! [ "$TERM_LINES" -gt 0 ] 2>/dev/null; then
     TERM_LINES=24
 fi
 
-print_large_banner() {
-    cat <<'BANNER'
-   ██████╗ ██████╗ ██████╗ ███████╗██╗  ██╗
-  ██╔════╝██╔═══██╗██╔══██╗██╔════╝╚██╗██╔╝
-  ██║     ██║   ██║██║  ██║█████╗   ╚███╔╝
-  ██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗
-  ╚██████╗╚██████╔╝██████╔╝███████╗██╔╝ ██╗
-   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
-          ██╗   ██╗ ██████╗ ██╗ ██████╗███████╗
-          ██║   ██║██╔═══██╗██║██╔════╝██╔════╝
-          ██║   ██║██║   ██║██║██║     █████╗
-          ╚██╗ ██╔╝██║   ██║██║██║     ██╔══╝
-           ╚████╔╝ ╚██████╔╝██║╚██████╗███████╗
-            ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝
-BANNER
-}
+# Get version from Cargo.toml
+VERSION="1.0.29"
+if [ -f "$SCRIPT_DIR/rust_tui/Cargo.toml" ]; then
+    VERSION=$(grep '^version' "$SCRIPT_DIR/rust_tui/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+fi
 
-print_small_banner() {
-    cat <<'BANNER'
-  ┌───────────────────────────────────────┐
-  │  CODEX VOICE                          │
-  │  Rust overlay wrapping Codex CLI      │
-  │  Speak to Codex with Whisper STT      │
-  └───────────────────────────────────────┘
-BANNER
-}
+BACKEND_LABEL="codex"
+THEME_LABEL="coral"
+AUTO_LABEL="off"
+if [ -n "${NO_COLOR:-}" ]; then
+    THEME_LABEL="none"
+fi
 
-print_banner() {
-    if [ "$TERM_LINES" -ge 33 ] && [ "$TERM_COLS" -ge 80 ]; then
-        print_large_banner
-    else
-        print_small_banner
-    fi
-}
+ARGS=("$@")
+i=0
+while [ "$i" -lt "${#ARGS[@]}" ]; do
+    arg="${ARGS[$i]}"
+    case "$arg" in
+        --backend)
+            i=$((i + 1))
+            BACKEND_LABEL="${ARGS[$i]:-codex}"
+            ;;
+        --backend=*)
+            BACKEND_LABEL="${arg#*=}"
+            ;;
+        --theme)
+            i=$((i + 1))
+            THEME_LABEL="${ARGS[$i]:-coral}"
+            ;;
+        --theme=*)
+            THEME_LABEL="${arg#*=}"
+            ;;
+        --no-color|--no-colour)
+            THEME_LABEL="none"
+            ;;
+        --auto-voice)
+            AUTO_LABEL="on"
+            ;;
+    esac
+    i=$((i + 1))
+done
+
+if [[ "$BACKEND_LABEL" == *" "* ]]; then
+    BACKEND_LABEL="custom"
+fi
+BACKEND_LABEL="$(basename "$BACKEND_LABEL")"
 
 truncate() {
     local value="$1"
@@ -84,155 +108,49 @@ truncate() {
     printf "%s" "${value:0:$((width - 3))}..."
 }
 
-echo ""
-echo -e "${CORAL}"
-print_banner
-echo -e "${NC}"
-echo -e "${CORAL_BRIGHT}Starting Codex Voice...${NC}"
-echo ""
-EXAMPLE_CMD="codex-voice"
-if ! command -v codex-voice &> /dev/null; then
-    EXAMPLE_CMD="./start.sh"
-fi
-
-print_controls_table_wide() {
-    local col_key=9
-    local col_action=$(( (TERM_COLS - 13 - (col_key * 2)) / 2 ))
-    local border_key
-    local border_action
-    local row
-
-    if [ "$col_action" -lt 14 ]; then
-        col_action=14
-    fi
-
-    border_key=$(printf '%*s' "$col_key" '' | tr ' ' '─')
-    border_action=$(printf '%*s' "$col_action" '' | tr ' ' '─')
-
-    printf "${CORAL}╭─%s─┬─%s─┬─%s─┬─%s─╮${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
-    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" \
-        "$col_key" "Control" "$col_action" "Action" "$col_key" "Control" "$col_action" "Action"
-    printf "${CORAL}├─%s─┼─%s─┼─%s─┼─%s─┤${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
-
-    for row in \
-        "Ctrl+R|Record (push-to-talk)|Ctrl+V|Toggle auto-voice" \
-        "Ctrl+T|Toggle send mode|Ctrl+Y|Theme picker" \
-        "?|Show help overlay|Ctrl+]|Mic sensitivity +5 dB" \
-        "Ctrl+\\|Mic sensitivity -5 dB|Ctrl+Q|Quit overlay" \
-        "Ctrl+C|Cancel / forward to Codex|Enter|Send prompt / Stop recording"; do
-        IFS='|' read -r key_left action_left key_right action_right <<< "$row"
-        key_left="$(truncate "$key_left" "$col_key")"
-        action_left="$(truncate "$action_left" "$col_action")"
-        key_right="$(truncate "$key_right" "$col_key")"
-        action_right="$(truncate "$action_right" "$col_action")"
-        printf "${CORAL}│${NC} %-*s ${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" \
-            "$col_key" "$key_left" "$col_action" "$action_left" \
-            "$col_key" "$key_right" "$col_action" "$action_right"
-    done
-
-    printf "${CORAL}╰─%s─┴─%s─┴─%s─┴─%s─╯${NC}\n" "$border_key" "$border_action" "$border_key" "$border_action"
+pad_line() {
+    local value="$1"
+    local width="$2"
+    local clipped
+    clipped="$(truncate "$value" "$width")"
+    printf "%-*s" "$width" "$clipped"
 }
 
-print_controls_table_narrow() {
-    local col1=12
-    local col2=$((TERM_COLS - col1 - 7))
-    local border1
-    local border2
-    local row
-
-    if [ "$col2" -lt 10 ]; then
-        col2=10
+print_header() {
+    local max_inner=72
+    local min_inner=44
+    local inner=$((TERM_COLS - 6))
+    if [ "$inner" -gt "$max_inner" ]; then
+        inner="$max_inner"
+    fi
+    if [ "$inner" -lt "$min_inner" ]; then
+        echo ""
+        echo -e "  ${BOLD}VoxTerm${NC} ${DIM}v${VERSION}${NC}"
+        echo -e "  ${DIM}Voice HUD for AI CLIs${NC}"
+        echo -e "  ${DIM}Keys:${NC} ${BOLD}Ctrl+R${NC} record  ${DIM}|${NC} ${BOLD}Ctrl+V${NC} auto  ${DIM}|${NC} ${BOLD}?${NC} help  ${DIM}|${NC} ${BOLD}Ctrl+Q${NC} quit"
+        echo ""
+        return
     fi
 
-    border1=$(printf '%*s' "$col1" '' | tr ' ' '─')
-    border2=$(printf '%*s' "$col2" '' | tr ' ' '─')
+    local border
+    border=$(printf '%*s' "$inner" '' | tr ' ' '─')
+    local line1 line2 line3 line4
+    line1=$(pad_line "VoxTerm v${VERSION}" "$inner")
+    line2=$(pad_line "Voice HUD for AI CLIs" "$inner")
+    line3=$(pad_line "Backend: ${BACKEND_LABEL}  ·  Theme: ${THEME_LABEL}  ·  Auto: ${AUTO_LABEL}" "$inner")
+    line4=$(pad_line "Keys: Ctrl+R record · Ctrl+V auto · ? help · Ctrl+Q quit" "$inner")
 
-    printf "${CORAL}╭─%s─┬─%s─╮${NC}\n" "$border1" "$border2"
-    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" "$col1" "Control" "$col2" "Action"
-    printf "${CORAL}├─%s─┼─%s─┤${NC}\n" "$border1" "$border2"
-
-    for row in \
-        "Ctrl+R|Record (push-to-talk)" \
-        "Ctrl+V|Toggle auto-voice" \
-        "Ctrl+T|Toggle send mode" \
-        "Ctrl+Y|Theme picker" \
-        "?|Show help overlay" \
-        "Ctrl+]|Mic sensitivity +5 dB" \
-        "Ctrl+\\|Mic sensitivity -5 dB" \
-        "Enter|Send prompt / Stop recording" \
-        "Ctrl+C|Cancel / forward to Codex" \
-        "Ctrl+Q|Quit overlay"; do
-        IFS='|' read -r key action <<< "$row"
-        key="$(truncate "$key" "$col1")"
-        action="$(truncate "$action" "$col2")"
-        printf "${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" "$col1" "$key" "$col2" "$action"
-    done
-
-    printf "${CORAL}╰─%s─┴─%s─╯${NC}\n" "$border1" "$border2"
+    echo ""
+    echo -e "  ${CORAL}┌${border}┐${NC}"
+    echo -e "  ${CORAL}│${NC} ${BOLD}${line1}${NC} ${CORAL}│${NC}"
+    echo -e "  ${CORAL}│${NC} ${DIM}${line2}${NC} ${CORAL}│${NC}"
+    echo -e "  ${CORAL}│${NC} ${DIM}${line3}${NC} ${CORAL}│${NC}"
+    echo -e "  ${CORAL}│${NC} ${DIM}${line4}${NC} ${CORAL}│${NC}"
+    echo -e "  ${CORAL}└${border}┘${NC}"
+    echo ""
 }
 
-print_controls_table() {
-    if [ "$TERM_COLS" -ge 90 ]; then
-        print_controls_table_wide
-    else
-        print_controls_table_narrow
-    fi
-}
-
-print_commands_table() {
-    local col1=46
-    local col2=24
-    local border1
-    local border2
-    local row
-
-    if [ "$TERM_COLS" -lt $((col1 + col2 + 7)) ]; then
-        col2=20
-        col1=$((TERM_COLS - col2 - 7))
-    fi
-    if [ "$col1" -lt 24 ]; then
-        col1=24
-        col2=$((TERM_COLS - col1 - 7))
-    fi
-    if [ "$col2" -lt 14 ]; then
-        col2=14
-        col1=$((TERM_COLS - col2 - 7))
-    fi
-
-    border1=$(printf '%*s' "$col1" '' | tr ' ' '─')
-    border2=$(printf '%*s' "$col2" '' | tr ' ' '─')
-
-    printf "${CORAL}╭─%s─┬─%s─╮${NC}\n" "$border1" "$border2"
-    printf "${CORAL}│${CORAL_BRIGHT}${BOLD} %-*s ${CORAL}│${GOLD}${BOLD} %-*s ${CORAL}│${NC}\n" "$col1" "Command" "$col2" "Purpose"
-    printf "${CORAL}├─%s─┼─%s─┤${NC}\n" "$border1" "$border2"
-
-    for row in \
-        "$EXAMPLE_CMD --theme catppuccin|Use a different theme" \
-        "$EXAMPLE_CMD --no-color|Disable status line colors" \
-        "$EXAMPLE_CMD --auto-voice|Start in auto-voice" \
-        "$EXAMPLE_CMD --voice-send-mode insert|Start in insert mode" \
-        "$EXAMPLE_CMD --mic-meter|Measure ambient/speech levels" \
-        "$EXAMPLE_CMD --voice-vad-threshold-db -50|Set mic threshold" \
-        "$EXAMPLE_CMD --auto-voice-idle-ms 700|Auto-voice idle" \
-        "$EXAMPLE_CMD --transcript-idle-ms 250|Transcript idle"; do
-        IFS='|' read -r command purpose <<< "$row"
-        command="$(truncate "$command" "$col1")"
-        purpose="$(truncate "$purpose" "$col2")"
-        printf "${CORAL}│${NC} %-*s ${CORAL}│${GOLD} %-*s ${CORAL}│${NC}\n" "$col1" "$command" "$col2" "$purpose"
-    done
-
-    printf "${CORAL}╰─%s─┴─%s─╯${NC}\n" "$border1" "$border2"
-}
-
-echo -e "${CORAL_BRIGHT}${BOLD}Quick Controls${NC}"
-print_controls_table
-echo -e "${DIM}Sensitivity: Ctrl+] (less sensitive) • Ctrl+\\ or Ctrl+/ (more sensitive)${NC}"
-echo ""
-echo -e "${CORAL_BRIGHT}${BOLD}Common Commands${NC}"
-print_commands_table
-echo -e "${DIM}Themes: coral, catppuccin, dracula, nord, ansi, none • Use --theme NAME or --no-color${NC}"
-echo -e "${DIM}Auto-voice idle default: 1200ms • Transcript idle default: 250ms${NC}"
-echo ""
+print_header
 
 # Startup output-only mode for tests
 if [ "${CODEX_VOICE_STARTUP_ONLY:-0}" = "1" ]; then
@@ -326,7 +244,8 @@ if [ -z "$MODEL_PATH" ]; then
 fi
 MODEL_PATH_ABS="$MODEL_PATH"
 
-echo -e "${CORAL_BRIGHT}Launching overlay mode...${NC}"
+echo -e "  ${DIM}Initializing...${NC}"
+echo ""
 if [ -z "$OVERLAY_BIN" ]; then
     echo -e "${RED}Overlay binary not found. Please run ./install.sh or build rust_tui.${NC}"
     exit 1

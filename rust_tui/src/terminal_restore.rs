@@ -78,7 +78,12 @@ pub fn install_terminal_panic_hook() {
         panic::set_hook(Box::new(move |info| {
             restore_terminal();
             crate::log_panic(info);
-            crate::log_debug(&format!("panic: {info}"));
+            let location = info
+                .location()
+                .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+                .unwrap_or_else(|| "unknown".to_string());
+            crate::log_debug(&format!("panic at {location}"));
+            crate::log_debug_content(&format!("panic: {info}"));
             previous(info);
         }));
     });
