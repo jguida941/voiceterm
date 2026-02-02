@@ -34,7 +34,7 @@ First run downloads the Whisper model (~1.5 GB).
 
 ```mermaid
 graph TD
-    A["🎤 Microphone"] --> B["Whisper STT"]
+    A["Microphone"] --> B["Whisper STT"]
     B --> C["Transcript"]
     C --> D["PTY"]
     D --> E["AI CLI"]
