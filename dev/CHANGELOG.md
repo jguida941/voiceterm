@@ -9,6 +9,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Drain voice capture results even while PTY output is streaming so “Processing” clears and transcripts queue/send while the CLI is busy.
 - In manual mode, queue transcripts while the CLI is busy and send after prompt/idle instead of silently injecting mid-stream.
 
+### Documentation
+- Document queued transcript behavior in the usage guide and troubleshooting status messages.
+
 ## [1.0.33] - 2026-02-02
 
 ### Reorganization

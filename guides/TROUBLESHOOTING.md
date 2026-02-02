@@ -56,6 +56,14 @@ Transcription is taking too long.
 2. If still stuck, press `Ctrl+C` then restart `voxterm`
 3. Try a smaller Whisper model
 
+### Transcript queued (N)
+
+The CLI is still streaming output, so VoxTerm queued your transcript and will send it when the next prompt appears (or after output is idle for the transcript timeout).
+
+**Fixes:**
+1. Wait for the CLI to finish and return to a prompt
+2. If you need to send immediately, stop the current response (usually `Ctrl+C`) and try again
+
 ### Transcript queue full (oldest dropped)
 
 You spoke 5+ times while Codex was busy. Oldest transcript was discarded.
