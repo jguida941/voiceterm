@@ -132,6 +132,8 @@ curl -fsSL https://claude.ai/install.sh | bash
 voxterm --backend claude
 ```
 
+![Claude Backend](https://raw.githubusercontent.com/jguida941/voxterm/master/img/claude-backend.png)
+
 ### Gemini CLI
 
 ```bash
