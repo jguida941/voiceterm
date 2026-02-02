@@ -271,8 +271,10 @@ Full list: [Whisper supported languages](https://github.com/openai/whisper#avail
 |---------|---------|-----|--------|
 | Codex | `npm install -g @openai/codex` | `voxterm` | Tested |
 | Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `voxterm --claude` | Tested |
-| Gemini CLI | `npm install -g @google/gemini-cli` | `voxterm --gemini` | Should work |
+| Gemini CLI | `npm install -g @google/gemini-cli` | `voxterm --gemini` | Limited* |
 | Custom | - | `voxterm --backend "cmd"` | Any CLI |
+
+*Gemini CLI has a full-screen UI that conflicts with VoxTerm's status overlay. Voice input works but the overlay may cover Gemini's interface.
 
 ### Which Whisper model should I use?
 

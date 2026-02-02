@@ -57,9 +57,6 @@ voxterm/
 └── install.sh           # One-time installer
 ```
 
-AI review notes (for example `claude_review.md`) are local-only, gitignored, and kept in
-`docs/active/` during a release.
-
 ## Building
 
 ```bash
@@ -107,3 +104,94 @@ python3 ../scripts/check_mutation_score.py --path mutants.out/outcomes.json --th
 - Favor fast unit tests for parsing, queueing, and prompt detection logic.
 - Add regression tests when fixing a reported bug.
 - Run at least `cargo test` locally for most changes; add targeted bin tests for overlay-only work.
+
+## CI/CD Workflow
+
+GitHub Actions run on every push and PR:
+
+| Workflow | File | What it checks |
+|----------|------|----------------|
+| Rust TUI CI | `.github/workflows/rust_tui.yml` | Build, test, clippy, fmt |
+| Mutation Testing | `.github/workflows/mutation-testing.yml` | 80% minimum mutation score |
+
+**Before pushing, run locally:**
+
+```bash
+cd rust_tui
+
+# Format code
+cargo fmt
+
+# Lint (must pass with no warnings)
+cargo clippy --workspace --all-features -- -D warnings
+
+# Run tests
+cargo test
+
+# Check mutation score (optional, CI enforces this)
+cargo mutants --timeout 300 -o mutants.out
+python3 ../scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+```
+
+**Check CI status:** [GitHub Actions](https://github.com/jguida941/voxterm/actions)
+
+## Releasing
+
+### Version bump
+
+1. Update version in `rust_tui/Cargo.toml`
+2. Update `docs/CHANGELOG.md` with release notes
+3. Commit: `git commit -m "Release vX.Y.Z"`
+
+### Create GitHub release
+
+```bash
+# Tag the release
+git tag vX.Y.Z
+git push origin vX.Y.Z
+
+# Create release on GitHub (or use web UI)
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "See CHANGELOG.md"
+```
+
+### Update Homebrew tap
+
+1. Get the SHA256 of the release tarball:
+```bash
+curl -sL https://github.com/jguida941/voxterm/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
+```
+
+2. Update `homebrew-voxterm/Formula/voxterm.rb`:
+   - Change `url` to new tag
+   - Change `version` to new version
+   - Change `sha256` to new hash
+
+3. Commit and push to homebrew-voxterm repo:
+```bash
+cd ../homebrew-voxterm
+git add Formula/voxterm.rb
+git commit -m "Update to vX.Y.Z"
+git push origin main
+```
+
+4. Users can now upgrade:
+```bash
+brew update && brew upgrade voxterm
+```
+
+## Local development tips
+
+**AI review notes** (e.g., `claude_review.md`) are local-only, gitignored, and kept in the repo root for session notes.
+
+**Test with different backends:**
+```bash
+voxterm              # Codex (default)
+voxterm --claude     # Claude Code
+voxterm --gemini     # Gemini CLI (limited support)
+```
+
+**Debug logging:**
+```bash
+voxterm --logs                    # Enable debug log
+tail -f $TMPDIR/voxterm_tui.log   # Watch log output
+```

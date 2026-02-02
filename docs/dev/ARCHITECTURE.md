@@ -31,9 +31,20 @@ overlay without touching the native UI.
 
 ## Goals
 
-- Preserve the **full Codex TUI** (raw ANSI passthrough).
+- Preserve the **full CLI TUI** (raw ANSI passthrough).
 - Add **voice capture** and **auto-voice** without corrupting terminal output.
 - Keep a **minimal overlay** (bottom status line + optional help overlay) and avoid a full-screen custom UI.
+
+## Supported Backends
+
+| Backend | Flag | Status | Notes |
+|---------|------|--------|-------|
+| Codex | `voxterm` (default) | Tested | Full support |
+| Claude Code | `voxterm --claude` | Tested | Full support |
+| Gemini CLI | `voxterm --gemini` | Limited | UI conflict with overlay |
+| Custom | `voxterm --backend "cmd"` | Varies | Any CLI that accepts text input |
+
+Backend selection is handled by `rust_tui/src/backend/` which provides preset configurations for known CLIs.
 
 ## Architecture Decision Records (ADRs)
 
