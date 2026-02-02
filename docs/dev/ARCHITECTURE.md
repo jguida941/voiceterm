@@ -41,8 +41,10 @@ overlay without touching the native UI.
 |---------|------|--------|-------|
 | Codex | `voxterm` (default) | Tested | Full support |
 | Claude Code | `voxterm --claude` | Tested | Full support |
-| Gemini CLI | `voxterm --gemini` | Limited | UI conflict with overlay |
+| Gemini CLI | `voxterm --gemini` | Not yet supported | UI conflict - actively working on it |
 | Custom | `voxterm --backend "cmd"` | Varies | Any CLI that accepts text input |
+
+**Primary supported backends:** Codex and Claude Code.
 
 Backend selection is handled by `rust_tui/src/backend/` which provides preset configurations for known CLIs.
 

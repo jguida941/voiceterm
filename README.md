@@ -134,14 +134,14 @@ voxterm --claude
 
 ![Claude Backend](https://raw.githubusercontent.com/jguida941/voxterm/master/img/claude-backend.png)
 
-### Gemini CLI (limited support)
+### Gemini CLI (not yet supported)
 
 ```bash
 npm install -g @google/gemini-cli
 voxterm --gemini
 ```
 
-**Note:** Gemini CLI's full-screen UI may conflict with VoxTerm's overlay.
+**Note:** Gemini CLI is not currently supported due to UI conflicts. We're actively working on it.
 
 ### Other CLIs
 
