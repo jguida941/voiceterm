@@ -3,21 +3,6 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
-## [1.0.32] - 2026-02-02
-
-### Bug Fixes
-- Fix overlay border alignment in theme picker, settings, and help overlays.
-- Fix Unicode character width calculations in overlay title lines.
-- Remove background color applications from status line for transparent rendering.
-- Simplify settings footer text to avoid Unicode width issues.
-
-## [1.0.31] - 2026-02-02
-
-### Bug Fixes
-- Fix theme picker border alignment where right border extended too far.
-- Fix status banner background color bleeding outside the box on themed overlays (Nord, etc.).
-- Fix top border width calculation in status banner.
-
 ## [1.0.33] - 2026-02-02
 
 ### Reorganization
@@ -30,6 +15,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Fix macOS app launcher breaking on paths containing apostrophes
 - Fix Homebrew formula paths after repo reorganization
 - Add explicit platform detection to setup and start scripts (macOS, Linux, Windows WSL2)
+- Align macOS app version metadata with the 1.0.33 release
 
 ### Documentation
 - Add `guides/WHISPER.md` for model selection guidance
@@ -54,6 +40,21 @@ Note: Some historical entries reference internal documents that are not publishe
 - Show settings/help hints in the HUD idle message and overlay footers.
 - Fix documentation links and dev test script paths after repo reorg (guides/dev).
 - Align Homebrew tap instructions and CI workflow references with the new repo layout.
+
+## [1.0.32] - 2026-02-02
+
+### Bug Fixes
+- Fix overlay border alignment in theme picker, settings, and help overlays.
+- Fix Unicode character width calculations in overlay title lines.
+- Remove background color applications from status line for transparent rendering.
+- Simplify settings footer text to avoid Unicode width issues.
+
+## [1.0.31] - 2026-02-02
+
+### Bug Fixes
+- Fix theme picker border alignment where right border extended too far.
+- Fix status banner background color bleeding outside the box on themed overlays (Nord, etc.).
+- Fix top border width calculation in status banner.
 
 ## [1.0.30] - 2026-02-02
 
@@ -344,9 +345,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - **Startup output test**: `scripts/tests/startup_output_test.sh` guards line widths.
 
 ### Simplified Install Flow (2026-01-23) - COMPLETE
-- **New installer**: added `install.sh` plus `scripts/setup.sh install` to download the Whisper model, build the Rust overlay, and install a `voxterm` wrapper.
+- **New installer**: added `scripts/install.sh` plus `scripts/setup.sh install` to download the Whisper model, build the Rust overlay, and install a `voxterm` wrapper.
 - **Overlay-first defaults**: `scripts/setup.sh` now defaults to `install` so it builds the Rust overlay by default.
-- **Docs updated**: README + QUICK_START now point to `./install.sh` and `voxterm` for the simplest path.
+- **Docs updated**: README + QUICK_START now point to `./scripts/install.sh` and `voxterm` for the simplest path.
 
 ### Rust-Only Docs + Launchers (2026-01-23) - COMPLETE
 - **Docs sweep**: removed legacy CLI references from user-facing docs and the audit.

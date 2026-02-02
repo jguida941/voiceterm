@@ -59,7 +59,7 @@ if ! [ "$TERM_LINES" -gt 0 ] 2>/dev/null; then
 fi
 
 # Get version from Cargo.toml
-VERSION="1.0.30"
+VERSION="1.0.33"
 if [ -f "$SCRIPT_DIR/src/Cargo.toml" ]; then
     VERSION=$(grep '^version' "$SCRIPT_DIR/src/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 fi
