@@ -2,6 +2,7 @@ use crate::config::AppConfig;
 use std::{
     env, fs,
     io::Write,
+    panic,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -11,13 +12,20 @@ use std::{
 };
 
 const LOG_MAX_BYTES: u64 = 5 * 1024 * 1024;
+const CRASH_LOG_MAX_BYTES: u64 = 256 * 1024;
 static LOG_ENABLED: AtomicBool = AtomicBool::new(false);
 static LOG_CONTENT_ENABLED: AtomicBool = AtomicBool::new(false);
+static CRASH_LOG_ENABLED: AtomicBool = AtomicBool::new(false);
 static LOG_STATE: OnceLock<Mutex<LogState>> = OnceLock::new();
 
 /// Path to the temp log file we rotate between runs.
 pub fn log_file_path() -> PathBuf {
     env::temp_dir().join("codex_voice_tui.log")
+}
+
+/// Path to the crash log file (metadata only).
+pub fn crash_log_path() -> PathBuf {
+    env::temp_dir().join("codex_voice_crash.log")
 }
 
 struct LogWriter {
@@ -85,6 +93,7 @@ pub fn init_logging(config: &AppConfig) {
     let content_enabled = enabled && config.log_content;
     LOG_ENABLED.store(enabled, Ordering::Relaxed);
     LOG_CONTENT_ENABLED.store(content_enabled, Ordering::Relaxed);
+    CRASH_LOG_ENABLED.store(enabled, Ordering::Relaxed);
 
     let mut state = log_state()
         .lock()
@@ -122,10 +131,64 @@ pub fn log_debug_content(msg: &str) {
     log_debug(msg);
 }
 
+/// Write a minimal crash log entry, omitting user content unless explicitly enabled.
+pub fn log_panic(info: &panic::PanicHookInfo<'_>) {
+    if !CRASH_LOG_ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let location = info
+        .location()
+        .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let payload = if LOG_CONTENT_ENABLED.load(Ordering::Relaxed) {
+        if let Some(text) = info.payload().downcast_ref::<&str>() {
+            (*text).to_string()
+        } else if let Some(text) = info.payload().downcast_ref::<String>() {
+            text.clone()
+        } else {
+            "non-string panic payload".to_string()
+        }
+    } else {
+        "panic payload omitted (log-content disabled)".to_string()
+    };
+
+    let line = format!(
+        "[{timestamp}] panic at {location}: {payload} (v{})\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    let path = crash_log_path();
+    let mut bytes_written = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    if bytes_written > CRASH_LOG_MAX_BYTES {
+        let _ = fs::remove_file(&path);
+        bytes_written = 0;
+    }
+    if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(&path) {
+        if bytes_written.saturating_add(line.len() as u64) > CRASH_LOG_MAX_BYTES {
+            if let Ok(mut file) = fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&path)
+            {
+                let _ = file.write_all(line.as_bytes());
+            }
+        } else {
+            let _ = file.write_all(line.as_bytes());
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn set_logging_for_tests(enabled: bool, content_enabled: bool) {
     LOG_ENABLED.store(enabled, Ordering::Relaxed);
     LOG_CONTENT_ENABLED.store(content_enabled, Ordering::Relaxed);
+    CRASH_LOG_ENABLED.store(enabled, Ordering::Relaxed);
     let mut state = log_state()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());

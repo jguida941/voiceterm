@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 use rust_tui::{
-    audio::Recorder, config::AppConfig, init_logging, ipc, log_debug, log_file_path, mic_meter, ui,
-    App,
+    audio::Recorder, config::AppConfig, doctor::base_doctor_report, init_logging, ipc, log_debug,
+    log_file_path, mic_meter, ui, App,
 };
 use std::env;
 
@@ -18,6 +18,11 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let mut config = AppConfig::parse_from(args);
+    if config.doctor {
+        let report = base_doctor_report(&config, "rust_tui");
+        println!("{}", report.render());
+        return Ok(());
+    }
 
     if config.list_input_devices {
         let output = list_input_devices()?;

@@ -32,10 +32,11 @@ mod writer;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use crossbeam_channel::{bounded, select};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, size as terminal_size};
+use crossterm::terminal::size as terminal_size;
 use rust_tui::pty_session::PtyOverlaySession;
 use rust_tui::{
-    audio, init_logging, log_debug, log_file_path, VoiceCaptureSource, VoiceCaptureTrigger,
+    audio, doctor::base_doctor_report, init_logging, log_debug, log_file_path,
+    terminal_restore::TerminalRestoreGuard, VoiceCaptureSource, VoiceCaptureTrigger,
     VoiceJobMessage,
 };
 use std::collections::VecDeque;
@@ -97,6 +98,39 @@ fn main() -> Result<()> {
     let sound_on_complete = config.app.sounds || config.app.sound_on_complete;
     let sound_on_error = config.app.sounds || config.app.sound_on_error;
     let mut theme = config.theme();
+    if config.app.doctor {
+        let mut report = base_doctor_report(&config.app, "codex-voice");
+        let backend = config.resolve_backend();
+        report.section("Overlay");
+        report.push_kv("backend", backend.label);
+        let mut command = vec![backend.command];
+        command.extend(backend.args);
+        report.push_kv("backend_command", command.join(" "));
+        report.push_kv(
+            "prompt_regex",
+            config.prompt_regex.as_deref().unwrap_or("auto"),
+        );
+        report.push_kv(
+            "prompt_log",
+            config
+                .prompt_log
+                .as_ref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "disabled".to_string()),
+        );
+        report.push_kv(
+            "theme",
+            config.theme_name.as_deref().unwrap_or("coral"),
+        );
+        report.push_kv("no_color", config.no_color);
+        report.push_kv("auto_voice", config.auto_voice);
+        report.push_kv(
+            "voice_send_mode",
+            format!("{:?}", config.voice_send_mode).to_lowercase(),
+        );
+        println!("{}", report.render());
+        return Ok(());
+    }
     if config.app.list_input_devices {
         list_input_devices()?;
         return Ok(());
@@ -158,7 +192,8 @@ fn main() -> Result<()> {
         &config.app.term_value,
     )?;
 
-    enable_raw_mode()?;
+    let terminal_guard = TerminalRestoreGuard::new();
+    terminal_guard.enable_raw_mode()?;
 
     let (writer_tx, writer_rx) = bounded(WRITER_CHANNEL_CAPACITY);
     let _writer_handle = spawn_writer_thread(writer_rx);
@@ -894,7 +929,7 @@ fn main() -> Result<()> {
 
     let _ = writer_tx.send(WriterMessage::ClearStatus);
     let _ = writer_tx.send(WriterMessage::Shutdown);
-    disable_raw_mode()?;
+    terminal_guard.restore();
     let stats_output = format_session_stats(&session_stats, theme);
     if !stats_output.is_empty() {
         print!("{stats_output}");

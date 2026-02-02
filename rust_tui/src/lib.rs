@@ -2,10 +2,12 @@ pub mod audio;
 pub mod backend;
 pub mod codex;
 pub mod config;
+pub mod doctor;
 pub mod ipc;
 pub mod mic_meter;
 pub mod pty_session;
 pub mod stt;
+pub mod terminal_restore;
 pub mod ui;
 pub mod utf8_safe;
 #[cfg(feature = "vad_earshot")]

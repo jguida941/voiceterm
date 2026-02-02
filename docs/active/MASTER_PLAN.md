@@ -3,9 +3,11 @@
 ## Purpose
 - Single source of truth for active work, audits, and verification.
 - New items go here; completed items move to `docs/archive/` with a dated entry.
+- Roadmaps/design docs (e.g., UI enhancement plan) are reference-only unless an item is explicitly added here.
 
 ## References
 - `agents.md` (SDLC policy and verification)
+- `docs/active/UI_ENHANCEMENT_PLAN.md` (design/roadmap reference; active priorities must be tracked here)
 - `docs/dev/ARCHITECTURE.md`
 - `docs/dev/DEVELOPMENT.md`
 - `docs/dev/adr/`
@@ -19,7 +21,7 @@
 ## Active work
 
 ### P0 - Reliability and UX correctness
-- [ ] MP-001 Fix transcript queue flush reliability (user-reported).
+- [x] MP-001 Fix transcript queue flush reliability (user-reported).
 - [ ] MP-002 Stop status spam: repeated "Transcript ready (Rust pipeline)" lines.
 - [ ] MP-003 Investigate unexpected "Use /skills..." output in UI and confirm source.
 - [ ] MP-004 Confirm auto-voice "Listening..." stays visible while capture is active; fix if not.
@@ -63,3 +65,5 @@
 ## Archive log
 - `docs/archive/2026-01-29-claudeaudit-completed.md`
 - `docs/archive/2026-01-29-docs-governance.md`
+- `docs/archive/2026-02-01-terminal-restore-guard.md`
+- `docs/archive/2026-02-01-transcript-queue-flush.md`

@@ -237,6 +237,8 @@ codex-voice --logs --log-content
 
 Debug log: system temp dir (for example `${TMPDIR}/codex_voice_tui.log` on macOS or `/tmp/codex_voice_tui.log` on Linux)
 
+Crash log (panic only, written when `--logs` is enabled; metadata unless `--log-content`): system temp dir (for example `${TMPDIR}/codex_voice_crash.log` on macOS or `/tmp/codex_voice_crash.log` on Linux)
+
 ### Disable all logging
 
 ```bash
@@ -247,6 +249,7 @@ codex-voice --no-logs
 
 ## Getting Help
 
+- **Collect diagnostics:** Run `codex-voice --doctor` and include the output in your issue.
 - **Report bugs:** [GitHub Issues](https://github.com/jguida941/codex-voice/issues)
 - **Check known issues:** [Master Plan](active/MASTER_PLAN.md)
 

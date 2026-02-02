@@ -136,6 +136,7 @@ pub(crate) struct PromptTracker {
     allow_auto_learn: bool,
     last_prompt_seen_at: Option<Instant>,
     last_output_at: Instant,
+    last_pty_output_at: Option<Instant>,
     has_seen_output: bool,
     current_line: Vec<u8>,
     last_line: Option<String>,
@@ -182,6 +183,7 @@ impl PromptTracker {
             allow_auto_learn,
             last_prompt_seen_at: None,
             last_output_at: Instant::now(),
+            last_pty_output_at: None,
             has_seen_output: false,
             current_line: Vec::new(),
             last_line: None,
@@ -190,7 +192,9 @@ impl PromptTracker {
     }
 
     pub(crate) fn feed_output(&mut self, bytes: &[u8]) {
-        self.last_output_at = Instant::now();
+        let now = Instant::now();
+        self.last_output_at = now;
+        self.last_pty_output_at = Some(now);
         self.has_seen_output = true;
 
         let cleaned = strip_ansi_preserve_controls(bytes);
@@ -285,6 +289,10 @@ impl PromptTracker {
 
     pub(crate) fn last_output_at(&self) -> Instant {
         self.last_output_at
+    }
+
+    pub(crate) fn last_pty_output_at(&self) -> Option<Instant> {
+        self.last_pty_output_at
     }
 
     pub(crate) fn note_activity(&mut self, now: Instant) {

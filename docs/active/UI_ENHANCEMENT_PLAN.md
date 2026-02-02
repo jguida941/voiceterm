@@ -3,6 +3,7 @@
 Comprehensive visual/UI design document for the Voice HUD project (working title). This consolidates all research, completed work, and future plans.
 
 > **Note**: This project is transitioning from "Codex Voice" to a universal voice HUD for AI CLI tools. See [Project Identity](#project-identity--positioning) for naming discussion.
+> **Scheduling note**: This document is a design/roadmap reference. Active priorities and execution live in `docs/active/MASTER_PLAN.md`.
 
 ## Contents
 
@@ -62,6 +63,8 @@ The current name ties the project to OpenAI's Codex CLI specifically. The AI CLI
 
 **Decision**: TBD (requires team input)
 
+**Working convention**: Until a rename is finalized, CLI/config examples use the current `codex-voice` binary and `~/.config/codex-voice/` paths. Update after the naming decision.
+
 ### Core Value Proposition
 
 > **[Project Name]**: The open-source voice HUD for AI coding assistants.
@@ -111,10 +114,10 @@ impl AiBackend {
 
 **CLI Flag**:
 ```bash
-voice-hud --backend codex          # Default
-voice-hud --backend gemini
-voice-hud --backend aider
-voice-hud --backend "my-custom-tool --flag"
+codex-voice --backend codex          # Default
+codex-voice --backend gemini
+codex-voice --backend aider
+codex-voice --backend "my-custom-tool --flag"
 ```
 
 ---
@@ -369,7 +372,7 @@ pub trait HudModule {
 ### Module Configuration
 
 ```toml
-# ~/.config/voice-hud/preferences.toml
+# ~/.config/codex-voice/preferences.toml
 
 [hud.modules]
 # Core modules (on by default)
@@ -553,12 +556,21 @@ Codex Voice has **two UI modes**:
 - Press 1-6 to select (numbers only, no arrow keys yet)
 
 #### 6. Startup Banner (`banner.rs`)
-- Simple text line: `Codex Voice v1.0.28 │ Rust │ theme: coral │ auto-voice: on │ -35dB`
+- Simple text line: `Codex Voice v1.0.29 │ Rust │ theme: coral │ auto-voice: on │ -35dB`
 - Minimal version for narrow terminals
 
 ---
 
 ## Completed Implementations
+
+### Reliability Foundation ✅ (2026-02-01)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Terminal restore guard + panic hook | ✅ Done | `terminal_restore.rs` |
+| Minimal crash log entry on panic | ✅ Done | `app/logging.rs` |
+| `--doctor` diagnostics report | ✅ Done | `doctor.rs` |
+| Clear overlay panel regions on resize | ✅ Done | `writer.rs` |
 
 ### Tier 0 - Quick Wins ✅
 
@@ -840,7 +852,7 @@ Apply focus styling everywhere, including overlay mode:
 #### B. Abstract AI Backend
 
 ```rust
-// src/backend/mod.rs
+// rust_tui/src/backend/mod.rs
 pub trait AiBackend: Send + Sync {
     fn name(&self) -> &str;
     fn command(&self) -> Vec<String>;
@@ -859,10 +871,10 @@ pub struct Custom { command: String }
 #### C. CLI Flag for Backend Selection
 
 ```bash
-voice-hud                           # Default: codex
-voice-hud --backend gemini
-voice-hud --backend aider
-voice-hud --backend "custom-tool --flag"
+codex-voice                           # Default: codex
+codex-voice --backend gemini
+codex-voice --backend aider
+codex-voice --backend "custom-tool --flag"
 ```
 
 #### D. Backend-Specific Prompt Detection
@@ -877,14 +889,14 @@ Each backend has different prompt patterns:
 #### E. Update Config Schema
 
 ```toml
-# ~/.config/voice-hud/preferences.toml
+# ~/.config/codex-voice/preferences.toml
 [backend]
 default = "codex"  # codex | claude | gemini | aider | opencode | custom
 custom_command = "" # Used when default = "custom"
 prompt_pattern = "" # Optional override
 ```
 
-**Files**: NEW `src/backend/mod.rs`, `src/backend/claude.rs`, `src/backend/gemini.rs`, etc.
+**Files**: NEW `rust_tui/src/backend/mod.rs`, `rust_tui/src/backend/claude.rs`, `rust_tui/src/backend/gemini.rs`, etc.
 
 **Deliverables**:
 - [ ] `AiBackend` trait defined
@@ -901,18 +913,21 @@ prompt_pattern = "" # Optional override
 
 **Why First**: “UI polish” is only shippable if the terminal never gets corrupted and failures are diagnosable.
 
-#### A. Panic-Safe Terminal Restore
+**Status**: Terminal restore guard, minimal crash log, `--doctor`, and resize clear completed on 2026-02-01 (see `docs/archive/2026-02-01-terminal-restore-guard.md`). Remaining items below.
 
-- Always restore raw mode, cursor, alt screen, colors on exit **and** panic
-- Add a Drop guard for terminal state
-- Install a panic hook that restores terminal + writes crash log
+#### A. Panic-Safe Terminal Restore (Completed 2026-02-01)
 
-#### B. Structured Logging + Crash Logs
+- [x] Always restore raw mode, cursor, alt screen, colors on exit **and** panic
+- [x] Add a Drop guard for terminal state
+- [x] Install a panic hook that restores terminal + writes crash log
 
-- Optional `--log-file` for structured logs
-- On crash, write last N events + state summary to a crash log
+#### B. Structured Logging + Crash Logs (Partial)
 
-#### C. `codex-voice doctor` Command
+- [x] Write a minimal crash log entry on panic (metadata only unless explicitly enabled) (2026-02-01)
+- [ ] Optional `--log-file` for structured logs
+- [ ] On crash, write last N events + state summary to a crash log
+
+#### C. `codex-voice --doctor` Flag (Completed 2026-02-01)
 
 Prints detected capabilities and system info:
 - Terminal: color depth, unicode support, mouse, graphics protocol
@@ -935,13 +950,13 @@ Prints detected capabilities and system info:
 
 #### F. Terminal Coexistence Contract
 
-- Always save/restore cursor during banner draw.
-- Never overwrite partially typed input.
-- Write only inside reserved rows.
-- On resize: recompute reserved rows, clear old banner region, redraw full frame.
-- Enable mouse only while a modal is open.
+- [ ] Always save/restore cursor during banner draw.
+- [ ] Never overwrite partially typed input.
+- [ ] Write only inside reserved rows.
+- [x] On resize: recompute reserved rows, clear old banner region, redraw full frame. (2026-02-01)
+- [ ] Enable mouse only while a modal is open.
 
-**Files**: NEW `terminal_restore.rs`, `crash_log.rs`, `doctor.rs`, `logging.rs`
+**Files**: `rust_tui/src/terminal_restore.rs`, `rust_tui/src/doctor.rs`, `rust_tui/src/app/logging.rs`
 
 ### Phase 0: Accessibility Foundation (NEW - Critical)
 
@@ -1025,7 +1040,7 @@ impl ThemeColors {
 | `--no-unicode` | ASCII-only indicators | `NO_UNICODE=1` |
 | `--announce` | Enable state announcements | `ANNOUNCE=1` |
 
-**Files**: `theme.rs`, `config.rs`, `main.rs`, NEW `accessibility.rs`
+**Files**: `rust_tui/src/bin/codex_overlay/theme.rs`, `rust_tui/src/bin/codex_overlay/config.rs`, `rust_tui/src/bin/codex_overlay/main.rs`, NEW `rust_tui/src/accessibility.rs`
 
 ---
 
@@ -1044,7 +1059,7 @@ impl ThemeColors {
 - **Metrics foundation**: collect latency, queue depth, model identity (if available),
   and usage/cost metadata only when the backend provides it (opt-in, no PII by default)
 
-**Files**: `writer.rs`, NEW `render_diff.rs`, `perf_metrics.rs`, `perf_overlay.rs`, `hud_metrics.rs`
+**Files**: `rust_tui/src/bin/codex_overlay/writer.rs`, NEW `rust_tui/src/render_diff.rs`, `rust_tui/src/perf_metrics.rs`, `rust_tui/src/perf_overlay.rs`, `rust_tui/src/hud_metrics.rs`
 
 ---
 
@@ -1189,7 +1204,7 @@ Small modal showing recent pipeline steps + timings:
 - Always show a consistent footer hint bar (from Action Registry):
   `↑↓ navigate  PgUp/PgDn scroll  Enter select  Esc close`
 
-**Files**: NEW `error_overlay.rs`, `pipeline_overlay.rs`
+**Files**: NEW `rust_tui/src/error_overlay.rs`, `rust_tui/src/pipeline_overlay.rs`
 
 ---
 
@@ -1210,7 +1225,7 @@ Small modal showing recent pipeline steps + timings:
 - Define a backend metadata contract (model name, latency, context usage, costs) with
   optional fields; Codex is the first provider, others can plug in later.
 
-**Files**: NEW `hud_widgets.rs`, `hud_metrics.rs`
+**Files**: NEW `rust_tui/src/hud_widgets.rs`, `rust_tui/src/hud_metrics.rs`
 
 ---
 
@@ -1241,7 +1256,7 @@ send_mode = "auto"  # auto | manual | confirm
 4. Respect `XDG_CONFIG_HOME` if set
 5. CLI flags override saved preferences
 
-**Files**: NEW `preferences.rs`, `main.rs`, `config.rs`
+**Files**: NEW `rust_tui/src/preferences.rs`, `rust_tui/src/bin/codex_overlay/main.rs`, `rust_tui/src/bin/codex_overlay/config.rs`
 
 ---
 
@@ -1255,7 +1270,7 @@ send_mode = "auto"  # auto | manual | confirm
 - Automatic migration for older configs
 - `codex-voice --check-config` optional validator
 
-**Files**: NEW `config_migrate.rs`, `preferences.rs`
+**Files**: NEW `rust_tui/src/config_migrate.rs`, `rust_tui/src/preferences.rs`
 
 ---
 
@@ -1307,7 +1322,7 @@ pub struct ThemeColors {
 2. Update one component at a time to use semantic tokens
 3. No breaking changes during migration
 
-**Files**: `theme.rs`
+**Files**: `rust_tui/src/bin/codex_overlay/theme.rs`
 
 ---
 
@@ -1364,7 +1379,7 @@ impl Keybindings {
 - Warn on startup if two actions map to same key
 - Provide `codex-voice --check-keybindings` to validate config
 
-**Files**: NEW `keybindings.rs`, `config.rs`, `input.rs`
+**Files**: NEW `rust_tui/src/keybindings.rs`, `rust_tui/src/bin/codex_overlay/config.rs`, `rust_tui/src/bin/codex_overlay/input.rs`
 
 ---
 
@@ -1430,7 +1445,7 @@ impl Keybindings {
 - Transcript confirm/edit flow
 - Any future text fields (search, filters, notes)
 
-**Files**: NEW `text_editor.rs`
+**Files**: NEW `rust_tui/src/text_editor.rs`
 
 ---
 
@@ -1558,7 +1573,7 @@ pub struct HistoryEntry {
 │    ██║     ██║   ██║██║  ██║█████╗   ╚███╔╝                                  │
 │    ██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗                                  │
 │    ╚██████╗╚██████╔╝██████╔╝███████╗██╔╝ ██╗                                 │
-│     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   VOICE v1.0.28                 │
+│     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   VOICE v1.0.29                 │
 │                                                                              │
 │    ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
 │    │   ^R  Record    │  │   ^V  Auto      │  │   :  Commands   │             │
@@ -1573,7 +1588,7 @@ pub struct HistoryEntry {
 
 ---
 
-### Phase 9: New Themes (Gruvbox, Solarized, High-Contrast)
+### Phase 9: New Themes (Gruvbox, Solarized)
 
 **New Themes**:
 
@@ -1582,36 +1597,8 @@ pub struct HistoryEntry {
 | **Gruvbox** | Retro warm | #fb4934 red, #fabd2f yellow, #b8bb26 green, #83a598 aqua | AA |
 | **Solarized Light** | Scientific light | #dc322f red, #b58900 yellow, #859900 green, #268bd2 blue | AA |
 | **Solarized Dark** | Scientific dark | Same palette, dark bg | AA |
-| **High-Contrast** | Maximum visibility | White/Black with colored backgrounds | **AAA** |
 
-**High-Contrast Theme Details**:
-```rust
-pub const HIGH_CONTRAST: ThemeColors = ThemeColors {
-    // All text is bright white or black for maximum contrast
-    text_primary: "\x1b[97m",       // Bright white
-    text_muted: "\x1b[37m",         // Regular white (no dim!)
-    text_accent: "\x1b[93m",        // Bright yellow
-
-    // Status colors use backgrounds for visibility
-    recording: "\x1b[97;41m",       // White on red
-    processing: "\x1b[30;43m",      // Black on yellow
-    success: "\x1b[30;42m",         // Black on green
-    error: "\x1b[97;41m",           // White on red
-    warning: "\x1b[30;43m",         // Black on yellow
-
-    // Borders are always visible
-    border: "\x1b[97m",             // Bright white
-    focus_border: "\x1b[93m",       // Bright yellow (stands out)
-
-    // Pure black background
-    bg_primary: "\x1b[40m",
-    surface: "\x1b[40m",
-
-    contrast_ratio: 21.0,           // Maximum possible
-};
-```
-
-Add after core interactivity is solid.
+**Note**: High-contrast is part of Phase 0 (Accessibility Foundation) and should not be duplicated here.
 
 ---
 
@@ -1902,6 +1889,8 @@ Update the ADR index in `docs/dev/adr/README.md` when adding new records.
 
 ## Implementation Roadmap
 
+**Priority note**: The ordering below is conceptual; active priorities and scheduling are tracked in `docs/active/MASTER_PLAN.md`.
+
 ### Recommended Priority Order (Impact vs Effort)
 
 | Priority | Phase | Task | Effort | Impact | Why This Order |
@@ -1925,7 +1914,7 @@ Update the ADR index in `docs/dev/adr/README.md` when adding new records.
 | **16** | 7 | History Panel | Medium | Medium | Lower priority |
 | **17** | 7.5 | Outbox / Retry Queue | Low | Medium | Trust + recoverability |
 | **18** | 8 | ASCII Art Banner | Medium | Low | Pure polish |
-| **19** | 9 | New Themes (+ High-Contrast) | Low | Medium | Uses design tokens |
+| **19** | 9 | New Themes (Gruvbox, Solarized) | Low | Medium | Uses design tokens |
 | **20** | 9.5 | Release Engineering & Compat Matrix | Medium | Medium | Shippable across platforms |
 
 ### Gaps Addressed in This Revision
@@ -1939,7 +1928,7 @@ Update the ADR index in `docs/dev/adr/README.md` when adding new records.
 | No icon vocabulary spec | Unicode-only icons, no emojis | All |
 | No HUD module system | Pluggable fixed-width modules | 2.6 |
 | No panic-safe terminal restore | Drop guard + panic hook terminal restore | -1 |
-| No crash diagnostics | Structured logging + crash log + `doctor` | -1 |
+| No crash diagnostics | Structured logging + crash log + `--doctor` | -1 |
 | No privacy/redaction policy | Redaction + metadata-only crash logs | -1 |
 | No control-char sanitization | Strip ESC/control chars before rendering | -1 |
 | No terminal coexistence contract | Cursor/prompt/scrollback invariants | -1 / 0.5 |
@@ -2089,7 +2078,7 @@ Inspired by [md-tui](https://github.com/henriklovhaug/md-tui), [Textual Markdown
 - [syntect](https://crates.io/crates/syntect) - Rust syntax highlighting (used by bat)
 - Stream-render as response arrives (like Textual 5.0)
 
-**Files**: NEW `markdown.rs`, `syntax.rs`
+**Files**: NEW `rust_tui/src/markdown.rs`, `rust_tui/src/syntax.rs`
 
 ---
 
@@ -2143,7 +2132,7 @@ pub fn render_image(path: &Path, protocol: GraphicsProtocol) -> String {
 }
 ```
 
-**Files**: NEW `graphics.rs`, `image_render.rs`
+**Files**: NEW `rust_tui/src/graphics.rs`, `rust_tui/src/image_render.rs`
 
 ---
 
@@ -2207,7 +2196,7 @@ HUD: "3 open PRs: #142 (review requested), #138 (approved), #135 (draft)"
 | **Infra** | AWS, GCP, Docker | "Check staging pod status" |
 | **Custom** | Your own tools | "Run the nightly build" |
 
-**Files**: NEW `mcp_client.rs`, `mcp_config.rs`
+**Files**: NEW `rust_tui/src/mcp_client.rs`, `rust_tui/src/mcp_config.rs`
 
 ---
 
@@ -2265,7 +2254,7 @@ tts = "piper"  # Optional: speak responses
 
 **HUD Indicator**:
 ```
-╭─── coral ─ 🔒 LOCAL ────────────────────────────────────╮
+╭─── coral ─ ◆ LOCAL ────────────────────────────────────╮
 │ ● AUTO │ Local │ -40dB  ▁▂▃▅▆▇█  Processing locally... │
 ```
 
@@ -2280,7 +2269,7 @@ Inspired by [ambient agents research](https://www.digitalocean.com/community/tut
 **Proactive HUD Alerts**:
 ```
 ┌────────────────────────────────────────────────┐
-│ 💡 PR #142 has new comments (2 min ago)        │
+│ ℹ PR #142 has new comments (2 min ago)         │
 │    Press Enter to view, Esc to dismiss         │
 └────────────────────────────────────────────────┘
 ```
@@ -2529,89 +2518,89 @@ Bounce (classic):  [=   ] [==  ] [=== ]
 
 | File | Purpose |
 |------|---------|
-| `src/bin/codex_overlay/status_line.rs` | Multi-row status banner layout |
-| `src/bin/codex_overlay/status_style.rs` | Message styling, status types |
-| `src/bin/codex_overlay/theme.rs` | Color palettes, border sets |
-| `src/bin/codex_overlay/theme_picker.rs` | Theme selection overlay |
-| `src/bin/codex_overlay/help.rs` | Help overlay |
-| `src/bin/codex_overlay/banner.rs` | Startup banner |
-| `src/bin/codex_overlay/audio_meter.rs` | Waveform visualization |
-| `src/bin/codex_overlay/writer.rs` | Terminal I/O, rendering |
-| `src/bin/codex_overlay/main.rs` | Main loop, input handling |
-| `src/bin/codex_overlay/config.rs` | CLI flags, configuration |
-| `src/bin/codex_overlay/session_stats.rs` | Exit statistics |
+| `rust_tui/src/bin/codex_overlay/status_line.rs` | Multi-row status banner layout |
+| `rust_tui/src/bin/codex_overlay/status_style.rs` | Message styling, status types |
+| `rust_tui/src/bin/codex_overlay/theme.rs` | Color palettes, border sets |
+| `rust_tui/src/bin/codex_overlay/theme_picker.rs` | Theme selection overlay |
+| `rust_tui/src/bin/codex_overlay/help.rs` | Help overlay |
+| `rust_tui/src/bin/codex_overlay/banner.rs` | Startup banner |
+| `rust_tui/src/bin/codex_overlay/audio_meter.rs` | Waveform visualization |
+| `rust_tui/src/bin/codex_overlay/writer.rs` | Terminal I/O, rendering |
+| `rust_tui/src/bin/codex_overlay/main.rs` | Main loop, input handling |
+| `rust_tui/src/bin/codex_overlay/config.rs` | CLI flags, configuration |
+| `rust_tui/src/bin/codex_overlay/session_stats.rs` | Exit statistics |
 
 ### New Files (Planned)
 
 **Phase -2 (Identity & Multi-Backend)**:
 | File | Purpose | Phase |
 |------|---------|-------|
-| `src/backend/mod.rs` | AiBackend trait + registry | -2 |
-| `src/backend/claude.rs` | Claude Code backend | -2 |
-| `src/backend/gemini.rs` | Gemini CLI backend | -2 |
-| `src/backend/aider.rs` | Aider backend | -2 |
-| `src/backend/opencode.rs` | OpenCode backend | -2 |
-| `src/backend/custom.rs` | Custom command backend | -2 |
-| `src/hud/mod.rs` | HUD module trait + registry | -2 |
-| `src/hud/mode.rs` | Mode indicator module | -2 |
-| `src/hud/meter.rs` | Audio meter module | -2 |
-| `src/hud/latency.rs` | Latency display module | -2 |
-| `src/hud/queue.rs` | Queue depth module | -2 |
-| `src/icons.rs` | Icon vocabulary (Unicode/ASCII) | -2 |
+| `rust_tui/src/backend/mod.rs` | AiBackend trait + registry | -2 |
+| `rust_tui/src/backend/claude.rs` | Claude Code backend | -2 |
+| `rust_tui/src/backend/gemini.rs` | Gemini CLI backend | -2 |
+| `rust_tui/src/backend/aider.rs` | Aider backend | -2 |
+| `rust_tui/src/backend/opencode.rs` | OpenCode backend | -2 |
+| `rust_tui/src/backend/custom.rs` | Custom command backend | -2 |
+| `rust_tui/src/hud/mod.rs` | HUD module trait + registry | -2 |
+| `rust_tui/src/hud/mode.rs` | Mode indicator module | -2 |
+| `rust_tui/src/hud/meter.rs` | Audio meter module | -2 |
+| `rust_tui/src/hud/latency.rs` | Latency display module | -2 |
+| `rust_tui/src/hud/queue.rs` | Queue depth module | -2 |
+| `rust_tui/src/icons.rs` | Icon vocabulary (Unicode/ASCII) | -2 |
 
 **Phase -1 to 9.5 (Core Roadmap)**:
 | File | Purpose | Phase |
 |------|---------|-------|
-| `terminal_restore.rs` | Terminal state guard + panic restore | -1 |
-| `crash_log.rs` | Crash log + event ring buffer | -1 |
-| `doctor.rs` | `codex-voice doctor` diagnostics | -1 |
-| `privacy.rs` | Redaction policy + retention settings | -1 |
-| `sanitize.rs` | Control-char stripping + safe render helpers | -1 |
-| `accessibility.rs` | Announcements, contrast validation, reduced motion | 0 |
-| `render_diff.rs` | Dirty-line diff rendering | 0.5 |
-| `perf_metrics.rs` | Render/flush timing metrics | 0.5 |
-| `perf_overlay.rs` | Perf debug overlay | 0.5 |
-| `event_coalesce.rs` | Update coalescing for high-frequency signals | 0.5 |
-| `hud_layout.rs` | Segment layout engine + fit helpers | 0.5 |
-| `hud_metrics.rs` | HUD metrics collection/aggregation | 0.5 |
-| `focus.rs` | FocusManager, focus trap, restoration | 1 |
-| `overlay_stack.rs` | Overlay stack + modal routing | 1 |
-| `ui_primitives/` | Shared UI primitives (menus, focus, actions, layout) | 1 |
-| `ui_core/` | Headless state/actions/reducer/dirty flags | 1 |
-| `selectable_menu.rs` | Reusable arrow-key menu component | 2 |
-| `error_overlay.rs` | Error details modal | 2.5 |
-| `pipeline_overlay.rs` | Pipeline activity overlay | 2.5 |
-| `hud_widgets.rs` | HUD widgets (model/latency/context/queue) | 2.6 |
-| `backend_metadata.rs` | Backend metadata contract (optional fields) | 2.6 |
-| `preferences.rs` | Config file load/save | 3 |
-| `config_migrate.rs` | Config versioning + migrations | 3.2 |
-| `keybindings.rs` | Keybinding config load/save/merge | 3.6 |
-| `actions.rs` | Action registry (keys/help/palette/settings) | 3.6 |
-| `design_tokens.rs` | Token spec + contrast checks | 3.5 |
-| `settings.rs` | Settings overlay | 4 |
-| `calibration_overlay.rs` | Audio calibration flow | 4.2 |
-| `text_editor.rs` | Minimal text editor widget | 4.7 |
-| `command_palette.rs` | Command palette overlay | 5 |
-| `history.rs` | Transcript history | 7 |
-| `outbox.rs` | Outbox / retry queue | 7.5 |
-| `toast.rs` | Toast notification system | Micro |
-| `ci/terminal_matrix.yml` | Terminal compatibility smoke tests | 9.5 |
+| `rust_tui/src/terminal_restore.rs` | Terminal state guard + panic restore | -1 |
+| `rust_tui/src/crash_log.rs` | Crash log + event ring buffer | -1 |
+| `rust_tui/src/doctor.rs` | `codex-voice --doctor` diagnostics | -1 |
+| `rust_tui/src/privacy.rs` | Redaction policy + retention settings | -1 |
+| `rust_tui/src/sanitize.rs` | Control-char stripping + safe render helpers | -1 |
+| `rust_tui/src/accessibility.rs` | Announcements, contrast validation, reduced motion | 0 |
+| `rust_tui/src/render_diff.rs` | Dirty-line diff rendering | 0.5 |
+| `rust_tui/src/perf_metrics.rs` | Render/flush timing metrics | 0.5 |
+| `rust_tui/src/perf_overlay.rs` | Perf debug overlay | 0.5 |
+| `rust_tui/src/event_coalesce.rs` | Update coalescing for high-frequency signals | 0.5 |
+| `rust_tui/src/hud_layout.rs` | Segment layout engine + fit helpers | 0.5 |
+| `rust_tui/src/hud_metrics.rs` | HUD metrics collection/aggregation | 0.5 |
+| `rust_tui/src/focus.rs` | FocusManager, focus trap, restoration | 1 |
+| `rust_tui/src/overlay_stack.rs` | Overlay stack + modal routing | 1 |
+| `rust_tui/src/ui_primitives/` | Shared UI primitives (menus, focus, actions, layout) | 1 |
+| `rust_tui/src/ui_core/` | Headless state/actions/reducer/dirty flags | 1 |
+| `rust_tui/src/selectable_menu.rs` | Reusable arrow-key menu component | 2 |
+| `rust_tui/src/error_overlay.rs` | Error details modal | 2.5 |
+| `rust_tui/src/pipeline_overlay.rs` | Pipeline activity overlay | 2.5 |
+| `rust_tui/src/hud_widgets.rs` | HUD widgets (model/latency/context/queue) | 2.6 |
+| `rust_tui/src/backend_metadata.rs` | Backend metadata contract (optional fields) | 2.6 |
+| `rust_tui/src/preferences.rs` | Config file load/save | 3 |
+| `rust_tui/src/config_migrate.rs` | Config versioning + migrations | 3.2 |
+| `rust_tui/src/keybindings.rs` | Keybinding config load/save/merge | 3.6 |
+| `rust_tui/src/actions.rs` | Action registry (keys/help/palette/settings) | 3.6 |
+| `rust_tui/src/design_tokens.rs` | Token spec + contrast checks | 3.5 |
+| `rust_tui/src/settings.rs` | Settings overlay | 4 |
+| `rust_tui/src/calibration_overlay.rs` | Audio calibration flow | 4.2 |
+| `rust_tui/src/text_editor.rs` | Minimal text editor widget | 4.7 |
+| `rust_tui/src/command_palette.rs` | Command palette overlay | 5 |
+| `rust_tui/src/history.rs` | Transcript history | 7 |
+| `rust_tui/src/outbox.rs` | Outbox / retry queue | 7.5 |
+| `rust_tui/src/toast.rs` | Toast notification system | Micro |
+| `.github/workflows/terminal_matrix.yml` | Terminal compatibility smoke tests | 9.5 |
 
 **Phase 10-20 (Future Vision)**:
 | File | Purpose | Phase |
 |------|---------|-------|
-| `markdown.rs` | Markdown parsing and rendering | 10 |
-| `syntax.rs` | Syntax highlighting for code blocks | 11 |
-| `graphics.rs` | Terminal graphics protocol detection | 15 |
-| `image_render.rs` | Sixel/Kitty/iTerm2 image rendering | 15 |
-| `mcp_client.rs` | MCP protocol client implementation | 12 |
-| `mcp_config.rs` | MCP server configuration | 12 |
-| `model_router.rs` | Multi-model routing and selection | 13 |
-| `local_llm.rs` | Local LLM integration (Ollama) | 14 |
-| `macros.rs` | Voice macros and snippets | 16 |
-| `analytics.rs` | Session analytics and stats | 17 |
-| `tts.rs` | Text-to-speech response output | 18 |
-| `ambient.rs` | Ambient notifications system | 19 |
+| `rust_tui/src/markdown.rs` | Markdown parsing and rendering | 10 |
+| `rust_tui/src/syntax.rs` | Syntax highlighting for code blocks | 11 |
+| `rust_tui/src/graphics.rs` | Terminal graphics protocol detection | 15 |
+| `rust_tui/src/image_render.rs` | Sixel/Kitty/iTerm2 image rendering | 15 |
+| `rust_tui/src/mcp_client.rs` | MCP protocol client implementation | 12 |
+| `rust_tui/src/mcp_config.rs` | MCP server configuration | 12 |
+| `rust_tui/src/model_router.rs` | Multi-model routing and selection | 13 |
+| `rust_tui/src/local_llm.rs` | Local LLM integration (Ollama) | 14 |
+| `rust_tui/src/macros.rs` | Voice macros and snippets | 16 |
+| `rust_tui/src/analytics.rs` | Session analytics and stats | 17 |
+| `rust_tui/src/tts.rs` | Text-to-speech response output | 18 |
+| `rust_tui/src/ambient.rs` | Ambient notifications system | 19 |
 
 ---
 
@@ -2626,7 +2615,7 @@ Bounce (classic):  [=   ] [==  ] [=== ]
 2. **Phase -1**: Terminal Safety Foundation
    - Panic-safe terminal restore + Drop guard
    - Structured logging + crash log
-   - `voice-hud doctor` diagnostics
+   - `codex-voice --doctor` diagnostics
 
 3. **Phase 0 + 0.5**: Accessibility + Performance Architecture
    - Accessibility flags + announcements
@@ -2659,5 +2648,5 @@ Bounce (classic):  [=   ] [==  ] [=== ]
 
 ---
 
-*Last updated: January 2026*
+*Last updated: 2026-02-01*
 *Research sources: awesome-tuis, Textual, ratatui discussions, WCAG guidelines, rat-widget, ratatui-interact*

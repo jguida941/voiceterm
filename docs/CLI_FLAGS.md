@@ -58,6 +58,7 @@ Backend notes:
 |------|---------|---------|
 | `--input-device <NAME>` | Preferred audio input device | system default |
 | `--list-input-devices` | Print available audio devices and exit | - |
+| `--doctor` | Print environment diagnostics and exit | - |
 | `--mic-meter` | Sample ambient + speech and recommend a VAD threshold | - |
 | `--mic-meter-ambient-ms <MS>` | Ambient sample duration for mic meter | 3000 |
 | `--mic-meter-speech-ms <MS>` | Speech sample duration for mic meter | 3000 |
@@ -155,6 +156,7 @@ Backend notes:
 |------|---------|---------|
 | `--input-device <NAME>` | Preferred audio input device | system default |
 | `--list-input-devices` | Print available audio devices and exit | - |
+| `--doctor` | Print environment diagnostics and exit | - |
 | `--mic-meter` | Sample ambient + speech and recommend a VAD threshold | - |
 | `--mic-meter-ambient-ms <MS>` | Ambient sample duration for mic meter | 3000 |
 | `--mic-meter-speech-ms <MS>` | Speech sample duration for mic meter | 3000 |

@@ -55,6 +55,10 @@ pub struct AppConfig {
     #[arg(long = "list-input-devices", default_value_t = false)]
     pub list_input_devices: bool,
 
+    /// Print environment diagnostics and exit
+    #[arg(long = "doctor", default_value_t = false)]
+    pub doctor: bool,
+
     /// Run mic meter and suggest a VAD threshold, then exit
     #[arg(long = "mic-meter", default_value_t = false)]
     pub mic_meter: bool,

@@ -3,6 +3,15 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [1.0.29] - 2026-02-02
+
+### Reliability
+- Add a terminal restore guard with a shared panic hook so raw mode/alternate screen clean up even on crashes.
+- Emit a minimal crash log entry (metadata only unless log content is enabled).
+- Add `--doctor` diagnostics output for terminal/config/audio visibility.
+- Clear overlay panel regions when the height changes to avoid resize artifacts.
+- Improve queued transcript flushing by allowing idle-based sends when prompt detection stalls after output finishes.
+
 ## [1.0.28] - 2026-01-31
 
 ### UX + Visuals

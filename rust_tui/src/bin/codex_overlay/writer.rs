@@ -347,6 +347,13 @@ fn maybe_redraw_status(ctx: StatusRedraw<'_>) {
         *ctx.overlay_panel = None;
         *ctx.pending_overlay_clear = false;
     }
+    if let Some(panel) = ctx.pending_overlay.as_ref() {
+        if let Some(current) = ctx.overlay_panel.as_ref() {
+            if current.height != panel.height {
+                let _ = clear_overlay_panel(ctx.stdout, *ctx.rows, current.height);
+            }
+        }
+    }
     if let Some(panel) = ctx.pending_overlay.take() {
         *ctx.overlay_panel = Some(panel);
     }

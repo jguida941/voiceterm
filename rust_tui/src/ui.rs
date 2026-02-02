@@ -2,15 +2,13 @@
 //! tests can drive the UI without pulling in all of `main`.
 
 use crate::log_debug;
+use crate::terminal_restore::TerminalRestoreGuard;
 use crate::utf8_safe::window_by_columns;
 use crate::voice::VoiceCaptureTrigger;
 use crate::App;
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::{
-    event, execute,
-    terminal::{disable_raw_mode, enable_raw_mode},
-};
+use crossterm::event;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -26,20 +24,17 @@ use unicode_width::UnicodeWidthStr;
 
 /// Configure the terminal, run the drawing loop, and tear everything down.
 pub fn run_app(app: &mut App) -> Result<()> {
-    enable_raw_mode()?;
+    let terminal_guard = TerminalRestoreGuard::new();
+    terminal_guard.enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
+    terminal_guard.enter_alt_screen(&mut stdout)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
     let result = app_loop(&mut terminal, app);
 
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        crossterm::terminal::LeaveAlternateScreen
-    )?;
-    terminal.show_cursor()?;
+    drop(terminal);
+    terminal_guard.restore();
 
     result
 }
