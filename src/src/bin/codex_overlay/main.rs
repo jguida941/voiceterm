@@ -1383,11 +1383,8 @@ fn drain_voice_messages<S: TranscriptSession>(
                     status_state.last_latency_ms = Some(ms);
                 }
             }
-            let ready = if auto_voice_enabled {
-                transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout)
-            } else {
-                true
-            };
+            let ready =
+                transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout);
             if auto_voice_enabled {
                 prompt_tracker.note_activity(now);
             }
