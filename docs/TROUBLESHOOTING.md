@@ -259,30 +259,22 @@ voxterm --no-logs
 
 ### What languages does Whisper support?
 
-Whisper supports 99 languages. Common ones with good accuracy:
+Whisper supports 99 languages. VoxTerm has been tested with English (`en`).
 
-| Language | Code | Language | Code |
-|----------|------|----------|------|
-| English | `en` | German | `de` |
-| Spanish | `es` | French | `fr` |
-| Italian | `it` | Portuguese | `pt` |
-| Japanese | `ja` | Korean | `ko` |
-| Chinese | `zh` | Russian | `ru` |
-
-Use `--lang auto` for automatic detection, or specify: `voxterm --lang es`
+Other languages should work but are untested. Use `--lang auto` for automatic detection, or specify a language code: `voxterm --lang es`
 
 Full list: [Whisper supported languages](https://github.com/openai/whisper#available-models-and-languages)
 
-### Which AI CLI backends are tested?
+### Which AI CLI backends work?
 
 | Backend | Command | Status |
 |---------|---------|--------|
-| Codex | `voxterm` (default) | Fully tested |
-| Claude Code | `voxterm --backend claude` | Tested |
-| Gemini CLI | `voxterm --backend gemini` | Tested |
-| Aider | `voxterm --backend aider` | Tested |
-| OpenCode | `voxterm --backend opencode` | Community tested |
-| Custom | `voxterm --backend "cmd"` | Works with any CLI |
+| Codex | `voxterm` (default) | Tested |
+| Claude Code | `voxterm --backend claude` | Should work (untested) |
+| Gemini CLI | `voxterm --backend gemini` | Should work (untested) |
+| Aider | `voxterm --backend aider` | Should work (untested) |
+| OpenCode | `voxterm --backend opencode` | Should work (untested) |
+| Custom | `voxterm --backend "cmd"` | Any CLI that accepts text input |
 
 ### Which Whisper model should I use?
 
