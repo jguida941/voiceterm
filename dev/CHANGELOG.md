@@ -5,6 +5,9 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Documentation
+- Refresh the Claude backend screenshot.
+
 **Remaining audit items (future work):**
 
 ### Code Quality
