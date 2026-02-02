@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
+use std::path::{Path, PathBuf};
 use voxterm::backend::BackendRegistry;
 use voxterm::config::AppConfig;
-use std::path::{Path, PathBuf};
 
 use crate::color_mode::ColorMode;
 use crate::theme::Theme;

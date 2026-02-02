@@ -34,17 +34,17 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use crossbeam_channel::{bounded, select, Sender};
 use crossterm::terminal::size as terminal_size;
+use std::collections::VecDeque;
+use std::env;
+use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use voxterm::pty_session::PtyOverlaySession;
 use voxterm::{
     audio, doctor::base_doctor_report, init_logging, log_debug, log_file_path,
     terminal_restore::TerminalRestoreGuard, VoiceCaptureSource, VoiceCaptureTrigger,
     VoiceJobMessage,
 };
-use std::collections::VecDeque;
-use std::env;
-use std::io::{self, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
 
 use crate::banner::{format_minimal_banner, format_startup_banner, BannerConfig};
 use crate::config::{OverlayConfig, VoiceSendMode};
@@ -65,7 +65,7 @@ use crate::theme::Theme;
 use crate::theme_picker::{format_theme_picker, theme_picker_height, THEME_OPTIONS};
 use crate::transcript::{
     deliver_transcript, push_pending_transcript, transcript_ready, try_flush_pending,
-    PendingTranscript, TranscriptIo,
+    PendingTranscript, TranscriptIo, TranscriptSession,
 };
 use crate::voice_control::{handle_voice_message, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, spawn_writer_thread, WriterMessage};
@@ -883,6 +883,7 @@ fn main() -> Result<()> {
             recv(session.output_rx) -> chunk => {
                 match chunk {
                     Ok(data) => {
+                        let now = Instant::now();
                         prompt_tracker.feed_output(&data);
                         {
                             let mut io = TranscriptIo {
@@ -897,13 +898,36 @@ fn main() -> Result<()> {
                                 &prompt_tracker,
                                 &mut last_enter_at,
                                 &mut io,
-                                Instant::now(),
+                                now,
                                 transcript_idle_timeout,
                             );
                         }
                         if writer_tx.send(WriterMessage::PtyOutput(data)).is_err() {
                             running = false;
                         }
+                        drain_voice_messages(
+                            &mut voice_manager,
+                            &config,
+                            &mut session,
+                            &writer_tx,
+                            &mut status_clear_deadline,
+                            &mut current_status,
+                            &mut status_state,
+                            &mut session_stats,
+                            &mut pending_transcripts,
+                            &mut prompt_tracker,
+                            &mut last_enter_at,
+                            now,
+                            transcript_idle_timeout,
+                            &mut recording_started_at,
+                            &mut preview_clear_deadline,
+                            &mut meter_levels,
+                            &mut last_meter_update,
+                            &mut last_auto_trigger_at,
+                            auto_voice_enabled,
+                            sound_on_complete,
+                            sound_on_error,
+                        );
                     }
                     Err(_) => {
                         running = false;
@@ -998,205 +1022,29 @@ fn main() -> Result<()> {
                 }
                 prompt_tracker.on_idle(now, auto_idle_timeout);
 
-                if let Some(message) = voice_manager.poll_message() {
-                    let rearm_auto = matches!(
-                        message,
-                        VoiceJobMessage::Empty { .. } | VoiceJobMessage::Error(_)
-                    );
-                    match message {
-                        VoiceJobMessage::Transcript {
-                            text,
-                            source,
-                            metrics,
-                        } => {
-                            if let Some(started_at) = recording_started_at {
-                                if let Some(elapsed) = now.checked_duration_since(started_at) {
-                                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
-                                    status_state.last_latency_ms = Some(ms);
-                                }
-                            }
-                            let ready = if auto_voice_enabled {
-                                transcript_ready(
-                                    &prompt_tracker,
-                                    last_enter_at,
-                                    now,
-                                    transcript_idle_timeout,
-                                )
-                            } else {
-                                true
-                            };
-                            if auto_voice_enabled {
-                                prompt_tracker.note_activity(now);
-                            }
-                            status_state.recording_state = RecordingState::Idle;
-                            status_state.recording_duration = None;
-                            status_state.pipeline = match source {
-                                VoiceCaptureSource::Native => Pipeline::Rust,
-                                VoiceCaptureSource::Python => Pipeline::Python,
-                            };
-                            let preview = format_transcript_preview(&text, TRANSCRIPT_PREVIEW_MAX);
-                            if preview.is_empty() {
-                                status_state.transcript_preview = None;
-                                preview_clear_deadline = None;
-                            } else {
-                                status_state.transcript_preview = Some(preview);
-                                preview_clear_deadline =
-                                    Some(now + Duration::from_millis(PREVIEW_CLEAR_MS));
-                            }
-                            let drop_note = metrics
-                                .as_ref()
-                                .filter(|metrics| metrics.frames_dropped > 0)
-                                .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
-                            let duration_secs = metrics
-                                .as_ref()
-                                .map(|metrics| metrics.speech_ms as f32 / 1000.0)
-                                .unwrap_or(0.0);
-                            session_stats.record_transcript(duration_secs);
-                            let drop_suffix = drop_note
-                                .as_ref()
-                                .map(|note| format!(", {note}"))
-                                .unwrap_or_default();
-                            if ready && pending_transcripts.is_empty() {
-                                let mut io = TranscriptIo {
-                                    session: &mut session,
-                                    writer_tx: &writer_tx,
-                                    status_clear_deadline: &mut status_clear_deadline,
-                                    current_status: &mut current_status,
-                                    status_state: &mut status_state,
-                                };
-                                let sent_newline = deliver_transcript(
-                                    &text,
-                                    source.label(),
-                                    config.voice_send_mode,
-                                    &mut io,
-                                    0,
-                                    drop_note.as_deref(),
-                                );
-                                if sent_newline {
-                                    last_enter_at = Some(now);
-                                }
-                            } else {
-                                let dropped = push_pending_transcript(
-                                    &mut pending_transcripts,
-                                    PendingTranscript {
-                                        text,
-                                        source,
-                                        mode: config.voice_send_mode,
-                                    },
-                                );
-                                status_state.queue_depth = pending_transcripts.len();
-                                if dropped {
-                                    set_status(
-                                        &writer_tx,
-                                        &mut status_clear_deadline,
-                                        &mut current_status,
-                                        &mut status_state,
-                                        "Transcript queue full (oldest dropped)",
-                                        Some(Duration::from_secs(2)),
-                                    );
-                                }
-                                if ready {
-                                    let mut io = TranscriptIo {
-                                        session: &mut session,
-                                        writer_tx: &writer_tx,
-                                        status_clear_deadline: &mut status_clear_deadline,
-                                        current_status: &mut current_status,
-                                        status_state: &mut status_state,
-                                    };
-                                    try_flush_pending(
-                                        &mut pending_transcripts,
-                                        &prompt_tracker,
-                                        &mut last_enter_at,
-                                        &mut io,
-                                        now,
-                                        transcript_idle_timeout,
-                                    );
-                                } else if !dropped {
-                                    let status =
-                                        format!("Transcript queued ({}{})", pending_transcripts.len(), drop_suffix);
-                                    set_status(
-                                        &writer_tx,
-                                        &mut status_clear_deadline,
-                                        &mut current_status,
-                                        &mut status_state,
-                                        &status,
-                                        None,
-                                    );
-                                }
-                            }
-                            if auto_voice_enabled
-                                && config.voice_send_mode == VoiceSendMode::Insert
-                                && pending_transcripts.is_empty()
-                                && voice_manager.is_idle()
-                            {
-                                if let Err(err) = start_voice_capture(
-                                    &mut voice_manager,
-                                    VoiceCaptureTrigger::Auto,
-                                    &writer_tx,
-                                    &mut status_clear_deadline,
-                                    &mut current_status,
-                                    &mut status_state,
-                                ) {
-                                    log_debug(&format!("auto voice capture failed: {err:#}"));
-                                } else {
-                                    last_auto_trigger_at = Some(now);
-                                    recording_started_at = Some(now);
-                                    reset_capture_visuals(
-                                        &mut meter_levels,
-                                        &mut status_state,
-                                        &mut preview_clear_deadline,
-                                        &mut last_meter_update,
-                                    );
-                                }
-                            }
-                            if sound_on_complete {
-                                let _ = writer_tx.send(WriterMessage::Bell { count: 1 });
-                            }
-                        }
-                        VoiceJobMessage::Empty { source, metrics } => {
-                            if let Some(started_at) = recording_started_at {
-                                if let Some(elapsed) = now.checked_duration_since(started_at) {
-                                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
-                                    status_state.last_latency_ms = Some(ms);
-                                }
-                            }
-                            handle_voice_message(
-                                VoiceJobMessage::Empty { source, metrics },
-                                &config,
-                                &mut session,
-                                &writer_tx,
-                                &mut status_clear_deadline,
-                                &mut current_status,
-                                &mut status_state,
-                                &mut session_stats,
-                                auto_voice_enabled,
-                            );
-                        }
-                        other => {
-                            if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
-                                let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
-                            }
-                            handle_voice_message(
-                                other,
-                                &config,
-                                &mut session,
-                                &writer_tx,
-                                &mut status_clear_deadline,
-                                &mut current_status,
-                                &mut status_state,
-                                &mut session_stats,
-                                auto_voice_enabled,
-                            );
-                        }
-                    }
-                    if auto_voice_enabled && rearm_auto {
-                        // Treat empty/error captures as activity so auto-voice can re-arm after idle.
-                        prompt_tracker.note_activity(now);
-                    }
-                    if status_state.recording_state != RecordingState::Recording {
-                        recording_started_at = None;
-                    }
-                }
+                drain_voice_messages(
+                    &mut voice_manager,
+                    &config,
+                    &mut session,
+                    &writer_tx,
+                    &mut status_clear_deadline,
+                    &mut current_status,
+                    &mut status_state,
+                    &mut session_stats,
+                    &mut pending_transcripts,
+                    &mut prompt_tracker,
+                    &mut last_enter_at,
+                    now,
+                    transcript_idle_timeout,
+                    &mut recording_started_at,
+                    &mut preview_clear_deadline,
+                    &mut meter_levels,
+                    &mut last_meter_update,
+                    &mut last_auto_trigger_at,
+                    auto_voice_enabled,
+                    sound_on_complete,
+                    sound_on_error,
+                );
 
                 {
                     let mut io = TranscriptIo {
@@ -1490,6 +1338,228 @@ fn adjust_sensitivity(
         &msg,
         Some(Duration::from_secs(3)),
     );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn drain_voice_messages<S: TranscriptSession>(
+    voice_manager: &mut VoiceManager,
+    config: &OverlayConfig,
+    session: &mut S,
+    writer_tx: &Sender<WriterMessage>,
+    status_clear_deadline: &mut Option<Instant>,
+    current_status: &mut Option<String>,
+    status_state: &mut StatusLineState,
+    session_stats: &mut SessionStats,
+    pending_transcripts: &mut VecDeque<PendingTranscript>,
+    prompt_tracker: &mut PromptTracker,
+    last_enter_at: &mut Option<Instant>,
+    now: Instant,
+    transcript_idle_timeout: Duration,
+    recording_started_at: &mut Option<Instant>,
+    preview_clear_deadline: &mut Option<Instant>,
+    meter_levels: &mut VecDeque<f32>,
+    last_meter_update: &mut Instant,
+    last_auto_trigger_at: &mut Option<Instant>,
+    auto_voice_enabled: bool,
+    sound_on_complete: bool,
+    sound_on_error: bool,
+) {
+    let Some(message) = voice_manager.poll_message() else {
+        return;
+    };
+    let rearm_auto = matches!(
+        message,
+        VoiceJobMessage::Empty { .. } | VoiceJobMessage::Error(_)
+    );
+    match message {
+        VoiceJobMessage::Transcript {
+            text,
+            source,
+            metrics,
+        } => {
+            if let Some(started_at) = *recording_started_at {
+                if let Some(elapsed) = now.checked_duration_since(started_at) {
+                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
+                    status_state.last_latency_ms = Some(ms);
+                }
+            }
+            let ready = if auto_voice_enabled {
+                transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout)
+            } else {
+                true
+            };
+            if auto_voice_enabled {
+                prompt_tracker.note_activity(now);
+            }
+            status_state.recording_state = RecordingState::Idle;
+            status_state.recording_duration = None;
+            status_state.pipeline = match source {
+                VoiceCaptureSource::Native => Pipeline::Rust,
+                VoiceCaptureSource::Python => Pipeline::Python,
+            };
+            let preview = format_transcript_preview(&text, TRANSCRIPT_PREVIEW_MAX);
+            if preview.is_empty() {
+                status_state.transcript_preview = None;
+                *preview_clear_deadline = None;
+            } else {
+                status_state.transcript_preview = Some(preview);
+                *preview_clear_deadline = Some(now + Duration::from_millis(PREVIEW_CLEAR_MS));
+            }
+            let drop_note = metrics
+                .as_ref()
+                .filter(|metrics| metrics.frames_dropped > 0)
+                .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
+            let duration_secs = metrics
+                .as_ref()
+                .map(|metrics| metrics.speech_ms as f32 / 1000.0)
+                .unwrap_or(0.0);
+            session_stats.record_transcript(duration_secs);
+            let drop_suffix = drop_note
+                .as_ref()
+                .map(|note| format!(", {note}"))
+                .unwrap_or_default();
+            if ready && pending_transcripts.is_empty() {
+                let mut io = TranscriptIo {
+                    session,
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                };
+                let sent_newline = deliver_transcript(
+                    &text,
+                    source.label(),
+                    config.voice_send_mode,
+                    &mut io,
+                    0,
+                    drop_note.as_deref(),
+                );
+                if sent_newline {
+                    *last_enter_at = Some(now);
+                }
+            } else {
+                let dropped = push_pending_transcript(
+                    pending_transcripts,
+                    PendingTranscript {
+                        text,
+                        source,
+                        mode: config.voice_send_mode,
+                    },
+                );
+                status_state.queue_depth = pending_transcripts.len();
+                if dropped {
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Transcript queue full (oldest dropped)",
+                        Some(Duration::from_secs(2)),
+                    );
+                }
+                if ready {
+                    let mut io = TranscriptIo {
+                        session,
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                    };
+                    try_flush_pending(
+                        pending_transcripts,
+                        prompt_tracker,
+                        last_enter_at,
+                        &mut io,
+                        now,
+                        transcript_idle_timeout,
+                    );
+                } else if !dropped {
+                    let status = format!(
+                        "Transcript queued ({}{})",
+                        pending_transcripts.len(),
+                        drop_suffix
+                    );
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        &status,
+                        None,
+                    );
+                }
+            }
+            if auto_voice_enabled
+                && config.voice_send_mode == VoiceSendMode::Insert
+                && pending_transcripts.is_empty()
+                && voice_manager.is_idle()
+            {
+                if let Err(err) = start_voice_capture(
+                    voice_manager,
+                    VoiceCaptureTrigger::Auto,
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                ) {
+                    log_debug(&format!("auto voice capture failed: {err:#}"));
+                } else {
+                    *last_auto_trigger_at = Some(now);
+                    *recording_started_at = Some(now);
+                    reset_capture_visuals(
+                        meter_levels,
+                        status_state,
+                        preview_clear_deadline,
+                        last_meter_update,
+                    );
+                }
+            }
+            if sound_on_complete {
+                let _ = writer_tx.send(WriterMessage::Bell { count: 1 });
+            }
+        }
+        VoiceJobMessage::Empty { source, metrics } => {
+            if let Some(started_at) = *recording_started_at {
+                if let Some(elapsed) = now.checked_duration_since(started_at) {
+                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
+                    status_state.last_latency_ms = Some(ms);
+                }
+            }
+            handle_voice_message(
+                VoiceJobMessage::Empty { source, metrics },
+                config,
+                session,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+                session_stats,
+                auto_voice_enabled,
+            );
+        }
+        other => {
+            if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
+                let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
+            }
+            handle_voice_message(
+                other,
+                config,
+                session,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+                session_stats,
+                auto_voice_enabled,
+            );
+        }
+    }
+    if auto_voice_enabled && rearm_auto {
+        prompt_tracker.note_activity(now);
+    }
+    if status_state.recording_state != RecordingState::Recording {
+        *recording_started_at = None;
+    }
 }
 
 fn cycle_theme(current: Theme, direction: i32) -> Theme {

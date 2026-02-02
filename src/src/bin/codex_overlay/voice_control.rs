@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Result};
 use crossbeam_channel::Sender;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use voxterm::{
     audio, config::AppConfig, log_debug, stt, voice, VoiceCaptureSource, VoiceCaptureTrigger,
     VoiceJobMessage,
 };
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use crate::config::OverlayConfig;
 use crate::session_stats::SessionStats;
@@ -418,11 +418,11 @@ mod tests {
     use crate::config::VoiceSendMode;
     use crate::transcript::TranscriptSession;
     use clap::Parser;
-    use voxterm::config::AppConfig;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
+    use voxterm::config::AppConfig;
 
     #[derive(Default)]
     struct StubSession {

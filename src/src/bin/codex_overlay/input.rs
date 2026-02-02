@@ -1,7 +1,7 @@
 use crossbeam_channel::Sender;
-use voxterm::log_debug;
 use std::io::{self, Read};
 use std::thread;
+use voxterm::log_debug;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum InputEvent {

@@ -350,10 +350,10 @@ mod tests {
     use super::*;
     use crate::config::{OverlayConfig, VoiceSendMode};
     use clap::Parser;
-    use voxterm::config::AppConfig;
     use std::env;
     use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
+    use voxterm::config::AppConfig;
 
     fn temp_log_path(label: &str) -> PathBuf {
         let unique = SystemTime::now()

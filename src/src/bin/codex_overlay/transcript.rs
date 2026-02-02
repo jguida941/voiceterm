@@ -1,10 +1,10 @@
 use anyhow::Result;
 use crossbeam_channel::Sender;
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 use voxterm::log_debug;
 use voxterm::pty_session::PtyOverlaySession;
 use voxterm::VoiceCaptureSource;
-use std::collections::VecDeque;
-use std::time::{Duration, Instant};
 
 use crate::config::VoiceSendMode;
 use crate::prompt::PromptTracker;

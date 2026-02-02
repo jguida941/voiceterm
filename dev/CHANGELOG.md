@@ -3,6 +3,11 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `agents.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [Unreleased] - 2026-02-02
+
+### Bug Fixes
+- Drain voice capture results even while PTY output is streaming so “Processing” clears and transcripts queue/send while the CLI is busy.
+
 ## [1.0.33] - 2026-02-02
 
 ### Reorganization
@@ -16,6 +21,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Fix Homebrew formula paths after repo reorganization
 - Add explicit platform detection to setup and start scripts (macOS, Linux, Windows WSL2)
 - Align macOS app version metadata with the 1.0.33 release
+
+### UX
+- Status banner top border now shows a VoxTerm label with theme-matched Vox/Term colors instead of the theme name
 
 ### Documentation
 - Add `guides/WHISPER.md` for model selection guidance

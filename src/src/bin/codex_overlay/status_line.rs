@@ -173,7 +173,7 @@ pub fn status_banner_height(width: usize) -> usize {
 ///
 /// Layout (4 rows):
 /// ```text
-/// ╭─────────────────────────────────────────────────────── theme ─╮
+/// ╭──────────────────────────────────────────────────── VoxTerm ─╮
 /// │ ● AUTO │ Rust │ -40dB  ▁▂▃▅▆▇█▅  -51dB  Status message here  │
 /// │ ^R rec  ^V auto  ^T send  ? help  ^Y theme                   │
 /// ╰──────────────────────────────────────────────────────────────╯
@@ -191,7 +191,7 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     let inner_width = width.saturating_sub(2); // Account for left/right borders
 
     let lines = vec![
-        format_top_border(&colors, borders, theme, width),
+        format_top_border(&colors, borders, width),
         format_main_row(state, &colors, borders, theme, inner_width),
         format_shortcuts_row(&colors, borders, inner_width),
         format_bottom_border(&colors, borders, width),
@@ -200,20 +200,15 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     StatusBanner::new(lines)
 }
 
-/// Format the top border with theme name badge.
-fn format_top_border(
-    colors: &ThemeColors,
-    borders: &BorderSet,
-    theme: Theme,
-    width: usize,
-) -> String {
-    let theme_name = format!(" {} ", theme);
-    let theme_badge_len = theme_name.len();
+/// Format the top border with VoxTerm badge.
+fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
+    let brand_label = format_brand_label(colors);
+    let label_width = display_width(&brand_label);
 
     // Calculate border segments
-    // Total: top_left(1) + left_segment + theme_name + right_segment + top_right(1) = width
+    // Total: top_left(1) + left_segment + label + right_segment + top_right(1) = width
     let left_border_len = 2;
-    let right_border_len = width.saturating_sub(left_border_len + theme_badge_len + 2); // +2 for corners
+    let right_border_len = width.saturating_sub(left_border_len + label_width + 2); // +2 for corners
 
     let left_segment: String = std::iter::repeat_n(borders.horizontal, left_border_len).collect();
     let right_segment: String = std::iter::repeat_n(borders.horizontal, right_border_len).collect();
@@ -224,14 +219,19 @@ fn format_top_border(
         borders.top_left,
         left_segment,
         colors.reset,
-        colors.dim,
-        theme_name,
-        colors.reset,
+        brand_label,
         colors.border,
         right_segment,
         // borders.top_right,
         // colors.reset
     ) + &format!("{}{}", borders.top_right, colors.reset)
+}
+
+fn format_brand_label(colors: &ThemeColors) -> String {
+    format!(
+        " {}Vox{}{}Term{} ",
+        colors.info, colors.reset, colors.recording, colors.reset
+    )
 }
 
 /// Format the main status row with mode, sensitivity, meter, and message.

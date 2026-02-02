@@ -3,10 +3,10 @@
 //! Provides visual representation of audio levels for mic meter and real-time display.
 
 use anyhow::{anyhow, Result};
-use voxterm::audio::Recorder;
-use voxterm::config::{AppConfig, MAX_MIC_METER_SAMPLE_MS, MIN_MIC_METER_SAMPLE_MS};
 use std::io::{self, Write};
 use std::time::Duration;
+use voxterm::audio::Recorder;
+use voxterm::config::{AppConfig, MAX_MIC_METER_SAMPLE_MS, MIN_MIC_METER_SAMPLE_MS};
 
 use crate::theme::{Theme, ThemeColors};
 

@@ -9,14 +9,14 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use std::sync::mpsc::TryRecvError;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use voxterm::audio;
 use voxterm::codex::{BackendEventKind, CliBackend, CodexBackend, CodexRequest};
 use voxterm::config::AppConfig;
 use voxterm::stt;
 use voxterm::voice::{self, VoiceJobMessage};
-use std::sync::mpsc::TryRecvError;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 /// Measure end-to-end latency for voice→Codex pipeline
 #[derive(Debug, Parser)]
