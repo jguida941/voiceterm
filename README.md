@@ -2,14 +2,18 @@
   <img src="img/logo.svg" alt="VoxTerm">
 </p>
 
-![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
-![Whisper STT](https://img.shields.io/badge/Whisper-Local%20STT-74aa9c?style=for-the-badge)
-![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
-[![License](https://img.shields.io/github/license/jguida941/voxterm?style=for-the-badge)](LICENSE)
+<p align="center">
+  <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust">
+  <img src="https://img.shields.io/badge/Whisper-STT-74aa9c?style=for-the-badge&logo=openai&logoColor=white" alt="Whisper">
+  <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+</p>
 
-[![Rust CI](https://img.shields.io/github/actions/workflow/status/jguida941/voxterm/rust_ci.yml?branch=master&style=for-the-badge)](https://github.com/jguida941/voxterm/actions/workflows/rust_ci.yml)
-[![Mutation Testing](https://img.shields.io/github/actions/workflow/status/jguida941/voxterm/mutation-testing.yml?branch=master&style=for-the-badge)](https://github.com/jguida941/voxterm/actions/workflows/mutation-testing.yml)
+<p align="center">
+  <a href="https://github.com/jguida941/voxterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jguida941/voxterm/rust_ci.yml?branch=master&style=for-the-badge&label=CI&logo=github" alt="CI"></a>
+  <a href="https://github.com/jguida941/voxterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/github/actions/workflow/status/jguida941/voxterm/mutation-testing.yml?branch=master&style=for-the-badge&label=Mutation&logo=github" alt="Mutation Testing"></a>
+</p>
 
 Voice input for AI CLIs. Talk instead of type.
 Runs Whisper locally with ~250ms latency. No cloud, no API keys.
