@@ -17,6 +17,8 @@ pub(crate) enum InputEvent {
     ToggleHudStyle,
     EnterKey,
     Exit,
+    /// Mouse click at (x, y) coordinates (1-based, like terminal reports)
+    MouseClick { x: u16, y: u16 },
 }
 
 pub(crate) fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<()> {
@@ -49,6 +51,7 @@ struct InputParser {
     pending: Vec<u8>,
     skip_lf: bool,
     esc_buffer: Option<Vec<u8>>,
+    mouse_press_seen: bool,
 }
 
 impl InputParser {
@@ -57,6 +60,7 @@ impl InputParser {
             pending: Vec::new(),
             skip_lf: false,
             esc_buffer: None,
+            mouse_press_seen: false,
         }
     }
 
@@ -157,6 +161,23 @@ impl InputParser {
                         if let Some(event) = event {
                             self.flush_pending(out);
                             out.push(event);
+                        }
+                    } else if let Some((kind, x, y)) = parse_sgr_mouse(buffer) {
+                        // SGR mouse click: ESC [ < btn ; x ; y M (press) or m (release)
+                        self.esc_buffer = None;
+                        self.flush_pending(out);
+                        match kind {
+                            MouseEventKind::Press => {
+                                self.mouse_press_seen = true;
+                                out.push(InputEvent::MouseClick { x, y });
+                            }
+                            MouseEventKind::Release => {
+                                if self.mouse_press_seen {
+                                    self.mouse_press_seen = false;
+                                } else {
+                                    out.push(InputEvent::MouseClick { x, y });
+                                }
+                            }
                         }
                     } else {
                         self.pending.extend_from_slice(buffer);
@@ -269,6 +290,56 @@ fn parse_csi_u_number(bytes: &[u8]) -> Option<u32> {
     Some(value)
 }
 
+enum MouseEventKind {
+    Press,
+    Release,
+}
+
+/// Parse SGR mouse event: ESC [ < button ; x ; y M (press) or m (release)
+/// Only handles left-click press (button 0) and release (button 0 or 3).
+#[inline]
+fn parse_sgr_mouse(buffer: &[u8]) -> Option<(MouseEventKind, u16, u16)> {
+    // Minimum: ESC [ < 0 ; 1 ; 1 M = 10 bytes
+    if buffer.len() < 10 {
+        return None;
+    }
+    // Check prefix: ESC [ <
+    if buffer[0] != 0x1b || buffer[1] != b'[' || buffer[2] != b'<' {
+        return None;
+    }
+    // Check final character is 'M' (press) or 'm' (release)
+    let final_char = buffer[buffer.len() - 1];
+    let kind = match final_char {
+        b'M' => MouseEventKind::Press,
+        b'm' => MouseEventKind::Release,
+        _ => return None,
+    };
+    // Parse: button ; x ; y
+    let params = &buffer[3..buffer.len() - 1];
+    let params_str = std::str::from_utf8(params).ok()?;
+    let mut parts = params_str.split(';');
+
+    let button: u16 = parts.next()?.parse().ok()?;
+    let x: u16 = parts.next()?.parse().ok()?;
+    let y: u16 = parts.next()?.parse().ok()?;
+
+    // Only handle left-click press (button 0) or release (button 0 or 3).
+    match kind {
+        MouseEventKind::Press => {
+            if button != 0 {
+                return None;
+            }
+        }
+        MouseEventKind::Release => {
+            if button != 0 && button != 3 {
+                return None;
+            }
+        }
+    }
+
+    Some((kind, x, y))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,5 +449,23 @@ mod tests {
         parser.consume_bytes(b"\x1b[114;5u", &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::VoiceTrigger]);
+    }
+
+    #[test]
+    fn input_parser_mouse_release_without_press_emits_click() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[<0;10;5m", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
+    }
+
+    #[test]
+    fn input_parser_mouse_press_then_release_emits_single_click() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[<0;10;5M\x1b[<0;10;5m", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
     }
 }

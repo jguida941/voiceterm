@@ -158,6 +158,7 @@ fn perf_smoke_emits_voice_metrics() {
         let log_path = log_file_path();
         let metrics = audio::CaptureMetrics {
             capture_ms: 800,
+            transcribe_ms: 0,
             speech_ms: 600,
             silence_tail_ms: 200,
             frames_processed: 5,

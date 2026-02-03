@@ -18,7 +18,7 @@ pub(crate) enum HudRightPanel {
     #[default]
     Ribbon,
     Dots,
-    Chips,
+    Heartbeat,
     Off,
 }
 
@@ -51,7 +51,7 @@ impl std::fmt::Display for HudRightPanel {
             HudRightPanel::Off => "Off",
             HudRightPanel::Ribbon => "Ribbon",
             HudRightPanel::Dots => "Dots",
-            HudRightPanel::Chips => "Chips",
+            HudRightPanel::Heartbeat => "Heartbeat",
         };
         write!(f, "{label}")
     }
@@ -87,7 +87,7 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "voice-send-mode", value_enum, default_value_t = VoiceSendMode::Auto)]
     pub(crate) voice_send_mode: VoiceSendMode,
 
-    /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, nord, ansi, none)
+    /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, gruvbox, nord, tokyonight, ansi, none)
     #[arg(long = "theme", default_value = "coral")]
     pub(crate) theme_name: Option<String>,
 
@@ -95,7 +95,7 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "no-color", default_value_t = false)]
     pub(crate) no_color: bool,
 
-    /// Right-side HUD panel (off, ribbon, dots, chips)
+    /// Right-side HUD panel (off, ribbon, dots, heartbeat)
     #[arg(long = "hud-right-panel", value_enum, default_value_t = HudRightPanel::Ribbon)]
     pub(crate) hud_right_panel: HudRightPanel,
 

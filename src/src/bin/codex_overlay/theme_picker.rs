@@ -14,19 +14,30 @@ pub const THEME_OPTIONS: &[(Theme, &str, &str)] = &[
     (Theme::Catppuccin, "catppuccin", "Pastel elegance"),
     (Theme::Dracula, "dracula", "Bold high contrast"),
     (Theme::Nord, "nord", "Rounded arctic blue"),
+    (Theme::TokyoNight, "tokyonight", "Elegant purple/blue"),
+    (Theme::Gruvbox, "gruvbox", "Warm retro earthy"),
     (Theme::Ansi, "ansi", "16-color compatible"),
     (Theme::None, "none", "No color styling"),
 ];
+
+pub const THEME_PICKER_FOOTER: &str = "[×] close · 1-9,0,- select";
+pub const THEME_PICKER_OPTION_START_ROW: usize = 4;
+
+pub fn theme_picker_inner_width_for_terminal(width: usize) -> usize {
+    width.clamp(40, 60)
+}
+
+pub fn theme_picker_total_width_for_terminal(width: usize) -> usize {
+    theme_picker_inner_width_for_terminal(width).saturating_add(2)
+}
 
 pub fn format_theme_picker(current_theme: Theme, width: usize) -> String {
     let colors = current_theme.colors();
     let borders = &colors.borders;
     let mut lines = Vec::new();
-    let content_width = width.clamp(40, 60);
-
     // Inner width is what goes between the left and right border characters
     // All rows must have exactly this many visible characters between borders
-    let inner_width = content_width;
+    let inner_width = theme_picker_inner_width_for_terminal(width);
 
     // Top border: corner + inner_width horizontal + corner
     let top_inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
@@ -72,11 +83,11 @@ pub fn format_theme_picker(current_theme: Theme, width: usize) -> String {
         colors.border, borders.t_left, sep_inner, borders.t_right, colors.reset
     ));
 
-    // Footer
+    // Footer with clickable close button
     lines.push(format_title_line(
         &colors,
         borders,
-        "1-9 select • Esc close",
+        THEME_PICKER_FOOTER,
         inner_width,
     ));
 
@@ -176,7 +187,7 @@ mod tests {
     fn theme_picker_contains_options() {
         let output = format_theme_picker(Theme::Coral, 60);
         assert!(output.contains("1. chatgpt"));
-        assert!(output.contains("9. none"));
+        assert!(output.contains("11. none")); // 11 themes total now
     }
 
     #[test]

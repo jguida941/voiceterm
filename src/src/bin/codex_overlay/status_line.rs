@@ -4,13 +4,16 @@
 //! sensitivity level, status message, and keyboard shortcuts.
 //!
 //! Now supports a multi-row banner layout with themed borders.
+//! Buttons are clickable - click positions are tracked for mouse interaction.
 
 use crate::audio_meter::format_waveform;
+use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 use unicode_width::UnicodeWidthChar;
 
 /// Current voice mode.
@@ -86,13 +89,41 @@ fn pipeline_tag_short(pipeline: Pipeline) -> &'static str {
 pub const METER_HISTORY_MAX: usize = 24;
 
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
-const MAIN_ROW_WAVEFORM_WIDTH_FULL: usize = 10;
-const MAIN_ROW_WAVEFORM_WIDTH_MEDIUM: usize = 8;
-const MAIN_ROW_WAVEFORM_WIDTH_COMPACT: usize = 5;
 const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
-const RIGHT_PANEL_LABEL: &str = "VU";
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 12;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
+const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
+
+/// Pulsing recording indicator frames (cycles every ~400ms at 10fps).
+const RECORDING_PULSE_FRAMES: &[&str] = &["●", "◉", "●", "○"];
+
+/// Processing spinner frames (braille dots for smooth animation).
+const PROCESSING_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Get the current animation frame based on system time.
+/// Returns a frame index that cycles through the given frame count.
+#[inline]
+fn get_animation_frame(frame_count: usize, cycle_ms: u64) -> usize {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    ((now / cycle_ms) % frame_count as u64) as usize
+}
+
+/// Get the pulsing recording indicator.
+#[inline]
+fn get_recording_indicator() -> &'static str {
+    let frame = get_animation_frame(RECORDING_PULSE_FRAMES.len(), 250);
+    RECORDING_PULSE_FRAMES[frame]
+}
+
+/// Get the processing spinner character.
+#[inline]
+fn get_processing_spinner() -> &'static str {
+    let frame = get_animation_frame(PROCESSING_SPINNER_FRAMES.len(), 100);
+    PROCESSING_SPINNER_FRAMES[frame]
+}
 
 /// State for the enhanced status line.
 #[derive(Debug, Clone, Default)]
@@ -129,6 +160,10 @@ pub struct StatusLineState {
     pub hud_right_panel_recording_only: bool,
     /// HUD display style (Full, Minimal, Hidden)
     pub hud_style: HudStyle,
+    /// Whether mouse clicking on HUD buttons is enabled
+    pub mouse_enabled: bool,
+    /// Focused HUD button (for arrow key navigation)
+    pub hud_button_focus: Option<ButtonAction>,
 }
 
 impl StatusLineState {
@@ -163,6 +198,19 @@ const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
     ("^Y", "theme"),
 ];
 
+/// A clickable button's position in the status bar.
+#[derive(Debug, Clone)]
+pub struct ButtonPosition {
+    /// Start column (1-based, inclusive)
+    pub start_x: u16,
+    /// End column (1-based, inclusive)
+    pub end_x: u16,
+    /// Row from bottom of HUD (1 = bottom border row, 2 = shortcuts row in full mode)
+    pub row: u16,
+    /// Action to trigger when clicked
+    pub action: ButtonAction,
+}
+
 /// Multi-row status banner output.
 #[derive(Debug, Clone)]
 #[must_use = "StatusBanner contains the formatted output to display"]
@@ -171,12 +219,20 @@ pub struct StatusBanner {
     pub lines: Vec<String>,
     /// Number of rows this banner occupies
     pub height: usize,
+    /// Clickable button positions
+    #[allow(dead_code)]
+    pub buttons: Vec<ButtonPosition>,
 }
 
 impl StatusBanner {
     pub fn new(lines: Vec<String>) -> Self {
         let height = lines.len();
-        Self { lines, height }
+        Self { lines, height, buttons: Vec::new() }
+    }
+
+    pub fn with_buttons(lines: Vec<String>, buttons: Vec<ButtonPosition>) -> Self {
+        let height = lines.len();
+        Self { lines, height, buttons }
     }
 }
 
@@ -208,25 +264,39 @@ pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
     }
 }
 
-/// Format minimal HUD text - single-line strip with indicator + status.
-///
-/// Examples:
-/// - `◉ AUTO · Ready`
-/// - `○ MANUAL · Ready`
-/// - `● REC · -55dB`
-/// - `◐ PROC`
-fn format_minimal_strip(state: &StatusLineState, colors: &ThemeColors, width: usize) -> String {
-    if width == 0 {
-        return String::new();
+/// Get clickable button positions for the current state.
+/// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
+/// Hidden mode returns empty vec (no clickable buttons).
+pub fn get_button_positions(state: &StatusLineState, theme: Theme, width: usize) -> Vec<ButtonPosition> {
+    match state.hud_style {
+        HudStyle::Full => {
+            if width < breakpoints::COMPACT {
+                return Vec::new();
+            }
+            let colors = theme.colors();
+            let inner_width = width.saturating_sub(2);
+            let (_, buttons) = format_button_row_with_positions(state, &colors, inner_width, 2);
+            buttons
+        }
+        HudStyle::Minimal => {
+            let colors = theme.colors();
+            let (_, button) = format_minimal_strip_with_button(state, &colors, width);
+            button.into_iter().collect()
+        }
+        HudStyle::Hidden => Vec::new(),
     }
+}
 
+fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
+    // Use animated indicators for recording and processing states
+    // Minimal mode: theme-colored indicators for all states
     let (indicator, label, color) = match state.recording_state {
-        RecordingState::Recording => ("●", "REC", colors.recording),
-        RecordingState::Processing => ("◐", "PROC", colors.processing),
+        RecordingState::Recording => (get_recording_indicator(), "REC", colors.recording),
+        RecordingState::Processing => (get_processing_spinner(), "processing", colors.processing),
         RecordingState::Idle => match state.voice_mode {
-            VoiceMode::Auto => ("◉", "AUTO", colors.info),
-            VoiceMode::Manual => ("○", "MANUAL", colors.dim),
-            VoiceMode::Idle => ("○", "IDLE", colors.dim),
+            VoiceMode::Auto => ("◉", "AUTO", colors.info),      // Blue filled - auto mode active
+            VoiceMode::Manual => ("●", "PTT", colors.border),   // Theme accent - push-to-talk ready
+            VoiceMode::Idle => ("○", "IDLE", colors.dim),       // Dim - inactive
         },
     };
 
@@ -257,7 +327,7 @@ fn format_minimal_strip(state: &StatusLineState, colors: &ThemeColors, width: us
                 state.message.as_str()
             };
             let status_color = if state.message.is_empty() {
-                colors.dim
+                colors.success
             } else {
                 StatusType::from_message(status_text).color(colors)
             };
@@ -277,6 +347,67 @@ fn format_minimal_strip(state: &StatusLineState, colors: &ThemeColors, width: us
         }
     }
 
+    line
+}
+
+fn format_minimal_strip_with_button(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    width: usize,
+) -> (String, Option<ButtonPosition>) {
+    if width == 0 {
+        return (String::new(), None);
+    }
+
+    let base = minimal_strip_text(state, colors);
+    let focused = state.hud_button_focus == Some(ButtonAction::HudBack);
+    let button = format_button(colors, "back", colors.border, focused);
+    let button_width = display_width(&button);
+
+    // Require room for at least one space between status and button.
+    if width >= button_width + 2 {
+        let button_start = width.saturating_sub(button_width) + 1;
+        let status_width = button_start.saturating_sub(2);
+        let status = truncate_display(&base, status_width);
+        let status_width = display_width(&status);
+        let padding = button_start.saturating_sub(1 + status_width);
+        let line = format!("{status}{}{}", " ".repeat(padding), button);
+        let button_pos = ButtonPosition {
+            start_x: button_start as u16,
+            end_x: (button_start + button_width - 1) as u16,
+            row: 1,
+            action: ButtonAction::HudBack,
+        };
+        return (line, Some(button_pos));
+    }
+
+    let line = truncate_display(&base, width);
+    (line, None)
+}
+
+/// Format hidden mode strip - grey/obscure, only shows essential info when active.
+/// More subtle than minimal mode - all dim colors for minimal distraction.
+fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usize) -> String {
+    if width == 0 {
+        return String::new();
+    }
+
+    // Hidden mode uses dim colors for everything - more obscure
+    let (indicator, label) = match state.recording_state {
+        RecordingState::Recording => ("●", "rec"),
+        RecordingState::Processing => ("◌", "..."),
+        RecordingState::Idle => return String::new(),
+    };
+
+    let mut line = format!("{}{} {}{}", colors.dim, indicator, label, colors.reset);
+
+    // Add duration for recording, keep it minimal
+    if state.recording_state == RecordingState::Recording {
+        if let Some(dur) = state.recording_duration {
+            line.push_str(&format!(" {}{:.0}s{}", colors.dim, dur, colors.reset));
+        }
+    }
+
     truncate_display(&line, width)
 }
 
@@ -286,12 +417,12 @@ fn format_minimal_strip(state: &StatusLineState, colors: &ThemeColors, width: us
 /// ```text
 /// ╭──────────────────────────────────────────────────── VoxTerm ─╮
 /// │ ● AUTO │ Rust │ ▁▂▃▅▆▇█▅  -51dB  Status message here          │
-/// │ ^R rec  ^V auto  ^T send  ? help  ^Y theme                   │
+/// │ [rec] · [auto] · [send] · [set] · [hud] · [help] · [theme]   │
 /// ╰──────────────────────────────────────────────────────────────╯
 /// ```
 ///
-/// Minimal mode: Single-line strip with indicator + status (e.g., "◉ AUTO · Ready")
-/// Hidden mode: Blank row unless recording (shows "REC" while recording)
+/// Minimal mode: Theme-colored strip with indicator + status (e.g., "● PTT · Ready")
+/// Hidden mode: Dim grey indicator only when recording (e.g., "● rec 5s")
 pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize) -> StatusBanner {
     let colors = theme.colors();
     let borders = &colors.borders;
@@ -299,19 +430,19 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     // Handle HUD style
     match state.hud_style {
         HudStyle::Hidden => {
-            // Reserve a blank row when idle; show minimal indicator only when active
+            // Reserve a blank row when idle; show dim/grey indicator only when active
             if state.recording_state == RecordingState::Recording
                 || state.recording_state == RecordingState::Processing
             {
-                let line = format_minimal_strip(state, &colors, width);
+                let line = format_hidden_strip(state, &colors, width);
                 StatusBanner::new(vec![line])
             } else {
                 StatusBanner::new(vec![String::new()])
             }
         }
         HudStyle::Minimal => {
-            let line = format_minimal_strip(state, &colors, width);
-            StatusBanner::new(vec![line])
+            let (line, button) = format_minimal_strip_with_button(state, &colors, width);
+            StatusBanner::with_buttons(vec![line], button.into_iter().collect())
         }
         HudStyle::Full => {
             // For very narrow terminals, fall back to simple single-line
@@ -322,14 +453,18 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
 
             let inner_width = width.saturating_sub(2); // Account for left/right borders
 
+            // Get shortcuts row with button positions
+            let (shortcuts_line, buttons) =
+                format_shortcuts_row_with_positions(state, &colors, borders, inner_width);
+
             let lines = vec![
                 format_top_border(&colors, borders, width),
                 format_main_row(state, &colors, borders, theme, inner_width),
-                format_shortcuts_row(state, &colors, borders, inner_width),
+                shortcuts_line,
                 format_bottom_border(&colors, borders, width),
             ];
 
-            StatusBanner::new(lines)
+            StatusBanner::with_buttons(lines, buttons)
         }
     }
 }
@@ -368,41 +503,18 @@ fn format_brand_label(colors: &ThemeColors) -> String {
     )
 }
 
-fn format_sensitivity_section(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let text = format!("{:>3.0}dB", state.sensitivity_db);
-    if state.recording_state == RecordingState::Recording {
-        format!(" {}{}{} ", colors.dim, text, colors.reset)
-    } else {
-        format!(" {text} ")
-    }
-}
-
 fn format_duration_section(state: &StatusLineState, colors: &ThemeColors) -> String {
-    if state.recording_state == RecordingState::Recording {
-        if let Some(dur) = state.recording_duration {
+    if let Some(dur) = state.recording_duration {
+        if state.recording_state == RecordingState::Recording {
             format!(" {:.1}s ", dur)
         } else {
-            format!(
-                " {}{}{} ",
-                colors.dim, MAIN_ROW_DURATION_PLACEHOLDER, colors.reset
-            )
+            format!(" {}{:.1}s{} ", colors.dim, dur, colors.reset)
         }
     } else {
         format!(
             " {}{}{} ",
             colors.dim, MAIN_ROW_DURATION_PLACEHOLDER, colors.reset
         )
-    }
-}
-
-fn main_row_waveform_width(inner_width: usize) -> usize {
-    let width = inner_width.saturating_add(2);
-    if width >= breakpoints::FULL {
-        MAIN_ROW_WAVEFORM_WIDTH_FULL
-    } else if width >= breakpoints::MEDIUM {
-        MAIN_ROW_WAVEFORM_WIDTH_MEDIUM
-    } else {
-        MAIN_ROW_WAVEFORM_WIDTH_COMPACT
     }
 }
 
@@ -416,38 +528,39 @@ fn dim_waveform_placeholder(width: usize, colors: &ThemeColors) -> String {
     result
 }
 
-fn dim_panel_placeholder(width: usize, colors: &ThemeColors) -> String {
-    if width == 0 {
-        return String::new();
-    }
-    let mut result = String::with_capacity(width + colors.dim.len() + colors.reset.len());
-    result.push_str(colors.dim);
-    for _ in 0..width {
-        result.push('·');
-    }
+/// Format a button in clickable pill style with brackets.
+/// Style: `[label]` with dim (or focused) brackets.
+fn format_shortcut_pill(content: &str, colors: &ThemeColors, focused: bool) -> String {
+    let bracket_color = if focused { colors.info } else { colors.dim };
+    let mut result = String::with_capacity(content.len() + bracket_color.len() * 2 + colors.reset.len() * 2 + 2);
+    result.push_str(bracket_color);
+    result.push('[');
+    result.push_str(colors.reset);
+    result.push_str(content);
+    result.push_str(bracket_color);
+    result.push(']');
     result.push_str(colors.reset);
     result
 }
 
-fn format_meter_section(
-    state: &StatusLineState,
-    colors: &ThemeColors,
-    theme: Theme,
-    waveform_width: usize,
-) -> String {
-    let waveform_width = waveform_width.max(MAIN_ROW_WAVEFORM_MIN_WIDTH);
+/// Legacy bracket style for backwards compatibility.
+#[allow(dead_code)]
+fn format_panel_brackets(content: &str, colors: &ThemeColors) -> String {
+    let mut result = String::with_capacity(content.len() + colors.dim.len() * 2 + colors.reset.len() * 2 + 2);
+    result.push_str(colors.dim);
+    result.push('[');
+    result.push_str(colors.reset);
+    result.push_str(content);
+    result.push_str(colors.dim);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
+}
+
+fn format_meter_section(state: &StatusLineState, colors: &ThemeColors) -> String {
     let recording_active = state.recording_state == RecordingState::Recording;
-    let waveform = if recording_active && !state.meter_levels.is_empty() {
-        format_waveform(&state.meter_levels, waveform_width, theme)
-    } else {
-        dim_waveform_placeholder(waveform_width, colors)
-    };
-    let db_text = if recording_active {
-        if let Some(db) = state.meter_db {
-            format!("{:>4.0}dB", db)
-        } else {
-            format!("{:>4}dB", "--")
-        }
+    let db_text = if let Some(db) = state.meter_db {
+        format!("{:>4.0}dB", db)
     } else {
         format!("{:>4}dB", "--")
     };
@@ -456,7 +569,7 @@ fn format_meter_section(
     } else {
         colors.dim
     };
-    format!(" {} {}{}{} ", waveform, db_color, db_text, colors.reset)
+    format!(" {}{}{} ", db_color, db_text, colors.reset)
 }
 
 /// Format the main status row with mode, sensitivity, meter, and message.
@@ -469,16 +582,14 @@ fn format_main_row(
 ) -> String {
     // Build content sections
     let mode_section = format_mode_indicator(state, colors);
-    let sensitivity_section = format_sensitivity_section(state, colors);
     let duration_section = format_duration_section(state, colors);
-    let waveform_width = main_row_waveform_width(inner_width);
-    let meter_section = format_meter_section(state, colors, theme, waveform_width);
+    let meter_section = format_meter_section(state, colors);
 
     // Status message with color
     let status_type = StatusType::from_message(&state.message);
     let status_color = status_type.color(colors);
     let message_section = if state.message.is_empty() {
-        format!(" {}Ready{}", colors.dim, colors.reset)
+        format!(" {}Ready{}", colors.success, colors.reset)
     } else {
         format!(" {}{}{}", status_color, state.message, colors.reset)
     };
@@ -487,7 +598,6 @@ fn format_main_row(
     let sep = format!("{}│{}", colors.dim, colors.reset);
     let content = vec![
         mode_section,
-        sensitivity_section,
         duration_section,
         meter_section,
     ]
@@ -546,55 +656,31 @@ fn format_right_panel(
         return " ".repeat(max_width);
     }
 
-    let recording_active = state.recording_state == RecordingState::Recording;
-    let processing_active = state.recording_state == RecordingState::Processing;
-    let allow_idle = !state.hud_right_panel_recording_only;
-    let show_live = recording_active || (allow_idle && !state.meter_levels.is_empty());
-
-    let mut label = String::new();
-    let mut label_width = 0;
-    let mut label_sep = "";
-    if matches!(mode, HudRightPanel::Ribbon | HudRightPanel::Dots) {
-        let required = RIGHT_PANEL_LABEL.len() + 1 + RIGHT_PANEL_MIN_CONTENT_WIDTH;
-        if content_width >= required {
-            label = format!("{}{}{}", colors.dim, RIGHT_PANEL_LABEL, colors.reset);
-            label_width = RIGHT_PANEL_LABEL.len();
-            label_sep = " ";
-        }
-    }
-    let panel_width = content_width.saturating_sub(label_width + label_sep.len());
+    let show_live = !state.meter_levels.is_empty();
+    let panel_width = content_width;
 
     let panel = match mode {
         HudRightPanel::Ribbon => {
             let reserved = 2; // brackets
             let available = panel_width.saturating_sub(reserved);
-            let wave_width = available
-                .min(RIGHT_PANEL_MAX_WAVEFORM_WIDTH)
-                .max(MAIN_ROW_WAVEFORM_MIN_WIDTH);
+            let wave_width = if available < MAIN_ROW_WAVEFORM_MIN_WIDTH {
+                available
+            } else {
+                available.min(RIGHT_PANEL_MAX_WAVEFORM_WIDTH)
+            };
             let waveform = if show_live {
                 format_waveform(&state.meter_levels, wave_width, theme)
             } else {
                 dim_waveform_placeholder(wave_width, colors)
             };
-            format!("{}[{}{}]{}", colors.dim, waveform, colors.dim, colors.reset)
+            format_panel_brackets(&waveform, colors)
         }
         HudRightPanel::Dots => {
-            let active = if recording_active {
-                state.meter_db.unwrap_or(-60.0)
-            } else if allow_idle {
-                state.meter_db.unwrap_or(-60.0)
-            } else {
-                -60.0
-            };
+            let active = state.meter_db.unwrap_or(-60.0);
             truncate_display(&format_pulse_dots(active, colors), panel_width)
         }
-        HudRightPanel::Chips => {
-            let chips = format_state_chips(state, colors, recording_active, processing_active);
-            if chips.is_empty() {
-                dim_panel_placeholder(panel_width, colors)
-            } else {
-                truncate_display(&chips, panel_width)
-            }
+        HudRightPanel::Heartbeat => {
+            truncate_display(&format_heartbeat_panel(state, colors), panel_width)
         }
         HudRightPanel::Off => String::new(),
     };
@@ -603,14 +689,13 @@ fn format_right_panel(
         return String::new();
     }
 
-    let panel = if label.is_empty() {
-        panel
-    } else {
-        format!("{label}{label_sep}{panel}")
-    };
     let with_pad = format!(" {}", panel);
-    let truncated = truncate_display(&with_pad, max_width);
-    pad_display(&truncated, max_width)
+    if mode == HudRightPanel::Ribbon || mode == HudRightPanel::Heartbeat {
+        pad_display(&with_pad, max_width)
+    } else {
+        let truncated = truncate_display(&with_pad, max_width);
+        pad_display(&truncated, max_width)
+    }
 }
 
 #[inline]
@@ -645,50 +730,35 @@ fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     result
 }
 
-fn format_state_chips(
-    state: &StatusLineState,
-    colors: &ThemeColors,
-    recording_active: bool,
-    processing_active: bool,
-) -> String {
-    let mut parts = Vec::new();
-    if recording_active {
-        parts.push(format_chip("REC", colors.recording, colors));
-    } else if processing_active {
-        parts.push(format_chip("PROC", colors.processing, colors));
-    }
-    if state.queue_depth > 0 {
-        parts.push(format_chip(
-            &format!("Q{}", state.queue_depth),
-            colors.warning,
-            colors,
-        ));
-    }
-    if state.auto_voice_enabled {
-        parts.push(format_chip("AUTO", colors.info, colors));
-    }
-    if parts.is_empty() {
-        String::new()
-    } else {
-        parts.join(" ")
-    }
+#[inline]
+fn heartbeat_frame_index() -> usize {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.as_secs() % HEARTBEAT_FRAMES.len() as u64) as usize
 }
 
-#[inline]
-fn format_chip(label: &str, accent: &str, colors: &ThemeColors) -> String {
-    let mut result = String::with_capacity(32);
-    result.push_str(colors.dim);
-    result.push('[');
-    result.push_str(accent);
-    result.push_str(label);
-    result.push_str(colors.dim);
-    result.push(']');
-    result.push_str(colors.reset);
-    result
+fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> String {
+    let recording_active = state.recording_state == RecordingState::Recording;
+    let animate = !state.hud_right_panel_recording_only || recording_active;
+    let frame_idx = if animate { heartbeat_frame_index() } else { 0 };
+    let glyph = HEARTBEAT_FRAMES
+        .get(frame_idx)
+        .copied()
+        .unwrap_or('·');
+
+    let mut content = String::with_capacity(16);
+    let is_peak = frame_idx == 2;
+    let color = if animate && is_peak { colors.info } else { colors.dim };
+    content.push_str(color);
+    content.push(glyph);
+    content.push_str(colors.reset);
+
+    format_panel_brackets(&content, colors)
 }
 
 /// Format the mode indicator with appropriate color and symbol.
-/// Optimized to avoid intermediate string allocations.
+/// Uses animated indicators for recording (pulsing) and processing (spinning).
 #[inline]
 fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> String {
     let pipeline_tag = pipeline_tag_short(state.pipeline);
@@ -699,14 +769,15 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
     match state.recording_state {
         RecordingState::Recording => {
             result.push_str(colors.recording);
-            result.push_str(colors.indicator_rec);
+            result.push_str(get_recording_indicator());
             result.push_str(" REC ");
             result.push_str(pipeline_tag);
             result.push_str(colors.reset);
         }
         RecordingState::Processing => {
             result.push_str(colors.processing);
-            result.push_str("◐ ... ");
+            result.push_str(get_processing_spinner());
+            result.push_str(" processing ");
             result.push_str(pipeline_tag);
             result.push_str(colors.reset);
         }
@@ -732,8 +803,53 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
     result
 }
 
+/// Format the shortcuts row with dimmed styling and return button positions.
+fn format_shortcuts_row_with_positions(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    borders: &BorderSet,
+    inner_width: usize,
+) -> (String, Vec<ButtonPosition>) {
+    // Row 2 from bottom of HUD (row 1 = bottom border)
+    let (shortcuts_str, buttons) = format_button_row_with_positions(state, colors, inner_width, 2);
+
+    // Add leading space to match main row's left margin
+    let interior = format!(" {}", shortcuts_str);
+    let interior_width = display_width(&interior);
+    let padding_needed = inner_width.saturating_sub(interior_width);
+    let padding = " ".repeat(padding_needed);
+
+    // Match main row format: border + interior + padding + border
+    let line = format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        interior,
+        padding,
+        colors.border,
+        borders.vertical,
+        colors.reset,
+    );
+
+    (line, buttons)
+}
+
 /// Format the shortcuts row with dimmed styling.
+#[allow(dead_code)]
 fn format_shortcuts_row(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    borders: &BorderSet,
+    inner_width: usize,
+) -> String {
+    let (line, _) = format_shortcuts_row_with_positions(state, colors, borders, inner_width);
+    line
+}
+
+/// Legacy format_shortcuts_row without position tracking.
+#[allow(dead_code)]
+fn format_shortcuts_row_legacy(
     state: &StatusLineState,
     colors: &ThemeColors,
     borders: &BorderSet,
@@ -761,54 +877,243 @@ fn format_shortcuts_row(
     )
 }
 
+/// Button definition for position tracking.
+struct ButtonDef {
+    label: &'static str,
+    action: ButtonAction,
+}
+
+/// Build buttons with their labels and actions based on current state.
+fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
+    let voice_label = if state.auto_voice_enabled { "auto" } else { "ptt" };
+    let send_label = match state.send_mode {
+        VoiceSendMode::Auto => "send",
+        VoiceSendMode::Insert => "edit",
+    };
+
+    vec![
+        ButtonDef { label: "rec", action: ButtonAction::VoiceTrigger },
+        ButtonDef { label: voice_label, action: ButtonAction::ToggleAutoVoice },
+        ButtonDef { label: send_label, action: ButtonAction::ToggleSendMode },
+        ButtonDef { label: "set", action: ButtonAction::SettingsToggle },
+        ButtonDef { label: "hud", action: ButtonAction::ToggleHudStyle },
+        ButtonDef { label: "help", action: ButtonAction::HelpToggle },
+        ButtonDef { label: "theme", action: ButtonAction::ThemePicker },
+    ]
+}
+
+/// Format button row and return (formatted_string, button_positions).
+/// Button positions are relative to the row start (after border character).
+fn format_button_row_with_positions(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    inner_width: usize,
+    hud_row: u16,
+) -> (String, Vec<ButtonPosition>) {
+    let button_defs = get_button_defs(state);
+    let mut items = Vec::new();
+    let mut positions = Vec::new();
+
+    // Track current x position (1-based, after border + leading space = column 3)
+    let mut current_x: u16 = 3; // border(1) + space(1) + first char at (3)
+    let separator_visible_width = 3u16; // " · " = 3 visible chars
+
+    for (idx, def) in button_defs.iter().enumerate() {
+        // Get color for this button - static buttons use border/accent color
+        let highlight = match def.action {
+            ButtonAction::VoiceTrigger => match state.recording_state {
+                RecordingState::Recording => colors.recording,
+                RecordingState::Processing => colors.processing,
+                RecordingState::Idle => colors.border, // Accent color when idle
+            },
+            ButtonAction::ToggleAutoVoice => {
+                if state.auto_voice_enabled { colors.info } else { colors.border }
+            }
+            ButtonAction::ToggleSendMode => match state.send_mode {
+                VoiceSendMode::Auto => colors.success,
+                VoiceSendMode::Insert => colors.warning,
+            },
+            // Static buttons use border/accent color to pop
+            ButtonAction::SettingsToggle
+            | ButtonAction::ToggleHudStyle
+            | ButtonAction::HudBack
+            | ButtonAction::HelpToggle
+            | ButtonAction::ThemePicker => colors.border,
+        };
+
+        let focused = state.hud_button_focus == Some(def.action);
+        let formatted = format_button(colors, def.label, highlight, focused);
+        let visible_width = def.label.len() as u16 + 2; // [label] = label + 2 brackets
+
+        // Record position
+        positions.push(ButtonPosition {
+            start_x: current_x,
+            end_x: current_x + visible_width - 1,
+            row: hud_row,
+            action: def.action,
+        });
+
+        items.push(formatted);
+
+        // Move x position: button width + separator (if not last)
+        current_x += visible_width;
+        if idx < button_defs.len() - 1 {
+            current_x += separator_visible_width;
+        }
+    }
+
+    // Queue badge (not clickable)
+    if state.queue_depth > 0 {
+        items.push(format!(
+            "{}Q:{}{}",
+            colors.warning, state.queue_depth, colors.reset
+        ));
+    }
+
+    // Latency badge (not clickable)
+    if let Some(latency) = state.last_latency_ms {
+        let latency_color = if latency < 300 {
+            colors.success
+        } else if latency < 500 {
+            colors.warning
+        } else {
+            colors.error
+        };
+        items.push(format!(
+            "{}{}ms{}",
+            latency_color, latency, colors.reset
+        ));
+    }
+
+    // Modern separator: dim dot
+    let separator = format!(" {}·{} ", colors.dim, colors.reset);
+    let row = items.join(&separator);
+
+    if display_width(&row) <= inner_width {
+        return (row, positions);
+    }
+
+    // Compact mode: fewer buttons, recalculate positions
+    let mut compact_items = Vec::new();
+    let mut compact_positions = Vec::new();
+    let compact_indices = [0, 1, 2, 3, 5, 6]; // rec, auto, send, set, help, theme
+
+    current_x = 3;
+    for (i, &idx) in compact_indices.iter().enumerate() {
+        let def = &button_defs[idx];
+        let highlight = match def.action {
+            ButtonAction::VoiceTrigger => match state.recording_state {
+                RecordingState::Recording => colors.recording,
+                RecordingState::Processing => colors.processing,
+                RecordingState::Idle => colors.border,
+            },
+            ButtonAction::ToggleAutoVoice => {
+                if state.auto_voice_enabled { colors.info } else { colors.border }
+            }
+            ButtonAction::ToggleSendMode => match state.send_mode {
+                VoiceSendMode::Auto => colors.success,
+                VoiceSendMode::Insert => colors.warning,
+            },
+            ButtonAction::SettingsToggle
+            | ButtonAction::ToggleHudStyle
+            | ButtonAction::HudBack
+            | ButtonAction::HelpToggle
+            | ButtonAction::ThemePicker => colors.border,
+        };
+
+        let focused = state.hud_button_focus == Some(def.action);
+        let formatted = format_button(colors, def.label, highlight, focused);
+        let visible_width = def.label.len() as u16 + 2;
+
+        compact_positions.push(ButtonPosition {
+            start_x: current_x,
+            end_x: current_x + visible_width - 1,
+            row: hud_row,
+            action: def.action,
+        });
+
+        compact_items.push(formatted);
+        current_x += visible_width;
+        if i < compact_indices.len() - 1 {
+            current_x += 1; // space separator in compact mode
+        }
+    }
+
+    if state.queue_depth > 0 {
+        compact_items.push(format!(
+            "{}Q:{}{}",
+            colors.warning, state.queue_depth, colors.reset
+        ));
+    }
+
+    let compact_row = truncate_display(&compact_items.join(" "), inner_width);
+    (compact_row, compact_positions)
+}
+
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
+    let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2);
+    row
+}
+
+#[allow(dead_code)]
+fn format_button_row_legacy(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
     let mut items = Vec::new();
 
-    // [^R rec] - RED when recording, yellow when processing, dim when idle
+    // rec - RED when recording, yellow when processing, dim when idle
     let rec_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
         RecordingState::Idle => "",
     };
-    items.push(format_shortcut_colored(colors, "^R", "rec", rec_color));
+    items.push(format_button(colors, "rec", rec_color, false));
 
-    // [^V auto/ptt] - blue when auto-voice, dim when ptt
+    // auto/ptt - blue when auto-voice, dim when ptt
     let (voice_label, voice_color) = if state.auto_voice_enabled {
         ("auto", colors.info) // blue = auto-voice on
     } else {
         ("ptt", "") // dim = push-to-talk mode
     };
-    items.push(format_shortcut_colored(
-        colors,
-        "^V",
-        voice_label,
-        voice_color,
-    ));
+    items.push(format_button(colors, voice_label, voice_color, false));
 
-    // [^T auto/insert] - green when auto-send, yellow when insert
+    // send mode: auto/insert - green when auto-send, yellow when insert
     let (send_label, send_color) = match state.send_mode {
-        VoiceSendMode::Auto => ("auto", colors.success), // green = auto-send
-        VoiceSendMode::Insert => ("insert", colors.warning), // yellow = insert mode
+        VoiceSendMode::Auto => ("send", colors.success), // green = auto-send
+        VoiceSendMode::Insert => ("edit", colors.warning), // yellow = insert/edit mode
     };
-    items.push(format_shortcut_colored(
-        colors, "^T", send_label, send_color,
-    ));
+    items.push(format_button(colors, send_label, send_color, false));
 
-    // Static shortcuts - always dim
-    items.push(format_shortcut_colored(colors, "^O", "set", ""));
-    items.push(format_shortcut_colored(colors, "^U", "hud", ""));
-    items.push(format_shortcut_colored(colors, "?", "help", ""));
-    items.push(format_shortcut_colored(colors, "^Y", "theme", ""));
+    // Static buttons - always dim
+    items.push(format_button(colors, "set", "", false));
+    items.push(format_button(colors, "hud", "", false));
+    items.push(format_button(colors, "help", "", false));
+    items.push(format_button(colors, "theme", "", false));
 
-    // Queue indicator - warning color
+    // Queue badge - modern pill style
     if state.queue_depth > 0 {
         items.push(format!(
-            "{}[Q:{}]{}",
+            "{}Q:{}{}",
             colors.warning, state.queue_depth, colors.reset
         ));
     }
 
-    let row = items.join(" ");
+    // Latency badge if available
+    if let Some(latency) = state.last_latency_ms {
+        let latency_color = if latency < 300 {
+            colors.success
+        } else if latency < 500 {
+            colors.warning
+        } else {
+            colors.error
+        };
+        items.push(format!(
+            "{}{}ms{}",
+            latency_color, latency, colors.reset
+        ));
+    }
+
+    // Modern separator: dim dot
+    let separator = format!(" {}·{} ", colors.dim, colors.reset);
+    let row = items.join(&separator);
     if display_width(&row) <= inner_width {
         return row;
     }
@@ -829,32 +1134,54 @@ fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width:
     truncate_display(&compact.join(" "), inner_width)
 }
 
-/// Format a shortcut - dim brackets/key, only label gets color when active.
-/// Optimized to avoid intermediate string allocations.
+/// Format a clickable button - colored label when active, dim otherwise.
+/// Style: `[label]` - brackets for clickable appearance, no shortcut prefix.
 #[inline]
+fn format_button(
+    colors: &ThemeColors,
+    label: &str,
+    highlight: &str,
+    focused: bool,
+) -> String {
+    // Pre-allocate capacity for typical button string
+    let mut content = String::with_capacity(32);
+    // Label color: highlight if active, dim otherwise
+    if highlight.is_empty() {
+        content.push_str(colors.dim);
+        content.push_str(label);
+        content.push_str(colors.reset);
+    } else {
+        content.push_str(highlight);
+        content.push_str(label);
+        content.push_str(colors.reset);
+    }
+    format_shortcut_pill(&content, colors, focused)
+}
+
+/// Legacy format with shortcut key prefix (for help display).
+#[inline]
+#[allow(dead_code)]
 fn format_shortcut_colored(
     colors: &ThemeColors,
     key: &str,
     label: &str,
     highlight: &str,
 ) -> String {
-    // Pre-allocate capacity for typical shortcut string
-    let mut result = String::with_capacity(64);
-    result.push_str(colors.dim);
-    result.push('[');
-    result.push_str(key);
-    result.push(' ');
-    // Label color: highlight if active, dim otherwise
+    let mut content = String::with_capacity(48);
+    content.push_str(colors.dim);
+    content.push_str(key);
+    content.push_str(colors.reset);
+    content.push(' ');
     if highlight.is_empty() {
-        result.push_str(colors.dim);
+        content.push_str(colors.dim);
+        content.push_str(label);
+        content.push_str(colors.reset);
     } else {
-        result.push_str(highlight);
+        content.push_str(highlight);
+        content.push_str(label);
+        content.push_str(colors.reset);
     }
-    result.push_str(label);
-    result.push_str(colors.reset);
-    result.push(']');
-    result.push_str(colors.reset);
-    result
+    format_shortcut_pill(&content, colors, false)
 }
 
 /// Format the bottom border.
@@ -997,11 +1324,10 @@ fn format_minimal(state: &StatusLineState, colors: &ThemeColors, width: usize) -
 
     let msg = if state.message.is_empty() {
         if state.voice_mode == VoiceMode::Auto {
-            "auto"
+            "auto".to_string()
         } else {
-            "ready"
+            format!("{}Ready{}", colors.success, colors.reset)
         }
-        .to_string()
     } else {
         state.message.clone()
     };
@@ -1073,9 +1399,11 @@ fn format_left_compact(state: &StatusLineState, colors: &ThemeColors) -> String 
     }
 }
 
-/// Format compact shortcuts.
+/// Format compact shortcuts with modern separator.
 fn format_shortcuts_compact(colors: &ThemeColors) -> String {
-    format_shortcuts_list(colors, SHORTCUTS_COMPACT, " ")
+    // Compact style: dot separator
+    let sep = format!(" {}·{} ", colors.dim, colors.reset);
+    format_shortcuts_list(colors, SHORTCUTS_COMPACT, &sep)
 }
 
 fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String {
@@ -1092,15 +1420,16 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
         }
     };
 
+    // Use animated indicators for recording and processing
     let mode_indicator = match state.recording_state {
-        RecordingState::Recording => "●",
-        RecordingState::Processing => "◐",
+        RecordingState::Recording => get_recording_indicator(),
+        RecordingState::Processing => get_processing_spinner(),
         RecordingState::Idle => state.voice_mode.indicator(),
     };
 
     let mode_label = match state.recording_state {
         RecordingState::Recording => format!("REC {pipeline_tag}"),
-        RecordingState::Processing => format!("... {pipeline_tag}"),
+        RecordingState::Processing => format!("processing {pipeline_tag}"),
         RecordingState::Idle => state.voice_mode.label().to_string(),
     };
 
@@ -1179,7 +1508,9 @@ fn format_message(
 }
 
 fn format_shortcuts(colors: &ThemeColors) -> String {
-    format_shortcuts_list(colors, SHORTCUTS, "  ")
+    // Modern style: dimmed separator between shortcuts
+    let sep = format!(" {}│{} ", colors.dim, colors.reset);
+    format_shortcuts_list(colors, SHORTCUTS, &sep)
 }
 
 fn format_shortcuts_list(
@@ -1189,7 +1520,8 @@ fn format_shortcuts_list(
 ) -> String {
     let mut parts = Vec::with_capacity(shortcuts.len());
     for (key, action) in shortcuts {
-        parts.push(format!("{}{}{} {}", colors.info, key, colors.reset, action));
+        // Modern style: dim key, normal label
+        parts.push(format!("{}{}{} {}", colors.dim, key, colors.reset, action));
     }
     parts.join(separator)
 }
@@ -1450,9 +1782,9 @@ mod tests {
         state.recording_state = RecordingState::Recording;
 
         let banner = format_status_banner(&state, Theme::None, 80);
-        // Hidden mode when recording should show minimal indicator
+        // Hidden mode when recording should show dim/obscure indicator
         assert_eq!(banner.height, 1);
-        assert!(banner.lines[0].contains("REC"));
+        assert!(banner.lines[0].contains("rec")); // lowercase, obscure style
     }
 
     #[test]
@@ -1474,9 +1806,9 @@ mod tests {
         state.recording_state = RecordingState::Processing;
 
         let banner = format_status_banner(&state, Theme::None, 80);
-        // Minimal mode when processing should show PROC
+        // Minimal mode when processing should show processing indicator
         assert_eq!(banner.height, 1);
-        assert!(banner.lines[0].contains("PROC"));
+        assert!(banner.lines[0].contains("processing"));
     }
 
     #[test]

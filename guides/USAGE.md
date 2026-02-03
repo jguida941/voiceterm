@@ -78,8 +78,9 @@ Press `Ctrl+O` to open the settings overlay. Navigate with **↑/↓**, adjust v
 The menu surfaces the most common controls (auto-voice, send mode, mic sensitivity, theme) along with backend/pipeline info.
 It also lets you configure:
 - **HUD style**: Full (default banner), Minimal (single word), or Hidden (no HUD unless recording)
-- **Right-side panel**: Off / Ribbon / Dots / Chips
+- **Right-side panel**: Off / Ribbon / Dots / Heartbeat
 - **Anim only**: Whether the right panel animates only while recording
+- **Mouse**: Toggle HUD button clicks (on by default); when enabled you can click HUD buttons and overlay controls (close buttons, theme rows). Left/Right selects a HUD button and Enter activates it
 
 ---
 
@@ -164,7 +165,7 @@ Sections (left to right):
 - Mic sensitivity in dB
 - Status message (recording adds a live waveform + dB readout)
 - Shortcut hints (on wide terminals)
-- Optional right-side panel (Ribbon / Dots / Chips) if enabled in Settings
+- Optional right-side panel (Ribbon / Dots / Heartbeat) if enabled in Settings
 
 When recording/processing, the mode label includes a pipeline tag (e.g., `REC R` or `… PY`).
 
@@ -186,7 +187,11 @@ Press `Ctrl+Y` to open the theme picker:
 
 ![Theme Picker](https://raw.githubusercontent.com/jguida941/voxterm/master/img/theme-picker.png)
 
-Available themes: **chatgpt**, **claude**, **codex**, **coral**, **catppuccin**, **dracula**, **nord**, **ansi** (16-color), **none**.
+With Mouse enabled (on by default), click a theme row to select it and click [×] close to exit.
+
+Note: Theme picker screenshot needs refresh to show all 11 themes (tokyonight, gruvbox).
+
+Available themes: **chatgpt**, **claude**, **codex**, **coral**, **catppuccin**, **dracula**, **nord**, **tokyonight**, **gruvbox**, **ansi** (16-color), **none**.
 
 - `voxterm --theme catppuccin` to start with a specific theme.
 - If `--theme` is not set, VoxTerm picks a backend default (Claude → `claude`, Codex → `codex`, others → `coral`).
@@ -201,6 +206,8 @@ For users who prefer less UI clutter, VoxTerm offers three HUD styles:
 | **Full** | (default) | 4-row banner with borders, shortcuts, and detailed info |
 | **Minimal** | `--hud-style minimal` or `--minimal-hud` | Single-line strip (e.g., `◉ AUTO · Ready`, `● REC · -55dB`) |
 | **Hidden** | `--hud-style hidden` | Blank row when idle; shows `REC` while recording |
+
+When Mouse is enabled, Minimal HUD shows a [back] button on the right to return to Full.
 
 Minimal HUD (recording example):
 

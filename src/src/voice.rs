@@ -260,7 +260,7 @@ fn capture_voice_native(
             meter.clone(),
         )
     }?;
-    let audio::CaptureResult { audio, metrics } = capture;
+    let audio::CaptureResult { audio, mut metrics } = capture;
     log_voice_metrics(&metrics);
     if audio.is_empty() {
         log_debug("capture_voice_native: empty audio capture");
@@ -277,7 +277,11 @@ fn capture_voice_native(
         // Output suppression is now handled inside transcribe() method
         transcriber_guard.transcribe(&audio, config)?
     };
-    let stt_elapsed = stt_start.elapsed().as_secs_f64();
+    let stt_elapsed = stt_start.elapsed();
+    metrics.transcribe_ms = stt_elapsed
+        .as_millis()
+        .min(u128::from(u32::MAX)) as u64;
+    let stt_elapsed = stt_elapsed.as_secs_f64();
 
     log_debug(&format!(
         "capture_voice_native: Transcription complete in {stt_elapsed:.2}s"

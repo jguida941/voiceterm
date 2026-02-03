@@ -157,6 +157,10 @@ pub enum Theme {
     Dracula,
     /// Nord - arctic blue-gray theme
     Nord,
+    /// Tokyo Night - elegant purple/blue dark theme
+    TokyoNight,
+    /// Gruvbox - warm retro earthy colors
+    Gruvbox,
     /// ANSI 16-color fallback for older terminals
     Ansi,
     /// No colors - plain text
@@ -174,6 +178,8 @@ impl Theme {
             "catppuccin" | "mocha" => Some(Self::Catppuccin),
             "dracula" => Some(Self::Dracula),
             "nord" => Some(Self::Nord),
+            "tokyonight" | "tokyo-night" | "tokyo" => Some(Self::TokyoNight),
+            "gruvbox" | "gruv" => Some(Self::Gruvbox),
             "ansi" | "ansi16" | "basic" => Some(Self::Ansi),
             "none" | "plain" => Some(Self::None),
             _ => None,
@@ -190,6 +196,8 @@ impl Theme {
             Self::Catppuccin => THEME_CATPPUCCIN,
             Self::Dracula => THEME_DRACULA,
             Self::Nord => THEME_NORD,
+            Self::TokyoNight => THEME_TOKYONIGHT,
+            Self::Gruvbox => THEME_GRUVBOX,
             Self::Ansi => THEME_ANSI,
             Self::None => THEME_NONE,
         };
@@ -210,7 +218,9 @@ impl Theme {
             "coral",
             "catppuccin",
             "dracula",
+            "gruvbox",
             "nord",
+            "tokyonight",
             "ansi",
             "none",
         ]
@@ -226,6 +236,8 @@ impl Theme {
                 | Self::Catppuccin
                 | Self::Dracula
                 | Self::Nord
+                | Self::TokyoNight
+                | Self::Gruvbox
         )
     }
 
@@ -255,6 +267,8 @@ impl std::fmt::Display for Theme {
             Self::Catppuccin => write!(f, "catppuccin"),
             Self::Dracula => write!(f, "dracula"),
             Self::Nord => write!(f, "nord"),
+            Self::TokyoNight => write!(f, "tokyonight"),
+            Self::Gruvbox => write!(f, "gruvbox"),
             Self::Ansi => write!(f, "ansi"),
             Self::None => write!(f, "none"),
         }
@@ -276,9 +290,9 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
     bg_secondary: "",   // Transparent
     border: "\x1b[91m", // Coral/red borders
     borders: BORDER_SINGLE,
-    indicator_rec: "●",
-    indicator_auto: "◉",
-    indicator_manual: "●",
+    indicator_rec: "⏺",
+    indicator_auto: "◎",
+    indicator_manual: "▶",
     indicator_idle: "○",
 };
 
@@ -297,10 +311,10 @@ pub const THEME_CLAUDE: ThemeColors = ThemeColors {
     bg_secondary: "",                 // Transparent
     border: "\x1b[38;2;176;174;165m", // Mid gray #b0aea5
     borders: BORDER_ROUNDED,
-    indicator_rec: "●",
-    indicator_auto: "◉",
-    indicator_manual: "●",
-    indicator_idle: "○",
+    indicator_rec: "◉",
+    indicator_auto: "◍",
+    indicator_manual: "◈",
+    indicator_idle: "◌",
 };
 
 /// Codex theme - cool blue neutrals (OpenAI-style, neutral)
@@ -317,11 +331,11 @@ pub const THEME_CODEX: ThemeColors = ThemeColors {
     bg_primary: "",                   // Transparent
     bg_secondary: "",                 // Transparent
     border: "\x1b[38;2;143;200;255m", // Sky #8fc8ff
-    borders: BORDER_SINGLE,
-    indicator_rec: "●",
-    indicator_auto: "◉",
-    indicator_manual: "●",
-    indicator_idle: "○",
+    borders: BORDER_DOUBLE,
+    indicator_rec: "◆",
+    indicator_auto: "◇",
+    indicator_manual: "▸",
+    indicator_idle: "·",
 };
 
 /// ChatGPT theme - emerald green (OpenAI ChatGPT brand)
@@ -341,8 +355,8 @@ pub const THEME_CHATGPT: ThemeColors = ThemeColors {
     border: "\x1b[38;2;16;163;127m", // ChatGPT emerald #10a37f
     borders: BORDER_ROUNDED,
     indicator_rec: "●",
-    indicator_auto: "◉",
-    indicator_manual: "●",
+    indicator_auto: "⊙",
+    indicator_manual: "►",
     indicator_idle: "○",
 };
 
@@ -409,6 +423,48 @@ pub const THEME_NORD: ThemeColors = ThemeColors {
     indicator_auto: "❄",
     indicator_manual: "▸",
     indicator_idle: "◇",
+};
+
+/// Tokyo Night theme - elegant purple/blue dark theme
+/// https://github.com/enkia/tokyo-night-vscode-theme
+pub const THEME_TOKYONIGHT: ThemeColors = ThemeColors {
+    recording: "\x1b[38;2;247;118;142m",  // Red #f7768e
+    processing: "\x1b[38;2;224;175;104m", // Yellow #e0af68
+    success: "\x1b[38;2;158;206;106m",    // Green #9ece6a
+    warning: "\x1b[38;2;255;158;100m",    // Orange #ff9e64
+    error: "\x1b[38;2;247;118;142m",      // Red #f7768e
+    info: "\x1b[38;2;122;162;247m",       // Blue #7aa2f7
+    reset: "\x1b[0m",
+    dim: "\x1b[38;2;86;95;137m",       // Comment #565f89
+    bg_primary: "",                    // Transparent
+    bg_secondary: "",                  // Transparent
+    border: "\x1b[38;2;187;154;247m",  // Purple #bb9af7
+    borders: BORDER_HEAVY,
+    indicator_rec: "★",
+    indicator_auto: "☆",
+    indicator_manual: "▹",
+    indicator_idle: "·",
+};
+
+/// Gruvbox theme - warm retro earthy colors
+/// https://github.com/morhetz/gruvbox
+pub const THEME_GRUVBOX: ThemeColors = ThemeColors {
+    recording: "\x1b[38;2;251;73;52m",    // Red #fb4934
+    processing: "\x1b[38;2;250;189;47m",  // Yellow #fabd2f
+    success: "\x1b[38;2;184;187;38m",     // Green #b8bb26
+    warning: "\x1b[38;2;254;128;25m",     // Orange #fe8019
+    error: "\x1b[38;2;251;73;52m",        // Red #fb4934
+    info: "\x1b[38;2;131;165;152m",       // Aqua #83a598
+    reset: "\x1b[0m",
+    dim: "\x1b[38;2;146;131;116m",     // Gray #928374
+    bg_primary: "",                    // Transparent
+    bg_secondary: "",                  // Transparent
+    border: "\x1b[38;2;250;189;47m",   // Yellow #fabd2f
+    borders: BORDER_SINGLE,
+    indicator_rec: "▣",
+    indicator_auto: "▢",
+    indicator_manual: "▷",
+    indicator_idle: "□",
 };
 
 /// ANSI 16-color theme - works on all color terminals
@@ -527,10 +583,14 @@ mod tests {
     #[test]
     fn theme_has_expected_borders() {
         // Spot-check representative border styles for a few themes.
-        assert_eq!(Theme::Coral.colors().borders.horizontal, '─');
-        assert_eq!(Theme::Catppuccin.colors().borders.horizontal, '═');
-        assert_eq!(Theme::Dracula.colors().borders.horizontal, '━');
-        assert_eq!(Theme::Nord.colors().borders.top_left, '╭');
+        assert_eq!(Theme::Coral.colors().borders.horizontal, '─');       // Single
+        assert_eq!(Theme::Catppuccin.colors().borders.horizontal, '═');  // Double
+        assert_eq!(Theme::Codex.colors().borders.horizontal, '═');       // Double
+        assert_eq!(Theme::Dracula.colors().borders.horizontal, '━');     // Heavy
+        assert_eq!(Theme::TokyoNight.colors().borders.horizontal, '━');  // Heavy
+        assert_eq!(Theme::Nord.colors().borders.top_left, '╭');          // Rounded
+        assert_eq!(Theme::Claude.colors().borders.top_left, '╭');        // Rounded
+        assert_eq!(Theme::ChatGpt.colors().borders.top_left, '╭');       // Rounded
     }
 
     #[test]

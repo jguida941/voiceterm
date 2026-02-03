@@ -310,7 +310,6 @@ pub(crate) fn handle_voice_message(
                 .unwrap_or(0.0);
             session_stats.record_transcript(duration_secs);
             status_state.recording_state = RecordingState::Idle;
-            status_state.recording_duration = None;
             status_state.pipeline = match source {
                 VoiceCaptureSource::Native => Pipeline::Rust,
                 VoiceCaptureSource::Python => Pipeline::Python,
@@ -348,7 +347,6 @@ pub(crate) fn handle_voice_message(
         VoiceJobMessage::Empty { source, metrics } => {
             session_stats.record_empty();
             status_state.recording_state = RecordingState::Idle;
-            status_state.recording_duration = None;
             status_state.pipeline = match source {
                 VoiceCaptureSource::Native => Pipeline::Rust,
                 VoiceCaptureSource::Python => Pipeline::Python,
@@ -392,7 +390,6 @@ pub(crate) fn handle_voice_message(
         VoiceJobMessage::Error(message) => {
             session_stats.record_error();
             status_state.recording_state = RecordingState::Idle;
-            status_state.recording_duration = None;
             set_status(
                 writer_tx,
                 status_clear_deadline,

@@ -13,6 +13,7 @@ pub enum SettingsItem {
     HudStyle,
     HudPanel,
     HudAnimate,
+    Mouse,
     Backend,
     Pipeline,
     Close,
@@ -27,11 +28,22 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::HudStyle,
     SettingsItem::HudPanel,
     SettingsItem::HudAnimate,
+    SettingsItem::Mouse,
     SettingsItem::Backend,
     SettingsItem::Pipeline,
     SettingsItem::Close,
     SettingsItem::Quit,
 ];
+
+pub const SETTINGS_OVERLAY_FOOTER: &str = "[x] close · arrows · Enter select";
+
+pub fn settings_overlay_width_for_terminal(width: usize) -> usize {
+    width.saturating_sub(4).clamp(24, 70)
+}
+
+pub fn settings_overlay_inner_width_for_terminal(width: usize) -> usize {
+    settings_overlay_width_for_terminal(width).saturating_sub(2)
+}
 
 #[derive(Debug, Clone)]
 pub struct SettingsMenuState {
@@ -75,6 +87,7 @@ pub struct SettingsView<'a> {
     pub hud_style: HudStyle,
     pub hud_right_panel: HudRightPanel,
     pub hud_right_panel_recording_only: bool,
+    pub mouse_enabled: bool,
     pub backend_label: &'a str,
     pub pipeline: Pipeline,
 }
@@ -87,7 +100,7 @@ pub fn settings_overlay_height() -> usize {
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
     let colors = view.theme.colors();
     let mut lines = Vec::new();
-    let content_width = width.saturating_sub(4).clamp(24, 70);
+    let content_width = settings_overlay_width_for_terminal(width);
 
     lines.push(format_box_top(&colors, content_width));
     lines.push(format_title_line(
@@ -104,10 +117,10 @@ pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String 
     }
 
     lines.push(format_separator(&colors, content_width));
-    // Use simpler ASCII footer to avoid Unicode width issues
+    // Footer with clickable close button
     lines.push(format_title_line(
         &colors,
-        "arrows move/adjust  Enter select  Esc close",
+        SETTINGS_OVERLAY_FOOTER,
         content_width,
     ));
     lines.push(format_box_bottom(&colors, content_width));
@@ -171,6 +184,12 @@ fn format_settings_row(
             toggle_button(view.hud_right_panel_recording_only),
             width = LABEL_WIDTH
         ),
+        SettingsItem::Mouse => format!(
+            "{marker} {:<width$} {}",
+            "Mouse",
+            toggle_button(view.mouse_enabled),
+            width = LABEL_WIDTH
+        ),
         SettingsItem::Backend => format!(
             "{marker} {:<width$} {}",
             "Backend",
@@ -217,7 +236,7 @@ fn hud_panel_button(panel: HudRightPanel) -> String {
         HudRightPanel::Off => button_label("Off"),
         HudRightPanel::Ribbon => button_label("Ribbon"),
         HudRightPanel::Dots => button_label("Dots"),
-        HudRightPanel::Chips => button_label("Chips"),
+        HudRightPanel::Heartbeat => button_label("Heartbeat"),
     }
 }
 

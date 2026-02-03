@@ -11,6 +11,8 @@ use std::collections::VecDeque;
 pub struct CaptureMetrics {
     /// Total capture duration in milliseconds.
     pub capture_ms: u64,
+    /// Transcription duration in milliseconds (if available).
+    pub transcribe_ms: u64,
     /// Total speech duration in milliseconds.
     pub speech_ms: u64,
     /// Trailing silence duration in milliseconds.
@@ -27,6 +29,7 @@ impl Default for CaptureMetrics {
     fn default() -> Self {
         Self {
             capture_ms: 0,
+            transcribe_ms: 0,
             speech_ms: 0,
             silence_tail_ms: 0,
             frames_processed: 0,

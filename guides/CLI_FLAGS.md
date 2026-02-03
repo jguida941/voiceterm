@@ -118,11 +118,11 @@ voxterm --gemini              # Gemini CLI (in works; not yet supported)
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--theme <NAME>` | Theme: `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`, `nord`, `ansi`, `none` | backend default |
+| `--theme <NAME>` | Theme: `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`, `nord`, `tokyonight`, `gruvbox`, `ansi`, `none` | backend default |
 | `--no-color` | Disable all colors | off |
 | `--hud-style <MODE>` | HUD display style: `full`, `minimal`, `hidden` | full |
 | `--minimal-hud` | Shorthand for `--hud-style minimal` | off |
-| `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `chips` | ribbon |
+| `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `heartbeat` | ribbon |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
 | `--term <TERM>` | TERM value for the CLI | inherited |
 

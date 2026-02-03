@@ -12,6 +12,7 @@
 
 mod audio_meter;
 mod banner;
+mod buttons;
 mod color_mode;
 mod config;
 mod help;
@@ -47,8 +48,12 @@ use voxterm::{
 };
 
 use crate::banner::{format_minimal_banner, format_startup_banner, BannerConfig};
+use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::{HudRightPanel, HudStyle, OverlayConfig, VoiceSendMode};
-use crate::help::{format_help_overlay, help_overlay_height};
+use crate::help::{
+    format_help_overlay, help_overlay_height, help_overlay_inner_width_for_terminal,
+    help_overlay_width_for_terminal, HELP_OVERLAY_FOOTER,
+};
 use crate::hud::HudRegistry;
 use crate::input::{spawn_input_thread, InputEvent};
 use crate::prompt::{
@@ -56,13 +61,20 @@ use crate::prompt::{
 };
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::{
-    format_settings_overlay, settings_overlay_height, SettingsItem, SettingsMenuState, SettingsView,
+    format_settings_overlay, settings_overlay_height, settings_overlay_inner_width_for_terminal,
+    settings_overlay_width_for_terminal, SettingsItem, SettingsMenuState, SettingsView,
+    SETTINGS_OVERLAY_FOOTER,
 };
 use crate::status_line::{
-    status_banner_height, Pipeline, RecordingState, StatusLineState, VoiceMode, METER_HISTORY_MAX,
+    get_button_positions, status_banner_height, Pipeline, RecordingState, StatusLineState,
+    VoiceMode, METER_HISTORY_MAX,
 };
 use crate::theme::Theme;
-use crate::theme_picker::{format_theme_picker, theme_picker_height, THEME_OPTIONS};
+use crate::theme_picker::{
+    format_theme_picker, theme_picker_height, theme_picker_inner_width_for_terminal,
+    theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_FOOTER,
+    THEME_PICKER_OPTION_START_ROW,
+};
 use crate::transcript::{
     deliver_transcript, push_pending_transcript, transcript_ready, try_flush_pending,
     PendingTranscript, TranscriptIo, TranscriptSession,
@@ -219,6 +231,9 @@ fn main() -> Result<()> {
     // Set the color theme for the status line
     let _ = writer_tx.send(WriterMessage::SetTheme(theme));
 
+    // Button registry for tracking clickable button positions (mouse is on by default)
+    let button_registry = ButtonRegistry::new();
+
     // Compute initial HUD style (handle --minimal-hud shorthand)
     let initial_hud_style = if config.minimal_hud {
         HudStyle::Minimal
@@ -267,6 +282,8 @@ fn main() -> Result<()> {
         VoiceMode::Manual
     };
     status_state.pipeline = Pipeline::Rust;
+    status_state.mouse_enabled = true; // Mouse enabled by default for clickable buttons
+    let _ = writer_tx.send(WriterMessage::EnableMouse);
     let mut last_auto_trigger_at: Option<Instant> = None;
     let mut last_enter_at: Option<Instant> = None;
     let mut pending_transcripts: VecDeque<PendingTranscript> = VecDeque::new();
@@ -277,6 +294,7 @@ fn main() -> Result<()> {
     let mut last_recording_duration = 0.0_f32;
     let mut processing_spinner_index = 0usize;
     let mut last_processing_tick = Instant::now();
+    let mut last_heartbeat_tick = Instant::now();
     let mut overlay_mode = OverlayMode::None;
     let mut settings_menu = SettingsMenuState::new();
     let mut meter_levels: VecDeque<f32> = VecDeque::with_capacity(METER_HISTORY_MAX);
@@ -308,7 +326,6 @@ fn main() -> Result<()> {
                 last_auto_trigger_at = Some(now);
                 recording_started_at = Some(now);
                 reset_capture_visuals(
-                    &mut meter_levels,
                     &mut status_state,
                     &mut preview_clear_deadline,
                     &mut last_meter_update,
@@ -364,6 +381,15 @@ fn main() -> Result<()> {
                                         overlay_mode,
                                         status_state.hud_style,
                                     );
+                                    if status_state.mouse_enabled {
+                                        update_button_registry(
+                                            &button_registry,
+                                            &status_state,
+                                            overlay_mode,
+                                            terminal_cols,
+                                            theme,
+                                        );
+                                    }
                                 }
                                 (OverlayMode::Settings, InputEvent::HelpToggle) => {
                                     overlay_mode = OverlayMode::Help;
@@ -412,7 +438,6 @@ fn main() -> Result<()> {
                                                 &mut status_state,
                                                 &mut last_auto_trigger_at,
                                                 &mut recording_started_at,
-                                                &mut meter_levels,
                                                 &mut preview_clear_deadline,
                                                 &mut last_meter_update,
                                             );
@@ -473,6 +498,19 @@ fn main() -> Result<()> {
                                                 &mut config,
                                                 &mut status_state,
                                                 &writer_tx,
+                                                &mut status_clear_deadline,
+                                                &mut current_status,
+                                            );
+                                            should_redraw = true;
+                                        }
+                                        SettingsItem::Mouse => {
+                                            toggle_mouse(
+                                                &mut status_state,
+                                                &writer_tx,
+                                                &button_registry,
+                                                overlay_mode,
+                                                terminal_cols,
+                                                theme,
                                                 &mut status_clear_deadline,
                                                 &mut current_status,
                                             );
@@ -539,7 +577,6 @@ fn main() -> Result<()> {
                                                             &mut status_state,
                                                             &mut last_auto_trigger_at,
                                                             &mut recording_started_at,
-                                                            &mut meter_levels,
                                                             &mut preview_clear_deadline,
                                                             &mut last_meter_update,
                                                         );
@@ -615,6 +652,19 @@ fn main() -> Result<()> {
                                                         );
                                                         should_redraw = true;
                                                     }
+                                                    SettingsItem::Mouse => {
+                                                        toggle_mouse(
+                                                            &mut status_state,
+                                                            &writer_tx,
+                                                            &button_registry,
+                                                            overlay_mode,
+                                                            terminal_cols,
+                                                            theme,
+                                                            &mut status_clear_deadline,
+                                                            &mut current_status,
+                                                        );
+                                                        should_redraw = true;
+                                                    }
                                                     SettingsItem::Backend
                                                     | SettingsItem::Pipeline
                                                     | SettingsItem::Close
@@ -631,7 +681,6 @@ fn main() -> Result<()> {
                                                             &mut status_state,
                                                             &mut last_auto_trigger_at,
                                                             &mut recording_started_at,
-                                                            &mut meter_levels,
                                                             &mut preview_clear_deadline,
                                                             &mut last_meter_update,
                                                         );
@@ -702,6 +751,19 @@ fn main() -> Result<()> {
                                                             &mut config,
                                                             &mut status_state,
                                                             &writer_tx,
+                                                            &mut status_clear_deadline,
+                                                            &mut current_status,
+                                                        );
+                                                        should_redraw = true;
+                                                    }
+                                                    SettingsItem::Mouse => {
+                                                        toggle_mouse(
+                                                            &mut status_state,
+                                                            &writer_tx,
+                                                            &button_registry,
+                                                            overlay_mode,
+                                                            terminal_cols,
+                                                            theme,
                                                             &mut status_clear_deadline,
                                                             &mut current_status,
                                                         );
@@ -878,12 +940,22 @@ fn main() -> Result<()> {
                                         overlay_mode,
                                         status_state.hud_style,
                                     );
+                                    if status_state.mouse_enabled {
+                                        update_button_registry(
+                                            &button_registry,
+                                            &status_state,
+                                            overlay_mode,
+                                            terminal_cols,
+                                            theme,
+                                        );
+                                    }
                                 }
                             }
                             continue;
                         }
                         match evt {
                             InputEvent::HelpToggle => {
+                                status_state.hud_button_focus = None;
                                 overlay_mode = OverlayMode::Help;
                                 update_pty_winsize(
                                     &mut session,
@@ -899,6 +971,7 @@ fn main() -> Result<()> {
                                     writer_tx.send(WriterMessage::ShowOverlay { content, height });
                             }
                             InputEvent::ThemePicker => {
+                                status_state.hud_button_focus = None;
                                 overlay_mode = OverlayMode::ThemePicker;
                                 update_pty_winsize(
                                     &mut session,
@@ -914,6 +987,7 @@ fn main() -> Result<()> {
                                     writer_tx.send(WriterMessage::ShowOverlay { content, height });
                             }
                             InputEvent::SettingsToggle => {
+                                status_state.hud_button_focus = None;
                                 overlay_mode = OverlayMode::Settings;
                                 update_pty_winsize(
                                     &mut session,
@@ -941,6 +1015,7 @@ fn main() -> Result<()> {
                                     &mut current_status,
                                     1,
                                 );
+                                status_state.hud_button_focus = None;
                                 update_pty_winsize(
                                     &mut session,
                                     &mut terminal_rows,
@@ -948,8 +1023,53 @@ fn main() -> Result<()> {
                                     overlay_mode,
                                     status_state.hud_style,
                                 );
+                                if status_state.mouse_enabled {
+                                    update_button_registry(
+                                        &button_registry,
+                                        &status_state,
+                                        overlay_mode,
+                                        terminal_cols,
+                                        theme,
+                                    );
+                                }
                             }
                             InputEvent::Bytes(bytes) => {
+                                if status_state.mouse_enabled {
+                                    if let Some(keys) = parse_arrow_keys_only(&bytes) {
+                                        let mut moved = false;
+                                        for key in keys {
+                                            let direction = match key {
+                                                ArrowKey::Left => -1,
+                                                ArrowKey::Right => 1,
+                                                _ => 0,
+                                            };
+                                            if direction != 0
+                                                && advance_hud_button_focus(
+                                                    &mut status_state,
+                                                    overlay_mode,
+                                                    terminal_cols,
+                                                    theme,
+                                                    direction,
+                                                )
+                                            {
+                                                moved = true;
+                                            }
+                                        }
+                                        if moved {
+                                            send_enhanced_status_with_buttons(
+                                                &writer_tx,
+                                                &button_registry,
+                                                &status_state,
+                                                overlay_mode,
+                                                terminal_cols,
+                                                theme,
+                                            );
+                                            continue;
+                                        }
+                                    }
+                                }
+
+                                status_state.hud_button_focus = None;
                                 if let Err(err) = session.send_bytes(&bytes) {
                                     log_debug(&format!("failed to write to PTY: {err:#}"));
                                     running = false;
@@ -976,7 +1096,6 @@ fn main() -> Result<()> {
                                 } else {
                                     recording_started_at = Some(Instant::now());
                                     reset_capture_visuals(
-                                        &mut meter_levels,
                                         &mut status_state,
                                         &mut preview_clear_deadline,
                                         &mut last_meter_update,
@@ -993,10 +1112,18 @@ fn main() -> Result<()> {
                                     &mut status_state,
                                     &mut last_auto_trigger_at,
                                     &mut recording_started_at,
-                                    &mut meter_levels,
                                     &mut preview_clear_deadline,
                                     &mut last_meter_update,
                                 );
+                                if status_state.mouse_enabled {
+                                    update_button_registry(
+                                        &button_registry,
+                                        &status_state,
+                                        overlay_mode,
+                                        terminal_cols,
+                                        theme,
+                                    );
+                                }
                             }
                             InputEvent::ToggleSendMode => {
                                 toggle_send_mode(
@@ -1006,6 +1133,15 @@ fn main() -> Result<()> {
                                     &mut current_status,
                                     &mut status_state,
                                 );
+                                if status_state.mouse_enabled {
+                                    update_button_registry(
+                                        &button_registry,
+                                        &status_state,
+                                        overlay_mode,
+                                        terminal_cols,
+                                        theme,
+                                    );
+                                }
                             }
                             InputEvent::IncreaseSensitivity => {
                                 adjust_sensitivity(
@@ -1028,6 +1164,42 @@ fn main() -> Result<()> {
                                 );
                             }
                             InputEvent::EnterKey => {
+                                if status_state.mouse_enabled {
+                                    if let Some(action) = status_state.hud_button_focus {
+                                        status_state.hud_button_focus = None;
+                                        handle_button_action(
+                                            action,
+                                            &mut overlay_mode,
+                                            &mut settings_menu,
+                                            &mut config,
+                                            &mut status_state,
+                                            &mut auto_voice_enabled,
+                                            &mut voice_manager,
+                                            &mut session,
+                                            &writer_tx,
+                                            &mut status_clear_deadline,
+                                            &mut current_status,
+                                            &mut recording_started_at,
+                                            &mut preview_clear_deadline,
+                                            &mut last_meter_update,
+                                            &mut last_auto_trigger_at,
+                                            &mut terminal_rows,
+                                            &mut terminal_cols,
+                                            &backend_label,
+                                            theme,
+                                            &button_registry,
+                                        );
+                                        send_enhanced_status_with_buttons(
+                                            &writer_tx,
+                                            &button_registry,
+                                            &status_state,
+                                            overlay_mode,
+                                            terminal_cols,
+                                            theme,
+                                        );
+                                        continue;
+                                    }
+                                }
                                 // In insert mode, Enter stops capture early and sends what was recorded
                                 if config.voice_send_mode == VoiceSendMode::Insert && !voice_manager.is_idle() {
                                     if voice_manager.active_source() == Some(VoiceCaptureSource::Python) {
@@ -1045,7 +1217,6 @@ fn main() -> Result<()> {
                                     } else {
                                         voice_manager.request_early_stop();
                                         status_state.recording_state = RecordingState::Processing;
-                                        status_state.recording_duration = None;
                                         processing_spinner_index = 0;
                                         last_processing_tick = Instant::now();
                                         set_status(
@@ -1069,6 +1240,160 @@ fn main() -> Result<()> {
                             }
                             InputEvent::Exit => {
                                 running = false;
+                            }
+                            InputEvent::MouseClick { x, y } => {
+                                // Only process clicks if mouse is enabled
+                                if !status_state.mouse_enabled {
+                                    continue;
+                                }
+
+                                // Overlay click handling (close button + theme selection)
+                                if overlay_mode != OverlayMode::None {
+                                    let overlay_height = match overlay_mode {
+                                        OverlayMode::Help => help_overlay_height(),
+                                        OverlayMode::ThemePicker => theme_picker_height(),
+                                        OverlayMode::Settings => settings_overlay_height(),
+                                        OverlayMode::None => 0,
+                                    };
+                                    if overlay_height == 0 || terminal_rows == 0 {
+                                        continue;
+                                    }
+                                    let overlay_top_y =
+                                        terminal_rows.saturating_sub(overlay_height as u16).saturating_add(1);
+                                    if y < overlay_top_y || y > terminal_rows {
+                                        continue;
+                                    }
+                                    let overlay_row = (y - overlay_top_y) as usize + 1;
+                                    let cols = resolved_cols(terminal_cols) as usize;
+
+                                    let (overlay_width, inner_width, footer_title) = match overlay_mode {
+                                        OverlayMode::Help => (
+                                            help_overlay_width_for_terminal(cols),
+                                            help_overlay_inner_width_for_terminal(cols),
+                                            HELP_OVERLAY_FOOTER,
+                                        ),
+                                        OverlayMode::ThemePicker => (
+                                            theme_picker_total_width_for_terminal(cols),
+                                            theme_picker_inner_width_for_terminal(cols),
+                                            THEME_PICKER_FOOTER,
+                                        ),
+                                        OverlayMode::Settings => (
+                                            settings_overlay_width_for_terminal(cols),
+                                            settings_overlay_inner_width_for_terminal(cols),
+                                            SETTINGS_OVERLAY_FOOTER,
+                                        ),
+                                        OverlayMode::None => (0, 0, ""),
+                                    };
+
+                                    if overlay_width == 0 || x as usize > overlay_width {
+                                        continue;
+                                    }
+
+                                    let footer_row = overlay_height.saturating_sub(1);
+                                    if overlay_row == footer_row {
+                                        let title_len = footer_title.chars().count();
+                                        let left_pad = inner_width.saturating_sub(title_len) / 2;
+                                        let close_prefix = footer_title
+                                            .split('·')
+                                            .next()
+                                            .unwrap_or(footer_title)
+                                            .trim_end();
+                                        let close_len = close_prefix.chars().count();
+                                        let close_start = 2usize.saturating_add(left_pad);
+                                        let close_end = close_start.saturating_add(close_len.saturating_sub(1));
+                                        if (x as usize) >= close_start && (x as usize) <= close_end {
+                                            overlay_mode = OverlayMode::None;
+                                            let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                            apply_pty_winsize(
+                                                &mut session,
+                                                terminal_rows,
+                                                terminal_cols,
+                                                overlay_mode,
+                                                status_state.hud_style,
+                                            );
+                                            if status_state.mouse_enabled {
+                                                update_button_registry(
+                                                    &button_registry,
+                                                    &status_state,
+                                                    overlay_mode,
+                                                    terminal_cols,
+                                                    theme,
+                                                );
+                                            }
+                                        }
+                                        continue;
+                                    }
+
+                                    if overlay_mode == OverlayMode::ThemePicker {
+                                        let options_start = THEME_PICKER_OPTION_START_ROW;
+                                        let options_end =
+                                            options_start.saturating_add(THEME_OPTIONS.len().saturating_sub(1));
+                                        if overlay_row >= options_start
+                                            && overlay_row <= options_end
+                                            && x > 1
+                                            && (x as usize) < overlay_width
+                                        {
+                                            let idx = overlay_row.saturating_sub(options_start);
+                                            if let Some((_, name, _)) = THEME_OPTIONS.get(idx) {
+                                                if let Some(requested) = Theme::from_name(name) {
+                                                    theme = apply_theme_selection(
+                                                        &mut config,
+                                                        requested,
+                                                        &writer_tx,
+                                                        &mut status_clear_deadline,
+                                                        &mut current_status,
+                                                        &mut status_state,
+                                                    );
+                                                    overlay_mode = OverlayMode::None;
+                                                    let _ = writer_tx.send(WriterMessage::ClearOverlay);
+                                                    apply_pty_winsize(
+                                                        &mut session,
+                                                        terminal_rows,
+                                                        terminal_cols,
+                                                        overlay_mode,
+                                                        status_state.hud_style,
+                                                    );
+                                                    if status_state.mouse_enabled {
+                                                        update_button_registry(
+                                                            &button_registry,
+                                                            &status_state,
+                                                            overlay_mode,
+                                                            terminal_cols,
+                                                            theme,
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+
+                                if let Some(action) = button_registry.find_at(x, y, terminal_rows) {
+                                    handle_button_action(
+                                        action,
+                                        &mut overlay_mode,
+                                        &mut settings_menu,
+                                        &mut config,
+                                        &mut status_state,
+                                        &mut auto_voice_enabled,
+                                        &mut voice_manager,
+                                        &mut session,
+                                        &writer_tx,
+                                        &mut status_clear_deadline,
+                                        &mut current_status,
+                                        &mut recording_started_at,
+                                        &mut preview_clear_deadline,
+                                        &mut last_meter_update,
+                                        &mut last_auto_trigger_at,
+                                        &mut terminal_rows,
+                                        &mut terminal_cols,
+                                        &backend_label,
+                                        theme,
+                                        &button_registry,
+                                    );
+                                    status_state.hud_button_focus = None;
+                                }
                             }
                         }
                     }
@@ -1118,7 +1443,6 @@ fn main() -> Result<()> {
                             transcript_idle_timeout,
                             &mut recording_started_at,
                             &mut preview_clear_deadline,
-                            &mut meter_levels,
                             &mut last_meter_update,
                             &mut last_auto_trigger_at,
                             auto_voice_enabled,
@@ -1138,6 +1462,15 @@ fn main() -> Result<()> {
                         terminal_rows = rows;
                         apply_pty_winsize(&mut session, rows, cols, overlay_mode, status_state.hud_style);
                         let _ = writer_tx.send(WriterMessage::Resize { rows, cols });
+                        if status_state.mouse_enabled {
+                            update_button_registry(
+                                &button_registry,
+                                &status_state,
+                                overlay_mode,
+                                terminal_cols,
+                                theme,
+                            );
+                        }
                         match overlay_mode {
                             OverlayMode::Help => {
                                 let content = format_help_overlay(theme, cols as usize);
@@ -1175,15 +1508,18 @@ fn main() -> Result<()> {
                             if (duration - last_recording_duration).abs() >= 0.1 {
                                 status_state.recording_duration = Some(duration);
                                 last_recording_duration = duration;
-                                send_enhanced_status(&writer_tx, &status_state);
+                                send_enhanced_status_with_buttons(
+                                    &writer_tx,
+                                    &button_registry,
+                                    &status_state,
+                                    overlay_mode,
+                                    terminal_cols,
+                                    theme,
+                                );
                             }
                             last_recording_update = now;
                         }
                     }
-                } else if status_state.recording_duration.is_some() {
-                    status_state.recording_duration = None;
-                    last_recording_duration = 0.0;
-                    send_enhanced_status(&writer_tx, &status_state);
                 }
 
                 if status_state.recording_state == RecordingState::Recording {
@@ -1200,13 +1536,15 @@ fn main() -> Result<()> {
                             .meter_levels
                             .extend(meter_levels.iter().copied());
                         last_meter_update = now;
-                        send_enhanced_status(&writer_tx, &status_state);
+                        send_enhanced_status_with_buttons(
+                            &writer_tx,
+                            &button_registry,
+                            &status_state,
+                            overlay_mode,
+                            terminal_cols,
+                            theme,
+                        );
                     }
-                } else if !meter_levels.is_empty() || status_state.meter_db.is_some() {
-                    meter_levels.clear();
-                    status_state.meter_levels.clear();
-                    status_state.meter_db = None;
-                    send_enhanced_status(&writer_tx, &status_state);
                 }
 
                 if status_state.recording_state == RecordingState::Processing
@@ -1218,7 +1556,31 @@ fn main() -> Result<()> {
                     status_state.message = format!("Processing {spinner}");
                     processing_spinner_index = processing_spinner_index.wrapping_add(1);
                     last_processing_tick = now;
-                    send_enhanced_status(&writer_tx, &status_state);
+                    send_enhanced_status_with_buttons(
+                        &writer_tx,
+                        &button_registry,
+                        &status_state,
+                        overlay_mode,
+                        terminal_cols,
+                        theme,
+                    );
+                }
+
+                if status_state.hud_right_panel == HudRightPanel::Heartbeat {
+                    let animate = !status_state.hud_right_panel_recording_only
+                        || status_state.recording_state == RecordingState::Recording;
+                    if animate && now.duration_since(last_heartbeat_tick) >= Duration::from_secs(1)
+                    {
+                        last_heartbeat_tick = now;
+                        send_enhanced_status_with_buttons(
+                            &writer_tx,
+                            &button_registry,
+                            &status_state,
+                            overlay_mode,
+                            terminal_cols,
+                            theme,
+                        );
+                    }
                 }
                 prompt_tracker.on_idle(now, auto_idle_timeout);
 
@@ -1238,7 +1600,6 @@ fn main() -> Result<()> {
                     transcript_idle_timeout,
                     &mut recording_started_at,
                     &mut preview_clear_deadline,
-                    &mut meter_levels,
                     &mut last_meter_update,
                     &mut last_auto_trigger_at,
                     auto_voice_enabled,
@@ -1286,7 +1647,6 @@ fn main() -> Result<()> {
                         last_auto_trigger_at = Some(now);
                         recording_started_at = Some(now);
                         reset_capture_visuals(
-                            &mut meter_levels,
                             &mut status_state,
                             &mut preview_clear_deadline,
                             &mut last_meter_update,
@@ -1299,7 +1659,14 @@ fn main() -> Result<()> {
                         preview_clear_deadline = None;
                         if status_state.transcript_preview.is_some() {
                             status_state.transcript_preview = None;
-                            send_enhanced_status(&writer_tx, &status_state);
+                            send_enhanced_status_with_buttons(
+                                &writer_tx,
+                                &button_registry,
+                                &status_state,
+                                overlay_mode,
+                                terminal_cols,
+                                theme,
+                            );
                         }
                     }
                 }
@@ -1310,7 +1677,14 @@ fn main() -> Result<()> {
                         current_status = None;
                         status_state.message.clear();
                         // Don't repeatedly set "Auto-voice enabled" - the mode indicator shows it
-                        send_enhanced_status(&writer_tx, &status_state);
+                        send_enhanced_status_with_buttons(
+                            &writer_tx,
+                            &button_registry,
+                            &status_state,
+                            overlay_mode,
+                            terminal_cols,
+                            theme,
+                        );
                     }
                 }
             }
@@ -1401,6 +1775,7 @@ fn show_settings_overlay(
         hud_style: status_state.hud_style,
         hud_right_panel: config.hud_right_panel,
         hud_right_panel_recording_only: config.hud_right_panel_recording_only,
+        mouse_enabled: status_state.mouse_enabled,
         backend_label,
         pipeline: status_state.pipeline,
     };
@@ -1437,6 +1812,34 @@ fn parse_arrow_keys(bytes: &[u8]) -> Vec<ArrowKey> {
     keys
 }
 
+fn parse_arrow_keys_only(bytes: &[u8]) -> Option<Vec<ArrowKey>> {
+    if bytes.is_empty() {
+        return None;
+    }
+    let mut keys = Vec::new();
+    let mut idx: usize = 0;
+    while idx.checked_add(2).map_or(false, |next| next < bytes.len()) {
+        if bytes[idx] == 0x1b && (bytes[idx + 1] == b'[' || bytes[idx + 1] == b'O') {
+            let key = match bytes[idx + 2] {
+                b'A' => ArrowKey::Up,
+                b'B' => ArrowKey::Down,
+                b'C' => ArrowKey::Right,
+                b'D' => ArrowKey::Left,
+                _ => return None,
+            };
+            keys.push(key);
+            idx = idx.saturating_add(3);
+        } else {
+            return None;
+        }
+    }
+    if idx == bytes.len() {
+        Some(keys)
+    } else {
+        None
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn toggle_auto_voice(
     auto_voice_enabled: &mut bool,
@@ -1447,7 +1850,6 @@ fn toggle_auto_voice(
     status_state: &mut StatusLineState,
     last_auto_trigger_at: &mut Option<Instant>,
     recording_started_at: &mut Option<Instant>,
-    meter_levels: &mut VecDeque<f32>,
     preview_clear_deadline: &mut Option<Instant>,
     last_meter_update: &mut Instant,
 ) {
@@ -1489,12 +1891,7 @@ fn toggle_auto_voice(
             let now = Instant::now();
             *last_auto_trigger_at = Some(now);
             *recording_started_at = Some(now);
-            reset_capture_visuals(
-                meter_levels,
-                status_state,
-                preview_clear_deadline,
-                last_meter_update,
-            );
+            reset_capture_visuals(status_state, preview_clear_deadline, last_meter_update);
         }
     }
 }
@@ -1555,7 +1952,7 @@ fn cycle_hud_right_panel(current: HudRightPanel, direction: i32) -> HudRightPane
     const OPTIONS: &[HudRightPanel] = &[
         HudRightPanel::Ribbon,
         HudRightPanel::Dots,
-        HudRightPanel::Chips,
+        HudRightPanel::Heartbeat,
         HudRightPanel::Off,
     ];
     let len = OPTIONS.len() as i32;
@@ -1658,6 +2055,290 @@ fn toggle_hud_panel_recording_only(
     );
 }
 
+fn toggle_mouse(
+    status_state: &mut StatusLineState,
+    writer_tx: &Sender<WriterMessage>,
+    button_registry: &ButtonRegistry,
+    overlay_mode: OverlayMode,
+    terminal_cols: u16,
+    theme: Theme,
+    status_clear_deadline: &mut Option<Instant>,
+    current_status: &mut Option<String>,
+) {
+    status_state.mouse_enabled = !status_state.mouse_enabled;
+    if status_state.mouse_enabled {
+        // Enable mouse mode and update button positions
+        let _ = writer_tx.send(WriterMessage::EnableMouse);
+        update_button_registry(button_registry, status_state, overlay_mode, terminal_cols, theme);
+        set_status(
+            writer_tx,
+            status_clear_deadline,
+            current_status,
+            status_state,
+            "Mouse: ON - click HUD buttons",
+            Some(Duration::from_secs(2)),
+        );
+    } else {
+        // Disable mouse mode and clear button positions
+        let _ = writer_tx.send(WriterMessage::DisableMouse);
+        button_registry.clear();
+        status_state.hud_button_focus = None;
+        set_status(
+            writer_tx,
+            status_clear_deadline,
+            current_status,
+            status_state,
+            "Mouse: OFF",
+            Some(Duration::from_secs(2)),
+        );
+    }
+}
+
+fn update_button_registry(
+    registry: &ButtonRegistry,
+    status_state: &StatusLineState,
+    overlay_mode: OverlayMode,
+    terminal_cols: u16,
+    theme: Theme,
+) {
+    registry.clear();
+    if overlay_mode != OverlayMode::None {
+        registry.set_hud_offset(0);
+        return;
+    }
+    let banner_height = status_banner_height(terminal_cols as usize, status_state.hud_style);
+    registry.set_hud_offset(banner_height as u16);
+    let positions = get_button_positions(status_state, theme, terminal_cols as usize);
+    for pos in positions {
+        registry.register(pos.start_x, pos.end_x, pos.row, pos.action);
+    }
+}
+
+fn visible_button_actions(
+    status_state: &StatusLineState,
+    overlay_mode: OverlayMode,
+    terminal_cols: u16,
+    theme: Theme,
+) -> Vec<ButtonAction> {
+    if overlay_mode != OverlayMode::None {
+        return Vec::new();
+    }
+    let mut positions = get_button_positions(status_state, theme, terminal_cols as usize);
+    positions.sort_by_key(|pos| pos.start_x);
+    positions.into_iter().map(|pos| pos.action).collect()
+}
+
+fn advance_hud_button_focus(
+    status_state: &mut StatusLineState,
+    overlay_mode: OverlayMode,
+    terminal_cols: u16,
+    theme: Theme,
+    direction: i32,
+) -> bool {
+    let actions = visible_button_actions(status_state, overlay_mode, terminal_cols, theme);
+    if actions.is_empty() {
+        if status_state.hud_button_focus.is_some() {
+            status_state.hud_button_focus = None;
+            return true;
+        }
+        return false;
+    }
+
+    let current = status_state.hud_button_focus;
+    let mut idx = current
+        .and_then(|action| actions.iter().position(|candidate| *candidate == action));
+
+    if idx.is_none() {
+        idx = if direction >= 0 { Some(0) } else { Some(actions.len().saturating_sub(1)) };
+    } else {
+        let len = actions.len() as i32;
+        let next = (idx.unwrap() as i32 + direction).rem_euclid(len) as usize;
+        idx = Some(next);
+    }
+
+    let next_action = actions[idx.unwrap()];
+    if status_state.hud_button_focus == Some(next_action) {
+        return false;
+    }
+    status_state.hud_button_focus = Some(next_action);
+    true
+}
+
+fn send_enhanced_status_with_buttons(
+    writer_tx: &Sender<WriterMessage>,
+    button_registry: &ButtonRegistry,
+    status_state: &StatusLineState,
+    overlay_mode: OverlayMode,
+    terminal_cols: u16,
+    theme: Theme,
+) {
+    send_enhanced_status(writer_tx, status_state);
+    if status_state.mouse_enabled {
+        update_button_registry(button_registry, status_state, overlay_mode, terminal_cols, theme);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_button_action(
+    action: ButtonAction,
+    overlay_mode: &mut OverlayMode,
+    settings_menu: &mut SettingsMenuState,
+    config: &mut OverlayConfig,
+    status_state: &mut StatusLineState,
+    auto_voice_enabled: &mut bool,
+    voice_manager: &mut VoiceManager,
+    session: &mut PtyOverlaySession,
+    writer_tx: &Sender<WriterMessage>,
+    status_clear_deadline: &mut Option<Instant>,
+    current_status: &mut Option<String>,
+    recording_started_at: &mut Option<Instant>,
+    preview_clear_deadline: &mut Option<Instant>,
+    last_meter_update: &mut Instant,
+    last_auto_trigger_at: &mut Option<Instant>,
+    terminal_rows: &mut u16,
+    terminal_cols: &mut u16,
+    backend_label: &str,
+    theme: Theme,
+    button_registry: &ButtonRegistry,
+) {
+    if *overlay_mode != OverlayMode::None {
+        return;
+    }
+
+    match action {
+        ButtonAction::VoiceTrigger => {
+            if let Err(err) = start_voice_capture(
+                voice_manager,
+                VoiceCaptureTrigger::Manual,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+            ) {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Voice capture failed (see log)",
+                    Some(Duration::from_secs(2)),
+                );
+                log_debug(&format!("voice capture failed: {err:#}"));
+            } else {
+                *recording_started_at = Some(Instant::now());
+                reset_capture_visuals(status_state, preview_clear_deadline, last_meter_update);
+            }
+        }
+        ButtonAction::ToggleAutoVoice => {
+            toggle_auto_voice(
+                auto_voice_enabled,
+                voice_manager,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+                last_auto_trigger_at,
+                recording_started_at,
+                preview_clear_deadline,
+                last_meter_update,
+            );
+        }
+        ButtonAction::ToggleSendMode => {
+            toggle_send_mode(
+                config,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+            );
+        }
+        ButtonAction::SettingsToggle => {
+            *overlay_mode = OverlayMode::Settings;
+            update_pty_winsize(
+                session,
+                terminal_rows,
+                terminal_cols,
+                *overlay_mode,
+                status_state.hud_style,
+            );
+            let cols = resolved_cols(*terminal_cols);
+            show_settings_overlay(
+                writer_tx,
+                theme,
+                cols,
+                settings_menu,
+                config,
+                status_state,
+                backend_label,
+            );
+        }
+        ButtonAction::ToggleHudStyle => {
+            update_hud_style(
+                status_state,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                1,
+            );
+            update_pty_winsize(
+                session,
+                terminal_rows,
+                terminal_cols,
+                *overlay_mode,
+                status_state.hud_style,
+            );
+        }
+        ButtonAction::HudBack => {
+            update_hud_style(
+                status_state,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                -1,
+            );
+            update_pty_winsize(
+                session,
+                terminal_rows,
+                terminal_cols,
+                *overlay_mode,
+                status_state.hud_style,
+            );
+        }
+        ButtonAction::HelpToggle => {
+            *overlay_mode = OverlayMode::Help;
+            update_pty_winsize(
+                session,
+                terminal_rows,
+                terminal_cols,
+                *overlay_mode,
+                status_state.hud_style,
+            );
+            let cols = resolved_cols(*terminal_cols);
+            let content = format_help_overlay(theme, cols as usize);
+            let height = help_overlay_height();
+            let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+        }
+        ButtonAction::ThemePicker => {
+            *overlay_mode = OverlayMode::ThemePicker;
+            update_pty_winsize(
+                session,
+                terminal_rows,
+                terminal_cols,
+                *overlay_mode,
+                status_state.hud_style,
+            );
+            let cols = resolved_cols(*terminal_cols);
+            let content = format_theme_picker(theme, cols as usize);
+            let height = theme_picker_height();
+            let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+        }
+    }
+
+    if status_state.mouse_enabled {
+        update_button_registry(button_registry, status_state, *overlay_mode, *terminal_cols, theme);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn drain_voice_messages<S: TranscriptSession>(
     voice_manager: &mut VoiceManager,
@@ -1675,7 +2356,6 @@ fn drain_voice_messages<S: TranscriptSession>(
     transcript_idle_timeout: Duration,
     recording_started_at: &mut Option<Instant>,
     preview_clear_deadline: &mut Option<Instant>,
-    meter_levels: &mut VecDeque<f32>,
     last_meter_update: &mut Instant,
     last_auto_trigger_at: &mut Option<Instant>,
     auto_voice_enabled: bool,
@@ -1695,19 +2375,13 @@ fn drain_voice_messages<S: TranscriptSession>(
             source,
             metrics,
         } => {
-            if let Some(started_at) = *recording_started_at {
-                if let Some(elapsed) = now.checked_duration_since(started_at) {
-                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
-                    status_state.last_latency_ms = Some(ms);
-                }
-            }
+            update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let ready =
                 transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout);
             if auto_voice_enabled {
                 prompt_tracker.note_activity(now);
             }
             status_state.recording_state = RecordingState::Idle;
-            status_state.recording_duration = None;
             status_state.pipeline = match source {
                 VoiceCaptureSource::Native => Pipeline::Rust,
                 VoiceCaptureSource::Python => Pipeline::Python,
@@ -1821,12 +2495,7 @@ fn drain_voice_messages<S: TranscriptSession>(
                 } else {
                     *last_auto_trigger_at = Some(now);
                     *recording_started_at = Some(now);
-                    reset_capture_visuals(
-                        meter_levels,
-                        status_state,
-                        preview_clear_deadline,
-                        last_meter_update,
-                    );
+                    reset_capture_visuals(status_state, preview_clear_deadline, last_meter_update);
                 }
             }
             if sound_on_complete {
@@ -1834,12 +2503,7 @@ fn drain_voice_messages<S: TranscriptSession>(
             }
         }
         VoiceJobMessage::Empty { source, metrics } => {
-            if let Some(started_at) = *recording_started_at {
-                if let Some(elapsed) = now.checked_duration_since(started_at) {
-                    let ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
-                    status_state.last_latency_ms = Some(ms);
-                }
-            }
+            update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let mut ctx = VoiceMessageContext {
                 config,
                 session,
@@ -1927,10 +2591,11 @@ fn apply_theme_selection(
 }
 
 fn theme_index_from_byte(byte: u8) -> Option<usize> {
-    if (b'1'..=b'9').contains(&byte) {
-        Some((byte - b'1') as usize)
-    } else {
-        None
+    match byte {
+        b'1'..=b'9' => Some((byte - b'1') as usize),
+        b'0' => Some(9),  // 0 selects theme 10
+        b'-' => Some(10), // - selects theme 11
+        _ => None,
     }
 }
 
@@ -1953,17 +2618,35 @@ fn resolve_theme_choice(config: &OverlayConfig, requested: Theme) -> (Theme, Opt
 }
 
 fn reset_capture_visuals(
-    meter_levels: &mut VecDeque<f32>,
     status_state: &mut StatusLineState,
     preview_clear_deadline: &mut Option<Instant>,
     last_meter_update: &mut Instant,
 ) {
-    meter_levels.clear();
-    status_state.meter_levels.clear();
-    status_state.meter_db = None;
     status_state.transcript_preview = None;
     *preview_clear_deadline = None;
     *last_meter_update = Instant::now();
+}
+
+fn update_last_latency(
+    status_state: &mut StatusLineState,
+    recording_started_at: Option<Instant>,
+    metrics: Option<&voxterm::audio::CaptureMetrics>,
+    now: Instant,
+) {
+    let Some(started_at) = recording_started_at else { return; };
+    let Some(elapsed) = now.checked_duration_since(started_at) else { return; };
+    let elapsed_ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
+    let latency_ms = match metrics {
+        Some(metrics) if metrics.transcribe_ms > 0 => {
+            metrics.transcribe_ms.min(u64::from(u32::MAX)) as u32
+        }
+        Some(metrics) => {
+            let capture_ms = metrics.capture_ms.min(u64::from(u32::MAX)) as u32;
+            elapsed_ms.saturating_sub(capture_ms)
+        }
+        None => elapsed_ms,
+    };
+    status_state.last_latency_ms = Some(latency_ms);
 }
 
 fn format_transcript_preview(text: &str, max_len: usize) -> String {
@@ -2341,7 +3024,6 @@ mod tests {
         let mut auto_voice_enabled = false;
         let mut last_auto_trigger_at = None;
         let mut recording_started_at = None;
-        let mut meter_levels = VecDeque::new();
         let mut preview_clear_deadline = None;
         let mut last_meter_update = Instant::now();
 
@@ -2354,7 +3036,6 @@ mod tests {
             &mut status_state,
             &mut last_auto_trigger_at,
             &mut recording_started_at,
-            &mut meter_levels,
             &mut preview_clear_deadline,
             &mut last_meter_update,
         );
@@ -2376,7 +3057,6 @@ mod tests {
             &mut status_state,
             &mut last_auto_trigger_at,
             &mut recording_started_at,
-            &mut meter_levels,
             &mut preview_clear_deadline,
             &mut last_meter_update,
         );

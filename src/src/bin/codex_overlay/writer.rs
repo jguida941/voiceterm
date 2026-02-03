@@ -13,6 +13,12 @@ const SAVE_CURSOR: &[u8] = b"\x1b[s\x1b7";
 const RESTORE_CURSOR: &[u8] = b"\x1b[u\x1b8";
 const WRITER_RECV_TIMEOUT_MS: u64 = 25;
 
+// SGR mouse mode escape sequences
+// Enable basic mouse reporting + SGR extended coordinates
+const MOUSE_ENABLE: &[u8] = b"\x1b[?1000h\x1b[?1006h";
+// Disable mouse reporting
+const MOUSE_DISABLE: &[u8] = b"\x1b[?1006l\x1b[?1000l";
+
 #[derive(Debug, Clone)]
 struct OverlayPanel {
     content: String,
@@ -36,6 +42,7 @@ struct WriterState {
     last_status_draw_at: Instant,
     theme: Theme,
     current_banner_height: usize,
+    mouse_enabled: bool,
 }
 
 impl WriterState {
@@ -57,6 +64,29 @@ impl WriterState {
             last_status_draw_at: Instant::now(),
             theme: Theme::default(),
             current_banner_height: 0,
+            mouse_enabled: false,
+        }
+    }
+
+    /// Enable SGR mouse tracking for clickable buttons.
+    fn enable_mouse(&mut self) {
+        if !self.mouse_enabled {
+            if let Err(err) = self.stdout.write_all(MOUSE_ENABLE) {
+                log_debug(&format!("mouse enable failed: {err}"));
+            }
+            let _ = self.stdout.flush();
+            self.mouse_enabled = true;
+        }
+    }
+
+    /// Disable mouse tracking.
+    fn disable_mouse(&mut self) {
+        if self.mouse_enabled {
+            if let Err(err) = self.stdout.write_all(MOUSE_DISABLE) {
+                log_debug(&format!("mouse disable failed: {err}"));
+            }
+            let _ = self.stdout.flush();
+            self.mouse_enabled = false;
         }
     }
 
@@ -140,7 +170,17 @@ impl WriterState {
                     self.needs_redraw = true;
                 }
             }
-            WriterMessage::Shutdown => return false,
+            WriterMessage::EnableMouse => {
+                self.enable_mouse();
+            }
+            WriterMessage::DisableMouse => {
+                self.disable_mouse();
+            }
+            WriterMessage::Shutdown => {
+                // Disable mouse before exiting to restore terminal state
+                self.disable_mouse();
+                return false;
+            }
         }
         true
     }
@@ -262,6 +302,10 @@ pub(crate) enum WriterMessage {
         cols: u16,
     },
     SetTheme(Theme),
+    /// Enable mouse tracking for clickable HUD buttons
+    EnableMouse,
+    /// Disable mouse tracking
+    DisableMouse,
     Shutdown,
 }
 

@@ -8,6 +8,26 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 - Refresh the Claude backend screenshot.
 
+## [1.0.37] - 2026-02-03
+
+### UX
+- Add a minimal HUD back button and make overlay controls clickable (theme rows + close buttons), with more reliable mouse/tap handling.
+- Right panel brackets stay dim regardless of waveform color.
+- Keep last meter waveform/dB and recording duration between recordings to reduce flicker, and remove the duplicated waveform from the main row.
+- Remove the left-side sensitivity dB from the full HUD row to avoid redundant readings.
+- Add a Heartbeat right-panel mode that shows a subtle pulse.
+- Render "Ready" in the success color in full and minimal HUD modes.
+- Remove the redundant Chips right-panel mode.
+- Add HUD button navigation via Left/Right arrows (when Mouse is enabled) and clean up mouse click handling.
+- Add Tokyo Night and Gruvbox themes to the picker.
+- Mouse control is enabled by default (toggle it off in Settings).
+
+### Bug Fixes
+- Fix latency display to avoid bottoming out at 0ms when capture timing skews.
+
+### Documentation
+- Note that mouse control is enabled by default and update theme-picker click guidance.
+
 **Remaining audit items (future work):**
 
 ### Code Quality
@@ -67,7 +87,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Harden arrow-key parsing against index overflow when scanning input bytes.
 
 ### Documentation
-- Update README + usage theme counts to 9 and note that the theme picker screenshot needs refresh.
+- Update README + usage theme counts to 11 and note that the theme picker screenshot needs refresh.
 - Document offline mutation testing workflow and new mutants.py cache/target overrides.
 - Extend mutants.py summaries with top files/directories and results paths for faster triage.
 - Add mutants.py matplotlib hotspot plotting (top 25% by default) with a CLI flag.

@@ -64,6 +64,16 @@ pub const SHORTCUTS: &[Shortcut] = &[
     },
 ];
 
+pub const HELP_OVERLAY_FOOTER: &str = "[×] close · ^O settings";
+
+pub fn help_overlay_width_for_terminal(width: usize) -> usize {
+    width.clamp(30, 50)
+}
+
+pub fn help_overlay_inner_width_for_terminal(width: usize) -> usize {
+    help_overlay_width_for_terminal(width).saturating_sub(2)
+}
+
 /// Format the help overlay as a string.
 pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     let colors = theme.colors();
@@ -71,7 +81,7 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     let mut lines = Vec::new();
 
     // Calculate box width
-    let content_width = width.clamp(30, 50);
+    let content_width = help_overlay_width_for_terminal(width);
 
     // Top border
     lines.push(format_box_top(&colors, borders, content_width));
@@ -95,11 +105,11 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     // Separator
     lines.push(format_separator(&colors, borders, content_width));
 
-    // Footer
+    // Footer with clickable close button
     lines.push(format_title_line(
         &colors,
         borders,
-        "Ctrl+O settings  Esc close",
+        HELP_OVERLAY_FOOTER,
         content_width,
     ));
 
