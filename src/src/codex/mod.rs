@@ -14,7 +14,7 @@ mod tests;
 pub const CODEX_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 pub use backend::{
-    CodexBackendError, CodexEvent, CodexEventKind, CodexJob, CodexJobStats, CodexJobRunner,
+    CodexBackendError, CodexEvent, CodexEventKind, CodexJob, CodexJobRunner, CodexJobStats,
     CodexRequest, JobId, RequestMode, RequestPayload,
 };
 

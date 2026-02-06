@@ -1,5 +1,5 @@
-use crate::input::mouse::{parse_sgr_mouse, MouseEventKind};
 use crate::input::event::InputEvent;
+use crate::input::mouse::{parse_sgr_mouse, MouseEventKind};
 
 pub(crate) struct InputParser {
     pending: Vec<u8>,

@@ -6,9 +6,9 @@ use voxterm::pty_session::PtyOverlaySession;
 use crate::config::OverlayConfig;
 use crate::overlays::OverlayMode;
 use crate::status_line::StatusLineState;
+use crate::terminal::update_pty_winsize;
 use crate::theme::Theme;
 use crate::theme_picker::THEME_OPTIONS;
-use crate::terminal::update_pty_winsize;
 use crate::writer::{set_status, WriterMessage};
 
 pub(crate) fn cycle_theme(current: Theme, direction: i32) -> Theme {

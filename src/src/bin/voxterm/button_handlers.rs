@@ -6,7 +6,10 @@ use voxterm::VoiceCaptureTrigger;
 
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
-use crate::overlays::{show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode};
+use crate::log_debug;
+use crate::overlays::{
+    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
+};
 use crate::settings::SettingsMenuState;
 use crate::settings_handlers::SettingsActionContext;
 use crate::status_line::{get_button_positions, status_banner_height, StatusLineState};
@@ -15,7 +18,6 @@ use crate::theme::Theme;
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
-use crate::log_debug;
 
 pub(crate) struct ButtonActionContext<'a> {
     pub(crate) overlay_mode: &'a mut OverlayMode,

@@ -215,7 +215,11 @@ struct ButtonDef {
 
 /// Build buttons with their labels and actions based on current state.
 fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
-    let voice_label = if state.auto_voice_enabled { "auto" } else { "ptt" };
+    let voice_label = if state.auto_voice_enabled {
+        "auto"
+    } else {
+        "ptt"
+    };
     let send_label = match state.send_mode {
         VoiceSendMode::Auto => "send",
         VoiceSendMode::Insert => "edit",

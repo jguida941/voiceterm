@@ -1,5 +1,5 @@
-use anyhow::{Error, Result};
 use crate::lock_or_recover;
+use anyhow::{Error, Result};
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},

@@ -209,7 +209,11 @@ fn format_meter_section(state: &StatusLineState, colors: &ThemeColors) -> String
     } else {
         format!("{:>4}dB", "--")
     };
-    let db_color = if recording_active { colors.info } else { colors.dim };
+    let db_color = if recording_active {
+        colors.info
+    } else {
+        colors.dim
+    };
     format!(" {}{}{} ", db_color, db_text, colors.reset)
 }
 
@@ -372,7 +376,11 @@ fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> Stri
     let (glyph, is_peak) = heartbeat_glyph(animate);
 
     let mut content = String::with_capacity(16);
-    let color = if animate && is_peak { colors.info } else { colors.dim };
+    let color = if animate && is_peak {
+        colors.info
+    } else {
+        colors.dim
+    };
     content.push_str(color);
     content.push(glyph);
     content.push_str(colors.reset);

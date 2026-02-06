@@ -17,11 +17,14 @@ use crate::help::{
     HELP_OVERLAY_FOOTER,
 };
 use crate::input::InputEvent;
-use crate::overlays::{show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode};
+use crate::overlays::{
+    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
+};
+use crate::progress;
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
-    settings_overlay_height, settings_overlay_inner_width_for_terminal, settings_overlay_width_for_terminal,
-    SettingsItem, SETTINGS_OVERLAY_FOOTER,
+    settings_overlay_height, settings_overlay_inner_width_for_terminal,
+    settings_overlay_width_for_terminal, SettingsItem, SETTINGS_OVERLAY_FOOTER,
 };
 use crate::settings_handlers::SettingsActionContext;
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
@@ -32,13 +35,13 @@ use crate::theme_ops::{
     theme_picker_has_longer_match, theme_picker_parse_index,
 };
 use crate::theme_picker::{
-    theme_picker_height, theme_picker_inner_width_for_terminal, theme_picker_total_width_for_terminal,
-    THEME_OPTIONS, THEME_PICKER_FOOTER, THEME_PICKER_OPTION_START_ROW,
+    theme_picker_height, theme_picker_inner_width_for_terminal,
+    theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_FOOTER,
+    THEME_PICKER_OPTION_START_ROW,
 };
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::voice_control::{drain_voice_messages, reset_capture_visuals, start_voice_capture};
 use crate::writer::{set_status, WriterMessage};
-use crate::progress;
 
 const EVENT_LOOP_IDLE_MS: u64 = 50;
 const THEME_PICKER_NUMERIC_TIMEOUT_MS: u64 = 350;

@@ -1,12 +1,12 @@
 use super::protocol::*;
 use super::router::*;
 use super::session::*;
+use crate::audio;
 use crate::codex::{
-    build_test_backend_job, reset_session_count, reset_session_count_reset, CodexEvent,
-    CodexEventKind, CodexJobStats, CodexCliBackend, RequestMode, TestSignal,
+    build_test_backend_job, reset_session_count, reset_session_count_reset, CodexCliBackend,
+    CodexEvent, CodexEventKind, CodexJobStats, RequestMode, TestSignal,
 };
 use crate::config::AppConfig;
-use crate::audio;
 use crate::voice;
 use crate::{PipelineJsonResult, PipelineMetrics, VoiceJob, VoiceJobMessage};
 use clap::Parser;
@@ -1007,12 +1007,12 @@ fn start_claude_job_emits_stdout_and_stderr() {
     }
 
     let events = events_since(snapshot);
-    assert!(events.iter().any(|event| {
-        matches!(event, IpcEvent::Token { text } if text.contains("out-line"))
-    }));
-    assert!(events.iter().any(|event| {
-        matches!(event, IpcEvent::Token { text } if text.contains("err-line"))
-    }));
+    assert!(events
+        .iter()
+        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("out-line")) }));
+    assert!(events
+        .iter()
+        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("err-line")) }));
 
     let _ = fs::remove_file(script);
 }
@@ -1040,12 +1040,12 @@ fn start_claude_job_with_pty_emits_output() {
 
     assert!(finished, "PTY job did not finish");
     let events = events_since(snapshot);
-    assert!(events.iter().any(|event| {
-        matches!(event, IpcEvent::Token { text } if text.contains("out-line"))
-    }));
-    assert!(events.iter().any(|event| {
-        matches!(event, IpcEvent::Token { text } if text.contains("err-line"))
-    }));
+    assert!(events
+        .iter()
+        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("out-line")) }));
+    assert!(events
+        .iter()
+        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("err-line")) }));
 
     let _ = fs::remove_file(script);
 }

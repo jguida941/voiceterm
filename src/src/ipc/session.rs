@@ -1,5 +1,5 @@
-use crate::codex::{sanitize_pty_output, CodexCliBackend, CodexEvent, CodexEventKind, CodexJob};
 use crate::auth;
+use crate::codex::{sanitize_pty_output, CodexCliBackend, CodexEvent, CodexEventKind, CodexJob};
 use crate::config::AppConfig;
 use crate::pty_session::PtyCliSession;
 use crate::voice::{VoiceJob, VoiceJobMessage};
@@ -701,34 +701,32 @@ pub(super) fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> boo
                 });
                 false
             }
-            Err(TryRecvError::Empty) => {
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        log_debug(&format!(
-                            "Claude job: process exited with status {status:?}"
-                        ));
-                        send_event(&IpcEvent::JobEnd {
-                            provider: "claude".to_string(),
-                            success: status.success(),
-                            error: if status.success() {
-                                None
-                            } else {
-                                Some(format!("Exit code: {:?}", status.code()))
-                            },
-                        });
-                        true
-                    }
-                    Ok(None) => false,
-                    Err(e) => {
-                        send_event(&IpcEvent::JobEnd {
-                            provider: "claude".to_string(),
-                            success: false,
-                            error: Some(format!("Process error: {e}")),
-                        });
-                        true
-                    }
+            Err(TryRecvError::Empty) => match child.try_wait() {
+                Ok(Some(status)) => {
+                    log_debug(&format!(
+                        "Claude job: process exited with status {status:?}"
+                    ));
+                    send_event(&IpcEvent::JobEnd {
+                        provider: "claude".to_string(),
+                        success: status.success(),
+                        error: if status.success() {
+                            None
+                        } else {
+                            Some(format!("Exit code: {:?}", status.code()))
+                        },
+                    });
+                    true
                 }
-            }
+                Ok(None) => false,
+                Err(e) => {
+                    send_event(&IpcEvent::JobEnd {
+                        provider: "claude".to_string(),
+                        success: false,
+                        error: Some(format!("Process error: {e}")),
+                    });
+                    true
+                }
+            },
             Err(TryRecvError::Disconnected) => {
                 log_debug("Claude job: stdout disconnected");
                 match child.try_wait() {
@@ -836,10 +834,7 @@ pub(super) fn process_voice_events(job: &VoiceJob, cancelled: bool) -> bool {
                 } => {
                     let duration_ms = metrics.as_ref().map(|m| m.capture_ms).unwrap_or(0);
                     send_event(&IpcEvent::VoiceEnd { error: None });
-                    send_event(&IpcEvent::Transcript {
-                        text,
-                        duration_ms,
-                    });
+                    send_event(&IpcEvent::Transcript { text, duration_ms });
                     log_debug(&format!("Voice transcript via {}", source.label()));
                 }
                 VoiceJobMessage::Empty { source, metrics: _ } => {

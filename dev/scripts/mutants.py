@@ -57,8 +57,13 @@ MODULES = {
         "timeout": 90,
     },
     "app": {
-        "desc": "App state and logging",
-        "files": ["src/app/**"],
+        "desc": "Legacy TUI state and logging (compat alias)",
+        "files": ["src/legacy_tui/**", "src/legacy_ui.rs"],
+        "timeout": 90,
+    },
+    "legacy_tui": {
+        "desc": "Legacy TUI state and logging",
+        "files": ["src/legacy_tui/**", "src/legacy_ui.rs"],
         "timeout": 90,
     },
     "overlay": {

@@ -10,16 +10,16 @@
 //! - Writer thread: serializes output to avoid interleaving
 //! - Voice worker: background audio capture and STT
 
-mod audio_meter;
 mod arrow_keys;
+mod audio_meter;
 mod banner;
-mod buttons;
 mod button_handlers;
+mod buttons;
 mod cli_utils;
 mod color_mode;
 mod config;
-mod event_state;
 mod event_loop;
+mod event_state;
 mod help;
 mod hud;
 mod icons;
@@ -32,10 +32,10 @@ mod settings;
 mod settings_handlers;
 mod status_line;
 mod status_style;
-mod theme;
-mod theme_picker;
-mod theme_ops;
 mod terminal;
+mod theme;
+mod theme_ops;
+mod theme_picker;
 mod transcript;
 mod voice_control;
 mod writer;
@@ -52,12 +52,11 @@ use std::io::{self, Write};
 use std::time::{Duration, Instant};
 use voxterm::pty_session::PtyOverlaySession;
 use voxterm::{
-    auth::run_login_command,
-    doctor::base_doctor_report, init_logging, log_debug, log_file_path,
+    auth::run_login_command, doctor::base_doctor_report, init_logging, log_debug, log_file_path,
     terminal_restore::TerminalRestoreGuard, VoiceCaptureTrigger,
 };
 
-use crate::banner::{show_startup_splash, should_skip_banner, BannerConfig};
+use crate::banner::{should_skip_banner, show_startup_splash, BannerConfig};
 use crate::buttons::ButtonRegistry;
 use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stats};
 use crate::config::{HudStyle, OverlayConfig};
@@ -69,11 +68,9 @@ use crate::prompt::{resolve_prompt_log, resolve_prompt_regex, PromptLogger, Prom
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::SettingsMenuState;
 use crate::status_line::{Pipeline, StatusLineState, VoiceMode, METER_HISTORY_MAX};
-use crate::theme_ops::theme_index_from_theme;
 use crate::terminal::{apply_pty_winsize, install_sigwinch_handler};
-use crate::voice_control::{
-    reset_capture_visuals, start_voice_capture, VoiceManager,
-};
+use crate::theme_ops::theme_index_from_theme;
+use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{set_status, spawn_writer_thread, WriterMessage};
 
 /// Max pending messages for the output writer thread.

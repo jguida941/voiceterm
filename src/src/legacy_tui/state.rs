@@ -15,7 +15,7 @@ use std::{
 };
 
 use crate::codex::{
-    CodexBackendError, CodexEvent, CodexEventKind, CodexJob, CodexCliBackend, CodexJobRunner,
+    CodexBackendError, CodexCliBackend, CodexEvent, CodexEventKind, CodexJob, CodexJobRunner,
     CodexRequest, CODEX_SPINNER_FRAMES,
 };
 use crate::config::AppConfig;

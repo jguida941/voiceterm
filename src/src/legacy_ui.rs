@@ -43,7 +43,10 @@ pub fn run_legacy_ui(app: &mut CodexApp) -> Result<()> {
 }
 
 /// Core event/render loop for the test-friendly UI entrypoint.
-fn app_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut CodexApp) -> Result<()> {
+fn app_loop(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut CodexApp,
+) -> Result<()> {
     // Initial render to show UI immediately on startup
     terminal.draw(|frame| draw(frame, app))?;
 

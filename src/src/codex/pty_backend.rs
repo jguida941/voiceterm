@@ -1,6 +1,6 @@
 use super::backend::{
-    CodexBackendError, CodexEvent, CodexEventKind, CodexJob, CodexJobStats, BoundedEventQueue,
-    CancelToken, CodexJobRunner, CodexCallError, CodexRequest, EventSender, JobId, RequestMode,
+    BoundedEventQueue, CancelToken, CodexBackendError, CodexCallError, CodexEvent, CodexEventKind,
+    CodexJob, CodexJobRunner, CodexJobStats, CodexRequest, EventSender, JobId, RequestMode,
     RequestPayload, BACKEND_EVENT_CAPACITY,
 };
 use super::cli::call_codex_cli;
@@ -89,8 +89,7 @@ impl CodexCliBackend {
         if !self.config.persistent_codex {
             return None;
         }
-        let mut state =
-            lock_or_recover(&self.state, "CodexCliBackend::take_codex_session_for_job");
+        let mut state = lock_or_recover(&self.state, "CodexCliBackend::take_codex_session_for_job");
         if state.pty_disabled {
             return None;
         }
@@ -186,7 +185,11 @@ impl CodexJobRunner for CodexCliBackend {
             let outcome =
                 run_codex_job(context, session_for_job.take(), cancel_for_worker, &sender);
             CodexCliBackend::cleanup_job(cancel_registry, job_id);
-            CodexCliBackend::restore_static_state(state, outcome.codex_session, outcome.disable_pty);
+            CodexCliBackend::restore_static_state(
+                state,
+                outcome.codex_session,
+                outcome.disable_pty,
+            );
         });
 
         Ok(CodexJob::new(

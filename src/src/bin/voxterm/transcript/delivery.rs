@@ -352,5 +352,4 @@ mod tests {
         assert!(sent_newline);
         assert!(recv_output_contains(&session.output_rx, "hello"));
     }
-
 }

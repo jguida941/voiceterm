@@ -13,7 +13,7 @@ use std::sync::mpsc::TryRecvError;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use voxterm::audio;
-use voxterm::codex::{CodexEventKind, CodexCliBackend, CodexJobRunner, CodexRequest};
+use voxterm::codex::{CodexCliBackend, CodexEventKind, CodexJobRunner, CodexRequest};
 use voxterm::config::AppConfig;
 use voxterm::stt;
 use voxterm::voice::{self, VoiceJobMessage};

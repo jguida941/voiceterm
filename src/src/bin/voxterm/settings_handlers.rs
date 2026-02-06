@@ -7,6 +7,7 @@ use voxterm::VoiceCaptureTrigger;
 use crate::button_handlers::update_button_registry;
 use crate::buttons::ButtonRegistry;
 use crate::config::{HudRightPanel, HudStyle, OverlayConfig, VoiceSendMode};
+use crate::log_debug;
 use crate::overlays::OverlayMode;
 use crate::status_line::{RecordingState, StatusLineState, VoiceMode};
 use crate::terminal::update_pty_winsize;
@@ -14,7 +15,6 @@ use crate::theme::Theme;
 use crate::theme_ops::{apply_theme_selection, cycle_theme};
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{set_status, WriterMessage};
-use crate::log_debug;
 
 pub(crate) struct SettingsActionContext<'a> {
     pub(crate) config: &'a mut OverlayConfig,
@@ -215,7 +215,8 @@ impl<'a> SettingsActionContext<'a> {
 
     pub(crate) fn toggle_hud_panel_recording_only(&mut self) {
         self.config.hud_right_panel_recording_only = !self.config.hud_right_panel_recording_only;
-        self.status_state.hud_right_panel_recording_only = self.config.hud_right_panel_recording_only;
+        self.status_state.hud_right_panel_recording_only =
+            self.config.hud_right_panel_recording_only;
         let label = if self.config.hud_right_panel_recording_only {
             "HUD right panel: recording-only"
         } else {

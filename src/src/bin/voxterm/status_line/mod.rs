@@ -18,4 +18,6 @@ pub use format::format_status_banner;
 pub use layout::status_banner_height;
 #[allow(unused_imports)]
 pub use state::ButtonPosition;
-pub use state::{METER_HISTORY_MAX, Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode};
+pub use state::{
+    Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode, METER_HISTORY_MAX,
+};

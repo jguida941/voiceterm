@@ -1,5 +1,5 @@
 use super::backend::{
-    CodexEvent, CodexEventKind, CodexJob, BoundedEventQueue, CancelToken, CodexCallError,
+    BoundedEventQueue, CancelToken, CodexCallError, CodexEvent, CodexEventKind, CodexJob,
     EventSender,
 };
 use super::cli::{
@@ -12,7 +12,9 @@ use super::pty_backend::{
     pop_last_codepoint, should_accept_printable, should_break_overall, should_fail_control_only,
     skip_osc_sequence, step_guard, CodexCliBackendState, CodexSession,
 };
-use super::{prepare_for_display, sanitize_pty_output, CodexCliBackend, CodexJobRunner, CodexRequest};
+use super::{
+    prepare_for_display, sanitize_pty_output, CodexCliBackend, CodexJobRunner, CodexRequest,
+};
 use clap::Parser;
 use std::{
     path::Path,
