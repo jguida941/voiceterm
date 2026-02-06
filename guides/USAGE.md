@@ -21,8 +21,8 @@ or Claude Code.
 **Already installed?** Here's how to start talking to the CLI:
 
 1. **Launch**: Run `voxterm` in your project folder
-2. **Speak**: Press `Ctrl+R`, say your request, then pause. It sends automatically.
-3. **Done**: Your words appear as text and the CLI responds
+2. **Speak**: Press `Ctrl+R`, say your request, then pause. VoxTerm types your words into the CLI; in auto-send mode it also presses Enter.
+3. **Done**: Your words appear as text. If auto-send is on and the CLI accepts Enter, it responds; otherwise press `Enter` to submit.
 
 That's it! Read on for more control over how voice input works.
 
@@ -41,7 +41,10 @@ If you have not logged in yet:
 When you speak, VoxTerm:
 1. Records your voice until you stop talking (silence detection)
 2. Transcribes it to text using Whisper (runs locally, nothing sent to the cloud)
-3. Types that text into the active CLI (Codex by default) and optionally presses Enter for you
+3. Types that text into the active CLI terminal (Codex by default). In auto-send mode it also presses Enter (newline).
+
+**Important**: VoxTerm only writes to the terminal (PTY). It does not call Codex/Claude APIs directly.
+"Send" in this guide means "type into the terminal and, in auto-send mode, append Enter."
 
 ![Recording Mode](https://raw.githubusercontent.com/jguida941/voxterm/master/img/recording.png)
 
@@ -64,7 +67,7 @@ All shortcuts in one place:
 | `Ctrl+]` | **Threshold up** - Make mic less sensitive (+5 dB) |
 | `Ctrl+\` | **Threshold down** - Make mic more sensitive (-5 dB) |
 | `?` | **Help** - Show shortcut help overlay |
-| `Enter` | **Send/Stop** - In insert mode: stop recording early, or send typed text |
+| `Enter` | **Send/Stop** - In insert mode: stop recording early, or press `Enter` to submit typed text |
 | `Ctrl+C` | Forward interrupt to CLI |
 | `Ctrl+Q` | **Quit** - Exit the overlay |
 
@@ -103,22 +106,20 @@ send mode. If auto-voice is off, press `Ctrl+R` to start recording.
 
 | Auto-voice (`Ctrl+V`) | Send mode (`Ctrl+T`) | How you start | After you stop talking | Best for |
 |-----------------------|----------------------|---------------|------------------------|----------|
-| Off | Auto | Press `Ctrl+R` | Transcribes and sends immediately | Quick commands, precise timing |
-| Off | Insert | Press `Ctrl+R` | Transcribes, waits - press `Enter` to send | Edit before sending |
-| On | Auto | Just speak | Transcribes and sends immediately | Fully hands-free |
-| On | Insert | Just speak | Transcribes, waits for `Enter` | Hands-free + review |
+| Off | Auto | Press `Ctrl+R` | Transcribes, types into terminal, and presses Enter | Quick commands, precise timing |
+| Off | Insert | Press `Ctrl+R` | Transcribes and types into terminal; press `Enter` to submit | Edit before submitting |
+| On | Auto | Just speak | Transcribes, types into terminal, and presses Enter | Hands-free if the CLI uses Enter |
+| On | Insert | Just speak | Transcribes and types into terminal; press `Enter` to submit | Hands-free + review |
 
 **Notes**
-- **Insert mode Enter**: press `Enter` while recording to stop early. Press
-  `Enter` again to send.
-- **Auto-voice status**: "Auto-voice enabled" means it is waiting to listen; the
-  mic is not recording yet.
+- **Auto-voice**: ON keeps listening after each transcript. OFF means you press `Ctrl+R` each time.
+- **Insert mode**: transcript is typed into the terminal; you press `Enter` when you want to submit (immediately or after edits).
+- **Auto send**: VoxTerm submits for you (presses `Enter`). It never calls Codex/Claude directly.
+- **Enter while recording (insert mode)**: stops the recording early so it transcribes sooner. Press `Enter` again to submit.
 - **Prompt detection fallback**: if auto-voice does not start after the CLI
   finishes, it falls back to an idle timer. Set `--prompt-regex` if your prompt
   is unusual (especially with Claude).
-- **When the CLI is busy**: transcripts queue and send when the next prompt
-  appears (status shows the queued count). If a prompt is not detected, the
-  queue auto-sends after output has been idle for the transcript idle timeout.
+- **When the CLI is busy**: VoxTerm waits, then types the transcript when the prompt returns.
 - **Python fallback**: if the Python pipeline is active, pressing `Enter` while
   recording cancels the capture instead of stopping early.
 
@@ -132,7 +133,7 @@ continuously:
 2. Start speaking. After 30 seconds, the chunk is transcribed and appears on screen.
 3. Auto-voice immediately starts a new recording. Keep talking.
 4. Repeat as long as you want. Each chunk gets added to your message.
-5. Press `Enter` when done to send everything.
+5. Press `Enter` when done to submit everything to the CLI.
 
 ---
 
@@ -146,7 +147,8 @@ If the mic picks up too much background noise or misses your voice:
 - `Ctrl+\` - More sensitive (lower threshold, pick up quieter sounds)
 
 The status line shows the current threshold (e.g., "Mic sensitivity: -35 dB").
-Range: -80 dB (very sensitive) to -10 dB (less sensitive). Default: -55 dB.
+Hotkey range: -80 dB (very sensitive) to -10 dB (less sensitive). Default: -55 dB.
+The CLI flag accepts a wider range (-120 dB to 0 dB).
 
 **Tip**: Run `voxterm --mic-meter` to measure your environment and get a suggested threshold.
 
@@ -193,7 +195,7 @@ When recording or processing, the mode label includes a pipeline tag
 | `Auto-voice enabled` | Listening will start when the CLI is ready |
 | `Listening Manual Mode (Rust)` | Recording now (you pressed Ctrl+R) |
 | `Processing …` | Transcribing your speech (spinner updates) |
-| `Transcript ready (Rust)` | Text sent to the CLI |
+| `Transcript ready (Rust)` | Text injected into the terminal (Enter added in auto-send) |
 | `No speech detected` | Recording finished but no voice was heard |
 | `Transcript queued (2)` | 2 transcripts waiting for the CLI to be ready |
 | `Mic sensitivity: -35 dB` | Threshold changed |
@@ -276,10 +278,10 @@ Common startup configurations:
 # Use Claude Code
 voxterm --claude
 
-# Fully hands-free (auto-voice + auto-send)
+# Hands-free capture + auto-submit (sends Enter to terminal)
 voxterm --auto-voice
 
-# Hands-free with review before sending
+# Hands-free with review before submitting
 voxterm --auto-voice --voice-send-mode insert
 
 # Specific microphone

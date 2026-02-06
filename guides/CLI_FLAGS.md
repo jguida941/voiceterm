@@ -41,8 +41,8 @@ voxterm --logs                    # Enable debug logging
 |------|---------|---------|
 | `--auto-voice` | Start in auto-voice mode (hands-free) | off |
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
-| `--transcript-idle-ms <MS>` | Idle time before queued transcripts auto-send | 250 |
-| `--voice-send-mode <auto\|insert>` | `auto` sends immediately, `insert` waits for Enter | auto |
+| `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
+| `--voice-send-mode <auto\|insert>` | `auto` appends Enter to terminal input, `insert` types only (press Enter to submit) | auto |
 
 ---
 
@@ -52,12 +52,15 @@ voxterm --logs                    # Enable debug logging
 |------|---------|---------|
 | `--codex` | Use Codex CLI (shorthand) | - |
 | `--claude` | Use Claude Code (shorthand) | - |
-| `--backend <NAME>` | Backend preset: `codex` or `claude` | codex |
+| `--gemini` | Use Gemini CLI (experimental; not yet supported) | - |
+| `--backend <NAME\|CMD>` | Backend preset: `codex`, `claude`, `gemini` (experimental), or a custom command string | codex |
 | `--login` | Run backend login before starting the overlay | off |
 | `--prompt-regex <REGEX>` | Override prompt detection pattern | auto-learned |
 | `--prompt-log <PATH>` | Log detected prompts to file (debugging) | disabled |
 | `--codex-cmd <PATH>` | Path to Codex binary | codex |
+| `--claude-cmd <PATH>` | Path to Claude binary (IPC + overlay) | claude |
 | `--codex-arg <ARG>` | Extra args passed to Codex (repeatable) | - |
+| `--persistent-codex` | Keep a persistent Codex PTY session (advanced) | off |
 
 **Examples:**
 ```bash
@@ -66,6 +69,10 @@ voxterm --claude              # Use Claude Code
 voxterm --login --codex       # Login to Codex CLI
 voxterm --login --claude      # Login to Claude CLI
 ```
+
+**Notes:**
+- `--backend` accepts a custom command string.
+- Experimental presets may exist (for example `aider`, `opencode`), but only Codex and Claude are fully supported.
 
 ---
 
@@ -79,6 +86,8 @@ voxterm --login --claude      # Login to Claude CLI
 | `--mic-meter-ambient-ms <MS>` | Ambient sample duration for calibration | 3000 |
 | `--mic-meter-speech-ms <MS>` | Speech sample duration for calibration | 3000 |
 | `--doctor` | Print environment diagnostics and exit | - |
+| `--ffmpeg-cmd <PATH>` | FFmpeg binary path (python fallback) | ffmpeg |
+| `--ffmpeg-device <NAME>` | FFmpeg audio device override (python fallback) | - |
 
 ---
 
@@ -89,10 +98,13 @@ voxterm --login --claude      # Login to Claude CLI
 | `--whisper-model <NAME>` | Model size: `tiny`, `base`, `small`, `medium`, `large` | small |
 | `--whisper-model-path <PATH>` | Path to GGML model file | auto-detected |
 | `--lang <LANG>` | Language code (`en`, `es`, `auto`, etc.) | en |
+| `--whisper-cmd <PATH>` | Whisper CLI path (python fallback) | whisper |
 | `--whisper-beam-size <N>` | Beam search size (0 = greedy) | 0 |
 | `--whisper-temperature <T>` | Sampling temperature | 0.0 |
 | `--no-python-fallback` | Fail instead of falling back to Python Whisper | off |
 | `--voice-stt-timeout-ms <MS>` | Timeout before triggering fallback | 60000 |
+| `--python-cmd <PATH>` | Python interpreter for fallback scripts | python3 |
+| `--pipeline-script <PATH>` | Python fallback pipeline script (bundled in the install by default) | built-in |
 
 ---
 
@@ -100,7 +112,7 @@ voxterm --login --claude      # Login to Claude CLI
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--voice-vad-threshold-db <DB>` | Mic sensitivity (-80 = very sensitive, -10 = less) | -55 |
+| `--voice-vad-threshold-db <DB>` | Mic sensitivity (-120 = very sensitive, 0 = less; hotkeys clamp -80..-10) | -55 |
 | `--voice-max-capture-ms <MS>` | Max recording duration (max 60000) | 30000 |
 | `--voice-silence-tail-ms <MS>` | Silence duration to stop recording | 1000 |
 | `--voice-min-speech-ms-before-stt <MS>` | Minimum speech before STT starts | 300 |
@@ -158,6 +170,15 @@ appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 
 ---
 
+## IPC / Integration
+
+| Flag | Purpose | Default |
+|------|---------|---------|
+| `--json-ipc` | Run in JSON IPC mode (external UI integration) | off |
+| `--claude-skip-permissions` | Skip Claude permission prompts (IPC only) | off |
+
+---
+
 ## Sounds
 
 | Flag | Purpose | Default |
@@ -182,6 +203,8 @@ appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 | `VOXTERM_NO_LOGS` | Disable logging | unset |
 | `VOXTERM_LOG_CONTENT` | Allow content in logs | unset |
 | `VOXTERM_TRACE_LOG` | Structured trace log path | unset |
+| `CLAUDE_CMD` | Override Claude CLI path | unset |
+| `VOXTERM_PROVIDER` | IPC default provider (`codex` or `claude`) | unset |
 | `NO_COLOR` | Disable colors (standard) | unset |
 
 ---

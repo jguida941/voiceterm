@@ -22,7 +22,7 @@ voxterm/
 ├── app/
 │   ├── macos/VoxTerm.app # macOS double-click launcher
 │   └── windows/          # Windows launcher (planned)
-├── agents.md             # SDLC policy and release checklist (local)
+├── agents.md             # SDLC policy and release checklist
 ├── QUICK_START.md        # Fast setup and commands
 ├── guides/
 │   ├── CLI_FLAGS.md        # Full CLI and env reference
@@ -277,13 +277,11 @@ See `scripts/README.md` for full script documentation.
 
 ## Local development tips
 
-**AI review notes** (e.g., `claude_review.md`) are local-only, gitignored, and kept in the repo root for session notes.
-
 **Test with different backends:**
 ```bash
 voxterm              # Codex (default)
 voxterm --claude     # Claude Code
-voxterm --gemini     # Gemini CLI (in works; not yet supported)
+voxterm --gemini     # Gemini CLI (experimental; not fully validated)
 ```
 
 **Debug logging:**

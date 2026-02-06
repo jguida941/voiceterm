@@ -43,6 +43,7 @@ voxterm --login --claude
 - Disk space for models: `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB
 - Rust toolchain (stable) only if you build from source: https://rustup.rs
 - Optional (Python fallback): `python3`, `ffmpeg`, and the `whisper` CLI on PATH
+  (disable with `--no-python-fallback`)
 
 ## Option A: Homebrew (recommended)
 

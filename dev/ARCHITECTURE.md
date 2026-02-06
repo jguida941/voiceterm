@@ -41,12 +41,12 @@ overlay without touching the native UI.
 |---------|------|--------|-------|
 | Codex | `voxterm` (default) | Tested | Full support |
 | Claude Code | `voxterm --claude` | Tested | Full support |
-| Gemini CLI | `voxterm --gemini` | In works (not yet supported) | UI conflict - different spawn model |
+| Gemini CLI | `voxterm --gemini` | Experimental | Not fully validated; prompt patterns may need tuning |
 
 **Primary supported backends:** Codex and Claude Code.
 
-Backend selection is handled by `src/src/backend/` which provides preset configurations for Codex and Claude
-(Gemini is tracked but not yet supported).
+Backend selection is handled by `src/src/backend/` which provides preset configurations for Codex and Claude.
+Additional presets (Gemini, Aider, OpenCode) exist but are experimental and not part of the primary support matrix.
 
 ## Naming Conventions
 

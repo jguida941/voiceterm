@@ -16,7 +16,7 @@ All transcription happens on your machine - no audio is sent to the cloud.
 1. **You speak** → VoxTerm captures audio from your microphone
 2. **Voice Activity Detection (VAD)** → Detects when you start/stop speaking
 3. **Whisper transcribes** → Converts speech to text locally using whisper.cpp
-4. **Text sent to CLI** → Transcript is typed into your AI CLI
+4. **Text typed into CLI** → Transcript is injected into your AI CLI terminal
 
 The entire pipeline runs locally with ~250ms latency on modern hardware.
 
@@ -37,6 +37,10 @@ The entire pipeline runs locally with ~250ms latency on modern hardware.
 - **Use `medium` or `large`** for non-English languages or accented speech
 - **Use `tiny`** only for testing or very low-end hardware
 
+**Note:** The CLI flag `--whisper-model` defaults to `small`, but the installer and
+`scripts/start.sh` download `base` by default unless you choose another size. VoxTerm
+auto-detects whichever model file is present.
+
 ### Switching Models
 
 Download a different model:
@@ -55,7 +59,7 @@ voxterm --whisper-model-path /path/to/ggml-medium.en.bin
 
 ## Language Support
 
-Whisper supports 99 languages. VoxTerm defaults to English but works with any supported language.
+Whisper supports many languages. VoxTerm defaults to English but works with any supported language.
 
 ### Setting Your Language
 

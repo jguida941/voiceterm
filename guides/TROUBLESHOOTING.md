@@ -59,20 +59,18 @@ Transcription is taking too long.
 ### Transcript queued (N)
 
 The CLI is still streaming output, so VoxTerm queued your transcript.
-It will send when the next prompt appears (or after output is idle for the
-transcript timeout).
+It will inject into the terminal when the next prompt appears (or after output
+is idle for the transcript timeout). In auto-send mode VoxTerm also presses Enter.
 
 **Fixes:**
 1. Wait for the CLI to finish and return to a prompt
-2. If you need to send immediately, stop the current response (usually `Ctrl+C`) and try again
+2. If you need to submit immediately, stop the current response (usually `Ctrl+C`) and try again
 
 ### Transcript queue full (oldest dropped)
 
-You spoke 5+ times while Codex was busy. Oldest transcript was discarded.
+You spoke 5+ times while Codex was busy. The oldest transcript was discarded.
 
-**Fix:** Wait for Codex to finish before speaking again.
-Queue flushing is unreliable and tracked in the
-[master plan](../dev/active/MASTER_PLAN.md).
+**Fix:** Wait for Codex to finish before speaking again. The queue holds up to 5 transcripts.
 
 ### Voice capture already running
 
@@ -159,7 +157,8 @@ voxterm --mic-meter
 
 It samples ambient noise and your speech, then suggests a threshold.
 
-**Range:** -80 dB (very sensitive) to -10 dB (less sensitive). Default: -55 dB.
+**Hotkey range:** -80 dB (very sensitive) to -10 dB (less sensitive). Default: -55 dB.
+The CLI flag accepts a wider range (-120 dB to 0 dB).
 
 ---
 
@@ -339,7 +338,7 @@ voxterm --no-logs
 
 ### What languages does Whisper support?
 
-Whisper supports 99 languages. VoxTerm has been tested with English (`en`).
+Whisper supports many languages. VoxTerm has been tested with English (`en`).
 
 Other languages should work but are untested. Use `--lang auto` for automatic
 detection, or specify a language code: `voxterm --lang es`

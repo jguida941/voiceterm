@@ -84,7 +84,7 @@ All CLI output passes through unchanged.
 | **~250ms latency** | Fast transcription through whisper.cpp |
 | **PTY passthrough** | CLI UI stays unchanged |
 | **Auto-voice** | Hands-free mode - no typing needed |
-| **Transcript queue** | Speak while CLI is busy, sends when ready |
+| **Transcript queue** | Speak while CLI is busy, types when ready |
 | **Backends** | Codex + Claude supported |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 
@@ -144,7 +144,7 @@ See the [Usage Guide](guides/USAGE.md) for details.
 | `Ctrl+]` | Mic sensitivity up |
 | `Ctrl+\` | Mic sensitivity down |
 | `?` | Show help |
-| `Enter` | Stop recording / send prompt |
+| `Enter` | Stop recording / submit prompt (sends Enter) |
 | `Ctrl+Q` | Quit |
 | `Ctrl+C` | Send interrupt to CLI |
 
