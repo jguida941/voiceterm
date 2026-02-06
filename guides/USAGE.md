@@ -3,7 +3,7 @@
 This guide explains how to use VoxTerm for hands-free coding with the Codex CLI
 or Claude Code.
 
-![Overlay Running](https://raw.githubusercontent.com/jguida941/voxterm/master/img/hero.png)
+![VoxTerm](../img/logo.svg)
 
 ## Contents
 

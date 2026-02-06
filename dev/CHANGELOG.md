@@ -8,6 +8,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 - Document `VOXTERM_NO_STARTUP_BANNER` in install and troubleshooting guides.
 - Audit and refresh docs: clarify terminal injection vs backend submission, expand CLI flag coverage, and update troubleshooting/Whisper wording.
+- Replace the Usage guide hero image with the logo and remove the stale hero asset.
 
 ### CI
 - Update perf/memory guard test selectors to `legacy_tui::tests` after the legacy rename.
