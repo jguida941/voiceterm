@@ -21,7 +21,7 @@ or Claude Code.
 **Already installed?** Here's how to start talking to the CLI:
 
 1. **Launch**: Run `voxterm` in your project folder
-2. **Speak**: Press `Ctrl+R`, say your request, then pause. VoxTerm types your words into the CLI. Auto-send submits immediately; insert waits for you to press `Enter`.
+2. **Speak**: Press `Ctrl+R`, say your request, then pause. VoxTerm types your words into the CLI. Auto-send submits immediately; insert lets you press `Enter` to submit when you’re ready.
 3. **Done**: Your words appear as text and the CLI responds. In insert mode, press `Enter` to submit.
 
 That's it! Read on for more control over how voice input works.
@@ -41,10 +41,10 @@ If you have not logged in yet:
 When you speak, VoxTerm:
 1. Records your voice until you stop talking (silence detection)
 2. Transcribes it to text using Whisper (runs locally, nothing sent to the cloud)
-3. Types that text into the active CLI terminal (Codex by default). Auto-send submits immediately; insert waits for you.
+3. Types that text into the active CLI terminal (Codex by default). Auto-send submits immediately; insert lets you press `Enter` to submit.
 
 **Important**: VoxTerm only writes to the terminal (PTY). It does not call Codex/Claude APIs directly.
-"Submit" in this guide means "type into the terminal; insert waits for your Enter."
+"Submit" in this guide means "type into the terminal; insert lets you press Enter to submit sooner."
 
 ![Recording Mode](https://raw.githubusercontent.com/jguida941/voxterm/master/img/recording.png)
 
@@ -113,10 +113,10 @@ send mode. If auto-voice is off, press `Ctrl+R` to start recording.
 
 **Notes**
 - **Auto-voice**: ON keeps listening after each transcript. OFF means you press `Ctrl+R` each time.
-- **Insert mode**: transcript is typed into the terminal; you press `Enter` when you want to submit (immediately or after edits).
+- **Insert mode**: transcript is typed into the terminal; press `Enter` to submit right away (or after edits).
 - **Auto send**: submits immediately after transcription.
 - **Enter while recording (insert mode)**: stops the recording early so it transcribes sooner. Press `Enter` again to submit.
-- **Terminal only**: VoxTerm only types into the terminal; it does not call Codex/Claude directly.
+- **Terminal only**: VoxTerm only types into the terminal.
 - **Prompt detection fallback**: if auto-voice does not start after the CLI
   finishes, it falls back to an idle timer. Set `--prompt-regex` if your prompt
   is unusual (especially with Claude).
