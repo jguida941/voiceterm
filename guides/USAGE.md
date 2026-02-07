@@ -1,8 +1,9 @@
 # Usage Guide
 
 This guide explains how to use VoxTerm for hands-free coding with the Codex CLI
-or Claude Code. Experimental presets exist for Gemini, Aider, and OpenCode, but
-Gemini is currently nonfunctional and Aider/OpenCode are untested.
+or Claude Code.   
+Experimental presets exist for Gemini, Aider, and OpenCode, but
+Gemini is currently nonfunctional and Aider/OpenCode are untested.   
 
 ![VoxTerm](../img/logo.svg)
 
