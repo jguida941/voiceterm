@@ -114,8 +114,8 @@ Left/Right selects a HUD button and Enter activates it.
 
 Two toggles control voice behavior:
 
-- **Auto-voice** (`Ctrl+V`) — should VoxTerm listen automatically, or wait for you to press `Ctrl+R`?
-- **Send mode** (`Ctrl+T`) — after typing your words, should VoxTerm press Enter for you (auto) or let you do it (insert)?
+- **Auto-voice** (`Ctrl+V`) — when ON, VoxTerm listens automatically. When OFF, you press `Ctrl+R` each time.
+- **Send mode** (`Ctrl+T`) — **auto** types your words and presses Enter. **Insert** types your words but lets you press Enter yourself.
 
 ### All four combinations
 
