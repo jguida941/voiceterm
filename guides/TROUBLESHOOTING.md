@@ -30,7 +30,7 @@ The mic recorded but no voice was heard above the threshold.
 
 ### Voice capture failed (see log)
 
-You may also see "Voice capture error (see log)" — use the same fixes below.
+You may also see "Voice capture error (see log)" - use the same fixes below.
 
 The mic couldn't start recording.
 

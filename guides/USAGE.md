@@ -46,17 +46,17 @@ Experimental presets (untested):
 ## How Voice Input Works
 
 VoxTerm turns your voice into keystrokes. It does **not** talk to any AI
-directly — it just types into the terminal, exactly like you would.
+directly - it just types into the terminal, exactly like you would.
 
-1. **Record** — you speak, VoxTerm listens until you stop
-2. **Transcribe** — Whisper converts speech to text locally (nothing leaves your machine)
-3. **Type** — the text is typed into the terminal automatically
+1. **Record** - you speak, VoxTerm listens until you stop
+2. **Transcribe** - Whisper converts speech to text locally (nothing leaves your machine)
+3. **Type** - the text is typed into the terminal automatically
 
 That's it. The only difference between the two send modes is what happens
 after the text is typed:
 
-- **Auto** — VoxTerm also presses Enter, so the CLI processes it right away
-- **Insert** — the text appears on the command line and you press `Enter`
+- **Auto** - VoxTerm also presses Enter, so the CLI processes it right away
+- **Insert** - the text appears on the command line and you press `Enter`
   yourself (handy if you want to review or edit first)
 
 ![Recording Mode](https://raw.githubusercontent.com/jguida941/voxterm/master/img/recording.png)
@@ -114,8 +114,8 @@ Left/Right selects a HUD button and Enter activates it.
 
 Two toggles control voice behavior:
 
-- **Auto-voice** (`Ctrl+V`) — when ON, VoxTerm listens automatically. When OFF, you press `Ctrl+R` each time.
-- **Send mode** (`Ctrl+T`) — **auto** types your words and presses Enter. **Insert** types your words but lets you press Enter yourself.
+- **Auto-voice** (`Ctrl+V`) - when ON, VoxTerm listens automatically. When OFF, you press `Ctrl+R` each time.
+- **Send mode** (`Ctrl+T`) - **auto** types your words and presses Enter. **Insert** types your words but lets you press Enter yourself.
 
 ### All four combinations
 
@@ -130,7 +130,7 @@ Two toggles control voice behavior:
 
 - **Enter during recording** (insert mode): stops recording early so it
   transcribes faster. Press `Enter` again to send.
-- **Auto-voice ON** keeps listening after each transcript — you never need
+- **Auto-voice ON** keeps listening after each transcript - you never need
   to press `Ctrl+R`.
 - **When the CLI is busy**: VoxTerm waits, then types when the prompt returns.
 - **Prompt detection**: if auto-voice doesn't re-trigger after the CLI
@@ -141,7 +141,7 @@ Two toggles control voice behavior:
 
 Each recording chunk is 30 seconds by default (max 60s via
 `--voice-max-capture-ms`). With auto-voice + insert mode you can speak
-continuously — each chunk is transcribed and typed, and auto-voice
+continuously - each chunk is transcribed and typed, and auto-voice
 immediately starts a new recording. Press `Enter` when you're done to send
 everything.
 
