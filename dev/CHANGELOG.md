@@ -9,6 +9,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Document `VOXTERM_NO_STARTUP_BANNER` in install and troubleshooting guides.
 - Audit and refresh docs: clarify terminal injection vs backend submission, expand CLI flag coverage, and update troubleshooting/Whisper wording.
 - Replace the Usage guide hero image with the logo and remove the stale hero asset.
+- Address doc audit gaps: sensitivity labels, backend list, missing flags, archive links, model sizing notes, and Whisper search path notes.
+- Add a version badge and Support section to the README.
+- Add GitHub community files (code of conduct, issue templates, PR template).
+- Add the HUD style shortcut (`Ctrl+U`) to Quick Start controls.
 
 ### CI
 - Update perf/memory guard test selectors to `legacy_tui::tests` after the legacy rename.

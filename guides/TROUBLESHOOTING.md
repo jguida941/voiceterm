@@ -30,6 +30,8 @@ The mic recorded but no voice was heard above the threshold.
 
 ### Voice capture failed (see log)
 
+You may also see "Voice capture error (see log)" — use the same fixes below.
+
 The mic couldn't start recording.
 
 **Fixes:**
@@ -347,10 +349,15 @@ Full list: [Whisper supported languages](https://github.com/openai/whisper#avail
 
 ### Which AI CLI backends work?
 
+Only Codex and Claude Code are tested. Other presets exist but are experimental.
+
 | Backend | Install | Run | Status |
 |---------|---------|-----|--------|
 | Codex | `npm install -g @openai/codex` | `voxterm` | Tested |
 | Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `voxterm --claude` | Tested |
+| Gemini CLI | See vendor docs | `voxterm --gemini` | Experimental (currently not working) |
+| Aider | See vendor docs | `voxterm --backend aider` | Experimental (untested) |
+| OpenCode | See vendor docs | `voxterm --backend opencode` | Experimental (untested) |
 
 ### Which Whisper model should I use?
 

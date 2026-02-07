@@ -44,11 +44,15 @@ pub const SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+]",
-        description: "Increase mic sensitivity",
+        description: "Less sensitive (+5 dB)",
     },
     Shortcut {
         key: "Ctrl+\\",
-        description: "Decrease mic sensitivity",
+        description: "More sensitive (-5 dB)",
+    },
+    Shortcut {
+        key: "Ctrl+/",
+        description: "More sensitive (-5 dB)",
     },
     Shortcut {
         key: "Ctrl+Q",

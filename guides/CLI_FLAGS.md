@@ -43,6 +43,7 @@ voxterm --logs                    # Enable debug logging
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
 | `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
 | `--voice-send-mode <auto\|insert>` | `auto` submits immediately, `insert` lets you press Enter to submit | auto |
+| `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
 ---
 
@@ -52,8 +53,8 @@ voxterm --logs                    # Enable debug logging
 |------|---------|---------|
 | `--codex` | Use Codex CLI (shorthand) | - |
 | `--claude` | Use Claude Code (shorthand) | - |
-| `--gemini` | Use Gemini CLI (experimental; not yet supported) | - |
-| `--backend <NAME\|CMD>` | Backend preset: `codex`, `claude`, `gemini` (experimental), or a custom command string | codex |
+| `--gemini` | Use Gemini CLI (experimental; currently not working) | - |
+| `--backend <NAME\|CMD>` | Backend preset: `codex`, `claude`, `gemini` (not working), `aider` (untested), `opencode` (untested), or a custom command string | codex |
 | `--login` | Run backend login before starting the overlay | off |
 | `--prompt-regex <REGEX>` | Override prompt detection pattern | auto-learned |
 | `--prompt-log <PATH>` | Log detected prompts to file (debugging) | disabled |
@@ -72,7 +73,7 @@ voxterm --login --claude      # Login to Claude CLI
 
 **Notes:**
 - `--backend` accepts a custom command string.
-- Experimental presets may exist (for example `aider`, `opencode`), but only Codex and Claude are fully supported.
+- Gemini is currently nonfunctional; Aider/OpenCode presets exist but are untested. Only Codex and Claude are fully supported.
 
 ---
 
@@ -121,7 +122,7 @@ voxterm --login --claude      # Login to Claude CLI
 | `--voice-sample-rate <HZ>` | Audio sample rate | 16000 |
 | `--voice-vad-frame-ms <MS>` | VAD frame size | 20 |
 | `--voice-vad-smoothing-frames <N>` | VAD smoothing window | 3 |
-| `--voice-vad-engine <earshot\|simple>` | VAD implementation | earshot |
+| `--voice-vad-engine <earshot\|simple>` | VAD implementation | earshot (when built with `vad_earshot`), otherwise `simple` |
 | `--voice-channel-capacity <N>` | Internal frame channel capacity | 100 |
 
 ---
@@ -194,7 +195,7 @@ appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VOXTERM_CWD` | Run CLI in this directory | current directory |
-| `VOXTERM_MODEL_DIR` | Whisper model storage path | `whisper_models/` or `~/.local/share/voxterm/models` |
+| `VOXTERM_MODEL_DIR` | Whisper model storage path (used by install/start scripts) | `whisper_models/` or `~/.local/share/voxterm/models` |
 | `VOXTERM_INSTALL_DIR` | Override install location | unset |
 | `VOXTERM_NO_STARTUP_BANNER` | Skip the startup splash screen | unset |
 | `VOXTERM_PROMPT_REGEX` | Override prompt detection | unset |

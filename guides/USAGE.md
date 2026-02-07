@@ -1,7 +1,8 @@
 # Usage Guide
 
 This guide explains how to use VoxTerm for hands-free coding with the Codex CLI
-or Claude Code.
+or Claude Code. Experimental presets exist for Gemini, Aider, and OpenCode, but
+Gemini is currently nonfunctional and Aider/OpenCode are untested.
 
 ![VoxTerm](../img/logo.svg)
 
@@ -33,6 +34,11 @@ To use Claude Code:
 If you have not logged in yet:
 - `voxterm --login --codex`
 - `voxterm --login --claude`
+
+Experimental presets (untested):
+- `voxterm --gemini` (currently not working)
+- `voxterm --backend aider`
+- `voxterm --backend opencode`
 
 ---
 
@@ -168,6 +174,27 @@ voxterm --input-device "MacBook Pro Microphone"
 
 ```bash
 voxterm --doctor
+```
+
+### Tune auto-voice timing
+
+```bash
+# Idle time before auto-voice starts listening
+voxterm --auto-voice-idle-ms 1200
+
+# Idle time before queued transcripts flush
+voxterm --transcript-idle-ms 250
+```
+
+### Notification sounds
+
+```bash
+# Enable all sounds
+voxterm --sounds
+
+# Only completion or error beeps
+voxterm --sound-on-complete
+voxterm --sound-on-error
 ```
 
 Prints terminal capabilities, log paths, and audio device info without starting the overlay.

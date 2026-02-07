@@ -21,7 +21,7 @@ voxterm/
 │   └── workflows/        # CI workflows
 ├── app/
 │   ├── macos/VoxTerm.app # macOS double-click launcher
-│   └── windows/          # Windows launcher (planned)
+│   └── windows/          # Windows launcher (planned placeholder)
 ├── agents.md             # SDLC policy and release checklist
 ├── QUICK_START.md        # Fast setup and commands
 ├── guides/
@@ -43,9 +43,22 @@ voxterm/
 │       ├── check_mutation_score.py # Mutation score helper
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
+├── Makefile             # Developer tasks
 ├── src/                 # Rust overlay + voice pipeline
 │   └── src/
 │       ├── bin/voxterm/main.rs # Overlay entry point
+│       ├── bin/voxterm/banner.rs # Startup splash + banner config
+│       ├── bin/voxterm/help.rs # Shortcut overlay rendering
+│       ├── bin/voxterm/terminal.rs # Terminal sizing + signal handling
+│       ├── bin/voxterm/audio_meter/ # Mic meter UI (`--mic-meter`)
+│       ├── bin/voxterm/hud/ # HUD modules and right panel visuals
+│       ├── bin/voxterm/status_line/ # Status line layout + formatting
+│       ├── bin/voxterm/settings/ # Settings overlay
+│       ├── bin/voxterm/transcript/ # Transcript queue + delivery
+│       ├── bin/voxterm/voice_control/ # Voice capture lifecycle
+│       ├── bin/voxterm/input/ # Input parsing + events
+│       ├── bin/voxterm/writer/ # Output writer + overlays
+│       ├── bin/voxterm/theme/ # Theme definitions
 │       ├── legacy_tui/   # Codex TUI state + logging (legacy)
 │       ├── audio/       # CPAL recording, VAD, resample
 │       ├── backend/     # AI CLI backend presets (overlay)
@@ -56,6 +69,10 @@ voxterm/
 │       ├── voice.rs     # Voice capture orchestration
 │       ├── mic_meter.rs # Ambient/speech level sampler
 │       ├── stt.rs       # Whisper transcription
+│       ├── auth.rs      # Backend auth helpers
+│       ├── doctor.rs    # Diagnostics report
+│       ├── telemetry.rs # Structured trace logging
+│       ├── terminal_restore.rs # Panic-safe terminal restore
 │       └── legacy_ui.rs  # Codex TUI rendering (legacy)
 ├── scripts/
 │   ├── README.md        # Script documentation

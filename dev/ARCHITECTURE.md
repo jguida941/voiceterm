@@ -41,20 +41,23 @@ overlay without touching the native UI.
 |---------|------|--------|-------|
 | Codex | `voxterm` (default) | Tested | Full support |
 | Claude Code | `voxterm --claude` | Tested | Full support |
-| Gemini CLI | `voxterm --gemini` | Experimental | Not fully validated; prompt patterns may need tuning |
+| Gemini CLI | `voxterm --gemini` | Experimental | Currently not working |
+| Aider | `voxterm --backend aider` | Experimental | Untested |
+| OpenCode | `voxterm --backend opencode` | Experimental | Untested |
 
 **Primary supported backends:** Codex and Claude Code.
 
 Backend selection is handled by `src/src/backend/` which provides preset configurations for Codex and Claude.
 Additional presets (Gemini, Aider, OpenCode) exist but are experimental and not part of the primary support matrix.
+Gemini is currently nonfunctional, and Aider/OpenCode are untested.
 
 ## Naming Conventions
 
 - Use `backend`/`provider` for generic, multi-backend functionality.
 - Use `codex`/`claude`/`gemini` only for provider-specific code and assets.
 - The overlay binary lives under `src/src/bin/voxterm/` (name matches the shipped binary).
-- Legacy names that are Codex-specific but generic in purpose should be migrated under Track G in
-  `dev/active/MODULARIZATION_PLAN.md`.
+- Legacy names that are Codex-specific but generic in purpose were migrated under Track G in
+  `dev/archive/2026-02-06-modularization-plan.md`.
 
 ## Architecture Decision Records (ADRs)
 
@@ -92,6 +95,11 @@ What this means:
 | Rust Overlay | `src/src/bin/voxterm/main.rs` | PTY passthrough UI with voice overlay |
 | Voice Pipeline | `src/src/voice.rs` | Audio capture orchestration + STT |
 | PTY Session | `src/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
+| IPC Mode | `src/src/ipc/` | JSON IPC integration mode |
+| Auth Helpers | `src/src/auth.rs` | Backend authentication helpers |
+| Diagnostics | `src/src/doctor.rs` | `--doctor` environment report |
+| Terminal Restore | `src/src/terminal_restore.rs` | Panic-safe terminal cleanup |
+| Telemetry | `src/src/telemetry.rs` | Structured trace logging |
 | Python fallback | `scripts/python_fallback.py` | Optional fallback STT pipeline |
 
 ## Threads and Channels
@@ -357,6 +365,10 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voxterm/main.rs` - main loop, input handling, prompt detection (binary: `voxterm`)
 - `src/src/bin/voxterm/event_loop.rs` - event loop execution and input/output handling
 - `src/src/bin/voxterm/event_state.rs` - event loop state, deps, and timers shared by the main loop
+- `src/src/bin/voxterm/banner.rs` - startup splash + banner configuration
+- `src/src/bin/voxterm/terminal.rs` - terminal sizing, modes, and signal handling
+- `src/src/bin/voxterm/arrow_keys.rs` - arrow key normalization helpers
+- `src/src/bin/voxterm/progress.rs` - progress/ETA helpers for long-running tasks
 - `src/src/bin/voxterm/writer/` - serialized output, status line, help overlay
 - `src/src/bin/voxterm/writer/state.rs` - writer state + message handling
 - `src/src/bin/voxterm/writer/render.rs` - status/overlay rendering + clear helpers
@@ -370,8 +382,12 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voxterm/status_line/state.rs` - status line state enums + structs
 - `src/src/bin/voxterm/status_line/text.rs` - display width + truncation helpers
 - `src/src/bin/voxterm/status_style.rs` - status message categorization + styling
+- `src/src/bin/voxterm/hud/` - HUD modules (ribbon/dots/heartbeat/latency)
+- `src/src/bin/voxterm/icons.rs` - status line icons/glyphs
+- `src/src/bin/voxterm/color_mode.rs` - color mode detection + overrides
 - `src/src/bin/voxterm/theme/` - color palettes and theme selection
 - `src/src/bin/voxterm/theme_ops.rs` - theme picker selection + theme cycling helpers
+- `src/src/bin/voxterm/theme_picker.rs` - interactive theme picker overlay
 - `src/src/bin/voxterm/help.rs` - shortcut help overlay rendering
 - `src/src/bin/voxterm/overlays.rs` - overlay rendering helpers
 - `src/src/bin/voxterm/prompt/` - prompt detection + logging modules
@@ -383,6 +399,9 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voxterm/voice_control/manager.rs` - voice capture lifecycle + start helpers
 - `src/src/bin/voxterm/voice_control/drain.rs` - voice job handling + transcript delivery
 - `src/src/bin/voxterm/voice_control/pipeline.rs` - pipeline selection helpers
+- `src/src/bin/voxterm/transcript/` - transcript queue + delivery helpers
+- `src/src/bin/voxterm/session_stats.rs` - session counters + summary output
+- `src/src/bin/voxterm/cli_utils.rs` - CLI helper utilities
 - `src/src/bin/voxterm/input/` - input parsing + event mapping
 - `src/src/bin/voxterm/input/event.rs` - input event enum
 - `src/src/bin/voxterm/input/parser.rs` - input parser + CSI handling
@@ -395,6 +414,7 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voxterm/config/util.rs` - backend command helpers
 - `src/src/bin/voxterm/settings_handlers.rs` - settings actions + toggles
 - `src/src/bin/voxterm/settings/` - settings overlay layout + menu state
+- `src/src/bin/voxterm/buttons.rs` - HUD button layout + registry
 - `src/src/bin/voxterm/button_handlers.rs` - HUD button registry + action handling
 - `src/src/bin/voxterm/audio_meter/` - mic meter visuals (`--mic-meter`)
 - `src/src/backend/` - provider registry + backend presets (Codex/Claude/Gemini/etc.)
@@ -406,18 +426,114 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/audio/` - CPAL recorder + VAD
 - `src/src/stt.rs` - Whisper transcription
 - `src/src/config/` - CLI flags + validation
+- `src/src/ipc/` - JSON IPC session loop
+- `src/src/auth.rs` - backend auth helpers
+- `src/src/doctor.rs` - diagnostics report
+- `src/src/telemetry.rs` - tracing/JSON logs
+- `src/src/terminal_restore.rs` - terminal restore guard
+
+## Other Binaries
+
+- `src/src/bin/voice_benchmark.rs` - voice pipeline benchmark harness
+- `src/src/bin/latency_measurement.rs` - latency measurement tool
+- `src/src/bin/test_crash.rs` - crash logger test binary
+- `src/src/bin/test_utf8_bug.rs` - UTF-8 regression test binary
+
+## Cargo Features
+
+- `high-quality-audio` (default): enables high-quality resampling via `rubato`
+- `vad_earshot` (default): enables the Earshot VAD backend
+- `mutants`: test-only hooks for mutation testing
 
 ## Config Knobs
 
-- `--whisper-model-path` - load native Whisper model
-- `--voice-send-mode auto|insert` - auto-send transcript or insert for editing
-- `--auto-voice` - enable auto mode on startup
-- `--auto-voice-idle-ms` - idle timeout before auto-voice triggers
-- `--theme` / `--no-color` - status line theme selection and color disable
-- `--mic-meter` - run mic calibration with visual meter output
-- `--mic-meter-ambient-ms` / `--mic-meter-speech-ms` - calibration sample durations
-- `--prompt-regex` - override prompt detection
-- `VOXTERM_CWD` - run the backend CLI in a chosen project directory
+Full CLI reference: `guides/CLI_FLAGS.md`.
+
+**Overlay Flags**
+| Flag | Purpose |
+|------|---------|
+| `--backend <NAME\|CMD>` | Backend preset or custom command string |
+| `--codex` | Shorthand for Codex backend |
+| `--claude` | Shorthand for Claude backend |
+| `--gemini` | Shorthand for Gemini backend (experimental) |
+| `--login` | Run backend login before starting |
+| `--prompt-regex` | Override prompt detection pattern |
+| `--prompt-log` | Prompt detection log path |
+| `--auto-voice` | Start in auto-voice mode |
+| `--auto-voice-idle-ms` | Idle timeout before auto-voice triggers |
+| `--transcript-idle-ms` | Idle timeout before queued transcripts flush |
+| `--voice-send-mode` | `auto` vs `insert` transcript handling |
+| `--theme` | Status line theme |
+| `--no-color` | Disable color output |
+| `--hud-right-panel` | Right-side HUD panel selection |
+| `--hud-right-panel-recording-only` | Animate right panel only while recording |
+| `--hud-style` | Full/minimal/hidden HUD |
+| `--minimal-hud` | Shorthand for minimal HUD |
+
+**Core CLI Flags**
+| Flag | Purpose |
+|------|---------|
+| `--codex-cmd` | Codex binary path |
+| `--claude-cmd` | Claude binary path |
+| `--codex-arg` | Extra args for Codex (repeatable) |
+| `--python-cmd` | Python interpreter for fallback scripts |
+| `--pipeline-script` | Python fallback pipeline script |
+| `--term` | TERM value passed to the backend CLI |
+| `--input-device` | Preferred microphone |
+| `--list-input-devices` | List microphones and exit |
+| `--doctor` | Diagnostics report and exit |
+| `--mic-meter` | Run mic calibration |
+| `--mic-meter-ambient-ms` | Ambient calibration duration |
+| `--mic-meter-speech-ms` | Speech calibration duration |
+| `--sounds` | Enable notification sounds |
+| `--sound-on-complete` | Beep on transcript completion |
+| `--sound-on-error` | Beep on voice capture error |
+| `--persistent-codex` | Keep a persistent Codex PTY session |
+| `--logs` | Enable debug logging |
+| `--no-logs` | Disable logging (overrides `--logs`) |
+| `--log-content` | Allow content snippets in logs |
+| `--log-timings` | Enable verbose timing logs |
+| `--claude-skip-permissions` | Skip Claude IPC permission prompts |
+| `--whisper-cmd` | Whisper CLI path (python fallback) |
+| `--whisper-model` | Whisper model name |
+| `--whisper-model-path` | Whisper model file path |
+| `--whisper-beam-size` | Beam size (native pipeline) |
+| `--whisper-temperature` | Sampling temperature |
+| `--ffmpeg-cmd` | FFmpeg binary path |
+| `--ffmpeg-device` | FFmpeg input device override |
+| `--seconds` | Fallback recording duration |
+| `--voice-sample-rate` | Audio sample rate |
+| `--voice-max-capture-ms` | Max capture duration |
+| `--voice-silence-tail-ms` | Trailing silence to stop capture |
+| `--voice-min-speech-ms-before-stt` | Minimum speech before STT |
+| `--voice-lookback-ms` | Audio retained before silence stop |
+| `--voice-buffer-ms` | Audio buffer budget |
+| `--voice-channel-capacity` | Frame channel capacity |
+| `--voice-stt-timeout-ms` | STT timeout before fallback |
+| `--voice-vad-threshold-db` | VAD sensitivity threshold |
+| `--voice-vad-frame-ms` | VAD frame size |
+| `--voice-vad-smoothing-frames` | VAD smoothing window |
+| `--voice-vad-engine` | VAD implementation |
+| `--lang` | Whisper language code |
+| `--no-python-fallback` | Disable python STT fallback |
+| `--json-ipc` | JSON IPC mode |
+
+**Environment Variables**
+| Variable | Purpose |
+|----------|---------|
+| `VOXTERM_CWD` | Run backend CLI in a chosen directory |
+| `VOXTERM_MODEL_DIR` | Whisper model storage path (install/start scripts) |
+| `VOXTERM_INSTALL_DIR` | Override install location |
+| `VOXTERM_NO_STARTUP_BANNER` | Skip startup splash |
+| `VOXTERM_PROMPT_REGEX` | Override prompt detection |
+| `VOXTERM_PROMPT_LOG` | Prompt detection log path |
+| `VOXTERM_LOGS` | Enable logging (same as `--logs`) |
+| `VOXTERM_NO_LOGS` | Disable logging |
+| `VOXTERM_LOG_CONTENT` | Allow content in logs |
+| `VOXTERM_TRACE_LOG` | Structured trace log path |
+| `CLAUDE_CMD` | Override Claude CLI path |
+| `VOXTERM_PROVIDER` | IPC default provider |
+| `NO_COLOR` | Standard color disable flag |
 
 ## Debugging and Logs
 

@@ -40,7 +40,7 @@ voxterm --login --claude
 **Other requirements:**
 - Microphone access
 - Whisper model (GGML) downloaded on first run
-- Disk space for models: `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB
+- Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
 - Rust toolchain (stable) only if you build from source: https://rustup.rs
 - Optional (Python fallback): `python3`, `ffmpeg`, and the `whisper` CLI on PATH
   (disable with `--no-python-fallback`)
@@ -68,7 +68,7 @@ voxterm
 ```
 
 Model storage defaults to `~/.local/share/voxterm/models` for Homebrew installs
-(or when the repo directory is not writable). Override with
+(or when the repo directory is not writable). The install/start scripts honor
 `VOXTERM_MODEL_DIR` for a custom path.
 
 Optional pre-download:

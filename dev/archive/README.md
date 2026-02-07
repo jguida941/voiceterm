@@ -7,3 +7,6 @@ This folder stores completed work items pulled from the active master plan.
 - Include a brief summary and the completed checklist items.
 - Link back to the source doc(s) when helpful (audit, review, issue, PR).
 - Keep the master plan current by removing completed items and linking the archive entry.
+
+## Recent entries
+- 2026-02-06-modularization-plan.md

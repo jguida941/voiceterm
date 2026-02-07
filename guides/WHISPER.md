@@ -28,7 +28,7 @@ The entire pipeline runs locally with ~250ms latency on modern hardware.
 | `base` | 142 MB | Fast | Good | **Recommended for most users** |
 | `small` | 466 MB | Medium | Better | Default, good balance |
 | `medium` | 1.5 GB | Slower | High | Non-English languages |
-| `large` | 2.9 GB | Slowest | Highest | Maximum accuracy needed |
+| `large` | 3.1 GB | Slowest | Highest | Maximum accuracy needed |
 
 ### Recommendations
 
@@ -117,12 +117,14 @@ curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.b
 
 ### Model Locations
 
-VoxTerm looks for models in this order:
+VoxTerm (the binary) looks for models in this order:
 1. Path specified via `--whisper-model-path`
 2. `whisper_models/` in the project directory
-3. `~/.local/share/voxterm/models/` (Homebrew installs)
 
-Override with environment variable:
+The install/start scripts also check `~/.local/share/voxterm/models/` and pass it
+via `--whisper-model-path` when found.
+
+Override with environment variable (used by install/start scripts):
 ```bash
 export VOXTERM_MODEL_DIR=/path/to/models
 ```
@@ -157,6 +159,15 @@ export VOXTERM_MODEL_DIR=/path/to/models
 - Try a larger model (`--whisper-model medium`)
 - Adjust mic sensitivity
 - Speak closer to the microphone
+
+### Advanced tuning
+
+Whisper options (native pipeline):
+- `--whisper-beam-size <N>`: beam search size (0 = greedy)
+- `--whisper-temperature <T>`: sampling temperature
+
+Fallback control:
+- `--no-python-fallback`: fail instead of using the Python pipeline
 
 ## See Also
 

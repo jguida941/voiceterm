@@ -58,8 +58,8 @@
 - [x] MP-059 Add `#[inline]` hints to hot-path functions (display_width, level_color, rms_db, peak_db).
 - [x] MP-060 Add `#[must_use]` attributes to key struct/function returns.
 - [x] MP-061 Optimize hot-path formatters to use push_str instead of format! macros.
-- [x] MP-062 Execute modularization plan for `main.rs` + large modules (see `dev/active/MODULARIZATION_PLAN.md`).
-- [x] MP-063 Naming clarity pass for multi-backend readability (see `dev/active/MODULARIZATION_PLAN.md`, Track G).
+- [x] MP-062 Execute modularization plan for `main.rs` + large modules (see `dev/archive/2026-02-06-modularization-plan.md`).
+- [x] MP-063 Naming clarity pass for multi-backend readability (see `dev/archive/2026-02-06-modularization-plan.md`, Track G).
 - [x] MP-064 Legacy TUI naming alignment (`legacy_tui/`, `legacy_ui.rs`, `run_legacy_ui`, `CodexApp`) + doc references.
 - [x] MP-065 Resolve module naming overlap (`backend` registry vs legacy `codex` backend) and document/rename as needed.
 - [x] MP-066 Add overlay `--login` preflight to run backend CLI authentication (Codex/Claude) before startup.

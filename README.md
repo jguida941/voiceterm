@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/Whisper-Voice_Input-8B5CF6?style=for-the-badge&logo=audacity&logoColor=white" alt="Whisper">
   <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
+  <a href="dev/CHANGELOG.md"><img src="https://img.shields.io/github/v/tag/jguida941/voxterm?style=for-the-badge&label=Version" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT License"></a>
 </p>
 
@@ -27,6 +28,7 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 - [UI Tour](#ui-tour)
 - [Install Options](#install-options)
 - [Documentation](#documentation)
+- [Support](#support)
 
 ## Quick Start
 
@@ -49,7 +51,7 @@ voxterm --login --codex
 voxterm --login --claude
 ```
 
-First run downloads a Whisper model (~142 MB for `base`). To choose a different size:
+First run downloads a Whisper model (install/start scripts default to base ~142 MB; CLI default is small ~466 MB). To choose a different size:
 - `./scripts/install.sh --small`
 - `./scripts/setup.sh models --medium`
 - Or pass `--whisper-model-path` directly
@@ -74,7 +76,7 @@ All CLI output passes through unchanged.
 
 - macOS or Linux (Windows needs WSL2)
 - Microphone access
-- ~1.5 GB disk for Whisper model
+- ~0.5 GB disk for the default small model (base is ~142 MB, medium is ~1.5 GB)
 
 ## Features
 
@@ -85,12 +87,14 @@ All CLI output passes through unchanged.
 | **PTY passthrough** | CLI UI stays unchanged |
 | **Auto-voice** | Hands-free mode - no typing needed |
 | **Transcript queue** | Speak while CLI is busy, types when ready |
-| **Backends** | Codex + Claude supported |
+| **Backends** | Codex + Claude supported; experimental presets for Gemini (not working), Aider, OpenCode |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 
 ## Supported AI CLIs
 
-VoxTerm is optimized for Codex and Claude Code.
+VoxTerm is optimized for Codex and Claude Code. Experimental presets exist for
+Gemini, Aider, and OpenCode, plus custom command strings via `--backend`. Gemini
+is currently nonfunctional, and Aider/OpenCode are untested.
 
 ### Codex (default)
 
@@ -112,6 +116,14 @@ voxterm --login --claude
 ```
 
 ![Claude Backend](https://raw.githubusercontent.com/jguida941/voxterm/master/img/claude-backend.png)
+
+### Experimental presets
+
+These presets exist but are not part of the primary support matrix:
+- Gemini CLI (`voxterm --gemini`)
+- Aider (`voxterm --backend aider`)
+- OpenCode (`voxterm --backend opencode`)
+Gemini is currently not working; Aider/OpenCode are untested.
 
 ## UI Tour
 
@@ -139,10 +151,11 @@ See the [Usage Guide](guides/USAGE.md) for details.
 | `Ctrl+R` | Start voice recording |
 | `Ctrl+V` | Toggle auto-voice (hands-free) |
 | `Ctrl+T` | Toggle send mode (auto/insert) |
+| `Ctrl+U` | Cycle HUD style |
 | `Ctrl+Y` | Theme picker |
 | `Ctrl+O` | Settings menu |
-| `Ctrl+]` | Mic sensitivity up |
-| `Ctrl+\` | Mic sensitivity down |
+| `Ctrl+]` | Mic less sensitive |
+| `Ctrl+\` | Mic more sensitive |
 | `?` | Show help |
 | `Enter` | Stop recording / submit prompt |
 | `Ctrl+Q` | Quit |
@@ -188,11 +201,15 @@ Double-click `app/macos/VoxTerm.app`, pick a folder, it opens Terminal with VoxT
 | [Whisper & Languages](guides/WHISPER.md) | [Changelog](dev/CHANGELOG.md) |
 | [Troubleshooting](guides/TROUBLESHOOTING.md) | |
 
+## Support
+
+- Troubleshooting: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- Bug reports and feature requests: [GitHub Issues](https://github.com/jguida941/voxterm/issues)
+- Security concerns: [.github/SECURITY.md](.github/SECURITY.md)
+
 ## Contributing
 
 PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
-
-Issues: [github.com/jguida941/voxterm/issues](https://github.com/jguida941/voxterm/issues)
 
 ## License
 
