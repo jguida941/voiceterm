@@ -5,6 +5,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.45] - 2026-02-08
+
 ### Documentation
 - Document `VOXTERM_NO_STARTUP_BANNER` in install and troubleshooting guides.
 - Audit and refresh docs: clarify terminal injection vs backend submission, expand CLI flag coverage, and update troubleshooting/Whisper wording.
@@ -16,6 +18,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### CI
 - Update perf/memory guard test selectors to `legacy_tui::tests` after the legacy rename.
+
+### Tests
+- Gate high-quality resampler test helpers behind feature flags to keep no-feature builds clean.
+- Expand audio, IPC, and PTY coverage for cancellation, retry, and lifecycle edge cases.
 
 ## [1.0.44] - 2026-02-06
 
