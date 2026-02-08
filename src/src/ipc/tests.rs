@@ -690,7 +690,9 @@ fn process_claude_events_pty_ignores_empty_output() {
     assert!(!process_claude_events(&mut job, false));
     let events = events_since(snapshot);
     assert!(
-        !events.iter().any(|event| matches!(event, IpcEvent::Token { .. })),
+        !events
+            .iter()
+            .any(|event| matches!(event, IpcEvent::Token { .. })),
         "empty PTY output should not emit tokens"
     );
 }
@@ -717,13 +719,15 @@ fn process_claude_events_pty_exits_without_trailing_output() {
     assert!(job.pending_exit.is_none());
     let events = events_since(snapshot);
     assert!(
-        events
-            .iter()
-            .any(|event| matches!(event, IpcEvent::JobEnd { provider, .. } if provider == "claude")),
+        events.iter().any(
+            |event| matches!(event, IpcEvent::JobEnd { provider, .. } if provider == "claude")
+        ),
         "expected JobEnd for claude PTY job"
     );
     assert!(
-        !events.iter().any(|event| matches!(event, IpcEvent::Token { .. })),
+        !events
+            .iter()
+            .any(|event| matches!(event, IpcEvent::Token { .. })),
         "empty trailing output should not emit tokens"
     );
     let _ = child.wait();
