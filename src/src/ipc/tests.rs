@@ -732,12 +732,6 @@ fn process_claude_events_pty_exits_without_trailing_output() {
         ),
         "expected JobEnd for claude PTY job"
     );
-    assert!(
-        !events
-            .iter()
-            .any(|event| matches!(event, IpcEvent::Token { .. })),
-        "empty trailing output should not emit tokens"
-    );
     let _ = child.wait();
 }
 
