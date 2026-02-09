@@ -5,6 +5,14 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.50] - 2026-02-09
+
+### UX
+- Buffer partial input escape sequences so SGR mouse scroll/motion does not leak into Claude output.
+
+### Tests
+- Ensure partial SGR mouse sequences are buffered across input reads.
+
 ## [1.0.49] - 2026-02-09
 
 ### UX
