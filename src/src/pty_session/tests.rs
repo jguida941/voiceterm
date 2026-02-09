@@ -254,6 +254,17 @@ fn apply_control_edits_preserves_crlf_lines() {
 }
 
 #[test]
+fn split_incomplete_escape_buffers_trailing_csi() {
+    let mut data = b"hello\x1b[<64;119;".to_vec();
+    let pending = split_incomplete_escape(&mut data).expect("expected pending escape");
+    assert_eq!(data, b"hello");
+    assert_eq!(pending, b"\x1b[<64;119;");
+    let mut merged = pending;
+    merged.extend_from_slice(b"29Mtail");
+    assert!(split_incomplete_escape(&mut merged).is_none());
+}
+
+#[test]
 fn write_all_writes_bytes() {
     let (read_fd, write_fd) = pipe_pair();
     write_all(write_fd, b"hello").unwrap();

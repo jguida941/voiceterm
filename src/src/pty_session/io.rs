@@ -11,16 +11,43 @@ use std::time::Instant;
 #[cfg(any(test, feature = "mutants"))]
 use super::counters::guard_loop;
 use super::counters::write_all_limit;
-use super::osc::{respond_to_terminal_queries, respond_to_terminal_queries_passthrough};
+use super::osc::{find_csi_sequence, find_osc_terminator, respond_to_terminal_queries, respond_to_terminal_queries_passthrough};
 
 pub(super) fn should_retry_read_error(err: &io::Error) -> bool {
     err.kind() == ErrorKind::Interrupted || err.kind() == ErrorKind::WouldBlock
+}
+
+pub(super) fn split_incomplete_escape(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
+    let esc_idx = buffer.iter().rposition(|b| *b == 0x1b)?;
+    if esc_idx + 1 >= buffer.len() {
+        return Some(buffer.split_off(esc_idx));
+    }
+    match buffer[esc_idx + 1] {
+        b'[' => {
+            if find_csi_sequence(buffer, esc_idx + 2).is_none() {
+                return Some(buffer.split_off(esc_idx));
+            }
+        }
+        b']' => {
+            if find_osc_terminator(buffer, esc_idx + 2).is_none() {
+                return Some(buffer.split_off(esc_idx));
+            }
+        }
+        b'(' | b')' => {
+            if esc_idx + 2 >= buffer.len() {
+                return Some(buffer.split_off(esc_idx));
+            }
+        }
+        _ => {}
+    }
+    None
 }
 
 /// Continuously read from the PTY and forward chunks to the main thread.
 pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
+        let mut pending: Vec<u8> = Vec::new();
         #[cfg(any(test, feature = "mutants"))]
         let guard_start = Instant::now();
         #[cfg(any(test, feature = "mutants"))]
@@ -42,7 +69,17 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
                 )
             };
             if n > 0 {
-                let mut data = buffer.get(..n as usize).unwrap_or(&[]).to_vec();
+                let mut data = if pending.is_empty() {
+                    buffer.get(..n as usize).unwrap_or(&[]).to_vec()
+                } else {
+                    let mut merged = pending;
+                    merged.extend_from_slice(buffer.get(..n as usize).unwrap_or(&[]));
+                    pending = Vec::new();
+                    merged
+                };
+                if let Some(tail) = split_incomplete_escape(&mut data) {
+                    pending = tail;
+                }
                 // Answer simple terminal capability queries so the backend CLI doesn't hang waiting.
                 respond_to_terminal_queries(&mut data, master_fd);
                 if data.is_empty() {
@@ -74,6 +111,7 @@ pub(super) fn spawn_passthrough_reader_thread(
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
+        let mut pending: Vec<u8> = Vec::new();
         #[cfg(any(test, feature = "mutants"))]
         let guard_start = Instant::now();
         #[cfg(any(test, feature = "mutants"))]
@@ -100,7 +138,17 @@ pub(super) fn spawn_passthrough_reader_thread(
                 )
             };
             if n > 0 {
-                let mut data = buffer.get(..n as usize).unwrap_or(&[]).to_vec();
+                let mut data = if pending.is_empty() {
+                    buffer.get(..n as usize).unwrap_or(&[]).to_vec()
+                } else {
+                    let mut merged = pending;
+                    merged.extend_from_slice(buffer.get(..n as usize).unwrap_or(&[]));
+                    pending = Vec::new();
+                    merged
+                };
+                if let Some(tail) = split_incomplete_escape(&mut data) {
+                    pending = tail;
+                }
                 respond_to_terminal_queries_passthrough(&mut data, master_fd);
                 if data.is_empty() {
                     continue;
