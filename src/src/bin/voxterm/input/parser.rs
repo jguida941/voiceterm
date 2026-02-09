@@ -89,9 +89,6 @@ impl InputParser {
     }
 
     pub(crate) fn flush_pending(&mut self, out: &mut Vec<InputEvent>) {
-        if let Some(buffer) = self.esc_buffer.take() {
-            self.pending.extend_from_slice(&buffer);
-        }
         if !self.pending.is_empty() {
             out.push(InputEvent::Bytes(std::mem::take(&mut self.pending)));
         }
@@ -364,7 +361,10 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(b"\x1b[1", &mut out);
         parser.flush_pending(&mut out);
-        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[1".to_vec())]);
+        assert!(out.is_empty());
+        parser.consume_bytes(b"A", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[1A".to_vec())]);
     }
 
     #[test]
@@ -390,6 +390,18 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         parser.consume_bytes(b"\x1b[<64;10;5M", &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn input_parser_buffers_partial_sgr_mouse_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[<64;10;", &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+        parser.consume_bytes(b"5M", &mut out);
         parser.flush_pending(&mut out);
         assert!(out.is_empty());
     }
