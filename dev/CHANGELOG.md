@@ -5,6 +5,14 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.49] - 2026-02-09
+
+### UX
+- Ignore non-click SGR mouse events so trackpad scroll/motion does not flood Claude output or stall the HUD timer.
+
+### Tests
+- Add an input parser check that wheel events are dropped.
+
 ## [1.0.48] - 2026-02-09
 
 ### UX
