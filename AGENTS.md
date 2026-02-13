@@ -16,9 +16,11 @@ terminal experience without replacing it.
 - `dev/deferred/` (paused plans not in active execution)
 - `dev/archive/2026-02-02-release-audit-completed.md` (completed code audit)
 - `dev/archive/` (completed work entries)
+- `dev/archive/README.md` (archive retention and naming policy)
 - `dev/ARCHITECTURE.md` (system architecture)
 - `dev/DEVELOPMENT.md` (build/test workflow)
 - `dev/adr/` (architecture decisions)
+- `dev/adr/README.md` (ADR index + status lifecycle policy)
 - `dev/CHANGELOG.md` (release history)
 - `dev/scripts/README.md` (dev tooling and devctl usage)
 - `README.md` and `QUICK_START.md` (user-facing docs)
@@ -52,6 +54,7 @@ Apply this sequence for every feature/fix:
 3. Add or update tests in the same change.
 4. Run verification (`python3 dev/scripts/devctl.py check --profile ci` minimum).
 5. Update docs and run `python3 dev/scripts/devctl.py docs-check --user-facing` for user-facing changes.
+   - If architecture/workflow/lifecycle/CI/release mechanics changed, update `dev/ARCHITECTURE.md` in the same change.
 6. Commit and push only after checks pass.
 
 ## One-command feedback loop (recommended)
@@ -59,6 +62,7 @@ Use this exact loop so the agent can self-audit continuously:
 ```bash
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
+python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/devctl.py status --ci --format md
 ```
 
@@ -74,6 +78,7 @@ After each push, run this loop before ending the session:
 2. Verify CI status (`python3 dev/scripts/devctl.py status --ci --format md` or Actions UI).
 3. If CI fails, add/adjust a `MASTER_PLAN` item and rerun checks until green.
 4. Re-validate docs alignment for any behavior/flag/UI changes.
+5. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) and fix any hard failures.
 
 ## Testing matrix by change type (required)
 - Overlay/input/status/HUD changes:
@@ -81,7 +86,8 @@ After each push, run this loop before ending the session:
   - `cd src && cargo test --bin voxterm`
 - Performance/latency-sensitive changes:
   - `python3 dev/scripts/devctl.py check --profile prepush`
-  - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic` (when latency behavior changes)
+  - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic` (baseline runs)
+  - `./dev/scripts/tests/measure_latency.sh --ci-guard` (synthetic regression guardrails)
 - Threading/lifecycle/memory changes:
   - `cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
 - Mutation-hardening work:
@@ -161,6 +167,7 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 ## CI workflows (reference)
 - `rust_ci.yml`: format, clippy, and test for `src/`.
 - `perf_smoke.yml`: perf smoke test and voice metrics verification.
+- `latency_guard.yml`: synthetic latency regression guardrails.
 - `memory_guard.yml`: repeated memory guard test.
 - `mutation-testing.yml`: scheduled mutation testing with threshold check.
 
@@ -193,7 +200,7 @@ When making changes, check which docs need updates:
 **Developer/architecture:**
 | Doc | Update when |
 |-----|-------------|
-| `dev/ARCHITECTURE.md` | Module structure, data flow, or design changes |
+| `dev/ARCHITECTURE.md` | Module structure, data flow, design changes, **or any workflow/lifecycle/CI/release mechanics added/changed/removed** |
 | `dev/DEVELOPMENT.md` | Build process, testing, or contribution workflow changes |
 | `dev/adr/` | Significant design decisions (see ADRs below) |
 
@@ -206,6 +213,7 @@ When making changes, check which docs need updates:
    `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`.
    - Use `python3 dev/scripts/devctl.py docs-check --user-facing` to validate doc coverage.
 4. Update developer docs if needed: `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`.
+   - `dev/ARCHITECTURE.md` is mandatory when architecture/workflow mechanics changed.
 5. If UI output or flags change, update any screenshots/tables that mention them.
 6. If a change introduces a new architectural decision, add an ADR in `dev/adr/` and update
    the ADR index.
@@ -225,7 +233,16 @@ Enforcement commands:
 ## ADRs (architecture decisions)
 - Use `dev/adr/` for architecture-level decisions or cross-module changes.
 - Include context, decision, and consequences.
-- Prefer a dated filename like `YYYY-MM-DD-short-title.md`.
+- Use `NNNN-short-title.md` (zero-padded) and keep `dev/adr/README.md` index/status in sync.
+- If a decision is replaced, create a new ADR and mark the older ADR `Status: Superseded`
+  with `Superseded-by: ADR NNNN`.
+- Do not rewrite historical ADR decisions; supersede them.
+
+## Archive retention policy
+- Keep `dev/archive/` entries as immutable historical records; do not delete completed audits/plans
+  to reduce context size.
+- Keep active execution in `dev/active/MASTER_PLAN.md`; archive files are reference/history only.
+- If archive volume grows, add summary/index docs instead of deleting source records.
 
 ## Active work tracking
 - Strategy, execution, and release tasks all live in `dev/active/MASTER_PLAN.md`.
