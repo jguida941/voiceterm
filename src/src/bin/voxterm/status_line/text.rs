@@ -64,17 +64,6 @@ pub(super) fn truncate_display(s: &str, max_width: usize) -> String {
     result
 }
 
-pub(super) fn pad_display(s: &str, width: usize) -> String {
-    let current = display_width(s);
-    if current >= width {
-        return truncate_display(s, width);
-    }
-    let mut result = String::with_capacity(s.len() + width.saturating_sub(current));
-    result.push_str(s);
-    result.push_str(&" ".repeat(width.saturating_sub(current)));
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

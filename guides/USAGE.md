@@ -321,6 +321,8 @@ For users who prefer less UI clutter, VoxTerm offers three HUD styles:
 | **Hidden** | `--hud-style hidden` | `VoxTerm` launcher row with `Ctrl+U` hint when idle; shows dim `REC` while recording |
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
+In Full HUD, status text (for example `Ready`) remains visible even with a
+right-panel visualization enabled.
 
 When Mouse is enabled, Minimal HUD shows a [back] button on the right to return
 to Full. If a right-panel mode is enabled, Minimal HUD also shows a compact

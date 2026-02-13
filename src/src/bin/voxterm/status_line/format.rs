@@ -17,7 +17,7 @@ use super::buttons::{
 };
 use super::layout::breakpoints;
 use super::state::{Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode};
-use super::text::{display_width, pad_display, truncate_display};
+use super::text::{display_width, truncate_display};
 
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
 const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
@@ -338,12 +338,8 @@ fn format_right_panel(
     }
 
     let with_pad = format!(" {}", panel);
-    if mode == HudRightPanel::Ribbon || mode == HudRightPanel::Heartbeat {
-        pad_display(&with_pad, max_width)
-    } else {
-        let truncated = truncate_display(&with_pad, max_width);
-        pad_display(&truncated, max_width)
-    }
+    // Return only the panel content width; caller handles row-level padding/right alignment.
+    truncate_display(&with_pad, max_width)
 }
 
 #[inline]
@@ -1026,6 +1022,19 @@ mod tests {
         assert_eq!(banner.height, 4);
         assert!(banner.lines.iter().any(|line| line.contains("REC")));
         assert!(banner.lines.iter().any(|line| line.contains("dB")));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_shows_ready_with_ribbon_panel() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.hud_right_panel = HudRightPanel::Ribbon;
+        state.recording_state = RecordingState::Idle;
+        state.message.clear();
+
+        let banner = format_status_banner(&state, Theme::Coral, 96);
+        assert_eq!(banner.height, 4);
+        assert!(banner.lines.iter().any(|line| line.contains("Ready")));
     }
 
     #[test]

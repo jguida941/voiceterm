@@ -12,6 +12,7 @@
 | HUD/overlay overlaps after terminal resize | See [Status Messages → HUD/overlay overlaps after terminal resize](#hudoverlay-overlaps-after-terminal-resize) |
 | Minimal HUD has no telemetry chip | See [Status Messages → Minimal HUD right-panel chip is missing](#minimal-hud-right-panel-chip-is-missing) |
 | Minimal HUD status text keeps jumping | See [Status Messages → Minimal HUD status text feels jumpy](#minimal-hud-status-text-feels-jumpy) |
+| Full HUD shows blank idle status | See [Status Messages → Full HUD shows blank idle status](#full-hud-shows-blank-idle-status) |
 | Transcript stays queued in Claude confirmation prompts | See [Status Messages → Transcript stays queued in Claude-confirmation prompts](#transcript-stays-queued-in-claude-confirmation-prompts) |
 | Voice macro not expanding | See [Status Messages → Voice macro not expanding](#voice-macro-not-expanding) |
 | Voice macro expanded unexpectedly | See [Status Messages → Voice macro expanded unexpectedly](#voice-macro-expanded-unexpectedly) |
@@ -156,6 +157,15 @@ If you still see long transient status lines in Minimal mode:
 1. Upgrade to the latest VoxTerm build
 2. Restart the session after upgrading
 3. Use Full HUD (`Ctrl+U`) if you want full verbose status wording
+
+### Full HUD shows blank idle status
+
+If Full HUD right-panel rendering is over-reserved, status text (including
+`Ready`) can appear blank while idle.
+
+**Fixes:**
+1. Upgrade to the latest VoxTerm build
+2. Restart the session after upgrading
 
 ### REC timer or dB meter appears frozen while queued
 
