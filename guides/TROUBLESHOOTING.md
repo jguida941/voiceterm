@@ -139,6 +139,13 @@ usually disabling it.
 2. If **Anim only** is ON, start recording once to confirm the chip appears during recording
 3. If you expect it while idle too, set **Anim only** to OFF
 
+Compact HUD also adapts module emphasis by context and width:
+- recording: meter + latency + queue (space permitting)
+- backend busy: queue + latency
+- idle: latency-focused compact view
+
+A brief transition pulse marker (`✦`, `•`, `·`) on mode changes is expected.
+
 ### REC timer or dB meter appears frozen while queued
 
 If the backend is producing continuous output, older builds could pause HUD timer

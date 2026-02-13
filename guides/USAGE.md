@@ -248,6 +248,7 @@ Sections (left to right):
 - Status message (recording adds a live waveform + dB readout)
 - Shortcut hints (on wide terminals)
 - Optional right-side panel (Ribbon / Dots / Heartbeat) if enabled in Settings
+- Compact telemetry chips (latency trend, queue, meter) that adapt to width/state
 
 Latency badge behavior:
 - When available, latency is shown as post-capture processing time (mainly STT).
@@ -257,6 +258,14 @@ Latency badge behavior:
 
 When recording or processing, the mode label includes a pipeline tag
 (e.g., `REC R` or `… PY`).
+
+Visual updates:
+- VoxTerm keeps bounded telemetry history for meter/latency and renders sparkline-style trends in compact HUD space.
+- Short state-change pulse markers (`✦`, `•`, `·`) appear briefly when key mode/state changes occur.
+- Compact HUD modules adapt by context:
+  - recording: meter + latency + queue (space permitting)
+  - backend busy: queue + latency
+  - idle: latency-focused minimal telemetry
 
 | Status | Meaning |
 |--------|---------|

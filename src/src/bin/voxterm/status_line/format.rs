@@ -8,7 +8,9 @@ use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudM
 use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 
-use super::animation::{get_processing_spinner, get_recording_indicator, heartbeat_glyph};
+use super::animation::{
+    get_processing_spinner, get_recording_indicator, heartbeat_glyph, transition_marker,
+};
 use super::buttons::{
     format_hidden_launcher_with_button, format_minimal_strip_with_button,
     format_shortcuts_row_with_positions,
@@ -436,8 +438,30 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
         }
     }
 
+    if state.transition_progress > 0.0 {
+        let marker = transition_marker(state.transition_progress);
+        if !marker.is_empty() {
+            result.push(' ');
+            result.push_str(colors.info);
+            result.push_str(marker);
+            result.push_str(colors.reset);
+        }
+    }
+
     result.push(' ');
     result
+}
+
+fn format_transition_suffix(state: &StatusLineState, colors: &ThemeColors) -> String {
+    if state.transition_progress <= 0.0 {
+        return String::new();
+    }
+    let marker = transition_marker(state.transition_progress);
+    if marker.is_empty() {
+        String::new()
+    } else {
+        format!(" {}{}{}", colors.info, marker, colors.reset)
+    }
 }
 
 /// Format the bottom border.
@@ -606,8 +630,10 @@ fn format_compact(
     width: usize,
 ) -> String {
     let mode = format_compact_mode(&compact_mode_parts(state, colors), colors);
+    let mode_width = display_width(&mode);
+    let module_budget = width.saturating_sub(mode_width + 1);
 
-    let registry = compact_hud_registry();
+    let registry = compact_hud_registry(state, module_budget);
     let hud_state = HudState {
         mode: match state.voice_mode {
             VoiceMode::Auto => HudMode::Auto,
@@ -617,11 +643,13 @@ fn format_compact(
         is_recording: state.recording_state == RecordingState::Recording,
         recording_duration_secs: state.recording_duration.unwrap_or(0.0),
         audio_level_db: state.meter_db.unwrap_or(-60.0),
+        audio_levels: state.meter_levels.clone(),
         queue_depth: state.queue_depth,
         last_latency_ms: state.last_latency_ms,
+        latency_history_ms: state.latency_history_ms.clone(),
         backend_name: String::new(),
     };
-    let modules = registry.render_all(&hud_state, width, " ");
+    let modules = registry.render_all(&hud_state, module_budget, " · ");
     let left = if modules.is_empty() {
         mode.clone()
     } else {
@@ -634,15 +662,49 @@ fn format_compact(
     format!("{} {}", left, truncate_display(&msg, available))
 }
 
-fn compact_hud_registry() -> &'static HudRegistry {
-    static REGISTRY: OnceLock<HudRegistry> = OnceLock::new();
-    REGISTRY.get_or_init(|| {
-        let mut registry = HudRegistry::new();
-        registry.register(Box::new(MeterModule::new()));
-        registry.register(Box::new(LatencyModule::new()));
-        registry.register(Box::new(QueueModule::new()));
-        registry
-    })
+#[derive(Debug, Clone, Copy)]
+enum CompactHudProfile {
+    Recording,
+    Busy,
+    Idle,
+}
+
+fn compact_hud_registry(state: &StatusLineState, module_budget: usize) -> &'static HudRegistry {
+    let profile = if state.recording_state == RecordingState::Recording && module_budget >= 12 {
+        CompactHudProfile::Recording
+    } else if state.queue_depth > 0 {
+        CompactHudProfile::Busy
+    } else {
+        CompactHudProfile::Idle
+    };
+    compact_hud_registry_for_profile(profile)
+}
+
+fn compact_hud_registry_for_profile(profile: CompactHudProfile) -> &'static HudRegistry {
+    static RECORDING: OnceLock<HudRegistry> = OnceLock::new();
+    static BUSY: OnceLock<HudRegistry> = OnceLock::new();
+    static IDLE: OnceLock<HudRegistry> = OnceLock::new();
+
+    match profile {
+        CompactHudProfile::Recording => RECORDING.get_or_init(|| {
+            let mut registry = HudRegistry::new();
+            registry.register(Box::new(MeterModule::with_bar_count(8)));
+            registry.register(Box::new(LatencyModule::new()));
+            registry.register(Box::new(QueueModule::new()));
+            registry
+        }),
+        CompactHudProfile::Busy => BUSY.get_or_init(|| {
+            let mut registry = HudRegistry::new();
+            registry.register(Box::new(QueueModule::new()));
+            registry.register(Box::new(LatencyModule::new()));
+            registry
+        }),
+        CompactHudProfile::Idle => IDLE.get_or_init(|| {
+            let mut registry = HudRegistry::new();
+            registry.register(Box::new(LatencyModule::new()));
+            registry
+        }),
+    }
 }
 
 /// Format compact left section for medium terminals.
@@ -650,13 +712,17 @@ fn format_left_compact(state: &StatusLineState, colors: &ThemeColors) -> String 
     let parts = compact_mode_parts(state, colors);
     let mode_indicator = format_compact_indicator(&parts, colors);
     let mode_label = parts.label;
+    let transition = format_transition_suffix(state, colors);
 
     if mode_label.is_empty() {
-        format!("{} │ {:.0}dB", mode_indicator, state.sensitivity_db)
+        format!(
+            "{}{} │ {:.0}dB",
+            mode_indicator, transition, state.sensitivity_db
+        )
     } else {
         format!(
-            "{}{mode_label} │ {:.0}dB",
-            mode_indicator, state.sensitivity_db
+            "{}{mode_label}{} │ {:.0}dB",
+            mode_indicator, transition, state.sensitivity_db
         )
     }
 }
@@ -670,6 +736,7 @@ fn format_shortcuts_compact(colors: &ThemeColors) -> String {
 
 fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String {
     let pipeline_tag = pipeline_tag_short(state.pipeline);
+    let transition = format_transition_suffix(state, colors);
     let mode_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
@@ -690,9 +757,9 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
     };
 
     let mode_label = match state.recording_state {
-        RecordingState::Recording => format!("REC {pipeline_tag}"),
-        RecordingState::Processing => format!("processing {pipeline_tag}"),
-        RecordingState::Idle => state.voice_mode.label().to_string(),
+        RecordingState::Recording => format!("REC {pipeline_tag}{transition}"),
+        RecordingState::Processing => format!("processing {pipeline_tag}{transition}"),
+        RecordingState::Idle => format!("{}{}", state.voice_mode.label(), transition),
     };
 
     let sensitivity = format!("{:.0}dB", state.sensitivity_db);
@@ -959,5 +1026,23 @@ mod tests {
         assert_eq!(banner.height, 4);
         assert!(banner.lines.iter().any(|line| line.contains("REC")));
         assert!(banner.lines.iter().any(|line| line.contains("dB")));
+    }
+
+    #[test]
+    fn format_status_line_shows_transition_marker_when_active() {
+        let mut state = StatusLineState::new();
+        state.voice_mode = VoiceMode::Auto;
+        state.transition_progress = 0.9;
+        let line = format_status_line(&state, Theme::Coral, 80);
+        assert!(line.contains("✦") || line.contains("•") || line.contains("·"));
+    }
+
+    #[test]
+    fn compact_registry_adapts_to_queue_state() {
+        let mut state = StatusLineState::new();
+        state.queue_depth = 2;
+        let registry = compact_hud_registry(&state, 16);
+        let ids: Vec<&str> = registry.iter().map(|module| module.id()).collect();
+        assert_eq!(ids.first().copied(), Some("queue"));
     }
 }

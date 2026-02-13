@@ -1,8 +1,10 @@
 //! Status-line animation frames so recording/processing states feel alive.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
+const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•", "·"];
+const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
 /// Pulsing recording indicator frames (cycles every ~400ms at 10fps).
 const RECORDING_PULSE_FRAMES: &[&str] = &["●", "◉", "●", "○"];
@@ -49,6 +51,32 @@ pub(super) fn heartbeat_glyph(animate: bool) -> (char, bool) {
     (glyph, frame_idx == 2)
 }
 
+pub(crate) fn state_transition_progress(started_at: Option<Instant>, now: Instant) -> f32 {
+    let Some(started_at) = started_at else {
+        return 0.0;
+    };
+    let elapsed = now.saturating_duration_since(started_at);
+    if elapsed >= STATE_TRANSITION_DURATION {
+        return 0.0;
+    }
+    let t = elapsed.as_secs_f32() / STATE_TRANSITION_DURATION.as_secs_f32();
+    // Ease-out for a quick initial pulse that decays smoothly.
+    let eased = 1.0 - (1.0 - t).powf(3.0);
+    (1.0 - eased).clamp(0.0, 1.0)
+}
+
+pub(super) fn transition_marker(progress: f32) -> &'static str {
+    if progress <= 0.0 {
+        ""
+    } else if progress > 0.66 {
+        TRANSITION_PULSE_MARKERS[0]
+    } else if progress > 0.33 {
+        TRANSITION_PULSE_MARKERS[1]
+    } else {
+        TRANSITION_PULSE_MARKERS[2]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,5 +97,24 @@ mod tests {
     fn heartbeat_frame_index_in_range() {
         let idx = heartbeat_frame_index();
         assert!(idx < HEARTBEAT_FRAMES.len());
+    }
+
+    #[test]
+    fn transition_progress_is_bounded() {
+        let now = Instant::now();
+        let p_start = state_transition_progress(Some(now), now);
+        let p_mid = state_transition_progress(Some(now), now + Duration::from_millis(160));
+        let p_end = state_transition_progress(Some(now), now + Duration::from_millis(720));
+        assert!((0.9..=1.0).contains(&p_start));
+        assert!(p_mid > 0.0 && p_mid < 1.0);
+        assert_eq!(p_end, 0.0);
+    }
+
+    #[test]
+    fn transition_marker_steps_down() {
+        assert_eq!(transition_marker(0.9), "✦");
+        assert_eq!(transition_marker(0.5), "•");
+        assert_eq!(transition_marker(0.1), "·");
+        assert_eq!(transition_marker(0.0), "");
     }
 }

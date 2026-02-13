@@ -35,6 +35,22 @@ impl MeterModule {
         let idx = (normalized * (WAVEFORM_CHARS.len() - 1) as f32) as usize;
         WAVEFORM_CHARS[idx]
     }
+
+    fn render_sparkline(levels: &[f32], bar_count: usize) -> String {
+        if levels.is_empty() || bar_count == 0 {
+            return String::new();
+        }
+        let mut out = String::with_capacity(bar_count);
+        let start = levels.len().saturating_sub(bar_count);
+        let slice = &levels[start..];
+        if slice.len() < bar_count {
+            out.push_str(&"▁".repeat(bar_count - slice.len()));
+        }
+        for level in slice {
+            out.push(Self::db_to_char(*level));
+        }
+        out
+    }
 }
 
 impl Default for MeterModule {
@@ -61,9 +77,13 @@ impl HudModule for MeterModule {
         let db = state.audio_level_db;
         let db_str = format!("{:>3.0}dB", db);
 
-        // Generate waveform bars
-        let waveform_char = Self::db_to_char(db);
-        let waveform: String = std::iter::repeat_n(waveform_char, self.bar_count).collect();
+        // Render a richer sparkline from recent samples when available.
+        let waveform = if state.audio_levels.is_empty() {
+            let waveform_char = Self::db_to_char(db);
+            std::iter::repeat_n(waveform_char, self.bar_count).collect()
+        } else {
+            Self::render_sparkline(&state.audio_levels, self.bar_count)
+        };
 
         let full = format!("{} {}", db_str, waveform);
         if full.chars().count() <= max_width {
@@ -214,5 +234,23 @@ mod tests {
             .filter(|c| WAVEFORM_CHARS.contains(c))
             .count();
         assert_eq!(waveform_count, 10);
+    }
+
+    #[test]
+    fn meter_module_render_history_sparkline_varies() {
+        let module = MeterModule::with_bar_count(6);
+        let state = HudState {
+            is_recording: true,
+            audio_level_db: -20.0,
+            audio_levels: vec![-58.0, -50.0, -42.0, -35.0, -20.0, -8.0],
+            ..Default::default()
+        };
+        let output = module.render(&state, 40);
+        let waveform: String = output
+            .chars()
+            .filter(|c| WAVEFORM_CHARS.contains(c))
+            .collect();
+        let distinct = waveform.chars().collect::<std::collections::BTreeSet<_>>();
+        assert!(distinct.len() > 1);
     }
 }

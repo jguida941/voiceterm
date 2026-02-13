@@ -11,6 +11,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add a runtime `Macros` ON/OFF setting in the Settings panel to control macro expansion without changing send mode behavior.
 - Keep status/HUD text aligned with baseline `auto`/`insert` semantics (no extra review/intent labels).
 - Add compact right-panel visualization rendering to **Minimal HUD** for Ribbon/Dots/Heartbeat modes, honoring the existing recording-only panel setting.
+- Add bounded sparkline-style telemetry in compact HUD views for both meter levels and latency trend.
+- Add a short state-transition pulse marker on mode/state changes so status updates are easier to perceive.
+- Add adaptive compact HUD module selection by context (recording vs busy queue vs idle) so narrow layouts prioritize relevant telemetry.
 
 ### CI
 - Add a dedicated latency guard workflow (`.github/workflows/latency_guard.yml`) that runs synthetic voice-only regression bounds in CI.
@@ -28,6 +31,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add settings and drain coverage for macros ON/OFF behavior.
 - Add status-line/button coverage for baseline send-mode labels (`send`/`edit`).
 - Add status-line coverage for Minimal HUD right-panel rendering and recording-only visibility behavior.
+- Add coverage for bounded latency history retention and transition animation marker behavior.
+- Add HUD module coverage for meter/latency sparkline rendering.
+- Add status-line coverage for adaptive compact module registry selection.
 
 ### Developer Experience
 - Add `python3 dev/scripts/devctl.py hygiene` to audit archive naming, ADR status/index consistency, and `dev/scripts` documentation coverage.

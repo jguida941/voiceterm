@@ -51,10 +51,14 @@ pub struct HudState {
     pub recording_duration_secs: f32,
     /// Current audio level in dBFS.
     pub audio_level_db: f32,
+    /// Recent audio levels in dBFS for sparkline-style telemetry.
+    pub audio_levels: Vec<f32>,
     /// Number of pending transcripts in queue.
     pub queue_depth: usize,
     /// Last measured latency in milliseconds.
     pub last_latency_ms: Option<u32>,
+    /// Recent latency samples in milliseconds for sparkline telemetry.
+    pub latency_history_ms: Vec<u32>,
     /// Name of the STT backend (reserved for model/status module).
     #[allow(dead_code)]
     pub backend_name: String,

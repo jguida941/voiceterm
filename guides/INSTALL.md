@@ -91,6 +91,8 @@ After upgrading, run `voxterm --version` and open Settings (`Ctrl+O`) once to
 confirm runtime options such as `Macros` and `Send mode` are present.
 If you use Minimal HUD, also verify the right-panel visualization chip appears
 when `Right panel` is set to `Ribbon`, `Dots`, or `Heartbeat`.
+You should also see compact latency/meter trend telemetry in narrow HUD space,
+plus a brief transition pulse marker on major mode/state changes.
 
 ## Option B: Install from source
 

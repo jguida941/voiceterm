@@ -13,6 +13,7 @@ mod layout;
 mod state;
 mod text;
 
+pub(crate) use animation::state_transition_progress;
 pub use buttons::get_button_positions;
 pub use format::format_status_banner;
 pub use layout::status_banner_height;

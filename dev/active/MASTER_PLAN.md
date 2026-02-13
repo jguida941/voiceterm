@@ -50,10 +50,10 @@
 - [ ] MP-088 Persistent user config (`~/.config/voxterm/config.toml`) for core preferences (deferred until visual sprint is complete).
 
 ## Phase 2A - Visual HUD Sprint (Current Priority)
-- [ ] MP-101 Add richer HUD telemetry visuals (sparkline/chart/gauge) with bounded data retention.
-- [ ] MP-100 Add animation transition framework for overlays and state changes (TachyonFX or equivalent).
+- [x] MP-101 Add richer HUD telemetry visuals (sparkline/chart/gauge) with bounded data retention.
+- [x] MP-100 Add animation transition framework for overlays and state changes (TachyonFX or equivalent).
 - [x] MP-054 Optional right-panel visualization modes in minimal HUD.
-- [ ] MP-105 Add adaptive/contextual HUD layouts and state-driven module expansion.
+- [x] MP-105 Add adaptive/contextual HUD layouts and state-driven module expansion.
 - [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
 - [ ] MP-055 Quick theme switcher in settings.
 - [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.

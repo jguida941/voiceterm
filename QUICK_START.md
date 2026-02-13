@@ -81,6 +81,8 @@ Macros note: in Settings (`Ctrl+O`), `Macros` controls whether transcript text i
 expanded via `.voxterm/macros.yaml` before injection.
 Visual note: right-panel telemetry modes (`Ribbon`, `Dots`, `Heartbeat`) show in
 Minimal HUD as compact chips when enabled in Settings.
+Compact HUD telemetry also adapts by context (recording/busy/idle), and short
+transition pulse markers appear briefly on major mode changes.
 
 ## 5) Common flags
 

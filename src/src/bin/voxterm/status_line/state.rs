@@ -67,6 +67,8 @@ impl Pipeline {
 
 /// Maximum number of meter level samples to keep for waveform display.
 pub const METER_HISTORY_MAX: usize = 24;
+/// Maximum number of latency samples to keep for HUD sparkline telemetry.
+pub const LATENCY_HISTORY_MAX: usize = 24;
 
 /// A clickable button's position in the status bar.
 #[derive(Debug, Clone)]
@@ -141,6 +143,8 @@ pub struct StatusLineState {
     pub queue_depth: usize,
     /// Last measured transcription latency in milliseconds
     pub last_latency_ms: Option<u32>,
+    /// Recent latency samples in milliseconds for HUD telemetry sparklines.
+    pub latency_history_ms: Vec<u32>,
     /// Current voice send mode
     pub send_mode: VoiceSendMode,
     /// Whether macro expansion from `.voxterm/macros.yaml` is enabled.
@@ -155,6 +159,9 @@ pub struct StatusLineState {
     pub mouse_enabled: bool,
     /// Focused HUD button (for arrow key navigation)
     pub hud_button_focus: Option<ButtonAction>,
+    /// Ephemeral transition progress (0.0-1.0) for state-change animations.
+    /// This is populated by the writer thread at render time.
+    pub transition_progress: f32,
 }
 
 impl StatusLineState {
@@ -162,9 +169,18 @@ impl StatusLineState {
         Self {
             sensitivity_db: -35.0,
             meter_levels: Vec::with_capacity(METER_HISTORY_MAX),
+            latency_history_ms: Vec::with_capacity(LATENCY_HISTORY_MAX),
             macros_enabled: true,
             ..Default::default()
         }
+    }
+
+    pub fn push_latency_sample(&mut self, sample_ms: u32) {
+        if self.latency_history_ms.len() >= LATENCY_HISTORY_MAX {
+            let overflow = self.latency_history_ms.len() + 1 - LATENCY_HISTORY_MAX;
+            self.latency_history_ms.drain(0..overflow);
+        }
+        self.latency_history_ms.push(sample_ms);
     }
 }
 
@@ -191,6 +207,22 @@ mod tests {
         assert_eq!(state.sensitivity_db, -35.0);
         assert!(!state.auto_voice_enabled);
         assert!(state.macros_enabled);
+        assert!(state.latency_history_ms.is_empty());
+        assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
+    }
+
+    #[test]
+    fn push_latency_sample_caps_history() {
+        let mut state = StatusLineState::new();
+        for i in 0..(LATENCY_HISTORY_MAX as u32 + 3) {
+            state.push_latency_sample(i);
+        }
+        assert_eq!(state.latency_history_ms.len(), LATENCY_HISTORY_MAX);
+        assert_eq!(state.latency_history_ms[0], 3);
+        assert_eq!(
+            *state.latency_history_ms.last().expect("last sample"),
+            LATENCY_HISTORY_MAX as u32 + 2
+        );
     }
 }

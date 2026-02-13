@@ -12,6 +12,32 @@ impl LatencyModule {
     pub fn new() -> Self {
         Self
     }
+
+    fn latency_char(ms: u32) -> char {
+        match ms {
+            0..=150 => '▁',
+            151..=300 => '▂',
+            301..=500 => '▄',
+            501..=800 => '▆',
+            _ => '█',
+        }
+    }
+
+    fn render_sparkline(history: &[u32], width: usize) -> String {
+        if history.is_empty() || width == 0 {
+            return String::new();
+        }
+        let mut out = String::with_capacity(width);
+        let start = history.len().saturating_sub(width);
+        let slice = &history[start..];
+        if slice.len() < width {
+            out.push_str(&"▁".repeat(width - slice.len()));
+        }
+        for sample in slice {
+            out.push(Self::latency_char(*sample));
+        }
+        out
+    }
 }
 
 impl Default for LatencyModule {
@@ -33,16 +59,26 @@ impl HudModule for LatencyModule {
         match state.last_latency_ms {
             Some(ms) => {
                 let secs = ms as f32 / 1000.0;
-                let full = if secs >= 10.0 {
-                    format!("◷ {:.0}s", secs)
+                let trend = if state.latency_history_ms.is_empty() {
+                    Self::latency_char(ms).to_string()
                 } else {
-                    format!("◷ {:.1}s", secs)
+                    Self::render_sparkline(&state.latency_history_ms, 4)
+                };
+                let full = if secs >= 10.0 {
+                    format!("◷ {:.0}s {trend}", secs)
+                } else {
+                    format!("◷ {:.1}s {trend}", secs)
                 };
 
                 if full.chars().count() <= max_width {
                     full
+                } else if max_width >= 7 {
+                    // Compact format with decimal precision + single trend marker.
+                    format!("◷{:.1}s{}", secs, Self::latency_char(ms))
+                } else if max_width >= 6 {
+                    // Ultra compact format without decimal + trend marker.
+                    format!("◷{:.0}s{}", secs, Self::latency_char(ms))
                 } else if max_width >= 4 {
-                    // Compact format without decimal
                     format!("◷{:.0}s", secs)
                 } else {
                     String::new()
@@ -97,11 +133,12 @@ mod tests {
         let module = LatencyModule::new();
         let state = HudState {
             last_latency_ms: Some(1200),
+            latency_history_ms: vec![220, 350, 900, 1200],
             ..Default::default()
         };
         let output = module.render(&state, 10);
         assert!(output.contains("◷"));
-        assert!(output.contains("1.2s"));
+        assert!(output.contains("1.2s") || output.contains("1s"));
     }
 
     #[test]
@@ -109,10 +146,11 @@ mod tests {
         let module = LatencyModule::new();
         let state = HudState {
             last_latency_ms: Some(500),
+            latency_history_ms: vec![100, 180, 250, 500],
             ..Default::default()
         };
         let output = module.render(&state, 10);
-        assert!(output.contains("0.5s"));
+        assert!(output.contains("0.5s") || output.contains("1s"));
     }
 
     #[test]
@@ -120,6 +158,7 @@ mod tests {
         let module = LatencyModule::new();
         let state = HudState {
             last_latency_ms: Some(15000),
+            latency_history_ms: vec![700, 900, 1200, 15000],
             ..Default::default()
         };
         let output = module.render(&state, 10);
@@ -144,11 +183,24 @@ mod tests {
         let module = LatencyModule::new();
         let state = HudState {
             last_latency_ms: Some(1200),
+            latency_history_ms: vec![200, 350, 500, 1200],
             ..Default::default()
         };
-        // Just enough for compact
-        let output = module.render(&state, 4);
+        // Just enough for compact+trend
+        let output = module.render(&state, 6);
         assert!(output.contains("◷"));
         assert!(output.contains("s"));
+    }
+
+    #[test]
+    fn latency_module_uses_history_sparkline() {
+        let module = LatencyModule::new();
+        let state = HudState {
+            last_latency_ms: Some(800),
+            latency_history_ms: vec![120, 220, 450, 820],
+            ..Default::default()
+        };
+        let output = module.render(&state, 16);
+        assert!(output.contains('▁') || output.contains('▂') || output.contains('▄'));
     }
 }

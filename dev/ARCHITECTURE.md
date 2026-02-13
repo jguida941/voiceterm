@@ -395,6 +395,9 @@ quiet output intervals to avoid corrupting the backend's screen.
 ## Visual System (Overlay)
 
 - **Enhanced status line** is driven by `StatusLineState` (mode, pipeline, sensitivity, message, duration).
+- `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact sparkline rendering.
+- Compact HUD rendering is context-aware (`recording`, `busy queue`, `idle`) and picks modules accordingly.
+- Writer-managed transition progress drives short state-change pulse markers during redraw.
 - **Theme selection** uses `--theme` with automatic fallback based on terminal color capability and `NO_COLOR`.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
@@ -423,7 +426,7 @@ quiet output intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voxterm/status_line/state.rs` - status line state enums + structs
 - `src/src/bin/voxterm/status_line/text.rs` - display width + truncation helpers
 - `src/src/bin/voxterm/status_style.rs` - status message categorization + styling
-- `src/src/bin/voxterm/hud/` - HUD modules (ribbon/dots/heartbeat/latency)
+- `src/src/bin/voxterm/hud/` - HUD modules (ribbon/dots/heartbeat/meter/latency)
 - `src/src/bin/voxterm/icons.rs` - status line icons/glyphs
 - `src/src/bin/voxterm/color_mode.rs` - color mode detection + overrides
 - `src/src/bin/voxterm/theme/` - color palettes and theme selection

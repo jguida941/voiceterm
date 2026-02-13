@@ -11,7 +11,7 @@ use super::render::{
     set_scroll_region, write_overlay_panel, write_status_banner, write_status_line,
 };
 use super::WriterMessage;
-use crate::status_line::{format_status_banner, StatusLineState};
+use crate::status_line::{format_status_banner, state_transition_progress, StatusLineState};
 use crate::theme::Theme;
 
 const OUTPUT_FLUSH_INTERVAL_MS: u64 = 16;
@@ -71,6 +71,7 @@ pub(super) struct WriterState {
     /// Tracking the computed row (not just reserved height) ensures
     /// the scroll region is recalculated on terminal resize.
     scroll_region_bottom: u16,
+    transition_started_at: Option<Instant>,
 }
 
 impl WriterState {
@@ -88,6 +89,7 @@ impl WriterState {
             theme: Theme::default(),
             mouse_enabled: false,
             scroll_region_bottom: 0,
+            transition_started_at: None,
         }
     }
 
@@ -121,10 +123,20 @@ impl WriterState {
                 self.pending.status = Some(text);
                 self.pending.enhanced_status = None;
                 self.pending.clear_status = false;
+                self.transition_started_at = None;
                 self.needs_redraw = true;
                 self.maybe_redraw_status();
             }
             WriterMessage::EnhancedStatus(state) => {
+                let start_transition = self
+                    .display
+                    .enhanced_status
+                    .as_ref()
+                    .map(|prev| should_start_state_transition(prev, &state))
+                    .unwrap_or(true);
+                if start_transition {
+                    self.transition_started_at = Some(Instant::now());
+                }
                 self.pending.enhanced_status = Some(state);
                 self.pending.status = None;
                 self.pending.clear_status = false;
@@ -147,6 +159,7 @@ impl WriterState {
                 self.pending.status = None;
                 self.pending.enhanced_status = None;
                 self.pending.clear_status = true;
+                self.transition_started_at = None;
                 self.needs_redraw = true;
                 self.maybe_redraw_status();
             }
@@ -183,6 +196,7 @@ impl WriterState {
                 // Reset scroll region and disable mouse before exiting.
                 let _ = reset_scroll_region(&mut self.stdout);
                 self.scroll_region_bottom = 0;
+                self.transition_started_at = None;
                 disable_mouse(&mut self.stdout, &mut self.mouse_enabled);
                 return false;
             }
@@ -250,6 +264,20 @@ impl WriterState {
         if let Some(text) = self.pending.status.take() {
             self.display.status = Some(text);
             self.display.enhanced_status = None;
+            self.transition_started_at = None;
+        }
+
+        let now = Instant::now();
+        let transition_progress = if self.display.enhanced_status.is_some() {
+            state_transition_progress(self.transition_started_at, now)
+        } else {
+            0.0
+        };
+        if transition_progress <= 0.0 {
+            self.transition_started_at = None;
+        }
+        if let Some(state) = self.display.enhanced_status.as_mut() {
+            state.transition_progress = transition_progress;
         }
 
         let rows = self.rows;
@@ -318,10 +346,49 @@ impl WriterState {
         if let Err(err) = self.stdout.flush() {
             flush_error.get_or_insert(err);
         }
-        self.needs_redraw = false;
+        self.needs_redraw = transition_progress > 0.0;
         self.last_status_draw_at = Instant::now();
         if let Some(err) = flush_error {
             log_debug(&format!("status redraw flush failed: {err}"));
         }
+    }
+}
+
+fn should_start_state_transition(prev: &StatusLineState, next: &StatusLineState) -> bool {
+    prev.recording_state != next.recording_state
+        || prev.voice_mode != next.voice_mode
+        || prev.send_mode != next.send_mode
+        || prev.hud_style != next.hud_style
+        || prev.hud_right_panel != next.hud_right_panel
+        || prev.hud_right_panel_recording_only != next.hud_right_panel_recording_only
+        || prev.auto_voice_enabled != next.auto_voice_enabled
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::HudStyle;
+    use crate::status_line::{RecordingState, VoiceMode};
+
+    #[test]
+    fn transition_starts_when_core_state_changes() {
+        let mut prev = StatusLineState::new();
+        let mut next = prev.clone();
+        assert!(!should_start_state_transition(&prev, &next));
+
+        next.recording_state = RecordingState::Recording;
+        assert!(should_start_state_transition(&prev, &next));
+
+        next = prev.clone();
+        next.voice_mode = VoiceMode::Auto;
+        assert!(should_start_state_transition(&prev, &next));
+
+        next = prev.clone();
+        next.hud_style = HudStyle::Minimal;
+        assert!(should_start_state_transition(&prev, &next));
+
+        prev.recording_state = RecordingState::Recording;
+        next = prev.clone();
+        assert!(!should_start_state_transition(&prev, &next));
     }
 }

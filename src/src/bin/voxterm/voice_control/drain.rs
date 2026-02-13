@@ -435,6 +435,9 @@ fn update_last_latency(
     };
 
     status_state.last_latency_ms = latency_ms;
+    if let Some(sample) = latency_ms {
+        status_state.push_latency_sample(sample);
+    }
 
     let display_field = latency_ms
         .map(|v| v.to_string())
@@ -645,6 +648,7 @@ macros:
         update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
 
         assert_eq!(status_state.last_latency_ms, Some(220));
+        assert_eq!(status_state.latency_history_ms, vec![220]);
     }
 
     #[test]
@@ -661,18 +665,21 @@ macros:
         update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
 
         assert_eq!(status_state.last_latency_ms, Some(500));
+        assert_eq!(status_state.latency_history_ms, vec![500]);
     }
 
     #[test]
     fn update_last_latency_hides_badge_when_metrics_missing() {
         let mut status_state = StatusLineState::new();
         status_state.last_latency_ms = Some(777);
+        status_state.push_latency_sample(777);
         let now = Instant::now();
         let started_at = now - Duration::from_millis(1400);
 
         update_last_latency(&mut status_state, Some(started_at), None, now);
 
         assert_eq!(status_state.last_latency_ms, None);
+        assert_eq!(status_state.latency_history_ms, vec![777]);
     }
 
     #[test]
