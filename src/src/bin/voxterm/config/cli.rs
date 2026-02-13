@@ -20,6 +20,14 @@ pub(crate) enum HudRightPanel {
     Off,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub(crate) enum LatencyDisplayMode {
+    Off,
+    #[default]
+    Short,
+    Label,
+}
+
 /// HUD display style - controls overall banner visibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub(crate) enum HudStyle {
@@ -50,6 +58,17 @@ impl std::fmt::Display for HudRightPanel {
             HudRightPanel::Ribbon => "Ribbon",
             HudRightPanel::Dots => "Dots",
             HudRightPanel::Heartbeat => "Heartbeat",
+        };
+        write!(f, "{label}")
+    }
+}
+
+impl std::fmt::Display for LatencyDisplayMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            LatencyDisplayMode::Off => "Off",
+            LatencyDisplayMode::Short => "Nms",
+            LatencyDisplayMode::Label => "Latency: Nms",
         };
         write!(f, "{label}")
     }
@@ -105,6 +124,14 @@ pub(crate) struct OverlayConfig {
     /// HUD display style (full, minimal, hidden)
     #[arg(long = "hud-style", value_enum, default_value_t = HudStyle::Full)]
     pub(crate) hud_style: HudStyle,
+
+    /// Latency badge style in shortcuts row (`off`, `short` = `123ms`, `label` = `Latency: 123ms`)
+    #[arg(
+        long = "latency-display",
+        value_enum,
+        default_value_t = LatencyDisplayMode::Short
+    )]
+    pub(crate) latency_display: LatencyDisplayMode,
 
     /// Shorthand for --hud-style minimal
     #[arg(long = "minimal-hud", default_value_t = false)]

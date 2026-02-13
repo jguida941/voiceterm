@@ -3,7 +3,6 @@
 use std::sync::OnceLock;
 
 use crate::audio_meter::format_waveform;
-use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
@@ -134,21 +133,10 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
             // Get shortcuts row with button positions
             let (shortcuts_line, buttons) =
                 format_shortcuts_row_with_positions(state, &colors, borders, inner_width);
-            let message_anchor_col = buttons
-                .iter()
-                .find(|button| button.action == ButtonAction::SettingsToggle)
-                .map(|button| button.start_x as usize);
 
             let lines = vec![
                 format_top_border(&colors, borders, width),
-                format_main_row(
-                    state,
-                    &colors,
-                    borders,
-                    theme,
-                    inner_width,
-                    message_anchor_col,
-                ),
+                format_main_row(state, &colors, borders, theme, inner_width),
                 shortcuts_line,
                 format_bottom_border(&colors, borders, width),
             ];
@@ -191,11 +179,14 @@ fn format_brand_label(colors: &ThemeColors) -> String {
 }
 
 fn format_duration_section(state: &StatusLineState, colors: &ThemeColors) -> String {
+    let width = MAIN_ROW_DURATION_PLACEHOLDER.len();
     if let Some(dur) = state.recording_duration {
+        let text = format!("{dur:.1}s");
+        let padded = format!("{text:>width$}");
         if state.recording_state == RecordingState::Recording {
-            format!(" {:.1}s ", dur)
+            format!(" {padded} ")
         } else {
-            format!(" {}{:.1}s{} ", colors.dim, dur, colors.reset)
+            format!(" {}{}{} ", colors.dim, padded, colors.reset)
         }
     } else {
         format!(
@@ -252,7 +243,6 @@ fn format_main_row(
     borders: &BorderSet,
     theme: Theme,
     inner_width: usize,
-    message_anchor_col: Option<usize>,
 ) -> String {
     // Build content sections
     let mode_section = format_mode_indicator(state, colors);
@@ -264,6 +254,11 @@ fn format_main_row(
     // Combine all sections
     let sep = format!("{}│{}", colors.dim, colors.reset);
     let content = [mode_section, duration_section, meter_section].join(&sep);
+    let message_lane = if message_section.is_empty() {
+        String::new()
+    } else {
+        format!("{sep} {message_section}")
+    };
 
     let content_width = display_width(&content);
     let right_panel = format_right_panel(
@@ -274,26 +269,7 @@ fn format_main_row(
     );
     let right_width = display_width(&right_panel);
     let message_available = inner_width.saturating_sub(content_width + right_width);
-    let message_leading_space = if message_section.starts_with(' ') {
-        1
-    } else {
-        0
-    };
-    let message_anchor_padding = if message_section.is_empty() {
-        0
-    } else {
-        let target_prefix_width = message_anchor_col
-            .map(|anchor_col| anchor_col.saturating_sub(2 + message_leading_space))
-            .unwrap_or(content_width);
-        let desired_padding = target_prefix_width.saturating_sub(content_width);
-        desired_padding.min(message_available.saturating_sub(1))
-    };
-    let padded_message = if message_anchor_padding == 0 {
-        message_section
-    } else {
-        format!("{}{}", " ".repeat(message_anchor_padding), message_section)
-    };
-    let truncated_message = truncate_display(&padded_message, message_available);
+    let truncated_message = truncate_display(&message_lane, message_available);
     let message_width = display_width(&truncated_message);
     let interior = format!("{content}{truncated_message}");
 
@@ -323,13 +299,11 @@ fn format_full_hud_message(state: &StatusLineState, colors: &ThemeColors) -> Str
         }
         let status_type = StatusType::from_message(&state.message);
         return match status_type {
-            // Keep only high-signal warnings/errors during active states; state itself is shown on the left.
-            StatusType::Warning => format!(" {}{}{}", colors.warning, state.message, colors.reset),
-            StatusType::Error => format!(" {}{}{}", colors.error, state.message, colors.reset),
-            StatusType::Recording
-            | StatusType::Processing
-            | StatusType::Success
-            | StatusType::Info => String::new(),
+            // While active, keep state lanes on the left but still surface explicit user toggles.
+            StatusType::Warning => format!("{}{}{}", colors.warning, state.message, colors.reset),
+            StatusType::Error => format!("{}{}{}", colors.error, state.message, colors.reset),
+            StatusType::Info => format!("{}{}{}", colors.info, state.message, colors.reset),
+            StatusType::Recording | StatusType::Processing | StatusType::Success => String::new(),
         };
     }
 
@@ -339,20 +313,20 @@ fn format_full_hud_message(state: &StatusLineState, colors: &ThemeColors) -> Str
     }
 
     if state.message.is_empty() {
-        return String::new();
+        return format!("{}Ready{}", colors.success, colors.reset);
     }
 
     let status_type = StatusType::from_message(&state.message);
     match status_type {
-        // Keep idle success state concise in the shortcut row badge.
-        StatusType::Success => String::new(),
+        // Keep idle success state concise beside the dB lane.
+        StatusType::Success => format!("{}Ready{}", colors.success, colors.reset),
         // Show actionable/info toggles in the center message lane.
-        StatusType::Info => format!(" {}{}{}", colors.info, state.message, colors.reset),
-        StatusType::Warning => format!(" {}{}{}", colors.warning, state.message, colors.reset),
-        StatusType::Error => format!(" {}{}{}", colors.error, state.message, colors.reset),
+        StatusType::Info => format!("{}{}{}", colors.info, state.message, colors.reset),
+        StatusType::Warning => format!("{}{}{}", colors.warning, state.message, colors.reset),
+        StatusType::Error => format!("{}{}{}", colors.error, state.message, colors.reset),
         StatusType::Processing | StatusType::Recording => {
             format!(
-                " {}{}{}",
+                "{}{}{}",
                 status_type.color(colors),
                 state.message,
                 colors.reset
@@ -1104,6 +1078,28 @@ mod tests {
     }
 
     #[test]
+    fn format_status_banner_full_mode_duration_lane_is_fixed_width() {
+        let mut short = StatusLineState::new();
+        short.hud_style = HudStyle::Full;
+        short.recording_state = RecordingState::Recording;
+        short.recording_duration = Some(6.7);
+        short.meter_db = Some(-44.0);
+
+        let mut long = short.clone();
+        long.recording_duration = Some(10.4);
+
+        let short_banner = format_status_banner(&short, Theme::None, 120);
+        let long_banner = format_status_banner(&long, Theme::None, 120);
+        let short_meter_col = short_banner.lines[1]
+            .find("-44dB")
+            .expect("short duration should contain meter");
+        let long_meter_col = long_banner.lines[1]
+            .find("-44dB")
+            .expect("long duration should contain meter");
+        assert_eq!(short_meter_col, long_meter_col);
+    }
+
+    #[test]
     fn format_status_banner_full_mode_shows_ready_with_ribbon_panel() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
@@ -1113,7 +1109,8 @@ mod tests {
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert_eq!(banner.height, 4);
-        assert!(banner.lines.iter().any(|line| line.contains("Ready")));
+        assert!(banner.lines[1].contains("Ready"));
+        assert!(!banner.lines[2].contains("Ready"));
     }
 
     #[test]
@@ -1171,6 +1168,17 @@ mod tests {
     }
 
     #[test]
+    fn format_status_banner_full_mode_recording_shows_info_message_on_main_row() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Recording;
+        state.message = "Edit mode: press Enter to send".to_string();
+
+        let banner = format_status_banner(&state, Theme::Coral, 120);
+        assert!(banner.lines[1].contains("Edit mode: press Enter to send"));
+    }
+
+    #[test]
     fn format_status_banner_full_mode_processing_does_not_duplicate_processing_text() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
@@ -1207,22 +1215,27 @@ mod tests {
     }
 
     #[test]
-    fn format_status_banner_full_mode_aligns_info_message_over_settings_lane() {
+    fn format_status_banner_full_mode_latency_label_mode_uses_prefixed_badge() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.recording_state = RecordingState::Idle;
-        state.voice_mode = VoiceMode::Manual;
-        state.message = "Auto-voice disabled (capture cancelled)".to_string();
+        state.last_latency_ms = Some(300);
+        state.latency_display = crate::config::LatencyDisplayMode::Label;
 
-        let banner = format_status_banner(&state, Theme::None, 140);
-        let message_col = banner.lines[1]
-            .find("Auto-voice")
-            .expect("main row should include message");
-        let settings_col = banner.lines[2]
-            .find("[set]")
-            .expect("shortcuts row should include [set]");
-        // Message text should align with the `set` label lane (one column past `[`)
-        assert_eq!(message_col, settings_col + 1);
+        let banner = format_status_banner(&state, Theme::None, 120);
+        assert!(banner.lines[2].contains("Latency: 300ms"));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_latency_off_hides_badge() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Idle;
+        state.last_latency_ms = Some(300);
+        state.latency_display = crate::config::LatencyDisplayMode::Off;
+
+        let banner = format_status_banner(&state, Theme::None, 120);
+        assert!(!banner.lines[2].contains("300ms"));
     }
 
     #[test]

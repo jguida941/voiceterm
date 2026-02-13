@@ -140,6 +140,7 @@ voxterm --login --claude      # Login to Claude CLI
 | `--minimal-hud` | Shorthand for `--hud-style minimal` | off |
 | `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `heartbeat` | ribbon |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
+| `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) | short |
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,

@@ -607,6 +607,10 @@ pub(crate) fn run_event_loop(
                                             settings_ctx.toggle_hud_panel_recording_only();
                                             should_redraw = true;
                                         }
+                                        SettingsItem::Latency => {
+                                            settings_ctx.cycle_latency_display(1);
+                                            should_redraw = true;
+                                        }
                                         SettingsItem::Mouse => {
                                             settings_ctx.toggle_mouse();
                                             should_redraw = true;
@@ -713,6 +717,10 @@ pub(crate) fn run_event_loop(
                                                         settings_ctx.toggle_hud_panel_recording_only();
                                                         should_redraw = true;
                                                     }
+                                                    SettingsItem::Latency => {
+                                                        settings_ctx.cycle_latency_display(-1);
+                                                        should_redraw = true;
+                                                    }
                                                     SettingsItem::Mouse => {
                                                         settings_ctx.toggle_mouse();
                                                         should_redraw = true;
@@ -753,6 +761,10 @@ pub(crate) fn run_event_loop(
                                                     }
                                                     SettingsItem::HudAnimate => {
                                                         settings_ctx.toggle_hud_panel_recording_only();
+                                                        should_redraw = true;
+                                                    }
+                                                    SettingsItem::Latency => {
+                                                        settings_ctx.cycle_latency_display(1);
                                                         should_redraw = true;
                                                     }
                                                     SettingsItem::Mouse => {

@@ -92,6 +92,7 @@ voxterm --voice-send-mode insert
 voxterm --voice-vad-threshold-db -50
 voxterm --mic-meter
 voxterm --logs
+voxterm --latency-display label
 voxterm --voice-max-capture-ms 60000 --voice-buffer-ms 60000
 voxterm --transcript-idle-ms 250
 voxterm --prompt-regex '^codex> $'

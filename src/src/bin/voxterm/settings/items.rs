@@ -1,6 +1,6 @@
 //! Settings item metadata so menus render and dispatch actions from one schema.
 
-use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_line::Pipeline;
 use crate::theme::Theme;
 
@@ -14,6 +14,7 @@ pub enum SettingsItem {
     HudStyle,
     HudPanel,
     HudAnimate,
+    Latency,
     Mouse,
     Backend,
     Pipeline,
@@ -30,6 +31,7 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::HudStyle,
     SettingsItem::HudPanel,
     SettingsItem::HudAnimate,
+    SettingsItem::Latency,
     SettingsItem::Mouse,
     SettingsItem::Backend,
     SettingsItem::Pipeline,
@@ -62,6 +64,7 @@ pub struct SettingsView<'a> {
     pub hud_style: HudStyle,
     pub hud_right_panel: HudRightPanel,
     pub hud_right_panel_recording_only: bool,
+    pub latency_display: LatencyDisplayMode,
     pub mouse_enabled: bool,
     pub backend_label: &'a str,
     pub pipeline: Pipeline,

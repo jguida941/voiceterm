@@ -1,7 +1,7 @@
 //! Status-line button layout and hitbox logic so keyboard/mouse actions map reliably.
 
 use crate::buttons::ButtonAction;
-use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 
@@ -26,7 +26,7 @@ pub fn get_button_positions(
             let colors = theme.colors();
             let inner_width = width.saturating_sub(2);
             let (_, buttons) =
-                format_button_row_with_positions(state, &colors, inner_width, 2, true, true);
+                format_button_row_with_positions(state, &colors, inner_width, 2, true, false);
             buttons
         }
         HudStyle::Minimal => {
@@ -64,7 +64,6 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
         format!("{}{} {}{}", color, indicator, label, colors.reset)
     };
 
-    let mut idle_status: Option<String> = None;
     match state.recording_state {
         RecordingState::Recording => {
             if let Some(db) = state.meter_db {
@@ -78,10 +77,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
                 line.push_str(colors.reset);
             }
         }
-        RecordingState::Processing => {}
-        RecordingState::Idle => {
-            idle_status = Some(minimal_idle_status(state, colors));
-        }
+        RecordingState::Processing | RecordingState::Idle => {}
     }
 
     if let Some(panel) = minimal_right_panel(state, colors) {
@@ -93,7 +89,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
         line.push_str(&panel);
     }
 
-    if let Some(status) = idle_status {
+    if let Some(status) = minimal_status_text(state, colors) {
         if !status.is_empty() {
             line.push(' ');
             line.push_str(colors.dim);
@@ -107,35 +103,49 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     line
 }
 
-fn minimal_idle_status(state: &StatusLineState, colors: &ThemeColors) -> String {
+fn minimal_status_text(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
     if state.queue_depth > 0 {
-        return format!(
+        return Some(format!(
             "{}Queued {}{}",
             colors.warning, state.queue_depth, colors.reset
-        );
+        ));
     }
 
     if state.message.is_empty() {
-        return format!("{}Ready{}", colors.success, colors.reset);
+        return if state.recording_state == RecordingState::Idle {
+            Some(format!("{}Ready{}", colors.success, colors.reset))
+        } else {
+            None
+        };
     }
 
     let status_type = StatusType::from_message(&state.message);
-    let compact = match status_type {
-        StatusType::Error => "Error",
-        StatusType::Warning => "Warning",
-        // Keep minimal mode visually stable; map info/success churn to a steady ready state.
-        StatusType::Info | StatusType::Success | StatusType::Processing | StatusType::Recording => {
-            "Ready"
-        }
+    if state.recording_state != RecordingState::Idle {
+        return match status_type {
+            StatusType::Warning => Some(format!(
+                "{}{}{}",
+                colors.warning, state.message, colors.reset
+            )),
+            StatusType::Error => Some(format!("{}{}{}", colors.error, state.message, colors.reset)),
+            StatusType::Info => Some(format!("{}{}{}", colors.info, state.message, colors.reset)),
+            // Recording/processing/success are already represented by the left state lane while active.
+            StatusType::Recording | StatusType::Processing | StatusType::Success => None,
+        };
+    }
+
+    let colored = match status_type {
+        StatusType::Success => format!("{}Ready{}", colors.success, colors.reset),
+        StatusType::Info => format!("{}{}{}", colors.info, state.message, colors.reset),
+        StatusType::Warning => format!("{}{}{}", colors.warning, state.message, colors.reset),
+        StatusType::Error => format!("{}{}{}", colors.error, state.message, colors.reset),
+        StatusType::Recording | StatusType::Processing => format!(
+            "{}{}{}",
+            status_type.color(colors),
+            state.message,
+            colors.reset
+        ),
     };
-    let color = match status_type {
-        StatusType::Error => colors.error,
-        StatusType::Warning => colors.warning,
-        StatusType::Info | StatusType::Success | StatusType::Processing | StatusType::Recording => {
-            colors.success
-        }
-    };
-    format!("{color}{compact}{}", colors.reset)
+    Some(colored)
 }
 
 fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
@@ -336,7 +346,7 @@ pub(super) fn format_shortcuts_row_with_positions(
 ) -> (String, Vec<ButtonPosition>) {
     // Row 2 from bottom of HUD (row 1 = bottom border)
     let (shortcuts_str, buttons) =
-        format_button_row_with_positions(state, colors, inner_width, 2, true, true);
+        format_button_row_with_positions(state, colors, inner_width, 2, true, false);
 
     // Add leading space to match main row's left margin
     let interior = format!(" {}", shortcuts_str);
@@ -526,8 +536,7 @@ fn format_button_row_with_positions(
         ));
     }
 
-    // Ready/latency badges (not clickable).
-    // Keep Ready and latency as one item so they render as `Ready 199ms` (no separator dot).
+    // Ready badge (not clickable)
     let ready_badge = if show_ready_badge
         && state.recording_state == RecordingState::Idle
         && state.queue_depth == 0
@@ -537,7 +546,10 @@ fn format_button_row_with_positions(
         None
     };
     let latency_badge = if show_latency_badge {
-        state.last_latency_ms.map(|latency| {
+        state.last_latency_ms.and_then(|latency| {
+            if state.latency_display == LatencyDisplayMode::Off {
+                return None;
+            }
             let latency_color = if latency < 300 {
                 colors.success
             } else if latency < 500 {
@@ -545,7 +557,12 @@ fn format_button_row_with_positions(
             } else {
                 colors.error
             };
-            format!("{}{}ms{}", latency_color, latency, colors.reset)
+            let text = match state.latency_display {
+                LatencyDisplayMode::Short => format!("{latency}ms"),
+                LatencyDisplayMode::Label => format!("Latency: {latency}ms"),
+                LatencyDisplayMode::Off => return None,
+            };
+            Some(format!("{latency_color}{text}{}", colors.reset))
         })
     } else {
         None
@@ -627,7 +644,7 @@ fn format_button_row_with_positions(
 }
 
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
-    let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2, true, true);
+    let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2, true, false);
     row
 }
 
@@ -905,6 +922,40 @@ mod tests {
     }
 
     #[test]
+    fn minimal_strip_idle_shows_info_message_text() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.recording_state = RecordingState::Idle;
+        state.message = "Edit mode: press Enter to send".to_string();
+
+        let line = minimal_strip_text(&state, &colors);
+        assert!(line.contains("Edit mode: press Enter to send"));
+    }
+
+    #[test]
+    fn minimal_strip_idle_shows_full_warning_message_text() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.recording_state = RecordingState::Idle;
+        state.message = "Auto-voice disabled (capture cancelled)".to_string();
+
+        let line = minimal_strip_text(&state, &colors);
+        assert!(line.contains("Auto-voice disabled (capture cancelled)"));
+    }
+
+    #[test]
+    fn minimal_strip_recording_shows_info_message_text() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.recording_state = RecordingState::Recording;
+        state.meter_db = Some(-28.0);
+        state.message = "Edit mode: press Enter to send".to_string();
+
+        let line = minimal_strip_text(&state, &colors);
+        assert!(line.contains("Edit mode: press Enter to send"));
+    }
+
+    #[test]
     fn minimal_ribbon_waveform_uses_level_colors() {
         let colors = Theme::Coral.colors();
         let mut state = StatusLineState::new();
@@ -928,7 +979,33 @@ mod tests {
         state.last_latency_ms = Some(199);
 
         let row = format_button_row(&state, &colors, 120);
-        assert!(row.contains("Ready 199ms"));
-        assert!(!row.contains("Ready · 199ms"));
+        assert!(!row.contains("Ready"));
+        assert!(row.contains("199ms"));
+    }
+
+    #[test]
+    fn full_row_latency_label_mode_shows_prefixed_text() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Idle;
+        state.last_latency_ms = Some(300);
+        state.latency_display = LatencyDisplayMode::Label;
+
+        let row = format_button_row(&state, &colors, 120);
+        assert!(row.contains("Latency: 300ms"));
+    }
+
+    #[test]
+    fn full_row_latency_off_mode_hides_badge() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Idle;
+        state.last_latency_ms = Some(199);
+        state.latency_display = LatencyDisplayMode::Off;
+
+        let row = format_button_row(&state, &colors, 120);
+        assert!(!row.contains("199ms"));
     }
 }

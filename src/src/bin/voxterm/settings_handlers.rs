@@ -8,7 +8,7 @@ use voxterm::VoiceCaptureTrigger;
 
 use crate::button_handlers::update_button_registry;
 use crate::buttons::ButtonRegistry;
-use crate::config::{HudRightPanel, HudStyle, OverlayConfig, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, OverlayConfig, VoiceSendMode};
 use crate::log_debug;
 use crate::overlays::OverlayMode;
 use crate::status_line::{RecordingState, StatusLineState, VoiceMode};
@@ -91,6 +91,27 @@ impl<'a> SettingsActionContext<'a> {
             VoiceMode::Manual
         };
         let msg = if *self.auto_voice_enabled {
+            if self.voice_manager.is_idle() {
+                if let Err(err) = start_voice_capture(
+                    self.voice_manager,
+                    VoiceCaptureTrigger::Auto,
+                    self.writer_tx,
+                    self.status_clear_deadline,
+                    self.current_status,
+                    self.status_state,
+                ) {
+                    log_debug(&format!("auto voice capture failed: {err:#}"));
+                } else {
+                    let now = Instant::now();
+                    *self.last_auto_trigger_at = Some(now);
+                    *self.recording_started_at = Some(now);
+                    reset_capture_visuals(
+                        self.status_state,
+                        self.preview_clear_deadline,
+                        self.last_meter_update,
+                    );
+                }
+            }
             "Auto-voice enabled"
         } else {
             let cancelled = self.voice_manager.cancel_capture();
@@ -118,27 +139,6 @@ impl<'a> SettingsActionContext<'a> {
             msg,
             Some(Duration::from_secs(2)),
         );
-        if *self.auto_voice_enabled && self.voice_manager.is_idle() {
-            if let Err(err) = start_voice_capture(
-                self.voice_manager,
-                VoiceCaptureTrigger::Auto,
-                self.writer_tx,
-                self.status_clear_deadline,
-                self.current_status,
-                self.status_state,
-            ) {
-                log_debug(&format!("auto voice capture failed: {err:#}"));
-            } else {
-                let now = Instant::now();
-                *self.last_auto_trigger_at = Some(now);
-                *self.recording_started_at = Some(now);
-                reset_capture_visuals(
-                    self.status_state,
-                    self.preview_clear_deadline,
-                    self.last_meter_update,
-                );
-            }
-        }
     }
 
     pub(crate) fn toggle_send_mode(&mut self) {
@@ -264,6 +264,24 @@ impl<'a> SettingsActionContext<'a> {
         );
     }
 
+    pub(crate) fn cycle_latency_display(&mut self, direction: i32) {
+        self.config.latency_display = cycle_latency_display(self.config.latency_display, direction);
+        self.status_state.latency_display = self.config.latency_display;
+        let label = match self.config.latency_display {
+            LatencyDisplayMode::Off => "Latency display: OFF",
+            LatencyDisplayMode::Short => "Latency display: Nms",
+            LatencyDisplayMode::Label => "Latency display: Latency: Nms",
+        };
+        set_status(
+            self.writer_tx,
+            self.status_clear_deadline,
+            self.current_status,
+            self.status_state,
+            label,
+            Some(Duration::from_secs(2)),
+        );
+    }
+
     pub(crate) fn toggle_mouse(&mut self) {
         self.status_state.mouse_enabled = !self.status_state.mouse_enabled;
         if self.status_state.mouse_enabled {
@@ -321,6 +339,21 @@ fn cycle_hud_style(current: HudStyle, direction: i32) -> HudStyle {
     let idx = OPTIONS
         .iter()
         .position(|style| *style == current)
+        .unwrap_or(0) as i32;
+    let next = (idx + direction).rem_euclid(len) as usize;
+    OPTIONS[next]
+}
+
+fn cycle_latency_display(current: LatencyDisplayMode, direction: i32) -> LatencyDisplayMode {
+    const OPTIONS: &[LatencyDisplayMode] = &[
+        LatencyDisplayMode::Short,
+        LatencyDisplayMode::Label,
+        LatencyDisplayMode::Off,
+    ];
+    let len = OPTIONS.len() as i32;
+    let idx = OPTIONS
+        .iter()
+        .position(|mode| *mode == current)
         .unwrap_or(0) as i32;
     let next = (idx + direction).rem_euclid(len) as usize;
     OPTIONS[next]
@@ -698,6 +731,72 @@ mod tests {
     }
 
     #[test]
+    fn cycle_latency_display_wraps() {
+        assert_eq!(
+            cycle_latency_display(LatencyDisplayMode::Short, 1),
+            LatencyDisplayMode::Label
+        );
+        assert_eq!(
+            cycle_latency_display(LatencyDisplayMode::Label, 1),
+            LatencyDisplayMode::Off
+        );
+        assert_eq!(
+            cycle_latency_display(LatencyDisplayMode::Off, 1),
+            LatencyDisplayMode::Short
+        );
+    }
+
+    #[test]
+    fn cycle_latency_display_updates_state_and_status() {
+        let mut config = OverlayConfig::parse_from(["test-app"]);
+        let mut voice_manager = VoiceManager::new(config.app.clone());
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        let mut auto_voice_enabled = false;
+        let mut last_auto_trigger_at = None;
+        let mut recording_started_at = None;
+        let mut preview_clear_deadline = None;
+        let mut last_meter_update = Instant::now();
+        let button_registry = ButtonRegistry::new();
+        let mut terminal_rows = 24;
+        let mut terminal_cols = 80;
+        let mut theme = Theme::Coral;
+
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+
+        ctx.cycle_latency_display(1);
+        assert_eq!(config.latency_display, LatencyDisplayMode::Label);
+        assert_eq!(status_state.latency_display, LatencyDisplayMode::Label);
+        match writer_rx
+            .recv_timeout(Duration::from_millis(200))
+            .expect("status message")
+        {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("Latency display"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
     fn update_hud_style_updates_state_and_status() {
         let mut config = OverlayConfig::parse_from(["test-app"]);
         let mut voice_manager = VoiceManager::new(config.app.clone());
@@ -787,15 +886,20 @@ mod tests {
         }
         assert!(auto_voice_enabled);
         assert_eq!(status_state.voice_mode, VoiceMode::Auto);
-        match writer_rx
-            .recv_timeout(Duration::from_millis(200))
-            .expect("status message")
-        {
-            WriterMessage::EnhancedStatus(state) => {
-                assert!(state.message.contains("Auto-voice enabled"));
+        let mut saw_enabled = false;
+        for _ in 0..3 {
+            match writer_rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(WriterMessage::EnhancedStatus(state)) => {
+                    if state.message.contains("Auto-voice enabled") {
+                        saw_enabled = true;
+                        break;
+                    }
+                }
+                Ok(other) => panic!("unexpected writer message: {other:?}"),
+                Err(_) => break,
             }
-            other => panic!("unexpected writer message: {other:?}"),
         }
+        assert!(saw_enabled, "expected Auto-voice enabled status");
 
         {
             let mut ctx = make_context(

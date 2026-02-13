@@ -117,6 +117,10 @@ fn main() -> Result<()> {
             "voice_send_mode",
             format!("{:?}", config.voice_send_mode).to_lowercase(),
         );
+        report.push_kv(
+            "latency_display",
+            format!("{:?}", config.latency_display).to_lowercase(),
+        );
         println!("{}", report.render());
         return Ok(());
     }
@@ -248,6 +252,7 @@ fn main() -> Result<()> {
     status_state.sensitivity_db = config.app.voice_vad_threshold_db;
     status_state.auto_voice_enabled = auto_voice_enabled;
     status_state.send_mode = config.voice_send_mode;
+    status_state.latency_display = config.latency_display;
     status_state.macros_enabled = true;
     status_state.hud_right_panel = config.hud_right_panel;
     status_state.hud_right_panel_recording_only = config.hud_right_panel_recording_only;

@@ -142,6 +142,8 @@ Use ↑/↓ to move and Enter to select, or type the theme number.
 Mouse control is on by default (toggle it off in Settings).
 You can click HUD buttons or use ←/→ to focus and Enter to activate.
 Settings also include a `Macros` ON/OFF toggle, alongside send mode and auto-voice.
+Latency badge rendering is configurable in Settings via `Latency display`
+(`Off`, `Nms`, `Latency: Nms`).
 Right-panel telemetry modes (`Ribbon`, `Dots`, `Heartbeat`) render in Full HUD and
 now also render as compact chips in Minimal HUD.
 See the [Usage Guide](guides/USAGE.md) for details.

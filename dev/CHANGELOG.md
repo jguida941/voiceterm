@@ -5,6 +5,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.55] - 2026-02-13
+
 ### UX
 - Add project-scoped voice macro expansion from `.voxterm/macros.yaml` before transcript injection, including trigger-to-command mappings and template macros with `{TRANSCRIPT}` remainder substitution.
 - Support per-macro send-mode overrides (`auto`/`insert`) so selected macros can stay in insert behavior even when global send mode is auto.
@@ -19,9 +21,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Tighten Full HUD idle semantics: use `PTT` label (instead of `MANUAL`), collapse idle success/info text to `Ready`, and avoid duplicate queue text when `Q:n` is already shown in the shortcuts row.
 - Remove transition-marker dot jitter in recording/processing labels; transition pulses now use brief `✦`/`•` markers only in idle transitions.
 - Improve Full HUD visual balance by increasing the maximum right-panel ribbon waveform width.
-- Keep Full HUD steady-state badges (`Ready`, latency `Nms`) with the shortcuts/theme cluster on the lower row, while restoring toggle/status messages to the main row lane after dB.
-- Render Full HUD steady badges as `Ready Nms` (no extra separator between `Ready` and latency).
-- Anchor Full HUD transient toggle/status text to the `[set]` lane so long messages stay visually aligned with controls instead of drifting left.
+- Keep Full HUD steady-state `Ready` near the dB lane in the main row while latency remains in the shortcuts row.
+- Add runtime latency display modes (`Off`, `Nms`, `Latency: Nms`) so users can choose whether shortcuts-row latency is hidden, compact, or labeled.
+- Color the full labeled latency text (`Latency: Nms`) with the same threshold color as compact latency (`Nms`).
 - Suppress duplicate active-state text in Full HUD main row (for example `processing`/`ready`) so recording/processing state is shown once via the left mode indicator.
 - Update send-mode status wording to user-facing `Edit mode: press Enter to send` when insert behavior is active.
 

@@ -13,6 +13,7 @@
 | Minimal HUD has no telemetry chip | See [Status Messages → Minimal HUD right-panel chip is missing](#minimal-hud-right-panel-chip-is-missing) |
 | Minimal HUD status text keeps jumping | See [Status Messages → Minimal HUD status text feels jumpy](#minimal-hud-status-text-feels-jumpy) |
 | Full HUD shows blank idle status | See [Status Messages → Full HUD shows blank idle status](#full-hud-shows-blank-idle-status) |
+| Full HUD columns shift when REC duration grows | See [Status Messages → Full HUD columns shift as REC timer grows](#full-hud-columns-shift-as-rec-timer-grows) |
 | Transcript stays queued in Claude confirmation prompts | See [Status Messages → Transcript stays queued in Claude-confirmation prompts](#transcript-stays-queued-in-claude-confirmation-prompts) |
 | Voice macro not expanding | See [Status Messages → Voice macro not expanding](#voice-macro-not-expanding) |
 | Voice macro expanded unexpectedly | See [Status Messages → Voice macro expanded unexpectedly](#voice-macro-expanded-unexpectedly) |
@@ -175,6 +176,17 @@ shortcuts row at the same time, you are on an older build.
 **Fixes:**
 1. Upgrade to the latest VoxTerm build
 2. Restart the session after upgrading
+
+### Full HUD columns shift as REC timer grows
+
+Older builds could shift the Full HUD meter/message columns when recording
+duration crossed width boundaries (for example `9.9s` -> `10.0s`), which made
+`Ready` and other message text appear to jump left/right.
+
+**Fixes:**
+1. Upgrade to the latest VoxTerm build
+2. Restart the session after upgrading
+3. Optional: use `--latency-display off` if you want the shortest stable lower row
 
 ### REC timer or dB meter appears frozen while queued
 

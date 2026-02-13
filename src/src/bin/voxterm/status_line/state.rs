@@ -1,7 +1,7 @@
 //! Shared status-line state so rendering and interactions read one source of truth.
 
 use crate::buttons::ButtonAction;
-use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 
 /// Current voice mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -144,6 +144,8 @@ pub struct StatusLineState {
     pub queue_depth: usize,
     /// Last measured transcription latency in milliseconds
     pub last_latency_ms: Option<u32>,
+    /// Latency badge style shown in the shortcuts row.
+    pub latency_display: LatencyDisplayMode,
     /// Recent latency samples in milliseconds for HUD telemetry sparklines.
     pub latency_history_ms: Vec<u32>,
     /// Current voice send mode
@@ -171,6 +173,7 @@ impl StatusLineState {
             sensitivity_db: -35.0,
             meter_levels: Vec::with_capacity(METER_HISTORY_MAX),
             latency_history_ms: Vec::with_capacity(LATENCY_HISTORY_MAX),
+            latency_display: LatencyDisplayMode::Short,
             macros_enabled: true,
             ..Default::default()
         }

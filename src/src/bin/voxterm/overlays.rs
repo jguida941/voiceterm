@@ -39,6 +39,7 @@ pub(crate) fn show_settings_overlay(
         hud_style: status_state.hud_style,
         hud_right_panel: config.hud_right_panel,
         hud_right_panel_recording_only: config.hud_right_panel_recording_only,
+        latency_display: status_state.latency_display,
         mouse_enabled: status_state.mouse_enabled,
         backend_label,
         pipeline: status_state.pipeline,

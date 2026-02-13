@@ -88,7 +88,8 @@ If Homebrew still shows an older version or `voxterm` runs an older binary, see
 [Troubleshooting: Wrong version after update](TROUBLESHOOTING.md#wrong-version-after-update).
 
 After upgrading, run `voxterm --version` and open Settings (`Ctrl+O`) once to
-confirm runtime options such as `Macros` and `Send mode` are present.
+confirm runtime options such as `Macros`, `Send mode`, and `Latency display`
+(`Off`, `Nms`, `Latency: Nms`) are present.
 If you use Minimal HUD, also verify the right-panel visualization chip appears
 when `Right panel` is set to `Ribbon`, `Dots`, or `Heartbeat`.
 You should also see compact latency/meter trend telemetry in narrow HUD space,

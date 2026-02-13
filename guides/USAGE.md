@@ -100,13 +100,14 @@ or activate the selected row. `Esc` closes the menu.
 ![Settings Menu](https://raw.githubusercontent.com/jguida941/voxterm/master/img/settings.png)
 
 The menu surfaces the most common controls (auto-voice, send mode,
-macros, mic sensitivity, theme) plus backend and pipeline
+macros, mic sensitivity, theme, latency display) plus backend and pipeline
 info.
 
 It also lets you configure:
 - **HUD style**: Full, Minimal, or Hidden
 - **Right-side panel**: Off, Ribbon, Dots, Heartbeat (shown in Full and Minimal HUD)
 - **Anim only**: Animate the right panel only while recording
+- **Latency display**: Off, `Nms`, or `Latency: Nms` (shortcuts row)
 - **Mouse**: Toggle HUD button clicks (on by default)
 
 When Mouse is enabled, you can click HUD buttons and overlay controls.
@@ -330,12 +331,11 @@ In Full HUD idle state, VoxTerm uses concise labels for visual stability:
   `Transcript queued (...)` in the main row
 - right-panel Ribbon mode uses a wider waveform budget in Full HUD for better
   readability on wide terminals
-- Full HUD keeps steady-state `Ready` + latency (`Nms`) with the lower
-  shortcuts/theme cluster.
-- Main-row status text lane (after dB) is reserved for transient/toggle
-  messages so control feedback appears in a stable location.
-- Transient/toggle messages are anchored to the `set` control lane in Full HUD
-  (above `[set]`) so long status text does not drift left/right between updates.
+- Full HUD keeps steady-state `Ready` near the dB lane in the main row.
+- Full HUD keeps latency in the lower shortcuts row with selectable styles:
+  `Off`, `Nms`, or `Latency: Nms`.
+- Main-row status text lane (after dB) is used for transient/toggle messages
+  (for example send-mode changes).
 - During active recording/processing, duplicate state words are suppressed in
   the main-row status lane so `REC`/`processing` is not shown twice.
 

@@ -1,6 +1,6 @@
 //! Settings panel rendering so menu state maps to stable terminal output.
 
-use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_line::Pipeline;
 use crate::theme::ThemeColors;
 
@@ -102,6 +102,12 @@ fn format_settings_row(
             toggle_button(view.hud_right_panel_recording_only),
             width = LABEL_WIDTH
         ),
+        SettingsItem::Latency => format!(
+            "{marker} {:<width$} {}",
+            "Latency",
+            latency_mode_button(view.latency_display),
+            width = LABEL_WIDTH
+        ),
         SettingsItem::Mouse => format!(
             "{marker} {:<width$} {}",
             "Mouse",
@@ -163,6 +169,14 @@ fn hud_style_button(style: HudStyle) -> String {
         HudStyle::Full => button_label("Full"),
         HudStyle::Minimal => button_label("Minimal"),
         HudStyle::Hidden => button_label("Hidden"),
+    }
+}
+
+fn latency_mode_button(mode: LatencyDisplayMode) -> String {
+    match mode {
+        LatencyDisplayMode::Off => button_label("Off"),
+        LatencyDisplayMode::Short => button_label("Nms"),
+        LatencyDisplayMode::Label => button_label("Latency: Nms"),
     }
 }
 

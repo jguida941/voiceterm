@@ -589,6 +589,7 @@ macros:
             hud_right_panel: crate::config::HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
             hud_style: crate::config::HudStyle::Full,
+            latency_display: crate::config::LatencyDisplayMode::Short,
             minimal_hud: false,
             backend: "codex".to_string(),
             codex: false,
