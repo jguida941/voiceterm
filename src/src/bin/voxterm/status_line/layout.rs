@@ -16,7 +16,7 @@ pub(super) mod breakpoints {
 #[must_use]
 pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
     match hud_style {
-        HudStyle::Hidden => 1,  // Reserve a row to avoid overlaying CLI output
+        HudStyle::Hidden => 1,  // Single-row launcher/indicator
         HudStyle::Minimal => 1, // Single line
         HudStyle::Full => {
             if width < breakpoints::COMPACT {
@@ -43,7 +43,7 @@ mod tests {
         assert_eq!(status_banner_height(80, HudStyle::Minimal), 1);
         assert_eq!(status_banner_height(30, HudStyle::Minimal), 1);
 
-        // Hidden mode: reserve 1 row (blank when idle)
+        // Hidden mode: always 1 row (launcher when idle)
         assert_eq!(status_banner_height(80, HudStyle::Hidden), 1);
         assert_eq!(status_banner_height(30, HudStyle::Hidden), 1);
     }

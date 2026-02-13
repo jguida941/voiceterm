@@ -68,6 +68,30 @@ is idle for the transcript timeout). In auto mode, Enter is pressed for you.
 1. Wait for the CLI to finish and return to a prompt
 2. If you need to send immediately, stop the current response (usually `Ctrl+C`) and try again
 
+### REC timer or dB meter appears frozen while queued
+
+If the backend is producing continuous output, older builds could pause HUD timer
+updates while a queued transcript was pending.
+
+**Fixes:**
+1. Upgrade to the latest VoxTerm build
+2. Restart the session after upgrading
+
+### Latency badge looks inaccurate
+
+The HUD latency badge represents post-capture processing time (mainly STT), not
+the full time you spent talking. Recording duration is shown separately while
+you are speaking.
+
+If VoxTerm does not have enough metrics to estimate latency reliably, the badge
+is hidden instead of showing a misleading number.
+
+**Audit steps:**
+1. Run with logs enabled: `voxterm --logs`
+2. Reproduce one recording and inspect `${TMPDIR}/voxterm_tui.log`
+3. Look for `latency_audit|display_ms=...|elapsed_ms=...|capture_ms=...|stt_ms=...`
+4. For deeper profiling, run `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
+
 ### Transcript queue full (oldest dropped)
 
 You spoke 5+ times while Codex was busy. The oldest transcript was discarded.
@@ -271,6 +295,28 @@ Verify the Homebrew binary directly (bypasses the wrapper):
 ```bash
 $(brew --prefix)/opt/voxterm/libexec/src/target/release/voxterm --version
 ```
+
+---
+
+## IDE Terminal Controls Not Working (JetBrains/Cursor)
+
+If HUD button clicks or arrow-based HUD focus works in one terminal app but not
+another (for example RustRover/PyCharm/WebStorm):
+
+1. Upgrade to the latest VoxTerm build.
+2. Toggle the HUD with `Ctrl+U` and open Settings with `Ctrl+O` to confirm core
+   shortcuts still work.
+3. Capture input diagnostics:
+   ```bash
+   voxterm --logs
+   VOXTERM_DEBUG_INPUT=1 voxterm --logs
+   ```
+4. Reproduce one failed click/arrow action and inspect `${TMPDIR}/voxterm_tui.log`
+   for `input bytes (...)` and `input events: ...` lines.
+
+VoxTerm now parses multiple mouse/arrow sequence variants used by different IDE
+terminal emulators (SGR, URXVT, X10, and parameterized CSI arrows), but the
+debug log above is still the fastest way to confirm what your terminal emits.
 
 ---
 

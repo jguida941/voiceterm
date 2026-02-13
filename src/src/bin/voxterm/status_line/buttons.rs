@@ -10,7 +10,7 @@ use super::text::{display_width, truncate_display};
 
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
-/// Hidden mode returns empty vec (no clickable buttons).
+/// Hidden mode exposes an "open" launcher button while idle.
 pub fn get_button_positions(
     state: &StatusLineState,
     theme: Theme,
@@ -31,7 +31,14 @@ pub fn get_button_positions(
             let (_, button) = format_minimal_strip_with_button(state, &colors, width);
             button.into_iter().collect()
         }
-        HudStyle::Hidden => Vec::new(),
+        HudStyle::Hidden => {
+            if state.recording_state != RecordingState::Idle {
+                return Vec::new();
+            }
+            let colors = theme.colors();
+            let (_, button) = format_hidden_launcher_with_button(state, &colors, width);
+            button.into_iter().collect()
+        }
     }
 }
 
@@ -125,6 +132,60 @@ pub(super) fn format_minimal_strip_with_button(
             end_x: (button_start + button_width - 1) as u16,
             row: 1,
             action: ButtonAction::HudBack,
+        };
+        return (line, Some(button_pos));
+    }
+
+    let line = truncate_display(&base, width);
+    (line, None)
+}
+
+fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String {
+    let brand = format!(
+        "{}Vox{}{}Term{}",
+        colors.info, colors.reset, colors.recording, colors.reset
+    );
+    if state.message.is_empty() {
+        return format!(
+            "{brand} {}hidden{} {}·{} {}Ctrl+U{}",
+            colors.dim, colors.reset, colors.dim, colors.reset, colors.dim, colors.reset
+        );
+    }
+    let status_color = StatusType::from_message(&state.message).color(colors);
+    let status = if status_color.is_empty() {
+        state.message.clone()
+    } else {
+        format!("{}{}{}", status_color, state.message, colors.reset)
+    };
+    format!("{brand} {}·{} {status}", colors.dim, colors.reset)
+}
+
+pub(super) fn format_hidden_launcher_with_button(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    width: usize,
+) -> (String, Option<ButtonPosition>) {
+    if width == 0 {
+        return (String::new(), None);
+    }
+
+    let base = hidden_launcher_text(state, colors);
+    let focused = state.hud_button_focus == Some(ButtonAction::ToggleHudStyle);
+    let button = format_button(colors, "open", colors.info, focused);
+    let button_width = display_width(&button);
+
+    if width >= button_width + 2 {
+        let button_start = width.saturating_sub(button_width) + 1;
+        let status_width = button_start.saturating_sub(2);
+        let status = truncate_display(&base, status_width);
+        let status_width = display_width(&status);
+        let padding = button_start.saturating_sub(1 + status_width);
+        let line = format!("{status}{}{}", " ".repeat(padding), button);
+        let button_pos = ButtonPosition {
+            start_x: button_start as u16,
+            end_x: (button_start + button_width - 1) as u16,
+            row: 1,
+            action: ButtonAction::ToggleHudStyle,
         };
         return (line, Some(button_pos));
     }
@@ -567,11 +628,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn get_button_positions_hidden_is_empty() {
+    fn get_button_positions_hidden_idle_has_open_button() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Hidden;
         let positions = get_button_positions(&state, Theme::None, 80);
-        assert!(positions.is_empty());
+        assert_eq!(positions.len(), 1);
+        assert_eq!(positions[0].row, 1);
+        assert_eq!(positions[0].action, ButtonAction::ToggleHudStyle);
     }
 
     #[test]
@@ -591,5 +654,14 @@ mod tests {
         assert_eq!(positions.len(), 1);
         assert_eq!(positions[0].row, 1);
         assert_eq!(positions[0].action, ButtonAction::HudBack);
+    }
+
+    #[test]
+    fn hidden_launcher_text_contains_hint() {
+        let colors = Theme::None.colors();
+        let state = StatusLineState::new();
+        let line = hidden_launcher_text(&state, &colors);
+        assert!(line.contains("Vox"));
+        assert!(line.contains("Ctrl+U"));
     }
 }

@@ -5,6 +5,26 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.51] - 2026-02-13
+
+### UX
+- Prevent HUD freeze (REC duration, live dB meter, queue/heartbeat status) when PTY output is continuously active by running periodic overlay tasks independently of the `select!` timeout branch.
+- Render the HUD/launcher immediately on startup so users always see VoxTerm controls without waiting for the first status update.
+- Hidden HUD now shows a branded `VoxTerm` launcher row with a clickable `open` button and `Ctrl+U` hint while idle.
+- Improve terminal compatibility for controls by parsing parameterized CSI arrow sequences and additional mouse protocols (URXVT + X10, alongside SGR).
+- Allow Left/Right + Enter HUD button navigation even when mouse clicking is toggled off.
+- Treat HUD latency as post-capture processing time and hide the badge when metrics are incomplete instead of showing a misleading estimate.
+
+### Diagnostics
+- Add `VOXTERM_DEBUG_INPUT=1` to log raw input byte sequences and decoded input events for IDE terminal compatibility debugging.
+- Add `latency_audit|...` debug log lines with displayed/capture/STT/elapsed timing fields per transcript.
+
+### Tests
+- Validate the fix with local `voxterm` build/test checks to cover the queue + busy-output regression path.
+- Add parser coverage for URXVT/X10 mouse events, partial X10 buffering, and parameterized CSI arrow sequences.
+- Add hidden-HUD coverage for the idle launcher button/row behavior.
+- Add unit coverage for latency calculation behavior (prefer STT timing, fallback from capture, hide when metrics are missing).
+
 ## [1.0.50] - 2026-02-09
 
 ### UX

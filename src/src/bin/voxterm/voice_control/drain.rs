@@ -356,6 +356,11 @@ fn update_last_latency(
     metrics: Option<&voxterm::audio::CaptureMetrics>,
     now: Instant,
 ) {
+    #[inline]
+    fn clamp_u64_to_u32(value: u64) -> u32 {
+        value.min(u64::from(u32::MAX)) as u32
+    }
+
     let Some(started_at) = recording_started_at else {
         return;
     };
@@ -363,17 +368,37 @@ fn update_last_latency(
         return;
     };
     let elapsed_ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
-    let latency_ms = match metrics {
-        Some(metrics) if metrics.transcribe_ms > 0 => {
-            metrics.transcribe_ms.min(u64::from(u32::MAX)) as u32
-        }
-        Some(metrics) => {
-            let capture_ms = metrics.capture_ms.min(u64::from(u32::MAX)) as u32;
-            elapsed_ms.saturating_sub(capture_ms)
-        }
-        None => elapsed_ms,
+
+    let capture_ms = metrics
+        .filter(|m| m.capture_ms > 0)
+        .map(|m| clamp_u64_to_u32(m.capture_ms));
+    let stt_ms = metrics
+        .filter(|m| m.transcribe_ms > 0)
+        .map(|m| clamp_u64_to_u32(m.transcribe_ms));
+
+    // HUD latency is intentionally "processing after capture" rather than
+    // full utterance time, because recording duration is already shown separately.
+    // If we do not have enough metrics to estimate processing latency, hide it.
+    let latency_ms = match (stt_ms, capture_ms) {
+        (Some(stt), _) => Some(stt),
+        (None, Some(capture)) => Some(elapsed_ms.saturating_sub(capture)),
+        (None, None) => None,
     };
-    status_state.last_latency_ms = Some(latency_ms);
+
+    status_state.last_latency_ms = latency_ms;
+
+    let display_field = latency_ms
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "na".to_string());
+    let capture_field = capture_ms
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "na".to_string());
+    let stt_field = stt_ms
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "na".to_string());
+    log_debug(&format!(
+        "latency_audit|display_ms={display_field}|elapsed_ms={elapsed_ms}|capture_ms={capture_field}|stt_ms={stt_field}"
+    ));
 }
 
 fn format_transcript_preview(text: &str, max_len: usize) -> String {
@@ -421,6 +446,7 @@ mod tests {
     use crate::config::VoiceSendMode;
     use crate::transcript::TranscriptSession;
     use clap::Parser;
+    use voxterm::audio::CaptureMetrics;
     use voxterm::config::AppConfig;
 
     #[derive(Default)]
@@ -499,5 +525,49 @@ mod tests {
             _ => panic!("unexpected writer message"),
         }
         assert_eq!(session.sent_with_newline, vec!["hello"]);
+    }
+
+    #[test]
+    fn update_last_latency_prefers_stt_metrics_when_available() {
+        let mut status_state = StatusLineState::new();
+        let now = Instant::now();
+        let started_at = now - Duration::from_millis(1800);
+        let metrics = CaptureMetrics {
+            capture_ms: 1450,
+            transcribe_ms: 220,
+            ..Default::default()
+        };
+
+        update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+
+        assert_eq!(status_state.last_latency_ms, Some(220));
+    }
+
+    #[test]
+    fn update_last_latency_uses_elapsed_minus_capture_when_stt_missing() {
+        let mut status_state = StatusLineState::new();
+        let now = Instant::now();
+        let started_at = now - Duration::from_millis(2000);
+        let metrics = CaptureMetrics {
+            capture_ms: 1500,
+            transcribe_ms: 0,
+            ..Default::default()
+        };
+
+        update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+
+        assert_eq!(status_state.last_latency_ms, Some(500));
+    }
+
+    #[test]
+    fn update_last_latency_hides_badge_when_metrics_missing() {
+        let mut status_state = StatusLineState::new();
+        status_state.last_latency_ms = Some(777);
+        let now = Instant::now();
+        let started_at = now - Duration::from_millis(1400);
+
+        update_last_latency(&mut status_state, Some(started_at), None, now);
+
+        assert_eq!(status_state.last_latency_ms, None);
     }
 }

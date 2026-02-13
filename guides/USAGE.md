@@ -85,6 +85,7 @@ All shortcuts in one place:
 | `Ctrl+Q` | **Quit** - Exit the overlay |
 
 **Tip**: `Ctrl+/` also works for decreasing threshold (same as `Ctrl+\`).
+Use **Left/Right** to move HUD button focus and **Enter** to activate the focused button.
 
 ---
 
@@ -106,7 +107,7 @@ It also lets you configure:
 - **Mouse**: Toggle HUD button clicks (on by default)
 
 When Mouse is enabled, you can click HUD buttons and overlay controls.
-Left/Right selects a HUD button and Enter activates it.
+Left/Right selects a HUD button and Enter activates it (even if Mouse is OFF).
 
 ---
 
@@ -216,6 +217,12 @@ Sections (left to right):
 - Shortcut hints (on wide terminals)
 - Optional right-side panel (Ribbon / Dots / Heartbeat) if enabled in Settings
 
+Latency badge behavior:
+- When available, latency is shown as post-capture processing time (mainly STT).
+- Recording duration while you speak is shown separately.
+- If latency metrics are incomplete, VoxTerm hides the latency badge rather than
+  showing an unreliable value.
+
 When recording or processing, the mode label includes a pipeline tag
 (e.g., `REC R` or `… PY`).
 
@@ -268,7 +275,7 @@ For users who prefer less UI clutter, VoxTerm offers three HUD styles:
 |-------|------|-------------|
 | **Full** | (default) | 4-row banner with borders, shortcuts, and detailed info |
 | **Minimal** | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
-| **Hidden** | `--hud-style hidden` | Blank row when idle; shows `REC` while recording |
+| **Hidden** | `--hud-style hidden` | `VoxTerm` launcher row with `Ctrl+U` hint when idle; shows dim `REC` while recording |
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 

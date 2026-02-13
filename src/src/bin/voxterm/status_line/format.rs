@@ -7,7 +7,10 @@ use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 
 use super::animation::{get_processing_spinner, get_recording_indicator, heartbeat_glyph};
-use super::buttons::{format_minimal_strip_with_button, format_shortcuts_row_with_positions};
+use super::buttons::{
+    format_hidden_launcher_with_button, format_minimal_strip_with_button,
+    format_shortcuts_row_with_positions,
+};
 use super::layout::breakpoints;
 use super::state::{Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode};
 use super::text::{display_width, pad_display, truncate_display};
@@ -83,7 +86,7 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
 /// ```
 ///
 /// Minimal mode: Theme-colored strip with indicator + status (e.g., "● PTT · Ready")
-/// Hidden mode: Dim grey indicator only when recording (e.g., "● rec 5s")
+/// Hidden mode: Branded launcher when idle; dim indicator when recording (e.g., "● rec 5s")
 pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize) -> StatusBanner {
     let colors = theme.colors();
     let borders = &colors.borders;
@@ -91,14 +94,15 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     // Handle HUD style
     match state.hud_style {
         HudStyle::Hidden => {
-            // Reserve a blank row when idle; show dim/grey indicator only when active
             if state.recording_state == RecordingState::Recording
                 || state.recording_state == RecordingState::Processing
             {
                 let line = format_hidden_strip(state, &colors, width);
                 StatusBanner::new(vec![line])
             } else {
-                StatusBanner::new(vec![String::new()])
+                // Idle hidden mode still renders a branded launcher to stay discoverable.
+                let (line, button) = format_hidden_launcher_with_button(state, &colors, width);
+                StatusBanner::with_buttons(vec![line], button.into_iter().collect())
             }
         }
         HudStyle::Minimal => {
@@ -893,10 +897,11 @@ mod tests {
         state.recording_state = RecordingState::Idle;
 
         let banner = format_status_banner(&state, Theme::None, 80);
-        // Hidden mode when idle should reserve a blank row
+        // Hidden mode when idle should keep a discoverable launcher row.
         assert_eq!(banner.height, 1);
         assert_eq!(banner.lines.len(), 1);
-        assert!(banner.lines[0].is_empty());
+        assert!(banner.lines[0].contains("Vox"));
+        assert!(banner.lines[0].contains("Ctrl+U"));
     }
 
     #[test]

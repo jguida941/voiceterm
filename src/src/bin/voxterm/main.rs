@@ -57,6 +57,7 @@ use voxterm::{
 };
 
 use crate::banner::{should_skip_banner, show_startup_splash, BannerConfig};
+use crate::button_handlers::send_enhanced_status_with_buttons;
 use crate::buttons::ButtonRegistry;
 use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stats};
 use crate::config::{HudStyle, OverlayConfig};
@@ -324,6 +325,16 @@ fn main() -> Result<()> {
             }
         }
     }
+
+    // Ensure the HUD/launcher is visible immediately, before any user input arrives.
+    send_enhanced_status_with_buttons(
+        &deps.writer_tx,
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
 
     run_event_loop(&mut state, &mut timers, &mut deps);
 

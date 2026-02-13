@@ -1,5 +1,7 @@
 use crate::input::event::InputEvent;
-use crate::input::mouse::{is_sgr_mouse_sequence, parse_sgr_mouse, MouseEventKind};
+use crate::input::mouse::{
+    is_mouse_sequence, is_x10_mouse_prefix, parse_mouse_event, MouseEventKind,
+};
 
 pub(crate) struct InputParser {
     pending: Vec<u8>,
@@ -94,6 +96,29 @@ impl InputParser {
         }
     }
 
+    fn emit_mouse_click(
+        &mut self,
+        out: &mut Vec<InputEvent>,
+        kind: MouseEventKind,
+        x: u16,
+        y: u16,
+    ) {
+        self.flush_pending(out);
+        match kind {
+            MouseEventKind::Press => {
+                self.mouse_press_seen = true;
+                out.push(InputEvent::MouseClick { x, y });
+            }
+            MouseEventKind::Release => {
+                if self.mouse_press_seen {
+                    self.mouse_press_seen = false;
+                } else {
+                    out.push(InputEvent::MouseClick { x, y });
+                }
+            }
+        }
+    }
+
     fn consume_escape(&mut self, byte: u8, out: &mut Vec<InputEvent>) -> bool {
         const MAX_CSI_LEN: usize = 32;
 
@@ -106,6 +131,26 @@ impl InputParser {
             }
 
             if buffer.len() >= 2 && buffer[1] == b'[' {
+                // X10 mouse protocol: ESC [ M Cb Cx Cy (fixed 6-byte sequence).
+                // Keep buffering after the early 'M' byte until full length arrives.
+                if is_x10_mouse_prefix(buffer) {
+                    if buffer.len() < 6 {
+                        return true;
+                    }
+                    if buffer.len() == 6 {
+                        if let Some((kind, x, y)) = parse_mouse_event(buffer) {
+                            self.emit_mouse_click(out, kind, x, y);
+                        } else if !is_mouse_sequence(buffer) {
+                            self.pending.extend_from_slice(buffer);
+                        }
+                        self.esc_buffer = None;
+                        return true;
+                    }
+                    self.pending.extend_from_slice(buffer);
+                    self.esc_buffer = None;
+                    return true;
+                }
+
                 if buffer.len() >= 3 && is_csi_final(byte) {
                     let (is_csi_u, event) = {
                         let is_csi_u = is_csi_u_numeric(buffer);
@@ -122,25 +167,12 @@ impl InputParser {
                             self.flush_pending(out);
                             out.push(event);
                         }
-                    } else if let Some((kind, x, y)) = parse_sgr_mouse(buffer) {
-                        // SGR mouse click: ESC [ < btn ; x ; y M (press) or m (release)
+                    } else if let Some((kind, x, y)) = parse_mouse_event(buffer) {
+                        // Mouse click across supported protocols (SGR, URXVT, X10).
                         self.esc_buffer = None;
-                        self.flush_pending(out);
-                        match kind {
-                            MouseEventKind::Press => {
-                                self.mouse_press_seen = true;
-                                out.push(InputEvent::MouseClick { x, y });
-                            }
-                            MouseEventKind::Release => {
-                                if self.mouse_press_seen {
-                                    self.mouse_press_seen = false;
-                                } else {
-                                    out.push(InputEvent::MouseClick { x, y });
-                                }
-                            }
-                        }
-                    } else if is_sgr_mouse_sequence(buffer) {
-                        // Ignore non-click SGR mouse events (scroll/motion) to avoid flooding output.
+                        self.emit_mouse_click(out, kind, x, y);
+                    } else if is_mouse_sequence(buffer) {
+                        // Ignore non-click mouse events (scroll/motion) to avoid flooding output.
                         self.esc_buffer = None;
                     } else {
                         self.pending.extend_from_slice(buffer);
@@ -404,5 +436,35 @@ mod tests {
         parser.consume_bytes(b"5M", &mut out);
         parser.flush_pending(&mut out);
         assert!(out.is_empty());
+    }
+
+    #[test]
+    fn input_parser_mouse_urxvt_left_click_emits_click() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[32;10;5M", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
+    }
+
+    #[test]
+    fn input_parser_mouse_x10_left_click_emits_click() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(&[0x1b, b'[', b'M', 32, 42, 37], &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
+    }
+
+    #[test]
+    fn input_parser_buffers_partial_x10_mouse_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(&[0x1b, b'[', b'M'], &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+        parser.consume_bytes(&[32, 42, 37], &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::MouseClick { x: 10, y: 5 }]);
     }
 }

@@ -145,7 +145,7 @@ voxterm --login --claude      # Login to Claude CLI
 **HUD styles:**
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
 - `minimal`: Single-line strip
-- `hidden`: No HUD content when idle (keeps a blank row); shows "REC" indicator only while recording
+- `hidden`: Branded launcher row when idle (`VoxTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 
@@ -204,6 +204,7 @@ appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 | `VOXTERM_NO_LOGS` | Disable logging | unset |
 | `VOXTERM_LOG_CONTENT` | Allow content in logs | unset |
 | `VOXTERM_TRACE_LOG` | Structured trace log path | unset |
+| `VOXTERM_DEBUG_INPUT` | Log raw input bytes/events (for terminal compatibility debugging) | unset |
 | `CLAUDE_CMD` | Override Claude CLI path | unset |
 | `VOXTERM_PROVIDER` | IPC default provider (`codex` or `claude`) | unset |
 | `NO_COLOR` | Disable colors (standard) | unset |

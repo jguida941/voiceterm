@@ -48,13 +48,294 @@ const THEME_PICKER_NUMERIC_TIMEOUT_MS: u64 = 350;
 const RECORDING_DURATION_UPDATE_MS: u64 = 200;
 const PROCESSING_SPINNER_TICK_MS: u64 = 120;
 
+fn run_periodic_tasks(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    now: Instant,
+) {
+    if take_sigwinch() {
+        if let Ok((cols, rows)) = terminal_size() {
+            state.terminal_cols = cols;
+            state.terminal_rows = rows;
+            apply_pty_winsize(
+                &mut deps.session,
+                rows,
+                cols,
+                state.overlay_mode,
+                state.status_state.hud_style,
+            );
+            let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
+            if state.status_state.mouse_enabled {
+                update_button_registry(
+                    &deps.button_registry,
+                    &state.status_state,
+                    state.overlay_mode,
+                    state.terminal_cols,
+                    state.theme,
+                );
+            }
+            match state.overlay_mode {
+                OverlayMode::Help => {
+                    show_help_overlay(&deps.writer_tx, state.theme, cols);
+                }
+                OverlayMode::ThemePicker => {
+                    show_theme_picker_overlay(
+                        &deps.writer_tx,
+                        state.theme,
+                        state.theme_picker_selected,
+                        cols,
+                    );
+                }
+                OverlayMode::Settings => {
+                    show_settings_overlay(
+                        &deps.writer_tx,
+                        state.theme,
+                        cols,
+                        &state.settings_menu,
+                        &state.config,
+                        &state.status_state,
+                        &deps.backend_label,
+                    );
+                }
+                OverlayMode::None => {}
+            }
+        }
+    }
+
+    if state.overlay_mode != OverlayMode::ThemePicker {
+        state.theme_picker_digits.clear();
+        timers.theme_picker_digit_deadline = None;
+    } else if let Some(deadline) = timers.theme_picker_digit_deadline {
+        if now >= deadline {
+            if let Some(idx) =
+                theme_picker_parse_index(&state.theme_picker_digits, THEME_OPTIONS.len())
+            {
+                if apply_theme_picker_index(
+                    idx,
+                    &mut state.theme,
+                    &mut state.config,
+                    &deps.writer_tx,
+                    &mut timers.status_clear_deadline,
+                    &mut state.current_status,
+                    &mut state.status_state,
+                    &mut deps.session,
+                    &mut state.terminal_rows,
+                    &mut state.terminal_cols,
+                    &mut state.overlay_mode,
+                ) {
+                    state.theme_picker_selected = theme_index_from_theme(state.theme);
+                }
+            }
+            state.theme_picker_digits.clear();
+            timers.theme_picker_digit_deadline = None;
+        }
+    }
+
+    if state.status_state.recording_state == RecordingState::Recording {
+        if let Some(start) = timers.recording_started_at {
+            if now.duration_since(timers.last_recording_update)
+                >= Duration::from_millis(RECORDING_DURATION_UPDATE_MS)
+            {
+                let duration = now.duration_since(start).as_secs_f32();
+                if (duration - state.last_recording_duration).abs() >= 0.1 {
+                    state.status_state.recording_duration = Some(duration);
+                    state.last_recording_duration = duration;
+                    send_enhanced_status_with_buttons(
+                        &deps.writer_tx,
+                        &deps.button_registry,
+                        &state.status_state,
+                        state.overlay_mode,
+                        state.terminal_cols,
+                        state.theme,
+                    );
+                }
+                timers.last_recording_update = now;
+            }
+        }
+    }
+
+    if state.status_state.recording_state == RecordingState::Recording
+        && now.duration_since(timers.last_meter_update)
+            >= Duration::from_millis(deps.meter_update_ms)
+    {
+        let level = deps.live_meter.level_db();
+        state.meter_levels.push_back(level);
+        if state.meter_levels.len() > METER_HISTORY_MAX {
+            state.meter_levels.pop_front();
+        }
+        state.status_state.meter_db = Some(level);
+        state.status_state.meter_levels.clear();
+        state
+            .status_state
+            .meter_levels
+            .extend(state.meter_levels.iter().copied());
+        timers.last_meter_update = now;
+        send_enhanced_status_with_buttons(
+            &deps.writer_tx,
+            &deps.button_registry,
+            &state.status_state,
+            state.overlay_mode,
+            state.terminal_cols,
+            state.theme,
+        );
+    }
+
+    if state.status_state.recording_state == RecordingState::Processing
+        && now.duration_since(timers.last_processing_tick)
+            >= Duration::from_millis(PROCESSING_SPINNER_TICK_MS)
+    {
+        let spinner = progress::SPINNER_BRAILLE
+            [state.processing_spinner_index % progress::SPINNER_BRAILLE.len()];
+        state.status_state.message = format!("Processing {spinner}");
+        state.processing_spinner_index = state.processing_spinner_index.wrapping_add(1);
+        timers.last_processing_tick = now;
+        send_enhanced_status_with_buttons(
+            &deps.writer_tx,
+            &deps.button_registry,
+            &state.status_state,
+            state.overlay_mode,
+            state.terminal_cols,
+            state.theme,
+        );
+    }
+
+    if state.status_state.hud_right_panel == HudRightPanel::Heartbeat {
+        let animate = !state.status_state.hud_right_panel_recording_only
+            || state.status_state.recording_state == RecordingState::Recording;
+        if animate && now.duration_since(timers.last_heartbeat_tick) >= Duration::from_secs(1) {
+            timers.last_heartbeat_tick = now;
+            send_enhanced_status_with_buttons(
+                &deps.writer_tx,
+                &deps.button_registry,
+                &state.status_state,
+                state.overlay_mode,
+                state.terminal_cols,
+                state.theme,
+            );
+        }
+    }
+    state.prompt_tracker.on_idle(now, deps.auto_idle_timeout);
+
+    drain_voice_messages(
+        &mut deps.voice_manager,
+        &state.config,
+        &mut deps.session,
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+        &mut state.session_stats,
+        &mut state.pending_transcripts,
+        &mut state.prompt_tracker,
+        &mut timers.last_enter_at,
+        now,
+        deps.transcript_idle_timeout,
+        &mut timers.recording_started_at,
+        &mut timers.preview_clear_deadline,
+        &mut timers.last_meter_update,
+        &mut timers.last_auto_trigger_at,
+        state.auto_voice_enabled,
+        deps.sound_on_complete,
+        deps.sound_on_error,
+    );
+
+    {
+        let mut io = TranscriptIo {
+            session: &mut deps.session,
+            writer_tx: &deps.writer_tx,
+            status_clear_deadline: &mut timers.status_clear_deadline,
+            current_status: &mut state.current_status,
+            status_state: &mut state.status_state,
+        };
+        try_flush_pending(
+            &mut state.pending_transcripts,
+            &state.prompt_tracker,
+            &mut timers.last_enter_at,
+            &mut io,
+            now,
+            deps.transcript_idle_timeout,
+        );
+    }
+
+    if state.auto_voice_enabled
+        && deps.voice_manager.is_idle()
+        && should_auto_trigger(
+            &state.prompt_tracker,
+            now,
+            deps.auto_idle_timeout,
+            timers.last_auto_trigger_at,
+        )
+    {
+        if let Err(err) = start_voice_capture(
+            &mut deps.voice_manager,
+            VoiceCaptureTrigger::Auto,
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+        ) {
+            log_debug(&format!("auto voice capture failed: {err:#}"));
+        } else {
+            timers.last_auto_trigger_at = Some(now);
+            timers.recording_started_at = Some(now);
+            reset_capture_visuals(
+                &mut state.status_state,
+                &mut timers.preview_clear_deadline,
+                &mut timers.last_meter_update,
+            );
+        }
+    }
+
+    if let Some(deadline) = timers.preview_clear_deadline {
+        if now >= deadline {
+            timers.preview_clear_deadline = None;
+            if state.status_state.transcript_preview.is_some() {
+                state.status_state.transcript_preview = None;
+                send_enhanced_status_with_buttons(
+                    &deps.writer_tx,
+                    &deps.button_registry,
+                    &state.status_state,
+                    state.overlay_mode,
+                    state.terminal_cols,
+                    state.theme,
+                );
+            }
+        }
+    }
+
+    if let Some(deadline) = timers.status_clear_deadline {
+        if now >= deadline {
+            timers.status_clear_deadline = None;
+            state.current_status = None;
+            state.status_state.message.clear();
+            // Don't repeatedly set "Auto-voice enabled" - the mode indicator shows it
+            send_enhanced_status_with_buttons(
+                &deps.writer_tx,
+                &deps.button_registry,
+                &state.status_state,
+                state.overlay_mode,
+                state.terminal_cols,
+                state.theme,
+            );
+        }
+    }
+}
+
 pub(crate) fn run_event_loop(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
     let mut running = true;
+    let tick_interval = Duration::from_millis(EVENT_LOOP_IDLE_MS);
+    let mut last_periodic_tick = Instant::now();
     while running {
+        let now = Instant::now();
+        if now.duration_since(last_periodic_tick) >= tick_interval {
+            run_periodic_tasks(state, timers, deps, now);
+            last_periodic_tick = now;
+        }
         select! {
             recv(deps.input_rx) -> event => {
                 match event {
@@ -673,38 +954,36 @@ pub(crate) fn run_event_loop(
                                 }
                             }
                             InputEvent::Bytes(bytes) => {
-                                if state.status_state.mouse_enabled {
-                                    if let Some(keys) = parse_arrow_keys_only(&bytes) {
-                                        let mut moved = false;
-                                        for key in keys {
-                                            let direction = match key {
-                                                ArrowKey::Left => -1,
-                                                ArrowKey::Right => 1,
-                                                _ => 0,
-                                            };
-                                            if direction != 0
-                                                && advance_hud_button_focus(
-                                                    &mut state.status_state,
-                                                    state.overlay_mode,
-                                                    state.terminal_cols,
-                                                    state.theme,
-                                                    direction,
-                                                )
-                                            {
-                                                moved = true;
-                                            }
-                                        }
-                                        if moved {
-                                            send_enhanced_status_with_buttons(
-                                                &deps.writer_tx,
-                                                &deps.button_registry,
-                                                &state.status_state,
+                                if let Some(keys) = parse_arrow_keys_only(&bytes) {
+                                    let mut moved = false;
+                                    for key in keys {
+                                        let direction = match key {
+                                            ArrowKey::Left => -1,
+                                            ArrowKey::Right => 1,
+                                            _ => 0,
+                                        };
+                                        if direction != 0
+                                            && advance_hud_button_focus(
+                                                &mut state.status_state,
                                                 state.overlay_mode,
                                                 state.terminal_cols,
                                                 state.theme,
-                                            );
-                                            continue;
+                                                direction,
+                                            )
+                                        {
+                                            moved = true;
                                         }
+                                    }
+                                    if moved {
+                                        send_enhanced_status_with_buttons(
+                                            &deps.writer_tx,
+                                            &deps.button_registry,
+                                            &state.status_state,
+                                            state.overlay_mode,
+                                            state.terminal_cols,
+                                            state.theme,
+                                        );
+                                        continue;
                                     }
                                 }
 
@@ -848,48 +1127,46 @@ pub(crate) fn run_event_loop(
                                 settings_ctx.adjust_sensitivity(-5.0);
                             }
                             InputEvent::EnterKey => {
-                                if state.status_state.mouse_enabled {
-                                    if let Some(action) = state.status_state.hud_button_focus {
-                                        state.status_state.hud_button_focus = None;
-                                        if action == ButtonAction::ThemePicker {
-                                            state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                            state.theme_picker_digits.clear();
-                                            timers.theme_picker_digit_deadline = None;
-                                        }
-                                        {
-                                            let mut button_ctx = ButtonActionContext::new(
-                                                &mut state.overlay_mode,
-                                                &mut state.settings_menu,
-                                                &mut state.config,
-                                                &mut state.status_state,
-                                                &mut state.auto_voice_enabled,
-                                                &mut deps.voice_manager,
-                                                &mut deps.session,
-                                                &deps.writer_tx,
-                                                &mut timers.status_clear_deadline,
-                                                &mut state.current_status,
-                                                &mut timers.recording_started_at,
-                                                &mut timers.preview_clear_deadline,
-                                                &mut timers.last_meter_update,
-                                                &mut timers.last_auto_trigger_at,
-                                                &mut state.terminal_rows,
-                                                &mut state.terminal_cols,
-                                                &deps.backend_label,
-                                                &mut state.theme,
-                                                &deps.button_registry,
-                                            );
-                                            button_ctx.handle_action(action);
-                                        }
-                                        send_enhanced_status_with_buttons(
-                                            &deps.writer_tx,
-                                            &deps.button_registry,
-                                            &state.status_state,
-                                            state.overlay_mode,
-                                            state.terminal_cols,
-                                            state.theme,
-                                        );
-                                        continue;
+                                if let Some(action) = state.status_state.hud_button_focus {
+                                    state.status_state.hud_button_focus = None;
+                                    if action == ButtonAction::ThemePicker {
+                                        state.theme_picker_selected = theme_index_from_theme(state.theme);
+                                        state.theme_picker_digits.clear();
+                                        timers.theme_picker_digit_deadline = None;
                                     }
+                                    {
+                                        let mut button_ctx = ButtonActionContext::new(
+                                            &mut state.overlay_mode,
+                                            &mut state.settings_menu,
+                                            &mut state.config,
+                                            &mut state.status_state,
+                                            &mut state.auto_voice_enabled,
+                                            &mut deps.voice_manager,
+                                            &mut deps.session,
+                                            &deps.writer_tx,
+                                            &mut timers.status_clear_deadline,
+                                            &mut state.current_status,
+                                            &mut timers.recording_started_at,
+                                            &mut timers.preview_clear_deadline,
+                                            &mut timers.last_meter_update,
+                                            &mut timers.last_auto_trigger_at,
+                                            &mut state.terminal_rows,
+                                            &mut state.terminal_cols,
+                                            &deps.backend_label,
+                                            &mut state.theme,
+                                            &deps.button_registry,
+                                        );
+                                        button_ctx.handle_action(action);
+                                    }
+                                    send_enhanced_status_with_buttons(
+                                        &deps.writer_tx,
+                                        &deps.button_registry,
+                                        &state.status_state,
+                                        state.overlay_mode,
+                                        state.terminal_cols,
+                                        state.theme,
+                                    );
+                                    continue;
                                 }
                                 // In insert mode, Enter stops capture early and sends what was recorded
                                 if state.config.voice_send_mode == VoiceSendMode::Insert && !deps.voice_manager.is_idle() {
@@ -1153,275 +1430,7 @@ pub(crate) fn run_event_loop(
                     }
                 }
             }
-            default(Duration::from_millis(EVENT_LOOP_IDLE_MS)) => {
-                if take_sigwinch() {
-                    if let Ok((cols, rows)) = terminal_size() {
-                        state.terminal_cols = cols;
-                        state.terminal_rows = rows;
-                        apply_pty_winsize(
-                            &mut deps.session,
-                            rows,
-                            cols,
-                            state.overlay_mode,
-                            state.status_state.hud_style,
-                        );
-                        let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
-                        if state.status_state.mouse_enabled {
-                            update_button_registry(
-                                &deps.button_registry,
-                                &state.status_state,
-                                state.overlay_mode,
-                                state.terminal_cols,
-                                state.theme,
-                            );
-                        }
-                        match state.overlay_mode {
-                            OverlayMode::Help => {
-                                show_help_overlay(&deps.writer_tx, state.theme, cols);
-                            }
-                            OverlayMode::ThemePicker => {
-                                show_theme_picker_overlay(
-                                    &deps.writer_tx,
-                                    state.theme,
-                                    state.theme_picker_selected,
-                                    cols,
-                                );
-                            }
-                            OverlayMode::Settings => {
-                                show_settings_overlay(
-                                    &deps.writer_tx,
-                                    state.theme,
-                                    cols,
-                                    &state.settings_menu,
-                                    &state.config,
-                                    &state.status_state,
-                                    &deps.backend_label,
-                                );
-                            }
-                            OverlayMode::None => {}
-                        }
-                    }
-                }
-
-                let now = Instant::now();
-                if state.overlay_mode != OverlayMode::ThemePicker {
-                    state.theme_picker_digits.clear();
-                    timers.theme_picker_digit_deadline = None;
-                } else if let Some(deadline) = timers.theme_picker_digit_deadline {
-                    if now >= deadline {
-                        if let Some(idx) = theme_picker_parse_index(
-                            &state.theme_picker_digits,
-                            THEME_OPTIONS.len(),
-                        ) {
-                            if apply_theme_picker_index(
-                                idx,
-                                &mut state.theme,
-                                &mut state.config,
-                                &deps.writer_tx,
-                                &mut timers.status_clear_deadline,
-                                &mut state.current_status,
-                                &mut state.status_state,
-                                &mut deps.session,
-                                &mut state.terminal_rows,
-                                &mut state.terminal_cols,
-                                &mut state.overlay_mode,
-                            ) {
-                                state.theme_picker_selected = theme_index_from_theme(state.theme);
-                            }
-                        }
-                        state.theme_picker_digits.clear();
-                        timers.theme_picker_digit_deadline = None;
-                    }
-                }
-
-                if state.status_state.recording_state == RecordingState::Recording {
-                    if let Some(start) = timers.recording_started_at {
-                        if now.duration_since(timers.last_recording_update)
-                            >= Duration::from_millis(RECORDING_DURATION_UPDATE_MS)
-                        {
-                            let duration = now.duration_since(start).as_secs_f32();
-                            if (duration - state.last_recording_duration).abs() >= 0.1 {
-                                state.status_state.recording_duration = Some(duration);
-                                state.last_recording_duration = duration;
-                                send_enhanced_status_with_buttons(
-                                    &deps.writer_tx,
-                                    &deps.button_registry,
-                                    &state.status_state,
-                                    state.overlay_mode,
-                                    state.terminal_cols,
-                                    state.theme,
-                                );
-                            }
-                            timers.last_recording_update = now;
-                        }
-                    }
-                }
-
-                if state.status_state.recording_state == RecordingState::Recording
-                    && now.duration_since(timers.last_meter_update) >= Duration::from_millis(deps.meter_update_ms)
-                {
-                    let level = deps.live_meter.level_db();
-                    state.meter_levels.push_back(level);
-                    if state.meter_levels.len() > METER_HISTORY_MAX {
-                        state.meter_levels.pop_front();
-                    }
-                    state.status_state.meter_db = Some(level);
-                    state.status_state.meter_levels.clear();
-                    state.status_state
-                        .meter_levels
-                        .extend(state.meter_levels.iter().copied());
-                    timers.last_meter_update = now;
-                    send_enhanced_status_with_buttons(
-                        &deps.writer_tx,
-                        &deps.button_registry,
-                        &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
-                        state.theme,
-                    );
-                }
-
-                if state.status_state.recording_state == RecordingState::Processing
-                    && now.duration_since(timers.last_processing_tick)
-                        >= Duration::from_millis(PROCESSING_SPINNER_TICK_MS)
-                {
-                    let spinner = progress::SPINNER_BRAILLE
-                        [state.processing_spinner_index % progress::SPINNER_BRAILLE.len()];
-                    state.status_state.message = format!("Processing {spinner}");
-                    state.processing_spinner_index = state.processing_spinner_index.wrapping_add(1);
-                    timers.last_processing_tick = now;
-                    send_enhanced_status_with_buttons(
-                        &deps.writer_tx,
-                        &deps.button_registry,
-                        &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
-                        state.theme,
-                    );
-                }
-
-                if state.status_state.hud_right_panel == HudRightPanel::Heartbeat {
-                    let animate = !state.status_state.hud_right_panel_recording_only
-                        || state.status_state.recording_state == RecordingState::Recording;
-                    if animate && now.duration_since(timers.last_heartbeat_tick) >= Duration::from_secs(1)
-                    {
-                        timers.last_heartbeat_tick = now;
-                        send_enhanced_status_with_buttons(
-                            &deps.writer_tx,
-                            &deps.button_registry,
-                            &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
-                            state.theme,
-                        );
-                    }
-                }
-                state.prompt_tracker.on_idle(now, deps.auto_idle_timeout);
-
-                drain_voice_messages(
-                    &mut deps.voice_manager,
-                    &state.config,
-                    &mut deps.session,
-                    &deps.writer_tx,
-                    &mut timers.status_clear_deadline,
-                    &mut state.current_status,
-                    &mut state.status_state,
-                    &mut state.session_stats,
-                    &mut state.pending_transcripts,
-                    &mut state.prompt_tracker,
-                    &mut timers.last_enter_at,
-                    now,
-                    deps.transcript_idle_timeout,
-                    &mut timers.recording_started_at,
-                    &mut timers.preview_clear_deadline,
-                    &mut timers.last_meter_update,
-                    &mut timers.last_auto_trigger_at,
-                    state.auto_voice_enabled,
-                    deps.sound_on_complete,
-                    deps.sound_on_error,
-                );
-
-                {
-                    let mut io = TranscriptIo {
-                        session: &mut deps.session,
-                        writer_tx: &deps.writer_tx,
-                        status_clear_deadline: &mut timers.status_clear_deadline,
-                        current_status: &mut state.current_status,
-                        status_state: &mut state.status_state,
-                    };
-                    try_flush_pending(
-                        &mut state.pending_transcripts,
-                        &state.prompt_tracker,
-                        &mut timers.last_enter_at,
-                        &mut io,
-                        now,
-                        deps.transcript_idle_timeout,
-                    );
-                }
-
-                if state.auto_voice_enabled
-                    && deps.voice_manager.is_idle()
-                    && should_auto_trigger(
-                        &state.prompt_tracker,
-                        now,
-                        deps.auto_idle_timeout,
-                        timers.last_auto_trigger_at,
-                    )
-                {
-                    if let Err(err) = start_voice_capture(
-                        &mut deps.voice_manager,
-                        VoiceCaptureTrigger::Auto,
-                        &deps.writer_tx,
-                        &mut timers.status_clear_deadline,
-                        &mut state.current_status,
-                        &mut state.status_state,
-                    ) {
-                        log_debug(&format!("auto voice capture failed: {err:#}"));
-                    } else {
-                        timers.last_auto_trigger_at = Some(now);
-                        timers.recording_started_at = Some(now);
-                        reset_capture_visuals(
-                            &mut state.status_state,
-                            &mut timers.preview_clear_deadline,
-                            &mut timers.last_meter_update,
-                        );
-                    }
-                }
-
-                if let Some(deadline) = timers.preview_clear_deadline {
-                    if now >= deadline {
-                        timers.preview_clear_deadline = None;
-                        if state.status_state.transcript_preview.is_some() {
-                            state.status_state.transcript_preview = None;
-                            send_enhanced_status_with_buttons(
-                                &deps.writer_tx,
-                                &deps.button_registry,
-                                &state.status_state,
-                                state.overlay_mode,
-                                state.terminal_cols,
-                                state.theme,
-                            );
-                        }
-                    }
-                }
-
-                if let Some(deadline) = timers.status_clear_deadline {
-                    if now >= deadline {
-                        timers.status_clear_deadline = None;
-                        state.current_status = None;
-                        state.status_state.message.clear();
-                        // Don't repeatedly set "Auto-voice enabled" - the mode indicator shows it
-                        send_enhanced_status_with_buttons(
-                            &deps.writer_tx,
-                            &deps.button_registry,
-                            &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
-                            state.theme,
-                        );
-                    }
-                }
-            }
+            default(tick_interval) => {}
         }
     }
 }
