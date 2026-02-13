@@ -6,8 +6,8 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-02-13)
-- Last tagged release: `v1.0.53` (2026-02-13)
-- Current release target: `v1.0.54`
+- Last tagged release: `v1.0.54` (2026-02-13)
+- Current release target: `v1.0.55`
 - Branch: `master`
 - Strategic focus: overlay differentiation with measurable latency correctness
 
