@@ -17,6 +17,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Documentation
 - Update troubleshooting guidance for startup arrow escape leakage and revised IDE-terminal theme fallback behavior.
+- Prune troubleshooting content to current behavior only by removing legacy fixed-issue upgrade notes.
 
 ## [1.0.56] - 2026-02-13
 

@@ -8,17 +8,9 @@
 | Voice not recording | See [Audio Setup → Check microphone permissions](#check-microphone-permissions) |
 | Codex not responding | See [Codex Issues → Codex not responding](#codex-not-responding) |
 | Auto-voice not triggering | See [Codex Issues → Auto-voice not triggering](#auto-voice-not-triggering) |
-| Typing feels laggy while Codex is busy | See [Status Messages → Typing/Enter feels laggy while backend is thinking](#typingenter-feels-laggy-while-backend-is-thinking) |
-| HUD/overlay overlaps after terminal resize | See [Status Messages → HUD/overlay overlaps after terminal resize](#hudoverlay-overlaps-after-terminal-resize) |
 | Minimal HUD has no telemetry chip | See [Status Messages → Minimal HUD right-panel chip is missing](#minimal-hud-right-panel-chip-is-missing) |
-| Minimal HUD status text keeps jumping | See [Status Messages → Minimal HUD status text feels jumpy](#minimal-hud-status-text-feels-jumpy) |
-| Full HUD shows blank idle status | See [Status Messages → Full HUD shows blank idle status](#full-hud-shows-blank-idle-status) |
-| Full HUD columns shift when REC duration grows | See [Status Messages → Full HUD columns shift as REC timer grows](#full-hud-columns-shift-as-rec-timer-grows) |
-| Transcript stays queued in Claude confirmation prompts | See [Status Messages → Transcript stays queued in Claude-confirmation prompts](#transcript-stays-queued-in-claude-confirmation-prompts) |
 | Startup splash lingers in IDE terminal | See [Startup Banner Lingers in IDE Terminal](#startup-banner-lingers-in-ide-terminal) |
-| Arrow gibberish appears after splash | See [Arrow-Key Gibberish Appears After Splash](#arrow-key-gibberish-appears-after-splash) |
 | Theme colors look muted in IDE terminal | See [Theme Colors Look Muted in IDE Terminal](#theme-colors-look-muted-in-ide-terminal) |
-| Theme picker still looks colorized in `none` theme | See [Theme Picker Looks Colorized in `none` Theme](#theme-picker-looks-colorized-in-none-theme) |
 | Voice macro not expanding | See [Status Messages → Voice macro not expanding](#voice-macro-not-expanding) |
 | Voice macro expanded unexpectedly | See [Status Messages → Voice macro expanded unexpectedly](#voice-macro-expanded-unexpectedly) |
 | Wrong version after update | [Install Issues → Wrong version after update](#wrong-version-after-update) |
@@ -81,17 +73,6 @@ is idle for the transcript timeout). In auto mode, Enter is pressed for you.
 1. Wait for the CLI to finish and return to a prompt
 2. If you need to send immediately, stop the current response (usually `Ctrl+C`) and try again
 
-### Transcript stays queued in Claude confirmation prompts
-
-Some Claude sessions show confirmation prompts (for example `[Y/n]`) instead of
-a bare `>` line. Older builds could miss these as "ready" and keep transcripts
-queued until idle timeout.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-3. If needed, set an explicit prompt regex (example: `--prompt-regex '.*\\[[Yy]/[Nn]\\]\\s*$'`)
-
 ### Voice macro not expanding
 
 VoxTerm loads macros from `.voxterm/macros.yaml` in your current working
@@ -116,25 +97,6 @@ If you are dictating natural language, turn **Macros** OFF in Settings (`Ctrl+O`
 2. Set **Macros** to **OFF**
 3. Keep your preferred send mode (`auto` or `insert`) unchanged
 
-### Typing/Enter feels laggy while backend is thinking
-
-On older builds, PTY write backpressure could briefly stall keyboard injection
-while the backend was streaming output.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-3. If it still reproduces, run with logs (`voxterm --logs`) and capture a short sample around the lag window
-
-### HUD/overlay overlaps after terminal resize
-
-On older builds, a resize edge case could leave a stale terminal scroll region
-active after HUD reservation changed, causing bottom-row overlap artifacts.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Resize once more (or restart session) after upgrading to clear stale state
-
 ### Minimal HUD right-panel chip is missing
 
 Minimal HUD can now render compact right-panel telemetry chips (`Ribbon`,
@@ -152,54 +114,6 @@ Compact HUD also adapts module emphasis by context and width:
 - idle: latency-focused compact view
 
 A brief transition pulse marker (`✦`, `•`) on mode changes is expected.
-
-### Minimal HUD status text feels jumpy
-
-Minimal HUD now prefers compact idle labels to reduce width churn:
-`Ready`, `Queued N`, `Warning`, `Error`.
-
-If you still see long transient status lines in Minimal mode:
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-3. Use Full HUD (`Ctrl+U`) if you want full verbose status wording
-
-### Full HUD shows blank idle status
-
-If Full HUD right-panel rendering is over-reserved, status text (including
-`Ready`) can appear blank while idle.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-
-### Full HUD shows duplicate queued text
-
-If you see both `Transcript queued (...)` in the main row and `Q:n` in the
-shortcuts row at the same time, you are on an older build.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-
-### Full HUD columns shift as REC timer grows
-
-Older builds could shift the Full HUD meter/message columns when recording
-duration crossed width boundaries (for example `9.9s` -> `10.0s`), which made
-`Ready` and other message text appear to jump left/right.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
-3. Optional: use `--latency-display off` if you want the shortest stable lower row
-
-### REC timer or dB meter appears frozen while queued
-
-If the backend is producing continuous output, older builds could pause HUD timer
-updates while a queued transcript was pending.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Restart the session after upgrading
 
 ### Latency badge looks inaccurate
 
@@ -427,15 +341,14 @@ $(brew --prefix)/opt/voxterm/libexec/src/target/release/voxterm --version
 If HUD button clicks or arrow-based HUD focus works in one terminal app but not
 another (for example RustRover/PyCharm/WebStorm):
 
-1. Upgrade to the latest VoxTerm build.
-2. Toggle the HUD with `Ctrl+U` and open Settings with `Ctrl+O` to confirm core
+1. Toggle the HUD with `Ctrl+U` and open Settings with `Ctrl+O` to confirm core
    shortcuts still work.
-3. Capture input diagnostics:
+2. Capture input diagnostics:
    ```bash
    voxterm --logs
    VOXTERM_DEBUG_INPUT=1 voxterm --logs
    ```
-4. Reproduce one failed click/arrow action and inspect `${TMPDIR}/voxterm_tui.log`
+3. Reproduce one failed click/arrow action and inspect `${TMPDIR}/voxterm_tui.log`
    for `input bytes (...)` and `input events: ...` lines.
 
 VoxTerm now parses multiple mouse/arrow sequence variants used by different IDE
@@ -464,28 +377,13 @@ VOXTERM_NO_STARTUP_BANNER=1 voxterm
 If the startup splash stays on screen in PyCharm/JetBrains terminals while it
 clears normally in Cursor/VS Code, use these checks:
 
-1. Upgrade to the latest VoxTerm build (older builds used a long dwell and weaker clear sequence).
-2. Force immediate clear to confirm terminal behavior:
+1. Run with a zero splash delay:
    ```bash
    VOXTERM_STARTUP_SPLASH_MS=0 voxterm
    ```
-3. If you prefer no splash in IDE terminals:
+2. If you prefer no splash in IDE terminals:
    ```bash
    VOXTERM_NO_STARTUP_BANNER=1 voxterm
-   ```
-
-### Arrow-Key Gibberish Appears After Splash
-
-If you press arrow keys/trackpad direction controls while the startup splash is
-still showing, older builds could leak raw escape bytes (for example `^[ [ A`)
-into the backend prompt right after launch.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build.
-2. Restart VoxTerm after upgrading.
-3. If needed, disable the splash while troubleshooting:
-   ```bash
-   VOXTERM_NO_STARTUP_BANNER=1 voxterm --claude
    ```
 
 ### Theme Colors Look Muted in IDE Terminal
@@ -508,16 +406,6 @@ If forced truecolor fixes appearance, you can keep using that override for that
 terminal profile. Current builds intentionally use conservative fallback:
 truecolor themes resolve to `ansi` unless truecolor capability is explicitly
 detected, to avoid broken rendering in IDE terminals with partial color support.
-
-### Theme Picker Looks Colorized in `none` Theme
-
-If Theme Picker still shows per-theme colored rows while current theme is
-`none`, you are likely on an older build.
-
-**Fixes:**
-1. Upgrade to the latest VoxTerm build
-2. Reopen Theme Picker (`Ctrl+Y`) after upgrading
-3. Confirm current theme row is `none`
 
 ---
 
