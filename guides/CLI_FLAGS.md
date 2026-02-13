@@ -147,7 +147,7 @@ voxterm --login --claude      # Login to Claude CLI
 
 **HUD styles:**
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
-- `minimal`: Single-line strip
+- `minimal`: Single-line strip with optional compact right-panel visualization chip
 - `hidden`: Branded launcher row when idle (`VoxTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.

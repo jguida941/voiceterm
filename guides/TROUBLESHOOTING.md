@@ -10,6 +10,7 @@
 | Auto-voice not triggering | See [Codex Issues → Auto-voice not triggering](#auto-voice-not-triggering) |
 | Typing feels laggy while Codex is busy | See [Status Messages → Typing/Enter feels laggy while backend is thinking](#typingenter-feels-laggy-while-backend-is-thinking) |
 | HUD/overlay overlaps after terminal resize | See [Status Messages → HUD/overlay overlaps after terminal resize](#hudoverlay-overlaps-after-terminal-resize) |
+| Minimal HUD has no telemetry chip | See [Status Messages → Minimal HUD right-panel chip is missing](#minimal-hud-right-panel-chip-is-missing) |
 | Transcript stays queued in Claude confirmation prompts | See [Status Messages → Transcript stays queued in Claude-confirmation prompts](#transcript-stays-queued-in-claude-confirmation-prompts) |
 | Voice macro not expanding | See [Status Messages → Voice macro not expanding](#voice-macro-not-expanding) |
 | Voice macro expanded unexpectedly | See [Status Messages → Voice macro expanded unexpectedly](#voice-macro-expanded-unexpectedly) |
@@ -126,6 +127,17 @@ active after HUD reservation changed, causing bottom-row overlap artifacts.
 **Fixes:**
 1. Upgrade to the latest VoxTerm build
 2. Resize once more (or restart session) after upgrading to clear stale state
+
+### Minimal HUD right-panel chip is missing
+
+Minimal HUD can now render compact right-panel telemetry chips (`Ribbon`,
+`Dots`, `Heartbeat`). If the chip does not appear, one of the panel settings is
+usually disabling it.
+
+**Fixes:**
+1. Open Settings (`Ctrl+O`) and set **Right panel** to `Ribbon`, `Dots`, or `Heartbeat` (not `Off`)
+2. If **Anim only** is ON, start recording once to confirm the chip appears during recording
+3. If you expect it while idle too, set **Anim only** to OFF
 
 ### REC timer or dB meter appears frozen while queued
 

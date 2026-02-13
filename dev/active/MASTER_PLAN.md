@@ -10,14 +10,14 @@
 - Current release target: `v1.0.55`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: overlay differentiation with measurable latency correctness
+- Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
 
 ## Strategic Direction
 - Protect current moat: terminal-native PTY orchestration, prompt-aware queueing, local-first voice flow.
 - Close trust gap: latency metrics must match user perception and be auditable.
 - Build differentiated product value in phases:
-  1. Quick wins that improve daily workflow (macros, send-mode clarity, transcript ergonomics)
-  2. Differentiators (voice navigation, history, CLI workflow polish)
+  1. Visual-first UX pass (telemetry, motion, layout polish, theme ergonomics)
+  2. Workflow differentiators (voice navigation, history, CLI workflow polish)
   3. Advanced expansion (streaming STT, tmux/neovim, accessibility)
 
 ## Phase 0 - Completed Release Stabilization (v1.0.51-v1.0.52)
@@ -47,7 +47,16 @@
 - [x] MP-086 Runtime macros ON/OFF toggle (settings state + transcript transform gate).
 - [x] MP-087 Restore baseline send-mode semantics (`auto`/`insert`) without an extra review-first gate.
 - [x] MP-112 Add CI voice-mode regression lane for macros-toggle and send-mode behavior (`.github/workflows/voice_mode_guard.yml`).
-- [ ] MP-088 Persistent user config (`~/.config/voxterm/config.toml`) for core preferences.
+- [ ] MP-088 Persistent user config (`~/.config/voxterm/config.toml`) for core preferences (deferred until visual sprint is complete).
+
+## Phase 2A - Visual HUD Sprint (Current Priority)
+- [ ] MP-101 Add richer HUD telemetry visuals (sparkline/chart/gauge) with bounded data retention.
+- [ ] MP-100 Add animation transition framework for overlays and state changes (TachyonFX or equivalent).
+- [x] MP-054 Optional right-panel visualization modes in minimal HUD.
+- [ ] MP-105 Add adaptive/contextual HUD layouts and state-driven module expansion.
+- [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
+- [ ] MP-055 Quick theme switcher in settings.
+- [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
 
 ## Phase 3 - Overlay Differentiators
 - [ ] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
@@ -67,14 +76,7 @@
 - [ ] MP-033 Add benchmarks to CI for latency regression detection.
 - [ ] MP-034 Add mic-meter hotkey for calibration.
 - [ ] MP-037 Consider configurable PTY output channel capacity.
-- [ ] MP-054 Optional right-panel visualization modes in minimal HUD.
-- [ ] MP-055 Quick theme switcher in settings.
-- [ ] MP-100 Add animation transition framework for overlays and state changes (TachyonFX or equivalent).
-- [ ] MP-101 Add richer HUD telemetry visuals (sparkline/chart/gauge) with bounded data retention.
-- [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
 - [ ] MP-103 Add searchable command palette for settings/actions/macros with keyboard-first flow.
-- [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
-- [ ] MP-105 Add adaptive/contextual HUD layouts and state-driven module expansion.
 - [ ] MP-106 Add hybrid voice+keyboard transcript input panel for correction and selective send.
 - [ ] MP-107 Add session dashboard with voice metrics (latency/WPM/error rate) and export path.
 - [ ] MP-108 Prototype contextual autocomplete/suggestion dropdowns for macros/corrections.

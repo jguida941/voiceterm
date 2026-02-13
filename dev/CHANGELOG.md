@@ -10,6 +10,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Support per-macro send-mode overrides (`auto`/`insert`) so selected macros can stay in insert behavior even when global send mode is auto.
 - Add a runtime `Macros` ON/OFF setting in the Settings panel to control macro expansion without changing send mode behavior.
 - Keep status/HUD text aligned with baseline `auto`/`insert` semantics (no extra review/intent labels).
+- Add compact right-panel visualization rendering to **Minimal HUD** for Ribbon/Dots/Heartbeat modes, honoring the existing recording-only panel setting.
 
 ### CI
 - Add a dedicated latency guard workflow (`.github/workflows/latency_guard.yml`) that runs synthetic voice-only regression bounds in CI.
@@ -26,6 +27,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add unit coverage for voice macro parsing, trigger matching, template remainder substitution, and project file loading.
 - Add settings and drain coverage for macros ON/OFF behavior.
 - Add status-line/button coverage for baseline send-mode labels (`send`/`edit`).
+- Add status-line coverage for Minimal HUD right-panel rendering and recording-only visibility behavior.
 
 ### Developer Experience
 - Add `python3 dev/scripts/devctl.py hygiene` to audit archive naming, ADR status/index consistency, and `dev/scripts` documentation coverage.

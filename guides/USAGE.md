@@ -105,7 +105,7 @@ info.
 
 It also lets you configure:
 - **HUD style**: Full, Minimal, or Hidden
-- **Right-side panel**: Off, Ribbon, Dots, Heartbeat
+- **Right-side panel**: Off, Ribbon, Dots, Heartbeat (shown in Full and Minimal HUD)
 - **Anim only**: Animate the right panel only while recording
 - **Mouse**: Toggle HUD button clicks (on by default)
 
@@ -314,7 +314,8 @@ For users who prefer less UI clutter, VoxTerm offers three HUD styles:
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 
 When Mouse is enabled, Minimal HUD shows a [back] button on the right to return
-to Full.
+to Full. If a right-panel mode is enabled, Minimal HUD also shows a compact
+telemetry visualization chip (`Ribbon`, `Dots`, or `Heartbeat`).
 
 Minimal HUD (recording example):
 

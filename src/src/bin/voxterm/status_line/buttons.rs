@@ -1,11 +1,11 @@
 //! Status-line button layout and hitbox logic so keyboard/mouse actions map reliably.
 
 use crate::buttons::ButtonAction;
-use crate::config::{HudStyle, VoiceSendMode};
+use crate::config::{HudRightPanel, HudStyle, VoiceSendMode};
 use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 
-use super::animation::{get_processing_spinner, get_recording_indicator};
+use super::animation::{get_processing_spinner, get_recording_indicator, heartbeat_glyph};
 use super::layout::breakpoints;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
@@ -104,7 +104,105 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
         }
     }
 
+    if let Some(panel) = minimal_right_panel(state, colors) {
+        line.push(' ');
+        line.push_str(colors.dim);
+        line.push('·');
+        line.push_str(colors.reset);
+        line.push(' ');
+        line.push_str(&panel);
+    }
+
     line
+}
+
+fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
+    if state.hud_right_panel == HudRightPanel::Off {
+        return None;
+    }
+    let recording_active = state.recording_state == RecordingState::Recording;
+    if state.hud_right_panel_recording_only && !recording_active {
+        return None;
+    }
+
+    let panel = match state.hud_right_panel {
+        HudRightPanel::Ribbon => {
+            let waveform = minimal_waveform(&state.meter_levels, 6);
+            format!(
+                "{}[{}{}{}]{}",
+                colors.dim, colors.reset, waveform, colors.dim, colors.reset
+            )
+        }
+        HudRightPanel::Dots => {
+            let level = state.meter_db.unwrap_or(-60.0);
+            minimal_pulse_dots(level, colors)
+        }
+        HudRightPanel::Heartbeat => {
+            let animate = !state.hud_right_panel_recording_only || recording_active;
+            let (glyph, is_peak) = heartbeat_glyph(animate);
+            let color = if is_peak { colors.info } else { colors.dim };
+            format!(
+                "{}[{}{}{}{}]{}",
+                colors.dim, colors.reset, color, glyph, colors.reset, colors.reset
+            )
+        }
+        HudRightPanel::Off => return None,
+    };
+    Some(panel)
+}
+
+fn minimal_waveform(levels: &[f32], width: usize) -> String {
+    const GLYPHS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    if width == 0 {
+        return String::new();
+    }
+    if levels.is_empty() {
+        return "▁".repeat(width);
+    }
+
+    let mut out = String::with_capacity(width);
+    let start = levels.len().saturating_sub(width);
+    let slice = &levels[start..];
+    if slice.len() < width {
+        out.push_str(&"▁".repeat(width - slice.len()));
+    }
+    for db in slice {
+        let normalized = ((*db + 60.0) / 60.0).clamp(0.0, 1.0);
+        let idx = (normalized * (GLYPHS.len() as f32 - 1.0)).round() as usize;
+        out.push(GLYPHS[idx]);
+    }
+    out
+}
+
+fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
+    let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
+    let active = (normalized * 5.0).round() as usize;
+    let mut result = String::with_capacity(64);
+    result.push_str(colors.dim);
+    result.push('[');
+    result.push_str(colors.reset);
+    for idx in 0..5 {
+        if idx < active {
+            let color = if normalized < 0.6 {
+                colors.success
+            } else if normalized < 0.85 {
+                colors.warning
+            } else {
+                colors.error
+            };
+            result.push_str(color);
+            result.push('•');
+            result.push_str(colors.reset);
+        } else {
+            result.push_str(colors.dim);
+            result.push('·');
+            result.push_str(colors.reset);
+        }
+    }
+    result.push_str(colors.dim);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
 }
 
 pub(super) fn format_minimal_strip_with_button(
@@ -684,5 +782,45 @@ mod tests {
             .find(|def| def.action == ButtonAction::ToggleSendMode)
             .expect("send button");
         assert_eq!(send.label, "edit");
+    }
+
+    #[test]
+    fn minimal_right_panel_respects_recording_only() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_right_panel = HudRightPanel::Dots;
+        state.hud_right_panel_recording_only = true;
+        state.recording_state = RecordingState::Idle;
+        state.meter_db = Some(-12.0);
+        assert!(minimal_right_panel(&state, &colors).is_none());
+
+        state.recording_state = RecordingState::Recording;
+        assert!(minimal_right_panel(&state, &colors).is_some());
+    }
+
+    #[test]
+    fn minimal_right_panel_ribbon_shows_waveform() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_right_panel = HudRightPanel::Ribbon;
+        state.hud_right_panel_recording_only = false;
+        state.recording_state = RecordingState::Recording;
+        state
+            .meter_levels
+            .extend_from_slice(&[-55.0, -42.0, -30.0, -18.0]);
+        let panel = minimal_right_panel(&state, &colors).expect("panel");
+        assert!(panel.contains("▁") || panel.contains("▂") || panel.contains("▃"));
+    }
+
+    #[test]
+    fn minimal_strip_text_includes_panel_when_enabled() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_right_panel = HudRightPanel::Dots;
+        state.hud_right_panel_recording_only = false;
+        state.recording_state = RecordingState::Recording;
+        state.meter_db = Some(-8.0);
+        let line = minimal_strip_text(&state, &colors);
+        assert!(line.contains("•"));
     }
 }
