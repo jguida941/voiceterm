@@ -474,7 +474,7 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
         }
     }
 
-    if state.transition_progress > 0.0 {
+    if state.recording_state == RecordingState::Idle && state.transition_progress > 0.0 {
         let marker = transition_marker(state.transition_progress);
         if !marker.is_empty() {
             result.push(' ');
@@ -489,7 +489,7 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
 }
 
 fn format_transition_suffix(state: &StatusLineState, colors: &ThemeColors) -> String {
-    if state.transition_progress <= 0.0 {
+    if state.recording_state != RecordingState::Idle || state.transition_progress <= 0.0 {
         return String::new();
     }
     let marker = transition_marker(state.transition_progress);

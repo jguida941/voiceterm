@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
-const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•", "·"];
+const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
 const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
 /// Pulsing recording indicator frames (cycles every ~400ms at 10fps).
@@ -73,7 +73,7 @@ pub(super) fn transition_marker(progress: f32) -> &'static str {
     } else if progress > 0.33 {
         TRANSITION_PULSE_MARKERS[1]
     } else {
-        TRANSITION_PULSE_MARKERS[2]
+        ""
     }
 }
 
@@ -114,7 +114,7 @@ mod tests {
     fn transition_marker_steps_down() {
         assert_eq!(transition_marker(0.9), "✦");
         assert_eq!(transition_marker(0.5), "•");
-        assert_eq!(transition_marker(0.1), "·");
+        assert_eq!(transition_marker(0.1), "");
         assert_eq!(transition_marker(0.0), "");
     }
 }

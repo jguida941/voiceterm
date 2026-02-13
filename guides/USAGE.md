@@ -261,7 +261,7 @@ When recording or processing, the mode label includes a pipeline tag
 
 Visual updates:
 - VoxTerm keeps bounded telemetry history for meter/latency and renders sparkline-style trends in compact HUD space.
-- Short state-change pulse markers (`✦`, `•`, `·`) appear briefly when key mode/state changes occur.
+- Short state-change pulse markers (`✦`, `•`) appear briefly when key mode/state changes occur.
 - Compact HUD modules adapt by context:
   - recording: meter + latency + queue (space permitting)
   - backend busy: queue + latency
