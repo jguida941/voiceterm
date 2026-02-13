@@ -1,7 +1,4 @@
-//! Terminal rendering primitives so status and overlays update without flicker.
-
 use std::io::{self, Write};
-use unicode_width::UnicodeWidthChar;
 
 use crate::status_line::StatusBanner;
 use crate::status_style::StatusType;
@@ -10,83 +7,8 @@ use crate::theme::Theme;
 use super::sanitize::{sanitize_status, truncate_status};
 use super::state::OverlayPanel;
 
-// Use ANSI save/restore only. DEC restore (\x1b8) can restore scrolling
-// margins on some terminals, which would undo our HUD scroll region.
-const SAVE_CURSOR: &[u8] = b"\x1b[s";
-const RESTORE_CURSOR: &[u8] = b"\x1b[u";
-
-fn clamp_ansi_line(line: &str, max_cols: u16) -> String {
-    if max_cols == 0 {
-        return String::new();
-    }
-
-    let max_width = max_cols as usize;
-    let mut width: usize = 0;
-    let mut in_escape = false;
-    let mut escape_seq = String::new();
-    let mut out = String::new();
-
-    for ch in line.chars() {
-        if ch == '\x1b' {
-            in_escape = true;
-            escape_seq.clear();
-            escape_seq.push(ch);
-            continue;
-        }
-
-        if in_escape {
-            escape_seq.push(ch);
-            // End of CSI/SGR command.
-            if ('@'..='~').contains(&ch) {
-                out.push_str(&escape_seq);
-                escape_seq.clear();
-                in_escape = false;
-            }
-            continue;
-        }
-
-        let ch_width = UnicodeWidthChar::width(ch).unwrap_or(0);
-        if width.saturating_add(ch_width) > max_width {
-            break;
-        }
-        out.push(ch);
-        width = width.saturating_add(ch_width);
-    }
-
-    if !out.is_empty() && out.contains("\x1b[") && !out.ends_with("\x1b[0m") {
-        out.push_str("\x1b[0m");
-    }
-
-    out
-}
-
-pub(super) fn set_scroll_region(
-    stdout: &mut dyn Write,
-    rows: u16,
-    reserved_rows: usize,
-) -> io::Result<()> {
-    if rows == 0 {
-        return Ok(());
-    }
-    if reserved_rows == 0 {
-        return reset_scroll_region(stdout);
-    }
-    let reserved = reserved_rows.min(rows as usize) as u16;
-    let bottom = rows.saturating_sub(reserved).max(1);
-    let mut sequence = Vec::new();
-    sequence.extend_from_slice(SAVE_CURSOR);
-    sequence.extend_from_slice(format!("\x1b[1;{bottom}r").as_bytes());
-    sequence.extend_from_slice(RESTORE_CURSOR);
-    stdout.write_all(&sequence)
-}
-
-pub(super) fn reset_scroll_region(stdout: &mut dyn Write) -> io::Result<()> {
-    let mut sequence = Vec::new();
-    sequence.extend_from_slice(SAVE_CURSOR);
-    sequence.extend_from_slice(b"\x1b[r");
-    sequence.extend_from_slice(RESTORE_CURSOR);
-    stdout.write_all(&sequence)
-}
+const SAVE_CURSOR: &[u8] = b"\x1b[s\x1b7";
+const RESTORE_CURSOR: &[u8] = b"\x1b[u\x1b8";
 
 pub(super) fn write_status_line(
     stdout: &mut dyn Write,
@@ -124,9 +46,8 @@ pub(super) fn write_status_banner(
     stdout: &mut dyn Write,
     banner: &StatusBanner,
     rows: u16,
-    cols: u16,
 ) -> io::Result<()> {
-    if rows == 0 || cols == 0 || banner.height == 0 {
+    if rows == 0 || banner.height == 0 {
         return Ok(());
     }
     let height = banner.height.min(rows as usize);
@@ -139,8 +60,7 @@ pub(super) fn write_status_banner(
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
         sequence.extend_from_slice(b"\x1b[2K"); // Clear line
-        let clamped = clamp_ansi_line(line, cols);
-        sequence.extend_from_slice(clamped.as_bytes()); // Write content
+        sequence.extend_from_slice(line.as_bytes()); // Write content
     }
 
     sequence.extend_from_slice(RESTORE_CURSOR); // Restore cursor
@@ -190,9 +110,8 @@ pub(super) fn write_overlay_panel(
     stdout: &mut dyn Write,
     panel: &OverlayPanel,
     rows: u16,
-    cols: u16,
 ) -> io::Result<()> {
-    if rows == 0 || cols == 0 {
+    if rows == 0 {
         return Ok(());
     }
     let lines: Vec<&str> = panel.content.lines().collect();
@@ -204,8 +123,7 @@ pub(super) fn write_overlay_panel(
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
         sequence.extend_from_slice(b"\x1b[2K");
-        let clamped = clamp_ansi_line(line, cols);
-        sequence.extend_from_slice(clamped.as_bytes());
+        sequence.extend_from_slice(line.as_bytes());
     }
     sequence.extend_from_slice(RESTORE_CURSOR);
     stdout.write_all(&sequence)
@@ -312,54 +230,5 @@ mod tests {
         // The only escape codes should be cursor positioning, not color
         let color_codes = output.matches("\u{1b}[9").count();
         assert_eq!(color_codes, 0, "Should not contain color codes");
-    }
-
-    #[test]
-    fn set_scroll_region_writes_reserved_bottom_margin() {
-        let mut buf = Vec::new();
-        set_scroll_region(&mut buf, 40, 4).unwrap();
-        let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[s"));
-        assert!(output.contains("\u{1b}[1;36r"));
-        assert!(output.contains("\u{1b}[u"));
-        assert!(!output.contains("\u{1b}7"));
-        assert!(!output.contains("\u{1b}8"));
-    }
-
-    #[test]
-    fn reset_scroll_region_writes_full_region_reset() {
-        let mut buf = Vec::new();
-        reset_scroll_region(&mut buf).unwrap();
-        let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[s"));
-        assert!(output.contains("\u{1b}[r"));
-        assert!(output.contains("\u{1b}[u"));
-        assert!(!output.contains("\u{1b}7"));
-        assert!(!output.contains("\u{1b}8"));
-    }
-
-    #[test]
-    fn write_status_banner_clamps_to_terminal_width() {
-        let mut buf = Vec::new();
-        let banner = StatusBanner::new(vec!["123456789".to_string()]);
-        write_status_banner(&mut buf, &banner, 8, 5).unwrap();
-        let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[8;1H"));
-        assert!(output.contains("12345"));
-        assert!(!output.contains("123456"));
-    }
-
-    #[test]
-    fn write_overlay_panel_clamps_to_terminal_width() {
-        let mut buf = Vec::new();
-        let panel = OverlayPanel {
-            content: "abcdefghij".to_string(),
-            height: 1,
-        };
-        write_overlay_panel(&mut buf, &panel, 8, 4).unwrap();
-        let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[8;1H"));
-        assert!(output.contains("abcd"));
-        assert!(!output.contains("abcde"));
     }
 }

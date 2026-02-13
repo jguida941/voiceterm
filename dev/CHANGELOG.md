@@ -5,6 +5,15 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.61] - 2026-02-13
+
+### UX
+- Restore the `v1.0.53` HUD writer/render path in current builds to recover stable Full HUD behavior in Cursor and JetBrains terminals while preserving later non-render features.
+- Keep the one-column HUD safety margin in status formatting to avoid right-edge autowrap drift in IDE terminals.
+
+### Documentation
+- Sync release/user docs for the `v1.0.61` HUD stabilization rollback and IDE troubleshooting guidance.
+
 ## [1.0.60] - 2026-02-13
 
 ### UX

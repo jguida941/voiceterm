@@ -389,15 +389,15 @@ sequenceDiagram
 
 All terminal output is serialized through one writer thread to avoid
 interleaving PTY output with the status line or help overlay. The status line
-and overlay use ANSI save/restore (`ESC 7` / `ESC 8`) and redraw only after
-quiet output intervals to avoid corrupting the backend's screen.
+and overlay use ANSI save/restore sequences and redraw only after quiet output
+intervals to avoid corrupting the backend's screen.
 
 ## Visual System (Overlay)
 
 - **Enhanced status line** is driven by `StatusLineState` (mode, pipeline, sensitivity, message, duration).
 - `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact sparkline rendering.
 - Compact HUD rendering is context-aware (`recording`, `busy queue`, `idle`) and picks modules accordingly.
-- Writer-managed transition progress drives short state-change pulse markers during redraw.
+- Full HUD rendering uses a conservative writer path (compatible with the `v1.0.53` draw model) and applies a one-column right-edge safety margin to reduce IDE terminal autowrap/duplication artifacts.
 - **Theme selection** uses `--theme` with automatic fallback based on terminal color capability and `NO_COLOR`.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.

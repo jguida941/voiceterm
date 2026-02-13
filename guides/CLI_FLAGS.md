@@ -154,8 +154,9 @@ voxterm --login --claude      # Login to Claude CLI
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 Compact HUD modules adapt by state and available width (recording favors meter +
 latency + queue, busy favors queue + latency, idle favors latency).
-Short transition pulse markers (`✦`, `•`, `·`) may appear briefly on major
-state changes; there is no CLI flag for this behavior.
+Full HUD formatting keeps a one-column right-edge safety margin to avoid
+terminal autowrap drift in IDE terminals; there is no CLI flag for this
+behavior.
 
 **Theme defaults:** If `--theme` is not provided, VoxTerm selects a backend-
 appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.

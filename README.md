@@ -62,6 +62,11 @@ Startup splash behavior:
 - set `VOXTERM_STARTUP_SPLASH_MS=0` for immediate clear
 - set `VOXTERM_NO_STARTUP_BANNER=1` to skip it entirely
 
+IDE terminal HUD compatibility (`v1.0.61`):
+- Full HUD uses the proven `v1.0.53` writer/render baseline plus a one-column
+  right-edge safety margin to avoid duplicated or wrapped rows in
+  Cursor/JetBrains terminals.
+
 ## How It Works
 
 ```mermaid
@@ -94,7 +99,7 @@ All CLI output passes through unchanged.
 | **Transcript queue** | Speak while CLI is busy, types when ready |
 | **Project voice macros** | Expand trigger phrases from `.voxterm/macros.yaml` before typing |
 | **Macros toggle** | Runtime ON/OFF control for macro expansion from Settings |
-| **Adaptive HUD telemetry** | Compact meter/latency trend chips with brief transition pulses on selected state changes |
+| **Adaptive HUD telemetry** | Compact meter/latency trend chips that adapt to recording, busy, and idle states |
 | **Backends** | Codex + Claude supported; experimental presets for Gemini (not working), Aider, OpenCode |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 

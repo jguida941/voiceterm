@@ -1,5 +1,3 @@
-//! Writer thread state so status, overlays, and cursor movement stay synchronized.
-
 use crossterm::terminal::size as terminal_size;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
@@ -7,11 +5,11 @@ use voxterm::log_debug;
 
 use super::mouse::{disable_mouse, enable_mouse};
 use super::render::{
-    clear_overlay_panel, clear_status_banner, clear_status_line, reset_scroll_region,
-    set_scroll_region, write_overlay_panel, write_status_banner, write_status_line,
+    clear_overlay_panel, clear_status_banner, clear_status_line, write_overlay_panel,
+    write_status_banner, write_status_line,
 };
 use super::WriterMessage;
-use crate::status_line::{format_status_banner, state_transition_progress, StatusLineState};
+use crate::status_line::{format_status_banner, StatusLineState};
 use crate::theme::Theme;
 
 const OUTPUT_FLUSH_INTERVAL_MS: u64 = 16;
@@ -67,11 +65,6 @@ pub(super) struct WriterState {
     last_status_draw_at: Instant,
     theme: Theme,
     mouse_enabled: bool,
-    /// Actual bottom row of the current scroll region (0 = not set).
-    /// Tracking the computed row (not just reserved height) ensures
-    /// the scroll region is recalculated on terminal resize.
-    scroll_region_bottom: u16,
-    transition_started_at: Option<Instant>,
 }
 
 impl WriterState {
@@ -88,8 +81,6 @@ impl WriterState {
             last_status_draw_at: Instant::now(),
             theme: Theme::default(),
             mouse_enabled: false,
-            scroll_region_bottom: 0,
-            transition_started_at: None,
         }
     }
 
@@ -123,20 +114,10 @@ impl WriterState {
                 self.pending.status = Some(text);
                 self.pending.enhanced_status = None;
                 self.pending.clear_status = false;
-                self.transition_started_at = None;
                 self.needs_redraw = true;
                 self.maybe_redraw_status();
             }
             WriterMessage::EnhancedStatus(state) => {
-                let start_transition = self
-                    .display
-                    .enhanced_status
-                    .as_ref()
-                    .map(|prev| should_start_state_transition(prev, &state))
-                    .unwrap_or(true);
-                if start_transition {
-                    self.transition_started_at = Some(Instant::now());
-                }
                 self.pending.enhanced_status = Some(state);
                 self.pending.status = None;
                 self.pending.clear_status = false;
@@ -159,7 +140,6 @@ impl WriterState {
                 self.pending.status = None;
                 self.pending.enhanced_status = None;
                 self.pending.clear_status = true;
-                self.transition_started_at = None;
                 self.needs_redraw = true;
                 self.maybe_redraw_status();
             }
@@ -193,10 +173,7 @@ impl WriterState {
                 disable_mouse(&mut self.stdout, &mut self.mouse_enabled);
             }
             WriterMessage::Shutdown => {
-                // Reset scroll region and disable mouse before exiting.
-                let _ = reset_scroll_region(&mut self.stdout);
-                self.scroll_region_bottom = 0;
-                self.transition_started_at = None;
+                // Disable mouse before exiting to restore terminal state
                 disable_mouse(&mut self.stdout, &mut self.mouse_enabled);
                 return false;
             }
@@ -234,11 +211,6 @@ impl WriterState {
             self.display.enhanced_status = None;
             self.display.banner_height = 0;
             self.pending.clear_status = false;
-            // Reset scroll region when the HUD is fully cleared.
-            if self.scroll_region_bottom > 0 {
-                let _ = reset_scroll_region(&mut self.stdout);
-                self.scroll_region_bottom = 0;
-            }
         }
         if self.pending.clear_overlay {
             if let Some(panel) = self.display.overlay_panel.as_ref() {
@@ -264,142 +236,40 @@ impl WriterState {
         if let Some(text) = self.pending.status.take() {
             self.display.status = Some(text);
             self.display.enhanced_status = None;
-            self.transition_started_at = None;
         }
 
-        let now = Instant::now();
-        let transition_progress = if self.display.enhanced_status.is_some() {
-            state_transition_progress(self.transition_started_at, now)
-        } else {
-            0.0
+        let flush_error = {
+            let rows = self.rows;
+            let cols = self.cols;
+            // Keep one safety column to avoid right-edge auto-wrap drift in IDE terminals.
+            let render_cols = cols.saturating_sub(1).max(1);
+            let theme = self.theme;
+            let (stdout, overlay_panel, enhanced_status, status, current_banner_height) = (
+                &mut self.stdout,
+                &self.display.overlay_panel,
+                &self.display.enhanced_status,
+                &self.display.status,
+                &mut self.display.banner_height,
+            );
+            if let Some(panel) = overlay_panel.as_ref() {
+                let _ = write_overlay_panel(stdout, panel, rows);
+            } else if let Some(state) = enhanced_status.as_ref() {
+                let banner = format_status_banner(state, theme, render_cols as usize);
+                let clear_height = (*current_banner_height).max(banner.height);
+                if clear_height > 0 {
+                    let _ = clear_status_banner(stdout, rows, clear_height);
+                }
+                *current_banner_height = banner.height;
+                let _ = write_status_banner(stdout, &banner, rows);
+            } else if let Some(text) = status.as_deref() {
+                let _ = write_status_line(stdout, text, rows, render_cols, theme);
+            }
+            stdout.flush().err()
         };
-        if transition_progress <= 0.0 {
-            self.transition_started_at = None;
-        }
-        if let Some(state) = self.display.enhanced_status.as_mut() {
-            state.transition_progress = transition_progress;
-        }
-
-        let rows = self.rows;
-        let cols = self.cols;
-        // Keep one safety column to avoid terminal auto-wrap drift across emulators.
-        let render_cols = cols.saturating_sub(1).max(1);
-        let theme = self.theme;
-        let banner = self
-            .display
-            .enhanced_status
-            .as_ref()
-            .map(|state| format_status_banner(state, theme, render_cols as usize));
-        let desired_reserved = if let Some(panel) = self.display.overlay_panel.as_ref() {
-            panel.height
-        } else if let Some(banner) = banner.as_ref() {
-            banner.height
-        } else if self.display.status.is_some() {
-            1
-        } else {
-            0
-        };
-
-        // Compute the actual scroll region bottom row.  Tracking the row
-        // (not just the reserved count) ensures resize is handled correctly.
-        let desired_bottom: u16 = if desired_reserved > 0 && rows > desired_reserved as u16 {
-            rows.saturating_sub(desired_reserved as u16)
-        } else {
-            0
-        };
-
-        // Always re-apply the scroll region on every redraw.  The child
-        // process (e.g., Claude Code TUI) can emit escape sequences that
-        // reset the scroll region, and we have no way to detect that.
-        // Re-applying is cheap (one short escape sequence with
-        // save/restore cursor) and this method is already throttled.
-        let mut flush_error: Option<io::Error> = None;
-        if desired_bottom > 0 {
-            if let Err(err) = set_scroll_region(&mut self.stdout, rows, desired_reserved) {
-                flush_error = Some(err);
-            } else {
-                self.scroll_region_bottom = desired_bottom;
-            }
-        } else if self.scroll_region_bottom > 0 {
-            if let Err(err) = reset_scroll_region(&mut self.stdout) {
-                flush_error = Some(err);
-            } else {
-                self.scroll_region_bottom = 0;
-            }
-        }
-
-        if let Some(panel) = self.display.overlay_panel.as_ref() {
-            let _ = write_overlay_panel(&mut self.stdout, panel, rows, cols);
-        } else if let Some(banner) = banner.as_ref() {
-            let clear_height = self.display.banner_height.max(banner.height);
-            if clear_height > 0 {
-                let _ = clear_status_banner(&mut self.stdout, rows, clear_height);
-            }
-            self.display.banner_height = banner.height;
-            let _ = write_status_banner(&mut self.stdout, banner, rows, cols);
-        } else if let Some(text) = self.display.status.as_deref() {
-            if self.display.banner_height > 1 {
-                let _ = clear_status_banner(&mut self.stdout, rows, self.display.banner_height);
-            }
-            self.display.banner_height = 1;
-            let _ = write_status_line(&mut self.stdout, text, rows, cols, theme);
-        }
-
-        if let Err(err) = self.stdout.flush() {
-            flush_error.get_or_insert(err);
-        }
-        self.needs_redraw = transition_progress > 0.0;
+        self.needs_redraw = false;
         self.last_status_draw_at = Instant::now();
         if let Some(err) = flush_error {
             log_debug(&format!("status redraw flush failed: {err}"));
         }
-    }
-}
-
-fn should_start_state_transition(prev: &StatusLineState, next: &StatusLineState) -> bool {
-    prev.recording_state != next.recording_state
-        || prev.send_mode != next.send_mode
-        || prev.hud_style != next.hud_style
-        || prev.hud_right_panel != next.hud_right_panel
-        || prev.hud_right_panel_recording_only != next.hud_right_panel_recording_only
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::{HudStyle, VoiceSendMode};
-    use crate::status_line::{RecordingState, VoiceMode};
-
-    #[test]
-    fn transition_starts_when_core_state_changes() {
-        let mut prev = StatusLineState::new();
-        let mut next = prev.clone();
-        assert!(!should_start_state_transition(&prev, &next));
-
-        next.recording_state = RecordingState::Recording;
-        assert!(should_start_state_transition(&prev, &next));
-
-        next = prev.clone();
-        next.voice_mode = VoiceMode::Auto;
-        assert!(!should_start_state_transition(&prev, &next));
-
-        next = prev.clone();
-        next.auto_voice_enabled = !prev.auto_voice_enabled;
-        assert!(!should_start_state_transition(&prev, &next));
-
-        next = prev.clone();
-        next.send_mode = match prev.send_mode {
-            VoiceSendMode::Auto => VoiceSendMode::Insert,
-            VoiceSendMode::Insert => VoiceSendMode::Auto,
-        };
-        assert!(should_start_state_transition(&prev, &next));
-
-        next = prev.clone();
-        next.hud_style = HudStyle::Minimal;
-        assert!(should_start_state_transition(&prev, &next));
-
-        prev.recording_state = RecordingState::Recording;
-        next = prev.clone();
-        assert!(!should_start_state_transition(&prev, &next));
     }
 }

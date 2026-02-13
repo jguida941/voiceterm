@@ -115,8 +115,6 @@ Compact HUD also adapts module emphasis by context and width:
 - backend busy: queue + latency
 - idle: latency-focused compact view
 
-A brief transition pulse marker (`✦`, `•`) on selected state changes is expected.
-
 ### Latency badge looks inaccurate
 
 The HUD latency badge represents post-capture processing time (mainly STT), not
@@ -361,7 +359,8 @@ debug log above is still the fastest way to confirm what your terminal emits.
 
 If you see stacked/repeated Full HUD frames in PyCharm/CLion/RustRover:
 
-This is fixed in `v1.0.60` and newer.
+This is addressed in `v1.0.61` and newer using the stable `v1.0.53`
+writer/render HUD path plus a one-column layout safety margin.
 
 Symptoms can include:
 - duplicated/staggered HUD borders

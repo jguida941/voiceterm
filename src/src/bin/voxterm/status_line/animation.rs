@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
 const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
+#[allow(dead_code)]
 const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
 /// Pulsing recording indicator frames (cycles every ~400ms at 10fps).
@@ -51,6 +52,7 @@ pub(super) fn heartbeat_glyph(animate: bool) -> (char, bool) {
     (glyph, frame_idx == 2)
 }
 
+#[allow(dead_code)]
 pub(crate) fn state_transition_progress(started_at: Option<Instant>, now: Instant) -> f32 {
     let Some(started_at) = started_at else {
         return 0.0;

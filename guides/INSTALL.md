@@ -92,8 +92,9 @@ confirm runtime options such as `Macros`, `Send mode`, and `Latency display`
 (`Off`, `Nms`, `Latency: Nms`) are present.
 If you use Minimal HUD, also verify the right-panel visualization chip appears
 when `Right panel` is set to `Ribbon`, `Dots`, or `Heartbeat`.
-You should also see compact latency/meter trend telemetry in narrow HUD space,
-plus a brief transition pulse marker on major mode/state changes.
+You should also see compact latency/meter trend telemetry in narrow HUD space.
+If you use Full HUD in IDE terminals, confirm the banner redraws as a single
+frame without duplicated/wrapped rows.
 
 ## Option B: Install from source
 
