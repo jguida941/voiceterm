@@ -75,14 +75,14 @@ All shortcuts in one place:
 |-----|--------------|
 | `Ctrl+R` | **Record** - Start voice capture (manual mode) |
 | `Ctrl+V` | **Voice toggle** - Turn auto-voice on/off |
-| `Ctrl+T` | **Typing mode** - Switch between auto-send and insert mode |
+| `Ctrl+T` | **Typing mode** - Switch between auto-send and edit mode (insert behavior) |
 | `Ctrl+Y` | **Theme picker** - Choose a status line theme |
 | `Ctrl+O` | **Settings** - Open the settings menu (use ↑↓←→ + Enter) |
 | `Ctrl+U` | **HUD style** - Cycle Full → Minimal → Hidden |
 | `Ctrl+]` | **Threshold up** - Make mic less sensitive (+5 dB) |
 | `Ctrl+\` | **Threshold down** - Make mic more sensitive (-5 dB) |
 | `?` | **Help** - Show shortcut help overlay |
-| `Enter` | **Send/Stop** - In insert mode: stop recording early, or press `Enter` to send typed text |
+| `Enter` | **Send/Stop** - In edit mode: stop recording early, or press `Enter` to send typed text |
 | `Ctrl+C` | Forward interrupt to CLI |
 | `Ctrl+Q` | **Quit** - Exit the overlay |
 

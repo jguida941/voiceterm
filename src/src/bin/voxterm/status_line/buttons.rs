@@ -526,14 +526,18 @@ fn format_button_row_with_positions(
         ));
     }
 
-    // Ready badge (not clickable)
-    if show_ready_badge && state.recording_state == RecordingState::Idle && state.queue_depth == 0 {
-        items.push(format!("{}Ready{}", colors.success, colors.reset));
-    }
-
-    // Latency badge (not clickable)
-    if show_latency_badge {
-        if let Some(latency) = state.last_latency_ms {
+    // Ready/latency badges (not clickable).
+    // Keep Ready and latency as one item so they render as `Ready 199ms` (no separator dot).
+    let ready_badge = if show_ready_badge
+        && state.recording_state == RecordingState::Idle
+        && state.queue_depth == 0
+    {
+        Some(format!("{}Ready{}", colors.success, colors.reset))
+    } else {
+        None
+    };
+    let latency_badge = if show_latency_badge {
+        state.last_latency_ms.map(|latency| {
             let latency_color = if latency < 300 {
                 colors.success
             } else if latency < 500 {
@@ -541,8 +545,16 @@ fn format_button_row_with_positions(
             } else {
                 colors.error
             };
-            items.push(format!("{}{}ms{}", latency_color, latency, colors.reset));
-        }
+            format!("{}{}ms{}", latency_color, latency, colors.reset)
+        })
+    } else {
+        None
+    };
+    match (ready_badge, latency_badge) {
+        (Some(ready), Some(latency)) => items.push(format!("{ready} {latency}")),
+        (Some(ready), None) => items.push(ready),
+        (None, Some(latency)) => items.push(latency),
+        (None, None) => {}
     }
 
     // Modern separator: dim dot
@@ -905,5 +917,18 @@ mod tests {
 
         let panel = minimal_right_panel(&state, &colors).expect("panel");
         assert!(panel.contains(colors.success));
+    }
+
+    #[test]
+    fn full_row_ready_and_latency_render_without_separator_dot_between_them() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Idle;
+        state.last_latency_ms = Some(199);
+
+        let row = format_button_row(&state, &colors, 120);
+        assert!(row.contains("Ready 199ms"));
+        assert!(!row.contains("Ready · 199ms"));
     }
 }

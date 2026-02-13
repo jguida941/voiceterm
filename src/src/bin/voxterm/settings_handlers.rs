@@ -149,7 +149,7 @@ impl<'a> SettingsActionContext<'a> {
         self.status_state.send_mode = self.config.voice_send_mode;
         let msg = match self.config.voice_send_mode {
             VoiceSendMode::Auto => "Send mode: auto (sends Enter)",
-            VoiceSendMode::Insert => "Send mode: insert (press Enter to send)",
+            VoiceSendMode::Insert => "Edit mode: press Enter to send",
         };
         set_status(
             self.writer_tx,
@@ -420,7 +420,7 @@ mod tests {
             .expect("status message")
         {
             WriterMessage::EnhancedStatus(state) => {
-                assert!(state.message.contains("insert"));
+                assert_eq!(state.message, "Edit mode: press Enter to send");
             }
             other => panic!("unexpected writer message: {other:?}"),
         }

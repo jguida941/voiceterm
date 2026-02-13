@@ -20,7 +20,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Remove transition-marker dot jitter in recording/processing labels; transition pulses now use brief `✦`/`•` markers only in idle transitions.
 - Improve Full HUD visual balance by increasing the maximum right-panel ribbon waveform width.
 - Keep Full HUD steady-state badges (`Ready`, latency `Nms`) with the shortcuts/theme cluster on the lower row, while restoring toggle/status messages to the main row lane after dB.
+- Render Full HUD steady badges as `Ready Nms` (no extra separator between `Ready` and latency).
 - Suppress duplicate active-state text in Full HUD main row (for example `processing`/`ready`) so recording/processing state is shown once via the left mode indicator.
+- Update send-mode status wording to user-facing `Edit mode: press Enter to send` when insert behavior is active.
 
 ### CI
 - Add a dedicated latency guard workflow (`.github/workflows/latency_guard.yml`) that runs synthetic voice-only regression bounds in CI.
