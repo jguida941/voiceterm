@@ -25,6 +25,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Refine README install layout to avoid mixed numbered steps around collapsibles (clean method blocks with the recommended path expanded by default).
 - Split README AI CLI prerequisite snippet into explicit Codex and Claude install blocks before the VoiceTerm install step.
 - Remove `(default)` labels from Codex headings in README for cleaner backend section wording.
+- Bold the README install prerequisite labels (`Codex` and `Claude Code`) to improve visual scanability.
 
 ## [1.0.65] - 2026-02-14
 

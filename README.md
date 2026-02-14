@@ -34,12 +34,12 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 
 Install one supported AI CLI first:
 
-Codex:
+**Codex:**
 ```bash
 npm install -g @openai/codex
 ```
 
-Claude Code:
+**Claude Code:**
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
 ```
