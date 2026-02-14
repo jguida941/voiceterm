@@ -148,20 +148,40 @@ See the [Usage Guide](guides/USAGE.md) for full behavior and configuration detai
 
 ## Controls
 
+### Voice Input
+
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Start voice recording |
 | `Ctrl+V` | Toggle auto-voice (hands-free) |
 | `Ctrl+T` | Toggle send mode (auto/insert) |
+| `Enter` | Stop recording / send text |
+
+### UI and Navigation
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+O` | Open settings menu |
+| `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style |
-| `Ctrl+Y` | Theme picker |
-| `Ctrl+O` | Settings menu |
+| `?` | Show help |
+
+### Mic Sensitivity
+
+| Key | Action |
+|-----|--------|
 | `Ctrl+]` | Mic less sensitive |
 | `Ctrl+\` | Mic more sensitive |
-| `?` | Show help |
-| `Enter` | Stop recording / send text |
-| `Ctrl+Q` | Quit |
+
+### Session Control
+
+| Key | Action |
+|-----|--------|
 | `Ctrl+C` | Send interrupt to CLI |
+| `Ctrl+Q` | Quit VoiceTerm |
+
+For full mode behavior and settings interactions, see the
+[Usage Guide](guides/USAGE.md#keyboard-shortcuts).
 
 Voice macros let you map spoken triggers to commands/templates in
 `.voiceterm/macros.yaml` (for example, "run tests" -> `cargo test`).

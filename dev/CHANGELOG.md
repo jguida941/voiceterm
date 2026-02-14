@@ -9,6 +9,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Remove version-specific stability callouts from user guides/README and keep release/version detail centralized in the changelog and release notes.
 - Clarify README macro toggle wording and link directly to the Usage guide section that explains macro file format and behavior.
 - Simplify README backend/UI sections to focus on primary Codex/Claude support and move detailed/advanced behavior references to the Usage guide.
+- Reorganize README controls into grouped sections (voice, UI/navigation, sensitivity, session control) and link to the Usage guide for full behavior details.
 
 ## [1.0.65] - 2026-02-14
 
