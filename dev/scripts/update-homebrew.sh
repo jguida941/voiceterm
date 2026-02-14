@@ -76,11 +76,42 @@ sed -i '' "s|url \"https://github.com/jguida941/voiceterm/archive/refs/tags/v[0-
 sed -i '' "s|version \"[0-9.]*\"|version \"$VERSION\"|" "$FORMULA"
 sed -i '' "s|sha256 \"[a-f0-9]*\"|sha256 \"$SHA256\"|" "$FORMULA"
 
-# Update README version + model path if present
+# Keep tap README intentionally minimal and canonical.
+# The main repo hosts full docs; the tap repo should only cover brew-specific entrypoints.
 if [[ -f "$README" ]]; then
-    sed -i '' "s/^Current: v[0-9.]*$/Current: v$VERSION/" "$README"
-    sed -i '' 's|ls \$(brew --prefix).*models/|ls ~/.local/share/voiceterm/models/|g' "$README"
-    sed -i '' "s|/opt/voiceterm/libexec/models/|~/.local/share/voiceterm/models/|g" "$README"
+    cat > "$README" <<EOF
+# homebrew-voiceterm
+
+Homebrew tap for [VoiceTerm](https://github.com/jguida941/voiceterm).
+
+This repository only contains the Homebrew formula and release/version metadata.
+For complete product documentation, use the main VoiceTerm repository:
+
+- Main repo: https://github.com/jguida941/voiceterm
+- Install guide: https://github.com/jguida941/voiceterm/blob/master/guides/INSTALL.md
+- Usage guide: https://github.com/jguida941/voiceterm/blob/master/guides/USAGE.md
+- CLI flags: https://github.com/jguida941/voiceterm/blob/master/guides/CLI_FLAGS.md
+- Troubleshooting: https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md
+- Changelog: https://github.com/jguida941/voiceterm/blob/master/dev/CHANGELOG.md
+
+## Install
+
+\`\`\`bash
+brew tap jguida941/voiceterm
+brew install voiceterm
+\`\`\`
+
+## Upgrade
+
+\`\`\`bash
+brew update
+brew upgrade voiceterm
+\`\`\`
+
+## Version
+
+Current: v$VERSION
+EOF
 fi
 
 # Show diff
