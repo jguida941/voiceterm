@@ -26,6 +26,7 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 - [Requirements](#requirements)
 - [Supported AI CLIs](#supported-ai-clis)
 - [UI Tour](#ui-tour)
+- [Controls](#controls)
 - [Documentation](#documentation)
 - [Support](#support)
 

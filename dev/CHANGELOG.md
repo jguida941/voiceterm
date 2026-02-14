@@ -21,6 +21,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Merge README onboarding into one `Install and Start` section so install paths and first-run steps are not split across separate sections.
 - Remove duplicated install content from README and keep one concise install/start flow with links to the full install guide for alternatives/details.
 - Reformat README install flow with collapsible per-method blocks (Homebrew/PyPI/source/macOS app) while keeping a single unified onboarding section.
+- Add `Controls` to README quick navigation so users can jump directly to that section.
 
 ## [1.0.65] - 2026-02-14
 
