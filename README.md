@@ -32,21 +32,29 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 
 ## Install and Start
 
-1. Install an AI CLI (Codex is the default backend):
+Install one supported AI CLI first (Codex is the default backend):
 
 ```bash
 npm install -g @openai/codex
 # or: curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-2. Choose one VoiceTerm installation method:
+Then choose one VoiceTerm setup path:
 
-<details>
+<details open>
 <summary><strong>Homebrew (recommended)</strong></summary>
 
 ```bash
 brew tap jguida941/voiceterm
 brew install voiceterm
+cd ~/your-project
+voiceterm
+```
+
+If needed, authenticate once:
+```bash
+voiceterm --login --codex
+voiceterm --login --claude
 ```
 </details>
 
@@ -56,6 +64,15 @@ brew install voiceterm
 ```bash
 pipx install voiceterm
 # or: python3 -m pip install --user voiceterm
+
+cd ~/your-project
+voiceterm
+```
+
+If needed, authenticate once:
+```bash
+voiceterm --login --codex
+voiceterm --login --claude
 ```
 </details>
 
@@ -75,19 +92,6 @@ cd voiceterm
 Double-click `app/macos/VoiceTerm.app`, pick a folder, and it opens Terminal
 with VoiceTerm running.
 </details>
-
-3. Run it:
-
-```bash
-cd ~/your-project
-voiceterm
-```
-
-If needed, authenticate once:
-```bash
-voiceterm --login --codex
-voiceterm --login --claude
-```
 
 For model options and startup/IDE tuning:
 - [Install Guide](guides/INSTALL.md)
