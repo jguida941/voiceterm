@@ -1,6 +1,8 @@
 //! Core runtime loop that coordinates PTY output, input events, and voice jobs.
 
-use std::io::ErrorKind;
+#[cfg(test)]
+use std::cell::Cell;
+use std::io::{self, ErrorKind};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{never, select, TryRecvError, TrySendError};
@@ -57,6 +59,113 @@ const PTY_OUTPUT_BATCH_CHUNKS: usize = 8;
 const PTY_INPUT_FLUSH_ATTEMPTS: usize = 16;
 const PTY_INPUT_MAX_BUFFER_BYTES: usize = 256 * 1024;
 
+#[cfg(test)]
+type TrySendHook = fn(&[u8]) -> io::Result<usize>;
+#[cfg(test)]
+type TakeSigwinchHook = fn() -> bool;
+#[cfg(test)]
+type TerminalSizeHook = fn() -> io::Result<(u16, u16)>;
+#[cfg(test)]
+type StartCaptureHook = fn(
+    &mut crate::voice_control::VoiceManager,
+    VoiceCaptureTrigger,
+    &crossbeam_channel::Sender<WriterMessage>,
+    &mut Option<Instant>,
+    &mut Option<String>,
+    &mut crate::status_line::StatusLineState,
+) -> anyhow::Result<()>;
+#[cfg(test)]
+thread_local! {
+    static TRY_SEND_HOOK: Cell<Option<TrySendHook>> = const { Cell::new(None) };
+    static TAKE_SIGWINCH_HOOK: Cell<Option<TakeSigwinchHook>> = const { Cell::new(None) };
+    static TERMINAL_SIZE_HOOK: Cell<Option<TerminalSizeHook>> = const { Cell::new(None) };
+    static START_CAPTURE_HOOK: Cell<Option<StartCaptureHook>> = const { Cell::new(None) };
+}
+
+#[cfg(test)]
+fn set_try_send_hook(hook: Option<TrySendHook>) {
+    TRY_SEND_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_take_sigwinch_hook(hook: Option<TakeSigwinchHook>) {
+    TAKE_SIGWINCH_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_terminal_size_hook(hook: Option<TerminalSizeHook>) {
+    TERMINAL_SIZE_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_start_capture_hook(hook: Option<StartCaptureHook>) {
+    START_CAPTURE_HOOK.with(|slot| slot.set(hook));
+}
+
+fn try_send_pty_bytes(
+    session: &mut voiceterm::pty_session::PtyOverlaySession,
+    bytes: &[u8],
+) -> io::Result<usize> {
+    #[cfg(test)]
+    {
+        if let Some(hook) = TRY_SEND_HOOK.with(|slot| slot.get()) {
+            return hook(bytes);
+        }
+    }
+    session.try_send_bytes(bytes)
+}
+
+fn take_sigwinch_flag() -> bool {
+    #[cfg(test)]
+    {
+        if let Some(hook) = TAKE_SIGWINCH_HOOK.with(|slot| slot.get()) {
+            return hook();
+        }
+    }
+    take_sigwinch()
+}
+
+fn read_terminal_size() -> io::Result<(u16, u16)> {
+    #[cfg(test)]
+    {
+        if let Some(hook) = TERMINAL_SIZE_HOOK.with(|slot| slot.get()) {
+            return hook();
+        }
+    }
+    terminal_size()
+}
+
+fn start_voice_capture_with_hook(
+    voice_manager: &mut crate::voice_control::VoiceManager,
+    trigger: VoiceCaptureTrigger,
+    writer_tx: &crossbeam_channel::Sender<WriterMessage>,
+    status_clear_deadline: &mut Option<Instant>,
+    current_status: &mut Option<String>,
+    status_state: &mut crate::status_line::StatusLineState,
+) -> anyhow::Result<()> {
+    #[cfg(test)]
+    {
+        if let Some(hook) = START_CAPTURE_HOOK.with(|slot| slot.get()) {
+            return hook(
+                voice_manager,
+                trigger,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+            );
+        }
+    }
+    start_voice_capture(
+        voice_manager,
+        trigger,
+        writer_tx,
+        status_clear_deadline,
+        current_status,
+        status_state,
+    )
+}
+
 fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {
     let Some(pending) = state.pending_pty_output.take() else {
         return true;
@@ -90,8 +199,7 @@ fn flush_pending_pty_input(state: &mut EventLoopState, deps: &mut EventLoopDeps)
                 state.pending_pty_input_bytes = 0;
                 return true;
             };
-            deps.session
-                .try_send_bytes(&front[state.pending_pty_input_offset..])
+            try_send_pty_bytes(&mut deps.session, &front[state.pending_pty_input_offset..])
                 .map(|written| (written, front.len()))
         };
         match write_result {
@@ -125,13 +233,17 @@ fn write_or_queue_pty_input(
         return true;
     }
     if state.pending_pty_input.is_empty() {
-        match deps.session.try_send_bytes(&bytes) {
+        match try_send_pty_bytes(&mut deps.session, &bytes) {
             Ok(written) => {
-                if written < bytes.len() {
-                    state.pending_pty_input.push_back(bytes[written..].to_vec());
+                let Some(remaining) = bytes.get(written..) else {
+                    log_debug("PTY write returned an out-of-range byte count");
+                    return false;
+                };
+                if !remaining.is_empty() {
+                    state.pending_pty_input.push_back(remaining.to_vec());
                     state.pending_pty_input_bytes = state
                         .pending_pty_input_bytes
-                        .saturating_add(bytes.len() - written);
+                        .saturating_add(remaining.len());
                 }
             }
             Err(err) => {
@@ -158,8 +270,8 @@ fn run_periodic_tasks(
     deps: &mut EventLoopDeps,
     now: Instant,
 ) {
-    if take_sigwinch() {
-        if let Ok((cols, rows)) = terminal_size() {
+    if take_sigwinch_flag() {
+        if let Ok((cols, rows)) = read_terminal_size() {
             // JetBrains terminals can emit SIGWINCH without a geometry delta.
             // Skip no-op resize work so we avoid redraw flicker and redundant backend SIGWINCH.
             let size_changed = state.terminal_cols != cols || state.terminal_rows != rows;
@@ -377,7 +489,7 @@ fn run_periodic_tasks(
             timers.last_auto_trigger_at,
         )
     {
-        if let Err(err) = start_voice_capture(
+        if let Err(err) = start_voice_capture_with_hook(
             &mut deps.voice_manager,
             VoiceCaptureTrigger::Auto,
             &deps.writer_tx,
@@ -432,6 +544,14 @@ fn run_periodic_tasks(
     }
 }
 
+fn flush_pending_output_or_continue(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {
+    if state.pending_pty_output.is_none() {
+        return true;
+    }
+    let flush_ok = flush_pending_pty_output(state, deps);
+    flush_ok || state.pending_pty_output.is_some()
+}
+
 pub(crate) fn run_event_loop(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -445,10 +565,7 @@ pub(crate) fn run_event_loop(
             running = false;
             continue;
         }
-        if state.pending_pty_output.is_some()
-            && !flush_pending_pty_output(state, deps)
-            && state.pending_pty_output.is_none()
-        {
+        if !flush_pending_output_or_continue(state, deps) {
             running = false;
         }
         let now = Instant::now();
@@ -1630,5 +1747,872 @@ pub(crate) fn run_event_loop(
             }
             default(tick_interval) => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use crossbeam_channel::{bounded, Receiver, Sender};
+    use std::cell::Cell;
+    use std::collections::VecDeque;
+    use std::io;
+    use std::thread;
+    use voiceterm::pty_session::PtyOverlaySession;
+
+    use crate::buttons::ButtonRegistry;
+    use crate::config::OverlayConfig;
+    use crate::prompt::{PromptLogger, PromptTracker};
+    use crate::session_stats::SessionStats;
+    use crate::settings::SettingsMenuState;
+    use crate::status_line::{Pipeline, StatusLineState, VoiceMode};
+    use crate::theme::Theme;
+    use crate::theme_ops::theme_index_from_theme;
+    use crate::voice_control::VoiceManager;
+    use crate::voice_macros::VoiceMacros;
+
+    thread_local! {
+        static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
+        static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    struct TrySendHookGuard;
+
+    impl Drop for TrySendHookGuard {
+        fn drop(&mut self) {
+            set_try_send_hook(None);
+            HOOK_CALLS.with(|calls| calls.set(0));
+        }
+    }
+
+    fn install_try_send_hook(hook: TrySendHook) -> TrySendHookGuard {
+        set_try_send_hook(Some(hook));
+        HOOK_CALLS.with(|calls| calls.set(0));
+        TrySendHookGuard
+    }
+
+    struct SigwinchHookGuard;
+
+    impl Drop for SigwinchHookGuard {
+        fn drop(&mut self) {
+            set_take_sigwinch_hook(None);
+            set_terminal_size_hook(None);
+        }
+    }
+
+    fn install_sigwinch_hooks(
+        take_hook: TakeSigwinchHook,
+        size_hook: TerminalSizeHook,
+    ) -> SigwinchHookGuard {
+        set_take_sigwinch_hook(Some(take_hook));
+        set_terminal_size_hook(Some(size_hook));
+        SigwinchHookGuard
+    }
+
+    struct StartCaptureHookGuard;
+
+    impl Drop for StartCaptureHookGuard {
+        fn drop(&mut self) {
+            set_start_capture_hook(None);
+            START_CAPTURE_CALLS.with(|calls| calls.set(0));
+        }
+    }
+
+    fn install_start_capture_hook(hook: StartCaptureHook) -> StartCaptureHookGuard {
+        set_start_capture_hook(Some(hook));
+        START_CAPTURE_CALLS.with(|calls| calls.set(0));
+        StartCaptureHookGuard
+    }
+
+    fn hook_would_block(_: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(ErrorKind::WouldBlock, "hook would block"))
+    }
+
+    fn hook_interrupted(_: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(ErrorKind::Interrupted, "hook interrupted"))
+    }
+
+    fn hook_broken_pipe(_: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(ErrorKind::BrokenPipe, "hook broken pipe"))
+    }
+
+    fn hook_non_empty_full_write(bytes: &[u8]) -> io::Result<usize> {
+        if bytes.is_empty() {
+            Err(io::Error::new(
+                ErrorKind::BrokenPipe,
+                "unexpected empty write",
+            ))
+        } else {
+            Ok(bytes.len())
+        }
+    }
+
+    fn hook_one_byte(bytes: &[u8]) -> io::Result<usize> {
+        if bytes.is_empty() {
+            Ok(0)
+        } else {
+            Ok(1)
+        }
+    }
+
+    fn hook_partial_then_would_block(bytes: &[u8]) -> io::Result<usize> {
+        HOOK_CALLS.with(|calls| {
+            let call_index = calls.get();
+            calls.set(call_index + 1);
+            if call_index == 0 {
+                if bytes.is_empty() {
+                    Ok(0)
+                } else {
+                    Ok(1)
+                }
+            } else {
+                Err(io::Error::new(ErrorKind::WouldBlock, "hook would block"))
+            }
+        })
+    }
+
+    fn hook_take_sigwinch_true() -> bool {
+        true
+    }
+
+    fn hook_take_sigwinch_false() -> bool {
+        false
+    }
+
+    fn hook_terminal_size_80x24() -> io::Result<(u16, u16)> {
+        Ok((80, 24))
+    }
+
+    fn hook_start_capture_count(
+        _: &mut crate::voice_control::VoiceManager,
+        _: VoiceCaptureTrigger,
+        _: &crossbeam_channel::Sender<WriterMessage>,
+        _: &mut Option<Instant>,
+        _: &mut Option<String>,
+        _: &mut crate::status_line::StatusLineState,
+    ) -> anyhow::Result<()> {
+        START_CAPTURE_CALLS.with(|calls| calls.set(calls.get() + 1));
+        Ok(())
+    }
+
+    fn hook_start_capture_err(
+        _: &mut crate::voice_control::VoiceManager,
+        _: VoiceCaptureTrigger,
+        _: &crossbeam_channel::Sender<WriterMessage>,
+        _: &mut Option<Instant>,
+        _: &mut Option<String>,
+        _: &mut crate::status_line::StatusLineState,
+    ) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("forced start capture failure"))
+    }
+
+    fn build_harness(
+        cmd: &str,
+        args: &[&str],
+        writer_capacity: usize,
+    ) -> (
+        EventLoopState,
+        EventLoopTimers,
+        EventLoopDeps,
+        Receiver<WriterMessage>,
+        Sender<InputEvent>,
+    ) {
+        let config = OverlayConfig::parse_from(["voiceterm"]);
+        let mut status_state = StatusLineState::new();
+        let auto_voice_enabled = config.auto_voice;
+        status_state.sensitivity_db = config.app.voice_vad_threshold_db;
+        status_state.auto_voice_enabled = auto_voice_enabled;
+        status_state.send_mode = config.voice_send_mode;
+        status_state.latency_display = config.latency_display;
+        status_state.macros_enabled = true;
+        status_state.hud_right_panel = config.hud_right_panel;
+        status_state.hud_border_style = config.hud_border_style;
+        status_state.hud_right_panel_recording_only = config.hud_right_panel_recording_only;
+        status_state.hud_style = config.hud_style;
+        status_state.voice_mode = if auto_voice_enabled {
+            VoiceMode::Auto
+        } else {
+            VoiceMode::Manual
+        };
+        status_state.pipeline = Pipeline::Rust;
+        status_state.mouse_enabled = true;
+
+        let theme = Theme::Codex;
+        let prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        let voice_manager = VoiceManager::new(config.app.clone());
+        let live_meter = voice_manager.meter();
+        let arg_vec: Vec<String> = args.iter().map(|arg| (*arg).to_string()).collect();
+        let session = PtyOverlaySession::new(cmd, ".", &arg_vec, "xterm-256color")
+            .expect("start pty session");
+
+        let (writer_tx, writer_rx) = bounded(writer_capacity);
+        let (input_tx, input_rx) = bounded(16);
+
+        let state = EventLoopState {
+            config,
+            status_state,
+            auto_voice_enabled,
+            theme,
+            overlay_mode: OverlayMode::None,
+            settings_menu: SettingsMenuState::new(),
+            meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
+            theme_picker_selected: theme_index_from_theme(theme),
+            theme_picker_digits: String::new(),
+            current_status: None,
+            pending_transcripts: VecDeque::new(),
+            session_stats: SessionStats::new(),
+            prompt_tracker,
+            terminal_rows: 24,
+            terminal_cols: 80,
+            last_recording_duration: 0.0,
+            processing_spinner_index: 0,
+            pending_pty_output: None,
+            pending_pty_input: VecDeque::new(),
+            pending_pty_input_offset: 0,
+            pending_pty_input_bytes: 0,
+            suppress_startup_escape_input: false,
+        };
+
+        let now = Instant::now();
+        let timers = EventLoopTimers {
+            theme_picker_digit_deadline: None,
+            status_clear_deadline: None,
+            preview_clear_deadline: None,
+            last_auto_trigger_at: None,
+            last_enter_at: None,
+            recording_started_at: None,
+            last_recording_update: now,
+            last_processing_tick: now,
+            last_heartbeat_tick: now,
+            last_meter_update: now,
+        };
+
+        let deps = EventLoopDeps {
+            session,
+            voice_manager,
+            writer_tx,
+            input_rx,
+            button_registry: ButtonRegistry::new(),
+            backend_label: "test".to_string(),
+            sound_on_complete: false,
+            sound_on_error: false,
+            live_meter,
+            meter_update_ms: 50,
+            auto_idle_timeout: Duration::from_millis(300),
+            transcript_idle_timeout: Duration::from_millis(100),
+            voice_macros: VoiceMacros::default(),
+        };
+
+        (state, timers, deps, writer_rx, input_tx)
+    }
+
+    #[test]
+    fn flush_pending_pty_output_returns_true_when_empty() {
+        let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        assert!(flush_pending_pty_output(&mut state, &deps));
+    }
+
+    #[test]
+    fn flush_pending_pty_output_requeues_when_writer_is_full() {
+        let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 1);
+        deps.writer_tx
+            .try_send(WriterMessage::ClearStatus)
+            .expect("fill bounded writer channel");
+        state.pending_pty_output = Some(vec![1, 2, 3]);
+
+        assert!(!flush_pending_pty_output(&mut state, &deps));
+        assert_eq!(state.pending_pty_output, Some(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn flush_pending_pty_output_returns_false_when_writer_is_disconnected() {
+        let (mut state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        drop(writer_rx);
+        state.pending_pty_output = Some(vec![9, 8, 7]);
+
+        assert!(!flush_pending_pty_output(&mut state, &deps));
+        assert!(
+            state.pending_pty_output.is_none(),
+            "disconnected writes should not keep stale pending output"
+        );
+    }
+
+    #[test]
+    fn flush_pending_pty_input_empty_queue_resets_counters() {
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input_offset = 3;
+        state.pending_pty_input_bytes = 9;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert_eq!(state.pending_pty_input_bytes, 0);
+    }
+
+    #[test]
+    fn flush_pending_pty_input_pops_front_when_offset_reaches_chunk_end() {
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(vec![1, 2]);
+        state.pending_pty_input.push_back(vec![3]);
+        state.pending_pty_input_offset = 2;
+        state.pending_pty_input_bytes = 1;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert!(state.pending_pty_input.is_empty());
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert_eq!(state.pending_pty_input_bytes, 0);
+    }
+
+    #[test]
+    fn event_loop_constants_match_expected_limits() {
+        assert_eq!(METER_DB_FLOOR, -60.0);
+        assert_eq!(PTY_INPUT_MAX_BUFFER_BYTES, 256 * 1024);
+    }
+
+    #[test]
+    fn flush_pending_pty_input_treats_would_block_as_retryable() {
+        let _hook = install_try_send_hook(hook_would_block);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(vec![1, 2, 3]);
+        state.pending_pty_input_bytes = 3;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert_eq!(state.pending_pty_input_bytes, 3);
+        assert_eq!(state.pending_pty_input.len(), 1);
+    }
+
+    #[test]
+    fn flush_pending_pty_input_treats_interrupted_as_retryable() {
+        let _hook = install_try_send_hook(hook_interrupted);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(vec![7, 8]);
+        state.pending_pty_input_bytes = 2;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert_eq!(state.pending_pty_input_bytes, 2);
+        assert_eq!(state.pending_pty_input.len(), 1);
+    }
+
+    #[test]
+    fn flush_pending_pty_input_returns_false_for_non_retry_errors() {
+        let _hook = install_try_send_hook(hook_broken_pipe);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(vec![7, 8]);
+        state.pending_pty_input_bytes = 2;
+
+        assert!(!flush_pending_pty_input(&mut state, &mut deps));
+    }
+
+    #[test]
+    fn flush_pending_pty_input_does_not_write_empty_slice_when_offset_is_at_chunk_end() {
+        let _hook = install_try_send_hook(hook_non_empty_full_write);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(vec![1, 2]);
+        state.pending_pty_input_offset = 2;
+        state.pending_pty_input_bytes = 0;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert!(state.pending_pty_input.is_empty());
+    }
+
+    #[test]
+    fn flush_pending_pty_input_drains_many_single_byte_chunks_within_attempt_budget() {
+        let _hook = install_try_send_hook(hook_one_byte);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        for _ in 0..12 {
+            state.pending_pty_input.push_back(vec![b'x']);
+        }
+        state.pending_pty_input_bytes = 12;
+
+        assert!(flush_pending_pty_input(&mut state, &mut deps));
+        assert!(
+            state.pending_pty_input.is_empty(),
+            "single-byte writes should clear this queue within 16 attempts"
+        );
+        assert_eq!(state.pending_pty_input_bytes, 0);
+    }
+
+    #[test]
+    fn write_or_queue_pty_input_returns_false_after_session_exits() {
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) =
+            build_harness("sh", &["-c", "exit 0"], 8);
+        thread::sleep(Duration::from_millis(50));
+
+        assert!(!write_or_queue_pty_input(
+            &mut state,
+            &mut deps,
+            b"abc".to_vec()
+        ));
+    }
+
+    #[test]
+    fn write_or_queue_pty_input_queues_remainder_after_partial_write() {
+        let _hook = install_try_send_hook(hook_partial_then_would_block);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let bytes = vec![1, 2, 3, 4];
+
+        assert!(write_or_queue_pty_input(&mut state, &mut deps, bytes));
+        assert_eq!(state.pending_pty_input_bytes, 3);
+        assert_eq!(state.pending_pty_input.len(), 1);
+        assert_eq!(state.pending_pty_input.front(), Some(&vec![2, 3, 4]));
+    }
+
+    #[test]
+    fn write_or_queue_pty_input_queues_all_bytes_on_would_block() {
+        let _hook = install_try_send_hook(hook_would_block);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let bytes = vec![1, 2, 3];
+
+        assert!(write_or_queue_pty_input(
+            &mut state,
+            &mut deps,
+            bytes.clone()
+        ));
+        assert_eq!(state.pending_pty_input_bytes, bytes.len());
+        assert_eq!(state.pending_pty_input.front(), Some(&bytes));
+    }
+
+    #[test]
+    fn write_or_queue_pty_input_returns_false_on_non_retryable_error() {
+        let _hook = install_try_send_hook(hook_broken_pipe);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+        assert!(!write_or_queue_pty_input(
+            &mut state,
+            &mut deps,
+            vec![1, 2, 3]
+        ));
+        assert!(
+            state.pending_pty_input.is_empty(),
+            "non-retry errors should not queue bytes"
+        );
+        assert_eq!(state.pending_pty_input_bytes, 0);
+    }
+
+    #[test]
+    fn write_or_queue_pty_input_returns_true_for_live_session() {
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let bytes = b"hello".to_vec();
+
+        assert!(write_or_queue_pty_input(&mut state, &mut deps, bytes));
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert!(
+            state.pending_pty_input_bytes <= 5,
+            "live writes may flush immediately but should not overcount pending bytes"
+        );
+    }
+
+    #[test]
+    fn run_periodic_tasks_clears_theme_digits_outside_picker_mode() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.overlay_mode = OverlayMode::None;
+        state.theme_picker_digits = "12".to_string();
+        timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_secs(1));
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+        assert!(state.theme_picker_digits.is_empty());
+        assert!(timers.theme_picker_digit_deadline.is_none());
+    }
+
+    #[test]
+    fn take_sigwinch_flag_uses_installed_hook_value() {
+        let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+        assert!(!take_sigwinch_flag());
+    }
+
+    #[test]
+    fn start_voice_capture_with_hook_propagates_hook_error() {
+        let _capture = install_start_capture_hook(hook_start_capture_err);
+        let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+
+        let result = start_voice_capture_with_hook(
+            &mut deps.voice_manager,
+            VoiceCaptureTrigger::Auto,
+            &deps.writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut state.status_state,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn run_periodic_tasks_sigwinch_no_size_change_skips_resize_messages() {
+        let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
+        let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.terminal_cols = 80;
+        state.terminal_rows = 24;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+        assert!(
+            writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+            "no resize event expected when geometry is unchanged"
+        );
+    }
+
+    #[test]
+    fn run_periodic_tasks_sigwinch_single_dimension_change_triggers_resize() {
+        let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
+        let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.terminal_cols = 80;
+        state.terminal_rows = 1;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+        let msg = writer_rx
+            .recv_timeout(Duration::from_millis(200))
+            .expect("resize message");
+        match msg {
+            WriterMessage::Resize { rows, cols } => {
+                assert_eq!(rows, 24);
+                assert_eq!(cols, 80);
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+        assert_eq!(state.terminal_cols, 80);
+        assert_eq!(state.terminal_rows, 24);
+    }
+
+    #[test]
+    fn run_periodic_tasks_updates_recording_duration() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Recording;
+        timers.recording_started_at = Some(now - Duration::from_secs(2));
+        timers.last_recording_update =
+            now - Duration::from_millis(RECORDING_DURATION_UPDATE_MS + 5);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert!(state.status_state.recording_duration.is_some());
+        assert!(state.last_recording_duration > 1.0);
+        assert_eq!(timers.last_recording_update, now);
+    }
+
+    #[test]
+    fn run_periodic_tasks_keeps_theme_digits_when_picker_deadline_not_reached() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.overlay_mode = OverlayMode::ThemePicker;
+        state.theme_picker_digits = "12".to_string();
+        timers.theme_picker_digit_deadline = Some(now + Duration::from_secs(1));
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(state.theme_picker_digits, "12");
+        assert_eq!(
+            timers.theme_picker_digit_deadline,
+            Some(now + Duration::from_secs(1))
+        );
+    }
+
+    #[test]
+    fn run_periodic_tasks_skips_recording_update_when_delta_is_too_small() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Recording;
+        timers.recording_started_at = Some(now - Duration::from_secs(2));
+        timers.last_recording_update =
+            now - Duration::from_millis(RECORDING_DURATION_UPDATE_MS + 5);
+        state.last_recording_duration = 2.05;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert!(state.status_state.recording_duration.is_none());
+        assert_eq!(state.last_recording_duration, 2.05);
+        assert_eq!(timers.last_recording_update, now);
+    }
+
+    #[test]
+    fn run_periodic_tasks_does_not_update_meter_when_not_recording() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Idle;
+        timers.last_meter_update = now - Duration::from_secs(1);
+        let prior_update = timers.last_meter_update;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert!(state.status_state.meter_db.is_none());
+        assert_eq!(timers.last_meter_update, prior_update);
+    }
+
+    #[test]
+    fn run_periodic_tasks_keeps_meter_history_at_cap_when_prefill_is_one_under() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Recording;
+        state.meter_levels = VecDeque::from(vec![-30.0; METER_HISTORY_MAX - 1]);
+        timers.last_meter_update = now - Duration::from_millis(500);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(state.meter_levels.len(), METER_HISTORY_MAX);
+    }
+
+    #[test]
+    fn run_periodic_tasks_updates_meter_and_caps_history() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Recording;
+        state.meter_levels = VecDeque::from(vec![-30.0; METER_HISTORY_MAX]);
+        timers.last_meter_update = now - Duration::from_millis(500);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(state.meter_levels.len(), METER_HISTORY_MAX);
+        assert!(state.status_state.meter_db.is_some());
+        assert_eq!(timers.last_meter_update, now);
+    }
+
+    #[test]
+    fn run_periodic_tasks_does_not_advance_spinner_when_not_processing() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Idle;
+        timers.last_processing_tick = now - Duration::from_secs(1);
+        let prior_tick = timers.last_processing_tick;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(state.processing_spinner_index, 0);
+        assert_eq!(timers.last_processing_tick, prior_tick);
+    }
+
+    #[test]
+    fn run_periodic_tasks_advances_processing_spinner() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.recording_state = RecordingState::Processing;
+        timers.last_processing_tick = now - Duration::from_millis(PROCESSING_SPINNER_TICK_MS + 5);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert!(state.status_state.message.starts_with("Processing "));
+        assert_eq!(state.processing_spinner_index, 1);
+        assert_eq!(timers.last_processing_tick, now);
+    }
+
+    #[test]
+    fn run_periodic_tasks_spinner_uses_modulo_for_frame_selection() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        let start_index = 5;
+        let expected = progress::SPINNER_BRAILLE[start_index % progress::SPINNER_BRAILLE.len()];
+        state.status_state.recording_state = RecordingState::Processing;
+        state.processing_spinner_index = start_index;
+        timers.last_processing_tick = now - Duration::from_secs(1);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(state.status_state.message, format!("Processing {expected}"));
+    }
+
+    #[test]
+    fn run_periodic_tasks_heartbeat_respects_recording_only_gate() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.hud_right_panel = HudRightPanel::Heartbeat;
+        state.status_state.hud_right_panel_recording_only = true;
+        state.status_state.recording_state = RecordingState::Idle;
+        timers.last_heartbeat_tick = now - Duration::from_secs(2);
+        let prior_tick = timers.last_heartbeat_tick;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(timers.last_heartbeat_tick, prior_tick);
+    }
+
+    #[test]
+    fn run_periodic_tasks_heartbeat_animates_when_recording_only_is_disabled() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.hud_right_panel = HudRightPanel::Heartbeat;
+        state.status_state.hud_right_panel_recording_only = false;
+        state.status_state.recording_state = RecordingState::Idle;
+        timers.last_heartbeat_tick = now - Duration::from_secs(2);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(timers.last_heartbeat_tick, now);
+    }
+
+    #[test]
+    fn run_periodic_tasks_heartbeat_requires_full_interval() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.hud_right_panel = HudRightPanel::Heartbeat;
+        state.status_state.hud_right_panel_recording_only = false;
+        state.status_state.recording_state = RecordingState::Recording;
+        timers.last_heartbeat_tick = now - Duration::from_millis(500);
+        let prior_tick = timers.last_heartbeat_tick;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(timers.last_heartbeat_tick, prior_tick);
+    }
+
+    #[test]
+    fn run_periodic_tasks_heartbeat_only_runs_for_heartbeat_panel() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.hud_right_panel = HudRightPanel::Ribbon;
+        state.status_state.hud_right_panel_recording_only = false;
+        state.status_state.recording_state = RecordingState::Recording;
+        timers.last_heartbeat_tick = now - Duration::from_secs(2);
+        let prior_tick = timers.last_heartbeat_tick;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert_eq!(timers.last_heartbeat_tick, prior_tick);
+    }
+
+    #[test]
+    fn run_periodic_tasks_clears_preview_and_status_at_deadline() {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        let now = Instant::now();
+        state.status_state.transcript_preview = Some("preview".to_string());
+        state.current_status = Some("busy".to_string());
+        state.status_state.message = "busy".to_string();
+        timers.preview_clear_deadline = Some(now);
+        timers.status_clear_deadline = Some(now);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+        assert!(timers.preview_clear_deadline.is_none());
+        assert!(state.status_state.transcript_preview.is_none());
+        assert!(timers.status_clear_deadline.is_none());
+        assert!(state.current_status.is_none());
+        assert!(state.status_state.message.is_empty());
+    }
+
+    #[test]
+    fn run_periodic_tasks_does_not_start_auto_voice_when_disabled() {
+        let _capture = install_start_capture_hook(hook_start_capture_count);
+        let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.auto_voice_enabled = false;
+        deps.auto_idle_timeout = Duration::ZERO;
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+        START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+        assert!(timers.last_auto_trigger_at.is_none());
+    }
+
+    #[test]
+    fn run_periodic_tasks_does_not_start_auto_voice_when_trigger_not_ready() {
+        let _capture = install_start_capture_hook(hook_start_capture_count);
+        let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.auto_voice_enabled = true;
+        deps.auto_idle_timeout = Duration::from_secs(60);
+
+        run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+        START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+        assert!(timers.last_auto_trigger_at.is_none());
+    }
+
+    #[test]
+    fn flush_pending_output_or_continue_handles_no_pending_output() {
+        let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        assert!(flush_pending_output_or_continue(&mut state, &deps));
+    }
+
+    #[test]
+    fn flush_pending_output_or_continue_keeps_running_when_output_requeues() {
+        let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 1);
+        deps.writer_tx
+            .try_send(WriterMessage::ClearStatus)
+            .expect("fill bounded writer channel");
+        state.pending_pty_output = Some(b"abc".to_vec());
+
+        assert!(flush_pending_output_or_continue(&mut state, &deps));
+        assert_eq!(state.pending_pty_output, Some(b"abc".to_vec()));
+    }
+
+    #[test]
+    fn flush_pending_output_or_continue_stops_when_writer_disconnected_and_output_drained() {
+        let (mut state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        drop(writer_rx);
+        state.pending_pty_output = Some(b"abc".to_vec());
+
+        assert!(!flush_pending_output_or_continue(&mut state, &deps));
+        assert!(state.pending_pty_output.is_none());
+    }
+
+    #[test]
+    fn flush_pending_output_or_continue_keeps_running_when_flush_succeeds() {
+        let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_output = Some(b"ok".to_vec());
+
+        assert!(flush_pending_output_or_continue(&mut state, &deps));
+        assert!(state.pending_pty_output.is_none());
+    }
+
+    #[test]
+    fn run_event_loop_flushes_pending_input_before_exit() {
+        let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_input.push_back(b"hello".to_vec());
+        state.pending_pty_input_bytes = 5;
+        input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+        run_event_loop(&mut state, &mut timers, &mut deps);
+        assert!(state.pending_pty_input.is_empty());
+        assert_eq!(state.pending_pty_input_offset, 0);
+        assert_eq!(state.pending_pty_input_bytes, 0);
+    }
+
+    #[test]
+    fn run_event_loop_flushes_pending_output_even_when_writer_is_disconnected() {
+        let (mut state, mut timers, mut deps, writer_rx, input_tx) = build_harness("cat", &[], 8);
+        drop(writer_rx);
+        state.pending_pty_output = Some(b"leftover".to_vec());
+        input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+        run_event_loop(&mut state, &mut timers, &mut deps);
+        assert!(
+            state.pending_pty_output.is_none(),
+            "pending output should be consumed even when writer is disconnected"
+        );
+    }
+
+    #[test]
+    fn run_event_loop_flushes_pending_output_on_success_path() {
+        let (mut state, mut timers, mut deps, writer_rx, input_tx) = build_harness("cat", &[], 8);
+        state.pending_pty_output = Some(b"ok".to_vec());
+        input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+        run_event_loop(&mut state, &mut timers, &mut deps);
+        assert!(state.pending_pty_output.is_none());
+        match writer_rx
+            .recv_timeout(Duration::from_millis(200))
+            .expect("writer output")
+        {
+            WriterMessage::PtyOutput(bytes) => assert_eq!(bytes, b"ok".to_vec()),
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn run_event_loop_processes_multiple_input_events_before_exit() {
+        let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+        let initial_auto_voice = state.auto_voice_enabled;
+        input_tx
+            .send(InputEvent::ToggleAutoVoice)
+            .expect("queue first auto-voice toggle");
+        input_tx
+            .send(InputEvent::ToggleAutoVoice)
+            .expect("queue second auto-voice toggle");
+        input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+        run_event_loop(&mut state, &mut timers, &mut deps);
+        assert!(
+            state.auto_voice_enabled == initial_auto_voice,
+            "both toggles should run before exit so auto-voice returns to its initial value"
+        );
+        assert!(
+            state.status_state.auto_voice_enabled == initial_auto_voice,
+            "status and runtime auto-voice state should stay aligned"
+        );
+    }
+
+    #[test]
+    fn run_event_loop_does_not_run_periodic_before_first_tick() {
+        let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+        state.overlay_mode = OverlayMode::None;
+        state.theme_picker_digits = "12".to_string();
+        input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+        run_event_loop(&mut state, &mut timers, &mut deps);
+        assert_eq!(state.theme_picker_digits, "12");
     }
 }

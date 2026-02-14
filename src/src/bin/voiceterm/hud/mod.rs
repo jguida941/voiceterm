@@ -213,6 +213,31 @@ impl Default for HudRegistry {
 mod tests {
     use super::*;
 
+    struct TestModule {
+        id: &'static str,
+        min_width: usize,
+        content: &'static str,
+        tick: Option<Duration>,
+    }
+
+    impl HudModule for TestModule {
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
+        fn render(&self, _state: &HudState, max_width: usize) -> String {
+            self.content.chars().take(max_width).collect()
+        }
+
+        fn min_width(&self) -> usize {
+            self.min_width
+        }
+
+        fn tick_interval(&self) -> Option<Duration> {
+            self.tick
+        }
+    }
+
     #[test]
     fn mode_labels() {
         assert_eq!(Mode::Auto.label(), "AUTO");
@@ -285,5 +310,128 @@ mod tests {
         // Output should be within bounds (accounting for ANSI codes is tricky,
         // so we just check it's not excessively long)
         assert!(output.len() < 200); // Generous for ANSI codes
+    }
+
+    #[test]
+    fn render_all_includes_module_at_exact_remaining_width_boundary() {
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(TestModule {
+            id: "m1",
+            min_width: 2,
+            content: "AA",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "m2",
+            min_width: 2,
+            content: "BB",
+            tick: None,
+        }));
+        let state = HudState::default();
+        let output = registry.render_all(&state, 7, " | ");
+        assert_eq!(output, "AA | BB");
+    }
+
+    #[test]
+    fn render_all_skips_empty_modules_without_losing_later_modules() {
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(TestModule {
+            id: "m1",
+            min_width: 2,
+            content: "AA",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "empty",
+            min_width: 1,
+            content: "",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "m3",
+            min_width: 2,
+            content: "CC",
+            tick: None,
+        }));
+        let state = HudState::default();
+        let output = registry.render_all(&state, 9, " | ");
+        assert_eq!(output, "AA | CC");
+    }
+
+    #[test]
+    fn render_all_remaining_width_math_controls_inclusion() {
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(TestModule {
+            id: "m1",
+            min_width: 2,
+            content: "AA",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "m2",
+            min_width: 2,
+            content: "BB",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "m3",
+            min_width: 2,
+            content: "CC",
+            tick: None,
+        }));
+        let state = HudState::default();
+
+        let exact_fit = registry.render_all(&state, 10, "::");
+        assert_eq!(exact_fit, "AA::BB::CC");
+
+        let just_too_small = registry.render_all(&state, 9, "::");
+        assert_eq!(just_too_small, "AA::BB");
+    }
+
+    #[test]
+    fn render_all_non_first_available_width_subtracts_separator() {
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(TestModule {
+            id: "m1",
+            min_width: 1,
+            content: "A",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "m2",
+            min_width: 1,
+            content: "LONG",
+            tick: None,
+        }));
+        let state = HudState::default();
+        let output = registry.render_all(&state, 4, "::");
+        assert_eq!(output, "A::L");
+    }
+
+    #[test]
+    fn min_tick_interval_uses_smallest_non_none_value() {
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(TestModule {
+            id: "a",
+            min_width: 1,
+            content: "A",
+            tick: None,
+        }));
+        registry.register(Box::new(TestModule {
+            id: "b",
+            min_width: 1,
+            content: "B",
+            tick: Some(Duration::from_millis(250)),
+        }));
+        registry.register(Box::new(TestModule {
+            id: "c",
+            min_width: 1,
+            content: "C",
+            tick: Some(Duration::from_millis(100)),
+        }));
+        assert_eq!(
+            registry.min_tick_interval(),
+            Some(Duration::from_millis(100))
+        );
     }
 }
