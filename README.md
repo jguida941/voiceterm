@@ -189,40 +189,9 @@ See the [Usage Guide](guides/USAGE.md) for full behavior and configuration detai
 
 ## Controls
 
-### Voice Input
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+R` | Start voice recording |
-| `Ctrl+V` | Toggle auto-voice (hands-free) |
-| `Ctrl+T` | Toggle send mode (auto/insert) |
-| `Enter` | Stop recording / send text |
-
-### UI and Navigation
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+O` | Open settings menu |
-| `Ctrl+Y` | Open theme picker |
-| `Ctrl+U` | Cycle HUD style |
-| `?` | Show help |
-
-### Mic Sensitivity
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+]` | Mic less sensitive |
-| `Ctrl+\` | Mic more sensitive |
-
-### Session Control
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+C` | Send interrupt to CLI |
-| `Ctrl+Q` | Quit VoiceTerm |
-
-For full mode behavior and settings interactions, see the
-[Keyboard Shortcuts reference](guides/USAGE.md#keyboard-shortcuts).
+For complete keybindings and behavior details, see:
+- [Keyboard Shortcuts](guides/USAGE.md#keyboard-shortcuts)
+- [Settings Menu](guides/USAGE.md#settings-menu)
 
 ## Voice Macros
 
