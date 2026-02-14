@@ -100,6 +100,10 @@ All CLI output passes through unchanged.
 | **Backends** | Primary support for Codex and Claude Code |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 
+## Voice Recording
+
+![Recording](https://raw.githubusercontent.com/jguida941/voiceterm/master/img/recording.png)
+
 ## Supported AI CLIs
 
 VoiceTerm is optimized for Codex and Claude Code.
@@ -141,10 +145,6 @@ Mouse control is enabled by default, and Settings (`Ctrl+O`) covers the main
 runtime toggles: send mode, auto-voice, macros, HUD style/border, right-panel
 telemetry, and latency display.
 See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
-
-### Voice Recording
-
-![Recording](https://raw.githubusercontent.com/jguida941/voiceterm/master/img/recording.png)
 
 ## Controls
 

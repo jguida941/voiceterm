@@ -13,6 +13,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add a dedicated `Voice Macros` heading in README so macro behavior guidance is clearly separated from keyboard controls.
 - Expand README macro explanation with a concrete trigger example plus clear ON/OFF behavior semantics.
 - Center the README banner wordmark within `img/logo.svg` so the brand image appears visually centered on GitHub.
+- Move the README voice recording image into a standalone section placed before supported AI CLI examples for a cleaner reading flow.
 
 ## [1.0.65] - 2026-02-14
 
