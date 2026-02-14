@@ -178,9 +178,13 @@ See the [Usage Guide](guides/USAGE.md) for details.
 | `Ctrl+Q` | Quit |
 | `Ctrl+C` | Send interrupt to CLI |
 
-Macro behavior is controlled by Settings -> `Macros`:
-- `ON`: apply `.voiceterm/macros.yaml` expansions before injection.
-- `OFF`: inject raw transcripts unchanged.
+Voice macros let you map spoken triggers to commands/templates in
+`.voiceterm/macros.yaml` (for example, "run tests" -> `cargo test`).
+Use Settings -> `Macros` to control whether expansion runs:
+- `ON`: matching macro rules expand before text is typed into the CLI.
+- `OFF`: transcripts are typed exactly as spoken.
+See [Project Voice Macros](guides/USAGE.md#project-voice-macros) for setup,
+examples, and rule behavior.
 
 ## Install Options
 
