@@ -15,6 +15,8 @@ def build_mutants_cmd(args) -> List[str]:
         cmd.extend(["--module", args.module])
     if args.timeout:
         cmd.extend(["--timeout", str(args.timeout)])
+    if args.shard:
+        cmd.extend(["--shard", args.shard])
     if args.results_only:
         cmd.append("--results-only")
     if args.json:

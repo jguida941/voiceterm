@@ -8,7 +8,9 @@ use voxterm::VoiceCaptureTrigger;
 
 use crate::button_handlers::update_button_registry;
 use crate::buttons::ButtonRegistry;
-use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, OverlayConfig, VoiceSendMode};
+use crate::config::{
+    HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, OverlayConfig, VoiceSendMode,
+};
 use crate::log_debug;
 use crate::overlays::OverlayMode;
 use crate::status_line::{RecordingState, StatusLineState, VoiceMode};
@@ -223,6 +225,21 @@ impl<'a> SettingsActionContext<'a> {
         );
     }
 
+    pub(crate) fn update_hud_border_style(&mut self, direction: i32) {
+        self.config.hud_border_style =
+            cycle_hud_border_style(self.config.hud_border_style, direction);
+        self.status_state.hud_border_style = self.config.hud_border_style;
+        let label = format!("HUD borders: {}", self.config.hud_border_style);
+        set_status(
+            self.writer_tx,
+            self.status_clear_deadline,
+            self.current_status,
+            self.status_state,
+            &label,
+            Some(Duration::from_secs(2)),
+        );
+    }
+
     pub(crate) fn update_hud_style(&mut self, direction: i32) {
         self.status_state.hud_style = cycle_hud_style(self.status_state.hud_style, direction);
         let label = format!("HUD style: {}", self.status_state.hud_style);
@@ -328,6 +345,24 @@ fn cycle_hud_right_panel(current: HudRightPanel, direction: i32) -> HudRightPane
     let idx = OPTIONS
         .iter()
         .position(|panel| *panel == current)
+        .unwrap_or(0) as i32;
+    let next = (idx + direction).rem_euclid(len) as usize;
+    OPTIONS[next]
+}
+
+fn cycle_hud_border_style(current: HudBorderStyle, direction: i32) -> HudBorderStyle {
+    const OPTIONS: &[HudBorderStyle] = &[
+        HudBorderStyle::Theme,
+        HudBorderStyle::Single,
+        HudBorderStyle::Rounded,
+        HudBorderStyle::Double,
+        HudBorderStyle::Heavy,
+        HudBorderStyle::None,
+    ];
+    let len = OPTIONS.len() as i32;
+    let idx = OPTIONS
+        .iter()
+        .position(|style| *style == current)
         .unwrap_or(0) as i32;
     let next = (idx + direction).rem_euclid(len) as usize;
     OPTIONS[next]
@@ -674,6 +709,22 @@ mod tests {
     }
 
     #[test]
+    fn cycle_hud_border_style_wraps() {
+        assert_eq!(
+            cycle_hud_border_style(HudBorderStyle::Theme, 1),
+            HudBorderStyle::Single
+        );
+        assert_eq!(
+            cycle_hud_border_style(HudBorderStyle::Theme, -1),
+            HudBorderStyle::None
+        );
+        assert_eq!(
+            cycle_hud_border_style(HudBorderStyle::None, 1),
+            HudBorderStyle::Theme
+        );
+    }
+
+    #[test]
     fn update_hud_panel_updates_state_and_status() {
         let mut config = OverlayConfig::parse_from(["test-app"]);
         let mut voice_manager = VoiceManager::new(config.app.clone());
@@ -718,6 +769,56 @@ mod tests {
         {
             WriterMessage::EnhancedStatus(state) => {
                 assert!(state.message.contains("HUD right panel"));
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn update_hud_border_style_updates_state_and_status() {
+        let mut config = OverlayConfig::parse_from(["test-app"]);
+        let mut voice_manager = VoiceManager::new(config.app.clone());
+        let (writer_tx, writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        let mut auto_voice_enabled = false;
+        let mut last_auto_trigger_at = None;
+        let mut recording_started_at = None;
+        let mut preview_clear_deadline = None;
+        let mut last_meter_update = Instant::now();
+        let button_registry = ButtonRegistry::new();
+        let mut terminal_rows = 24;
+        let mut terminal_cols = 80;
+        let mut theme = Theme::Coral;
+
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+
+        ctx.update_hud_border_style(1);
+        assert_eq!(config.hud_border_style, HudBorderStyle::Single);
+        assert_eq!(status_state.hud_border_style, HudBorderStyle::Single);
+        match writer_rx
+            .recv_timeout(Duration::from_millis(200))
+            .expect("status message")
+        {
+            WriterMessage::EnhancedStatus(state) => {
+                assert!(state.message.contains("HUD borders"));
             }
             other => panic!("unexpected writer message: {other:?}"),
         }

@@ -5,9 +5,22 @@ on:
   schedule:
     - cron: "0 3 * * *"
 
+concurrency:
+  group: mutation-testing-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SHARD_TOTAL: "8"
+
 jobs:
   mutants:
+    name: mutants shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
     runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     defaults:
       run:
@@ -37,8 +50,48 @@ jobs:
       - name: Install cargo-mutants
         run: cargo install cargo-mutants --locked
 
-      - name: Run mutation tests
-        run: cargo mutants --timeout 300 -o mutants.out
+      - name: Run mutation tests (sharded)
+        run: |
+          cargo mutants \
+            --baseline skip \
+            --timeout 180 \
+            --shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }} \
+            -o mutants.out \
+            --json
+
+      - name: Locate shard outcomes
+        run: |
+          OUTCOME_PATH=$(find mutants.out -name outcomes.json | head -n 1)
+          if [ -z "${OUTCOME_PATH}" ]; then
+            echo "outcomes.json not found" >&2
+            exit 1
+          fi
+          cp "${OUTCOME_PATH}" "mutants.out/shard-${{ matrix.shard }}-outcomes.json"
+          echo "Captured ${OUTCOME_PATH}"
+
+      - name: Report shard mutation score
+        run: python3 ../dev/scripts/check_mutation_score.py --path mutants.out/shard-${{ matrix.shard }}-outcomes.json --threshold 0.0
+
+      - name: Upload shard outcomes
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-outcomes-shard-${{ matrix.shard }}
+          path: src/mutants.out/shard-${{ matrix.shard }}-outcomes.json
+          if-no-files-found: error
+
+  mutation-score:
+    name: enforce aggregated mutation score
+    runs-on: ubuntu-latest
+    needs: mutants
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download shard outcomes
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mutation-outcomes-shard-*
+          path: mutation-shards
 
       - name: Enforce mutation score threshold
-        run: python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+        run: python3 dev/scripts/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80

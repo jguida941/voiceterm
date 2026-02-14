@@ -111,14 +111,18 @@ cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_v
 # Memory guard (thread cleanup)
 cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
-# Mutation tests (CI enforces 80% minimum score)
-cd src && cargo mutants --timeout 300 -o mutants.out
-python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+# Mutation tests (single run; CI enforces 80% minimum score)
+cd src && cargo mutants --timeout 300 -o mutants.out --json
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
+
+# Mutation tests (sharded, mirrors CI approach)
+cd src && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
 
 # Mutation tests (offline/sandboxed; use a writable cache)
 rsync -a ~/.cargo/ /tmp/cargo-home/
-cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out
-python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
 
 # Mutation helper script (module filter + offline env)
 python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
@@ -153,6 +157,9 @@ python3 dev/scripts/devctl.py check --profile quick
 # Mutants wrapper (offline cache)
 python3 dev/scripts/devctl.py mutants --module overlay --offline \
   --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
+
+# Mutants wrapper (run one shard)
+python3 dev/scripts/devctl.py mutants --module overlay --shard 1/8
 
 # Check mutation score only
 python3 dev/scripts/devctl.py mutation-score --threshold 0.80
@@ -230,7 +237,7 @@ GitHub Actions run on every push and PR:
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | Perf smoke test + metrics verification |
 | Latency Guard | `.github/workflows/latency_guard.yml` | Synthetic latency regression guardrails |
 | Memory Guard | `.github/workflows/memory_guard.yml` | 20x memory guard loop |
-| Mutation Testing | `.github/workflows/mutation-testing.yml` | 80% minimum mutation score (scheduled) |
+| Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated 80% score gate |
 
 **Before pushing, run locally (recommended):**
 
@@ -260,8 +267,8 @@ cargo clippy --workspace --all-features -- -D warnings
 cargo test --workspace --all-features
 
 # Check mutation score (optional, CI enforces this)
-cargo mutants --timeout 300 -o mutants.out
-python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+cargo mutants --timeout 300 -o mutants.out --json
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
 ```
 
 **Check CI status:** [GitHub Actions](https://github.com/jguida941/voxterm/actions)

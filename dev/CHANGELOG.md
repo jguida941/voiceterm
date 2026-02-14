@@ -5,6 +5,25 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.63] - 2026-02-14
+
+### UX
+- Harden PTY teardown and resize signaling so VoxTerm targets the full backend process group (wrapper + descendants), not just the direct child PID, reducing orphan `codex`/`claude` processes after repeated exits/cancels.
+- Ensure Claude IPC piped-mode cancellation/disconnect paths terminate and reap child processes to prevent stale process accumulation across many runs.
+- Reduce JetBrains overlay flicker by ignoring no-op SIGWINCH updates (unchanged rows/cols), avoiding redundant PTY resize signaling and HUD redraw clears.
+- Reduce recording-mode flicker by avoiding full status-banner clears on steady-state redraws; writer now clears only when banner height shrinks.
+- Use DEC cursor save/restore plus temporary autowrap disable during JetBrains HUD redraws, while keeping Cursor/other terminals on existing safe paths.
+- Apply a JetBrains-specific meter redraw floor (120ms) during recording to lower repaint churn while preserving responsiveness.
+- Stabilize shortcut-pill bracket coloring during rapid recording redraws by removing per-pill reset churn that could briefly show default terminal white in JetBrains.
+- Reduce JetBrains repaint jitter by writing HUD rows before `EL` trailing clears (instead of clear-then-paint), and keep a one-column right gutter on the full HUD main row.
+- Avoid repainting unchanged HUD banner rows during steady-state updates, so JetBrains recording refreshes only rewrite lines that actually changed.
+- Add configurable Full HUD border styles (`theme`/`single`/`rounded`/`double`/`heavy`/`none`) and expose border-style selection in Settings; right-panel visualization remains user-toggleable to `Off` for a text-only HUD.
+- Fix `Anim only` semantics for right-panel telemetry: when enabled, idle HUD now keeps a static panel visible (non-animated) instead of hiding it entirely until recording starts.
+
+### Tests
+- Add PTY lifecycle regression coverage that spawns a process-group leader with descendants and verifies descendant cleanup for both `PtyCliSession` and `PtyOverlaySession` drop paths.
+- Add writer resize coverage to ensure unchanged terminal dimensions are treated as no-op redraw events.
+
 ## [1.0.62] - 2026-02-14
 
 ### UX

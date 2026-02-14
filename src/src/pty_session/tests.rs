@@ -87,6 +87,142 @@ fn spawn_zombie_child() -> i32 {
     }
 }
 
+#[cfg(unix)]
+fn process_exists(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
+    unsafe {
+        if libc::kill(pid, 0) == 0 {
+            return true;
+        }
+    }
+    matches!(
+        io::Error::last_os_error().raw_os_error(),
+        Some(code) if code == libc::EPERM
+    )
+}
+
+#[cfg(unix)]
+fn wait_for_process_to_exit(pid: i32, timeout: Duration) -> bool {
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        if !process_exists(pid) {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    !process_exists(pid)
+}
+
+#[cfg(unix)]
+struct SessionProcessTree {
+    leader_pid: i32,
+    descendant_pid: i32,
+}
+
+#[cfg(unix)]
+impl SessionProcessTree {
+    fn spawn(ignore_sigterm: bool) -> Self {
+        let mut pid_pipe = [0; 2];
+        let pipe_result = unsafe { libc::pipe(pid_pipe.as_mut_ptr()) };
+        assert_eq!(
+            pipe_result,
+            0,
+            "pipe() failed with errno {}",
+            io::Error::last_os_error()
+        );
+
+        unsafe {
+            let leader_pid = libc::fork();
+            assert!(leader_pid >= 0, "fork failed for process-group leader");
+
+            if leader_pid == 0 {
+                libc::close(pid_pipe[0]);
+                if libc::setsid() == -1 {
+                    libc::_exit(1);
+                }
+                if ignore_sigterm {
+                    libc::signal(libc::SIGTERM, libc::SIG_IGN);
+                }
+
+                let descendant_pid = libc::fork();
+                if descendant_pid < 0 {
+                    libc::_exit(1);
+                }
+                if descendant_pid == 0 {
+                    if ignore_sigterm {
+                        libc::signal(libc::SIGTERM, libc::SIG_IGN);
+                    }
+                    loop {
+                        libc::pause();
+                    }
+                }
+
+                let bytes = descendant_pid.to_ne_bytes();
+                let wrote = libc::write(
+                    pid_pipe[1],
+                    bytes.as_ptr() as *const libc::c_void,
+                    bytes.len(),
+                );
+                if wrote != bytes.len() as isize {
+                    libc::_exit(1);
+                }
+                libc::close(pid_pipe[1]);
+
+                loop {
+                    libc::pause();
+                }
+            }
+
+            libc::close(pid_pipe[1]);
+            let mut bytes = [0u8; mem::size_of::<i32>()];
+            let mut read_total = 0usize;
+            while read_total < bytes.len() {
+                let n = libc::read(
+                    pid_pipe[0],
+                    bytes[read_total..].as_mut_ptr() as *mut libc::c_void,
+                    bytes.len() - read_total,
+                );
+                if n <= 0 {
+                    break;
+                }
+                read_total += n as usize;
+            }
+            libc::close(pid_pipe[0]);
+
+            assert_eq!(
+                read_total,
+                bytes.len(),
+                "failed to read descendant pid from process-group leader"
+            );
+
+            Self {
+                leader_pid,
+                descendant_pid: i32::from_ne_bytes(bytes),
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for SessionProcessTree {
+    fn drop(&mut self) {
+        unsafe {
+            if self.leader_pid > 0 {
+                let _ = libc::kill(-self.leader_pid, libc::SIGKILL);
+                let _ = libc::kill(self.leader_pid, libc::SIGKILL);
+                let mut status = 0;
+                let _ = libc::waitpid(self.leader_pid, &mut status, libc::WNOHANG);
+                let _ = libc::waitpid(self.leader_pid, &mut status, 0);
+            }
+            if self.descendant_pid > 0 {
+                let _ = libc::kill(self.descendant_pid, libc::SIGKILL);
+            }
+        }
+    }
+}
+
 fn log_lock() -> &'static Mutex<()> {
     static LOG_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOG_LOCK.get_or_init(|| Mutex::new(()))
@@ -1574,6 +1710,31 @@ fn pty_cli_session_drop_terminates_child() {
 
 #[cfg(unix)]
 #[test]
+fn pty_cli_session_drop_terminates_descendants_in_process_group() {
+    let process_tree = SessionProcessTree::spawn(true);
+    assert!(process_exists(process_tree.descendant_pid));
+
+    let (read_fd, write_fd) = pipe_pair();
+    let (_tx, rx) = bounded(1);
+    let handle = thread::spawn(|| {});
+    let session = PtyCliSession {
+        master_fd: write_fd,
+        child_pid: process_tree.leader_pid,
+        output_rx: rx,
+        _output_thread: handle,
+    };
+    drop(session);
+    unsafe { libc::close(read_fd) };
+
+    assert!(
+        wait_for_process_to_exit(process_tree.descendant_pid, Duration::from_secs(2)),
+        "descendant pid {} still alive after PtyCliSession drop",
+        process_tree.descendant_pid
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn pty_cli_session_drop_writes_exit_for_zero_pid() {
     let zombie_pid = spawn_zombie_child();
     let (read_fd, write_fd) = pipe_pair();
@@ -1676,6 +1837,31 @@ fn pty_overlay_session_drop_terminates_child() {
         panic!("child still alive after PtyOverlaySession drop");
     }
     let _ = child.wait();
+}
+
+#[cfg(unix)]
+#[test]
+fn pty_overlay_session_drop_terminates_descendants_in_process_group() {
+    let process_tree = SessionProcessTree::spawn(true);
+    assert!(process_exists(process_tree.descendant_pid));
+
+    let (read_fd, write_fd) = pipe_pair();
+    let (_tx, rx) = bounded(1);
+    let handle = thread::spawn(|| {});
+    let session = PtyOverlaySession {
+        master_fd: write_fd,
+        child_pid: process_tree.leader_pid,
+        output_rx: rx,
+        _output_thread: handle,
+    };
+    drop(session);
+    unsafe { libc::close(read_fd) };
+
+    assert!(
+        wait_for_process_to_exit(process_tree.descendant_pid, Duration::from_secs(2)),
+        "descendant pid {} still alive after PtyOverlaySession drop",
+        process_tree.descendant_pid
+    );
 }
 
 #[cfg(unix)]

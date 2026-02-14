@@ -160,49 +160,54 @@ fn run_periodic_tasks(
 ) {
     if take_sigwinch() {
         if let Ok((cols, rows)) = terminal_size() {
-            state.terminal_cols = cols;
-            state.terminal_rows = rows;
-            apply_pty_winsize(
-                &mut deps.session,
-                rows,
-                cols,
-                state.overlay_mode,
-                state.status_state.hud_style,
-            );
-            let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
-            if state.status_state.mouse_enabled {
-                update_button_registry(
-                    &deps.button_registry,
-                    &state.status_state,
+            // JetBrains terminals can emit SIGWINCH without a geometry delta.
+            // Skip no-op resize work so we avoid redraw flicker and redundant backend SIGWINCH.
+            let size_changed = state.terminal_cols != cols || state.terminal_rows != rows;
+            if size_changed {
+                state.terminal_cols = cols;
+                state.terminal_rows = rows;
+                apply_pty_winsize(
+                    &mut deps.session,
+                    rows,
+                    cols,
                     state.overlay_mode,
-                    state.terminal_cols,
-                    state.theme,
+                    state.status_state.hud_style,
                 );
-            }
-            match state.overlay_mode {
-                OverlayMode::Help => {
-                    show_help_overlay(&deps.writer_tx, state.theme, cols);
-                }
-                OverlayMode::ThemePicker => {
-                    show_theme_picker_overlay(
-                        &deps.writer_tx,
-                        state.theme,
-                        state.theme_picker_selected,
-                        cols,
-                    );
-                }
-                OverlayMode::Settings => {
-                    show_settings_overlay(
-                        &deps.writer_tx,
-                        state.theme,
-                        cols,
-                        &state.settings_menu,
-                        &state.config,
+                let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
+                if state.status_state.mouse_enabled {
+                    update_button_registry(
+                        &deps.button_registry,
                         &state.status_state,
-                        &deps.backend_label,
+                        state.overlay_mode,
+                        state.terminal_cols,
+                        state.theme,
                     );
                 }
-                OverlayMode::None => {}
+                match state.overlay_mode {
+                    OverlayMode::Help => {
+                        show_help_overlay(&deps.writer_tx, state.theme, cols);
+                    }
+                    OverlayMode::ThemePicker => {
+                        show_theme_picker_overlay(
+                            &deps.writer_tx,
+                            state.theme,
+                            state.theme_picker_selected,
+                            cols,
+                        );
+                    }
+                    OverlayMode::Settings => {
+                        show_settings_overlay(
+                            &deps.writer_tx,
+                            state.theme,
+                            cols,
+                            &state.settings_menu,
+                            &state.config,
+                            &state.status_state,
+                            &deps.backend_label,
+                        );
+                    }
+                    OverlayMode::None => {}
+                }
             }
         }
     }
@@ -599,6 +604,10 @@ pub(crate) fn run_event_loop(
                                             settings_ctx.update_hud_style(1);
                                             should_redraw = true;
                                         }
+                                        SettingsItem::HudBorders => {
+                                            settings_ctx.update_hud_border_style(1);
+                                            should_redraw = true;
+                                        }
                                         SettingsItem::HudPanel => {
                                             settings_ctx.update_hud_panel(1);
                                             should_redraw = true;
@@ -709,6 +718,10 @@ pub(crate) fn run_event_loop(
                                                         settings_ctx.update_hud_style(-1);
                                                         should_redraw = true;
                                                     }
+                                                    SettingsItem::HudBorders => {
+                                                        settings_ctx.update_hud_border_style(-1);
+                                                        should_redraw = true;
+                                                    }
                                                     SettingsItem::HudPanel => {
                                                         settings_ctx.update_hud_panel(-1);
                                                         should_redraw = true;
@@ -753,6 +766,10 @@ pub(crate) fn run_event_loop(
                                                     }
                                                     SettingsItem::HudStyle => {
                                                         settings_ctx.update_hud_style(1);
+                                                        should_redraw = true;
+                                                    }
+                                                    SettingsItem::HudBorders => {
+                                                        settings_ctx.update_hud_border_style(1);
                                                         should_redraw = true;
                                                     }
                                                     SettingsItem::HudPanel => {

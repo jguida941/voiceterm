@@ -1,6 +1,6 @@
 //! Settings panel rendering so menu state maps to stable terminal output.
 
-use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_line::Pipeline;
 use crate::theme::ThemeColors;
 
@@ -90,6 +90,12 @@ fn format_settings_row(
             hud_style_button(view.hud_style),
             width = LABEL_WIDTH
         ),
+        SettingsItem::HudBorders => format!(
+            "{marker} {:<width$} {}",
+            "Borders",
+            hud_border_style_button(view.hud_border_style),
+            width = LABEL_WIDTH
+        ),
         SettingsItem::HudPanel => format!(
             "{marker} {:<width$} {}",
             "Right panel",
@@ -169,6 +175,17 @@ fn hud_style_button(style: HudStyle) -> String {
         HudStyle::Full => button_label("Full"),
         HudStyle::Minimal => button_label("Minimal"),
         HudStyle::Hidden => button_label("Hidden"),
+    }
+}
+
+fn hud_border_style_button(style: HudBorderStyle) -> String {
+    match style {
+        HudBorderStyle::Theme => button_label("Theme"),
+        HudBorderStyle::Single => button_label("Single"),
+        HudBorderStyle::Rounded => button_label("Rounded"),
+        HudBorderStyle::Double => button_label("Double"),
+        HudBorderStyle::Heavy => button_label("Heavy"),
+        HudBorderStyle::None => button_label("None"),
     }
 }
 
@@ -288,7 +305,9 @@ fn format_menu_row(colors: &ThemeColors, width: usize, text: &str, selected: boo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+    use crate::config::{
+        HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode,
+    };
     use crate::settings::settings_overlay_height;
     use crate::status_line::Pipeline;
     use crate::theme::Theme;
@@ -309,6 +328,7 @@ mod tests {
             sensitivity_db: -35.0,
             theme: Theme::Coral,
             hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
             hud_right_panel_recording_only: false,
             latency_display: LatencyDisplayMode::Short,

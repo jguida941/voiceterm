@@ -62,7 +62,7 @@ Startup splash behavior:
 - set `VOXTERM_STARTUP_SPLASH_MS=0` for immediate clear
 - set `VOXTERM_NO_STARTUP_BANNER=1` to skip it entirely
 
-IDE terminal HUD compatibility (`v1.0.62`):
+IDE terminal HUD compatibility (`v1.0.63`):
 - Full HUD uses the proven `v1.0.53` writer/render baseline and clears stale
   HUD rows on resize so ghost frames do not remain after terminal geometry
   changes in Cursor/JetBrains terminals.
@@ -158,6 +158,8 @@ Latency badge rendering is configurable in Settings via `Latency display`
 (`Off`, `Nms`, `Latency: Nms`).
 Right-panel telemetry modes (`Ribbon`, `Dots`, `Heartbeat`) render in Full HUD and
 now also render as compact chips in Minimal HUD.
+Full HUD border style is configurable (`Theme`, `Single`, `Rounded`, `Double`,
+`Heavy`, `None`), and right-panel telemetry can be disabled with `Off`.
 See the [Usage Guide](guides/USAGE.md) for details.
 
 ### Voice Recording

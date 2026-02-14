@@ -1,6 +1,6 @@
 //! Settings item metadata so menus render and dispatch actions from one schema.
 
-use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_line::Pipeline;
 use crate::theme::Theme;
 
@@ -12,6 +12,7 @@ pub enum SettingsItem {
     Sensitivity,
     Theme,
     HudStyle,
+    HudBorders,
     HudPanel,
     HudAnimate,
     Latency,
@@ -29,6 +30,7 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::Sensitivity,
     SettingsItem::Theme,
     SettingsItem::HudStyle,
+    SettingsItem::HudBorders,
     SettingsItem::HudPanel,
     SettingsItem::HudAnimate,
     SettingsItem::Latency,
@@ -62,6 +64,7 @@ pub struct SettingsView<'a> {
     pub sensitivity_db: f32,
     pub theme: Theme,
     pub hud_style: HudStyle,
+    pub hud_border_style: HudBorderStyle,
     pub hud_right_panel: HudRightPanel,
     pub hud_right_panel_recording_only: bool,
     pub latency_display: LatencyDisplayMode,

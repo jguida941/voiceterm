@@ -1,7 +1,7 @@
 //! Shared status-line state so rendering and interactions read one source of truth.
 
 use crate::buttons::ButtonAction;
-use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 
 /// Current voice mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -154,6 +154,8 @@ pub struct StatusLineState {
     pub macros_enabled: bool,
     /// Right-side HUD panel mode
     pub hud_right_panel: HudRightPanel,
+    /// Border style override for full HUD mode
+    pub hud_border_style: HudBorderStyle,
     /// Only animate the right-side panel while recording
     pub hud_right_panel_recording_only: bool,
     /// HUD display style (Full, Minimal, Hidden)

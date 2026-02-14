@@ -259,7 +259,7 @@ impl ClaudeJob {
     pub(super) fn cancel(&mut self) {
         match &mut self.output {
             ClaudeJobOutput::Piped { child, .. } => {
-                let _ = child.kill();
+                terminate_piped_child(child);
             }
             ClaudeJobOutput::Pty { session } => {
                 let _ = session.send("\u{3}");
@@ -311,6 +311,61 @@ fn spawn_stdin_reader(tx: Sender<IpcCommand>) -> thread::JoinHandle<()> {
 // ============================================================================
 // Claude Backend
 // ============================================================================
+
+#[cfg(unix)]
+fn signal_process_group_or_pid(pid: i32, signal: i32) -> io::Result<()> {
+    if pid <= 0 {
+        return Ok(());
+    }
+    unsafe {
+        if libc::kill(-pid, signal) == 0 {
+            return Ok(());
+        }
+        let group_err = io::Error::last_os_error();
+
+        if libc::kill(pid, signal) == 0 {
+            return Ok(());
+        }
+        let pid_err = io::Error::last_os_error();
+        if matches!(group_err.raw_os_error(), Some(code) if code == libc::ESRCH)
+            || matches!(pid_err.raw_os_error(), Some(code) if code == libc::ESRCH)
+        {
+            return Ok(());
+        }
+
+        Err(io::Error::new(
+            pid_err.kind(),
+            format!(
+                "group(-{pid}) signal failed: {group_err}; pid({pid}) signal failed: {pid_err}"
+            ),
+        ))
+    }
+}
+
+fn terminate_piped_child(child: &mut std::process::Child) {
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+
+        let _ = signal_process_group_or_pid(pid, libc::SIGTERM);
+        let deadline = Instant::now() + Duration::from_millis(150);
+        while Instant::now() < deadline {
+            match child.try_wait() {
+                Ok(Some(_)) => return,
+                Ok(None) => thread::sleep(Duration::from_millis(10)),
+                Err(_) => break,
+            }
+        }
+        let _ = signal_process_group_or_pid(pid, libc::SIGKILL);
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = child.kill();
+    }
+
+    let _ = child.wait();
+}
 
 fn start_claude_job_with_mode(
     claude_cmd: &str,
@@ -746,7 +801,7 @@ pub(super) fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> boo
                     }
                     Ok(None) => {
                         log_debug("Claude job: process still running, killing it");
-                        let _ = child.kill();
+                        terminate_piped_child(child);
                         send_event(&IpcEvent::JobEnd {
                             provider: "claude".to_string(),
                             success: true,

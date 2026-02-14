@@ -108,6 +108,7 @@ info.
 
 It also lets you configure:
 - **HUD style**: Full, Minimal, or Hidden
+- **HUD borders**: Theme, Single, Rounded, Double, Heavy, or None (Full HUD)
 - **Right-side panel**: Off, Ribbon, Dots, Heartbeat (shown in Full and Minimal HUD)
 - **Anim only**: Animate the right panel only while recording
 - **Latency display**: Off, `Nms`, or `Latency: Nms` (shortcuts row)
@@ -279,7 +280,7 @@ When recording or processing, the mode label includes a pipeline tag
 Visual updates:
 - VoxTerm keeps bounded telemetry history for meter/latency and renders sparkline-style trends in compact HUD space.
 - Full HUD rendering uses a conservative writer path (`v1.0.53` baseline) and clears stale HUD rows on resize to avoid duplicated/ghost rows in IDE terminals.
-- `v1.0.62` is the current stable tag for this Full HUD path.
+- `v1.0.63` is the current stable tag for this Full HUD path.
 - JetBrains IDE terminals auto-skip the startup splash to avoid alternate-screen handoff artifacts.
 - Compact HUD modules adapt by context:
   - recording: meter + latency + queue (space permitting)
@@ -340,6 +341,8 @@ For users who prefer less UI clutter, VoxTerm offers three HUD styles:
 | **Hidden** | `--hud-style hidden` | `VoxTerm` launcher row with `Ctrl+U` hint when idle; shows dim `REC` while recording |
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
+Full HUD border style is configurable via `--hud-border-style`:
+`theme`, `single`, `rounded`, `double`, `heavy`, `none`.
 In Full HUD, status text (for example `Ready`) remains visible even with a
 right-panel visualization enabled.
 In Full HUD idle state, VoxTerm uses concise labels for visual stability:
@@ -377,6 +380,12 @@ voxterm --minimal-hud
 
 # Hidden HUD - launcher row while idle, dim REC indicator while recording
 voxterm --hud-style hidden
+
+# Full HUD without a border frame
+voxterm --hud-style full --hud-border-style none
+
+# Disable right-side waveform/pulse panel
+voxterm --hud-right-panel off
 ```
 
 You can also change HUD style at runtime via the settings menu (`Ctrl+O`).

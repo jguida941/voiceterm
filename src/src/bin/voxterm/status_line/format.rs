@@ -3,10 +3,13 @@
 use std::sync::OnceLock;
 
 use crate::audio_meter::format_waveform;
-use crate::config::{HudRightPanel, HudStyle};
+use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
-use crate::theme::{BorderSet, Theme, ThemeColors};
+use crate::theme::{
+    BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
+    BORDER_SINGLE,
+};
 
 use super::animation::{
     get_processing_spinner, get_recording_indicator, heartbeat_glyph, transition_marker,
@@ -21,6 +24,7 @@ use super::text::{display_width, truncate_display};
 
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
 const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
+const MAIN_ROW_RIGHT_GUTTER: usize = 1;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
 
@@ -45,6 +49,24 @@ const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
     ("?", "help"),
     ("^Y", "theme"),
 ];
+
+fn resolve_hud_border_set<'a>(
+    state: &StatusLineState,
+    theme_borders: &'a BorderSet,
+) -> &'a BorderSet {
+    match state.hud_border_style {
+        HudBorderStyle::Theme => theme_borders,
+        HudBorderStyle::Single => &BORDER_SINGLE,
+        HudBorderStyle::Rounded => &BORDER_ROUNDED,
+        HudBorderStyle::Double => &BORDER_DOUBLE,
+        HudBorderStyle::Heavy => &BORDER_HEAVY,
+        HudBorderStyle::None => &BORDER_NONE,
+    }
+}
+
+fn borderless_row(width: usize) -> String {
+    " ".repeat(width)
+}
 
 fn pipeline_tag_short(pipeline: Pipeline) -> &'static str {
     match pipeline {
@@ -101,7 +123,9 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
 /// Hidden mode: Branded launcher when idle; dim indicator when recording (e.g., "● rec 5s")
 pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize) -> StatusBanner {
     let colors = theme.colors();
-    let borders = &colors.borders;
+    let borders = resolve_hud_border_set(state, &colors.borders);
+    let borderless =
+        state.hud_style == HudStyle::Full && state.hud_border_style == HudBorderStyle::None;
 
     // Handle HUD style
     match state.hud_style {
@@ -135,10 +159,18 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
                 format_shortcuts_row_with_positions(state, &colors, borders, inner_width);
 
             let lines = vec![
-                format_top_border(&colors, borders, width),
+                if borderless {
+                    borderless_row(width)
+                } else {
+                    format_top_border(&colors, borders, width)
+                },
                 format_main_row(state, &colors, borders, theme, inner_width),
                 shortcuts_line,
-                format_bottom_border(&colors, borders, width),
+                if borderless {
+                    borderless_row(width)
+                } else {
+                    format_bottom_border(&colors, borders, width)
+                },
             ];
 
             StatusBanner::with_buttons(lines, buttons)
@@ -244,6 +276,8 @@ fn format_main_row(
     theme: Theme,
     inner_width: usize,
 ) -> String {
+    let render_width = inner_width.saturating_sub(MAIN_ROW_RIGHT_GUTTER);
+
     // Build content sections
     let mode_section = format_mode_indicator(state, colors);
     let duration_section = format_duration_section(state, colors);
@@ -265,27 +299,29 @@ fn format_main_row(
         state,
         colors,
         theme,
-        inner_width.saturating_sub(content_width + 1),
+        render_width.saturating_sub(content_width + 1),
     );
     let right_width = display_width(&right_panel);
-    let message_available = inner_width.saturating_sub(content_width + right_width);
+    let message_available = render_width.saturating_sub(content_width + right_width);
     let truncated_message = truncate_display(&message_lane, message_available);
     let message_width = display_width(&truncated_message);
     let interior = format!("{content}{truncated_message}");
 
     // Padding to fill the row (leave room for right panel)
-    let padding_needed = inner_width.saturating_sub(content_width + message_width + right_width);
+    let padding_needed = render_width.saturating_sub(content_width + message_width + right_width);
     let padding = " ".repeat(padding_needed);
+    let right_gutter = " ".repeat(inner_width.saturating_sub(render_width));
 
     // No background colors - use transparent backgrounds for terminal compatibility
     format!(
-        "{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}{}",
         colors.border,
         borders.vertical,
         colors.reset,
         interior,
         padding,
         right_panel,
+        right_gutter,
         colors.border,
         borders.vertical,
         colors.reset,
@@ -349,13 +385,15 @@ fn format_right_panel(
     if mode == HudRightPanel::Off {
         return String::new();
     }
+    let recording_active = state.recording_state == RecordingState::Recording;
+    let animate_panel = !state.hud_right_panel_recording_only || recording_active;
 
     let content_width = max_width.saturating_sub(1);
     if content_width < RIGHT_PANEL_MIN_CONTENT_WIDTH {
         return " ".repeat(max_width);
     }
 
-    let show_live = !state.meter_levels.is_empty();
+    let show_live = animate_panel && !state.meter_levels.is_empty();
     let panel_width = content_width;
 
     let panel = match mode {
@@ -375,7 +413,11 @@ fn format_right_panel(
             format_panel_brackets(&waveform, colors)
         }
         HudRightPanel::Dots => {
-            let active = state.meter_db.unwrap_or(-60.0);
+            let active = if animate_panel {
+                state.meter_db.unwrap_or(-60.0)
+            } else {
+                -60.0
+            };
             truncate_display(&format_pulse_dots(active, colors), panel_width)
         }
         HudRightPanel::Heartbeat => {
@@ -1078,6 +1120,33 @@ mod tests {
     }
 
     #[test]
+    fn format_status_banner_full_mode_border_style_override_uses_double_glyphs() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.hud_border_style = crate::config::HudBorderStyle::Double;
+
+        let banner = format_status_banner(&state, Theme::Coral, 80);
+        assert_eq!(banner.height, 4);
+        assert!(banner.lines[0].contains('╔'));
+        assert!(banner.lines[0].contains('╗'));
+        assert!(banner.lines[3].contains('╚'));
+        assert!(banner.lines[3].contains('╝'));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_none_border_hides_frame_rows() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.hud_border_style = crate::config::HudBorderStyle::None;
+        state.hud_right_panel = HudRightPanel::Off;
+
+        let banner = format_status_banner(&state, Theme::Coral, 80);
+        assert_eq!(banner.height, 4);
+        assert!(banner.lines[0].trim().is_empty());
+        assert!(banner.lines[3].trim().is_empty());
+    }
+
+    #[test]
     fn format_status_banner_full_mode_duration_lane_is_fixed_width() {
         let mut short = StatusLineState::new();
         short.hud_style = HudStyle::Full;
@@ -1134,6 +1203,7 @@ mod tests {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.hud_right_panel = HudRightPanel::Ribbon;
+        state.hud_right_panel_recording_only = false;
         state.recording_state = RecordingState::Idle;
         state.message.clear();
 
@@ -1141,6 +1211,22 @@ mod tests {
         assert_eq!(banner.height, 4);
         assert!(banner.lines[1].contains("Ready"));
         assert!(!banner.lines[2].contains("Ready"));
+        assert!(banner.lines[1].contains("["));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_keeps_static_right_panel_when_recording_only_and_idle() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.hud_right_panel = HudRightPanel::Ribbon;
+        state.hud_right_panel_recording_only = true;
+        state.recording_state = RecordingState::Idle;
+        state.message.clear();
+
+        let banner = format_status_banner(&state, Theme::Coral, 96);
+        assert!(banner.lines[1].contains("Ready"));
+        assert!(banner.lines[1].contains("["));
+        assert!(banner.lines[1].contains("▁"));
     }
 
     #[test]

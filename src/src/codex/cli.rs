@@ -150,19 +150,17 @@ pub(super) fn send_signal_failures() -> usize {
 
 pub(super) fn send_signal(pid: u32, signal: Signal) {
     #[cfg(unix)]
-    unsafe {
-        // SAFETY: libc::kill only needs a valid pid and signal number.
+    {
         // The pid comes from the spawned child process, and we map to SIGTERM/SIGKILL.
         let signo = match signal {
             Signal::Term => libc::SIGTERM,
             Signal::Kill => libc::SIGKILL,
         };
-        if libc::kill(pid as i32, signo) != 0 {
+        if let Err(err) = signal_process_group_or_pid(pid as i32, signo) {
             #[cfg(test)]
             SEND_SIGNAL_FAILURES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             log_debug(&format!(
-                "CodexJob: failed to send signal {signo} to pid {pid}: {}",
-                io::Error::last_os_error()
+                "CodexJob: failed to send signal {signo} to pid {pid}: {err}",
             ));
         }
     }
@@ -172,6 +170,32 @@ pub(super) fn send_signal(pid: u32, signal: Signal) {
         let _ = pid;
         let _ = signal;
         log_debug("CodexJob: cancellation requested, but signals unsupported on this platform");
+    }
+}
+
+#[cfg(unix)]
+fn signal_process_group_or_pid(pid: i32, signal: i32) -> io::Result<()> {
+    if pid <= 0 {
+        return Ok(());
+    }
+
+    unsafe {
+        if libc::kill(-pid, signal) == 0 {
+            return Ok(());
+        }
+        let group_err = io::Error::last_os_error();
+
+        if libc::kill(pid, signal) == 0 {
+            return Ok(());
+        }
+        let pid_err = io::Error::last_os_error();
+
+        Err(io::Error::new(
+            pid_err.kind(),
+            format!(
+                "group(-{pid}) signal failed: {group_err}; pid({pid}) signal failed: {pid_err}"
+            ),
+        ))
     }
 }
 

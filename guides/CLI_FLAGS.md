@@ -139,6 +139,7 @@ voxterm --login --claude      # Login to Claude CLI
 | `--hud-style <MODE>` | HUD display style: `full`, `minimal`, `hidden` | full |
 | `--minimal-hud` | Shorthand for `--hud-style minimal` | off |
 | `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `heartbeat` | ribbon |
+| `--hud-border-style <STYLE>` | Full HUD border style: `theme`, `single`, `rounded`, `double`, `heavy`, `none` | theme |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
 | `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) | short |
 | `--term <TERM>` | TERM value for the CLI | inherited |
@@ -150,6 +151,8 @@ voxterm --login --claude      # Login to Claude CLI
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
 - `minimal`: Single-line strip with optional compact right-panel visualization chip
 - `hidden`: Branded launcher row when idle (`VoxTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
+- Full HUD border style can be overridden with `--hud-border-style` (`theme`, `single`, `rounded`, `double`, `heavy`, `none`)
+- To disable the right-side waveform/pulse panel, set `--hud-right-panel off`
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 Compact HUD modules adapt by state and available width (recording favors meter +

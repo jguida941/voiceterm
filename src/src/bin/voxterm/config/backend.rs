@@ -89,7 +89,9 @@ impl OverlayConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::cli::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+    use crate::config::cli::{
+        HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode,
+    };
     use clap::Parser;
     use voxterm::config::AppConfig;
 
@@ -105,6 +107,7 @@ mod tests {
             theme_name: None,
             no_color: false,
             hud_right_panel: HudRightPanel::Ribbon,
+            hud_border_style: HudBorderStyle::Theme,
             hud_right_panel_recording_only: true,
             hud_style: HudStyle::Full,
             latency_display: LatencyDisplayMode::Short,

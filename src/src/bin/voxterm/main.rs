@@ -84,6 +84,65 @@ const WRITER_CHANNEL_CAPACITY: usize = 512;
 const INPUT_CHANNEL_CAPACITY: usize = 256;
 
 const METER_UPDATE_MS: u64 = 80;
+const JETBRAINS_METER_UPDATE_MS: u64 = 120;
+
+fn contains_jetbrains_hint(value: &str) -> bool {
+    let value = value.to_ascii_lowercase();
+    value.contains("jetbrains")
+        || value.contains("jediterm")
+        || value.contains("pycharm")
+        || value.contains("intellij")
+        || value.contains("idea")
+}
+
+fn is_jetbrains_terminal() -> bool {
+    const HINT_KEYS: &[&str] = &[
+        "PYCHARM_HOSTED",
+        "JETBRAINS_IDE",
+        "IDEA_INITIAL_DIRECTORY",
+        "IDEA_INITIAL_PROJECT",
+        "CLION_IDE",
+        "WEBSTORM_IDE",
+    ];
+
+    if HINT_KEYS
+        .iter()
+        .any(|key| env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false))
+    {
+        return true;
+    }
+
+    if let Ok(term_program) = env::var("TERM_PROGRAM") {
+        if contains_jetbrains_hint(&term_program) {
+            return true;
+        }
+    }
+
+    if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
+        if contains_jetbrains_hint(&terminal_emulator) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn apply_jetbrains_meter_floor(base_ms: u64, is_jetbrains: bool) -> u64 {
+    if is_jetbrains {
+        base_ms.max(JETBRAINS_METER_UPDATE_MS)
+    } else {
+        base_ms
+    }
+}
+
+fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
+    let base_ms = hud_registry
+        .min_tick_interval()
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(METER_UPDATE_MS);
+    apply_jetbrains_meter_floor(base_ms, is_jetbrains_terminal())
+}
+
 fn main() -> Result<()> {
     let mut config = OverlayConfig::parse();
     let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
@@ -241,10 +300,7 @@ fn main() -> Result<()> {
     let auto_idle_timeout = Duration::from_millis(config.auto_voice_idle_ms.max(100));
     let transcript_idle_timeout = Duration::from_millis(config.transcript_idle_ms.max(50));
     let hud_registry = HudRegistry::with_defaults();
-    let meter_update_ms = hud_registry
-        .min_tick_interval()
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(METER_UPDATE_MS);
+    let meter_update_ms = resolved_meter_update_ms(&hud_registry);
     let voice_manager = VoiceManager::new(config.app.clone());
     let live_meter = voice_manager.meter();
     let auto_voice_enabled = config.auto_voice;
@@ -255,6 +311,7 @@ fn main() -> Result<()> {
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = true;
     status_state.hud_right_panel = config.hud_right_panel;
+    status_state.hud_border_style = config.hud_border_style;
     status_state.hud_right_panel_recording_only = config.hud_right_panel_recording_only;
     status_state.hud_style = initial_hud_style;
     status_state.voice_mode = if auto_voice_enabled {
@@ -371,4 +428,32 @@ fn main() -> Result<()> {
     }
     log_debug("=== VoxTerm Overlay Exiting ===");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jetbrains_hint_detection_matches_known_values() {
+        assert!(contains_jetbrains_hint("JetBrains-JediTerm"));
+        assert!(contains_jetbrains_hint("PyCharm"));
+        assert!(contains_jetbrains_hint("IntelliJ"));
+        assert!(!contains_jetbrains_hint("xterm-256color"));
+        assert!(!contains_jetbrains_hint("cursor"));
+    }
+
+    #[test]
+    fn jetbrains_meter_floor_applies_only_in_jetbrains() {
+        assert_eq!(
+            apply_jetbrains_meter_floor(80, true),
+            JETBRAINS_METER_UPDATE_MS
+        );
+        assert_eq!(
+            apply_jetbrains_meter_floor(160, true),
+            160,
+            "higher explicit intervals should be preserved"
+        );
+        assert_eq!(apply_jetbrains_meter_floor(80, false), 80);
+    }
 }

@@ -116,6 +116,7 @@ def run(args) -> int:
                 all=args.mutants_all,
                 module=args.mutants_module,
                 timeout=args.mutants_timeout,
+                shard=args.mutants_shard,
                 results_only=False,
                 json=False,
                 offline=args.mutants_offline,

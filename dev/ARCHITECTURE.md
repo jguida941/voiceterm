@@ -243,7 +243,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | validate `voice_metrics|...` logging contract |
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
-| Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled mutation score enforcement |
+| Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
 
 ### 3) Release Workflow (Master Branch)
 
@@ -382,8 +382,10 @@ sequenceDiagram
 ## PTY Handling and Resize
 
 - `PtyOverlaySession` uses `openpty` and forks the backend CLI into the slave PTY.
+- PTY children call `setsid()`, so the backend runs as a session/process-group leader.
 - It **replies to terminal queries** (DSR/DA) but leaves all ANSI intact.
-- On SIGWINCH, `ioctl(TIOCSWINSZ)` updates the PTY size and forwards SIGWINCH to the backend CLI.
+- On SIGWINCH, `ioctl(TIOCSWINSZ)` updates the PTY size and forwards SIGWINCH to the PTY process group (with direct-PID fallback).
+- On drop, PTY sessions attempt graceful `exit`, then send `SIGTERM`/`SIGKILL` to the PTY process group (with direct-PID fallback) and reap the direct child to prevent orphan/zombie buildup.
 
 ## Output Serialization
 

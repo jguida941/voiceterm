@@ -13,6 +13,7 @@
 | Theme colors look muted in IDE terminal | See [Theme Colors Look Muted in IDE Terminal](#theme-colors-look-muted-in-ide-terminal) |
 | Full HUD appears multiple times in JetBrains terminal | See [HUD Duplicates in JetBrains Terminals](#hud-duplicates-in-jetbrains-terminals) |
 | `PTY write failed: Input/output error` appears on exit | See [PTY Exit Write Error in Logs](#pty-exit-write-error-in-logs) |
+| Many `codex`/`claude` processes remain after quitting | See [Codex Issues → Many codex/claude processes remain after quitting](#many-codexclaude-processes-remain-after-quitting) |
 | Voice macro not expanding | See [Status Messages → Voice macro not expanding](#voice-macro-not-expanding) |
 | Voice macro expanded unexpectedly | See [Status Messages → Voice macro expanded unexpectedly](#voice-macro-expanded-unexpectedly) |
 | Wrong version after update | [Install Issues → Wrong version after update](#wrong-version-after-update) |
@@ -251,6 +252,28 @@ If you're using Claude Code, substitute `claude` wherever you see `codex` below.
 
 ---
 
+### Many codex/claude processes remain after quitting
+
+Recent builds terminate the backend PTY process group (not only the direct child)
+and reap piped child processes on cancel/exit. If you still observe many
+leftover processes, verify the binary version and check for true orphans.
+
+1. Confirm version:
+   ```bash
+   voxterm --version
+   ```
+2. List orphaned backend processes:
+   ```bash
+   ps -axo ppid,pid,command | egrep '(^ *1 .*\\b(codex|claude)\\b)'
+   ```
+3. If orphaned entries remain after exiting VoxTerm, file an issue with:
+   - `voxterm --version`
+   - terminal/IDE name and version
+   - exact launch command
+   - relevant `${TMPDIR}/voxterm_tui.log` lines
+
+---
+
 ### Auto-voice not triggering
 
 Auto-voice waits for the CLI to show a prompt before listening.
@@ -359,7 +382,7 @@ debug log above is still the fastest way to confirm what your terminal emits.
 
 If you see stacked/repeated Full HUD frames in PyCharm/CLion/RustRover:
 
-This is addressed in `v1.0.62` and newer using the stable `v1.0.53`
+This is addressed in `v1.0.63` and newer using the stable `v1.0.53`
 writer/render HUD path plus writer-side stale-row cleanup on resize.
 
 Symptoms can include:
@@ -378,6 +401,30 @@ Symptoms can include:
 3. If it still reproduces, share `${TMPDIR}/voxterm_tui.log` so terminal escape
    handling can be confirmed for your profile.
 
+### Overlay Flickers in JetBrains Terminals
+
+If the HUD/overlay rapidly flashes in JetBrains while Cursor is stable, confirm
+you are on a build that ignores no-op resize events (same rows/cols). Some
+JetBrains profiles emit extra SIGWINCH notifications without geometry changes,
+which can look like redraw flicker. Recent builds also use JetBrains-specific
+DEC cursor save/restore with temporary autowrap-disable during HUD writes, plus
+write-then-clear-right redraws (`EL`) to avoid clear-then-paint flashes. The
+full HUD main row also keeps a one-column right gutter so animated right-panel
+content does not touch the terminal edge in JediTerm. Steady-state recording
+updates now redraw only changed HUD rows, so static top/bottom borders and
+unchanged shortcut rows are not repainted every meter tick.
+
+1. Check version/build:
+   ```bash
+   voxterm --version
+   ```
+2. Reproduce once with logging:
+   ```bash
+   voxterm --logs
+   ```
+3. If it still flickers, share `${TMPDIR}/voxterm_tui.log` and include terminal
+   app/version so resize event patterns can be compared.
+
 ### PTY Exit Write Error in Logs
 
 If you see this on shutdown:
@@ -395,7 +442,7 @@ as an error during normal exit.
 ## Startup Banner Missing
 
 The startup splash is shown by default in non-JetBrains terminals. In JetBrains
-IDE terminals, `v1.0.62+` auto-skips splash by design. If you expect splash in
+IDE terminals, `v1.0.63+` auto-skips splash by design. If you expect splash in
 another terminal and it does not appear, confirm the environment variable below
 is not set:
 
@@ -414,7 +461,7 @@ VOXTERM_NO_STARTUP_BANNER=1 voxterm
 If the startup splash stays on screen in PyCharm/JetBrains terminals while it
 clears normally in Cursor/VS Code, use these checks:
 
-1. Verify you are on `v1.0.62` or newer (JetBrains terminals auto-skip splash by default):
+1. Verify you are on `v1.0.63` or newer (JetBrains terminals auto-skip splash by default):
    ```bash
    voxterm --version
    ```

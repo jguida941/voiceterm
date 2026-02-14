@@ -21,6 +21,17 @@ pub(crate) enum HudRightPanel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub(crate) enum HudBorderStyle {
+    #[default]
+    Theme,
+    Single,
+    Rounded,
+    Double,
+    Heavy,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub(crate) enum LatencyDisplayMode {
     Off,
     #[default]
@@ -58,6 +69,20 @@ impl std::fmt::Display for HudRightPanel {
             HudRightPanel::Ribbon => "Ribbon",
             HudRightPanel::Dots => "Dots",
             HudRightPanel::Heartbeat => "Heartbeat",
+        };
+        write!(f, "{label}")
+    }
+}
+
+impl std::fmt::Display for HudBorderStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            HudBorderStyle::Theme => "Theme",
+            HudBorderStyle::Single => "Single",
+            HudBorderStyle::Rounded => "Rounded",
+            HudBorderStyle::Double => "Double",
+            HudBorderStyle::Heavy => "Heavy",
+            HudBorderStyle::None => "None",
         };
         write!(f, "{label}")
     }
@@ -116,6 +141,14 @@ pub(crate) struct OverlayConfig {
     /// Right-side HUD panel (off, ribbon, dots, heartbeat)
     #[arg(long = "hud-right-panel", value_enum, default_value_t = HudRightPanel::Ribbon)]
     pub(crate) hud_right_panel: HudRightPanel,
+
+    /// Full HUD border style (theme, single, rounded, double, heavy, none)
+    #[arg(
+        long = "hud-border-style",
+        value_enum,
+        default_value_t = HudBorderStyle::Theme
+    )]
+    pub(crate) hud_border_style: HudBorderStyle,
 
     /// Only animate the right-side panel while recording
     #[arg(long = "hud-right-panel-recording-only", default_value_t = true)]

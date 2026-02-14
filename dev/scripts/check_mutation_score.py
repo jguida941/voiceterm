@@ -1,9 +1,79 @@
 #!/usr/bin/env python3
 """Check a cargo-mutants outcomes.json against a minimum score."""
 import argparse
+import glob
 import json
-import sys
 from pathlib import Path
+from typing import Dict, List, Tuple
+
+
+def counts_from_outcomes(data: Dict) -> Tuple[int, int, int, int]:
+    """Fallback counter for older/newer outcomes schema variants."""
+    caught = 0
+    missed = 0
+    timeout = 0
+    unviable = 0
+
+    for outcome in data.get("outcomes", []):
+        summary = outcome.get("summary")
+        if summary in {"CaughtMutant", "Killed"}:
+            caught += 1
+        elif summary in {"MissedMutant", "Survived"}:
+            missed += 1
+        elif summary == "Timeout":
+            timeout += 1
+        elif summary == "Unviable":
+            unviable += 1
+
+    return caught, missed, timeout, unviable
+
+
+def read_counts(path: Path) -> Dict[str, int]:
+    """Read one outcomes.json and return normalized counters."""
+    with path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    caught = int(data.get("caught", 0))
+    missed = int(data.get("missed", 0))
+    timeout = int(data.get("timeout", 0))
+    unviable = int(data.get("unviable", 0))
+
+    if (caught + missed + timeout + unviable) == 0 and data.get("outcomes"):
+        caught, missed, timeout, unviable = counts_from_outcomes(data)
+
+    return {
+        "caught": caught,
+        "missed": missed,
+        "timeout": timeout,
+        "unviable": unviable,
+    }
+
+
+def resolve_paths(path_args: List[str], glob_args: List[str]) -> List[Path]:
+    """Resolve explicit paths and glob patterns into a unique ordered list."""
+    resolved: List[Path] = []
+
+    for raw_path in path_args:
+        resolved.append(Path(raw_path))
+
+    for pattern in glob_args:
+        for matched in sorted(glob.glob(pattern, recursive=True)):
+            resolved.append(Path(matched))
+
+    if not resolved and not (path_args or glob_args):
+        resolved.append(Path("mutants.out/outcomes.json"))
+    if not resolved:
+        return []
+
+    seen = set()
+    unique: List[Path] = []
+    for path in resolved:
+        normalized = str(path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(path)
+    return unique
 
 
 def main() -> int:
@@ -11,8 +81,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check mutation score threshold.")
     parser.add_argument(
         "--path",
-        default="mutants.out/outcomes.json",
-        help="Path to cargo-mutants outcomes.json",
+        action="append",
+        default=[],
+        help="Path to cargo-mutants outcomes.json (repeatable)",
+    )
+    parser.add_argument(
+        "--glob",
+        action="append",
+        default=[],
+        help="Glob pattern for outcomes.json files (repeatable, supports **)",
     )
     parser.add_argument(
         "--threshold",
@@ -22,21 +99,53 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    outcomes_path = Path(args.path)
-    if not outcomes_path.exists():
-        print(f"ERROR: outcomes file not found: {outcomes_path}")
+    outcome_paths = resolve_paths(args.path, args.glob)
+    if not outcome_paths:
+        print("ERROR: no outcomes files matched the provided --path/--glob inputs")
+        return 2
+    missing = [path for path in outcome_paths if not path.exists()]
+    if missing:
+        for path in missing:
+            print(f"ERROR: outcomes file not found: {path}")
         return 2
 
-    with outcomes_path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+    total = {
+        "caught": 0,
+        "missed": 0,
+        "timeout": 0,
+        "unviable": 0,
+    }
 
-    caught = int(data.get("caught", 0))
-    missed = int(data.get("missed", 0))
-    timeout = int(data.get("timeout", 0))
-    unviable = int(data.get("unviable", 0))
+    per_file = []
+    for path in outcome_paths:
+        counts = read_counts(path)
+        per_file.append((path, counts))
+        for key in total:
+            total[key] += counts[key]
+
+    caught = total["caught"]
+    missed = total["missed"]
+    timeout = total["timeout"]
+    unviable = total["unviable"]
 
     denom = caught + missed + timeout
     score = 1.0 if denom == 0 else caught / denom
+
+    if len(per_file) > 1:
+        print(f"Aggregating mutation outcomes from {len(per_file)} files:")
+        for path, counts in per_file:
+            file_denom = counts["caught"] + counts["missed"] + counts["timeout"]
+            file_score = 1.0 if file_denom == 0 else counts["caught"] / file_denom
+            print(
+                "  - {path}: {score:.2%} (caught {caught}, missed {missed}, timeout {timeout}, unviable {unviable})".format(
+                    path=path,
+                    score=file_score,
+                    caught=counts["caught"],
+                    missed=counts["missed"],
+                    timeout=counts["timeout"],
+                    unviable=counts["unviable"],
+                )
+            )
 
     print(
         "Mutation score: {score:.2%} (caught {caught}, missed {missed}, timeout {timeout}, unviable {unviable})".format(

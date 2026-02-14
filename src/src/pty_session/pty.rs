@@ -201,18 +201,12 @@ impl Drop for PtyCliSession {
                 }
             }
             if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if libc::kill(self.child_pid, libc::SIGTERM) != 0 {
-                    log_debug(&format!(
-                        "SIGTERM to PTY session failed: {}",
-                        io::Error::last_os_error()
-                    ));
+                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM) {
+                    log_debug(&format!("SIGTERM to PTY session failed: {}", err));
                 }
                 if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if libc::kill(self.child_pid, libc::SIGKILL) != 0 {
-                        log_debug(&format!(
-                            "SIGKILL to PTY session failed: {}",
-                            io::Error::last_os_error()
-                        ));
+                    if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGKILL) {
+                        log_debug(&format!("SIGKILL to PTY session failed: {}", err));
                     }
                     #[cfg(any(test, feature = "mutants"))]
                     {
@@ -326,8 +320,8 @@ impl PtyOverlaySession {
         if result != 0 {
             return Err(errno_error("ioctl(TIOCSWINSZ) failed"));
         }
-        // SAFETY: SIGWINCH is sent to the child pid owned by this session.
-        let _ = unsafe { libc::kill(self.child_pid, libc::SIGWINCH) };
+        // Notify the full PTY process tree about resize events.
+        let _ = signal_process_group_or_pid(self.child_pid, libc::SIGWINCH);
         Ok(())
     }
 
@@ -380,18 +374,12 @@ impl Drop for PtyOverlaySession {
                 }
             }
             if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if libc::kill(self.child_pid, libc::SIGTERM) != 0 {
-                    log_debug(&format!(
-                        "SIGTERM to PTY session failed: {}",
-                        io::Error::last_os_error()
-                    ));
+                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM) {
+                    log_debug(&format!("SIGTERM to PTY session failed: {}", err));
                 }
                 if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if libc::kill(self.child_pid, libc::SIGKILL) != 0 {
-                        log_debug(&format!(
-                            "SIGKILL to PTY session failed: {}",
-                            io::Error::last_os_error()
-                        ));
+                    if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGKILL) {
+                        log_debug(&format!("SIGKILL to PTY session failed: {}", err));
                     }
                     #[cfg(any(test, feature = "mutants"))]
                     {
@@ -435,6 +423,41 @@ fn is_benign_shutdown_write_error(err: &anyhow::Error) -> bool {
         }
     }
     false
+}
+
+fn signal_process_group_or_pid(child_pid: i32, signal: i32) -> io::Result<()> {
+    if child_pid <= 0 {
+        return Ok(());
+    }
+
+    // PTY children call setsid(), so process-group signaling reaches shells/wrappers and
+    // their descendants. Fall back to direct pid signaling for edge cases.
+    unsafe {
+        if libc::kill(-child_pid, signal) == 0 {
+            return Ok(());
+        }
+        let group_err = io::Error::last_os_error();
+
+        if libc::kill(child_pid, signal) == 0 {
+            return Ok(());
+        }
+        let pid_err = io::Error::last_os_error();
+
+        if is_no_such_process(&group_err) || is_no_such_process(&pid_err) {
+            return Ok(());
+        }
+
+        Err(io::Error::new(
+            pid_err.kind(),
+            format!(
+                "group(-{child_pid}) signal failed: {group_err}; pid({child_pid}) signal failed: {pid_err}"
+            ),
+        ))
+    }
+}
+
+fn is_no_such_process(err: &io::Error) -> bool {
+    matches!(err.raw_os_error(), Some(code) if code == libc::ESRCH)
 }
 
 /// Forks and execs a child process under a new PTY.

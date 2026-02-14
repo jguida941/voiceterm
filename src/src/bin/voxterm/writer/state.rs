@@ -26,6 +26,8 @@ struct DisplayState {
     enhanced_status: Option<StatusLineState>,
     overlay_panel: Option<OverlayPanel>,
     banner_height: usize,
+    banner_lines: Vec<String>,
+    force_full_banner_redraw: bool,
 }
 
 impl DisplayState {
@@ -50,6 +52,14 @@ impl PendingState {
             || self.overlay_panel.is_some()
             || self.clear_status
             || self.clear_overlay
+    }
+}
+
+fn status_clear_height_for_redraw(current_height: usize, next_height: usize) -> usize {
+    if current_height > next_height {
+        current_height
+    } else {
+        0
     }
 }
 
@@ -94,6 +104,9 @@ impl WriterState {
                 let now = Instant::now();
                 self.last_output_at = now;
                 if self.display.has_any() {
+                    // PTY output may scroll/overwrite the HUD rows even if banner text did not
+                    // change; force a full banner repaint on the next redraw.
+                    self.display.force_full_banner_redraw = true;
                     self.needs_redraw = true;
                 }
                 if now.duration_since(self.last_output_flush_at)
@@ -153,7 +166,10 @@ impl WriterState {
                 }
             }
             WriterMessage::Resize { rows, cols } => {
-                if self.rows > 0 && (self.rows != rows || self.cols != cols) {
+                if self.rows == rows && self.cols == cols {
+                    return true;
+                }
+                if self.rows > 0 {
                     // Clear HUD/overlay at the old terminal geometry before moving to the new one.
                     // This prevents stale frames when startup rows are briefly reported incorrectly.
                     if let Some(panel) = self.display.overlay_panel.as_ref() {
@@ -170,6 +186,8 @@ impl WriterState {
                     {
                         let _ = clear_status_line(&mut self.stdout, self.rows, self.cols.max(1));
                     }
+                    self.display.banner_lines.clear();
+                    self.display.force_full_banner_redraw = true;
                     let _ = self.stdout.flush();
                 }
                 self.rows = rows;
@@ -229,6 +247,8 @@ impl WriterState {
             self.display.status = None;
             self.display.enhanced_status = None;
             self.display.banner_height = 0;
+            self.display.banner_lines.clear();
+            self.display.force_full_banner_redraw = true;
             self.pending.clear_status = false;
         }
         if self.pending.clear_overlay {
@@ -236,6 +256,9 @@ impl WriterState {
                 let _ = clear_overlay_panel(&mut self.stdout, self.rows, panel.height);
             }
             self.display.overlay_panel = None;
+            // Overlay clears underlying rows; force next HUD paint to redraw all banner lines.
+            self.display.banner_lines.clear();
+            self.display.force_full_banner_redraw = true;
             self.pending.clear_overlay = false;
         }
         if let Some(panel) = self.pending.overlay_panel.as_ref() {
@@ -261,25 +284,47 @@ impl WriterState {
             let rows = self.rows;
             let cols = self.cols;
             let theme = self.theme;
-            let (stdout, overlay_panel, enhanced_status, status, current_banner_height) = (
+            let (
+                stdout,
+                overlay_panel,
+                enhanced_status,
+                status,
+                current_banner_height,
+                current_banner_lines,
+                force_full_banner_redraw,
+            ) = (
                 &mut self.stdout,
                 &self.display.overlay_panel,
                 &self.display.enhanced_status,
                 &self.display.status,
                 &mut self.display.banner_height,
+                &mut self.display.banner_lines,
+                &mut self.display.force_full_banner_redraw,
             );
             if let Some(panel) = overlay_panel.as_ref() {
                 let _ = write_overlay_panel(stdout, panel, rows);
             } else if let Some(state) = enhanced_status.as_ref() {
                 let banner = format_status_banner(state, theme, cols as usize);
-                let clear_height = (*current_banner_height).max(banner.height);
+                // Avoid full-frame clear on every redraw; only clear when banner shrinks.
+                // write_status_banner already clears each line it writes.
+                let clear_height =
+                    status_clear_height_for_redraw(*current_banner_height, banner.height);
                 if clear_height > 0 {
                     let _ = clear_status_banner(stdout, rows, clear_height);
                 }
                 *current_banner_height = banner.height;
-                let _ = write_status_banner(stdout, &banner, rows);
+                let previous_lines = if *force_full_banner_redraw {
+                    None
+                } else {
+                    Some(current_banner_lines.as_slice())
+                };
+                let _ = write_status_banner(stdout, &banner, rows, previous_lines);
+                *current_banner_lines = banner.lines.clone();
+                *force_full_banner_redraw = false;
             } else if let Some(text) = status.as_deref() {
                 let _ = write_status_line(stdout, text, rows, cols, theme);
+                current_banner_lines.clear();
+                *force_full_banner_redraw = true;
             }
             stdout.flush().err()
         };
@@ -288,5 +333,46 @@ impl WriterState {
         if let Some(err) = flush_error {
             log_debug(&format!("status redraw flush failed: {err}"));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resize_ignores_unchanged_dimensions() {
+        let mut state = WriterState::new();
+        state.rows = 40;
+        state.cols = 120;
+
+        assert!(state.handle_message(WriterMessage::Resize {
+            rows: 40,
+            cols: 120
+        }));
+        assert_eq!(state.rows, 40);
+        assert_eq!(state.cols, 120);
+        assert!(!state.needs_redraw);
+    }
+
+    #[test]
+    fn resize_updates_dimensions_when_changed() {
+        let mut state = WriterState::new();
+        state.rows = 24;
+        state.cols = 80;
+
+        assert!(state.handle_message(WriterMessage::Resize {
+            rows: 30,
+            cols: 100
+        }));
+        assert_eq!(state.rows, 30);
+        assert_eq!(state.cols, 100);
+    }
+
+    #[test]
+    fn status_clear_height_only_when_banner_shrinks() {
+        assert_eq!(status_clear_height_for_redraw(4, 4), 0);
+        assert_eq!(status_clear_height_for_redraw(3, 5), 0);
+        assert_eq!(status_clear_height_for_redraw(5, 3), 5);
     }
 }

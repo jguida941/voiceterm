@@ -17,6 +17,7 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -72,6 +73,11 @@ MODULES = {
         "timeout": 180,
     },
 }
+
+CAUGHT_SUMMARIES = {"CaughtMutant", "Killed"}
+MISSED_SUMMARIES = {"MissedMutant", "Survived"}
+TIMEOUT_SUMMARIES = {"Timeout"}
+UNVIABLE_SUMMARIES = {"Unviable"}
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 SRC_DIR = REPO_ROOT / "src"
@@ -207,7 +213,78 @@ def cargo_home_has_cache(path: Path) -> bool:
     return (path / "registry").exists() or (path / "git").exists()
 
 
-def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, offline=False):
+def parse_shard_spec(shard: Optional[str]) -> Optional[str]:
+    """Validate cargo-mutants shard syntax (e.g. 1/8)."""
+    if shard is None:
+        return None
+    match = re.fullmatch(r"(\d+)/(\d+)", shard.strip())
+    if not match:
+        raise ValueError("Invalid shard format. Use N/M, e.g. 1/8.")
+    index = int(match.group(1))
+    total = int(match.group(2))
+    if total <= 0 or index <= 0 or index > total:
+        raise ValueError("Invalid shard value. Ensure 1 <= N <= M.")
+    return f"{index}/{total}"
+
+
+def scenario_fields(outcome: dict) -> dict:
+    """Normalize outcome scenario fields across cargo-mutants schema versions."""
+    scenario = outcome.get("scenario")
+    if not isinstance(scenario, dict):
+        return {
+            "file": "unknown",
+            "line": 0,
+            "function": "unknown",
+            "mutation": "unknown",
+        }
+
+    # Newer cargo-mutants schema nests details under scenario.Mutant.
+    mutant = scenario.get("Mutant")
+    if isinstance(mutant, dict):
+        function = mutant.get("function")
+        if isinstance(function, dict):
+            function_name = function.get("function_name", "unknown")
+        elif isinstance(function, str):
+            function_name = function
+        else:
+            function_name = "unknown"
+
+        line = 0
+        span = mutant.get("span")
+        if isinstance(span, dict):
+            start = span.get("start")
+            if isinstance(start, dict):
+                line = int(start.get("line", 0) or 0)
+
+        mutation_name = (
+            mutant.get("name")
+            or mutant.get("replacement")
+            or mutant.get("genre")
+            or "unknown"
+        )
+        return {
+            "file": mutant.get("file", "unknown"),
+            "line": line,
+            "function": function_name,
+            "mutation": mutation_name,
+        }
+
+    # Legacy schema keeps these fields directly in scenario.
+    function_value = scenario.get("function", "unknown")
+    if isinstance(function_value, dict):
+        function_name = function_value.get("function_name", "unknown")
+    else:
+        function_name = function_value
+
+    return {
+        "file": scenario.get("file", "unknown"),
+        "line": int(scenario.get("line", 0) or 0),
+        "function": function_name,
+        "mutation": scenario.get("mutation", "unknown"),
+    }
+
+
+def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, offline=False, shard=None):
     """Run cargo mutants on selected modules."""
     # Build file filter args
     file_args = []
@@ -226,8 +303,12 @@ def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, of
         "-o", "mutants.out",
         "--json",
     ] + file_args
+    if shard:
+        cmd.extend(["--shard", shard])
 
     print(f"\nRunning mutation tests on: {', '.join(modules)}")
+    if shard:
+        print(f"Shard: {shard}")
     print(f"Command: {' '.join(cmd)}\n")
     print("-" * 60)
 
@@ -265,43 +346,48 @@ def parse_results():
     with open(outcomes_file) as f:
         data = json.load(f)
 
-    # Count outcomes
+    outcomes = data.get("outcomes", [])
+
+    # Prefer top-level counters from cargo-mutants when available.
     stats = {
-        "killed": 0,
-        "survived": 0,
-        "timeout": 0,
-        "unviable": 0,
-        "total": 0,
+        "killed": int(data.get("caught", 0)),
+        "survived": int(data.get("missed", 0)),
+        "timeout": int(data.get("timeout", 0)),
+        "unviable": int(data.get("unviable", 0)),
+        "total": int(data.get("total_mutants", len(outcomes))),
     }
+    fallback = {"killed": 0, "survived": 0, "timeout": 0, "unviable": 0}
 
     survived_mutants = []
     survived_by_file = Counter()
     survived_by_dir = Counter()
 
-    for outcome in data.get("outcomes", []):
-        stats["total"] += 1
+    for outcome in outcomes:
         status = outcome.get("summary", "unknown")
 
-        if status == "Killed":
-            stats["killed"] += 1
-        elif status == "Survived":
-            stats["survived"] += 1
-            file_path = outcome.get("scenario", {}).get("file", "unknown")
-            survived_mutants.append({
-                "file": file_path,
-                "line": outcome.get("scenario", {}).get("line", 0),
-                "function": outcome.get("scenario", {}).get("function", "unknown"),
-                "mutation": outcome.get("scenario", {}).get("mutation", "unknown"),
-            })
+        if status in CAUGHT_SUMMARIES:
+            fallback["killed"] += 1
+        elif status in MISSED_SUMMARIES:
+            fallback["survived"] += 1
+            fields = scenario_fields(outcome)
+            file_path = fields["file"]
+            survived_mutants.append(fields)
             survived_by_file[file_path] += 1
             survived_by_dir[str(Path(file_path).parent)] += 1
-        elif status == "Timeout":
-            stats["timeout"] += 1
-        elif status == "Unviable":
-            stats["unviable"] += 1
+        elif status in TIMEOUT_SUMMARIES:
+            fallback["timeout"] += 1
+        elif status in UNVIABLE_SUMMARIES:
+            fallback["unviable"] += 1
+
+    if stats["total"] == 0:
+        stats["total"] = len(outcomes)
+
+    # Backward-compat fallback when top-level counters are absent.
+    if (stats["killed"] + stats["survived"] + stats["timeout"] + stats["unviable"]) == 0:
+        stats.update(fallback)
 
     # Calculate score
-    testable = stats["killed"] + stats["survived"]
+    testable = stats["killed"] + stats["survived"] + stats["timeout"]
     score = (stats["killed"] / testable * 100) if testable > 0 else 0
 
     return {
@@ -418,6 +504,7 @@ def main():
     parser.add_argument("--offline", action="store_true", help="Set CARGO_NET_OFFLINE=true")
     parser.add_argument("--cargo-home", help="Override CARGO_HOME for cargo mutants")
     parser.add_argument("--cargo-target-dir", help="Override CARGO_TARGET_DIR for cargo mutants")
+    parser.add_argument("--shard", help="Run one shard, e.g. 1/8")
     parser.add_argument("--top", type=int, default=5, help="Top N paths to summarize")
     parser.add_argument("--plot", action="store_true", help="Render a matplotlib hotspot plot")
     parser.add_argument(
@@ -464,6 +551,12 @@ def main():
 
     print(f"\nSelected modules: {', '.join(modules)}")
 
+    try:
+        shard = parse_shard_spec(args.shard)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(2)
+
     # Run mutation tests
     returncode = run_mutants(
         modules,
@@ -471,6 +564,7 @@ def main():
         cargo_home=args.cargo_home,
         cargo_target_dir=args.cargo_target_dir,
         offline=args.offline,
+        shard=shard,
     )
 
     # Parse and output results
@@ -486,6 +580,10 @@ def main():
         )
 
     # Exit with appropriate code
+    if returncode is None:
+        sys.exit(2)
+    if returncode != 0:
+        sys.exit(returncode)
     if results and results["score"] < 80:
         sys.exit(1)
 

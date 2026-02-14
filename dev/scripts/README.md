@@ -56,6 +56,9 @@ python3 dev/scripts/mutants.py --all
 # Test specific module
 python3 dev/scripts/mutants.py --module audio
 
+# Run a single shard (matches CI sharding)
+python3 dev/scripts/mutants.py --module overlay --shard 1/8
+
 # List available modules
 python3 dev/scripts/mutants.py --list
 
@@ -75,6 +78,7 @@ python3 dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-top
 
 `--results-only` auto-detects the most recent `outcomes.json` under `src/mutants.out/`.
 Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if needed.
+The scheduled GitHub mutation workflow shards runs (`1/8` ... `8/8`) and enforces one aggregated 80% threshold.
 
 Or use the Makefile:
 ```bash
@@ -119,6 +123,9 @@ python3 dev/scripts/devctl.py check --profile quick
 # Run mutants with offline cache
 python3 dev/scripts/devctl.py mutants --module overlay --offline \
   --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
+
+# Run one shard through devctl
+python3 dev/scripts/devctl.py mutants --module overlay --shard 1/8
 
 # Check mutation score only
 python3 dev/scripts/devctl.py mutation-score --threshold 0.80

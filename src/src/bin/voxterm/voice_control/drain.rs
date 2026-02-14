@@ -587,6 +587,7 @@ macros:
             theme_name: None,
             no_color: false,
             hud_right_panel: crate::config::HudRightPanel::Ribbon,
+            hud_border_style: crate::config::HudBorderStyle::Theme,
             hud_right_panel_recording_only: true,
             hud_style: crate::config::HudStyle::Full,
             latency_display: crate::config::LatencyDisplayMode::Short,

@@ -37,6 +37,7 @@ pub(crate) fn show_settings_overlay(
         sensitivity_db: status_state.sensitivity_db,
         theme,
         hud_style: status_state.hud_style,
+        hud_border_style: config.hud_border_style,
         hud_right_panel: config.hud_right_panel,
         hud_right_panel_recording_only: config.hud_right_panel_recording_only,
         latency_display: status_state.latency_display,

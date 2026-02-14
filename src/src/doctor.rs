@@ -64,9 +64,8 @@ pub fn base_doctor_report(config: &AppConfig, binary_name: &str) -> DoctorReport
     if let Ok(colorterm) = env::var("COLORTERM") {
         report.push_kv("colorterm", colorterm);
     }
-    if let Ok(term_program) = env::var("TERM_PROGRAM") {
-        let version = env::var("TERM_PROGRAM_VERSION").unwrap_or_else(|_| "unknown".to_string());
-        report.push_kv("term_program", format!("{term_program} ({version})"));
+    if let Some(term_program) = format_term_program_for_report() {
+        report.push_kv("term_program", term_program);
     }
     if env::var("NO_COLOR").is_ok() {
         report.push_kv("no_color", "set");
@@ -123,6 +122,72 @@ pub fn base_doctor_report(config: &AppConfig, binary_name: &str) -> DoctorReport
     }
 
     report
+}
+
+fn has_cursor_marker_env() -> bool {
+    for key in [
+        "CURSOR_TRACE_ID",
+        "CURSOR_APP_VERSION",
+        "CURSOR_VERSION",
+        "CURSOR_BUILD_VERSION",
+    ] {
+        if env::var(key)
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn cursor_version_env() -> Option<String> {
+    for key in [
+        "CURSOR_APP_VERSION",
+        "CURSOR_VERSION",
+        "CURSOR_BUILD_VERSION",
+    ] {
+        if let Ok(value) = env::var(key) {
+            if !value.trim().is_empty() {
+                return Some(value);
+            }
+        }
+    }
+    None
+}
+
+fn format_term_program_for_report() -> Option<String> {
+    let term_program = env::var("TERM_PROGRAM").ok()?;
+    let term_program_version = env::var("TERM_PROGRAM_VERSION").ok();
+    let is_cursor = term_program.eq_ignore_ascii_case("cursor") || has_cursor_marker_env();
+
+    if is_cursor {
+        if term_program.eq_ignore_ascii_case("cursor") {
+            let version = cursor_version_env()
+                .or(term_program_version)
+                .unwrap_or_else(|| "unknown".to_string());
+            return Some(format!("cursor ({version})"));
+        }
+
+        let cursor_version = cursor_version_env();
+        return Some(match (cursor_version, term_program_version) {
+            (Some(cursor_version), Some(engine_version)) => format!(
+                "cursor ({cursor_version}; terminal engine {term_program} {engine_version})"
+            ),
+            (Some(cursor_version), None) => {
+                format!("cursor ({cursor_version}; terminal engine {term_program} unknown)")
+            }
+            (None, Some(engine_version)) => {
+                format!("cursor (terminal engine {term_program} {engine_version})")
+            }
+            (None, None) => format!("cursor (terminal engine {term_program} unknown)"),
+        });
+    }
+
+    Some(format!(
+        "{term_program} ({})",
+        term_program_version.unwrap_or_else(|| "unknown".to_string())
+    ))
 }
 
 fn detect_color_mode() -> String {
@@ -182,4 +247,105 @@ fn detect_graphics_protocol() -> String {
         return "vte".to_string();
     }
     "unknown".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
+        static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
+        let _guard = ENV_GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        f()
+    }
+
+    fn set_or_clear_env(key: &str, value: Option<&str>) {
+        match value {
+            Some(v) => env::set_var(key, v),
+            None => env::remove_var(key),
+        }
+    }
+
+    fn with_term_program_env<T>(
+        term_program: Option<&str>,
+        term_program_version: Option<&str>,
+        cursor_trace_id: Option<&str>,
+        cursor_app_version: Option<&str>,
+        f: impl FnOnce() -> T,
+    ) -> T {
+        with_env_lock(|| {
+            let keys = [
+                "TERM_PROGRAM",
+                "TERM_PROGRAM_VERSION",
+                "CURSOR_TRACE_ID",
+                "CURSOR_APP_VERSION",
+            ];
+            let prev: Vec<(String, Option<String>)> = keys
+                .iter()
+                .map(|key| ((*key).to_string(), env::var(key).ok()))
+                .collect();
+
+            set_or_clear_env("TERM_PROGRAM", term_program);
+            set_or_clear_env("TERM_PROGRAM_VERSION", term_program_version);
+            set_or_clear_env("CURSOR_TRACE_ID", cursor_trace_id);
+            set_or_clear_env("CURSOR_APP_VERSION", cursor_app_version);
+
+            let result = f();
+
+            for (key, value) in prev {
+                set_or_clear_env(&key, value.as_deref());
+            }
+            result
+        })
+    }
+
+    #[test]
+    fn format_term_program_for_report_defaults_to_raw_term_program() {
+        with_term_program_env(Some("vscode"), Some("1.97.0"), None, None, || {
+            assert_eq!(
+                format_term_program_for_report(),
+                Some("vscode (1.97.0)".to_string())
+            );
+        });
+    }
+
+    #[test]
+    fn format_term_program_for_report_labels_cursor_when_markers_present() {
+        with_term_program_env(Some("vscode"), Some("1.97.0"), Some("trace"), None, || {
+            assert_eq!(
+                format_term_program_for_report(),
+                Some("cursor (terminal engine vscode 1.97.0)".to_string())
+            );
+        });
+    }
+
+    #[test]
+    fn format_term_program_for_report_prefers_cursor_version_when_available() {
+        with_term_program_env(
+            Some("vscode"),
+            Some("1.97.0"),
+            Some("trace"),
+            Some("0.46.0"),
+            || {
+                assert_eq!(
+                    format_term_program_for_report(),
+                    Some("cursor (0.46.0; terminal engine vscode 1.97.0)".to_string())
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn format_term_program_for_report_handles_native_cursor_term_program() {
+        with_term_program_env(Some("cursor"), Some("0.47.0"), None, None, || {
+            assert_eq!(
+                format_term_program_for_report(),
+                Some("cursor (0.47.0)".to_string())
+            );
+        });
+    }
 }
