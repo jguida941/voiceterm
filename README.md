@@ -97,14 +97,13 @@ All CLI output passes through unchanged.
 | **Project voice macros** | Expand trigger phrases from `.voiceterm/macros.yaml` before typing |
 | **Macros toggle** | Runtime ON/OFF control for macro expansion from Settings |
 | **Adaptive HUD telemetry** | Compact meter/latency trend chips that adapt to recording, busy, and idle states |
-| **Backends** | Codex + Claude supported; experimental presets for Gemini (not working), Aider, OpenCode |
+| **Backends** | Primary support for Codex and Claude Code |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 
 ## Supported AI CLIs
 
-VoiceTerm is optimized for Codex and Claude Code. Experimental presets exist for
-Gemini, Aider, and OpenCode, plus custom command strings via `--backend`. Gemini
-is currently nonfunctional, and Aider/OpenCode are untested.
+VoiceTerm is optimized for Codex and Claude Code.
+For advanced backend configuration, see the [Usage Guide](guides/USAGE.md).
 
 ### Codex (default)
 
@@ -127,14 +126,6 @@ voiceterm --login --claude
 
 ![Claude Backend](https://raw.githubusercontent.com/jguida941/voiceterm/master/img/claude-backend.png)
 
-### Experimental presets
-
-These presets exist but are not part of the primary support matrix:
-- Gemini CLI (`voiceterm --gemini`)
-- Aider (`voiceterm --backend aider`)
-- OpenCode (`voiceterm --backend opencode`)
-Gemini is currently not working; Aider/OpenCode are untested.
-
 ## UI Tour
 
 ### Theme Picker (Ctrl+Y)
@@ -146,16 +137,10 @@ Use ↑/↓ to move and Enter to select, or type the theme number.
 
 ![Settings](https://raw.githubusercontent.com/jguida941/voiceterm/master/img/settings.png)
 
-Mouse control is on by default (toggle it off in Settings).
-You can click HUD buttons or use ←/→ to focus and Enter to activate.
-Settings also include a `Macros` ON/OFF toggle, alongside send mode and auto-voice.
-Latency badge rendering is configurable in Settings via `Latency display`
-(`Off`, `Nms`, `Latency: Nms`).
-Right-panel telemetry modes (`Ribbon`, `Dots`, `Heartbeat`) render in Full HUD and
-now also render as compact chips in Minimal HUD.
-Full HUD border style is configurable (`Theme`, `Single`, `Rounded`, `Double`,
-`Heavy`, `None`), and right-panel telemetry can be disabled with `Off`.
-See the [Usage Guide](guides/USAGE.md) for details.
+Mouse control is enabled by default, and Settings (`Ctrl+O`) covers the main
+runtime toggles: send mode, auto-voice, macros, HUD style/border, right-panel
+telemetry, and latency display.
+See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
 
 ### Voice Recording
 
