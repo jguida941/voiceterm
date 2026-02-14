@@ -19,6 +19,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Promote README `Voice Macros` to a top-level section and point controls help text directly to the Usage guide keyboard-shortcuts reference.
 - Replace the verbose README controls key table with direct links to the Usage guide shortcut/settings references.
 - Merge README onboarding into one `Install and Start` section so install paths and first-run steps are not split across separate sections.
+- Remove duplicated install content from README and keep one concise install/start flow with links to the full install guide for alternatives/details.
 
 ## [1.0.65] - 2026-02-14
 
