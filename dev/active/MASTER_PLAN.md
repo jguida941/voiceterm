@@ -107,7 +107,8 @@
 4. Tag + push from `master`
 5. GitHub release creation
 6. PyPI package publish
-7. Homebrew tap formula update + push
+7. PyPI publish verification (`https://pypi.org/pypi/voiceterm/<version>/json`)
+8. Homebrew tap formula update + push
 
 ## Execution Gate (Every Feature)
 1. Create or link an MP item before implementation.

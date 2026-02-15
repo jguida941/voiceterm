@@ -304,9 +304,13 @@ gh release create vX.Y.Z --title "vX.Y.Z" --notes "See CHANGELOG.md"
 ```bash
 # Build + upload package to PyPI
 ./dev/scripts/publish-pypi.sh --upload
+
+# Verify the published version appears (replace X.Y.Z)
+curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 ```
 
-This automatically fetches the SHA256 and updates the formula.
+Use `./dev/scripts/update-homebrew.sh X.Y.Z` in the previous step to fetch
+the SHA256 and update the Homebrew formula.
 
 Users can then upgrade:
 ```bash
