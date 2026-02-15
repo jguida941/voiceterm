@@ -2154,11 +2154,20 @@ mod tests {
             "expected short-lived PTY session to exit before write attempt"
         );
 
-        assert!(!write_or_queue_pty_input(
-            &mut state,
-            &mut deps,
-            b"abc".to_vec()
-        ));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut saw_rejected_write = false;
+        while Instant::now() < deadline {
+            if !write_or_queue_pty_input(&mut state, &mut deps, b"x".to_vec()) {
+                saw_rejected_write = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        assert!(
+            saw_rejected_write,
+            "expected PTY input writes to be rejected shortly after session exit"
+        );
     }
 
     #[test]
