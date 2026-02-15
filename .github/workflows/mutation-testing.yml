@@ -11,13 +11,21 @@ concurrency:
 
 jobs:
   mutants:
-    name: mutants shard ${{ matrix.shard }}/8
+    name: mutants shard ${{ matrix.shard.display }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard:
+          - { index: 0, display: 1 }
+          - { index: 1, display: 2 }
+          - { index: 2, display: 3 }
+          - { index: 3, display: 4 }
+          - { index: 4, display: 5 }
+          - { index: 5, display: 6 }
+          - { index: 6, display: 7 }
+          - { index: 7, display: 8 }
 
     defaults:
       run:
@@ -49,12 +57,18 @@ jobs:
 
       - name: Run mutation tests (sharded)
         run: |
+          set +e
           cargo mutants \
             --baseline skip \
             --timeout 180 \
-            --shard ${{ matrix.shard }}/8 \
+            --shard ${{ matrix.shard.index }}/8 \
             -o mutants.out \
             --json
+          status=$?
+          set -e
+          if [ "${status}" -ne 0 ] && [ "${status}" -ne 3 ]; then
+            exit "${status}"
+          fi
 
       - name: Locate shard outcomes
         run: |
@@ -63,17 +77,17 @@ jobs:
             echo "outcomes.json not found" >&2
             exit 1
           fi
-          cp "${OUTCOME_PATH}" "mutants.out/shard-${{ matrix.shard }}-outcomes.json"
+          cp "${OUTCOME_PATH}" "mutants.out/shard-${{ matrix.shard.display }}-outcomes.json"
           echo "Captured ${OUTCOME_PATH}"
 
       - name: Report shard mutation score
-        run: python3 ../dev/scripts/check_mutation_score.py --path mutants.out/shard-${{ matrix.shard }}-outcomes.json --threshold 0.0
+        run: python3 ../dev/scripts/check_mutation_score.py --path mutants.out/shard-${{ matrix.shard.display }}-outcomes.json --threshold 0.0
 
       - name: Upload shard outcomes
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-outcomes-shard-${{ matrix.shard }}
-          path: src/mutants.out/shard-${{ matrix.shard }}-outcomes.json
+          name: mutation-outcomes-shard-${{ matrix.shard.display }}
+          path: src/mutants.out/shard-${{ matrix.shard.display }}-outcomes.json
           if-no-files-found: error
 
   mutation-score:
