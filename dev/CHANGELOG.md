@@ -7,7 +7,17 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-- No entries yet.
+### UX
+
+- Add an explicit `responding` voice state in HUD modes (Full/Minimal/Hidden), including automatic reset back to idle when backend output arrives or status deadlines clear.
+- Add quick theme cycling on `Ctrl+G` (plus CSI-u terminal variants), and surface the new shortcut in the help overlay and HUD shortcut rows.
+- Add built-in voice navigation actions for `scroll up`, `scroll down`, `show last error`, `copy last error`, and `explain last error`.
+
+### Tests
+
+- Add parser regression coverage for `Ctrl+G` direct and CSI-u key paths.
+- Add prompt-tracker coverage for capturing the latest error-like output line.
+- Add voice-navigation unit coverage for scroll/show/copy/explain command actions.
 
 ## [1.0.67] - 2026-02-15
 

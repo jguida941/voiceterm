@@ -51,6 +51,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     let (indicator, label, color) = match state.recording_state {
         RecordingState::Recording => (get_recording_indicator(), "REC", colors.recording),
         RecordingState::Processing => (get_processing_spinner(), "processing", colors.processing),
+        RecordingState::Responding => ("↺", "responding", colors.info),
         RecordingState::Idle => match state.voice_mode {
             VoiceMode::Auto => ("◉", "AUTO", colors.info), // Blue filled - auto mode active
             VoiceMode::Manual => ("●", "PTT", colors.border), // Theme accent - push-to-talk ready
@@ -77,7 +78,7 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
                 line.push_str(colors.reset);
             }
         }
-        RecordingState::Processing | RecordingState::Idle => {}
+        RecordingState::Processing | RecordingState::Responding | RecordingState::Idle => {}
     }
 
     if let Some(panel) = minimal_right_panel(state, colors) {
@@ -504,6 +505,7 @@ fn format_button_row_with_positions(
             ButtonAction::VoiceTrigger => match state.recording_state {
                 RecordingState::Recording => colors.recording,
                 RecordingState::Processing => colors.processing,
+                RecordingState::Responding => colors.info,
                 RecordingState::Idle => colors.border, // Accent color when idle
             },
             ButtonAction::ToggleAutoVoice => {
@@ -611,6 +613,7 @@ fn format_button_row_with_positions(
             ButtonAction::VoiceTrigger => match state.recording_state {
                 RecordingState::Recording => colors.recording,
                 RecordingState::Processing => colors.processing,
+                RecordingState::Responding => colors.info,
                 RecordingState::Idle => colors.border,
             },
             ButtonAction::ToggleAutoVoice => {
@@ -674,6 +677,7 @@ fn format_button_row_legacy(
     let rec_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
+        RecordingState::Responding => colors.info,
         RecordingState::Idle => "",
     };
     items.push(format_button(colors, "rec", rec_color, false));
@@ -967,6 +971,17 @@ mod tests {
 
         let line = minimal_strip_text(&state, &colors);
         assert!(line.contains("Edit mode: press Enter to send"));
+    }
+
+    #[test]
+    fn minimal_strip_responding_shows_state_lane() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.recording_state = RecordingState::Responding;
+        state.message = "Voice command: explain last error".to_string();
+
+        let line = minimal_strip_text(&state, &colors);
+        assert!(line.contains("responding"));
     }
 
     #[test]

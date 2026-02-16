@@ -76,8 +76,8 @@
 - [x] MP-125 Fix HUD right-panel `Anim only` behavior so idle state keeps a static panel visible instead of hiding the panel until recording.
 - [x] MP-126 Complete product/distribution naming rebrand to VoiceTerm across code/docs/scripts/app launcher, and add a PyPI launcher package scaffold (`pypi/`) for `voiceterm`.
 - [x] MP-139 Tighten user-facing docs information architecture (entrypoint clarity, navigation consistency, and guide discoverability).
-- [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
-- [ ] MP-055 Quick theme switcher in settings.
+- [x] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
+- [x] MP-055 Quick theme switcher in settings.
 - [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
 
 ## Phase 2B - Rust Hardening Audit (Pre-Execution + Implementation)
@@ -97,7 +97,7 @@
 
 ## Phase 3 - Overlay Differentiators
 
-- [ ] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
+- [x] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
 ## Phase 4 - Advanced Expansion

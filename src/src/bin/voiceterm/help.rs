@@ -35,6 +35,10 @@ pub const SHORTCUTS: &[Shortcut] = &[
         description: "Theme picker",
     },
     Shortcut {
+        key: "Ctrl+G",
+        description: "Quick theme cycle",
+    },
+    Shortcut {
         key: "Ctrl+O",
         description: "Settings menu (use arrows)",
     },

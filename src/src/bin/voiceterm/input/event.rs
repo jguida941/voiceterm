@@ -10,6 +10,7 @@ pub(crate) enum InputEvent {
     DecreaseSensitivity,
     HelpToggle,
     ThemePicker,
+    QuickThemeCycle,
     SettingsToggle,
     ToggleHudStyle,
     EnterKey,

@@ -77,6 +77,7 @@ voiceterm --claude
 - `Ctrl+R` - start voice capture
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
+- `Ctrl+G` - quick cycle theme
 - `Ctrl+Y` - open theme picker
 - `Ctrl+O` - open settings menu (use ↑↓←→ + Enter)
 - `Ctrl+U` - cycle HUD style (full/minimal/hidden)
@@ -92,6 +93,9 @@ Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 Send mode note: "auto" types your words and presses Enter. "Insert" types your words
 but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY) and
 does not call Codex/Claude directly.
+
+Built-in voice navigation phrases include `scroll up`, `scroll down`,
+`show last error`, `copy last error`, and `explain last error`.
 
 More detailed topics:
 

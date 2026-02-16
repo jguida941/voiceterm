@@ -8,7 +8,7 @@ use voiceterm::{log_debug, VoiceCaptureSource};
 
 use crate::config::VoiceSendMode;
 use crate::prompt::PromptTracker;
-use crate::status_line::StatusLineState;
+use crate::status_line::{RecordingState, StatusLineState};
 use crate::writer::{set_status, WriterMessage};
 
 use super::idle::transcript_ready;
@@ -147,7 +147,10 @@ pub(crate) fn deliver_transcript<S: TranscriptSession>(
     };
     io.set_status(&status, Some(Duration::from_secs(2)));
     match send_transcript(io.session, text, mode) {
-        Ok(sent_newline) => sent_newline,
+        Ok(sent_newline) => {
+            io.status_state.recording_state = RecordingState::Responding;
+            sent_newline
+        }
         Err(err) => {
             log_debug(&format!("failed to send transcript: {err:#}"));
             io.set_status(

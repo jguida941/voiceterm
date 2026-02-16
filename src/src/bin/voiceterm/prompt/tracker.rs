@@ -26,6 +26,8 @@ pub(crate) struct PromptTracker {
     current_line: Vec<u8>,
     /// Last completed line (ANSI-stripped).
     last_line: Option<String>,
+    /// Last completed line that appears to contain an error signal.
+    last_error_line: Option<String>,
     /// Optional prompt logging sink.
     prompt_logger: PromptLogger,
 }
@@ -46,6 +48,7 @@ impl PromptTracker {
             has_seen_output: false,
             current_line: Vec::new(),
             last_line: None,
+            last_error_line: None,
             prompt_logger,
         }
     }
@@ -116,6 +119,9 @@ impl PromptTracker {
             return;
         }
         self.last_line = Some(line.clone());
+        if looks_like_error_line(&line) {
+            self.last_error_line = Some(line.clone());
+        }
         if self.matches_prompt(&line) {
             self.update_prompt_seen(Instant::now(), &line, reason);
         }
@@ -166,6 +172,10 @@ impl PromptTracker {
     pub(crate) fn has_seen_output(&self) -> bool {
         self.has_seen_output
     }
+
+    pub(crate) fn last_error_line(&self) -> Option<&str> {
+        self.last_error_line.as_deref()
+    }
 }
 
 fn looks_like_prompt(line: &str) -> bool {
@@ -177,6 +187,14 @@ fn looks_like_prompt(line: &str) -> bool {
         trimmed.chars().last(),
         Some('>') | Some('›') | Some('❯') | Some('$') | Some('#')
     )
+}
+
+fn looks_like_error_line(line: &str) -> bool {
+    let lowered = line.to_ascii_lowercase();
+    lowered.contains("error")
+        || lowered.contains("failed")
+        || lowered.contains("panic")
+        || lowered.contains("exception")
 }
 
 pub(crate) fn should_auto_trigger(
@@ -299,6 +317,17 @@ mod tests {
         let mut tracker = PromptTracker::new(None, true, logger);
         tracker.feed_output(b"hi\xC2\xA0there\n");
         assert_eq!(tracker.last_line.as_deref(), Some("hithere"));
+    }
+
+    #[test]
+    fn prompt_tracker_captures_last_error_line() {
+        let logger = PromptLogger::new(Some(temp_log_path("prompt_tracker_error_line")));
+        let mut tracker = PromptTracker::new(None, true, logger);
+        tracker.feed_output(b"build failed with status 1\n");
+        assert_eq!(
+            tracker.last_error_line(),
+            Some("build failed with status 1")
+        );
     }
 
     #[test]

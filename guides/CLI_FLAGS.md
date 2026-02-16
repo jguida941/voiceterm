@@ -50,6 +50,10 @@ voiceterm --logs                        # Enable debug logging
 `Macros` is currently a runtime Settings toggle (`Ctrl+O`) and does not yet
 have a CLI flag.
 
+Built-in voice navigation commands are runtime phrase actions (not CLI flags):
+`scroll up`, `scroll down`, `show last error`, `copy last error`, and
+`explain last error`.
+
 ---
 
 ## Backend Selection
@@ -160,6 +164,8 @@ voiceterm --login --claude      # Login to Claude CLI
 - To disable the right-side waveform/pulse panel, set `--hud-right-panel off`
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
+Theme controls at runtime: `Ctrl+Y` opens the picker and `Ctrl+G` quick-cycles
+to the next theme.
 Compact HUD modules adapt by state and available width (recording favors meter +
 latency + queue, busy favors queue + latency, idle favors latency).
 Rendering internals and terminal-specific behavior are documented in

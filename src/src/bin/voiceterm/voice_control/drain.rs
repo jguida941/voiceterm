@@ -2,6 +2,8 @@
 
 use crossbeam_channel::Sender;
 use std::collections::VecDeque;
+use std::io::Write;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use voiceterm::{log_debug, VoiceCaptureSource, VoiceCaptureTrigger, VoiceJobMessage};
 
@@ -35,6 +37,230 @@ fn apply_macro_mode(
         .as_ref()
         .map(|trigger| format!("macro '{}'", trigger));
     (expanded.text, expanded.mode, macro_note)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum VoiceNavigationAction {
+    ScrollUp,
+    ScrollDown,
+    CopyLastError,
+    ShowLastError,
+    ExplainLastError,
+}
+
+fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigationAction> {
+    let normalized = text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_lowercase();
+    match normalized.as_str() {
+        "scroll up" | "voice scroll up" | "page up" => Some(VoiceNavigationAction::ScrollUp),
+        "scroll down" | "voice scroll down" | "page down" => {
+            Some(VoiceNavigationAction::ScrollDown)
+        }
+        "copy last error" | "copy the last error" => Some(VoiceNavigationAction::CopyLastError),
+        "show last error" | "what was the last error" => Some(VoiceNavigationAction::ShowLastError),
+        "explain last error" | "explain the last error" => {
+            Some(VoiceNavigationAction::ExplainLastError)
+        }
+        _ => None,
+    }
+}
+
+fn copy_to_clipboard(text: &str) -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut child = Command::new("pbcopy")
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|err| anyhow::anyhow!("failed to launch pbcopy: {err}"))?;
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin
+                .write_all(text.as_bytes())
+                .map_err(|err| anyhow::anyhow!("failed to write pbcopy stdin: {err}"))?;
+        }
+        let status = child
+            .wait()
+            .map_err(|err| anyhow::anyhow!("failed to wait for pbcopy: {err}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("pbcopy exited with status {status}"))
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = text;
+        Err(anyhow::anyhow!(
+            "clipboard copy is not implemented on this platform"
+        ))
+    }
+}
+
+fn execute_voice_navigation_action<S: TranscriptSession>(
+    action: VoiceNavigationAction,
+    prompt_tracker: &PromptTracker,
+    session: &mut S,
+    writer_tx: &Sender<WriterMessage>,
+    status_clear_deadline: &mut Option<Instant>,
+    current_status: &mut Option<String>,
+    status_state: &mut StatusLineState,
+) -> bool {
+    match action {
+        VoiceNavigationAction::ScrollUp => match session.send_text("\u{1b}[5~") {
+            Ok(()) => {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Voice command: scroll up",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                false
+            }
+            Err(err) => {
+                log_debug(&format!("voice command scroll up failed: {err:#}"));
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Voice command failed: scroll up",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                false
+            }
+        },
+        VoiceNavigationAction::ScrollDown => match session.send_text("\u{1b}[6~") {
+            Ok(()) => {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Voice command: scroll down",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                false
+            }
+            Err(err) => {
+                log_debug(&format!("voice command scroll down failed: {err:#}"));
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Voice command failed: scroll down",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                false
+            }
+        },
+        VoiceNavigationAction::ShowLastError => {
+            if let Some(last_error) = prompt_tracker.last_error_line() {
+                let preview = format_transcript_preview(last_error, 72);
+                let status = format!("Last error: {preview}");
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    &status,
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+            } else {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "No error captured yet",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+            }
+            false
+        }
+        VoiceNavigationAction::CopyLastError => {
+            let Some(last_error) = prompt_tracker.last_error_line() else {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "No error captured to copy",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                return false;
+            };
+            match copy_to_clipboard(last_error) {
+                Ok(()) => {
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command: copied last error",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                }
+                Err(err) => {
+                    log_debug(&format!("voice command copy failed: {err:#}"));
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command failed: copy last error",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                }
+            }
+            false
+        }
+        VoiceNavigationAction::ExplainLastError => {
+            let Some(last_error) = prompt_tracker.last_error_line() else {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "No error captured to explain",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                return false;
+            };
+            let explain_prompt =
+                format!("Explain this terminal error and suggest a fix:\n\n{last_error}");
+            match send_transcript(session, &explain_prompt, VoiceSendMode::Auto) {
+                Ok(sent_newline) => {
+                    status_state.recording_state = RecordingState::Responding;
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command: explain last error",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                    sent_newline
+                }
+                Err(err) => {
+                    log_debug(&format!("voice command explain failed: {err:#}"));
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command failed: explain last error",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                    false
+                }
+            }
+        }
+    }
 }
 
 pub(crate) fn clear_capture_metrics(status_state: &mut StatusLineState) {
@@ -214,12 +440,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
             source,
             metrics,
         } => {
-            let (text, transcript_mode, macro_note) = apply_macro_mode(
-                &text,
-                config.voice_send_mode,
-                status_state.macros_enabled,
-                voice_macros,
-            );
+            let navigation_action = parse_voice_navigation_action(&text);
             update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let ready =
                 transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout);
@@ -240,71 +461,54 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                 status_state.transcript_preview = Some(preview);
                 *preview_clear_deadline = Some(now + Duration::from_millis(PREVIEW_CLEAR_MS));
             }
-            let drop_note = metrics
-                .as_ref()
-                .filter(|metrics| metrics.frames_dropped > 0)
-                .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
-            let mut notes = Vec::with_capacity(2);
-            if let Some(note) = drop_note {
-                notes.push(note);
-            }
-            if let Some(note) = macro_note {
-                notes.push(note);
-            }
-            let delivery_note = if notes.is_empty() {
-                None
-            } else {
-                Some(notes.join(", "))
-            };
             let duration_secs = metrics
                 .as_ref()
                 .map(|metrics| metrics.speech_ms as f32 / 1000.0)
                 .unwrap_or(0.0);
             session_stats.record_transcript(duration_secs);
-            let queued_suffix = delivery_note
-                .as_ref()
-                .map(|note| format!(", {note}"))
-                .unwrap_or_default();
-            if ready && pending_transcripts.is_empty() {
-                let mut io = TranscriptIo {
+            let mut transcript_mode = config.voice_send_mode;
+            if let Some(action) = navigation_action {
+                let sent_newline = execute_voice_navigation_action(
+                    action,
+                    prompt_tracker,
                     session,
                     writer_tx,
                     status_clear_deadline,
                     current_status,
                     status_state,
-                };
-                let sent_newline = deliver_transcript(
-                    &text,
-                    source.label(),
-                    transcript_mode,
-                    &mut io,
-                    0,
-                    delivery_note.as_deref(),
                 );
                 if sent_newline {
                     *last_enter_at = Some(now);
                 }
             } else {
-                let dropped = push_pending_transcript(
-                    pending_transcripts,
-                    PendingTranscript {
-                        text,
-                        source,
-                        mode: transcript_mode,
-                    },
+                let (text, mode, macro_note) = apply_macro_mode(
+                    &text,
+                    config.voice_send_mode,
+                    status_state.macros_enabled,
+                    voice_macros,
                 );
-                status_state.queue_depth = pending_transcripts.len();
-                if dropped {
-                    set_status(
-                        writer_tx,
-                        status_clear_deadline,
-                        current_status,
-                        status_state,
-                        "Transcript queue full (oldest dropped)",
-                        Some(Duration::from_secs(2)),
-                    );
+                transcript_mode = mode;
+                let drop_note = metrics
+                    .as_ref()
+                    .filter(|metrics| metrics.frames_dropped > 0)
+                    .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
+                let mut notes = Vec::with_capacity(2);
+                if let Some(note) = drop_note {
+                    notes.push(note);
                 }
-                if ready {
+                if let Some(note) = macro_note {
+                    notes.push(note);
+                }
+                let delivery_note = if notes.is_empty() {
+                    None
+                } else {
+                    Some(notes.join(", "))
+                };
+                let queued_suffix = delivery_note
+                    .as_ref()
+                    .map(|note| format!(", {note}"))
+                    .unwrap_or_default();
+                if ready && pending_transcripts.is_empty() {
                     let mut io = TranscriptIo {
                         session,
                         writer_tx,
@@ -312,28 +516,68 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                         current_status,
                         status_state,
                     };
-                    try_flush_pending(
-                        pending_transcripts,
-                        prompt_tracker,
-                        last_enter_at,
+                    let sent_newline = deliver_transcript(
+                        &text,
+                        source.label(),
+                        transcript_mode,
                         &mut io,
-                        now,
-                        transcript_idle_timeout,
+                        0,
+                        delivery_note.as_deref(),
                     );
-                } else if !dropped {
-                    let status = format!(
-                        "Transcript queued ({}{})",
-                        pending_transcripts.len(),
-                        queued_suffix
+                    if sent_newline {
+                        *last_enter_at = Some(now);
+                    }
+                } else {
+                    let dropped = push_pending_transcript(
+                        pending_transcripts,
+                        PendingTranscript {
+                            text,
+                            source,
+                            mode: transcript_mode,
+                        },
                     );
-                    set_status(
-                        writer_tx,
-                        status_clear_deadline,
-                        current_status,
-                        status_state,
-                        &status,
-                        None,
-                    );
+                    status_state.queue_depth = pending_transcripts.len();
+                    if dropped {
+                        set_status(
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                            "Transcript queue full (oldest dropped)",
+                            Some(Duration::from_secs(2)),
+                        );
+                    }
+                    if ready {
+                        let mut io = TranscriptIo {
+                            session,
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                        };
+                        try_flush_pending(
+                            pending_transcripts,
+                            prompt_tracker,
+                            last_enter_at,
+                            &mut io,
+                            now,
+                            transcript_idle_timeout,
+                        );
+                    } else if !dropped {
+                        let status = format!(
+                            "Transcript queued ({}{})",
+                            pending_transcripts.len(),
+                            queued_suffix
+                        );
+                        set_status(
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                            &status,
+                            None,
+                        );
+                    }
                 }
             }
             if auto_voice_enabled
@@ -496,6 +740,7 @@ pub(crate) fn reset_capture_visuals(
 mod tests {
     use super::*;
     use crate::config::VoiceSendMode;
+    use crate::prompt::PromptLogger;
     use crate::transcript::TranscriptSession;
     use clap::Parser;
     use std::fs;
@@ -572,6 +817,130 @@ macros:
         assert_eq!(mode, VoiceSendMode::Insert);
         assert!(note.is_none());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_voice_navigation_action_maps_supported_phrases() {
+        assert_eq!(
+            parse_voice_navigation_action("scroll up"),
+            Some(VoiceNavigationAction::ScrollUp)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("voice scroll down"),
+            Some(VoiceNavigationAction::ScrollDown)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("copy last error"),
+            Some(VoiceNavigationAction::CopyLastError)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("show last error"),
+            Some(VoiceNavigationAction::ShowLastError)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("explain the last error"),
+            Some(VoiceNavigationAction::ExplainLastError)
+        );
+        assert_eq!(parse_voice_navigation_action("run tests"), None);
+    }
+
+    #[test]
+    fn execute_voice_navigation_scroll_up_sends_pageup_escape() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"ready\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::ScrollUp,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(!sent_newline);
+        assert_eq!(session.sent, vec!["\u{1b}[5~".to_string()]);
+        assert!(status_state.message.contains("scroll up"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_show_last_error_updates_status() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"compile error: missing semicolon\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::ShowLastError,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(!sent_newline);
+        assert!(status_state.message.contains("Last error:"));
+        assert!(status_state.message.contains("missing semicolon"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_copy_last_error_without_capture_sets_status() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::CopyLastError,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(!sent_newline);
+        assert!(status_state.message.contains("No error captured to copy"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_explain_last_error_sends_prompt() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"fatal error: invalid token\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::ExplainLastError,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(sent_newline);
+        assert_eq!(status_state.recording_state, RecordingState::Responding);
+        assert_eq!(session.sent_with_newline.len(), 1);
+        assert!(session.sent_with_newline[0].contains("fatal error: invalid token"));
     }
 
     #[test]
