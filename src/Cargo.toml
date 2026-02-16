@@ -1,6 +1,6 @@
 [package]
 name = "voiceterm"
-version = "1.0.66"
+version = "1.0.67"
 edition = "2021"
 default-run = "voiceterm"
 autobins = false
@@ -54,3 +54,6 @@ path = "src/bin/test_crash.rs"
 [[bin]]
 name = "test_utf8_bug"
 path = "src/bin/test_utf8_bug.rs"
+
+[dev-dependencies]
+proptest = "1"

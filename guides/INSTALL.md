@@ -3,6 +3,11 @@
 This doc covers install options and model setup.
 Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
 
+Docs map:
+
+- User guides index: [README.md](README.md)
+- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
+
 ## Platform Support
 
 | Platform | Status | Install Method |
@@ -31,19 +36,21 @@ Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
 | CLI | Install Command |
 |-----|-----------------|
 | Codex (default) | `npm install -g @openai/codex` |
-| Claude Code | `curl -fsSL https://claude.ai/install.sh | bash` |
+| Claude Code | `bash -c "$(curl -fsSL https://claude.ai/install.sh)"` |
 
 Authenticate once after installing your CLI:
+
 ```bash
 voiceterm --login --codex
 voiceterm --login --claude
 ```
 
 **Other requirements:**
+
 - Microphone access
 - Whisper model (GGML) downloaded on first run
 - Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
-- Rust toolchain (stable) only if you build from source: https://rustup.rs
+- Rust toolchain (stable) only if you build from source: <https://rustup.rs>
 - Optional (Python fallback): `python3`, `ffmpeg`, and the `whisper` CLI on PATH
   (disable with `--no-python-fallback`)
 
@@ -97,7 +104,7 @@ brew upgrade voiceterm
 ```
 
 If Homebrew still shows an older version or `voiceterm` runs an older binary, see
-[Troubleshooting: Wrong version after update](TROUBLESHOOTING_INSTALL.md#wrong-version-after-update).
+[Troubleshooting: Wrong version after update](TROUBLESHOOTING.md#wrong-version-after-update).
 
 After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
@@ -124,9 +131,11 @@ voiceterm --version
 ```
 
 PyPI project page:
-- https://pypi.org/project/voiceterm/
+
+- <https://pypi.org/project/voiceterm/>
 
 PyPI launcher note:
+
 - The package installs a Python launcher named `voiceterm`.
 - On first run it bootstraps the native Rust binary into
   `~/.local/share/voiceterm/native/bin/voiceterm`.
@@ -225,4 +234,4 @@ a macOS/Linux machine.
 | Usage | [USAGE.md](USAGE.md) |
 | CLI Flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
 | Troubleshooting hub | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
-| Install/update troubleshooting | [TROUBLESHOOTING_INSTALL.md](TROUBLESHOOTING_INSTALL.md) |
+| Install/update troubleshooting | [TROUBLESHOOTING.md#install-and-update-issues](TROUBLESHOOTING.md#install-and-update-issues) |

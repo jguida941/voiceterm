@@ -25,11 +25,13 @@ Adopt a shared focus and overlay stack model in the UI core:
 ## Consequences
 
 Positive:
+
 - Consistent focus trap and restoration across overlays.
 - Overlay and TUI behavior remains identical.
 - Predictable input routing and fewer accidental leaks to the CLI.
 
 Negative:
+
 - Slightly more state and bookkeeping in the UI core.
 - Requires focused testing (focus trap and restoration paths).
 

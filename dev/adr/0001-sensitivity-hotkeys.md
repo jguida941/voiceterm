@@ -34,4 +34,3 @@ and risked interfering with ESC-prefixed sequences.
 - Function keys (macOS default media keys reduce reliability).
 
 ## Links
-

@@ -1,0 +1,21 @@
+default: true
+
+# Keep markdownlint focused on structural/readability issues instead of hard wrap.
+MD013: false
+
+# README uses centered badges/collapsible sections that require HTML.
+MD033:
+  allowed_elements:
+    - p
+    - img
+    - a
+    - details
+    - summary
+    - strong
+
+# README starts with branding HTML instead of a Markdown H1.
+MD041: false
+
+# Prefer ordered lists written as 1., 2., 3.
+MD029:
+  style: ordered

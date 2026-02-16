@@ -1,7 +1,7 @@
 //! Codex CLI invocation flow with cancellation and non-PTY reliability safeguards.
 
 use super::backend::{CancelToken, CodexCallError};
-use crate::{config::AppConfig, log_debug};
+use crate::{config::AppConfig, log_debug, process_signal::signal_process_group_or_pid};
 use anyhow::{anyhow, Result};
 #[cfg(test)]
 use std::sync::atomic::AtomicUsize;
@@ -156,7 +156,7 @@ pub(super) fn send_signal(pid: u32, signal: Signal) {
             Signal::Term => libc::SIGTERM,
             Signal::Kill => libc::SIGKILL,
         };
-        if let Err(err) = signal_process_group_or_pid(pid as i32, signo) {
+        if let Err(err) = signal_process_group_or_pid(pid as i32, signo, false) {
             #[cfg(test)]
             SEND_SIGNAL_FAILURES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             log_debug(&format!(
@@ -170,32 +170,6 @@ pub(super) fn send_signal(pid: u32, signal: Signal) {
         let _ = pid;
         let _ = signal;
         log_debug("CodexJob: cancellation requested, but signals unsupported on this platform");
-    }
-}
-
-#[cfg(unix)]
-fn signal_process_group_or_pid(pid: i32, signal: i32) -> io::Result<()> {
-    if pid <= 0 {
-        return Ok(());
-    }
-
-    unsafe {
-        if libc::kill(-pid, signal) == 0 {
-            return Ok(());
-        }
-        let group_err = io::Error::last_os_error();
-
-        if libc::kill(pid, signal) == 0 {
-            return Ok(());
-        }
-        let pid_err = io::Error::last_os_error();
-
-        Err(io::Error::new(
-            pid_err.kind(),
-            format!(
-                "group(-{pid}) signal failed: {group_err}; pid({pid}) signal failed: {pid_err}"
-            ),
-        ))
     }
 }
 

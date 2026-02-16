@@ -85,6 +85,7 @@ graph LR
 ```
 
 What this means:
+
 - The **terminal is the frontend**; the overlay doesn't replace the backend's UI.
 - The overlay **injects transcripts** as if typed by the user.
 - The status line is drawn at the bottom using ANSI save/restore.
@@ -121,6 +122,7 @@ graph TD
 ```
 
 Why this matters:
+
 - **Input thread** intercepts overlay hotkeys (voice, send mode, theme picker, help, sensitivity, exit) without blocking the backend CLI.
 - **PTY reader** keeps ANSI intact while replying to terminal queries (DSR/DA).
 - **Writer thread** prevents output + status/help overlay interleaving.
@@ -240,10 +242,14 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 |---|---|---|
 | Rust CI | `.github/workflows/rust_ci.yml` | fmt + clippy + workspace tests |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | macros-toggle and send-mode regression tests |
-| Perf Smoke | `.github/workflows/perf_smoke.yml` | validate `voice_metrics|...` logging contract |
+| Perf Smoke | `.github/workflows/perf_smoke.yml` | validate `voice_metrics\|...` logging contract |
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
+| Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (fail on high/critical CVSS, yanked, unsound) |
+| Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
+| Audit Traceability Guard | `.github/workflows/audit_traceability_guard.yml` | enforce hardening traceability sync between `MASTER_PLAN` and `RUST_GUI_AUDIT_2026-02-15.md` |
+| Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
 
 ### 3) Release Workflow (Master Branch)
 
@@ -253,6 +259,14 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 4. Publish PyPI package via `./dev/scripts/publish-pypi.sh --upload`.
 5. Update Homebrew tap via `./dev/scripts/update-homebrew.sh <version>`.
 6. Sync release snapshot in `dev/active/MASTER_PLAN.md`.
+
+### 4) Security Posture and Risk Controls
+
+- VoiceTerm is local-first: it runs backend CLIs on the same host and does not add hosted control planes.
+- Backend child processes inherit the invoking user's OS privileges, so host-level least privilege remains the primary boundary.
+- Claude permission prompts are enabled by default; `--claude-skip-permissions` intentionally weakens that guard.
+- Use `--claude-skip-permissions` only in isolated/trusted environments (sandbox/container/throwaway workspace) and avoid untrusted repositories.
+- Supply-chain risk is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
 
 ## Overlay State Machine
 
@@ -275,6 +289,7 @@ stateDiagram-v2
   (`scripts/python_fallback.py`) unless `--no-python-fallback` is set.
 
 Common setup path:
+
 - `./scripts/setup.sh models --base` downloads `whisper_models/ggml-base.en.bin`.
 - `start.sh` passes `--whisper-model-path` into `voiceterm` when a model is found.
 
@@ -302,6 +317,7 @@ flowchart TD
 ```
 
 Notes:
+
 - Python fallback requires `python3`, `ffmpeg`, and the `whisper` CLI on PATH.
 - Use `--no-python-fallback` to force native Whisper and surface errors early.
 - When fallback is active, the overlay tags recordings with `REC PY` and status messages report "Python"; logs record the switch.
@@ -333,6 +349,7 @@ graph LR
 ```
 
 Timing observability:
+
 - Voice capture logs: `voice_metrics|capture_ms=...|speech_ms=...|...`
 - If `--log-timings` is set, also logs:
   `timing|phase=voice_capture|record_s=...|stt_s=...|chars=...`
@@ -349,6 +366,7 @@ graph TD
 ```
 
 Safety constraints in code:
+
 - CLI binary paths are validated (`--codex-cmd`, `--python-cmd`, `--ffmpeg-cmd`, `--whisper-cmd`).
 - `--ffmpeg-device` is restricted to avoid shell metacharacters.
 - `--whisper-model-path` must exist and is canonicalized.
@@ -406,7 +424,6 @@ intervals to avoid corrupting the backend's screen.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
-
 
 ## Key Files
 
@@ -498,7 +515,8 @@ intervals to avoid corrupting the backend's screen.
 
 Full CLI reference: `guides/CLI_FLAGS.md`.
 
-**Overlay Flags**
+### Overlay Flags
+
 | Flag | Purpose |
 |------|---------|
 | `--backend <NAME\|CMD>` | Backend preset or custom command string |
@@ -520,9 +538,11 @@ Full CLI reference: `guides/CLI_FLAGS.md`.
 | `--minimal-hud` | Shorthand for minimal HUD |
 
 Project-local config:
+
 - `.voiceterm/macros.yaml` (optional) defines transcript trigger expansions before PTY injection.
 
-**Core CLI Flags**
+### Core CLI Flags
+
 | Flag | Purpose |
 |------|---------|
 | `--codex-cmd` | Codex binary path |
@@ -570,7 +590,8 @@ Project-local config:
 | `--no-python-fallback` | Disable python STT fallback |
 | `--json-ipc` | JSON IPC mode |
 
-**Environment Variables**
+### Environment Variables
+
 | Variable | Purpose |
 |----------|---------|
 | `VOICETERM_CWD` | Run backend CLI in a chosen directory |

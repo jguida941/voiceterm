@@ -5,6 +5,7 @@
 //! signals, and graceful process termination.
 
 use crate::log_debug;
+use crate::process_signal::signal_process_group_or_pid;
 use anyhow::{anyhow, Context, Result};
 use crossbeam_channel::{bounded, Receiver};
 use std::ffi::CString;
@@ -201,11 +202,13 @@ impl Drop for PtyCliSession {
                 }
             }
             if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM) {
+                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM, true) {
                     log_debug(&format!("SIGTERM to PTY session failed: {}", err));
                 }
                 if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGKILL) {
+                    if let Err(err) =
+                        signal_process_group_or_pid(self.child_pid, libc::SIGKILL, true)
+                    {
                         log_debug(&format!("SIGKILL to PTY session failed: {}", err));
                     }
                     #[cfg(any(test, feature = "mutants"))]
@@ -321,7 +324,7 @@ impl PtyOverlaySession {
             return Err(errno_error("ioctl(TIOCSWINSZ) failed"));
         }
         // Notify the full PTY process tree about resize events.
-        let _ = signal_process_group_or_pid(self.child_pid, libc::SIGWINCH);
+        let _ = signal_process_group_or_pid(self.child_pid, libc::SIGWINCH, true);
         Ok(())
     }
 
@@ -374,11 +377,13 @@ impl Drop for PtyOverlaySession {
                 }
             }
             if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM) {
+                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM, true) {
                     log_debug(&format!("SIGTERM to PTY session failed: {}", err));
                 }
                 if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGKILL) {
+                    if let Err(err) =
+                        signal_process_group_or_pid(self.child_pid, libc::SIGKILL, true)
+                    {
                         log_debug(&format!("SIGKILL to PTY session failed: {}", err));
                     }
                     #[cfg(any(test, feature = "mutants"))]
@@ -423,41 +428,6 @@ fn is_benign_shutdown_write_error(err: &anyhow::Error) -> bool {
         }
     }
     false
-}
-
-fn signal_process_group_or_pid(child_pid: i32, signal: i32) -> io::Result<()> {
-    if child_pid <= 0 {
-        return Ok(());
-    }
-
-    // PTY children call setsid(), so process-group signaling reaches shells/wrappers and
-    // their descendants. Fall back to direct pid signaling for edge cases.
-    unsafe {
-        if libc::kill(-child_pid, signal) == 0 {
-            return Ok(());
-        }
-        let group_err = io::Error::last_os_error();
-
-        if libc::kill(child_pid, signal) == 0 {
-            return Ok(());
-        }
-        let pid_err = io::Error::last_os_error();
-
-        if is_no_such_process(&group_err) || is_no_such_process(&pid_err) {
-            return Ok(());
-        }
-
-        Err(io::Error::new(
-            pid_err.kind(),
-            format!(
-                "group(-{child_pid}) signal failed: {group_err}; pid({child_pid}) signal failed: {pid_err}"
-            ),
-        ))
-    }
-}
-
-fn is_no_such_process(err: &io::Error) -> bool {
-    matches!(err.raw_os_error(), Some(code) if code == libc::ESRCH)
 }
 
 /// Forks and execs a child process under a new PTY.

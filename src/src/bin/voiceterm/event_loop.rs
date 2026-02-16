@@ -166,6 +166,122 @@ fn start_voice_capture_with_hook(
     )
 }
 
+fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    update_pty_winsize(
+        &mut deps.session,
+        &mut state.terminal_rows,
+        &mut state.terminal_cols,
+        state.overlay_mode,
+        state.status_state.hud_style,
+    );
+}
+
+fn refresh_button_registry_if_mouse(state: &EventLoopState, deps: &EventLoopDeps) {
+    if !state.status_state.mouse_enabled {
+        return;
+    }
+    update_button_registry(
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+}
+
+fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_help_overlay(&deps.writer_tx, state.theme, cols);
+}
+
+fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_theme_picker_overlay(
+        &deps.writer_tx,
+        state.theme,
+        state.theme_picker_selected,
+        cols,
+    );
+}
+
+fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_settings_overlay(
+        &deps.writer_tx,
+        state.theme,
+        cols,
+        &state.settings_menu,
+        &state.config,
+        &state.status_state,
+        &deps.backend_label,
+    );
+}
+
+fn reset_theme_picker_digits(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
+    state.theme_picker_digits.clear();
+    timers.theme_picker_digit_deadline = None;
+}
+
+fn reset_theme_picker_selection(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
+    state.theme_picker_selected = theme_index_from_theme(state.theme);
+    reset_theme_picker_digits(state, timers);
+}
+
+fn settings_action_context<'a>(
+    state: &'a mut EventLoopState,
+    timers: &'a mut EventLoopTimers,
+    deps: &'a mut EventLoopDeps,
+    overlay_mode: OverlayMode,
+) -> SettingsActionContext<'a> {
+    SettingsActionContext::new(
+        &mut state.config,
+        &mut state.status_state,
+        &mut state.auto_voice_enabled,
+        &mut deps.voice_manager,
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut timers.last_auto_trigger_at,
+        &mut timers.recording_started_at,
+        &mut timers.preview_clear_deadline,
+        &mut timers.last_meter_update,
+        &deps.button_registry,
+        overlay_mode,
+        &mut state.terminal_rows,
+        &mut state.terminal_cols,
+        &mut state.theme,
+        Some(&mut deps.session),
+    )
+}
+
+fn button_action_context<'a>(
+    state: &'a mut EventLoopState,
+    timers: &'a mut EventLoopTimers,
+    deps: &'a mut EventLoopDeps,
+) -> ButtonActionContext<'a> {
+    ButtonActionContext::new(
+        &mut state.overlay_mode,
+        &mut state.settings_menu,
+        &mut state.config,
+        &mut state.status_state,
+        &mut state.auto_voice_enabled,
+        &mut deps.voice_manager,
+        &mut deps.session,
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut timers.recording_started_at,
+        &mut timers.preview_clear_deadline,
+        &mut timers.last_meter_update,
+        &mut timers.last_auto_trigger_at,
+        &mut state.terminal_rows,
+        &mut state.terminal_cols,
+        &deps.backend_label,
+        &mut state.theme,
+        &deps.button_registry,
+    )
+}
+
 fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {
     let Some(pending) = state.pending_pty_output.take() else {
         return true;
@@ -286,38 +402,11 @@ fn run_periodic_tasks(
                     state.status_state.hud_style,
                 );
                 let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
-                if state.status_state.mouse_enabled {
-                    update_button_registry(
-                        &deps.button_registry,
-                        &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
-                        state.theme,
-                    );
-                }
+                refresh_button_registry_if_mouse(state, deps);
                 match state.overlay_mode {
-                    OverlayMode::Help => {
-                        show_help_overlay(&deps.writer_tx, state.theme, cols);
-                    }
-                    OverlayMode::ThemePicker => {
-                        show_theme_picker_overlay(
-                            &deps.writer_tx,
-                            state.theme,
-                            state.theme_picker_selected,
-                            cols,
-                        );
-                    }
-                    OverlayMode::Settings => {
-                        show_settings_overlay(
-                            &deps.writer_tx,
-                            state.theme,
-                            cols,
-                            &state.settings_menu,
-                            &state.config,
-                            &state.status_state,
-                            &deps.backend_label,
-                        );
-                    }
+                    OverlayMode::Help => render_help_overlay_for_state(state, deps),
+                    OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
+                    OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
                     OverlayMode::None => {}
                 }
             }
@@ -325,8 +414,7 @@ fn run_periodic_tasks(
     }
 
     if state.overlay_mode != OverlayMode::ThemePicker {
-        state.theme_picker_digits.clear();
-        timers.theme_picker_digit_deadline = None;
+        reset_theme_picker_digits(state, timers);
     } else if let Some(deadline) = timers.theme_picker_digit_deadline {
         if now >= deadline {
             if let Some(idx) =
@@ -348,8 +436,7 @@ fn run_periodic_tasks(
                     state.theme_picker_selected = theme_index_from_theme(state.theme);
                 }
             }
-            state.theme_picker_digits.clear();
-            timers.theme_picker_digit_deadline = None;
+            reset_theme_picker_digits(state, timers);
         }
     }
 
@@ -593,213 +680,109 @@ pub(crate) fn run_event_loop(
                             match (state.overlay_mode, evt) {
                                 (_, InputEvent::Exit) => running = false,
                                 (mode, InputEvent::ToggleHudStyle) => {
-                                    let mut settings_ctx = SettingsActionContext::new(
-                                        &mut state.config,
-                                        &mut state.status_state,
-                                        &mut state.auto_voice_enabled,
-                                        &mut deps.voice_manager,
-                                        &deps.writer_tx,
-                                        &mut timers.status_clear_deadline,
-                                        &mut state.current_status,
-                                        &mut timers.last_auto_trigger_at,
-                                        &mut timers.recording_started_at,
-                                        &mut timers.preview_clear_deadline,
-                                        &mut timers.last_meter_update,
-                                        &deps.button_registry,
-                                        mode,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        &mut state.theme,
-                                        Some(&mut deps.session),
-                                    );
+                                    let mut settings_ctx =
+                                        settings_action_context(state, timers, deps, mode);
                                     settings_ctx.update_hud_style(1);
                                     if mode == OverlayMode::Settings {
-                                        let cols = resolved_cols(state.terminal_cols);
-                                        show_settings_overlay(
-                                            &deps.writer_tx,
-                                            state.theme,
-                                            cols,
-                                            &state.settings_menu,
-                                            &state.config,
-                                            &state.status_state,
-                                            &deps.backend_label,
-                                        );
+                                        render_settings_overlay_for_state(state, deps);
                                     }
                                 }
                                 (OverlayMode::Settings, InputEvent::SettingsToggle) => {
                                     state.overlay_mode = OverlayMode::None;
                                     let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    if state.status_state.mouse_enabled {
-                                        update_button_registry(
-                                            &deps.button_registry,
-                                            &state.status_state,
-                                            state.overlay_mode,
-                                            state.terminal_cols,
-                                            state.theme,
-                                        );
-                                    }
+                                    sync_overlay_winsize(state, deps);
+                                    refresh_button_registry_if_mouse(state, deps);
                                 }
                                 (OverlayMode::Settings, InputEvent::HelpToggle) => {
                                     state.overlay_mode = OverlayMode::Help;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    show_help_overlay(&deps.writer_tx, state.theme, cols);
+                                    sync_overlay_winsize(state, deps);
+                                    render_help_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::Settings, InputEvent::ThemePicker) => {
                                     state.overlay_mode = OverlayMode::ThemePicker;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                    state.theme_picker_digits.clear();
-                                    timers.theme_picker_digit_deadline = None;
-                                    show_theme_picker_overlay(
-                                        &deps.writer_tx,
-                                        state.theme,
-                                        state.theme_picker_selected,
-                                        cols,
-                                    );
+                                    sync_overlay_winsize(state, deps);
+                                    reset_theme_picker_selection(state, timers);
+                                    render_theme_picker_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::Settings, InputEvent::EnterKey) => {
                                     let mut should_redraw = false;
-                                    let mut settings_ctx = SettingsActionContext::new(
-                                        &mut state.config,
-                                        &mut state.status_state,
-                                        &mut state.auto_voice_enabled,
-                                        &mut deps.voice_manager,
-                                        &deps.writer_tx,
-                                        &mut timers.status_clear_deadline,
-                                        &mut state.current_status,
-                                        &mut timers.last_auto_trigger_at,
-                                        &mut timers.recording_started_at,
-                                        &mut timers.preview_clear_deadline,
-                                        &mut timers.last_meter_update,
-                                        &deps.button_registry,
-                                        state.overlay_mode,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        &mut state.theme,
-                                        Some(&mut deps.session),
-                                    );
-                                    match state.settings_menu.selected_item() {
-                                        SettingsItem::AutoVoice => {
-                                            settings_ctx.toggle_auto_voice();
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::SendMode => {
-                                            settings_ctx.toggle_send_mode();
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::Macros => {
-                                            settings_ctx.toggle_macros_enabled();
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::Sensitivity => {}
-                                        SettingsItem::Theme => {
-                                            settings_ctx.cycle_theme(1);
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::HudStyle => {
-                                            settings_ctx.update_hud_style(1);
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::HudBorders => {
-                                            settings_ctx.update_hud_border_style(1);
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::HudPanel => {
-                                            settings_ctx.update_hud_panel(1);
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::HudAnimate => {
-                                            settings_ctx.toggle_hud_panel_recording_only();
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::Latency => {
-                                            settings_ctx.cycle_latency_display(1);
-                                            should_redraw = true;
-                                        }
-                                        SettingsItem::Mouse => {
-                                            settings_ctx.toggle_mouse();
-                                            should_redraw = true;
-                                        }
+                                    let selected = state.settings_menu.selected_item();
+                                    match selected {
                                         SettingsItem::Backend | SettingsItem::Pipeline => {}
                                         SettingsItem::Close => {
                                             state.overlay_mode = OverlayMode::None;
                                             let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                            update_pty_winsize(
-                                                &mut deps.session,
-                                                &mut state.terminal_rows,
-                                                &mut state.terminal_cols,
-                                                state.overlay_mode,
-                                                state.status_state.hud_style,
-                                            );
+                                            sync_overlay_winsize(state, deps);
                                         }
                                         SettingsItem::Quit => running = false,
+                                        _ => {
+                                            let overlay_mode = state.overlay_mode;
+                                            let mut settings_ctx = settings_action_context(
+                                                state,
+                                                timers,
+                                                deps,
+                                                overlay_mode,
+                                            );
+                                            match selected {
+                                                SettingsItem::AutoVoice => {
+                                                    settings_ctx.toggle_auto_voice();
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::SendMode => {
+                                                    settings_ctx.toggle_send_mode();
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::Macros => {
+                                                    settings_ctx.toggle_macros_enabled();
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::Sensitivity => {}
+                                                SettingsItem::Theme => {
+                                                    settings_ctx.cycle_theme(1);
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::HudStyle => {
+                                                    settings_ctx.update_hud_style(1);
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::HudBorders => {
+                                                    settings_ctx.update_hud_border_style(1);
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::HudPanel => {
+                                                    settings_ctx.update_hud_panel(1);
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::HudAnimate => {
+                                                    settings_ctx.toggle_hud_panel_recording_only();
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::Latency => {
+                                                    settings_ctx.cycle_latency_display(1);
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::Mouse => {
+                                                    settings_ctx.toggle_mouse();
+                                                    should_redraw = true;
+                                                }
+                                                SettingsItem::Backend
+                                                | SettingsItem::Pipeline
+                                                | SettingsItem::Close
+                                                | SettingsItem::Quit => {}
+                                            }
+                                        }
                                     }
                                     if state.overlay_mode == OverlayMode::Settings && should_redraw {
-                                        let cols = resolved_cols(state.terminal_cols);
-                                        show_settings_overlay(
-                                            &deps.writer_tx,
-                                            state.theme,
-                                            cols,
-                                            &state.settings_menu,
-                                            &state.config,
-                                            &state.status_state,
-                                            &deps.backend_label,
-                                        );
+                                        render_settings_overlay_for_state(state, deps);
                                     }
                                 }
                                 (OverlayMode::Settings, InputEvent::Bytes(bytes)) => {
                                     if bytes == [0x1b] {
                                         state.overlay_mode = OverlayMode::None;
                                         let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                        update_pty_winsize(
-                                            &mut deps.session,
-                                            &mut state.terminal_rows,
-                                            &mut state.terminal_cols,
-                                            state.overlay_mode,
-                                            state.status_state.hud_style,
-                                        );
+                                        sync_overlay_winsize(state, deps);
                                     } else {
                                         let mut should_redraw = false;
-                                        let mut settings_ctx = SettingsActionContext::new(
-                                            &mut state.config,
-                                            &mut state.status_state,
-                                            &mut state.auto_voice_enabled,
-                                            &mut deps.voice_manager,
-                                            &deps.writer_tx,
-                                            &mut timers.status_clear_deadline,
-                                            &mut state.current_status,
-                                            &mut timers.last_auto_trigger_at,
-                                            &mut timers.recording_started_at,
-                                            &mut timers.preview_clear_deadline,
-                                            &mut timers.last_meter_update,
-                                            &deps.button_registry,
-                                            state.overlay_mode,
-                                            &mut state.terminal_rows,
-                                            &mut state.terminal_cols,
-                                            &mut state.theme,
-                                            Some(&mut deps.session),
-                                        );
                                         for key in parse_arrow_keys(&bytes) {
                                             match key {
                                                 ArrowKey::Up => {
@@ -810,217 +793,164 @@ pub(crate) fn run_event_loop(
                                                     state.settings_menu.move_down();
                                                     should_redraw = true;
                                                 }
-                                                ArrowKey::Left => match state.settings_menu.selected_item() {
-                                                    SettingsItem::AutoVoice => {
-                                                        settings_ctx.toggle_auto_voice();
-                                                        should_redraw = true;
+                                                ArrowKey::Left => {
+                                                    let selected = state.settings_menu.selected_item();
+                                                    let overlay_mode = state.overlay_mode;
+                                                    let mut settings_ctx = settings_action_context(
+                                                        state,
+                                                        timers,
+                                                        deps,
+                                                        overlay_mode,
+                                                    );
+                                                    match selected {
+                                                        SettingsItem::AutoVoice => {
+                                                            settings_ctx.toggle_auto_voice();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::SendMode => {
+                                                            settings_ctx.toggle_send_mode();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Macros => {
+                                                            settings_ctx.toggle_macros_enabled();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Sensitivity => {
+                                                            settings_ctx.adjust_sensitivity(-5.0);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Theme => {
+                                                            settings_ctx.cycle_theme(-1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudStyle => {
+                                                            settings_ctx.update_hud_style(-1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudBorders => {
+                                                            settings_ctx.update_hud_border_style(-1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudPanel => {
+                                                            settings_ctx.update_hud_panel(-1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudAnimate => {
+                                                            settings_ctx.toggle_hud_panel_recording_only();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Latency => {
+                                                            settings_ctx.cycle_latency_display(-1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Mouse => {
+                                                            settings_ctx.toggle_mouse();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Backend
+                                                        | SettingsItem::Pipeline
+                                                        | SettingsItem::Close
+                                                        | SettingsItem::Quit => {}
                                                     }
-                                                    SettingsItem::SendMode => {
-                                                        settings_ctx.toggle_send_mode();
-                                                        should_redraw = true;
+                                                }
+                                                ArrowKey::Right => {
+                                                    let selected = state.settings_menu.selected_item();
+                                                    let overlay_mode = state.overlay_mode;
+                                                    let mut settings_ctx = settings_action_context(
+                                                        state,
+                                                        timers,
+                                                        deps,
+                                                        overlay_mode,
+                                                    );
+                                                    match selected {
+                                                        SettingsItem::AutoVoice => {
+                                                            settings_ctx.toggle_auto_voice();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::SendMode => {
+                                                            settings_ctx.toggle_send_mode();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Macros => {
+                                                            settings_ctx.toggle_macros_enabled();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Sensitivity => {
+                                                            settings_ctx.adjust_sensitivity(5.0);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Theme => {
+                                                            settings_ctx.cycle_theme(1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudStyle => {
+                                                            settings_ctx.update_hud_style(1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudBorders => {
+                                                            settings_ctx.update_hud_border_style(1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudPanel => {
+                                                            settings_ctx.update_hud_panel(1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::HudAnimate => {
+                                                            settings_ctx.toggle_hud_panel_recording_only();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Latency => {
+                                                            settings_ctx.cycle_latency_display(1);
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Mouse => {
+                                                            settings_ctx.toggle_mouse();
+                                                            should_redraw = true;
+                                                        }
+                                                        SettingsItem::Backend
+                                                        | SettingsItem::Pipeline
+                                                        | SettingsItem::Close
+                                                        | SettingsItem::Quit => {}
                                                     }
-                                                    SettingsItem::Macros => {
-                                                        settings_ctx.toggle_macros_enabled();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Sensitivity => {
-                                                        settings_ctx.adjust_sensitivity(-5.0);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Theme => {
-                                                        settings_ctx.cycle_theme(-1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudStyle => {
-                                                        settings_ctx.update_hud_style(-1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudBorders => {
-                                                        settings_ctx.update_hud_border_style(-1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudPanel => {
-                                                        settings_ctx.update_hud_panel(-1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudAnimate => {
-                                                        settings_ctx.toggle_hud_panel_recording_only();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Latency => {
-                                                        settings_ctx.cycle_latency_display(-1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Mouse => {
-                                                        settings_ctx.toggle_mouse();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Backend
-                                                    | SettingsItem::Pipeline
-                                                    | SettingsItem::Close
-                                                    | SettingsItem::Quit => {}
-                                                },
-                                                ArrowKey::Right => match state.settings_menu.selected_item() {
-                                                    SettingsItem::AutoVoice => {
-                                                        settings_ctx.toggle_auto_voice();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::SendMode => {
-                                                        settings_ctx.toggle_send_mode();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Macros => {
-                                                        settings_ctx.toggle_macros_enabled();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Sensitivity => {
-                                                        settings_ctx.adjust_sensitivity(5.0);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Theme => {
-                                                        settings_ctx.cycle_theme(1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudStyle => {
-                                                        settings_ctx.update_hud_style(1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudBorders => {
-                                                        settings_ctx.update_hud_border_style(1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudPanel => {
-                                                        settings_ctx.update_hud_panel(1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::HudAnimate => {
-                                                        settings_ctx.toggle_hud_panel_recording_only();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Latency => {
-                                                        settings_ctx.cycle_latency_display(1);
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Mouse => {
-                                                        settings_ctx.toggle_mouse();
-                                                        should_redraw = true;
-                                                    }
-                                                    SettingsItem::Backend
-                                                    | SettingsItem::Pipeline
-                                                    | SettingsItem::Close
-                                                    | SettingsItem::Quit => {}
-                                                },
+                                                }
                                             }
                                         }
                                         if should_redraw {
-                                            let cols = resolved_cols(state.terminal_cols);
-                                            show_settings_overlay(
-                                                &deps.writer_tx,
-                                                state.theme,
-                                                cols,
-                                                &state.settings_menu,
-                                                &state.config,
-                                                &state.status_state,
-                                                &deps.backend_label,
-                                            );
+                                            render_settings_overlay_for_state(state, deps);
                                         }
                                     }
                                 }
                                 (OverlayMode::Help, InputEvent::HelpToggle) => {
                                     state.overlay_mode = OverlayMode::None;
                                     let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
+                                    sync_overlay_winsize(state, deps);
                                 }
                                 (OverlayMode::Help, InputEvent::SettingsToggle) => {
                                     state.overlay_mode = OverlayMode::Settings;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    show_settings_overlay(
-                                        &deps.writer_tx,
-                                        state.theme,
-                                        cols,
-                                        &state.settings_menu,
-                                        &state.config,
-                                        &state.status_state,
-                                        &deps.backend_label,
-                                    );
+                                    sync_overlay_winsize(state, deps);
+                                    render_settings_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::Help, InputEvent::ThemePicker) => {
                                     state.overlay_mode = OverlayMode::ThemePicker;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                    state.theme_picker_digits.clear();
-                                    timers.theme_picker_digit_deadline = None;
-                                    show_theme_picker_overlay(
-                                        &deps.writer_tx,
-                                        state.theme,
-                                        state.theme_picker_selected,
-                                        cols,
-                                    );
+                                    sync_overlay_winsize(state, deps);
+                                    reset_theme_picker_selection(state, timers);
+                                    render_theme_picker_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::ThemePicker, InputEvent::HelpToggle) => {
                                     state.overlay_mode = OverlayMode::Help;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    show_help_overlay(&deps.writer_tx, state.theme, cols);
+                                    sync_overlay_winsize(state, deps);
+                                    render_help_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::ThemePicker, InputEvent::SettingsToggle) => {
                                     state.overlay_mode = OverlayMode::Settings;
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    let cols = resolved_cols(state.terminal_cols);
-                                    show_settings_overlay(
-                                        &deps.writer_tx,
-                                        state.theme,
-                                        cols,
-                                        &state.settings_menu,
-                                        &state.config,
-                                        &state.status_state,
-                                        &deps.backend_label,
-                                    );
+                                    sync_overlay_winsize(state, deps);
+                                    render_settings_overlay_for_state(state, deps);
                                 }
                                 (OverlayMode::ThemePicker, InputEvent::ThemePicker) => {
                                     state.overlay_mode = OverlayMode::None;
                                     let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    state.theme_picker_digits.clear();
-                                    timers.theme_picker_digit_deadline = None;
+                                    sync_overlay_winsize(state, deps);
+                                    reset_theme_picker_digits(state, timers);
                                 }
                                 (OverlayMode::ThemePicker, InputEvent::EnterKey) => {
                                     if apply_theme_picker_index(
@@ -1038,22 +968,14 @@ pub(crate) fn run_event_loop(
                                     ) {
                                         state.theme_picker_selected = theme_index_from_theme(state.theme);
                                     }
-                                    state.theme_picker_digits.clear();
-                                    timers.theme_picker_digit_deadline = None;
+                                    reset_theme_picker_digits(state, timers);
                                 }
                                 (OverlayMode::ThemePicker, InputEvent::Bytes(bytes)) => {
                                     if bytes == [0x1b] {
                                         state.overlay_mode = OverlayMode::None;
                                         let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                        update_pty_winsize(
-                                            &mut deps.session,
-                                            &mut state.terminal_rows,
-                                            &mut state.terminal_cols,
-                                            state.overlay_mode,
-                                            state.status_state.hud_style,
-                                        );
-                                        state.theme_picker_digits.clear();
-                                        timers.theme_picker_digit_deadline = None;
+                                        sync_overlay_winsize(state, deps);
+                                        reset_theme_picker_digits(state, timers);
                                     } else if let Some(keys) = parse_arrow_keys_only(&bytes) {
                                         let mut moved = false;
                                         let total = THEME_OPTIONS.len();
@@ -1072,16 +994,9 @@ pub(crate) fn run_event_loop(
                                             }
                                         }
                                         if moved {
-                                            let cols = resolved_cols(state.terminal_cols);
-                                            show_theme_picker_overlay(
-                                                &deps.writer_tx,
-                                                state.theme,
-                                                state.theme_picker_selected,
-                                                cols,
-                                            );
+                                            render_theme_picker_overlay_for_state(state, deps);
                                         }
-                                        state.theme_picker_digits.clear();
-                                        timers.theme_picker_digit_deadline = None;
+                                        reset_theme_picker_digits(state, timers);
                                     } else {
                                         let digits: String = bytes
                                             .iter()
@@ -1091,7 +1006,7 @@ pub(crate) fn run_event_loop(
                                         if !digits.is_empty() {
                                             state.theme_picker_digits.push_str(&digits);
                                             if state.theme_picker_digits.len() > 3 {
-                                                state.theme_picker_digits.clear();
+                                                reset_theme_picker_digits(state, timers);
                                             }
                                             let now = Instant::now();
                                             timers.theme_picker_digit_deadline = Some(
@@ -1120,8 +1035,7 @@ pub(crate) fn run_event_loop(
                                                     ) {
                                                         state.theme_picker_selected = theme_index_from_theme(state.theme);
                                                     }
-                                                    state.theme_picker_digits.clear();
-                                                    timers.theme_picker_digit_deadline = None;
+                                                    reset_theme_picker_digits(state, timers);
                                                 }
                                             }
                                         }
@@ -1130,22 +1044,8 @@ pub(crate) fn run_event_loop(
                                 (_, _) => {
                                     state.overlay_mode = OverlayMode::None;
                                     let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
-                                    update_pty_winsize(
-                                        &mut deps.session,
-                                        &mut state.terminal_rows,
-                                        &mut state.terminal_cols,
-                                        state.overlay_mode,
-                                        state.status_state.hud_style,
-                                    );
-                                    if state.status_state.mouse_enabled {
-                                        update_button_registry(
-                                            &deps.button_registry,
-                                            &state.status_state,
-                                            state.overlay_mode,
-                                            state.terminal_cols,
-                                            state.theme,
-                                        );
-                                    }
+                                    sync_overlay_winsize(state, deps);
+                                    refresh_button_registry_if_mouse(state, deps);
                                 }
                             }
                             continue;
@@ -1154,89 +1054,29 @@ pub(crate) fn run_event_loop(
                             InputEvent::HelpToggle => {
                                 state.status_state.hud_button_focus = None;
                                 state.overlay_mode = OverlayMode::Help;
-                                update_pty_winsize(
-                                    &mut deps.session,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    state.overlay_mode,
-                                    state.status_state.hud_style,
-                                );
-                                let cols = resolved_cols(state.terminal_cols);
-                                show_help_overlay(&deps.writer_tx, state.theme, cols);
+                                sync_overlay_winsize(state, deps);
+                                render_help_overlay_for_state(state, deps);
                             }
                             InputEvent::ThemePicker => {
                                 state.status_state.hud_button_focus = None;
                                 state.overlay_mode = OverlayMode::ThemePicker;
-                                update_pty_winsize(
-                                    &mut deps.session,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    state.overlay_mode,
-                                    state.status_state.hud_style,
-                                );
-                                let cols = resolved_cols(state.terminal_cols);
-                                state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                state.theme_picker_digits.clear();
-                                timers.theme_picker_digit_deadline = None;
-                                show_theme_picker_overlay(
-                                    &deps.writer_tx,
-                                    state.theme,
-                                    state.theme_picker_selected,
-                                    cols,
-                                );
+                                sync_overlay_winsize(state, deps);
+                                reset_theme_picker_selection(state, timers);
+                                render_theme_picker_overlay_for_state(state, deps);
                             }
                             InputEvent::SettingsToggle => {
                                 state.status_state.hud_button_focus = None;
                                 state.overlay_mode = OverlayMode::Settings;
-                                update_pty_winsize(
-                                    &mut deps.session,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    state.overlay_mode,
-                                    state.status_state.hud_style,
-                                );
-                                let cols = resolved_cols(state.terminal_cols);
-                                show_settings_overlay(
-                                    &deps.writer_tx,
-                                    state.theme,
-                                    cols,
-                                    &state.settings_menu,
-                                    &state.config,
-                                    &state.status_state,
-                                    &deps.backend_label,
-                                );
+                                sync_overlay_winsize(state, deps);
+                                render_settings_overlay_for_state(state, deps);
                             }
                             InputEvent::ToggleHudStyle => {
-                                let mut settings_ctx = SettingsActionContext::new(
-                                    &mut state.config,
-                                    &mut state.status_state,
-                                    &mut state.auto_voice_enabled,
-                                    &mut deps.voice_manager,
-                                    &deps.writer_tx,
-                                    &mut timers.status_clear_deadline,
-                                    &mut state.current_status,
-                                    &mut timers.last_auto_trigger_at,
-                                    &mut timers.recording_started_at,
-                                    &mut timers.preview_clear_deadline,
-                                    &mut timers.last_meter_update,
-                                    &deps.button_registry,
-                                    state.overlay_mode,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    &mut state.theme,
-                                    Some(&mut deps.session),
-                                );
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
                                 settings_ctx.update_hud_style(1);
                                 state.status_state.hud_button_focus = None;
-                                if state.status_state.mouse_enabled {
-                                    update_button_registry(
-                                        &deps.button_registry,
-                                        &state.status_state,
-                                        state.overlay_mode,
-                                        state.terminal_cols,
-                                        state.theme,
-                                    );
-                                }
+                                refresh_button_registry_if_mouse(state, deps);
                             }
                             InputEvent::Bytes(bytes) => {
                                 if state.suppress_startup_escape_input
@@ -1310,141 +1150,40 @@ pub(crate) fn run_event_loop(
                                 }
                             }
                             InputEvent::ToggleAutoVoice => {
-                                let mut settings_ctx = SettingsActionContext::new(
-                                    &mut state.config,
-                                    &mut state.status_state,
-                                    &mut state.auto_voice_enabled,
-                                    &mut deps.voice_manager,
-                                    &deps.writer_tx,
-                                    &mut timers.status_clear_deadline,
-                                    &mut state.current_status,
-                                    &mut timers.last_auto_trigger_at,
-                                    &mut timers.recording_started_at,
-                                    &mut timers.preview_clear_deadline,
-                                    &mut timers.last_meter_update,
-                                    &deps.button_registry,
-                                    state.overlay_mode,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    &mut state.theme,
-                                    Some(&mut deps.session),
-                                );
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
                                 settings_ctx.toggle_auto_voice();
-                                if state.status_state.mouse_enabled {
-                                    update_button_registry(
-                                        &deps.button_registry,
-                                        &state.status_state,
-                                        state.overlay_mode,
-                                        state.terminal_cols,
-                                        state.theme,
-                                    );
-                                }
+                                refresh_button_registry_if_mouse(state, deps);
                             }
                             InputEvent::ToggleSendMode => {
-                                let mut settings_ctx = SettingsActionContext::new(
-                                    &mut state.config,
-                                    &mut state.status_state,
-                                    &mut state.auto_voice_enabled,
-                                    &mut deps.voice_manager,
-                                    &deps.writer_tx,
-                                    &mut timers.status_clear_deadline,
-                                    &mut state.current_status,
-                                    &mut timers.last_auto_trigger_at,
-                                    &mut timers.recording_started_at,
-                                    &mut timers.preview_clear_deadline,
-                                    &mut timers.last_meter_update,
-                                    &deps.button_registry,
-                                    state.overlay_mode,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    &mut state.theme,
-                                    Some(&mut deps.session),
-                                );
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
                                 settings_ctx.toggle_send_mode();
-                                if state.status_state.mouse_enabled {
-                                    update_button_registry(
-                                        &deps.button_registry,
-                                        &state.status_state,
-                                        state.overlay_mode,
-                                        state.terminal_cols,
-                                        state.theme,
-                                    );
-                                }
+                                refresh_button_registry_if_mouse(state, deps);
                             }
                             InputEvent::IncreaseSensitivity => {
-                                let mut settings_ctx = SettingsActionContext::new(
-                                    &mut state.config,
-                                    &mut state.status_state,
-                                    &mut state.auto_voice_enabled,
-                                    &mut deps.voice_manager,
-                                    &deps.writer_tx,
-                                    &mut timers.status_clear_deadline,
-                                    &mut state.current_status,
-                                    &mut timers.last_auto_trigger_at,
-                                    &mut timers.recording_started_at,
-                                    &mut timers.preview_clear_deadline,
-                                    &mut timers.last_meter_update,
-                                    &deps.button_registry,
-                                    state.overlay_mode,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    &mut state.theme,
-                                    Some(&mut deps.session),
-                                );
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
                                 settings_ctx.adjust_sensitivity(5.0);
                             }
                             InputEvent::DecreaseSensitivity => {
-                                let mut settings_ctx = SettingsActionContext::new(
-                                    &mut state.config,
-                                    &mut state.status_state,
-                                    &mut state.auto_voice_enabled,
-                                    &mut deps.voice_manager,
-                                    &deps.writer_tx,
-                                    &mut timers.status_clear_deadline,
-                                    &mut state.current_status,
-                                    &mut timers.last_auto_trigger_at,
-                                    &mut timers.recording_started_at,
-                                    &mut timers.preview_clear_deadline,
-                                    &mut timers.last_meter_update,
-                                    &deps.button_registry,
-                                    state.overlay_mode,
-                                    &mut state.terminal_rows,
-                                    &mut state.terminal_cols,
-                                    &mut state.theme,
-                                    Some(&mut deps.session),
-                                );
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
                                 settings_ctx.adjust_sensitivity(-5.0);
                             }
                             InputEvent::EnterKey => {
                                 if let Some(action) = state.status_state.hud_button_focus {
                                     state.status_state.hud_button_focus = None;
                                     if action == ButtonAction::ThemePicker {
-                                        state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                        state.theme_picker_digits.clear();
-                                        timers.theme_picker_digit_deadline = None;
+                                        reset_theme_picker_selection(state, timers);
                                     }
                                     {
-                                        let mut button_ctx = ButtonActionContext::new(
-                                            &mut state.overlay_mode,
-                                            &mut state.settings_menu,
-                                            &mut state.config,
-                                            &mut state.status_state,
-                                            &mut state.auto_voice_enabled,
-                                            &mut deps.voice_manager,
-                                            &mut deps.session,
-                                            &deps.writer_tx,
-                                            &mut timers.status_clear_deadline,
-                                            &mut state.current_status,
-                                            &mut timers.recording_started_at,
-                                            &mut timers.preview_clear_deadline,
-                                            &mut timers.last_meter_update,
-                                            &mut timers.last_auto_trigger_at,
-                                            &mut state.terminal_rows,
-                                            &mut state.terminal_cols,
-                                            &deps.backend_label,
-                                            &mut state.theme,
-                                            &deps.button_registry,
-                                        );
+                                        let mut button_ctx =
+                                            button_action_context(state, timers, deps);
                                         button_ctx.handle_action(action);
                                     }
                                     send_enhanced_status_with_buttons(
@@ -1569,15 +1308,7 @@ pub(crate) fn run_event_loop(
                                                 state.overlay_mode,
                                                 state.status_state.hud_style,
                                             );
-                                            if state.status_state.mouse_enabled {
-                                                update_button_registry(
-                                                    &deps.button_registry,
-                                                    &state.status_state,
-                                                    state.overlay_mode,
-                                                    state.terminal_cols,
-                                                    state.theme,
-                                                );
-                                            }
+                                            refresh_button_registry_if_mouse(state, deps);
                                         }
                                         continue;
                                     }
@@ -1611,15 +1342,7 @@ pub(crate) fn run_event_loop(
                                                         state.overlay_mode,
                                                         state.status_state.hud_style,
                                                     );
-                                                    if state.status_state.mouse_enabled {
-                                                        update_button_registry(
-                                                            &deps.button_registry,
-                                                            &state.status_state,
-                                                            state.overlay_mode,
-                                                            state.terminal_cols,
-                                                            state.theme,
-                                                        );
-                                                    }
+                                                    refresh_button_registry_if_mouse(state, deps);
                                                 }
                                             }
                                         }
@@ -1629,32 +1352,10 @@ pub(crate) fn run_event_loop(
 
                                 if let Some(action) = deps.button_registry.find_at(x, y, state.terminal_rows) {
                                     if action == ButtonAction::ThemePicker {
-                                        state.theme_picker_selected = theme_index_from_theme(state.theme);
-                                        state.theme_picker_digits.clear();
-                                        timers.theme_picker_digit_deadline = None;
+                                        reset_theme_picker_selection(state, timers);
                                     }
                                     {
-                                        let mut button_ctx = ButtonActionContext::new(
-                                            &mut state.overlay_mode,
-                                            &mut state.settings_menu,
-                                            &mut state.config,
-                                            &mut state.status_state,
-                                            &mut state.auto_voice_enabled,
-                                            &mut deps.voice_manager,
-                                            &mut deps.session,
-                                            &deps.writer_tx,
-                                            &mut timers.status_clear_deadline,
-                                            &mut state.current_status,
-                                            &mut timers.recording_started_at,
-                                            &mut timers.preview_clear_deadline,
-                                            &mut timers.last_meter_update,
-                                            &mut timers.last_auto_trigger_at,
-                                            &mut state.terminal_rows,
-                                            &mut state.terminal_cols,
-                                            &deps.backend_label,
-                                            &mut state.theme,
-                                            &deps.button_registry,
-                                        );
+                                        let mut button_ctx = button_action_context(state, timers, deps);
                                         button_ctx.handle_action(action);
                                     }
                                     state.status_state.hud_button_focus = None;

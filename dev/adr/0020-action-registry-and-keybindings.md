@@ -21,11 +21,13 @@ Introduce a shared `Action` enum and `ActionRegistry`:
 ## Consequences
 
 Positive:
+
 - Consistent, discoverable shortcuts across all UI surfaces.
 - Easier to add new actions without missing help text updates.
 - Overlay and TUI stay behaviorally aligned.
 
 Negative:
+
 - Requires refactoring key handling to go through the registry.
 - Slightly more overhead to add new actions.
 

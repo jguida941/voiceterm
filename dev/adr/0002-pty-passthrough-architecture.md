@@ -14,6 +14,7 @@ experience. Two main approaches exist:
    unchanged, adding only a minimal overlay.
 
 The TUI replacement approach requires parsing and re-rendering Codex's output, which:
+
 - Breaks when Codex changes its UI
 - Loses features like colors, cursor positioning, and interactive elements
 - Requires maintaining a parallel rendering engine
@@ -21,6 +22,7 @@ The TUI replacement approach requires parsing and re-rendering Codex's output, w
 ## Decision
 
 Use PTY passthrough architecture:
+
 - Spawn Codex CLI in a PTY (`openpty` + `fork`)
 - Pass all ANSI output through unchanged to the real terminal
 - Intercept only specific control keys (Ctrl+R, Ctrl+V, Ctrl+Q, etc.)
@@ -30,18 +32,21 @@ Use PTY passthrough architecture:
 ## Consequences
 
 **Positive:**
+
 - Codex's full TUI is preserved exactly as designed
 - No maintenance burden when Codex updates its UI
 - Simpler codebase (no rendering logic)
 - Works with any terminal that Codex supports
 
 **Negative:**
+
 - Limited control over UI (can only overlay, not integrate)
 - Must handle terminal queries (DSR/DA) to avoid confusing Codex
 - Status line can be overwritten by Codex output (requires careful timing)
 - Prompt detection is heuristic-based (no structured API)
 
 **Trade-offs:**
+
 - Chose simplicity and compatibility over deep UI integration
 - Accepted that voice features are "bolted on" rather than native
 

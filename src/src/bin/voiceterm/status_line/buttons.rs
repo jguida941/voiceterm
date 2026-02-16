@@ -298,7 +298,7 @@ pub(super) fn format_minimal_strip_with_button(
 
 fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     let brand = format!(
-        "{}Vox{}{}Term{}",
+        "{}Voice{}{}Term{}",
         colors.info, colors.reset, colors.recording, colors.reset
     );
     if state.message.is_empty() {
@@ -846,7 +846,7 @@ mod tests {
         let colors = Theme::None.colors();
         let state = StatusLineState::new();
         let line = hidden_launcher_text(&state, &colors);
-        assert!(line.contains("Vox"));
+        assert!(line.contains("Voice"));
         assert!(line.contains("Ctrl+U"));
     }
 

@@ -6,6 +6,7 @@ Date: 2026-01-29
 ## Context
 
 The overlay needs to:
+
 1. Pass PTY output to the terminal (Codex's UI)
 2. Draw a status line at the bottom of the screen
 3. Avoid interleaving these outputs (causes visual corruption)
@@ -16,6 +17,7 @@ terminal output.
 ## Decision
 
 Serialize all terminal output through a dedicated writer thread:
+
 - Single writer thread owns stdout
 - Main loop sends messages via bounded channel (512 capacity)
 - Message types: `PtyOutput`, `Status`, `Shutdown`
@@ -25,17 +27,20 @@ Serialize all terminal output through a dedicated writer thread:
 ## Consequences
 
 **Positive:**
+
 - No output interleaving or corruption
 - Clean separation of concerns (main loop doesn't touch stdout)
 - Bounded channel provides backpressure
 - ANSI save/restore is widely compatible
 
 **Negative:**
+
 - Added latency (channel hop + thread scheduling)
 - More complex architecture (another thread to manage)
 - Channel capacity (512) is a tuning parameter
 
 **Trade-offs:**
+
 - Correctness over minimal latency
 - 512-message buffer balances memory vs throughput
 

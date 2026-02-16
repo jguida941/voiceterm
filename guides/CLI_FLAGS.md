@@ -24,15 +24,15 @@ All flags for the `voiceterm` command. Run `voiceterm --help` for the live outpu
 Most common flags:
 
 ```bash
-voiceterm --codex                   # Use Codex (default)
-voiceterm --claude                  # Use Claude Code
-voiceterm --login --codex           # Run Codex login before starting
-voiceterm --login --claude          # Run Claude login before starting
-voiceterm --auto-voice              # Hands-free mode
-voiceterm --theme dracula           # Change theme
+voiceterm --codex                       # Use Codex (default)
+voiceterm --claude                      # Use Claude Code
+voiceterm --login --codex               # Run Codex login before starting
+voiceterm --login --claude              # Run Claude login before starting
+voiceterm --auto-voice                  # Hands-free mode
+voiceterm --theme dracula               # Change theme
 voiceterm --voice-vad-threshold-db -50  # Adjust mic sensitivity
-voiceterm --mic-meter               # Calibrate mic threshold
-voiceterm --logs                    # Enable debug logging
+voiceterm --mic-meter                   # Calibrate mic threshold
+voiceterm --logs                        # Enable debug logging
 ```
 
 ---
@@ -69,6 +69,7 @@ have a CLI flag.
 | `--persistent-codex` | Keep a persistent Codex PTY session (advanced) | off |
 
 **Examples:**
+
 ```bash
 voiceterm --codex               # Use Codex (default)
 voiceterm --claude              # Use Claude Code
@@ -77,9 +78,9 @@ voiceterm --login --claude      # Login to Claude CLI
 ```
 
 **Notes:**
+
 - `--backend` accepts a custom command string.
-- Gemini is currently nonfunctional; Aider/OpenCode presets exist but are untested.
-- Canonical backend support status matrix: [USAGE.md#backend-support](USAGE.md#backend-support).
+- Gemini is currently nonfunctional; Aider/OpenCode presets exist but are untested. Only Codex and Claude are fully supported.
 
 ---
 
@@ -151,6 +152,7 @@ voiceterm --login --claude      # Login to Claude CLI
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
 
 **HUD styles:**
+
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
 - `minimal`: Single-line strip with optional compact right-panel visualization chip
 - `hidden`: Branded launcher row when idle (`VoiceTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
@@ -190,7 +192,12 @@ appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 | Flag | Purpose | Default |
 |------|---------|---------|
 | `--json-ipc` | Run in JSON IPC mode (external UI integration) | off |
-| `--claude-skip-permissions` | Skip Claude permission prompts (IPC only) | off |
+| `--claude-skip-permissions` | Skip Claude permission prompts (IPC only; high-risk) | off |
+
+`--claude-skip-permissions` forwards Claude's
+`--dangerously-skip-permissions` behavior. Keep this disabled unless you are
+running in a trusted, isolated environment and accept that tool actions may run
+without interactive approval prompts.
 
 ---
 

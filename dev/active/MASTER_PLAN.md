@@ -1,18 +1,21 @@
 # Master Plan (Active, Unified)
 
 ## Canonical Plan Rule
+
 - This file is the single active plan for strategy, execution, and release tracking.
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-02-14)
-- Last tagged release: `v1.0.63` (2026-02-14)
-- Current release target: `v1.0.64`
+## Status Snapshot (2026-02-15)
+
+- Last tagged release: `v1.0.66` (2026-02-15)
+- Current release target: `TBD` (next post-`v1.0.66` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
 
 ## Strategic Direction
+
 - Protect current moat: terminal-native PTY orchestration, prompt-aware queueing, local-first voice flow.
 - Close trust gap: latency metrics must match user perception and be auditable.
 - Build differentiated product value in phases:
@@ -21,6 +24,7 @@
   3. Advanced expansion (streaming STT, tmux/neovim, accessibility)
 
 ## Phase 0 - Completed Release Stabilization (v1.0.51-v1.0.52)
+
 - [x] MP-072 Prevent HUD/timer freeze under continuous PTY output.
 - [x] MP-073 Improve IDE terminal input compatibility and hidden-HUD discoverability.
 - [x] MP-074 Update docs for HUD/input behavior changes and debug guidance.
@@ -32,6 +36,7 @@
 - [x] MP-099 Consolidate overlay research into a single reference source (`dev/active/overlay.md`) and mirror candidate execution items in this plan.
 
 ## Phase 1 - Latency Truth and Observability
+
 - [x] MP-079 Define and document latency terms (capture, STT, post-capture processing, displayed HUD latency).
 - [x] MP-080 Hide latency badge when reliable latency cannot be measured.
 - [x] MP-081 Emit structured `latency_audit|...` logs for analysis.
@@ -44,6 +49,7 @@
 - [x] MP-122 Prevent mutation-lane timeout by sharding scheduled `cargo mutants` runs and enforcing one aggregated score across shards.
 
 ## Phase 2 - Overlay Quick Wins
+
 - [x] MP-085 Voice macros and custom triggers (`.voiceterm/macros.yaml`).
 - [x] MP-086 Runtime macros ON/OFF toggle (settings state + transcript transform gate).
 - [x] MP-087 Restore baseline send-mode semantics (`auto`/`insert`) without an extra review-first gate.
@@ -51,6 +57,7 @@
 - [ ] MP-088 Persistent user config (`~/.config/voiceterm/config.toml`) for core preferences (deferred until visual sprint is complete).
 
 ## Phase 2A - Visual HUD Sprint (Current Priority)
+
 - [x] MP-101 Add richer HUD telemetry visuals (sparkline/chart/gauge) with bounded data retention.
 - [x] MP-100 Add animation transition framework for overlays and state changes (TachyonFX or equivalent).
 - [x] MP-054 Optional right-panel visualization modes in minimal HUD.
@@ -68,21 +75,40 @@
 - [x] MP-124 Add Full-HUD border-style customization (including borderless mode) and keep right-panel telemetry explicitly user-toggleable to `Off`.
 - [x] MP-125 Fix HUD right-panel `Anim only` behavior so idle state keeps a static panel visible instead of hiding the panel until recording.
 - [x] MP-126 Complete product/distribution naming rebrand to VoiceTerm across code/docs/scripts/app launcher, and add a PyPI launcher package scaffold (`pypi/`) for `voiceterm`.
+- [x] MP-139 Tighten user-facing docs information architecture (entrypoint clarity, navigation consistency, and guide discoverability).
 - [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
 - [ ] MP-055 Quick theme switcher in settings.
 - [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
 
+## Phase 2B - Rust Hardening Audit (Pre-Execution + Implementation)
+
+- [x] MP-127 Replace IPC `/exit` hard process termination with graceful shutdown orchestration and teardown event guarantees (FX-001).
+- [x] MP-128 Add explicit runtime ownership and bounded shutdown/join semantics for overlay writer/input threads (FX-002).
+- [x] MP-129 Add voice-manager lifecycle hardening for quit-while-recording paths, including explicit stop/join policy and tests (FX-003).
+- [x] MP-130 Consolidate process-group signaling/reaping helpers into one canonical utility with invariants tests (FX-004).
+- [x] MP-131 Add security/supply-chain CI lane with policy thresholds and failing gates for high-severity issues (FX-005).
+- [x] MP-132 Add explicit security posture/threat-model documentation and risky flag guidance (including permission-skip behavior) (FX-006).
+- [x] MP-133 Enforce IPC auth timeout + cancellation semantics using tracked auth start timing (FX-007).
+- [x] MP-134 Replace IPC fixed-sleep scheduling with event-driven receive strategy to reduce idle CPU jitter (FX-008).
+- [x] MP-135 Decompose high-risk event-loop transition/wiring complexity to reduce change blast radius (FX-009).
+- [x] MP-136 Establish unsafe-governance checklist for unsafe hotspots with per-invariant test expectations (FX-010).
+- [x] MP-137 Add property/fuzz coverage lane for parser and ANSI/OSC boundary handling (FX-011).
+- [x] MP-138 Enforce audit/master-plan traceability updates as a mandatory part of each hardening fix (FX-012).
+
 ## Phase 3 - Overlay Differentiators
+
 - [ ] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
 ## Phase 4 - Advanced Expansion
+
 - [ ] MP-092 Streaming STT and partial transcript overlay.
 - [ ] MP-093 tmux/neovim integration track.
 - [ ] MP-094 Accessibility suite (fatigue hints, quiet mode, screen-reader compatibility).
 - [ ] MP-095 Custom vocabulary learning and correction persistence.
 
 ## Backlog (Not Scheduled)
+
 - [ ] MP-015 Improve mutation score with targeted high-value tests.
 - [ ] MP-016 Stress test heavy I/O for bounded-memory behavior.
 - [ ] MP-031 Add PTY health monitoring for hung process detection.
@@ -97,10 +123,12 @@
 - [ ] MP-109 Evaluate block-based voice command history UI against PTY/session constraints.
 
 ## Deferred Plans
+
 - `dev/deferred/DEV_MODE_PLAN.md` (paused until Phases 1-2 outcomes are complete).
 - MP-089 LLM-assisted voice-to-command generation (optional local/API provider) is deferred; current product focus is Codex/Claude CLI-native flow quality, not an additional LLM mediation layer.
 
 ## Release Policy (Checklist)
+
 1. `src/Cargo.toml` version bump
 2. `dev/CHANGELOG.md` entry finalized
 3. Verification pass for change scope
@@ -111,6 +139,7 @@
 8. Homebrew tap formula update + push
 
 ## Execution Gate (Every Feature)
+
 1. Create or link an MP item before implementation.
 2. Implement the feature and add/update tests in the same change.
 3. Run SDLC verification for scope:
@@ -121,6 +150,7 @@
 6. Push only after checks pass and plan/docs are aligned.
 
 ## References
+
 - Execution + release tracking: `dev/active/MASTER_PLAN.md`
 - Market, competitor, and UX evidence: `dev/active/overlay.md`
 - SDLC policy: `AGENTS.md`
@@ -128,6 +158,7 @@
 - Changelog: `dev/CHANGELOG.md`
 
 ## Archive Log
+
 - `dev/archive/2026-01-29-claudeaudit-completed.md`
 - `dev/archive/2026-01-29-docs-governance.md`
 - `dev/archive/2026-02-01-terminal-restore-guard.md`

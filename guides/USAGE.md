@@ -5,6 +5,11 @@ locally and injects text into your terminal input.
 
 Primary support: Codex and Claude Code.
 
+Docs map:
+
+- User guides index: [README.md](README.md)
+- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
+
 ![VoiceTerm](../img/logo.svg)
 
 ## Contents
@@ -25,13 +30,16 @@ Primary support: Codex and Claude Code.
 ## Start in 60 Seconds
 
 1. Launch VoiceTerm in your project folder:
+
    ```bash
    voiceterm
    ```
+
 2. Press `Ctrl+R`, speak, then pause.
 3. VoiceTerm transcribes and types text into the CLI input.
 
 Default send behavior is `auto`:
+
 - `auto`: VoiceTerm types text and presses Enter.
 - `insert`: VoiceTerm types text and waits for you to press Enter.
 
@@ -58,6 +66,7 @@ VoiceTerm only handles voice capture and text injection. It does not replace you
 backend CLI.
 
 Flow:
+
 1. Record: VoiceTerm listens while you speak.
 2. Transcribe: local Whisper converts speech to text.
 3. Expand (optional): macro rules from `.voiceterm/macros.yaml` apply if enabled.
@@ -101,6 +110,7 @@ Open with `Ctrl+O`.
 ![Settings Menu](../img/settings.png)
 
 Common settings:
+
 - Auto-voice
 - Send mode (`auto` or `insert`)
 - Macros toggle
@@ -114,6 +124,7 @@ Common settings:
 ## Voice Modes
 
 Three controls define runtime behavior:
+
 - Auto-voice (`Ctrl+V`)
 - Send mode (`Ctrl+T`)
 - Macros toggle (Settings -> Macros)
@@ -147,6 +158,7 @@ once when ready to submit.
 - `Ctrl+\` or `Ctrl+/`: more sensitive (lower threshold)
 
 Range:
+
 - Hotkeys: `-80 dB` to `-10 dB`
 - CLI flag: `-120 dB` to `0 dB`
 - Default: `-55 dB`
@@ -202,6 +214,7 @@ Open theme picker with `Ctrl+Y`.
 ![Theme Picker](../img/theme-picker.png)
 
 Available themes:
+
 - `chatgpt`
 - `claude`
 - `codex`
@@ -215,6 +228,7 @@ Available themes:
 - `none`
 
 Tips:
+
 - Set at startup: `voiceterm --theme catppuccin`
 - Disable color: `voiceterm --no-color` or `NO_COLOR=1`
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
@@ -228,9 +242,11 @@ Tips:
 | Hidden | `--hud-style hidden` | Minimal launcher row when idle |
 
 Full HUD border style options:
+
 - `theme`, `single`, `rounded`, `double`, `heavy`, `none`
 
 Right panel options:
+
 - `off`, `ribbon`, `dots`, `heartbeat`
 - Optional recording-only animation in Settings
 
@@ -268,6 +284,7 @@ macros:
 ```
 
 Rules:
+
 - Matching is case-insensitive and whitespace-insensitive.
 - Template macros can consume remaining spoken text with `{TRANSCRIPT}`.
 - `mode` is optional and can be `auto` or `insert`.
@@ -280,6 +297,7 @@ Example:
 `◉ AUTO | -35dB | Auto-voice enabled`
 
 Main areas:
+
 - mode indicator
 - mic threshold
 - status message
@@ -287,6 +305,7 @@ Main areas:
 - optional telemetry/right-panel modules
 
 Latency badge behavior:
+
 - shows post-capture processing latency when reliable metrics exist
 - recording duration is shown separately while speaking
 - hides automatically when latency metrics are incomplete
@@ -336,7 +355,7 @@ voiceterm --lang en
 | [CLI_FLAGS.md](CLI_FLAGS.md) | Complete flag and env reference |
 | [INSTALL.md](INSTALL.md) | Installation methods |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Troubleshooting hub |
-| [TROUBLESHOOTING_BACKEND.md](TROUBLESHOOTING_BACKEND.md) | Backend-specific troubleshooting |
-| [TROUBLESHOOTING_TERMINAL.md](TROUBLESHOOTING_TERMINAL.md) | Terminal/IDE troubleshooting |
-| [TROUBLESHOOTING_INSTALL.md](TROUBLESHOOTING_INSTALL.md) | Install/update troubleshooting |
+| [TROUBLESHOOTING.md#backend-issues](TROUBLESHOOTING.md#backend-issues) | Backend troubleshooting |
+| [TROUBLESHOOTING.md#terminal-and-ide-issues](TROUBLESHOOTING.md#terminal-and-ide-issues) | Terminal/IDE troubleshooting |
+| [TROUBLESHOOTING.md#install-and-update-issues](TROUBLESHOOTING.md#install-and-update-issues) | Install/update troubleshooting |
 | [ARCHITECTURE.md](../dev/ARCHITECTURE.md) | Internal design and module flow |

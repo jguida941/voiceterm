@@ -78,7 +78,12 @@ pub(super) fn handle_send_prompt(
     prompt: &str,
     provider_override: Option<String>,
 ) {
-    if state.current_auth_job.is_some() {
+    // Parse input once so wrapper commands can be conditionally allowed during auth.
+    let parsed = parse_input(prompt);
+
+    if state.current_auth_job.is_some()
+        && !matches!(parsed, ParsedInput::WrapperCommand(WrapperCmd::Exit))
+    {
         send_event(&IpcEvent::Error {
             message: "Authentication in progress. Finish /auth before sending prompts.".to_string(),
             recoverable: true,
@@ -101,9 +106,6 @@ pub(super) fn handle_send_prompt(
         .as_ref()
         .and_then(|s| Provider::from_str(s))
         .unwrap_or(state.active_provider);
-
-    // Parse input for slash commands
-    let parsed = parse_input(prompt);
 
     match parsed {
         ParsedInput::WrapperCommand(cmd) => {
@@ -175,7 +177,7 @@ pub(super) fn handle_wrapper_command(state: &mut IpcState, cmd: WrapperCmd) {
             });
         }
         WrapperCmd::Exit => {
-            std::process::exit(0);
+            handle_exit(state);
         }
     }
 }
@@ -261,17 +263,7 @@ pub(super) fn handle_start_voice(state: &mut IpcState) {
     state.current_voice_job = Some(job);
 }
 
-pub(super) fn handle_cancel(state: &mut IpcState) {
-    state.cancelled = true;
-
-    if state.current_auth_job.is_some() {
-        send_event(&IpcEvent::Error {
-            message: "Authentication in progress. Cancel from the provider prompt.".to_string(),
-            recoverable: true,
-        });
-        return;
-    }
-
+fn cancel_active_jobs(state: &mut IpcState) {
     if let Some(job) = state.current_job.take() {
         match job {
             ActiveJob::Codex(j) => {
@@ -298,6 +290,36 @@ pub(super) fn handle_cancel(state: &mut IpcState) {
             error: Some("Cancelled".to_string()),
         });
         state.current_voice_job = None;
+    }
+}
+
+pub(super) fn handle_cancel(state: &mut IpcState) {
+    state.cancelled = true;
+
+    if state.current_auth_job.is_some() {
+        send_event(&IpcEvent::Error {
+            message: "Authentication in progress. Cancel from the provider prompt.".to_string(),
+            recoverable: true,
+        });
+        return;
+    }
+
+    cancel_active_jobs(state);
+}
+
+pub(super) fn handle_exit(state: &mut IpcState) {
+    state.cancelled = true;
+    state.exit_requested = true;
+    cancel_active_jobs(state);
+
+    if state.current_auth_job.is_some() {
+        send_event(&IpcEvent::Status {
+            message: "Exit requested; waiting for authentication flow to finish.".to_string(),
+        });
+    } else {
+        send_event(&IpcEvent::Status {
+            message: "Exit requested; shutting down IPC loop.".to_string(),
+        });
     }
 }
 

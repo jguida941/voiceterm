@@ -23,11 +23,13 @@ Define a privacy-first history system:
 ## Consequences
 
 Positive:
+
 - Safer defaults for sensitive transcript data.
 - Clear user control over persistence and retention.
 - Reduced risk of terminal escape injection from stored data.
 
 Negative:
+
 - Extra configuration surface area.
 - Some features (search/history) are limited by strict defaults.
 

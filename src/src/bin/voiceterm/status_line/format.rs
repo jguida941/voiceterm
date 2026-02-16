@@ -205,7 +205,7 @@ fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) ->
 
 fn format_brand_label(colors: &ThemeColors) -> String {
     format!(
-        " {}Vox{}{}Term{} ",
+        " {}Voice{}{}Term{} ",
         colors.info, colors.reset, colors.recording, colors.reset
     )
 }
@@ -1060,7 +1060,7 @@ mod tests {
         // Hidden mode when idle should keep a discoverable launcher row.
         assert_eq!(banner.height, 1);
         assert_eq!(banner.lines.len(), 1);
-        assert!(banner.lines[0].contains("Vox"));
+        assert!(banner.lines[0].contains("Voice"));
         assert!(banner.lines[0].contains("Ctrl+U"));
     }
 

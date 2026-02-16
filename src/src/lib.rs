@@ -10,6 +10,7 @@ pub mod ipc;
 pub mod legacy_ui;
 mod lock;
 pub mod mic_meter;
+mod process_signal;
 pub mod pty_session;
 pub mod stt;
 mod telemetry;

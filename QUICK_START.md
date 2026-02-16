@@ -3,6 +3,14 @@
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
 
+Docs map:
+
+- User docs entrypoint: [guides/README.md](guides/README.md)
+- Install details: [guides/INSTALL.md](guides/INSTALL.md)
+- Usage and controls: [guides/USAGE.md](guides/USAGE.md)
+- Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- Engineering history: [dev/history/ENGINEERING_EVOLUTION.md](dev/history/ENGINEERING_EVOLUTION.md)
+
 ## 1) Install Codex CLI (default backend)
 
 ```bash
@@ -14,17 +22,20 @@ Or use another AI CLI: `voiceterm --claude`.
 ## 2) Install VoiceTerm
 
 **Homebrew (recommended):**
+
 ```bash
 brew tap jguida941/voiceterm
 brew install voiceterm
 ```
 
 **PyPI (pipx):**
+
 ```bash
 pipx install voiceterm
 ```
 
 **From source:**
+
 ```bash
 git clone https://github.com/jguida941/voiceterm.git
 cd voiceterm
@@ -83,10 +94,11 @@ but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY)
 does not call Codex/Claude directly.
 
 More detailed topics:
+
 - Macros: [guides/USAGE.md#project-voice-macros](guides/USAGE.md#project-voice-macros)
 - HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
 - Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
-- Startup and IDE behavior: [guides/TROUBLESHOOTING_TERMINAL.md](guides/TROUBLESHOOTING_TERMINAL.md)
+- Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 
 ## 5) Common flags
 
@@ -106,5 +118,6 @@ See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full CLI flag and env var
 
 ## 6) Need help?
 
+- Full user docs map: [guides/README.md](guides/README.md)
 - Install options: [guides/INSTALL.md](guides/INSTALL.md)
 - Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)

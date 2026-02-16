@@ -7,6 +7,7 @@ Date: 2026-01-29
 
 User-provided configuration values flow into subprocess invocations and resource
 allocation. Without limits:
+
 - Infinite recording could exhaust memory/disk
 - Malicious args could inject shell commands
 - Large allocations could DoS the system
@@ -22,7 +23,7 @@ Enforce hard limits on security-sensitive parameters:
 | Max capture duration | 60 seconds | Prevent infinite recording |
 | Max Codex args | 64 | Limit subprocess arg parsing |
 | Max arg bytes | 8 KB per arg | Prevent huge memory args |
-| FFmpeg device chars | Block `;|&$`<>\\'"` | Prevent shell injection |
+| FFmpeg device chars | Block shell metacharacters (`;`, `&`, `$`, `<`, `>`, `\\`, `'`, `"`) | Prevent shell injection |
 | Binary paths | Must exist, validated | Prevent arbitrary execution |
 
 Validation happens at config parse time; invalid configs fail fast with clear errors.
@@ -30,17 +31,20 @@ Validation happens at config parse time; invalid configs fail fast with clear er
 ## Consequences
 
 **Positive:**
+
 - Defense against DoS and injection attacks
 - Fail-fast on invalid configuration
 - Clear error messages for users
 - Limits are documented and predictable
 
 **Negative:**
+
 - Power users may hit limits (60s max capture)
 - Shell metacharacter blocking may be overly restrictive
 - Limits require documentation
 
 **Trade-offs:**
+
 - Security over flexibility
 - Conservative limits can be raised if needed
 

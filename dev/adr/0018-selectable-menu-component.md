@@ -24,11 +24,13 @@ Create a shared `SelectableMenu<T>` component with a stable contract:
 ## Consequences
 
 Positive:
+
 - Consistent list behavior across overlays and TUI.
 - Lower maintenance cost and fewer UX regressions.
 - Easier to add new list-based overlays.
 
 Negative:
+
 - A bit more up-front design and test work.
 - Requires careful API design to avoid future lock-in.
 

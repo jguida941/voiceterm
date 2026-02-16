@@ -7,6 +7,7 @@ Date: 2026-01-29
 
 When transcripts arrive faster than they can be injected (e.g., prompt not ready,
 user speaking rapidly), they accumulate in a queue. Without limits:
+
 - Memory grows unboundedly
 - Old transcripts become stale and confusing
 - System can become unresponsive
@@ -16,6 +17,7 @@ Need a strategy for handling overflow.
 ## Decision
 
 Implement bounded FIFO queue with drop-oldest policy:
+
 - Hard limit: 5 pending transcripts (`MAX_PENDING_TRANSCRIPTS`)
 - When full: Drop oldest transcript, keep newest
 - Notify user: Status line shows "Queue full - oldest dropped"
@@ -24,17 +26,20 @@ Implement bounded FIFO queue with drop-oldest policy:
 ## Consequences
 
 **Positive:**
+
 - Bounded memory usage (max 5 transcripts in queue)
 - Most recent speech prioritized (likely more relevant)
 - User is notified when drops occur
 - Merging reduces injection count
 
 **Negative:**
+
 - Old speech can be lost silently (except for notification)
 - User may not notice the notification
 - Limit of 5 is arbitrary (but seems reasonable in practice)
 
 **Trade-offs:**
+
 - Chose recent-speech priority over FIFO fairness
 - Small queue (5) keeps memory tight but may drop in burst scenarios
 

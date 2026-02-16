@@ -198,11 +198,177 @@ pub use platform::Transcriber;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::io;
+    #[cfg(unix)]
+    use std::sync::{Mutex, OnceLock};
+    #[cfg(unix)]
+    use std::thread;
+    #[cfg(unix)]
+    use std::time::Duration;
+
+    #[cfg(unix)]
+    fn stderr_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[cfg(unix)]
+    struct StderrPipeGuard {
+        saved_stderr_fd: i32,
+        read_fd: i32,
+    }
+
+    #[cfg(unix)]
+    impl StderrPipeGuard {
+        fn new() -> Self {
+            let mut pipe_fds = [-1i32; 2];
+            // SAFETY: pipe_fds is a valid out-pointer for two descriptors.
+            let pipe_result = unsafe { libc::pipe(pipe_fds.as_mut_ptr()) };
+            assert_eq!(
+                pipe_result,
+                0,
+                "pipe failed: {}",
+                io::Error::last_os_error()
+            );
+
+            // SAFETY: dup duplicates the current stderr file descriptor.
+            let saved_stderr_fd = unsafe { libc::dup(libc::STDERR_FILENO) };
+            assert!(
+                saved_stderr_fd >= 0,
+                "dup(stderr) failed: {}",
+                io::Error::last_os_error()
+            );
+
+            // SAFETY: dup2 installs pipe_fds[1] as stderr.
+            let dup_result = unsafe { libc::dup2(pipe_fds[1], libc::STDERR_FILENO) };
+            // SAFETY: close the extra write end; stderr now owns that target.
+            unsafe {
+                libc::close(pipe_fds[1]);
+            }
+            assert_eq!(
+                dup_result,
+                libc::STDERR_FILENO,
+                "dup2(stderr<-pipe) failed: {}",
+                io::Error::last_os_error()
+            );
+
+            // SAFETY: read fd is valid; fcntl reads then updates nonblocking flag.
+            let flags = unsafe { libc::fcntl(pipe_fds[0], libc::F_GETFL, 0) };
+            assert!(
+                flags >= 0,
+                "fcntl(F_GETFL) failed: {}",
+                io::Error::last_os_error()
+            );
+            // SAFETY: preserves existing flags and adds O_NONBLOCK.
+            let set_result =
+                unsafe { libc::fcntl(pipe_fds[0], libc::F_SETFL, flags | libc::O_NONBLOCK) };
+            assert_eq!(
+                set_result,
+                0,
+                "fcntl(F_SETFL) failed: {}",
+                io::Error::last_os_error()
+            );
+
+            Self {
+                saved_stderr_fd,
+                read_fd: pipe_fds[0],
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for StderrPipeGuard {
+        fn drop(&mut self) {
+            // SAFETY: fds are either valid or already closed; best-effort cleanup.
+            unsafe {
+                if self.saved_stderr_fd >= 0 {
+                    let _ = libc::dup2(self.saved_stderr_fd, libc::STDERR_FILENO);
+                    let _ = libc::close(self.saved_stderr_fd);
+                    self.saved_stderr_fd = -1;
+                }
+                if self.read_fd >= 0 {
+                    let _ = libc::close(self.read_fd);
+                    self.read_fd = -1;
+                }
+            }
+        }
+    }
 
     #[cfg(unix)]
     #[test]
     fn transcriber_rejects_missing_model() {
+        let _lock = stderr_test_lock()
+            .lock()
+            .expect("stderr test lock should not be poisoned");
         let result = Transcriber::new("/no/such/model.bin");
         assert!(result.is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn transcriber_restores_stderr_after_failed_model_load() {
+        let _lock = stderr_test_lock()
+            .lock()
+            .expect("stderr test lock should not be poisoned");
+        let guard = StderrPipeGuard::new();
+
+        let result = Transcriber::new("/no/such/model.bin");
+        assert!(result.is_err());
+
+        let marker = b"stt-stderr-restore-check\n";
+        // SAFETY: marker is a valid buffer and STDERR_FILENO is open in-process.
+        let write_result = unsafe {
+            libc::write(
+                libc::STDERR_FILENO,
+                marker.as_ptr() as *const libc::c_void,
+                marker.len(),
+            )
+        };
+        assert_eq!(
+            write_result,
+            marker.len() as isize,
+            "stderr write failed: {}",
+            io::Error::last_os_error()
+        );
+
+        let mut buf = [0u8; 256];
+        let mut read_len: isize = -1;
+        for _ in 0..25 {
+            // SAFETY: read_fd is valid for this guard lifetime and buffer is writable.
+            let n = unsafe {
+                libc::read(
+                    guard.read_fd,
+                    buf.as_mut_ptr() as *mut libc::c_void,
+                    buf.len(),
+                )
+            };
+            if n > 0 {
+                read_len = n;
+                break;
+            }
+            if n == 0 {
+                break;
+            }
+            let err = io::Error::last_os_error();
+            if err.kind() == io::ErrorKind::WouldBlock {
+                thread::sleep(Duration::from_millis(10));
+                continue;
+            }
+            panic!("stderr pipe read failed: {err}");
+        }
+
+        assert!(
+            read_len > 0,
+            "expected stderr marker after restore, read_len={read_len}, err={}",
+            io::Error::last_os_error()
+        );
+        let read_slice = &buf[..read_len as usize];
+        assert!(
+            read_slice
+                .windows(marker.len())
+                .any(|window| window == marker),
+            "stderr marker missing from restored stream"
+        );
     }
 }

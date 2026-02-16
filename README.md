@@ -27,6 +27,9 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 - [Supported AI CLIs](#supported-ai-clis)
 - [UI Tour](#ui-tour)
 - [Controls](#controls)
+- [Guides Index](guides/README.md)
+- [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
+- [Developer Index](dev/README.md)
 - [Documentation](#documentation)
 - [Support](#support)
 
@@ -35,11 +38,13 @@ Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 Install one supported AI CLI first:
 
 **Codex:**
+
 ```bash
 npm install -g @openai/codex
 ```
 
 **Claude Code:**
+
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
 ```
@@ -57,10 +62,12 @@ voiceterm
 ```
 
 If needed, authenticate once:
+
 ```bash
 voiceterm --login --codex
 voiceterm --login --claude
 ```
+
 </details>
 
 <details>
@@ -75,10 +82,12 @@ voiceterm
 ```
 
 If needed, authenticate once:
+
 ```bash
 voiceterm --login --codex
 voiceterm --login --claude
 ```
+
 </details>
 
 <details>
@@ -89,6 +98,7 @@ git clone https://github.com/jguida941/voiceterm.git
 cd voiceterm
 ./scripts/install.sh
 ```
+
 </details>
 
 <details>
@@ -99,6 +109,7 @@ with VoiceTerm running.
 </details>
 
 For model options and startup/IDE tuning:
+
 - [Install Guide](guides/INSTALL.md)
 - [Whisper docs](guides/WHISPER.md)
 - [Troubleshooting](guides/TROUBLESHOOTING.md)
@@ -190,9 +201,17 @@ See the [Usage Guide](guides/USAGE.md) for full behavior and configuration detai
 ## Controls
 
 For complete keybindings and behavior details, see:
+
 - [Core Controls](guides/USAGE.md#core-controls)
 - [Settings Menu](guides/USAGE.md#settings-menu)
 - [Voice Modes](guides/USAGE.md#voice-modes)
+
+## Engineering History
+
+Want the design and process timeline?
+
+- [Engineering Evolution and SDLC Timeline](dev/history/ENGINEERING_EVOLUTION.md)
+- [Developer Index](dev/README.md)
 
 ## Voice Macros
 
@@ -200,10 +219,12 @@ Voice macros are project-local voice shortcuts defined in
 `.voiceterm/macros.yaml`.
 
 Example:
+
 - You say: `run tests`
 - VoiceTerm types: `cargo test --all-features`
 
 When it runs:
+
 - `Settings -> Macros = ON`: if a spoken trigger matches, VoiceTerm expands it
   before typing into the CLI.
 - `Settings -> Macros = OFF`: VoiceTerm skips expansion and types your
@@ -214,19 +235,23 @@ format, templates, and matching rules.
 
 ## Documentation
 
+Use this order if you're new:
+
+1. Start with [Quick Start](QUICK_START.md).
+2. Use the [Guides Index](guides/README.md) for task-based navigation.
+3. Use [Troubleshooting](guides/TROUBLESHOOTING.md) as the single issue hub.
+
 | Users | Developers |
 |-------|------------|
-| [Quick Start](QUICK_START.md) | [Development](dev/DEVELOPMENT.md) |
-| [Install Guide](guides/INSTALL.md) | [Architecture](dev/ARCHITECTURE.md) |
-| [Usage Guide](guides/USAGE.md) | [ADRs](dev/adr/README.md) |
-| [CLI Flags](guides/CLI_FLAGS.md) | [Contributing](.github/CONTRIBUTING.md) |
-| [Whisper & Languages](guides/WHISPER.md) | [Changelog](dev/CHANGELOG.md) |
-| [Troubleshooting Hub](guides/TROUBLESHOOTING.md) | |
-
-Troubleshooting deep dives:
-- [Backend issues](guides/TROUBLESHOOTING_BACKEND.md)
-- [Terminal/IDE issues](guides/TROUBLESHOOTING_TERMINAL.md)
-- [Install/update issues](guides/TROUBLESHOOTING_INSTALL.md)
+| [Guides Index](guides/README.md) | [Developer Index](dev/README.md) |
+| [Quick Start](QUICK_START.md) | [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) |
+| [Install Guide](guides/INSTALL.md) | [Master Plan](dev/active/MASTER_PLAN.md) |
+| [Usage Guide](guides/USAGE.md) | [Development](dev/DEVELOPMENT.md) |
+| [CLI Flags](guides/CLI_FLAGS.md) | [Architecture](dev/ARCHITECTURE.md) |
+| [Whisper & Languages](guides/WHISPER.md) | [ADRs](dev/adr/README.md) |
+| [Troubleshooting Hub](guides/TROUBLESHOOTING.md) | [Changelog](dev/CHANGELOG.md) |
+| [User Scripts](scripts/README.md) | [Dev Scripts](dev/scripts/README.md) |
+| [Contributing](.github/CONTRIBUTING.md) | [History Index](dev/history/README.md) |
 
 ## Support
 

@@ -47,6 +47,7 @@ When active, a dedicated dev panel appears (toggleable with `Ctrl+D`) that shows
 A separate CLI/TUI for exploring saved sessions without running live capture. It reuses the same devtools modules and data schema as the overlay.
 
 Planned capabilities:
+
 - Session browser with summary stats and trend charts.
 - Fuzzy search across transcripts with filters (time range, tags, latency, error type).
 - Compare sessions or export slices for debugging regressions.
@@ -61,7 +62,7 @@ Planned capabilities:
 
 ## Panel Layout
 
-```
+```text
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ VoiceTerm DevTools                                        [×] ^D to close   ┃
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
@@ -258,7 +259,7 @@ Each line is a single `DevEvent` with a stable schema version.
 
 ### Session CSV (summary) (`~/.voiceterm/dev/sessions/session-2026-02-02-19h30.summary.csv`)
 
-```
+```csv
 timestamp,text,latency_ms,confidence,tags,bookmarked,duration_ms
 2026-02-02T19:30:15Z,"Hello this is a test",342,0.94,"debug;smoke",false,3200
 ```
@@ -358,31 +359,37 @@ noise_floor_db: -52.3
 ## Implementation Plan
 
 ### Phase 0: Architecture + Modularization (Priority: High)
+
 - [ ] Create `devtools` module in `src/src/devtools/` with clear boundaries (config, events, storage, search, ui).
 - [ ] Define stable `DevEvent` schema + versioning.
 - [ ] Add a thin bridge in `voiceterm` to avoid one-off "mode" files.
 
 ### Phase 1: Flags + Data Pipeline (Priority: High)
+
 - [ ] Add `--dev-mode` / `-D` to enable overlay only.
 - [ ] Add `--dev-log` / `--dev-path` to opt into on-disk logging.
 - [ ] Emit `DevEvent` from audio + stt; keep an in-memory ring buffer for live UI.
 - [ ] JSONL writer with backpressure and rotation.
 
 ### Phase 2: Dev Panel Overlay (Priority: Medium)
+
 - [ ] Render live metrics from shared `DevModeStats`.
 - [ ] Add footer controls for search, filter, tag, bookmark, export.
 - [ ] Keep overlay toggle with `Ctrl+D` when dev mode is active.
 
 ### Phase 3: Search + Analysis (Priority: Medium)
+
 - [ ] Build fuzzy search index on transcripts (in-memory + persisted index).
 - [ ] Support filters (time range, latency threshold, error type, tags).
 - [ ] Session list + compare view (diff key metrics).
 
 ### Phase 4: Offline Analysis Tool (Priority: Medium)
+
 - [ ] `voiceterm dev` subcommand to browse saved sessions without live audio.
 - [ ] Batch export commands for JSON/CSV/MD with filters.
 
 ### Phase 5: Export + Retention (Priority: Low)
+
 - [ ] Auto-save on exit (when `--dev-log`).
 - [ ] Retention policy and purge command.
 - [ ] Optional audio clip storage (explicit opt-in).

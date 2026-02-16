@@ -1,0 +1,58 @@
+name: docs_lint
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "QUICK_START.md"
+      - "DEV_INDEX.md"
+      - "guides/*.md"
+      - "dev/README.md"
+      - "scripts/README.md"
+      - "pypi/README.md"
+      - "app/README.md"
+      - ".markdownlint.yaml"
+      - ".github/workflows/docs_lint.yml"
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "README.md"
+      - "QUICK_START.md"
+      - "DEV_INDEX.md"
+      - "guides/*.md"
+      - "dev/README.md"
+      - "scripts/README.md"
+      - "pypi/README.md"
+      - "app/README.md"
+      - ".markdownlint.yaml"
+      - ".github/workflows/docs_lint.yml"
+
+jobs:
+  markdown:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.45.0
+
+      - name: Lint key docs
+        run: |
+          markdownlint -c .markdownlint.yaml \
+            README.md \
+            QUICK_START.md \
+            DEV_INDEX.md \
+            guides/*.md \
+            dev/README.md \
+            scripts/README.md \
+            pypi/README.md \
+            app/README.md

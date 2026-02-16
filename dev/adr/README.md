@@ -6,6 +6,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 ## Index
 
 ### Core Architecture
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0002](0002-pty-passthrough-architecture.md) | PTY Passthrough Architecture | Accepted |
@@ -14,6 +15,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0014](0014-json-ipc-protocol.md) | JSON IPC Protocol for External UIs | Accepted |
 
 ### Voice Pipeline
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0003](0003-non-streaming-stt.md) | Non-Streaming Speech-to-Text | Accepted |
@@ -22,6 +24,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0011](0011-voice-send-modes.md) | Voice Send Modes (Auto vs Insert) | Accepted |
 
 ### Audio Processing
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0007](0007-mono-audio-downmixing.md) | Mono Audio Downmixing | Accepted |
@@ -29,12 +32,14 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0015](0015-no-device-hotplug.md) | No Audio Device Hotplug Recovery | Accepted |
 
 ### UX and Controls
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](0001-sensitivity-hotkeys.md) | Sensitivity Hotkeys (Ctrl+]/Ctrl+\\) | Accepted |
 | [0008](0008-transcript-queue-overflow.md) | Transcript Queue Overflow Handling | Accepted |
 
 ### UI and HUD Architecture
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0016](0016-modular-visual-styling.md) | Modular Visual Styling System | Accepted |
@@ -47,6 +52,7 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0023](0023-jetbrains-startup-handoff.md) | JetBrains Startup Handoff and Resize Ghost-Frame Cleanup | Accepted |
 
 ### Security and Privacy
+
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0005](0005-logging-opt-in.md) | Logging Opt-In by Default | Accepted |
@@ -55,22 +61,27 @@ without re-litigating old context. Keep them short, factual, and specific.
 ---
 
 ## Location
+
 - Store ADRs in this folder: `dev/adr/`
 
 ## Naming
+
 - `NNNN-short-title.md` (4-digit, zero-padded)
 - Example: `0015-new-feature-decision.md`
 
 ## Template
+
 - Start from [0000-template.md](0000-template.md)
 
 ## Statuses
+
 - **Proposed** - Under discussion
 - **Accepted** - Decision made and implemented
 - **Deprecated** - No longer applies
 - **Superseded** - Replaced by another ADR (link to replacement)
 
 Status semantics:
+
 - `Deprecated`: decision is no longer recommended, but not directly replaced.
 - `Superseded`: decision was replaced by a newer ADR and must include `Superseded-by: ADR NNNN`.
 
@@ -85,6 +96,7 @@ Status semantics:
 ## When to Write an ADR
 
 Write an ADR when:
+
 - Making a decision that affects multiple modules
 - Choosing between multiple valid approaches
 - Implementing something that future maintainers might question
@@ -92,6 +104,7 @@ Write an ADR when:
 - Changing an existing architectural decision
 
 Don't write an ADR for:
+
 - Bug fixes
 - Minor refactoring
 - Single-module implementation details

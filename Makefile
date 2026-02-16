@@ -1,7 +1,7 @@
 # VoiceTerm Developer Makefile
 # Run `make help` to see available commands
 
-.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release homebrew model-base model-small model-tiny clean clean-tests
+.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz traceability-audit security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release homebrew model-base model-small model-tiny clean clean-tests
 
 # Default target
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "CI / Pre-push:"
 	@echo "  make ci           Core CI check (fmt + lint + test)"
 	@echo "  make prepush      All push/PR checks (ci + perf + memory guard)"
+	@echo "  make security-audit RustSec policy check (high/critical + yanked/unsound)"
 	@echo ""
 	@echo "Mutation Testing:"
 	@echo "  make mutants           Interactive module selection"
@@ -46,6 +47,8 @@ help:
 	@echo "  make test-perf    Run perf smoke test + metrics verification"
 	@echo "  make test-mem     Run memory guard test once"
 	@echo "  make test-mem-loop Run memory guard loop (CI parity)"
+	@echo "  make parser-fuzz  Run parser property-fuzz tests"
+	@echo "  make traceability-audit Validate MASTER_PLAN <-> audit traceability"
 	@echo "  make bench        Run voice benchmark"
 	@echo ""
 	@echo "Release:"
@@ -119,6 +122,19 @@ test-mem-loop:
 		echo "Iteration $$i"; \
 		cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture; \
 	done
+
+parser-fuzz:
+	cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+	cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+	cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+
+traceability-audit:
+	python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
+
+security-audit:
+	cargo install cargo-audit --locked
+	cd src && (cargo audit --json > ../rustsec-audit.json || true)
+	python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
 
 # Voice benchmark
 bench:

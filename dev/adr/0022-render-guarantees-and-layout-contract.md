@@ -24,11 +24,13 @@ Adopt explicit render guarantees for overlay output:
 ## Consequences
 
 Positive:
+
 - Stable, professional overlay behavior across terminals and multiplexers.
 - Fewer hard-to-debug rendering artifacts.
 - Clear testable invariants.
 
 Negative:
+
 - Requires strict discipline and additional render tests.
 - Adds bookkeeping for reserved rows and cursor management.
 

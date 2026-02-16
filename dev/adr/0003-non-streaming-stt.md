@@ -13,6 +13,7 @@ Voice-to-text can be implemented in two ways:
    complete audio in one pass.
 
 Streaming provides faster perceived feedback but requires:
+
 - A streaming-capable STT backend (many Whisper implementations don't support this)
 - Complex state management for partial/final results
 - UI to show updating text without confusing the user
@@ -21,6 +22,7 @@ Streaming provides faster perceived feedback but requires:
 ## Decision
 
 Use non-streaming STT:
+
 - Capture audio with VAD (voice activity detection) until silence
 - Send the complete audio buffer to Whisper for transcription
 - Display the final transcript only after processing completes
@@ -28,18 +30,21 @@ Use non-streaming STT:
 ## Consequences
 
 **Positive:**
+
 - Simpler implementation (one transcription call per utterance)
 - More accurate results (Whisper sees full context)
 - No UI complexity for partial results
 - Works with any Whisper backend (whisper-rs, CLI, Python)
 
 **Negative:**
+
 - Higher perceived latency (user waits for full transcription)
 - No feedback during recording (only "Listening..." status)
 - Longer utterances = longer wait times
 - User can't see/correct text while speaking
 
 **Trade-offs:**
+
 - Latency scales with capture length: ~1-3s for typical commands
 - Acceptable for coding voice commands (short phrases)
 - Less suitable for long-form dictation (but `--voice-max-duration` can cap this)

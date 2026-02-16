@@ -6,6 +6,7 @@ use super::osc::*;
 use super::pty::*;
 use crate::set_logging_for_tests;
 use crossbeam_channel::{bounded, RecvTimeoutError};
+use proptest::prelude::*;
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::mem;
@@ -588,6 +589,62 @@ fn find_osc_terminator_handles_bel_and_st() {
     assert_eq!(find_osc_terminator(bel, 0), Some(b"0;title\x07".len()));
     let st = b"0;title\x1b\\rest";
     assert_eq!(find_osc_terminator(st, 0), Some(b"0;title\x1b\\".len()));
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    #[test]
+    fn prop_find_csi_sequence_respects_bounds(
+        bytes in proptest::collection::vec(any::<u8>(), 0..256),
+        raw_start in 0usize..300,
+    ) {
+        let start = raw_start.min(bytes.len().saturating_add(1));
+        let result = find_csi_sequence(&bytes, start);
+        if let Some((idx, final_byte)) = result {
+            prop_assert!(idx < bytes.len(), "final index should be in-bounds");
+            prop_assert!(idx >= start, "final index should not precede start");
+            prop_assert!((0x40..=0x7E).contains(&final_byte), "final byte should be CSI terminator");
+            prop_assert_eq!(bytes[idx], final_byte, "returned final byte should match source");
+        }
+    }
+
+    #[test]
+    fn prop_find_osc_terminator_respects_bounds(
+        bytes in proptest::collection::vec(any::<u8>(), 0..256),
+        raw_start in 0usize..300,
+    ) {
+        let start = raw_start.min(bytes.len());
+        let result = find_osc_terminator(&bytes, start);
+        if let Some(end) = result {
+            prop_assert!(end <= bytes.len(), "terminator end should be in-bounds");
+            prop_assert!(end > start, "terminator end should advance from start");
+            let span = &bytes[start..end];
+            let has_bel = span.contains(&0x07);
+            let has_st = span.windows(2).any(|window| window == b"\x1b\\");
+            prop_assert!(has_bel || has_st, "terminator span should include BEL or ST");
+        }
+    }
+
+    #[test]
+    fn prop_split_incomplete_escape_preserves_original_bytes(
+        mut bytes in proptest::collection::vec(any::<u8>(), 0..256),
+    ) {
+        let original = bytes.clone();
+        let tail = split_incomplete_escape(&mut bytes);
+        match tail {
+            Some(tail_bytes) => {
+                let mut recombined = bytes.clone();
+                recombined.extend_from_slice(&tail_bytes);
+                prop_assert_eq!(recombined, original, "head + tail should round-trip original buffer");
+                prop_assert!(!tail_bytes.is_empty(), "tail should not be empty when present");
+                prop_assert_eq!(tail_bytes[0], 0x1b, "tail should begin with ESC");
+            }
+            None => {
+                prop_assert_eq!(bytes, original, "buffer should remain untouched without split tail");
+            }
+        }
+    }
 }
 
 #[test]

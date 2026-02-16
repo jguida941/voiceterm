@@ -51,6 +51,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::io::{self, Write};
 use std::path::Path;
+use std::thread;
 use std::time::{Duration, Instant};
 use voiceterm::pty_session::PtyOverlaySession;
 use voiceterm::{
@@ -85,6 +86,9 @@ const INPUT_CHANNEL_CAPACITY: usize = 256;
 
 const METER_UPDATE_MS: u64 = 80;
 const JETBRAINS_METER_UPDATE_MS: u64 = 120;
+const THREAD_JOIN_POLL_MS: u64 = 10;
+const WRITER_SHUTDOWN_JOIN_TIMEOUT_MS: u64 = 500;
+const INPUT_SHUTDOWN_JOIN_TIMEOUT_MS: u64 = 100;
 
 fn contains_jetbrains_hint(value: &str) -> bool {
     let value = value.to_ascii_lowercase();
@@ -141,6 +145,24 @@ fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(METER_UPDATE_MS);
     apply_jetbrains_meter_floor(base_ms, is_jetbrains_terminal())
+}
+
+fn join_thread_with_timeout(name: &str, handle: thread::JoinHandle<()>, timeout: Duration) {
+    let deadline = Instant::now() + timeout;
+    while !handle.is_finished() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(THREAD_JOIN_POLL_MS));
+    }
+
+    if handle.is_finished() {
+        if let Err(err) = handle.join() {
+            log_debug(&format!("{name} thread panicked during shutdown: {err:?}"));
+        }
+    } else {
+        log_debug(&format!(
+            "{name} thread did not exit within {}ms; detaching",
+            timeout.as_millis()
+        ));
+    }
 }
 
 fn main() -> Result<()> {
@@ -264,7 +286,7 @@ fn main() -> Result<()> {
     )?;
 
     let (writer_tx, writer_rx) = bounded(WRITER_CHANNEL_CAPACITY);
-    let _writer_handle = spawn_writer_thread(writer_rx);
+    let writer_handle = spawn_writer_thread(writer_rx);
 
     // Set the color theme for the status line
     let _ = writer_tx.send(WriterMessage::SetTheme(theme));
@@ -295,7 +317,7 @@ fn main() -> Result<()> {
     }
 
     let (input_tx, input_rx) = bounded(INPUT_CHANNEL_CAPACITY);
-    let _input_handle = spawn_input_thread(input_tx);
+    let input_handle = spawn_input_thread(input_tx);
 
     let auto_idle_timeout = Duration::from_millis(config.auto_voice_idle_ms.max(100));
     let transcript_idle_timeout = Duration::from_millis(config.transcript_idle_ms.max(50));
@@ -421,6 +443,17 @@ fn main() -> Result<()> {
     let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
     let _ = deps.writer_tx.send(WriterMessage::Shutdown);
     terminal_guard.restore();
+    drop(deps);
+    join_thread_with_timeout(
+        "writer",
+        writer_handle,
+        Duration::from_millis(WRITER_SHUTDOWN_JOIN_TIMEOUT_MS),
+    );
+    join_thread_with_timeout(
+        "input",
+        input_handle,
+        Duration::from_millis(INPUT_SHUTDOWN_JOIN_TIMEOUT_MS),
+    );
     let stats_output = format_session_stats(&state.session_stats, state.theme);
     if should_print_stats(&stats_output) {
         print!("{stats_output}");

@@ -6,6 +6,7 @@ Date: 2026-01-29
 ## Context
 
 The native Rust voice pipeline (CPAL audio + whisper-rs) can fail for several reasons:
+
 - Whisper model not downloaded or path misconfigured
 - Audio device unavailable or permissions denied
 - Platform-specific audio issues (especially on macOS with permissions)
@@ -22,6 +23,7 @@ Implement a fallback chain:
 3. **Allow disabling fallback**: `--no-python-fallback` forces native-only mode
 
 The Python fallback:
+
 - Uses `ffmpeg` for audio capture (more compatible across platforms)
 - Uses `whisper` CLI for transcription (pip-installable, well-tested)
 - Requires Python 3, ffmpeg, and whisper on PATH
@@ -30,18 +32,21 @@ The Python fallback:
 ## Consequences
 
 **Positive:**
+
 - Higher success rate for first-time users
 - Graceful degradation when native pipeline has issues
 - Python pipeline is well-documented and debuggable
 - Users can explicitly choose native-only for performance
 
 **Negative:**
+
 - Two code paths to maintain
 - Python pipeline is slower (process spawning, disk I/O)
 - Additional dependencies (Python, ffmpeg, whisper CLI)
 - Harder to diagnose which pipeline is being used
 
 **Trade-offs:**
+
 - Reliability over performance for default behavior
 - Power users can disable fallback for lower latency
 

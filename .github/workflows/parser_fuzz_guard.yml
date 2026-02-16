@@ -1,0 +1,41 @@
+name: Parser Fuzz Guard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 5 * * *"
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "src/src/pty_session/**"
+      - "src/Cargo.toml"
+      - ".github/workflows/parser_fuzz_guard.yml"
+  pull_request:
+    paths:
+      - "src/src/pty_session/**"
+      - "src/Cargo.toml"
+      - ".github/workflows/parser_fuzz_guard.yml"
+
+jobs:
+  parser-property:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Run parser property tests
+        run: |
+          cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+          cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+          cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture

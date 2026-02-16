@@ -31,6 +31,7 @@ voiceterm --login --claude
 The PyPI package installs the `voiceterm` launcher.
 
 On first run, it bootstraps the native VoiceTerm binary into:
+
 - `~/.local/share/voiceterm/native/bin/voiceterm` (default)
 
 By default it builds from the official VoiceTerm repository source.
@@ -52,8 +53,8 @@ By default it builds from the official VoiceTerm repository source.
 
 ## Documentation
 
-- Main repository: https://github.com/jguida941/voiceterm
-- Install guide: https://github.com/jguida941/voiceterm/blob/master/guides/INSTALL.md
-- Usage guide: https://github.com/jguida941/voiceterm/blob/master/guides/USAGE.md
-- CLI flags: https://github.com/jguida941/voiceterm/blob/master/guides/CLI_FLAGS.md
-- Troubleshooting: https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md
+- Main repository: <https://github.com/jguida941/voiceterm>
+- Install guide: <https://github.com/jguida941/voiceterm/blob/master/guides/INSTALL.md>
+- Usage guide: <https://github.com/jguida941/voiceterm/blob/master/guides/USAGE.md>
+- CLI flags: <https://github.com/jguida941/voiceterm/blob/master/guides/CLI_FLAGS.md>
+- Troubleshooting: <https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md>

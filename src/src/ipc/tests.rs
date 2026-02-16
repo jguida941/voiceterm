@@ -37,6 +37,7 @@ fn new_test_state(mut config: AppConfig) -> IpcState {
         current_auth_job: None,
         session_id: "test-session".to_string(),
         cancelled: false,
+        exit_requested: false,
     }
 }
 
@@ -418,6 +419,47 @@ fn handle_wrapper_requires_prompt_for_codex_and_claude() {
 }
 
 #[test]
+fn handle_wrapper_exit_requests_graceful_shutdown() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+
+    handle_wrapper_command(&mut state, WrapperCmd::Exit);
+
+    assert!(state.exit_requested);
+    assert!(state.cancelled);
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Status { message } if message.contains("Exit requested"))
+    }));
+}
+
+#[test]
+fn handle_send_prompt_allows_exit_during_auth() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    let (_tx, rx) = mpsc::channel();
+    state.current_auth_job = Some(AuthJob {
+        provider: Provider::Codex,
+        receiver: rx,
+        started_at: Instant::now(),
+    });
+
+    handle_send_prompt(&mut state, "/exit", None);
+
+    assert!(state.exit_requested);
+    let events = events_since(snapshot);
+    assert!(!events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::Error { message, .. } if message.contains("Finish /auth before sending prompts")
+        )
+    }));
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Status { message } if message.contains("Exit requested"))
+    }));
+}
+
+#[test]
 fn run_ipc_mode_emits_capabilities_on_start() {
     let snapshot = event_snapshot();
     let config = AppConfig::parse_from(["test-app"]);
@@ -547,6 +589,16 @@ fn run_ipc_loop_breaks_when_limit_zero() {
     let (_tx, rx) = mpsc::channel();
     run_ipc_loop(&mut state, &rx, Some(0)).unwrap();
     assert_eq!(ipc_loop_count(), 1);
+}
+
+#[test]
+fn run_ipc_loop_exits_when_graceful_exit_requested_and_idle() {
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.exit_requested = true;
+    let (_tx, rx) = mpsc::channel();
+    let start = Instant::now();
+    run_ipc_loop(&mut state, &rx, Some(1000)).unwrap();
+    assert!(start.elapsed() < Duration::from_millis(50));
 }
 
 #[cfg(unix)]
@@ -964,6 +1016,32 @@ fn process_auth_events_handles_disconnect() {
     assert!(events.iter().any(|event| {
             matches!(event, IpcEvent::AuthEnd { success: false, error, .. } if error.as_deref() == Some("Auth worker disconnected"))
         }));
+}
+
+#[test]
+fn process_auth_events_times_out_stalled_job() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    let (_tx, rx) = mpsc::channel();
+    state.current_auth_job = Some(AuthJob {
+        provider: Provider::Claude,
+        receiver: rx,
+        started_at: Instant::now(),
+    });
+
+    thread::sleep(Duration::from_millis(60));
+    assert!(process_auth_events(&mut state));
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::AuthEnd { success: false, error, .. }
+                if error.as_deref().is_some_and(|msg| msg.contains("timed out"))
+        )
+    }));
+    assert!(events
+        .iter()
+        .any(|event| matches!(event, IpcEvent::Capabilities { .. })));
 }
 
 #[test]

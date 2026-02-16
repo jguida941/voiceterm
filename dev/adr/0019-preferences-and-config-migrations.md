@@ -22,11 +22,13 @@ Adopt a versioned preferences file with explicit migrations:
 ## Consequences
 
 Positive:
+
 - Safe upgrades and backwards compatibility.
 - Clear precedence rules between config and CLI.
 - Easier to add new settings without breaking users.
 
 Negative:
+
 - Additional migration code and tests.
 - Slight complexity in config load path.
 

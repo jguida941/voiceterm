@@ -6,12 +6,14 @@ Date: 2026-01-29
 ## Context
 
 Debug logging is useful for troubleshooting but creates privacy and disk concerns:
+
 - Logs may contain sensitive content (prompts, transcripts, file paths)
 - Unbounded logs can fill disk space
 - Users may not realize logging is active
 - Production audit identified always-on prompt logging as a risk
 
 Previous behavior:
+
 - Debug logs written to temp file by default
 - Prompt detection logs always enabled
 - No size caps or rotation
@@ -26,6 +28,7 @@ Make all logging opt-in:
 4. **Log rotation**: All enabled logs have size caps and rotate to prevent unbounded growth
 
 Flags:
+
 - `--logs` - Enable debug logging
 - `--log-content` - Include prompt/transcript snippets in logs
 - `--prompt-log` - Enable prompt detection logging
@@ -34,17 +37,20 @@ Flags:
 ## Consequences
 
 **Positive:**
+
 - Privacy by default (no sensitive data written without consent)
 - No disk growth without explicit opt-in
 - Clear user control over what gets logged
 - Audit-compliant behavior
 
 **Negative:**
+
 - Harder to debug issues (must ask user to enable logs)
 - Users may not know to enable logs when reporting issues
 - More flags to document and explain
 
 **Trade-offs:**
+
 - Chose privacy over convenience
 - Troubleshooting docs must guide users to enable relevant logs
 

@@ -18,6 +18,7 @@ Builds VoiceTerm and installs the `voiceterm` command.
 ```
 
 Pick a model size during install:
+
 ```bash
 ./scripts/install.sh --small
 ```
@@ -48,6 +49,7 @@ Downloads Whisper models and performs initial setup.
 ## python_fallback.py
 
 Python fallback pipeline for speech-to-text. Used automatically when:
+
 - Native Whisper model is not available
 - Audio device issues occur
 

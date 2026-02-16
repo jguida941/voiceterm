@@ -7,6 +7,7 @@ Platform-specific application launchers for VoiceTerm.
 `macos/VoiceTerm.app` - Double-click app that opens a folder picker and launches VoiceTerm in Terminal.
 
 **Usage:**
+
 1. Double-click `VoiceTerm.app`
 2. Select your project folder
 3. Terminal opens with VoiceTerm running in that folder
@@ -18,6 +19,7 @@ Platform-specific application launchers for VoiceTerm.
 `windows/` - Windows launcher (coming soon)
 
 **Planned features:**
+
 - Windows Terminal integration
 - PowerShell launcher
 - WSL2 support

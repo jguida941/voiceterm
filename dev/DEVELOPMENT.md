@@ -13,7 +13,7 @@
 
 ## Project structure
 
-```
+```text
 voiceterm/
 ├── .github/
 │   ├── CONTRIBUTING.md   # Contribution guidelines
@@ -112,6 +112,26 @@ cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_v
 # Memory guard (thread cleanup)
 cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
+# Security advisory policy (high/critical + yanked/unsound gate)
+cargo install cargo-audit --locked
+cd src && (cargo audit --json > ../rustsec-audit.json || true)
+python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
+
+# Unsafe/FFI governance (for PTY/stt unsafe changes)
+# 1) update invariants checklist doc:
+#    dev/security/unsafe_governance.md
+cd src && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd src && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd src && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture
+
+# Parser/ANSI boundary property-fuzz coverage
+cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+
+# Hardening audit traceability guard (MASTER_PLAN <-> RUST_GUI_AUDIT)
+python3 ../dev/scripts/check_audit_traceability.py --master-plan ../dev/active/MASTER_PLAN.md --audit ../RUST_GUI_AUDIT_2026-02-15.md
+
 # Mutation tests (single run; CI enforces 80% minimum score)
 cd src && cargo mutants --timeout 300 -o mutants.out --json
 python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
@@ -184,6 +204,7 @@ python3 dev/scripts/devctl.py report --format md --pipe-command claude
 ```
 
 Implementation layout:
+
 - `dev/scripts/devctl.py`: thin entrypoint wrapper
 - `dev/scripts/devctl/cli.py`: argument parsing and dispatch
 - `dev/scripts/devctl/commands/`: per-command implementations
@@ -239,6 +260,10 @@ GitHub Actions run on every push and PR:
 | Latency Guard | `.github/workflows/latency_guard.yml` | Synthetic latency regression guardrails |
 | Memory Guard | `.github/workflows/memory_guard.yml` | 20x memory guard loop |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated 80% score gate |
+| Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list) |
+| Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
+| Audit Traceability Guard | `.github/workflows/audit_traceability_guard.yml` | enforce hardening plan/audit traceability consistency |
+| Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 
 **Before pushing, run locally (recommended):**
 
@@ -251,6 +276,22 @@ make prepush
 
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
+
+# Security advisory policy gate (matches security_guard.yml)
+cargo install cargo-audit --locked
+cd src && (cargo audit --json > ../rustsec-audit.json || true)
+python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
+
+# Parser property-fuzz lane (matches parser_fuzz_guard.yml)
+cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+
+# Hardening traceability guard (matches audit_traceability_guard.yml)
+python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
+
+# Markdown style/readability checks for key docs
+markdownlint -c .markdownlint.yaml README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 ```
 
 **Manual equivalents (if you prefer direct cargo commands):**
@@ -313,6 +354,7 @@ Use `./dev/scripts/update-homebrew.sh X.Y.Z` in the previous step to fetch
 the SHA256 and update the Homebrew formula.
 
 Users can then upgrade:
+
 ```bash
 brew update && brew upgrade voiceterm
 ```
@@ -322,6 +364,7 @@ See `scripts/README.md` for full script documentation.
 ## Local development tips
 
 **Test with different backends:**
+
 ```bash
 voiceterm              # Codex (default)
 voiceterm --claude     # Claude Code
@@ -329,6 +372,7 @@ voiceterm --gemini     # Gemini CLI (experimental; not fully validated)
 ```
 
 **Debug logging:**
+
 ```bash
 voiceterm --logs                    # Enable debug log
 tail -f $TMPDIR/voiceterm_tui.log   # Watch log output

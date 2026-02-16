@@ -24,15 +24,18 @@ Adopt a JetBrains-specific startup/render hardening strategy:
 ## Consequences
 
 **Positive:**
+
 - Removes JetBrains-specific splash handoff artifacts.
 - Prevents stale/ghost HUD borders after startup or runtime resize transitions.
 - Preserves behavior in non-JetBrains terminals where splash rendering is stable.
 
 **Negative:**
+
 - Startup behavior is intentionally environment-dependent (JetBrains terminals skip splash by default).
 - Detection relies on environment markers that may vary by IDE versions/plugins.
 
 **Trade-offs:**
+
 - Favor reliable first-paint UX over strict cross-terminal splash parity.
 - Keep manual env override so users can enforce one behavior globally.
 

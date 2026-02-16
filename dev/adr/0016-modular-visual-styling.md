@@ -7,6 +7,7 @@ Date: 2026-01-30
 
 The overlay status line was originally plain text with no colors or visual
 differentiation. This made it difficult to:
+
 - Quickly identify current state (recording, processing, error)
 - Scan status messages at a glance
 - Match the polish of modern CLI tools (Claude CLI, etc.)
@@ -33,7 +34,7 @@ Implement a modular visual styling system with these components:
 3. **`color_mode.rs`** - Terminal capability detection
    - `ColorMode` enum: TrueColor, Color256, Ansi16, None
    - Auto-detection from `COLORTERM`, `TERM` environment
-   - Respects `NO_COLOR` standard (https://no-color.org/)
+   - Respects `NO_COLOR` standard (<https://no-color.org/>)
 
 4. **`status_line.rs`** - Enhanced status line layout
    - Structured format: `◉ AUTO │ -35dB │ Ready   Ctrl+R rec`
@@ -54,6 +55,7 @@ Implement a modular visual styling system with these components:
 ## Consequences
 
 **Positive:**
+
 - Professional, polished appearance
 - Quick visual identification of states
 - User-configurable themes
@@ -62,12 +64,14 @@ Implement a modular visual styling system with these components:
 - Extensible (easy to add new themes)
 
 **Negative:**
+
 - More code to maintain (8 new modules)
 - ANSI escape codes add complexity to output parsing
 - Theme colors may not look good in all terminals
 - Slight increase in binary size
 
 **Trade-offs:**
+
 - Modularity over simplicity (worth it for maintainability)
 - Rich features over minimal footprint (acceptable for a TUI app)
 

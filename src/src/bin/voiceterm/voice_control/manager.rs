@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Result};
 use crossbeam_channel::Sender;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 use voiceterm::{
     audio, config::AppConfig, log_debug, stt, voice, VoiceCaptureSource, VoiceCaptureTrigger,
@@ -21,6 +22,9 @@ struct VoiceStartInfo {
     source: VoiceCaptureSource,
     fallback_note: Option<String>,
 }
+
+const VOICE_MANAGER_JOIN_POLL_MS: u64 = 5;
+const VOICE_MANAGER_JOIN_TIMEOUT_MS: u64 = 200;
 
 pub(crate) struct VoiceManager {
     config: AppConfig,
@@ -229,6 +233,33 @@ impl VoiceManager {
     }
 }
 
+impl Drop for VoiceManager {
+    fn drop(&mut self) {
+        let Some(mut job) = self.job.take() else {
+            return;
+        };
+
+        // Ensure active capture workers are signaled to stop during teardown.
+        job.request_stop();
+        if let Some(handle) = job.handle.take() {
+            let deadline = Instant::now() + Duration::from_millis(VOICE_MANAGER_JOIN_TIMEOUT_MS);
+            while !handle.is_finished() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(VOICE_MANAGER_JOIN_POLL_MS));
+            }
+            if handle.is_finished() {
+                if let Err(err) = handle.join() {
+                    log_debug(&format!("voice manager drop: worker panicked: {err:?}"));
+                }
+            } else {
+                log_debug("voice manager drop: worker still running after timeout; detaching");
+            }
+        }
+
+        self.cancel_pending = false;
+        self.active_source = None;
+    }
+}
+
 pub(crate) fn start_voice_capture(
     voice_manager: &mut VoiceManager,
     trigger: VoiceCaptureTrigger,
@@ -293,7 +324,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
     use std::thread;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
     use voiceterm::config::AppConfig;
 
     #[test]
@@ -379,6 +410,39 @@ mod tests {
         });
         assert!(manager.request_early_stop());
         assert!(stop_flag.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn voice_manager_drop_requests_stop_for_active_job() {
+        let config = AppConfig::parse_from(["test"]);
+        let mut manager = VoiceManager::new(config);
+        let (tx, rx) = mpsc::channel();
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let stop_flag_worker = stop_flag.clone();
+        let stop_seen = Arc::new(AtomicBool::new(false));
+        let stop_seen_worker = stop_seen.clone();
+        let handle = thread::spawn(move || {
+            let start = Instant::now();
+            while start.elapsed() < Duration::from_secs(1) {
+                if stop_flag_worker.load(Ordering::Relaxed) {
+                    stop_seen_worker.store(true, Ordering::SeqCst);
+                    break;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+            let _ = tx.send(VoiceJobMessage::Empty {
+                source: VoiceCaptureSource::Native,
+                metrics: None,
+            });
+        });
+        manager.job = Some(voice::VoiceJob {
+            receiver: rx,
+            handle: Some(handle),
+            stop_flag,
+        });
+
+        drop(manager);
+        assert!(stop_seen.load(Ordering::SeqCst));
     }
 
     #[test]

@@ -5,6 +5,7 @@ Scripts for development, testing, and releases.
 **Tip:** Use the Makefile for common tasks: `make help`
 
 Common pre-push checks:
+
 ```bash
 make ci       # Core CI (fmt + clippy + tests)
 make prepush  # All push/PR checks (ci + perf smoke + memory guard)
@@ -20,6 +21,8 @@ make prepush  # All push/PR checks (ci + perf smoke + memory guard)
 | `devctl.py` | Unified dev CLI (checks, mutants, release, report) | `python3 dev/scripts/devctl.py` |
 | `mutants.py` | Interactive mutation testing | `python3 dev/scripts/mutants.py` |
 | `check_mutation_score.py` | Verify mutation score | Used by CI |
+| `check_rustsec_policy.py` | Enforce RustSec advisory policy thresholds | `python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --allowlist-file dev/security/rustsec_allowlist.md` |
+| `check_audit_traceability.py` | Enforce MASTER_PLAN and Rust audit traceability sync | `python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md` |
 
 ## release.sh
 
@@ -30,6 +33,7 @@ Creates a Git tag for a new release.
 ```
 
 **Prerequisites:**
+
 - On `master` branch
 - No uncommitted changes
 - `src/Cargo.toml` version matches
@@ -94,6 +98,7 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 The scheduled GitHub mutation workflow shards runs (`1/8` ... `8/8`) and enforces one aggregated 80% threshold.
 
 Or use the Makefile:
+
 ```bash
 make mutants         # Interactive
 make mutants-audio   # Audio module only
@@ -105,6 +110,7 @@ make mutants-results # Show results
 Unified dev CLI for common workflows (checks, mutants, mutation score, docs-check, release, status/report).
 
 Notes:
+
 - Source lives under `dev/scripts/devctl/` with modular command implementations.
 - Uses existing scripts under `dev/scripts/` and does not duplicate logic.
 - `--format json|md` outputs machine-readable reports (good for pasting into tools).
@@ -114,6 +120,7 @@ Notes:
 - `hygiene` audits archive naming, ADR status/index consistency, and scripts-doc coverage.
 
 Structure (high level):
+
 - `dev/scripts/devctl.py`: thin entrypoint wrapper
 - `dev/scripts/devctl/cli.py`: argument parsing and dispatch
 - `dev/scripts/devctl/commands/`: per-command implementations
@@ -146,8 +153,19 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Markdown style/readability checks for key docs
+markdownlint -c .markdownlint.yaml README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+
 # Governance hygiene audit (archive + ADR + scripts docs)
 python3 dev/scripts/devctl.py hygiene
+
+# Security advisory policy gate (high/critical + yanked/unsound)
+cargo install cargo-audit --locked
+cd src && (cargo audit --json > ../rustsec-audit.json || true)
+python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
+
+# Hardening audit traceability guard (MASTER_PLAN <-> RUST_GUI_AUDIT)
+python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
 
 # Plot top 25% hotspots by directory
 python3 dev/scripts/devctl.py mutants --results-only --plot --plot-scope dir --plot-top-pct 25
@@ -167,6 +185,7 @@ python3 dev/scripts/devctl.py report --format md \
 ```
 
 Makefile shortcuts:
+
 ```bash
 make dev-check
 make dev-ci
@@ -191,6 +210,7 @@ Test scripts for benchmarking and integration testing.
 | `integration_test.sh` | IPC protocol testing |
 
 Latency commands:
+
 ```bash
 # Baseline synthetic latency (no mic) with the measurement harness
 ./dev/scripts/tests/measure_latency.sh --synthetic --voice-only --skip-stt --count 5

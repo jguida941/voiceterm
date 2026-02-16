@@ -3,6 +3,12 @@
 VoiceTerm uses [Whisper](https://github.com/openai/whisper) for local speech-to-text.
 All transcription happens on your machine - no audio is sent to the cloud.
 
+Docs map:
+
+- User guides index: [README.md](README.md)
+- Quick start: [../QUICK_START.md](../QUICK_START.md)
+- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
+
 ## Contents
 
 - [How It Works](#how-it-works)
@@ -44,6 +50,7 @@ auto-detects whichever model file is present.
 ### Switching Models
 
 Download a different model:
+
 ```bash
 ./scripts/setup.sh models --base    # 142 MB, recommended
 ./scripts/setup.sh models --small   # 466 MB, default
@@ -52,6 +59,7 @@ Download a different model:
 ```
 
 Or specify at runtime:
+
 ```bash
 voiceterm --whisper-model base
 voiceterm --whisper-model-path /path/to/ggml-medium.en.bin
@@ -78,15 +86,18 @@ voiceterm --lang auto
 ### Language-Specific Models
 
 Models ending in `.en` are English-only and slightly faster/smaller:
+
 - `ggml-base.en.bin` - English only
 - `ggml-base.bin` - Multilingual
 
 For non-English languages, use the multilingual models (without `.en`):
+
 ```bash
 ./scripts/setup.sh models --base  # Downloads base.en by default
 ```
 
 To download multilingual models manually:
+
 ```bash
 curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
   -o whisper_models/ggml-base.bin
@@ -118,6 +129,7 @@ curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.b
 ### Model Locations
 
 VoiceTerm (the binary) looks for models in this order:
+
 1. Path specified via `--whisper-model-path`
 2. `whisper_models/` in the project directory
 
@@ -125,6 +137,7 @@ The install/start scripts also check `~/.local/share/voiceterm/models/` and pass
 via `--whisper-model-path` when found.
 
 Override with environment variable (used by install/start scripts):
+
 ```bash
 export VOICETERM_MODEL_DIR=/path/to/models
 ```
@@ -148,14 +161,17 @@ export VOICETERM_MODEL_DIR=/path/to/models
 ### Troubleshooting
 
 **Transcription is slow:**
+
 - Switch to a smaller model (`--whisper-model base`)
 - Check CPU usage - Whisper is CPU-intensive
 
 **Wrong language detected:**
+
 - Set language explicitly (`--lang en`)
 - Use language-specific model (`.en` for English)
 
 **Poor accuracy:**
+
 - Try a larger model (`--whisper-model medium`)
 - Adjust mic sensitivity
 - Speak closer to the microphone
@@ -163,16 +179,21 @@ export VOICETERM_MODEL_DIR=/path/to/models
 ### Advanced tuning
 
 Whisper options (native pipeline):
+
 - `--whisper-beam-size <N>`: beam search size (0 = greedy)
 - `--whisper-temperature <T>`: sampling temperature
 
 Fallback control:
+
 - `--no-python-fallback`: fail instead of using the Python pipeline
 
 ## See Also
 
 | Topic | Link |
 |-------|------|
+| Guides index | [README.md](README.md) |
+| Usage guide | [USAGE.md](USAGE.md) |
+| Install guide | [INSTALL.md](INSTALL.md) |
 | CLI Flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Quick Start | [QUICK_START.md](../QUICK_START.md) |

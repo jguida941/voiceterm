@@ -5,6 +5,7 @@ for VoiceTerm's "voice + AI CLI" strategy. It is intended for product positionin
 and roadmap prioritization.
 
 ## Plan status
+
 - Reference research only (market/competitor + UX analysis).
 - The single active execution plan is `dev/active/MASTER_PLAN.md`.
 - Deferred work is tracked in `dev/deferred/`.
@@ -61,7 +62,7 @@ direction.
 VoiceTerm sits at an unoccupied intersection. No tool today combines voice +
 AI command generation + terminal-native orchestration:
 
-```
+```text
                     Voice Input
                         |
           Voxtype ------+------- VoiceTerm  <-- current position
@@ -105,6 +106,7 @@ AI command generation + terminal-native orchestration:
 **1. Voice Macros / Custom Triggers**
 Users define voice shortcuts that expand to commands. Pattern-match against
 transcripts before PTY injection. Per-project macro files supported.
+
 ```yaml
 # .voiceterm/macros.yaml
 macros:
@@ -117,6 +119,7 @@ macros:
 
 **2. Command Mode vs. Dictation Mode**
 Toggle between two voice modes via hotkey (e.g., Ctrl+D):
+
 - **Command mode**: shell-aware vocabulary, auto-submit, abbreviation expansion
   (`"git co main"` → `git checkout main`)
 - **Dictation mode**: natural language prose, full punctuation, no auto-submit
@@ -133,7 +136,8 @@ before they reach the AI CLI.
 **4. LLM-Powered Command Generation from Voice** ← biggest opportunity
 Voice → Whisper transcription → LLM preprocessing → optimized command →
 confirmation UI → PTY injection. Example flow:
-```
+
+```text
 User says: "find all TypeScript files changed this week with functions over 50 lines"
 VoiceTerm:
   1. Whisper transcribes natural language
@@ -142,11 +146,13 @@ VoiceTerm:
   4. User confirms [Y/n/edit]
   5. Injects into PTY
 ```
+
 Add `--llm-assist` flag with provider config. Optional — keeps VoiceTerm usable
 without any cloud dependency.
 
 **5. Voice Terminal Navigation**
 Go beyond dictation to actual terminal control via voice:
+
 - "scroll up" / "scroll down"
 - "copy last output"
 - "show last error"
@@ -156,7 +162,8 @@ Go beyond dictation to actual terminal control via voice:
 
 Leverages existing PTY access to send control sequences.
 
-**6. Persistent Config & Transcript History**
+#### 6. Persistent Config & Transcript History
+
 - Save preferences to `~/.config/voiceterm/config.toml` (theme, thresholds,
   mode, macros, default backend)
 - Searchable transcript history (`voiceterm --history` or Ctrl+H in overlay)
@@ -164,12 +171,14 @@ Leverages existing PTY access to send control sequences.
 
 ### Phase 3 — Advanced Features (2-3 months)
 
-**7. Neovim / Tmux Integration**
+#### 7. Neovim / Tmux Integration
+
 - Neovim plugin: `:VoiceTermStart`, voice in command mode, voice nav
 - Tmux awareness: detect active pane, voice pane switching
 - VS Code integrated terminal panel support
 
-**8. Streaming STT / Real-Time Overlay**
+#### 8. Streaming STT / Real-Time Overlay
+
 - Show partial transcripts as Whisper processes (whisper_streaming approach)
 - Floating overlay showing live transcription above terminal
 - Per-word confidence highlighting (dim uncertain words)
@@ -178,13 +187,15 @@ Leverages existing PTY access to send control sequences.
 
 **9. Accessibility Suite**
 Target the 5-10% of developers with RSI:
+
 - Voice health monitoring (warn on extended/strained usage)
 - Fatigue detection (suggest breaks after X minutes)
 - Quiet/whisper capture mode (low-volume environments)
 - Shorthand vocabulary expansion (minimal syllables per command)
 - Screen reader compatibility for all overlays
 
-**10. Custom Vocabulary / Fine-Tuning**
+#### 10. Custom Vocabulary / Fine-Tuning
+
 - Per-project word lists (API names, variable naming conventions)
 - Auto-learn from project files (scan identifiers in codebase)
 - User-trainable corrections (persistent word substitution rules)
@@ -193,6 +204,7 @@ Target the 5-10% of developers with RSI:
 ## Overlay UX Enhancement Audit (2026-02-13)
 
 ### Current runtime UI coverage
+
 - 11 color themes with brand-specific palettes
 - 3 HUD styles (Full, Minimal, Hidden) with responsive layout (25-120+ chars)
 - Modular HUD system with 4 pluggable modules (Mode, Meter, Latency, Queue)
@@ -206,6 +218,7 @@ Target the 5-10% of developers with RSI:
 - Terminal capability auto-detection (TrueColor/256/ANSI16/None, NO_COLOR)
 
 ### Current runtime UI gaps
+
 1. No streaming/live transcript preview
 2. No transcript history UI
 3. No voice macros UI
@@ -218,6 +231,7 @@ Target the 5-10% of developers with RSI:
 10. No toast notification system (inline status text only)
 
 ### Overall assessment
+
 Current polish is strong but still short of a "premium" interaction layer.
 The existing modular HUD architecture is a solid base for incremental upgrades.
 
@@ -290,74 +304,82 @@ themselves; implementation priority and status are tracked in `MASTER_PLAN.md`.
 ## Market Evidence (External)
 
 ### Direct competitors / voice-to-text tools
-- Dictto: https://dictto.app/
-- Fisper: https://fisper.app/
-- Speech2Type: https://www.speech2type.com/
-- Speech2Type repo: https://github.com/gergomiklos/speech2type
-- Ottex home: https://ottex.ai/
-- Ottex apps: https://ottex.ai/apps/
-- Ottex terminal page: https://ottex.ai/apps/terminal/
-- Remote Coder: https://remotecoder.app/
-- Claude Quick Entry: https://support.claude.com/en/articles/12626668-use-quick-entry-with-claude-desktop-on-mac
-- Voxtype: https://voxtype.io/
-- Whis (Cargo CLI): https://github.com/frankdierolf/whis
-- Whispertux: https://github.com/cjams/whispertux
-- SoupaWhisper (Linux SuperWhisper alt): https://www.ksred.com/soupawhisper-how-i-replaced-superwhisper-on-linux/
+
+- Dictto: <https://dictto.app/>
+- Fisper: <https://fisper.app/>
+- Speech2Type: <https://www.speech2type.com/>
+- Speech2Type repo: <https://github.com/gergomiklos/speech2type>
+- Ottex home: <https://ottex.ai/>
+- Ottex apps: <https://ottex.ai/apps/>
+- Ottex terminal page: <https://ottex.ai/apps/terminal/>
+- Remote Coder: <https://remotecoder.app/>
+- Claude Quick Entry: <https://support.claude.com/en/articles/12626668-use-quick-entry-with-claude-desktop-on-mac>
+- Voxtype: <https://voxtype.io/>
+- Whis (Cargo CLI): <https://github.com/frankdierolf/whis>
+- Whispertux: <https://github.com/cjams/whispertux>
+- SoupaWhisper (Linux SuperWhisper alt): <https://www.ksred.com/soupawhisper-how-i-replaced-superwhisper-on-linux/>
 
 ### AI terminal assistants (no voice — expansion targets)
-- Warp AI: https://www.warp.dev/compare-terminal-tools/github-copilot-vs-warp
-- shell-gpt (SGPT): https://github.com/TheR1D/shell_gpt
-- aichat: https://github.com/sigoden/aichat
-- GitHub Copilot CLI: https://leonardomontini.dev/copilot-cli-vs-warp-ai/
-- AIAssist: https://github.com/mehdihadeli/AIAssist
+
+- Warp AI: <https://www.warp.dev/compare-terminal-tools/github-copilot-vs-warp>
+- shell-gpt (SGPT): <https://github.com/TheR1D/shell_gpt>
+- aichat: <https://github.com/sigoden/aichat>
+- GitHub Copilot CLI: <https://leonardomontini.dev/copilot-cli-vs-warp-ai/>
+- AIAssist: <https://github.com/mehdihadeli/AIAssist>
 
 ### Voice coding tools (IDE-focused, not terminal)
-- Talon Voice: https://github.com/talonvoice
-- Cursorless: https://www.cursorless.org/docs/user/customization/
-- Serenade: https://serenade.ai/
-- Wispr Flow: https://wisprflow.ai/
-- Oravo AI: https://oravo.ai/blog/voice-dictation-for-developers
+
+- Talon Voice: <https://github.com/talonvoice>
+- Cursorless: <https://www.cursorless.org/docs/user/customization/>
+- Serenade: <https://serenade.ai/>
+- Wispr Flow: <https://wisprflow.ai/>
+- Oravo AI: <https://oravo.ai/blog/voice-dictation-for-developers>
 
 ### Voice macro / automation references
-- VoiceMacro: https://www.voicemacro.net/
-- SuperWhisper modes: https://superwhisper.com/docs/modes/switching-modes
+
+- VoiceMacro: <https://www.voicemacro.net/>
+- SuperWhisper modes: <https://superwhisper.com/docs/modes/switching-modes>
 
 ### Whisper streaming / performance research
-- whisper_streaming: https://github.com/ufal/whisper_streaming
-- WhisperLive: https://github.com/collabora/WhisperLive
-- Deepgram on Whisper streaming limits: https://deepgram.com/learn/why-enterprises-are-moving-to-streaming-and-why-whisper-can-t-keep-up
+
+- whisper_streaming: <https://github.com/ufal/whisper_streaming>
+- WhisperLive: <https://github.com/collabora/WhisperLive>
+- Deepgram on Whisper streaming limits: <https://deepgram.com/learn/why-enterprises-are-moving-to-streaming-and-why-whisper-can-t-keep-up>
 
 ### Accessibility / RSI
-- VoiceGrip research (5-10% RSI rate): https://www.researchgate.net/publication/44075430_VoiceGrip_A_Tool_for_Programming-by-Voice
-- RSI voice care: https://rsi.org.au/index.php/treating-rsi/computing-by-voice/taking-care-of-your-voice/
+
+- VoiceGrip research (5-10% RSI rate): <https://www.researchgate.net/publication/44075430_VoiceGrip_A_Tool_for_Programming-by-Voice>
+- RSI voice care: <https://rsi.org.au/index.php/treating-rsi/computing-by-voice/taking-care-of-your-voice/>
 
 ### 2026 trends
-- Year of Voice (2026): https://www.standard.net/lifestyle/home_and_family/2026/feb/10/tech-matters-is-this-the-year-of-voice/
-- Vibe Coding (voice + AI): https://wisprflow.ai/vibe-coding
-- AI terminal renaissance: https://instil.co/blog/ai-predictions-2026
+
+- Year of Voice (2026): <https://www.standard.net/lifestyle/home_and_family/2026/feb/10/tech-matters-is-this-the-year-of-voice/>
+- Vibe Coding (voice + AI): <https://wisprflow.ai/vibe-coding>
+- AI terminal renaissance: <https://instil.co/blog/ai-predictions-2026>
 
 ### Overlay UX / TUI references
-- TachyonFX crate: https://github.com/ratatui/tachyonfx
-- TachyonFX ecosystem page: https://ratatui.rs/ecosystem/tachyonfx/
-- TachyonFX docs: https://docs.rs/tachyonfx/latest/tachyonfx/
-- Ratatui widget showcase: https://ratatui.rs/showcase/widgets/
-- Sparkline example: https://ratatui.rs/examples/widgets/sparkline/
-- Gauge example: https://ratatui.rs/examples/widgets/gauge/
-- CLI viz reference: https://github.com/sam1am/cli-viz
-- Warp output model reference: https://www.warp.dev/blog/2025-in-review
-- Warp product reference: https://www.warp.dev/terminal
-- Warp architecture/experience analysis: https://thenewstack.io/how-warp-went-from-terminal-to-agentic-development-environment/
-- Fig autocomplete (historical): https://github.com/withfig/autocomplete
-- Fig docs: https://fig.io/user-manual/autocomplete
-- fzf project: https://github.com/junegunn/fzf
-- Command palette UX pattern: https://uxpatterns.dev/patterns/advanced/command-palette
-- Voice UI visual design references: https://www.smashingmagazine.com/2021/06/alternative-voice-ui-voice-assistants/
-- Voice UI best practices: https://designlab.com/blog/voice-user-interface-design-best-practices
-- Multimodal VUI design: https://www.parallelhq.com/blog/voice-user-interface-vui-design-principles
-- Toast UX references: https://blog.logrocket.com/ux-design/toast-notifications/
-- Carbon notification patterns: https://carbondesignsystem.com/patterns/notification-pattern/
-- Productivity dashboard references: https://jellyfish.co/library/developer-productivity/dashboard/
-- Productivity analytics references: https://getdx.com/
+
+- TachyonFX crate: <https://github.com/ratatui/tachyonfx>
+- TachyonFX ecosystem page: <https://ratatui.rs/ecosystem/tachyonfx/>
+- TachyonFX docs: <https://docs.rs/tachyonfx/latest/tachyonfx/>
+- Ratatui widget showcase: <https://ratatui.rs/showcase/widgets/>
+- Sparkline example: <https://ratatui.rs/examples/widgets/sparkline/>
+- Gauge example: <https://ratatui.rs/examples/widgets/gauge/>
+- CLI viz reference: <https://github.com/sam1am/cli-viz>
+- Warp output model reference: <https://www.warp.dev/blog/2025-in-review>
+- Warp product reference: <https://www.warp.dev/terminal>
+- Warp architecture/experience analysis: <https://thenewstack.io/how-warp-went-from-terminal-to-agentic-development-environment/>
+- Fig autocomplete (historical): <https://github.com/withfig/autocomplete>
+- Fig docs: <https://fig.io/user-manual/autocomplete>
+- fzf project: <https://github.com/junegunn/fzf>
+- Command palette UX pattern: <https://uxpatterns.dev/patterns/advanced/command-palette>
+- Voice UI visual design references: <https://www.smashingmagazine.com/2021/06/alternative-voice-ui-voice-assistants/>
+- Voice UI best practices: <https://designlab.com/blog/voice-user-interface-design-best-practices>
+- Multimodal VUI design: <https://www.parallelhq.com/blog/voice-user-interface-vui-design-principles>
+- Toast UX references: <https://blog.logrocket.com/ux-design/toast-notifications/>
+- Carbon notification patterns: <https://carbondesignsystem.com/patterns/notification-pattern/>
+- Productivity dashboard references: <https://jellyfish.co/library/developer-productivity/dashboard/>
+- Productivity analytics references: <https://getdx.com/>
 
 ## Notes
 

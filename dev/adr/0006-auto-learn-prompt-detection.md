@@ -12,6 +12,7 @@ so it can automatically start listening. Two approaches:
 2. **Auto-learn**: System learns the prompt pattern from the first idle line
 
 Problems with regex-only:
+
 - Codex's prompt format can change between versions
 - Users don't know what regex to use
 - Different shells/configs have different prompts
@@ -28,6 +29,7 @@ Use auto-learn as the default, with regex as an override:
 5. **Override**: `--prompt-regex` bypasses auto-learn entirely
 
 The auto-learn algorithm:
+
 - Strip ANSI escape sequences from output
 - Track current line being written
 - When output goes idle, compare current line to learned prompt
@@ -36,18 +38,21 @@ The auto-learn algorithm:
 ## Consequences
 
 **Positive:**
+
 - Zero-config for most users (just works)
 - Adapts to Codex version changes automatically
 - No regex knowledge required
 - Fallback ensures auto-voice eventually triggers
 
 **Negative:**
+
 - Can mis-learn if first idle happens during output (rare)
 - Less predictable than explicit regex
 - Debugging prompt detection requires `--prompt-log`
 - May need manual reset if prompt changes mid-session
 
 **Trade-offs:**
+
 - Chose UX simplicity over predictability
 - Power users can still use `--prompt-regex` for control
 

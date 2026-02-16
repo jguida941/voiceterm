@@ -1,44 +1,41 @@
 # Troubleshooting
 
-Use this page as a navigation hub. Pick your issue category first, then jump to
-the focused guide for faster diagnosis.
+Single troubleshooting reference for VoiceTerm.
+Use the quick-fix table first, then jump to the detailed section.
+
+Docs map:
+
+- User guides index: [README.md](README.md)
+- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
 
 ## Quick Fixes
 
-| Problem | First action | Detailed guide |
-|---------|--------------|----------------|
-| No speech detected | Lower mic threshold (`Ctrl+\\`) | [Status Messages](#status-messages) |
-| Voice not recording | Check microphone permissions | [Audio Setup](#audio-setup) |
-| Codex/Claude not responding | Verify install + login | [Backend Issues](TROUBLESHOOTING_BACKEND.md#codex-not-responding) |
-| Auto-voice not triggering | Check prompt detection | [Backend Issues](TROUBLESHOOTING_BACKEND.md#auto-voice-not-triggering) |
-| Transcript queued while backend is busy | Wait for prompt or tune prompt regex | [Backend Issues](TROUBLESHOOTING_BACKEND.md#transcript-queued-n) |
-| Wrong version after update | Check PATH + reinstall flow | [Install Issues](TROUBLESHOOTING_INSTALL.md#wrong-version-after-update) |
-| HUD duplicates/flickers in JetBrains | Verify version and collect logs | [Terminal/IDE Issues](TROUBLESHOOTING_TERMINAL.md#hud-duplicates-in-jetbrains-terminals) |
-| Startup splash behaves oddly in IDE terminal | Tune splash env vars | [Terminal/IDE Issues](TROUBLESHOOTING_TERMINAL.md#startup-banner-lingers-in-ide-terminal) |
-| Theme colors look muted | Verify truecolor env | [Terminal/IDE Issues](TROUBLESHOOTING_TERMINAL.md#theme-colors-look-muted-in-ide-terminal) |
-| `PTY write failed: Input/output error` on exit | Usually benign race during shutdown | [Terminal/IDE Issues](TROUBLESHOOTING_TERMINAL.md#pty-exit-write-error-in-logs) |
+| Problem | First action | Section |
+|---------|--------------|---------|
+| No speech detected | Lower mic threshold (`Ctrl+\\`) | [No speech detected](#no-speech-detected) |
+| Voice not recording | Check microphone permissions | [Voice capture failed (see log)](#voice-capture-failed-see-log) |
+| Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
+| Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
+| Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
+| Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
+| Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
+| HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
+| Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
+| Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
+| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
 
 ## Contents
 
-- [Pick by Category](#pick-by-category)
 - [Status Messages](#status-messages)
 - [Audio Setup](#audio-setup)
 - [Mic Sensitivity](#mic-sensitivity)
+- [Backend Issues](#backend-issues)
+- [Terminal and IDE Issues](#terminal-and-ide-issues)
+- [Install and Update Issues](#install-and-update-issues)
 - [Enabling Logs](#enabling-logs)
 - [FAQ](#faq)
 - [Getting Help](#getting-help)
 - [See Also](#see-also)
-
-## Pick by Category
-
-- Backend behavior (`codex`/`claude`, prompt detection, queueing):
-  [TROUBLESHOOTING_BACKEND.md](TROUBLESHOOTING_BACKEND.md)
-- Terminal and IDE rendering/input behavior:
-  [TROUBLESHOOTING_TERMINAL.md](TROUBLESHOOTING_TERMINAL.md)
-- Install and upgrade issues:
-  [TROUBLESHOOTING_INSTALL.md](TROUBLESHOOTING_INSTALL.md)
-
----
 
 ## Status Messages
 
@@ -100,8 +97,6 @@ Native STT was unavailable, so Python fallback was used.
 3. Ensure fallback dependencies exist (`python3`, `ffmpeg`, `whisper`) or use
    `--no-python-fallback`.
 
----
-
 ## Audio Setup
 
 ### Check microphone permissions
@@ -132,8 +127,6 @@ voiceterm --input-device "MacBook Pro Microphone"
 
 Restart VoiceTerm after plugging in a new input device.
 
----
-
 ## Mic Sensitivity
 
 ### Too sensitive (background noise triggers capture)
@@ -163,7 +156,287 @@ voiceterm --mic-meter
 Hotkey range: `-80 dB` to `-10 dB`, default `-55 dB`.
 CLI flag range: `-120 dB` to `0 dB`.
 
----
+## Backend Issues
+
+### Codex or Claude not responding
+
+1. Verify backend CLI exists:
+
+   ```bash
+   which codex
+   which claude
+   ```
+
+2. Verify authentication:
+
+   ```bash
+   codex login
+   # or
+   claude login
+   ```
+
+   Or from VoiceTerm:
+
+   ```bash
+   voiceterm --login --codex
+   voiceterm --login --claude
+   ```
+
+3. Restart `voiceterm` if the session is stuck.
+
+### Claude running without permission prompts
+
+If Claude tool actions run without approval prompts, check whether
+`--claude-skip-permissions` was enabled.
+
+1. Restart VoiceTerm without that flag:
+
+   ```bash
+   voiceterm --json-ipc
+   ```
+
+2. If you need skip-permissions for automation, run only in isolated/trusted
+   environments (for example sandboxed or disposable workspaces).
+3. Avoid using skip-permissions mode with untrusted repositories or with
+   credentials/secrets available in your shell environment.
+
+### Many codex or claude processes remain after quitting
+
+Recent builds terminate backend process groups and reap child processes on exit.
+If you still observe leftovers:
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Check for orphaned backend processes:
+
+   ```bash
+   ps -axo ppid,pid,command | egrep '(^ *1 .*\\b(codex|claude)\\b)'
+   ```
+
+3. If orphans remain, report with:
+
+   - `voiceterm --version`
+   - terminal/IDE name + version
+   - launch command
+   - relevant `${TMPDIR}/voiceterm_tui.log` lines
+
+### Auto-voice not triggering
+
+Auto-voice waits for prompt readiness before listening again.
+
+1. Override prompt detection for your shell/backend prompt:
+
+   ```bash
+   voiceterm --prompt-regex '^codex> $'
+   ```
+
+2. Enable prompt logging:
+
+   ```bash
+   voiceterm --prompt-log /tmp/voiceterm_prompt.log
+   ```
+
+3. Inspect the prompt log and adjust regex.
+
+### Transcript queued (N)
+
+Backend output is still streaming, so transcript injection is deferred.
+
+1. Wait for prompt return.
+2. If urgent, stop current generation (`Ctrl+C`) and retry.
+3. If this happens often, tune prompt detection (`--prompt-regex`) and
+   transcript timeout (`--transcript-idle-ms`).
+
+### Transcript queue full (oldest dropped)
+
+You recorded more items than queue capacity while backend was busy.
+
+1. Pause speaking until prompt returns.
+2. Use shorter chunks.
+3. Prefer `insert` mode if you need manual pacing.
+
+## Terminal and IDE Issues
+
+### IDE terminal controls not working (JetBrains/Cursor)
+
+If HUD button clicks or arrow navigation fail in one terminal app but not
+another:
+
+1. Verify core shortcuts still work (`Ctrl+U`, `Ctrl+O`).
+2. Capture input diagnostics:
+
+   ```bash
+   voiceterm --logs
+   VOICETERM_DEBUG_INPUT=1 voiceterm --logs
+   ```
+
+3. Reproduce once and inspect `${TMPDIR}/voiceterm_tui.log` for `input bytes`
+and `input events` lines.
+
+### HUD duplicates in JetBrains terminals
+
+If Full HUD appears stacked/repeated:
+
+1. Verify version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Re-run once with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+3. Share `${TMPDIR}/voiceterm_tui.log` if still reproducible.
+
+### Overlay flickers in JetBrains terminals
+
+If HUD rapidly flashes in JetBrains but not Cursor/VS Code:
+
+1. Verify version.
+2. Reproduce with `voiceterm --logs`.
+3. Share logs + terminal app/version if it persists.
+
+Implementation details on redraw/resize behavior are in
+`dev/ARCHITECTURE.md`.
+
+### PTY exit write error in logs
+
+If you see:
+
+```text
+failed to send PTY exit command: PTY write failed: Input/output error (os error 5)
+```
+
+This is usually a benign shutdown race where the PTY was already closing.
+
+### Startup banner missing
+
+Splash is shown by default in non-JetBrains terminals. JetBrains terminals may
+skip splash intentionally.
+
+Check if banner is explicitly disabled:
+
+```bash
+env | rg VOICETERM_NO_STARTUP_BANNER
+```
+
+Disable explicitly (all terminals):
+
+```bash
+VOICETERM_NO_STARTUP_BANNER=1 voiceterm
+```
+
+### Startup banner lingers in IDE terminal
+
+1. Check version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Test immediate splash clear:
+
+   ```bash
+   VOICETERM_STARTUP_SPLASH_MS=0 voiceterm
+   ```
+
+3. Disable splash globally if preferred:
+
+   ```bash
+   VOICETERM_NO_STARTUP_BANNER=1 voiceterm
+   ```
+
+### Theme colors look muted in IDE terminal
+
+Some IDE profiles do not expose truecolor env vars.
+
+1. Inspect env:
+
+   ```bash
+   env | rg 'COLORTERM|TERM|TERM_PROGRAM|TERMINAL_EMULATOR|NO_COLOR'
+   ```
+
+2. Ensure `NO_COLOR` is not set.
+3. A/B test truecolor:
+
+   ```bash
+   COLORTERM=truecolor voiceterm --theme catppuccin
+   ```
+
+## Install and Update Issues
+
+### Homebrew link conflict
+
+If `brew install voiceterm` fails because the command already exists:
+
+```bash
+brew link --overwrite voiceterm
+```
+
+### Wrong version after update
+
+Start with a normal update:
+
+```bash
+brew update
+brew upgrade voiceterm
+```
+
+If Homebrew still shows an older version, refresh taps:
+
+```bash
+brew untap jguida941/voiceterm 2>/dev/null || true
+brew untap jguida941/homebrew-voiceterm 2>/dev/null || true
+brew tap jguida941/voiceterm
+brew update
+brew info voiceterm
+```
+
+If still stale, clear cache and reinstall:
+
+```bash
+rm -f "$(brew --cache)"/voiceterm--*
+brew reinstall voiceterm
+```
+
+If `voiceterm --version` is still old, check PATH shadowing:
+
+```bash
+which -a voiceterm
+```
+
+Common shadow path from local install:
+
+```bash
+mv ~/.local/bin/voiceterm ~/.local/bin/voiceterm.bak
+hash -r
+```
+
+Check for repo-local wrapper too:
+
+```bash
+ls -l ~/voiceterm/bin/voiceterm 2>/dev/null
+```
+
+Relink Homebrew and clear shell cache:
+
+```bash
+brew unlink voiceterm && brew link --overwrite voiceterm
+hash -r
+```
+
+Verify Homebrew binary directly:
+
+```bash
+$(brew --prefix)/opt/voiceterm/libexec/src/target/release/voiceterm --version
+```
 
 ## Enabling Logs
 
@@ -184,10 +457,9 @@ voiceterm --no-logs
 ```
 
 Log paths:
+
 - Debug log: `${TMPDIR}/voiceterm_tui.log` (macOS) or `/tmp/voiceterm_tui.log` (Linux)
 - Trace log: `${TMPDIR}/voiceterm_trace.jsonl` or `/tmp/voiceterm_trace.jsonl`
-
----
 
 ## FAQ
 
@@ -219,40 +491,23 @@ voiceterm --claude
 
 ### Does VoiceTerm send voice audio to the cloud?
 
-No. STT runs locally via Whisper.
-
-### How do I update VoiceTerm?
-
-Homebrew:
-
-```bash
-brew update && brew upgrade voiceterm
-```
-
-Source install:
-
-```bash
-cd voiceterm && git pull && ./scripts/install.sh
-```
-
----
+No. Whisper runs locally.
 
 ## Getting Help
 
-- Collect diagnostics: `voiceterm --doctor`
-- Report issues: [GitHub Issues](https://github.com/jguida941/voiceterm/issues)
-- Check active known issues: [Master Plan](../dev/active/MASTER_PLAN.md)
+When reporting an issue, include:
 
----
+1. `voiceterm --version`
+2. Backend (`codex` or `claude`) and launch command
+3. Terminal/IDE name and version
+4. Relevant log excerpt from `${TMPDIR}/voiceterm_tui.log`
 
 ## See Also
 
 | Topic | Link |
 |-------|------|
-| Backend issues | [TROUBLESHOOTING_BACKEND.md](TROUBLESHOOTING_BACKEND.md) |
-| Terminal/IDE issues | [TROUBLESHOOTING_TERMINAL.md](TROUBLESHOOTING_TERMINAL.md) |
-| Install/update issues | [TROUBLESHOOTING_INSTALL.md](TROUBLESHOOTING_INSTALL.md) |
 | Install guide | [INSTALL.md](INSTALL.md) |
 | Usage guide | [USAGE.md](USAGE.md) |
 | CLI flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
 | Whisper guide | [WHISPER.md](WHISPER.md) |
+| Developer architecture | [../dev/ARCHITECTURE.md](../dev/ARCHITECTURE.md) |

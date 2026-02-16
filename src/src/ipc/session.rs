@@ -3,6 +3,7 @@
 use crate::auth;
 use crate::codex::{sanitize_pty_output, CodexCliBackend, CodexEvent, CodexEventKind, CodexJob};
 use crate::config::AppConfig;
+use crate::process_signal::signal_process_group_or_pid;
 use crate::pty_session::PtyCliSession;
 use crate::voice::{VoiceJob, VoiceJobMessage};
 use crate::{audio, log_debug, log_debug_content, stt};
@@ -11,7 +12,7 @@ use std::env;
 use std::io::{self, BufRead, Write};
 #[cfg(any(test, feature = "mutants"))]
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 #[cfg(any(test, feature = "mutants"))]
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
@@ -30,6 +31,11 @@ use super::router::{
 const USE_PTY: bool = false;
 #[cfg(not(any(test, feature = "mutants")))]
 const USE_PTY: bool = true;
+const IPC_LOOP_WAIT_MS: u64 = 5;
+#[cfg(any(test, feature = "mutants"))]
+const AUTH_TIMEOUT: Duration = Duration::from_millis(50);
+#[cfg(not(any(test, feature = "mutants")))]
+const AUTH_TIMEOUT: Duration = Duration::from_secs(120);
 
 // ============================================================================
 // IPC state owned by the event loop.
@@ -47,6 +53,7 @@ pub(super) struct IpcState {
     pub(super) current_auth_job: Option<AuthJob>,
     pub(super) session_id: String,
     pub(super) cancelled: bool,
+    pub(super) exit_requested: bool,
 }
 
 pub(super) enum ActiveJob {
@@ -150,6 +157,7 @@ impl IpcState {
             current_auth_job: None,
             session_id,
             cancelled: false,
+            exit_requested: false,
         }
     }
 
@@ -312,42 +320,12 @@ fn spawn_stdin_reader(tx: Sender<IpcCommand>) -> thread::JoinHandle<()> {
 // Claude Backend
 // ============================================================================
 
-#[cfg(unix)]
-fn signal_process_group_or_pid(pid: i32, signal: i32) -> io::Result<()> {
-    if pid <= 0 {
-        return Ok(());
-    }
-    unsafe {
-        if libc::kill(-pid, signal) == 0 {
-            return Ok(());
-        }
-        let group_err = io::Error::last_os_error();
-
-        if libc::kill(pid, signal) == 0 {
-            return Ok(());
-        }
-        let pid_err = io::Error::last_os_error();
-        if matches!(group_err.raw_os_error(), Some(code) if code == libc::ESRCH)
-            || matches!(pid_err.raw_os_error(), Some(code) if code == libc::ESRCH)
-        {
-            return Ok(());
-        }
-
-        Err(io::Error::new(
-            pid_err.kind(),
-            format!(
-                "group(-{pid}) signal failed: {group_err}; pid({pid}) signal failed: {pid_err}"
-            ),
-        ))
-    }
-}
-
 fn terminate_piped_child(child: &mut std::process::Child) {
     #[cfg(unix)]
     {
         let pid = child.id() as i32;
 
-        let _ = signal_process_group_or_pid(pid, libc::SIGTERM);
+        let _ = signal_process_group_or_pid(pid, libc::SIGTERM, true);
         let deadline = Instant::now() + Duration::from_millis(150);
         while Instant::now() < deadline {
             match child.try_wait() {
@@ -356,7 +334,7 @@ fn terminate_piped_child(child: &mut std::process::Child) {
                 Err(_) => break,
             }
         }
-        let _ = signal_process_group_or_pid(pid, libc::SIGKILL);
+        let _ = signal_process_group_or_pid(pid, libc::SIGKILL, true);
     }
 
     #[cfg(not(unix))]
@@ -575,8 +553,8 @@ pub(super) fn run_ipc_loop(
             }
         }
 
-        // Check for new commands (non-blocking)
-        match cmd_rx.try_recv() {
+        // Wait briefly for commands so idle IPC loops don't spin.
+        match cmd_rx.recv_timeout(Duration::from_millis(IPC_LOOP_WAIT_MS)) {
             Ok(cmd) => {
                 log_debug_content(&format!("IPC command received: {cmd:?}"));
                 state.cancelled = false;
@@ -602,8 +580,8 @@ pub(super) fn run_ipc_loop(
                     }
                 }
             }
-            Err(TryRecvError::Empty) => {}
-            Err(TryRecvError::Disconnected) => {
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
                 log_debug("Command channel disconnected, exiting");
                 break;
             }
@@ -636,8 +614,14 @@ pub(super) fn run_ipc_loop(
             state.current_auth_job = None;
         }
 
-        // Small sleep to prevent busy-waiting
-        thread::sleep(Duration::from_millis(5));
+        if state.exit_requested
+            && state.current_job.is_none()
+            && state.current_voice_job.is_none()
+            && state.current_auth_job.is_none()
+        {
+            log_debug("IPC graceful exit requested; no active work remains");
+            break;
+        }
     }
 
     log_debug("IPC mode exiting");
@@ -924,6 +908,20 @@ pub(super) fn process_auth_events(state: &mut IpcState) -> bool {
         Some(job) => job,
         None => return false,
     };
+
+    if job.started_at.elapsed() >= AUTH_TIMEOUT {
+        let provider = job.provider;
+        send_event(&IpcEvent::AuthEnd {
+            provider: provider.as_str().to_string(),
+            success: false,
+            error: Some(format!(
+                "Authentication timed out after {}s",
+                AUTH_TIMEOUT.as_secs()
+            )),
+        });
+        state.emit_capabilities();
+        return true;
+    }
 
     match job.receiver.try_recv() {
         Ok(result) => {
