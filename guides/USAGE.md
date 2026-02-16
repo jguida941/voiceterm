@@ -84,6 +84,7 @@ Flow:
 | `Ctrl+R` | Start recording (manual trigger) |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
+| `Ctrl+G` | Quick cycle theme |
 | `Ctrl+O` | Open settings |
 | `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
@@ -115,7 +116,7 @@ Common settings:
 - Send mode (`auto` or `insert`)
 - Macros toggle
 - Mic threshold
-- Theme
+- Theme (quick cycle with `Ctrl+G` or choose from picker with `Ctrl+Y`)
 - Latency display (`Off`, `Nms`, `Latency: Nms`)
 - HUD style and border style
 - Right panel mode and recording-only animation
@@ -143,6 +144,23 @@ Three controls define runtime behavior:
 - In `insert` mode, pressing Enter during recording stops capture early.
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
+
+### Built-in voice navigation commands
+
+When a transcript exactly matches one of these phrases, VoiceTerm runs a local
+navigation action instead of typing the raw text.
+
+- `scroll up` - sends terminal PageUp
+- `scroll down` - sends terminal PageDown
+- `show last error` - surfaces the most recent error-like terminal line in HUD status
+- `copy last error` - copies the most recent error-like terminal line to clipboard
+- `explain last error` - sends an "explain this error" prompt to the active backend
+
+Precedence:
+
+- If a voice macro matches first, the macro wins.
+- Use `voice scroll up` or `voice scroll down` for explicit built-in navigation
+  phrases when you also keep overlapping macro triggers.
 
 ### Long dictation (`auto-voice` + `insert`)
 
@@ -299,10 +317,15 @@ Example:
 Main areas:
 
 - mode indicator
+- voice-state lane (`IDLE`, `REC`, `processing`, `responding`)
 - mic threshold
 - status message
 - shortcut hints (space permitting)
 - optional telemetry/right-panel modules
+
+`responding` appears only when VoiceTerm submits text to the backend (for
+example, `auto` send mode or `explain last error`), then returns to idle when
+backend output arrives.
 
 Latency badge behavior:
 

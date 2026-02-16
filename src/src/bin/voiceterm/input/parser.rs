@@ -68,6 +68,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::ThemePicker);
                 }
+                0x07 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::QuickThemeCycle);
+                }
                 0x0f => {
                     self.flush_pending(out);
                     out.push(InputEvent::SettingsToggle);
@@ -256,6 +260,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
         'v' => Some(InputEvent::ToggleAutoVoice),
         't' => Some(InputEvent::ToggleSendMode),
         'y' => Some(InputEvent::ThemePicker),
+        'g' => Some(InputEvent::QuickThemeCycle),
         'o' => Some(InputEvent::SettingsToggle),
         'u' => Some(InputEvent::ToggleHudStyle),
         '?' => Some(InputEvent::HelpToggle),
@@ -298,7 +303,7 @@ mod tests {
     fn input_parser_maps_control_keys() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
-        parser.consume_bytes(&[0x11, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x0f], &mut out);
+        parser.consume_bytes(&[0x11, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f], &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(
             out,
@@ -309,6 +314,7 @@ mod tests {
                 InputEvent::IncreaseSensitivity,
                 InputEvent::DecreaseSensitivity,
                 InputEvent::DecreaseSensitivity,
+                InputEvent::QuickThemeCycle,
                 InputEvent::SettingsToggle,
             ]
         );
@@ -387,6 +393,16 @@ mod tests {
         parser.consume_bytes(b"\x1b[114;5u", &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::VoiceTrigger]);
+    }
+
+    #[test]
+    fn input_parser_maps_csi_u_quick_theme_cycle() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Ctrl+G (kitty/CSI-u: ESC [ 103 ; 5 u)
+        parser.consume_bytes(b"\x1b[103;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::QuickThemeCycle]);
     }
 
     #[test]

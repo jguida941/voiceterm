@@ -109,6 +109,8 @@ If Homebrew still shows an older version or `voiceterm` runs an older binary, se
 After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
 `Latency display`) are available.
+You can also sanity-check runtime controls with `Ctrl+G` (quick theme cycle)
+and `Ctrl+Y` (theme picker).
 
 ## Option B: PyPI
 
@@ -220,6 +222,13 @@ To target Claude instead of Codex:
 ```bash
 voiceterm --claude
 ```
+
+Built-in voice navigation phrases are available after install:
+`scroll up`, `scroll down`, `show last error`, `copy last error`, and
+`explain last error`.
+
+Linux clipboard note: `copy last error` uses `wl-copy`, `xclip`, or `xsel`
+when available.
 
 ## Windows
 

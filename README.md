@@ -146,6 +146,7 @@ All CLI output passes through unchanged.
 | **Transcript queue** | Speak while CLI is busy, types when ready |
 | **Project voice macros** | Expand trigger phrases from `.voiceterm/macros.yaml` before typing |
 | **Macros toggle** | Runtime ON/OFF control for macro expansion from Settings |
+| **Built-in voice navigation** | Spoken actions for scroll up/down, show/copy last error, and explain last error |
 | **Adaptive HUD telemetry** | Compact meter/latency trend chips that adapt to recording, busy, and idle states |
 | **Backends** | Primary support for Codex and Claude Code |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
@@ -187,7 +188,8 @@ voiceterm --login --claude
 ### Theme Picker
 
 ![Theme Picker](img/theme-picker.png)
-Use ↑/↓ to move and Enter to select, or type the theme number.
+Use `Ctrl+Y` to open the picker (or `Ctrl+G` to quick-cycle themes), then use
+↑/↓ to move and Enter to select, or type the theme number.
 
 ### Settings Menu
 
@@ -205,6 +207,12 @@ For complete keybindings and behavior details, see:
 - [Core Controls](guides/USAGE.md#core-controls)
 - [Settings Menu](guides/USAGE.md#settings-menu)
 - [Voice Modes](guides/USAGE.md#voice-modes)
+
+Short version: `Ctrl+G` quick-cycles theme, and built-in voice commands support
+`scroll up`, `scroll down`, `show last error`, `copy last error`, and
+`explain last error`.
+If a macro and built-in phrase overlap, macros run first; use explicit
+`voice scroll up` / `voice scroll down` to force built-in navigation.
 
 ## Engineering History
 

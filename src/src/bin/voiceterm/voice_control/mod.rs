@@ -2,6 +2,7 @@
 
 mod drain;
 mod manager;
+mod navigation;
 mod pipeline;
 
 const STATUS_TOAST_SECS: u64 = 2;

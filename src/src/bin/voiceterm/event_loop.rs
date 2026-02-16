@@ -618,6 +618,9 @@ fn run_periodic_tasks(
             timers.status_clear_deadline = None;
             state.current_status = None;
             state.status_state.message.clear();
+            if state.status_state.recording_state == RecordingState::Responding {
+                state.status_state.recording_state = RecordingState::Idle;
+            }
             // Don't repeatedly set "Auto-voice enabled" - the mode indicator shows it
             send_enhanced_status_with_buttons(
                 &deps.writer_tx,
@@ -685,6 +688,27 @@ pub(crate) fn run_event_loop(
                                     settings_ctx.update_hud_style(1);
                                     if mode == OverlayMode::Settings {
                                         render_settings_overlay_for_state(state, deps);
+                                    }
+                                }
+                                (mode, InputEvent::QuickThemeCycle) => {
+                                    {
+                                        let mut settings_ctx =
+                                            settings_action_context(state, timers, deps, mode);
+                                        settings_ctx.cycle_theme(1);
+                                    }
+                                    match mode {
+                                        OverlayMode::Settings => {
+                                            render_settings_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::ThemePicker => {
+                                            state.theme_picker_selected =
+                                                theme_index_from_theme(state.theme);
+                                            render_theme_picker_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::Help => {
+                                            render_help_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::None => {}
                                     }
                                 }
                                 (OverlayMode::Settings, InputEvent::SettingsToggle) => {
@@ -1064,6 +1088,14 @@ pub(crate) fn run_event_loop(
                                 reset_theme_picker_selection(state, timers);
                                 render_theme_picker_overlay_for_state(state, deps);
                             }
+                            InputEvent::QuickThemeCycle => {
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
+                                settings_ctx.cycle_theme(1);
+                                state.status_state.hud_button_focus = None;
+                                refresh_button_registry_if_mouse(state, deps);
+                            }
                             InputEvent::SettingsToggle => {
                                 state.status_state.hud_button_focus = None;
                                 state.overlay_mode = OverlayMode::Settings;
@@ -1385,6 +1417,17 @@ pub(crate) fn run_event_loop(
                         let now = Instant::now();
                         if !data.is_empty() {
                             state.suppress_startup_escape_input = false;
+                            if state.status_state.recording_state == RecordingState::Responding {
+                                state.status_state.recording_state = RecordingState::Idle;
+                                send_enhanced_status_with_buttons(
+                                    &deps.writer_tx,
+                                    &deps.button_registry,
+                                    &state.status_state,
+                                    state.overlay_mode,
+                                    state.terminal_cols,
+                                    state.theme,
+                                );
+                            }
                         }
                         state.prompt_tracker.feed_output(&data);
                         {
@@ -2151,6 +2194,7 @@ mod tests {
         state.status_state.transcript_preview = Some("preview".to_string());
         state.current_status = Some("busy".to_string());
         state.status_state.message = "busy".to_string();
+        state.status_state.recording_state = RecordingState::Responding;
         timers.preview_clear_deadline = Some(now);
         timers.status_clear_deadline = Some(now);
 
@@ -2160,6 +2204,7 @@ mod tests {
         assert!(timers.status_clear_deadline.is_none());
         assert!(state.current_status.is_none());
         assert!(state.status_state.message.is_empty());
+        assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     }
 
     #[test]

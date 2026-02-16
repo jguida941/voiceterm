@@ -18,6 +18,7 @@ Docs map:
 | Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
 | Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
+| No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
 | Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
@@ -259,6 +260,18 @@ You recorded more items than queue capacity while backend was busy.
 2. Use shorter chunks.
 3. Prefer `insert` mode if you need manual pacing.
 
+### No error captured yet / to copy / to explain
+
+Voice actions such as `show last error`, `copy last error`, and
+`explain last error` need at least one recent terminal output line that looks
+like an error.
+
+1. Run or repeat the failing command once so the error appears in terminal output.
+2. Retry the voice command phrase after the output is visible.
+3. On Linux, install one clipboard helper (`wl-copy`, `xclip`, or `xsel`) if
+   `copy last error` fails.
+4. If clipboard helpers are unavailable, copy manually from terminal output.
+
 ## Terminal and IDE Issues
 
 ### IDE terminal controls not working (JetBrains/Cursor)
@@ -276,6 +289,14 @@ another:
 
 3. Reproduce once and inspect `${TMPDIR}/voiceterm_tui.log` for `input bytes`
 and `input events` lines.
+
+### Ctrl+G quick theme cycle does not work
+
+1. Verify terminal key handling with `Ctrl+Y` first (theme picker should open).
+2. If `Ctrl+Y` works but `Ctrl+G` does not, check for shell/terminal keybinding
+   overrides and disable that binding.
+3. Use `VOICETERM_DEBUG_INPUT=1 voiceterm --logs` and inspect
+   `${TMPDIR}/voiceterm_tui.log` for `Ctrl+G` input events.
 
 ### HUD duplicates in JetBrains terminals
 

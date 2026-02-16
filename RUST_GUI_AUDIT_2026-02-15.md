@@ -728,6 +728,35 @@ This section captures additional gaps that should be closed (or explicitly defer
   - added `dev/scripts/check_audit_traceability.py` to validate hardening mapping consistency across `dev/active/MASTER_PLAN.md` and this audit traceability table.
   - added dedicated CI lane `.github/workflows/audit_traceability_guard.yml` so traceability mismatches fail in PR/push workflows.
   - added local parity target `make traceability-audit` and documented usage in `dev/scripts/README.md` / `dev/DEVELOPMENT.md`.
+- MP-104 completed (v1.0.68 scope):
+  - added explicit `Responding` visual state across Full/Minimal/Hidden HUD lanes.
+  - state transitions back to `Idle` when backend output arrives and when status
+    clear deadlines elapse.
+  - added targeted regressions:
+    - `status_line::format::tests::format_status_banner_minimal_mode_responding`
+    - `status_line::buttons::tests::minimal_strip_responding_shows_state_lane`
+    - `event_loop::tests::run_periodic_tasks_clears_preview_and_status_at_deadline`
+- MP-055 completed (v1.0.68 scope):
+  - added quick theme switcher hotkey path (`Ctrl+G`) including CSI-u parsing.
+  - wired hotkey behavior for normal mode and active overlays (settings/help/theme picker).
+  - added parser regressions:
+    - `input::parser::tests::input_parser_maps_control_keys`
+    - `input::parser::tests::input_parser_maps_csi_u_quick_theme_cycle`
+- MP-090 completed (v1.0.68 scope):
+  - added minimal voice navigation action set:
+    - `scroll up`
+    - `scroll down`
+    - `show last error`
+    - `copy last error`
+    - `explain last error`
+  - added prompt-tracker retention of latest error-like output line to support
+    `show/copy/explain` voice commands.
+  - added targeted regressions:
+    - `prompt::tracker::tests::prompt_tracker_captures_last_error_line`
+    - `voice_control::drain::tests::execute_voice_navigation_scroll_up_sends_pageup_escape`
+    - `voice_control::drain::tests::execute_voice_navigation_show_last_error_updates_status`
+    - `voice_control::drain::tests::execute_voice_navigation_copy_last_error_without_capture_sets_status`
+    - `voice_control::drain::tests::execute_voice_navigation_explain_last_error_sends_prompt`
 
 Verification runs recorded:
 

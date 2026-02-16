@@ -17,6 +17,7 @@ use crate::voice_macros::VoiceMacros;
 use crate::writer::{set_status, WriterMessage};
 
 use super::manager::{start_voice_capture, VoiceManager};
+use super::navigation::{execute_voice_navigation_action, resolve_voice_navigation_action};
 use super::pipeline::pipeline_status_label;
 use super::{PREVIEW_CLEAR_MS, STATUS_TOAST_SECS, TRANSCRIPT_PREVIEW_MAX};
 
@@ -214,12 +215,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
             source,
             metrics,
         } => {
-            let (text, transcript_mode, macro_note) = apply_macro_mode(
-                &text,
-                config.voice_send_mode,
-                status_state.macros_enabled,
-                voice_macros,
-            );
             update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let ready =
                 transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout);
@@ -240,71 +235,54 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                 status_state.transcript_preview = Some(preview);
                 *preview_clear_deadline = Some(now + Duration::from_millis(PREVIEW_CLEAR_MS));
             }
-            let drop_note = metrics
-                .as_ref()
-                .filter(|metrics| metrics.frames_dropped > 0)
-                .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
-            let mut notes = Vec::with_capacity(2);
-            if let Some(note) = drop_note {
-                notes.push(note);
-            }
-            if let Some(note) = macro_note {
-                notes.push(note);
-            }
-            let delivery_note = if notes.is_empty() {
-                None
-            } else {
-                Some(notes.join(", "))
-            };
             let duration_secs = metrics
                 .as_ref()
                 .map(|metrics| metrics.speech_ms as f32 / 1000.0)
                 .unwrap_or(0.0);
             session_stats.record_transcript(duration_secs);
-            let queued_suffix = delivery_note
-                .as_ref()
-                .map(|note| format!(", {note}"))
-                .unwrap_or_default();
-            if ready && pending_transcripts.is_empty() {
-                let mut io = TranscriptIo {
+            let (text, mode, macro_note) = apply_macro_mode(
+                &text,
+                config.voice_send_mode,
+                status_state.macros_enabled,
+                voice_macros,
+            );
+            let macro_matched = macro_note.is_some();
+            let transcript_mode = mode;
+            if let Some(action) = resolve_voice_navigation_action(&text, macro_matched) {
+                let sent_newline = execute_voice_navigation_action(
+                    action,
+                    prompt_tracker,
                     session,
                     writer_tx,
                     status_clear_deadline,
                     current_status,
                     status_state,
-                };
-                let sent_newline = deliver_transcript(
-                    &text,
-                    source.label(),
-                    transcript_mode,
-                    &mut io,
-                    0,
-                    delivery_note.as_deref(),
                 );
                 if sent_newline {
                     *last_enter_at = Some(now);
                 }
             } else {
-                let dropped = push_pending_transcript(
-                    pending_transcripts,
-                    PendingTranscript {
-                        text,
-                        source,
-                        mode: transcript_mode,
-                    },
-                );
-                status_state.queue_depth = pending_transcripts.len();
-                if dropped {
-                    set_status(
-                        writer_tx,
-                        status_clear_deadline,
-                        current_status,
-                        status_state,
-                        "Transcript queue full (oldest dropped)",
-                        Some(Duration::from_secs(2)),
-                    );
+                let drop_note = metrics
+                    .as_ref()
+                    .filter(|metrics| metrics.frames_dropped > 0)
+                    .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
+                let mut notes = Vec::with_capacity(2);
+                if let Some(note) = drop_note {
+                    notes.push(note);
                 }
-                if ready {
+                if let Some(note) = macro_note {
+                    notes.push(note);
+                }
+                let delivery_note = if notes.is_empty() {
+                    None
+                } else {
+                    Some(notes.join(", "))
+                };
+                let queued_suffix = delivery_note
+                    .as_ref()
+                    .map(|note| format!(", {note}"))
+                    .unwrap_or_default();
+                if ready && pending_transcripts.is_empty() {
                     let mut io = TranscriptIo {
                         session,
                         writer_tx,
@@ -312,28 +290,68 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                         current_status,
                         status_state,
                     };
-                    try_flush_pending(
-                        pending_transcripts,
-                        prompt_tracker,
-                        last_enter_at,
+                    let sent_newline = deliver_transcript(
+                        &text,
+                        source.label(),
+                        transcript_mode,
                         &mut io,
-                        now,
-                        transcript_idle_timeout,
+                        0,
+                        delivery_note.as_deref(),
                     );
-                } else if !dropped {
-                    let status = format!(
-                        "Transcript queued ({}{})",
-                        pending_transcripts.len(),
-                        queued_suffix
+                    if sent_newline {
+                        *last_enter_at = Some(now);
+                    }
+                } else {
+                    let dropped = push_pending_transcript(
+                        pending_transcripts,
+                        PendingTranscript {
+                            text,
+                            source,
+                            mode: transcript_mode,
+                        },
                     );
-                    set_status(
-                        writer_tx,
-                        status_clear_deadline,
-                        current_status,
-                        status_state,
-                        &status,
-                        None,
-                    );
+                    status_state.queue_depth = pending_transcripts.len();
+                    if dropped {
+                        set_status(
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                            "Transcript queue full (oldest dropped)",
+                            Some(Duration::from_secs(2)),
+                        );
+                    }
+                    if ready {
+                        let mut io = TranscriptIo {
+                            session,
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                        };
+                        try_flush_pending(
+                            pending_transcripts,
+                            prompt_tracker,
+                            last_enter_at,
+                            &mut io,
+                            now,
+                            transcript_idle_timeout,
+                        );
+                    } else if !dropped {
+                        let status = format!(
+                            "Transcript queued ({}{})",
+                            pending_transcripts.len(),
+                            queued_suffix
+                        );
+                        set_status(
+                            writer_tx,
+                            status_clear_deadline,
+                            current_status,
+                            status_state,
+                            &status,
+                            None,
+                        );
+                    }
                 }
             }
             if auto_voice_enabled

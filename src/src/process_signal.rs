@@ -28,7 +28,7 @@ pub(crate) fn signal_process_group_or_pid(
         }
         let pid_err = io::Error::last_os_error();
 
-        if missing_is_ok && (is_no_such_process(&group_err) || is_no_such_process(&pid_err)) {
+        if missing_target_can_be_ignored(missing_is_ok, &pid_err) {
             return Ok(());
         }
 
@@ -53,6 +53,13 @@ pub(crate) fn signal_process_group_or_pid(
 #[cfg(unix)]
 fn is_no_such_process(err: &io::Error) -> bool {
     matches!(err.raw_os_error(), Some(code) if code == libc::ESRCH)
+}
+
+#[cfg(unix)]
+fn missing_target_can_be_ignored(missing_is_ok: bool, pid_err: &io::Error) -> bool {
+    // Treat "missing target" as success only when the direct pid lookup reports ESRCH.
+    // A missing process group alone does not guarantee the pid signal path is safe to ignore.
+    missing_is_ok && is_no_such_process(pid_err)
 }
 
 #[cfg(test)]
@@ -86,5 +93,16 @@ mod tests {
         let missing = find_missing_pid();
         assert!(signal_process_group_or_pid(missing, libc::SIGTERM, true).is_ok());
         assert!(signal_process_group_or_pid(missing, libc::SIGTERM, false).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn signal_helper_optional_missing_requires_pid_esrch() {
+        let pid_missing = io::Error::from_raw_os_error(libc::ESRCH);
+        let pid_not_missing = io::Error::from_raw_os_error(libc::EPERM);
+
+        assert!(missing_target_can_be_ignored(true, &pid_missing));
+        assert!(!missing_target_can_be_ignored(true, &pid_not_missing));
+        assert!(!missing_target_can_be_ignored(false, &pid_missing));
     }
 }
