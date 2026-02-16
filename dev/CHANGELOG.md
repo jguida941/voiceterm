@@ -7,6 +7,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.68] - 2026-02-16
+
 ### UX
 
 - Add an explicit `responding` voice state in HUD modes (Full/Minimal/Hidden), including automatic reset back to idle when backend output arrives or status deadlines clear.

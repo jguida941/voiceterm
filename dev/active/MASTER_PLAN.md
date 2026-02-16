@@ -8,8 +8,8 @@
 
 ## Status Snapshot (2026-02-16)
 
-- Last tagged release: `v1.0.67` (2026-02-16)
-- Current release target: `TBD` (next post-`v1.0.67` target pending planning sync)
+- Last tagged release: `v1.0.68` (2026-02-16)
+- Current release target: `TBD` (next post-`v1.0.68` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
