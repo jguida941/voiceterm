@@ -178,30 +178,53 @@ pub(crate) struct VoiceMessageContext<'a, S: TranscriptSession> {
     pub auto_voice_enabled: bool,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn drain_voice_messages<S: TranscriptSession>(
-    voice_manager: &mut VoiceManager,
-    config: &OverlayConfig,
-    voice_macros: &VoiceMacros,
-    session: &mut S,
-    writer_tx: &Sender<WriterMessage>,
-    status_clear_deadline: &mut Option<Instant>,
-    current_status: &mut Option<String>,
-    status_state: &mut StatusLineState,
-    session_stats: &mut SessionStats,
-    pending_transcripts: &mut VecDeque<PendingTranscript>,
-    prompt_tracker: &mut PromptTracker,
-    last_enter_at: &mut Option<Instant>,
-    now: Instant,
-    transcript_idle_timeout: Duration,
-    recording_started_at: &mut Option<Instant>,
-    preview_clear_deadline: &mut Option<Instant>,
-    last_meter_update: &mut Instant,
-    last_auto_trigger_at: &mut Option<Instant>,
-    auto_voice_enabled: bool,
-    sound_on_complete: bool,
-    sound_on_error: bool,
-) {
+pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
+    pub voice_manager: &'a mut VoiceManager,
+    pub config: &'a OverlayConfig,
+    pub voice_macros: &'a VoiceMacros,
+    pub session: &'a mut S,
+    pub writer_tx: &'a Sender<WriterMessage>,
+    pub status_clear_deadline: &'a mut Option<Instant>,
+    pub current_status: &'a mut Option<String>,
+    pub status_state: &'a mut StatusLineState,
+    pub session_stats: &'a mut SessionStats,
+    pub pending_transcripts: &'a mut VecDeque<PendingTranscript>,
+    pub prompt_tracker: &'a mut PromptTracker,
+    pub last_enter_at: &'a mut Option<Instant>,
+    pub now: Instant,
+    pub transcript_idle_timeout: Duration,
+    pub recording_started_at: &'a mut Option<Instant>,
+    pub preview_clear_deadline: &'a mut Option<Instant>,
+    pub last_meter_update: &'a mut Instant,
+    pub last_auto_trigger_at: &'a mut Option<Instant>,
+    pub auto_voice_enabled: bool,
+    pub sound_on_complete: bool,
+    pub sound_on_error: bool,
+}
+
+pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainContext<'_, S>) {
+    let voice_manager = &mut *ctx.voice_manager;
+    let config = ctx.config;
+    let voice_macros = ctx.voice_macros;
+    let session = &mut *ctx.session;
+    let writer_tx = ctx.writer_tx;
+    let status_clear_deadline = &mut *ctx.status_clear_deadline;
+    let current_status = &mut *ctx.current_status;
+    let status_state = &mut *ctx.status_state;
+    let session_stats = &mut *ctx.session_stats;
+    let pending_transcripts = &mut *ctx.pending_transcripts;
+    let prompt_tracker = &mut *ctx.prompt_tracker;
+    let last_enter_at = &mut *ctx.last_enter_at;
+    let now = ctx.now;
+    let transcript_idle_timeout = ctx.transcript_idle_timeout;
+    let recording_started_at = &mut *ctx.recording_started_at;
+    let preview_clear_deadline = &mut *ctx.preview_clear_deadline;
+    let last_meter_update = &mut *ctx.last_meter_update;
+    let last_auto_trigger_at = &mut *ctx.last_auto_trigger_at;
+    let auto_voice_enabled = ctx.auto_voice_enabled;
+    let sound_on_complete = ctx.sound_on_complete;
+    let sound_on_error = ctx.sound_on_error;
+
     let Some(message) = voice_manager.poll_message() else {
         return;
     };

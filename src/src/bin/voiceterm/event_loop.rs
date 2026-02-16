@@ -47,6 +47,7 @@ use crate::theme_picker::{
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::voice_control::{
     clear_capture_metrics, drain_voice_messages, reset_capture_visuals, start_voice_capture,
+    VoiceDrainContext,
 };
 use crate::writer::{set_status, WriterMessage};
 
@@ -164,6 +165,38 @@ fn start_voice_capture_with_hook(
         current_status,
         status_state,
     )
+}
+
+fn drain_voice_messages_once(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    now: Instant,
+) {
+    let mut ctx = VoiceDrainContext {
+        voice_manager: &mut deps.voice_manager,
+        config: &state.config,
+        voice_macros: &deps.voice_macros,
+        session: &mut deps.session,
+        writer_tx: &deps.writer_tx,
+        status_clear_deadline: &mut timers.status_clear_deadline,
+        current_status: &mut state.current_status,
+        status_state: &mut state.status_state,
+        session_stats: &mut state.session_stats,
+        pending_transcripts: &mut state.pending_transcripts,
+        prompt_tracker: &mut state.prompt_tracker,
+        last_enter_at: &mut timers.last_enter_at,
+        now,
+        transcript_idle_timeout: deps.transcript_idle_timeout,
+        recording_started_at: &mut timers.recording_started_at,
+        preview_clear_deadline: &mut timers.preview_clear_deadline,
+        last_meter_update: &mut timers.last_meter_update,
+        last_auto_trigger_at: &mut timers.last_auto_trigger_at,
+        auto_voice_enabled: state.auto_voice_enabled,
+        sound_on_complete: deps.sound_on_complete,
+        sound_on_error: deps.sound_on_error,
+    };
+    drain_voice_messages(&mut ctx);
 }
 
 fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
@@ -525,29 +558,7 @@ fn run_periodic_tasks(
     }
     state.prompt_tracker.on_idle(now, deps.auto_idle_timeout);
 
-    drain_voice_messages(
-        &mut deps.voice_manager,
-        &state.config,
-        &deps.voice_macros,
-        &mut deps.session,
-        &deps.writer_tx,
-        &mut timers.status_clear_deadline,
-        &mut state.current_status,
-        &mut state.status_state,
-        &mut state.session_stats,
-        &mut state.pending_transcripts,
-        &mut state.prompt_tracker,
-        &mut timers.last_enter_at,
-        now,
-        deps.transcript_idle_timeout,
-        &mut timers.recording_started_at,
-        &mut timers.preview_clear_deadline,
-        &mut timers.last_meter_update,
-        &mut timers.last_auto_trigger_at,
-        state.auto_voice_enabled,
-        deps.sound_on_complete,
-        deps.sound_on_error,
-    );
+    drain_voice_messages_once(state, timers, deps, now);
 
     {
         let mut io = TranscriptIo {
@@ -1457,29 +1468,7 @@ pub(crate) fn run_event_loop(
                                 running = false;
                             }
                         }
-                        drain_voice_messages(
-                            &mut deps.voice_manager,
-                            &state.config,
-                            &deps.voice_macros,
-                            &mut deps.session,
-                            &deps.writer_tx,
-                            &mut timers.status_clear_deadline,
-                            &mut state.current_status,
-                            &mut state.status_state,
-                            &mut state.session_stats,
-                            &mut state.pending_transcripts,
-                            &mut state.prompt_tracker,
-                            &mut timers.last_enter_at,
-                            now,
-                            deps.transcript_idle_timeout,
-                            &mut timers.recording_started_at,
-                            &mut timers.preview_clear_deadline,
-                            &mut timers.last_meter_update,
-                            &mut timers.last_auto_trigger_at,
-                            state.auto_voice_enabled,
-                            deps.sound_on_complete,
-                            deps.sound_on_error,
-                        );
+                        drain_voice_messages_once(state, timers, deps, now);
                         if output_disconnected && state.pending_pty_output.is_none() {
                             running = false;
                         }
