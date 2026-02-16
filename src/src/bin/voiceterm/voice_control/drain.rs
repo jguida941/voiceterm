@@ -118,10 +118,10 @@ fn copy_to_clipboard(text: &str) -> anyhow::Result<()> {
                 Err(err) => failures.push(format!("{program}: {err}")),
             }
         }
-        return Err(anyhow::anyhow!(
+        Err(anyhow::anyhow!(
             "clipboard copy unavailable on Linux (tried wl-copy, xclip, xsel): {}",
             failures.join("; ")
-        ));
+        ))
     }
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
@@ -506,7 +506,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                 voice_macros,
             );
             let macro_matched = macro_note.is_some();
-            let mut transcript_mode = mode;
+            let transcript_mode = mode;
             if let Some(action) = resolve_voice_navigation_action(&text, macro_matched) {
                 let sent_newline = execute_voice_navigation_action(
                     action,
