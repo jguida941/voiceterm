@@ -148,13 +148,19 @@ Three controls define runtime behavior:
 ### Built-in voice navigation commands
 
 When a transcript exactly matches one of these phrases, VoiceTerm runs a local
-navigation action instead of typing the raw text:
+navigation action instead of typing the raw text.
 
 - `scroll up` - sends terminal PageUp
 - `scroll down` - sends terminal PageDown
 - `show last error` - surfaces the most recent error-like terminal line in HUD status
 - `copy last error` - copies the most recent error-like terminal line to clipboard
 - `explain last error` - sends an "explain this error" prompt to the active backend
+
+Precedence:
+
+- If a voice macro matches first, the macro wins.
+- Use `voice scroll up` or `voice scroll down` for explicit built-in navigation
+  phrases when you also keep overlapping macro triggers.
 
 ### Long dictation (`auto-voice` + `insert`)
 

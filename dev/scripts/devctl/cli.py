@@ -95,6 +95,15 @@ def build_parser() -> argparse.ArgumentParser:
     docs_cmd = sub.add_parser("docs-check", help="Verify user-facing docs are updated")
     docs_cmd.add_argument("--user-facing", action="store_true", help="Enforce user-facing doc updates")
     docs_cmd.add_argument("--strict", action="store_true", help="Require all user docs when --user-facing")
+    docs_cmd.add_argument(
+        "--since-ref",
+        help="Use commit-range mode by comparing changes from this ref (e.g. origin/develop, HEAD~1)",
+    )
+    docs_cmd.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Range-mode head ref used with --since-ref (default: HEAD)",
+    )
     docs_cmd.add_argument("--format", choices=["json", "md"], default="md")
     docs_cmd.add_argument("--output")
     docs_cmd.add_argument("--pipe-command", help="Pipe report output to a command")

@@ -268,8 +268,9 @@ like an error.
 
 1. Run or repeat the failing command once so the error appears in terminal output.
 2. Retry the voice command phrase after the output is visible.
-3. If `copy last error` fails on Linux, copy manually from terminal output
-   (clipboard integration currently uses macOS `pbcopy` path).
+3. On Linux, install one clipboard helper (`wl-copy`, `xclip`, or `xsel`) if
+   `copy last error` fails.
+4. If clipboard helpers are unavailable, copy manually from terminal output.
 
 ## Terminal and IDE Issues
 

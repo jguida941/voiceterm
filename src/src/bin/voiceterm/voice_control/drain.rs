@@ -68,28 +68,62 @@ fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigationAction> {
     }
 }
 
+fn resolve_voice_navigation_action(
+    text: &str,
+    macro_matched: bool,
+) -> Option<VoiceNavigationAction> {
+    if macro_matched {
+        return None;
+    }
+    parse_voice_navigation_action(text)
+}
+
+fn copy_to_clipboard_command(text: &str, program: &str, args: &[&str]) -> anyhow::Result<()> {
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|err| anyhow::anyhow!("failed to launch {program}: {err}"))?;
+    if let Some(stdin) = child.stdin.as_mut() {
+        stdin
+            .write_all(text.as_bytes())
+            .map_err(|err| anyhow::anyhow!("failed to write {program} stdin: {err}"))?;
+    }
+    let status = child
+        .wait()
+        .map_err(|err| anyhow::anyhow!("failed to wait for {program}: {err}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("{program} exited with status {status}"))
+    }
+}
+
 fn copy_to_clipboard(text: &str) -> anyhow::Result<()> {
     #[cfg(target_os = "macos")]
     {
-        let mut child = Command::new("pbcopy")
-            .stdin(Stdio::piped())
-            .spawn()
-            .map_err(|err| anyhow::anyhow!("failed to launch pbcopy: {err}"))?;
-        if let Some(stdin) = child.stdin.as_mut() {
-            stdin
-                .write_all(text.as_bytes())
-                .map_err(|err| anyhow::anyhow!("failed to write pbcopy stdin: {err}"))?;
-        }
-        let status = child
-            .wait()
-            .map_err(|err| anyhow::anyhow!("failed to wait for pbcopy: {err}"))?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("pbcopy exited with status {status}"))
-        }
+        return copy_to_clipboard_command(text, "pbcopy", &[]);
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        let mut failures = Vec::new();
+        let candidates: [(&str, &[&str]); 3] = [
+            ("wl-copy", &[]),
+            ("xclip", &["-selection", "clipboard"]),
+            ("xsel", &["--clipboard", "--input"]),
+        ];
+        for (program, args) in candidates {
+            match copy_to_clipboard_command(text, program, args) {
+                Ok(()) => return Ok(()),
+                Err(err) => failures.push(format!("{program}: {err}")),
+            }
+        }
+        return Err(anyhow::anyhow!(
+            "clipboard copy unavailable on Linux (tried wl-copy, xclip, xsel): {}",
+            failures.join("; ")
+        ));
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = text;
         Err(anyhow::anyhow!(
@@ -440,7 +474,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
             source,
             metrics,
         } => {
-            let navigation_action = parse_voice_navigation_action(&text);
             update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let ready =
                 transcript_ready(prompt_tracker, *last_enter_at, now, transcript_idle_timeout);
@@ -466,8 +499,15 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                 .map(|metrics| metrics.speech_ms as f32 / 1000.0)
                 .unwrap_or(0.0);
             session_stats.record_transcript(duration_secs);
-            let mut transcript_mode = config.voice_send_mode;
-            if let Some(action) = navigation_action {
+            let (text, mode, macro_note) = apply_macro_mode(
+                &text,
+                config.voice_send_mode,
+                status_state.macros_enabled,
+                voice_macros,
+            );
+            let macro_matched = macro_note.is_some();
+            let mut transcript_mode = mode;
+            if let Some(action) = resolve_voice_navigation_action(&text, macro_matched) {
                 let sent_newline = execute_voice_navigation_action(
                     action,
                     prompt_tracker,
@@ -481,13 +521,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(
                     *last_enter_at = Some(now);
                 }
             } else {
-                let (text, mode, macro_note) = apply_macro_mode(
-                    &text,
-                    config.voice_send_mode,
-                    status_state.macros_enabled,
-                    voice_macros,
-                );
-                transcript_mode = mode;
                 let drop_note = metrics
                     .as_ref()
                     .filter(|metrics| metrics.frames_dropped > 0)
@@ -842,6 +875,15 @@ macros:
             Some(VoiceNavigationAction::ExplainLastError)
         );
         assert_eq!(parse_voice_navigation_action("run tests"), None);
+    }
+
+    #[test]
+    fn resolve_voice_navigation_action_skips_builtins_when_macro_matched() {
+        assert_eq!(resolve_voice_navigation_action("scroll up", true), None);
+        assert_eq!(
+            resolve_voice_navigation_action("voice scroll up", false),
+            Some(VoiceNavigationAction::ScrollUp)
+        );
     }
 
     #[test]

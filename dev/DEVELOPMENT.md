@@ -188,6 +188,9 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Post-commit docs check over a commit range (works on clean trees)
+python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
+
 # Governance hygiene audit (archive + ADR + scripts docs)
 python3 dev/scripts/devctl.py hygiene
 

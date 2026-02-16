@@ -53,6 +53,8 @@ have a CLI flag.
 Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
 `explain last error`.
+If a macro and built-in phrase overlap, the macro runs first; use explicit
+`voice scroll up`/`voice scroll down` to force built-in navigation phrases.
 
 ---
 

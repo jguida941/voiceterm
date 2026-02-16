@@ -96,6 +96,8 @@ does not call Codex/Claude directly.
 
 Built-in voice navigation phrases include `scroll up`, `scroll down`,
 `show last error`, `copy last error`, and `explain last error`.
+If you also use matching macros, macros run first. Use `voice scroll up` /
+`voice scroll down` to force built-in navigation phrases.
 
 More detailed topics:
 

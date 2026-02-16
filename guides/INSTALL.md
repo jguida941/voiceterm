@@ -227,6 +227,9 @@ Built-in voice navigation phrases are available after install:
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
 `explain last error`.
 
+Linux clipboard note: `copy last error` uses `wl-copy`, `xclip`, or `xsel`
+when available.
+
 ## Windows
 
 Windows native is not supported yet (the overlay uses a Unix PTY). Use WSL2 or

@@ -18,7 +18,9 @@ USER_DOCS = [
 
 def run(args) -> int:
     """Check that user-facing docs and changelog are updated."""
-    git_info = collect_git_status()
+    since_ref = getattr(args, "since_ref", None)
+    head_ref = getattr(args, "head_ref", "HEAD")
+    git_info = collect_git_status(since_ref, head_ref)
     if "error" in git_info:
         output = json.dumps({"error": git_info["error"]}, indent=2)
         write_output(output, args.output)
@@ -43,6 +45,8 @@ def run(args) -> int:
     report = {
         "command": "docs-check",
         "timestamp": datetime.now().isoformat(),
+        "since_ref": since_ref,
+        "head_ref": head_ref,
         "user_facing": args.user_facing,
         "strict": args.strict,
         "changelog_updated": changelog_updated,
@@ -55,6 +59,8 @@ def run(args) -> int:
         output = json.dumps(report, indent=2)
     else:
         lines = ["# devctl docs-check", ""]
+        if since_ref:
+            lines.append(f"- commit_range: {since_ref}...{head_ref}")
         lines.append(f"- changelog_updated: {changelog_updated}")
         lines.append(f"- updated_docs: {', '.join(updated_docs) if updated_docs else 'none'}")
         if args.user_facing:

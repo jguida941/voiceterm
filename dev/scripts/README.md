@@ -153,6 +153,9 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Post-commit docs check over a commit range (works on clean trees)
+python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
+
 # Markdown style/readability checks for key docs
 markdownlint -c .markdownlint.yaml README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 

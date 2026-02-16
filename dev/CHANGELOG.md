@@ -13,12 +13,19 @@ Note: Some historical entries reference internal documents that are not publishe
 - Only enter `responding` when transcript delivery actually submits to the backend (auto/newline path), avoiding false `responding` state in insert mode.
 - Add quick theme cycling on `Ctrl+G` (plus CSI-u terminal variants), and surface the new shortcut in the help overlay and HUD shortcut rows.
 - Add built-in voice navigation actions for `scroll up`, `scroll down`, `show last error`, `copy last error`, and `explain last error`.
+- Apply macro-first precedence for overlapping voice phrases; built-in navigation can still be forced with explicit `voice scroll up` / `voice scroll down`.
+- Add Linux clipboard support for `copy last error` via `wl-copy`, `xclip`, or `xsel` fallback (macOS `pbcopy` unchanged).
 
 ### Tests
 
 - Add parser regression coverage for `Ctrl+G` direct and CSI-u key paths.
 - Add prompt-tracker coverage for capturing the latest error-like output line.
 - Add voice-navigation unit coverage for scroll/show/copy/explain command actions.
+- Add regression coverage that enforces macro-first precedence over built-in voice navigation phrase matches.
+
+### Tooling
+
+- Add commit-range mode to docs-check (`python3 dev/scripts/devctl.py docs-check --user-facing --since-ref <ref>`) so post-commit audits remain meaningful on a clean working tree.
 
 ## [1.0.67] - 2026-02-15
 
