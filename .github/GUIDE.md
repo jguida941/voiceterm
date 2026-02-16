@@ -14,7 +14,7 @@ This file explains what lives in `.github/`, why it exists, and what to update w
 | `.github/ISSUE_TEMPLATE/feature_request.md` | Feature request template. | Planning intake format changes. |
 | `.github/scripts/verify_perf_metrics.py` | Perf-smoke log validator used by CI. | Voice metrics schema or thresholds change. |
 | `.github/workflows/*.yml` | CI workflows for build, tests, docs, perf, memory, security, and governance. | CI policy, command lanes, trigger paths, or thresholds change. |
-| `.github/README.md` | This index. | Any file is added/removed/renamed or workflow behavior changes. |
+| `.github/GUIDE.md` | This index. | Any file is added/removed/renamed or workflow behavior changes. |
 
 ## Workflow Matrix
 
