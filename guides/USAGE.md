@@ -317,6 +317,10 @@ Main areas:
 - shortcut hints (space permitting)
 - optional telemetry/right-panel modules
 
+`responding` appears only when VoiceTerm submits text to the backend (for
+example, `auto` send mode or `explain last error`), then returns to idle when
+backend output arrives.
+
 Latency badge behavior:
 
 - shows post-capture processing latency when reliable metrics exist

@@ -10,6 +10,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Add an explicit `responding` voice state in HUD modes (Full/Minimal/Hidden), including automatic reset back to idle when backend output arrives or status deadlines clear.
+- Only enter `responding` when transcript delivery actually submits to the backend (auto/newline path), avoiding false `responding` state in insert mode.
 - Add quick theme cycling on `Ctrl+G` (plus CSI-u terminal variants), and surface the new shortcut in the help overlay and HUD shortcut rows.
 - Add built-in voice navigation actions for `scroll up`, `scroll down`, `show last error`, `copy last error`, and `explain last error`.
 
