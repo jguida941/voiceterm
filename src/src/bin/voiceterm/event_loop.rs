@@ -47,6 +47,7 @@ use crate::theme_picker::{
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::voice_control::{
     clear_capture_metrics, drain_voice_messages, reset_capture_visuals, start_voice_capture,
+    VoiceDrainContext,
 };
 use crate::writer::{set_status, WriterMessage};
 
@@ -164,6 +165,38 @@ fn start_voice_capture_with_hook(
         current_status,
         status_state,
     )
+}
+
+fn drain_voice_messages_once(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    now: Instant,
+) {
+    let mut ctx = VoiceDrainContext {
+        voice_manager: &mut deps.voice_manager,
+        config: &state.config,
+        voice_macros: &deps.voice_macros,
+        session: &mut deps.session,
+        writer_tx: &deps.writer_tx,
+        status_clear_deadline: &mut timers.status_clear_deadline,
+        current_status: &mut state.current_status,
+        status_state: &mut state.status_state,
+        session_stats: &mut state.session_stats,
+        pending_transcripts: &mut state.pending_transcripts,
+        prompt_tracker: &mut state.prompt_tracker,
+        last_enter_at: &mut timers.last_enter_at,
+        now,
+        transcript_idle_timeout: deps.transcript_idle_timeout,
+        recording_started_at: &mut timers.recording_started_at,
+        preview_clear_deadline: &mut timers.preview_clear_deadline,
+        last_meter_update: &mut timers.last_meter_update,
+        last_auto_trigger_at: &mut timers.last_auto_trigger_at,
+        auto_voice_enabled: state.auto_voice_enabled,
+        sound_on_complete: deps.sound_on_complete,
+        sound_on_error: deps.sound_on_error,
+    };
+    drain_voice_messages(&mut ctx);
 }
 
 fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
@@ -525,29 +558,7 @@ fn run_periodic_tasks(
     }
     state.prompt_tracker.on_idle(now, deps.auto_idle_timeout);
 
-    drain_voice_messages(
-        &mut deps.voice_manager,
-        &state.config,
-        &deps.voice_macros,
-        &mut deps.session,
-        &deps.writer_tx,
-        &mut timers.status_clear_deadline,
-        &mut state.current_status,
-        &mut state.status_state,
-        &mut state.session_stats,
-        &mut state.pending_transcripts,
-        &mut state.prompt_tracker,
-        &mut timers.last_enter_at,
-        now,
-        deps.transcript_idle_timeout,
-        &mut timers.recording_started_at,
-        &mut timers.preview_clear_deadline,
-        &mut timers.last_meter_update,
-        &mut timers.last_auto_trigger_at,
-        state.auto_voice_enabled,
-        deps.sound_on_complete,
-        deps.sound_on_error,
-    );
+    drain_voice_messages_once(state, timers, deps, now);
 
     {
         let mut io = TranscriptIo {
@@ -618,6 +629,9 @@ fn run_periodic_tasks(
             timers.status_clear_deadline = None;
             state.current_status = None;
             state.status_state.message.clear();
+            if state.status_state.recording_state == RecordingState::Responding {
+                state.status_state.recording_state = RecordingState::Idle;
+            }
             // Don't repeatedly set "Auto-voice enabled" - the mode indicator shows it
             send_enhanced_status_with_buttons(
                 &deps.writer_tx,
@@ -685,6 +699,27 @@ pub(crate) fn run_event_loop(
                                     settings_ctx.update_hud_style(1);
                                     if mode == OverlayMode::Settings {
                                         render_settings_overlay_for_state(state, deps);
+                                    }
+                                }
+                                (mode, InputEvent::QuickThemeCycle) => {
+                                    {
+                                        let mut settings_ctx =
+                                            settings_action_context(state, timers, deps, mode);
+                                        settings_ctx.cycle_theme(1);
+                                    }
+                                    match mode {
+                                        OverlayMode::Settings => {
+                                            render_settings_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::ThemePicker => {
+                                            state.theme_picker_selected =
+                                                theme_index_from_theme(state.theme);
+                                            render_theme_picker_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::Help => {
+                                            render_help_overlay_for_state(state, deps);
+                                        }
+                                        OverlayMode::None => {}
                                     }
                                 }
                                 (OverlayMode::Settings, InputEvent::SettingsToggle) => {
@@ -1064,6 +1099,14 @@ pub(crate) fn run_event_loop(
                                 reset_theme_picker_selection(state, timers);
                                 render_theme_picker_overlay_for_state(state, deps);
                             }
+                            InputEvent::QuickThemeCycle => {
+                                let overlay_mode = state.overlay_mode;
+                                let mut settings_ctx =
+                                    settings_action_context(state, timers, deps, overlay_mode);
+                                settings_ctx.cycle_theme(1);
+                                state.status_state.hud_button_focus = None;
+                                refresh_button_registry_if_mouse(state, deps);
+                            }
                             InputEvent::SettingsToggle => {
                                 state.status_state.hud_button_focus = None;
                                 state.overlay_mode = OverlayMode::Settings;
@@ -1385,6 +1428,17 @@ pub(crate) fn run_event_loop(
                         let now = Instant::now();
                         if !data.is_empty() {
                             state.suppress_startup_escape_input = false;
+                            if state.status_state.recording_state == RecordingState::Responding {
+                                state.status_state.recording_state = RecordingState::Idle;
+                                send_enhanced_status_with_buttons(
+                                    &deps.writer_tx,
+                                    &deps.button_registry,
+                                    &state.status_state,
+                                    state.overlay_mode,
+                                    state.terminal_cols,
+                                    state.theme,
+                                );
+                            }
                         }
                         state.prompt_tracker.feed_output(&data);
                         {
@@ -1414,29 +1468,7 @@ pub(crate) fn run_event_loop(
                                 running = false;
                             }
                         }
-                        drain_voice_messages(
-                            &mut deps.voice_manager,
-                            &state.config,
-                            &deps.voice_macros,
-                            &mut deps.session,
-                            &deps.writer_tx,
-                            &mut timers.status_clear_deadline,
-                            &mut state.current_status,
-                            &mut state.status_state,
-                            &mut state.session_stats,
-                            &mut state.pending_transcripts,
-                            &mut state.prompt_tracker,
-                            &mut timers.last_enter_at,
-                            now,
-                            deps.transcript_idle_timeout,
-                            &mut timers.recording_started_at,
-                            &mut timers.preview_clear_deadline,
-                            &mut timers.last_meter_update,
-                            &mut timers.last_auto_trigger_at,
-                            state.auto_voice_enabled,
-                            deps.sound_on_complete,
-                            deps.sound_on_error,
-                        );
+                        drain_voice_messages_once(state, timers, deps, now);
                         if output_disconnected && state.pending_pty_output.is_none() {
                             running = false;
                         }
@@ -2151,6 +2183,7 @@ mod tests {
         state.status_state.transcript_preview = Some("preview".to_string());
         state.current_status = Some("busy".to_string());
         state.status_state.message = "busy".to_string();
+        state.status_state.recording_state = RecordingState::Responding;
         timers.preview_clear_deadline = Some(now);
         timers.status_clear_deadline = Some(now);
 
@@ -2160,6 +2193,7 @@ mod tests {
         assert!(timers.status_clear_deadline.is_none());
         assert!(state.current_status.is_none());
         assert!(state.status_state.message.is_empty());
+        assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     }
 
     #[test]

@@ -8,7 +8,7 @@ from typing import Dict
 from .config import REPO_ROOT
 
 
-def collect_git_status() -> Dict:
+def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> Dict:
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
@@ -18,23 +18,41 @@ def collect_git_status() -> Dict:
             cwd=REPO_ROOT,
             text=True,
         ).strip()
-        status_raw = subprocess.check_output(
-            ["git", "status", "--porcelain"],
-            cwd=REPO_ROOT,
-            text=True,
-        )
+        if since_ref:
+            status_raw = subprocess.check_output(
+                ["git", "diff", "--name-status", f"{since_ref}...{head_ref}"],
+                cwd=REPO_ROOT,
+                text=True,
+            )
+        else:
+            status_raw = subprocess.check_output(
+                ["git", "status", "--porcelain"],
+                cwd=REPO_ROOT,
+                text=True,
+            )
     except subprocess.CalledProcessError as exc:
         return {"error": f"git failed: {exc}"}
 
     changes = []
-    for line in status_raw.splitlines():
-        if not line:
-            continue
-        status = line[:2].strip()
-        path = line[3:]
-        if "->" in path:
-            path = path.split("->")[-1].strip()
-        changes.append({"status": status, "path": path})
+    if since_ref:
+        for line in status_raw.splitlines():
+            if not line:
+                continue
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+            status = parts[0].strip()
+            path = parts[-1].strip()
+            changes.append({"status": status, "path": path})
+    else:
+        for line in status_raw.splitlines():
+            if not line:
+                continue
+            status = line[:2].strip()
+            path = line[3:]
+            if "->" in path:
+                path = path.split("->")[-1].strip()
+            changes.append({"status": status, "path": path})
 
     changed_paths = {change["path"] for change in changes}
     return {
@@ -42,6 +60,8 @@ def collect_git_status() -> Dict:
         "changes": changes,
         "changelog_updated": "dev/CHANGELOG.md" in changed_paths,
         "master_plan_updated": "dev/active/MASTER_PLAN.md" in changed_paths,
+        "since_ref": since_ref,
+        "head_ref": head_ref,
     }
 
 

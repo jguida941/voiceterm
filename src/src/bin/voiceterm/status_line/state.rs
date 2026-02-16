@@ -44,6 +44,8 @@ pub enum RecordingState {
     Recording,
     /// Processing recorded audio
     Processing,
+    /// Transcript was injected and we're waiting for backend response output
+    Responding,
 }
 
 /// Pipeline being used for voice capture.

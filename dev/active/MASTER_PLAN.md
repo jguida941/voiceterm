@@ -6,10 +6,10 @@
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-02-15)
+## Status Snapshot (2026-02-16)
 
-- Last tagged release: `v1.0.66` (2026-02-15)
-- Current release target: `TBD` (next post-`v1.0.66` target pending planning sync)
+- Last tagged release: `v1.0.67` (2026-02-16)
+- Current release target: `TBD` (next post-`v1.0.67` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
@@ -76,8 +76,8 @@
 - [x] MP-125 Fix HUD right-panel `Anim only` behavior so idle state keeps a static panel visible instead of hiding the panel until recording.
 - [x] MP-126 Complete product/distribution naming rebrand to VoiceTerm across code/docs/scripts/app launcher, and add a PyPI launcher package scaffold (`pypi/`) for `voiceterm`.
 - [x] MP-139 Tighten user-facing docs information architecture (entrypoint clarity, navigation consistency, and guide discoverability).
-- [ ] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
-- [ ] MP-055 Quick theme switcher in settings.
+- [x] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
+- [x] MP-055 Quick theme switcher in settings.
 - [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
 
 ## Phase 2B - Rust Hardening Audit (Pre-Execution + Implementation)
@@ -97,7 +97,11 @@
 
 ## Phase 3 - Overlay Differentiators
 
-- [ ] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
+- [x] MP-090 Voice terminal navigation actions (scroll/copy/error/explain).
+- [x] MP-140 Define and enforce macro-vs-navigation precedence (macros first, explicit built-in phrase escape path).
+- [x] MP-141 Add Linux clipboard fallback support for voice `copy last error` (wl-copy/xclip/xsel).
+- [x] MP-142 Add `devctl docs-check` commit-range mode for post-commit doc audits on clean working trees.
+- [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk.
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
 ## Phase 4 - Advanced Expansion

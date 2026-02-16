@@ -33,6 +33,7 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("Ctrl+R", "rec"),
     ("Ctrl+V", "auto"),
     ("Ctrl+T", "send"),
+    ("Ctrl+G", "theme+"),
     ("Ctrl+U", "hud"),
     ("Ctrl+O", "settings"),
     ("?", "help"),
@@ -44,6 +45,7 @@ const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
     ("^R", "rec"),
     ("^V", "auto"),
     ("^T", "send"),
+    ("^G", "th+"),
     ("^U", "hud"),
     ("^O", "settings"),
     ("?", "help"),
@@ -94,6 +96,7 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
     let (indicator, label) = match state.recording_state {
         RecordingState::Recording => ("●", "rec"),
         RecordingState::Processing => ("◌", "..."),
+        RecordingState::Responding => ("↺", "rsp"),
         RecordingState::Idle => return String::new(),
     };
 
@@ -130,9 +133,7 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     // Handle HUD style
     match state.hud_style {
         HudStyle::Hidden => {
-            if state.recording_state == RecordingState::Recording
-                || state.recording_state == RecordingState::Processing
-            {
+            if state.recording_state != RecordingState::Idle {
                 let line = format_hidden_strip(state, &colors, width);
                 StatusBanner::new(vec![line])
             } else {
@@ -509,6 +510,12 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
             result.push_str(pipeline_tag);
             result.push_str(colors.reset);
         }
+        RecordingState::Responding => {
+            result.push_str(colors.info);
+            result.push_str("↺ responding ");
+            result.push_str(pipeline_tag);
+            result.push_str(colors.reset);
+        }
         RecordingState::Idle => {
             let (indicator, label, color) = match state.voice_mode {
                 VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
@@ -656,6 +663,11 @@ fn compact_mode_parts<'a>(
             indicator: "◐",
             label: pipeline_tag,
             color: colors.processing,
+        },
+        RecordingState::Responding => CompactModeParts {
+            indicator: "↺",
+            label: pipeline_tag,
+            color: colors.info,
         },
         RecordingState::Idle => {
             let (label, color) = match state.voice_mode {
@@ -829,6 +841,7 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
     let mode_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
         RecordingState::Processing => colors.processing,
+        RecordingState::Responding => colors.info,
         RecordingState::Idle => {
             if state.voice_mode == VoiceMode::Auto {
                 colors.info
@@ -842,12 +855,14 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
     let mode_indicator = match state.recording_state {
         RecordingState::Recording => get_recording_indicator(),
         RecordingState::Processing => get_processing_spinner(),
+        RecordingState::Responding => "↺",
         RecordingState::Idle => state.voice_mode.indicator(),
     };
 
     let mode_label = match state.recording_state {
         RecordingState::Recording => format!("REC {pipeline_tag}{transition}"),
         RecordingState::Processing => format!("processing {pipeline_tag}{transition}"),
+        RecordingState::Responding => format!("RESP {pipeline_tag}{transition}"),
         RecordingState::Idle => {
             format!("{}{}", full_mode_voice_label(state.voice_mode), transition)
         }
@@ -1098,6 +1113,17 @@ mod tests {
         // Minimal mode when processing should show processing indicator
         assert_eq!(banner.height, 1);
         assert!(banner.lines[0].contains("processing"));
+    }
+
+    #[test]
+    fn format_status_banner_minimal_mode_responding() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Minimal;
+        state.recording_state = RecordingState::Responding;
+
+        let banner = format_status_banner(&state, Theme::None, 80);
+        assert_eq!(banner.height, 1);
+        assert!(banner.lines[0].contains("responding"));
     }
 
     #[test]
