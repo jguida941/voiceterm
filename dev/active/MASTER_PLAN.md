@@ -6,10 +6,10 @@
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-02-15)
+## Status Snapshot (2026-02-16)
 
-- Last tagged release: `v1.0.66` (2026-02-15)
-- Current release target: `TBD` (next post-`v1.0.66` target pending planning sync)
+- Last tagged release: `v1.0.67` (2026-02-16)
+- Current release target: `TBD` (next post-`v1.0.67` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
