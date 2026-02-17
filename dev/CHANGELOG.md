@@ -7,6 +7,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.80] - 2026-02-17
+
 ### UX
 
 - Add wake-word controls plus runtime listener wiring: settings/CLI now configure `Wake word` ON/OFF, sensitivity, and cooldown (still default OFF), detections feed the same capture-start path used by `Ctrl+R`, and wake-listener lifecycle now has explicit start/stop ownership with bounded shutdown joins.

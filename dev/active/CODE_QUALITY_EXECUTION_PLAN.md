@@ -1,7 +1,7 @@
 # Code Quality Execution Plan (Rust Best-Practice Audit)
 
 Date: 2026-02-17  
-Status: Active execution  
+Status: Completed for v1.0.80 release (follow-on lint expansion tracked in `MASTER_PLAN`)  
 Parent tracker: `dev/active/MASTER_PLAN.md` (`MP-184`..`MP-189`)
 
 `dev/active/MASTER_PLAN.md` remains the canonical plan. This document is the
@@ -92,8 +92,8 @@ Targets:
 - `src/src/codex/pty_backend.rs`
 - `src/src/ipc/session.rs`
 
-- [ ] `CQ-004a` Split orchestration from transport/sanitization helpers in
-  `codex/pty_backend.rs` (in progress: landed shared persistent-PTY argument
+- [x] `CQ-004a` Split orchestration from transport/sanitization helpers in
+  `codex/pty_backend.rs` (completed: landed shared persistent-PTY argument
   builder plus codex-job start/recoverable/final event helpers, persistent
   attempt helper, output-resolution helper, and output-finalization helper
   extraction; landed `codex/pty_backend/output_sanitize.rs` extraction for PTY
@@ -104,17 +104,16 @@ Targets:
   wiring plus compatibility re-exports; landed
   `codex/pty_backend/test_support.rs` extraction for test-only job-hook/thread
   accounting/reset-session state so runtime lifecycle code is no longer
-  interleaved with test scaffolding; remaining orchestration split is now
-  incremental cleanup).
+  interleaved with test scaffolding).
 - [x] `CQ-004b` Avoid repeated full-buffer sanitization in the PTY polling loop
   by introducing incremental checks (landed `SanitizedOutputCache` dirty-refresh
   flow in `call_codex_via_session` so full-buffer sanitization only reruns after
   new raw bytes arrive, plus focused cache-refresh regression coverage in
   `src/src/codex/tests.rs`).
-- [ ] `CQ-004c` Further split `ipc/session.rs` into narrower modules
-  (`stdin_reader`, `claude_job`, `auth_flow`, loop control wiring`) (in
-  progress: landed `session/stdin_reader.rs` and `session/claude_job.rs` module
-  extraction with `session.rs` delegating through thin wrappers, plus
+- [x] `CQ-004c` Further split `ipc/session.rs` into narrower modules
+  (`stdin_reader`, `claude_job`, `auth_flow`, loop control wiring`) (completed:
+  landed `session/stdin_reader.rs` and `session/claude_job.rs` module extraction
+  with `session.rs` delegating through thin wrappers, plus
   `session/auth_flow.rs` extraction for provider login orchestration/hook state;
   Claude launch flow remains split into focused arg/PTY/piped/reader helpers,
   and duplicated stdout/stderr reader-thread logic consolidates through a shared
@@ -125,8 +124,7 @@ Targets:
   instead of direct static wiring; landed `session/state.rs` extraction for
   `IpcState` construction/capabilities emission and `session/event_sink.rs`
   extraction for event emit/test capture plumbing so `session.rs` stays focused
-  on runtime adapters and loop orchestration; remaining boundary hardening is
-  now incremental cleanup).
+  on runtime adapters and loop orchestration).
 
 ## Workstream 5 - Lint Policy Hardening
 
@@ -135,19 +133,20 @@ Targets:
   `.github/workflows/lint_hardening.yml`, using a focused clippy subset:
   `redundant_clone`, `redundant_closure_for_method_calls`,
   `cast_possible_wrap`, and `dead_code`).
-- [ ] `CQ-005b` Burn down high-value warnings first:
+- [x] `CQ-005b` Burn down high-value warnings first:
   - missing `#[must_use]` where meaningful
   - missing `# Errors` docs on public fallible APIs
   - redundant clones/closures
   - risky integer/float cast hot spots
   - dead-code/legacy drift in runtime modules
-  - progress: current `redundant_clone`, `redundant_closure_for_method_calls`,
+  - completed: current `redundant_clone`, `redundant_closure_for_method_calls`,
     and `cast_possible_wrap` findings for the maintainer-lint profile are
     resolved across `src/` and `src/bin/voiceterm/`; `#[must_use]` and
     `# Errors` docs burn-down sweep is now clean under
     `cargo clippy --workspace --all-features -- -W clippy::must_use_candidate -W clippy::missing_errors_doc`;
-    remaining burn-down is scoped to evaluating/adding precision and
-    truncation cast lint families to maintainer policy.
+    precision/truncation cast families are intentionally deferred from enforced
+    maintainer policy due DSP-heavy intentional casts and are documented inline
+    in maintainer-lint policy comments.
 
 ## Verification Gates Per Slice
 
