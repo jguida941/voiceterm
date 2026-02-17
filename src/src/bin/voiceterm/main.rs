@@ -361,6 +361,7 @@ fn main() -> Result<()> {
         terminal_rows,
         terminal_cols,
         last_recording_duration: 0.0_f32,
+        meter_floor_started_at: None,
         processing_spinner_index: 0,
         pending_pty_output: None,
         pending_pty_input: VecDeque::new(),

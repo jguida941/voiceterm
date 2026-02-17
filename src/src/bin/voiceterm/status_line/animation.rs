@@ -7,11 +7,13 @@ const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
 #[allow(dead_code)]
 const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
-/// Recording pulse emphasis frames (cycles every ~1s at 4fps).
-const RECORDING_PULSE_EMPHASIS_FRAMES: &[bool] = &[true, false, true, false];
-
 /// Processing spinner frames (braille dots for smooth animation).
 const PROCESSING_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+// Recording blink tuned to readable cadence:
+// - 0.8 Hz (1250 ms period) keeps attention without looking jittery.
+// - 70% ON / 30% OFF follows ISO 9241-303 guidance for readability during blinking.
+const RECORDING_PULSE_PERIOD_MS: u64 = 1250;
+const RECORDING_PULSE_ON_MS: u64 = 875;
 
 /// Get the current animation frame based on system time.
 /// Returns a frame index that cycles through the given frame count.
@@ -22,17 +24,6 @@ fn get_animation_frame(frame_count: usize, cycle_ms: u64) -> usize {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
     ((now / cycle_ms) % frame_count as u64) as usize
-}
-
-#[inline]
-fn recording_pulse_frame() -> usize {
-    get_animation_frame(RECORDING_PULSE_EMPHASIS_FRAMES.len(), 250)
-}
-
-/// Return whether the recording pulse is in its emphasized frame.
-#[inline]
-pub(super) fn recording_pulse_emphasis() -> bool {
-    RECORDING_PULSE_EMPHASIS_FRAMES[recording_pulse_frame()]
 }
 
 /// Get the processing spinner character.
@@ -54,6 +45,15 @@ pub(super) fn heartbeat_glyph(animate: bool) -> (char, bool) {
     let frame_idx = if animate { heartbeat_frame_index() } else { 0 };
     let glyph = HEARTBEAT_FRAMES.get(frame_idx).copied().unwrap_or('·');
     (glyph, frame_idx == 2)
+}
+
+#[inline]
+pub(super) fn recording_pulse_on() -> bool {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    (now_ms % RECORDING_PULSE_PERIOD_MS) < RECORDING_PULSE_ON_MS
 }
 
 #[allow(dead_code)]
@@ -86,12 +86,6 @@ pub(super) fn transition_marker(progress: f32) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn recording_pulse_frame_in_range() {
-        let idx = recording_pulse_frame();
-        assert!(idx < RECORDING_PULSE_EMPHASIS_FRAMES.len());
-    }
 
     #[test]
     fn processing_spinner_in_range() {

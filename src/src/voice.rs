@@ -309,7 +309,7 @@ fn sanitize_transcript(text: &str) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    const NON_SPEECH_PATTERN: &str = r"(?i)\[\s*\]|\(\s*\)|\[(?:\s*(?:silence|noise|inaudible|blank_audio|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background)\s*)\]|\((?:\s*(?:silence|noise|inaudible|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background|wind blowing)\s*)\)";
+    const NON_SPEECH_PATTERN: &str = r"(?i)\[\s*\]|\(\s*\)|\[(?:\s*(?:silence|noise|inaudible|blank_audio|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|wind blowing|background|background noise|siren(?:s)?|siren wailing|engine|engine revving|water|water splashing|water spashing|splash(?:ing)?)\s*)\]|\((?:\s*(?:silence|noise|inaudible|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|wind blowing|background|background noise|siren(?:s)?|siren wailing|engine|engine revving|water|water splashing|water spashing|splash(?:ing)?)\s*)\)";
     static NON_SPEECH_RE: OnceLock<Option<Regex>> = OnceLock::new();
     let re = NON_SPEECH_RE.get_or_init(|| match Regex::new(NON_SPEECH_PATTERN) {
         Ok(compiled) => Some(compiled),
@@ -429,6 +429,19 @@ mod tests {
     fn voice_capture_source_labels_are_user_friendly() {
         assert_eq!(VoiceCaptureSource::Native.label(), "Rust pipeline");
         assert_eq!(VoiceCaptureSource::Python.label(), "Python fallback");
+    }
+
+    #[test]
+    fn sanitize_transcript_strips_known_non_speech_tags() {
+        let cleaned =
+            sanitize_transcript("run tests (siren wailing) [water splashing] (engine revving)");
+        assert_eq!(cleaned, "run tests");
+    }
+
+    #[test]
+    fn sanitize_transcript_keeps_meaningful_parenthetical_content() {
+        let cleaned = sanitize_transcript("say (hello world) now");
+        assert_eq!(cleaned, "say (hello world) now");
     }
 
     #[test]

@@ -7,12 +7,12 @@ use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{
-    BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
-    BORDER_SINGLE,
+    filled_indicator, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE,
+    BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 use super::animation::{
-    get_processing_spinner, heartbeat_glyph, recording_pulse_emphasis, transition_marker,
+    get_processing_spinner, heartbeat_glyph, recording_pulse_on, transition_marker,
 };
 use super::buttons::{
     format_hidden_launcher_with_button, format_minimal_strip_with_button,
@@ -25,17 +25,21 @@ use super::state::{RecordingState, StatusBanner, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
 
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
+const MAIN_ROW_DURATION_TEXT_WIDTH: usize = MAIN_ROW_DURATION_PLACEHOLDER.len();
+const MAIN_ROW_DURATION_TEXT_WIDTH_AUTO: usize = MAIN_ROW_DURATION_TEXT_WIDTH + 1;
 const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
 const MAIN_ROW_RIGHT_GUTTER: usize = 1;
+const MAIN_ROW_METER_TEXT_WIDTH: usize = 5;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
 // Keep main-row separators anchored to stable columns so they do not jitter
 // across recording/processing state transitions.
-const MAIN_ROW_MODE_LANE_WIDTH: usize = 15;
+const MAIN_ROW_MODE_LANE_WIDTH: usize = 9;
 const MODE_LABEL_WIDTH: usize = 8;
 // Keep right-panel color bands responsive to normal speaking dynamics.
 const LEVEL_WARNING_DB: f32 = -30.0;
 const LEVEL_ERROR_DB: f32 = -18.0;
+const METER_DB_FLOOR: f32 = -60.0;
 
 /// Keyboard shortcuts to display.
 const SHORTCUTS: &[(&str, &str)] = &[
@@ -96,11 +100,34 @@ fn idle_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> (&'static str, 
 }
 
 #[inline]
-fn recording_mode_color(colors: &ThemeColors) -> &str {
-    if recording_pulse_emphasis() || colors.border.is_empty() {
+fn base_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    match mode {
+        VoiceMode::Auto => colors.indicator_auto,
+        VoiceMode::Manual => colors.indicator_manual,
+        VoiceMode::Idle => colors.indicator_idle,
+    }
+}
+
+#[inline]
+fn recording_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    filled_indicator(base_mode_indicator(mode, colors))
+}
+
+#[inline]
+fn recording_indicator_color(colors: &ThemeColors) -> &str {
+    if recording_pulse_on() {
         colors.recording
     } else {
-        colors.border
+        colors.dim
+    }
+}
+
+#[inline]
+fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
+    if color.is_empty() {
+        text.to_string()
+    } else {
+        format!("{color}{text}{}", colors.reset)
     }
 }
 
@@ -112,27 +139,25 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
     }
 
     // Hidden mode stays subtle while preserving theme-specific recording identity.
-    let (indicator, label, color) = match state.recording_state {
-        RecordingState::Recording => (colors.indicator_rec, "rec", recording_mode_color(colors)),
-        RecordingState::Processing => ("◌", "...", colors.dim),
-        RecordingState::Responding => ("↺", "rsp", colors.dim),
+    let mut line = match state.recording_state {
+        RecordingState::Recording => {
+            let indicator = recording_mode_indicator(state.voice_mode, colors);
+            format!("{indicator} rec")
+        }
+        RecordingState::Processing => "◌ ...".to_string(),
+        RecordingState::Responding => "↺ rsp".to_string(),
         RecordingState::Idle => return String::new(),
-    };
-
-    let mut line = if color.is_empty() {
-        format!("{indicator} {label}")
-    } else {
-        format!("{color}{indicator} {label}{}", colors.reset)
     };
 
     // Add duration for recording, keep it minimal
     if state.recording_state == RecordingState::Recording {
         if let Some(dur) = state.recording_duration {
-            line.push_str(&format!(" {}{:.0}s{}", colors.dim, dur, colors.reset));
+            line.push_str(&format!(" {:.0}s", dur));
         }
     }
 
-    truncate_display(&line, width)
+    let muted = with_color(&line, colors.dim, colors);
+    truncate_display(&muted, width)
 }
 
 /// Format the status as a multi-row banner with themed borders.
@@ -247,7 +272,11 @@ fn format_brand_label(colors: &ThemeColors) -> String {
 }
 
 fn format_duration_section(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let width = MAIN_ROW_DURATION_PLACEHOLDER.len();
+    let width = if state.auto_voice_enabled {
+        MAIN_ROW_DURATION_TEXT_WIDTH_AUTO
+    } else {
+        MAIN_ROW_DURATION_TEXT_WIDTH
+    };
     if let Some(dur) = state.recording_duration {
         let bounded = dur.max(0.0);
         let text = if bounded < 100.0 {
@@ -264,10 +293,8 @@ fn format_duration_section(state: &StatusLineState, colors: &ThemeColors) -> Str
             format!(" {}{}{} ", colors.dim, padded, colors.reset)
         }
     } else {
-        format!(
-            " {}{}{} ",
-            colors.dim, MAIN_ROW_DURATION_PLACEHOLDER, colors.reset
-        )
+        let padded = format!("{MAIN_ROW_DURATION_PLACEHOLDER:>width$}");
+        format!(" {}{}{} ", colors.dim, padded, colors.reset)
     }
 }
 
@@ -300,12 +327,20 @@ fn format_panel_brackets(content: &str, colors: &ThemeColors) -> String {
 
 fn format_meter_section(state: &StatusLineState, colors: &ThemeColors) -> String {
     let recording_active = state.recording_state == RecordingState::Recording;
-    let raw_text = if let Some(db) = state.meter_db {
+    let db_value = state
+        .meter_db
+        .or_else(|| state.meter_levels.last().copied())
+        .or(if recording_active {
+            Some(METER_DB_FLOOR)
+        } else {
+            None
+        });
+    let raw_text = if let Some(db) = db_value {
         format!("{db:.0}dB")
     } else {
         "--dB".to_string()
     };
-    let db_text = format!("{raw_text:>5}");
+    let db_text = format!("{raw_text:>width$}", width = MAIN_ROW_METER_TEXT_WIDTH);
     let db_color = if recording_active {
         colors.info
     } else {
@@ -337,7 +372,8 @@ fn format_main_row(
     let message_lane = if message_section.is_empty() {
         String::new()
     } else {
-        format!("{sep} {message_section}")
+        // Keep the final separator on the same column as the `[set]` shortcut start.
+        format!(" {sep} {message_section}")
     };
 
     let content_width = display_width(&content);
@@ -561,42 +597,42 @@ fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> Stri
 /// Uses animated indicators for recording (pulsing) and processing (spinning).
 #[inline]
 fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let (indicator, label, color) = match state.recording_state {
-        RecordingState::Recording => (
-            colors.indicator_rec,
-            full_mode_voice_label(state.voice_mode).to_string(),
-            recording_mode_color(colors),
-        ),
-        RecordingState::Processing => (
-            get_processing_spinner(),
-            full_mode_voice_label(state.voice_mode).to_string(),
-            colors.processing,
-        ),
-        RecordingState::Responding => (
-            "↺",
-            full_mode_voice_label(state.voice_mode).to_string(),
-            colors.info,
-        ),
+    let mut content = String::with_capacity(40);
+    let mode_label = format!(
+        "{:<width$}",
+        full_mode_voice_label(state.voice_mode),
+        width = MODE_LABEL_WIDTH
+    );
+    match state.recording_state {
+        RecordingState::Recording => {
+            content.push_str(&with_color(
+                recording_mode_indicator(state.voice_mode, colors),
+                recording_indicator_color(colors),
+                colors,
+            ));
+            content.push(' ');
+            content.push_str(&with_color(&mode_label, colors.recording, colors));
+        }
+        RecordingState::Processing => {
+            content.push_str(&with_color(
+                get_processing_spinner(),
+                colors.processing,
+                colors,
+            ));
+            content.push(' ');
+            content.push_str(&with_color(&mode_label, colors.processing, colors));
+        }
+        RecordingState::Responding => {
+            content.push_str(&with_color("↺", colors.info, colors));
+            content.push(' ');
+            content.push_str(&with_color(&mode_label, colors.info, colors));
+        }
         RecordingState::Idle => {
             let (idle_indicator, idle_color) = idle_mode_indicator(state.voice_mode, colors);
-            (
-                idle_indicator,
-                full_mode_voice_label(state.voice_mode).to_string(),
-                idle_color,
-            )
+            content.push_str(&with_color(idle_indicator, idle_color, colors));
+            content.push(' ');
+            content.push_str(&with_color(&mode_label, idle_color, colors));
         }
-    };
-
-    let mut content = String::with_capacity(32);
-    let mode_label = format!("{label:<width$}", width = MODE_LABEL_WIDTH);
-    if !color.is_empty() {
-        content.push_str(color);
-    }
-    content.push_str(indicator);
-    content.push(' ');
-    content.push_str(&mode_label);
-    if !color.is_empty() {
-        content.push_str(colors.reset);
     }
 
     if state.recording_state == RecordingState::Idle && state.transition_progress > 0.0 {
@@ -609,7 +645,7 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
         }
     }
 
-    // Clamp/pad to a fixed lane width so internal separators stay anchored.
+    // Keep mode lane fixed; downstream duration spacing handles AUTO/PTT label delta.
     let lane_content_width = MAIN_ROW_MODE_LANE_WIDTH.saturating_sub(2);
     let clipped = truncate_display(&content, lane_content_width);
     let padding = " ".repeat(lane_content_width.saturating_sub(display_width(&clipped)));
@@ -722,9 +758,9 @@ fn compact_mode_parts<'a>(
 ) -> CompactModeParts<'a> {
     match state.recording_state {
         RecordingState::Recording => CompactModeParts {
-            indicator: colors.indicator_rec,
+            indicator: recording_mode_indicator(state.voice_mode, colors),
             label: "",
-            color: recording_mode_color(colors),
+            color: recording_indicator_color(colors),
         },
         RecordingState::Processing => CompactModeParts {
             indicator: "◐",
@@ -904,27 +940,6 @@ fn format_shortcuts_compact(colors: &ThemeColors) -> String {
 
 fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String {
     let transition = format_transition_suffix(state, colors);
-    let mode_color = match state.recording_state {
-        RecordingState::Recording => recording_mode_color(colors),
-        RecordingState::Processing => colors.processing,
-        RecordingState::Responding => colors.info,
-        RecordingState::Idle => {
-            if state.voice_mode == VoiceMode::Auto {
-                colors.info
-            } else {
-                ""
-            }
-        }
-    };
-
-    // Use animated indicators for recording and processing
-    let mode_indicator = match state.recording_state {
-        RecordingState::Recording => colors.indicator_rec,
-        RecordingState::Processing => get_processing_spinner(),
-        RecordingState::Responding => "↺",
-        RecordingState::Idle => idle_mode_indicator(state.voice_mode, colors).0,
-    };
-
     let mode_label = match state.recording_state {
         RecordingState::Recording => format!("REC{transition}"),
         RecordingState::Processing => format!("processing{transition}"),
@@ -943,16 +958,36 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
         String::new()
     };
 
-    if mode_color.is_empty() {
-        format!(
-            "{} {} │ {}{}",
-            mode_indicator, mode_label, sensitivity, duration_part
-        )
-    } else {
-        format!(
-            "{}{} {}{} │ {}{}",
-            mode_color, mode_indicator, mode_label, colors.reset, sensitivity, duration_part
-        )
+    match state.recording_state {
+        RecordingState::Recording => {
+            let indicator = with_color(
+                recording_mode_indicator(state.voice_mode, colors),
+                recording_indicator_color(colors),
+                colors,
+            );
+            let label = with_color(&mode_label, colors.recording, colors);
+            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+        }
+        RecordingState::Processing => {
+            let indicator = with_color(get_processing_spinner(), colors.processing, colors);
+            let label = with_color(&mode_label, colors.processing, colors);
+            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+        }
+        RecordingState::Responding => {
+            let indicator = with_color("↺", colors.info, colors);
+            let label = with_color(&mode_label, colors.info, colors);
+            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+        }
+        RecordingState::Idle => {
+            let (idle_indicator, idle_color) = idle_mode_indicator(state.voice_mode, colors);
+            let indicator = with_color(idle_indicator, idle_color, colors);
+            if idle_color.is_empty() {
+                format!("{indicator} {mode_label} │ {sensitivity}{duration_part}")
+            } else {
+                let label = with_color(&mode_label, idle_color, colors);
+                format!("{indicator} {label} │ {sensitivity}{duration_part}")
+            }
+        }
     }
 }
 

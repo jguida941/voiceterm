@@ -82,7 +82,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | In `insert` mode while recording: stop early and submit current capture now |
+| `Ctrl+E` | In `insert` mode: send staged text now; while recording with no staged text, stop early and submit current capture |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
@@ -270,7 +270,7 @@ Tips:
 |-------|------|---------|
 | Full | default | Multi-row HUD with detailed controls and telemetry |
 | Minimal | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
-| Hidden | `--hud-style hidden` | Minimal launcher row when idle |
+| Hidden | `--hud-style hidden` | Muted launcher row when idle |
 
 Full HUD border style options:
 
@@ -377,9 +377,12 @@ backend output arrives.
 
 Latency badge behavior:
 
-- shows post-capture processing latency when reliable metrics exist
+- shows post-capture STT delay (`stt_ms`) when reliable metrics exist
+- larger `ms` values on longer utterances are expected for non-streaming STT
+- severity color follows speech-relative STT speed (`rtf = stt_ms / speech_ms`)
 - recording duration is shown separately while speaking
-- hides automatically when latency metrics are incomplete
+- hides automatically when latency metrics are incomplete (no synthetic elapsed/capture fallback)
+- stale idle badges auto-expire after a short window
 
 Common statuses:
 

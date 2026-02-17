@@ -232,6 +232,7 @@ fn build_harness(
         terminal_rows: 24,
         terminal_cols: 80,
         last_recording_duration: 0.0,
+        meter_floor_started_at: None,
         processing_spinner_index: 0,
         pending_pty_output: None,
         pending_pty_input: VecDeque::new(),
@@ -580,11 +581,13 @@ fn run_periodic_tasks_does_not_update_meter_when_not_recording() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
     state.status_state.recording_state = RecordingState::Idle;
+    state.meter_floor_started_at = Some(now - Duration::from_secs(2));
     timers.last_meter_update = now - Duration::from_secs(1);
     let prior_update = timers.last_meter_update;
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
     assert!(state.status_state.meter_db.is_none());
+    assert!(state.meter_floor_started_at.is_none());
     assert_eq!(timers.last_meter_update, prior_update);
 }
 
@@ -612,6 +615,53 @@ fn run_periodic_tasks_updates_meter_and_caps_history() {
     assert_eq!(state.meter_levels.len(), METER_HISTORY_MAX);
     assert!(state.status_state.meter_db.is_some());
     assert_eq!(timers.last_meter_update, now);
+}
+
+#[test]
+fn run_periodic_tasks_keeps_floor_db_before_silence_placeholder_timeout() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Recording;
+    state.meter_floor_started_at =
+        Some(now - Duration::from_millis(METER_NO_SIGNAL_PLACEHOLDER_MS.saturating_sub(100)));
+    timers.last_meter_update = now - Duration::from_millis(500);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(matches!(
+        state.status_state.meter_db,
+        Some(db) if db <= METER_DB_FLOOR + METER_FLOOR_EPSILON_DB
+    ));
+}
+
+#[test]
+fn run_periodic_tasks_keeps_last_db_after_sustained_floor_level() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.meter_db = Some(-42.0);
+    state.meter_floor_started_at =
+        Some(now - Duration::from_millis(METER_NO_SIGNAL_PLACEHOLDER_MS + 1));
+    timers.last_meter_update = now - Duration::from_millis(500);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert_eq!(state.status_state.meter_db, Some(-42.0));
+}
+
+#[test]
+fn run_periodic_tasks_sets_floor_db_after_sustained_floor_level_when_unset() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.meter_db = None;
+    state.meter_floor_started_at =
+        Some(now - Duration::from_millis(METER_NO_SIGNAL_PLACEHOLDER_MS + 1));
+    timers.last_meter_update = now - Duration::from_millis(500);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(matches!(
+        state.status_state.meter_db,
+        Some(db) if db <= METER_DB_FLOOR + METER_FLOOR_EPSILON_DB
+    ));
 }
 
 #[test]
@@ -727,6 +777,47 @@ fn run_periodic_tasks_clears_preview_and_status_at_deadline() {
     assert!(state.current_status.is_none());
     assert!(state.status_state.message.is_empty());
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+}
+
+#[test]
+fn run_periodic_tasks_expires_stale_latency_badge() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.last_latency_ms = Some(1256);
+    state.status_state.last_latency_speech_ms = Some(5200);
+    state.status_state.last_latency_rtf_x1000 = Some(241);
+    state.status_state.last_latency_updated_at = Some(now - Duration::from_secs(9));
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert!(state.status_state.last_latency_ms.is_none());
+    assert!(state.status_state.last_latency_speech_ms.is_none());
+    assert!(state.status_state.last_latency_rtf_x1000.is_none());
+    assert!(state.status_state.last_latency_updated_at.is_none());
+}
+
+#[test]
+fn run_periodic_tasks_keeps_fresh_latency_badge() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.last_latency_ms = Some(320);
+    state.status_state.last_latency_speech_ms = Some(1200);
+    state.status_state.last_latency_rtf_x1000 = Some(266);
+    state.status_state.last_latency_updated_at = Some(now - Duration::from_secs(2));
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(state.status_state.last_latency_ms, Some(320));
+    assert_eq!(state.status_state.last_latency_speech_ms, Some(1200));
+    assert_eq!(state.status_state.last_latency_rtf_x1000, Some(266));
+    assert_eq!(
+        state.status_state.last_latency_updated_at,
+        Some(now - Duration::from_secs(2))
+    );
 }
 
 #[test]
@@ -1022,7 +1113,7 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_send() {
 }
 
 #[test]
-fn run_event_loop_ctrl_e_outside_recording_does_not_force_send() {
+fn run_event_loop_ctrl_e_with_pending_insert_text_sends_outside_recording() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
@@ -1036,7 +1127,8 @@ fn run_event_loop_ctrl_e_outside_recording_does_not_force_send() {
 
     run_event_loop(&mut state, &mut timers, &mut deps);
 
-    assert!(timers.last_enter_at.is_none());
-    assert!(state.status_state.insert_pending_send);
+    assert!(timers.last_enter_at.is_some());
+    assert!(!state.status_state.insert_pending_send);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    assert!(!state.force_send_on_next_transcript);
 }

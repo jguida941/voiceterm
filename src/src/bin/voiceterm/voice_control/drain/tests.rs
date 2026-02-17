@@ -1,4 +1,4 @@
-use super::message_processing::apply_macro_mode;
+use super::message_processing::{apply_macro_mode, clear_last_latency, update_last_latency};
 use super::*;
 use crate::config::VoiceSendMode;
 use crate::transcript::TranscriptSession;
@@ -194,36 +194,94 @@ fn update_last_latency_prefers_stt_metrics_when_available() {
     let metrics = CaptureMetrics {
         capture_ms: 1450,
         transcribe_ms: 220,
+        speech_ms: 1100,
         ..Default::default()
     };
 
     update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
 
     assert_eq!(status_state.last_latency_ms, Some(220));
+    assert_eq!(status_state.last_latency_speech_ms, Some(1100));
+    assert_eq!(status_state.last_latency_rtf_x1000, Some(200));
+    assert_eq!(status_state.last_latency_updated_at, Some(now));
     assert_eq!(status_state.latency_history_ms, vec![220]);
 }
 
 #[test]
-fn update_last_latency_uses_elapsed_minus_capture_when_stt_missing() {
+fn update_last_latency_keeps_empty_state_when_stt_missing_and_no_prior_sample() {
     let mut status_state = StatusLineState::new();
     let now = Instant::now();
     let started_at = now - Duration::from_millis(2000);
     let metrics = CaptureMetrics {
         capture_ms: 1500,
         transcribe_ms: 0,
+        speech_ms: 1200,
         ..Default::default()
     };
 
     update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
 
-    assert_eq!(status_state.last_latency_ms, Some(500));
-    assert_eq!(status_state.latency_history_ms, vec![500]);
+    assert_eq!(status_state.last_latency_ms, None);
+    assert!(status_state.last_latency_speech_ms.is_none());
+    assert!(status_state.last_latency_rtf_x1000.is_none());
+    assert!(status_state.last_latency_updated_at.is_none());
+    assert!(status_state.latency_history_ms.is_empty());
 }
 
 #[test]
-fn update_last_latency_hides_badge_when_metrics_missing() {
+fn update_last_latency_hides_previous_badge_when_stt_missing() {
+    let mut status_state = StatusLineState::new();
+    status_state.last_latency_ms = Some(412);
+    status_state.last_latency_speech_ms = Some(1600);
+    status_state.last_latency_rtf_x1000 = Some(257);
+    let prior_updated_at = Instant::now() - Duration::from_secs(4);
+    status_state.last_latency_updated_at = Some(prior_updated_at);
+    status_state.push_latency_sample(412);
+    let now = Instant::now();
+    let started_at = now - Duration::from_millis(2000);
+    let metrics = CaptureMetrics {
+        capture_ms: 1500,
+        transcribe_ms: 0,
+        speech_ms: 1100,
+        ..Default::default()
+    };
+
+    update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+
+    assert_eq!(status_state.last_latency_ms, None);
+    assert!(status_state.last_latency_speech_ms.is_none());
+    assert!(status_state.last_latency_rtf_x1000.is_none());
+    assert!(status_state.last_latency_updated_at.is_none());
+    assert_eq!(status_state.latency_history_ms, vec![412]);
+}
+
+#[test]
+fn update_last_latency_uses_stt_even_without_recording_start_time() {
+    let mut status_state = StatusLineState::new();
+    let now = Instant::now();
+    let metrics = CaptureMetrics {
+        capture_ms: 1000,
+        transcribe_ms: 310,
+        speech_ms: 1240,
+        ..Default::default()
+    };
+
+    update_last_latency(&mut status_state, None, Some(&metrics), now);
+
+    assert_eq!(status_state.last_latency_ms, Some(310));
+    assert_eq!(status_state.last_latency_speech_ms, Some(1240));
+    assert_eq!(status_state.last_latency_rtf_x1000, Some(250));
+    assert_eq!(status_state.last_latency_updated_at, Some(now));
+    assert_eq!(status_state.latency_history_ms, vec![310]);
+}
+
+#[test]
+fn update_last_latency_hides_previous_badge_when_metrics_missing() {
     let mut status_state = StatusLineState::new();
     status_state.last_latency_ms = Some(777);
+    status_state.last_latency_speech_ms = Some(2000);
+    status_state.last_latency_rtf_x1000 = Some(388);
+    status_state.last_latency_updated_at = Some(Instant::now() - Duration::from_secs(3));
     status_state.push_latency_sample(777);
     let now = Instant::now();
     let started_at = now - Duration::from_millis(1400);
@@ -231,7 +289,28 @@ fn update_last_latency_hides_badge_when_metrics_missing() {
     update_last_latency(&mut status_state, Some(started_at), None, now);
 
     assert_eq!(status_state.last_latency_ms, None);
+    assert!(status_state.last_latency_speech_ms.is_none());
+    assert!(status_state.last_latency_rtf_x1000.is_none());
+    assert!(status_state.last_latency_updated_at.is_none());
     assert_eq!(status_state.latency_history_ms, vec![777]);
+}
+
+#[test]
+fn clear_last_latency_hides_badge_without_erasing_history() {
+    let mut status_state = StatusLineState::new();
+    status_state.last_latency_ms = Some(420);
+    status_state.last_latency_speech_ms = Some(2100);
+    status_state.last_latency_rtf_x1000 = Some(200);
+    status_state.last_latency_updated_at = Some(Instant::now() - Duration::from_secs(1));
+    status_state.push_latency_sample(420);
+
+    clear_last_latency(&mut status_state);
+
+    assert!(status_state.last_latency_ms.is_none());
+    assert!(status_state.last_latency_speech_ms.is_none());
+    assert!(status_state.last_latency_rtf_x1000.is_none());
+    assert!(status_state.last_latency_updated_at.is_none());
+    assert_eq!(status_state.latency_history_ms, vec![420]);
 }
 
 #[test]

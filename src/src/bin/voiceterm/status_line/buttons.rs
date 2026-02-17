@@ -3,9 +3,9 @@
 use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_style::StatusType;
-use crate::theme::{BorderSet, Theme, ThemeColors};
+use crate::theme::{filled_indicator, BorderSet, Theme, ThemeColors};
 
-use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_emphasis};
+use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_on};
 use super::layout::breakpoints;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
@@ -13,6 +13,13 @@ use super::text::{display_width, truncate_display};
 // Keep right-panel color bands responsive to normal speaking dynamics.
 const LEVEL_WARNING_DB: f32 = -30.0;
 const LEVEL_ERROR_DB: f32 = -18.0;
+// Keep the minimal dB lane stable even before the first meter sample arrives.
+const MINIMAL_DB_FLOOR: f32 = -60.0;
+// Speech-relative STT speed bands (RTF scaled by 1000, e.g. 250 => 0.25x realtime).
+const LATENCY_RTF_WARNING_X1000: u32 = 350;
+const LATENCY_RTF_ERROR_X1000: u32 = 650;
+// Keep hidden-launcher text/button close to terminal-native dull gray.
+const HIDDEN_LAUNCHER_MUTED_ANSI: &str = "\x1b[90m";
 
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
@@ -49,42 +56,71 @@ pub fn get_button_positions(
     }
 }
 
+#[inline]
+fn base_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    match mode {
+        VoiceMode::Auto => colors.indicator_auto,
+        VoiceMode::Manual => colors.indicator_manual,
+        VoiceMode::Idle => colors.indicator_idle,
+    }
+}
+
+#[inline]
+fn recording_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    filled_indicator(base_mode_indicator(mode, colors))
+}
+
+#[inline]
+fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
+    if color.is_empty() {
+        text.to_string()
+    } else {
+        format!("{color}{text}{}", colors.reset)
+    }
+}
+
 fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     // Use animated indicators for recording and processing states
     // Minimal mode: theme-colored indicators for all states
-    let (indicator, label, color) = match state.recording_state {
+    let (indicator, label, indicator_color, label_color) = match state.recording_state {
         RecordingState::Recording => (
-            colors.indicator_rec,
+            recording_mode_indicator(state.voice_mode, colors),
             "REC",
             recording_indicator_color(colors),
+            colors.recording,
         ),
-        RecordingState::Processing => (get_processing_spinner(), "processing", colors.processing),
-        RecordingState::Responding => ("↺", "responding", colors.info),
+        RecordingState::Processing => (
+            get_processing_spinner(),
+            "processing",
+            colors.processing,
+            colors.processing,
+        ),
+        RecordingState::Responding => ("↺", "responding", colors.info, colors.info),
         RecordingState::Idle => match state.voice_mode {
-            VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
-            VoiceMode::Manual => (colors.indicator_manual, "PTT", colors.border),
-            VoiceMode::Idle => (colors.indicator_idle, "IDLE", colors.dim),
+            VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info, colors.info),
+            VoiceMode::Manual => (colors.indicator_manual, "PTT", colors.border, colors.border),
+            VoiceMode::Idle => (colors.indicator_idle, "IDLE", colors.dim, colors.dim),
         },
     };
 
-    let mut line = if color.is_empty() {
-        format!("{indicator} {label}")
-    } else {
-        format!("{}{} {}{}", color, indicator, label, colors.reset)
-    };
+    let indicator_text = with_color(indicator, indicator_color, colors);
+    let label_text = with_color(label, label_color, colors);
+    let mut line = format!("{indicator_text} {label_text}");
 
     match state.recording_state {
         RecordingState::Recording => {
-            if let Some(db) = state.meter_db {
-                line.push(' ');
-                line.push_str(colors.dim);
-                line.push('·');
-                line.push_str(colors.reset);
-                line.push(' ');
-                line.push_str(colors.info);
-                line.push_str(&format!("{:>3.0}dB", db));
-                line.push_str(colors.reset);
-            }
+            let db = state
+                .meter_db
+                .or_else(|| state.meter_levels.last().copied())
+                .unwrap_or(MINIMAL_DB_FLOOR);
+            line.push(' ');
+            line.push_str(colors.dim);
+            line.push('·');
+            line.push_str(colors.reset);
+            line.push(' ');
+            line.push_str(colors.info);
+            line.push_str(&format!("{db:>3.0}dB"));
+            line.push_str(colors.reset);
         }
         RecordingState::Processing | RecordingState::Responding | RecordingState::Idle => {}
     }
@@ -207,10 +243,10 @@ fn should_animate_heartbeat(recording_only: bool, recording_active: bool) -> boo
 
 #[inline]
 fn recording_indicator_color(colors: &ThemeColors) -> &str {
-    if recording_pulse_emphasis() || colors.border.is_empty() {
+    if recording_pulse_on() {
         colors.recording
     } else {
-        colors.border
+        colors.dim
     }
 }
 
@@ -315,23 +351,28 @@ pub(super) fn format_minimal_strip_with_button(
 }
 
 fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let brand = format!(
-        "{}Voice{}{}Term{}",
-        colors.info, colors.reset, colors.recording, colors.reset
-    );
-    if state.message.is_empty() {
-        return format!(
-            "{brand} {}hidden{} {}·{} {}Ctrl+U{}",
-            colors.dim, colors.reset, colors.dim, colors.reset, colors.dim, colors.reset
-        );
-    }
-    let status_color = StatusType::from_message(&state.message).color(colors);
-    let status = if status_color.is_empty() {
-        state.message.clone()
+    let base = if state.message.is_empty() {
+        "VoiceTerm hidden · Ctrl+U".to_string()
     } else {
-        format!("{}{}{}", status_color, state.message, colors.reset)
+        format!("VoiceTerm · {}", state.message)
     };
-    format!("{brand} {}·{} {status}", colors.dim, colors.reset)
+    with_color(&base, hidden_launcher_muted(colors), colors)
+}
+
+#[inline]
+fn hidden_launcher_muted(colors: &ThemeColors) -> &str {
+    if colors.reset.is_empty() {
+        ""
+    } else {
+        HIDDEN_LAUNCHER_MUTED_ANSI
+    }
+}
+
+fn hidden_launcher_button(colors: &ThemeColors, focused: bool) -> String {
+    if focused {
+        return format_button(colors, "open", colors.info, true);
+    }
+    with_color("[open]", hidden_launcher_muted(colors), colors)
 }
 
 pub(super) fn format_hidden_launcher_with_button(
@@ -345,7 +386,7 @@ pub(super) fn format_hidden_launcher_with_button(
 
     let base = hidden_launcher_text(state, colors);
     let focused = state.hud_button_focus == Some(ButtonAction::ToggleHudStyle);
-    let button = format_button(colors, "open", colors.info, focused);
+    let button = hidden_launcher_button(colors, focused);
     let button_width = display_width(&button);
 
     if width >= button_width + 2 {
@@ -559,8 +600,20 @@ fn format_ready_badge(
         .then(|| format!("{}Ready{}", colors.success, colors.reset))
 }
 
-fn latency_badge_color(colors: &ThemeColors, latency: u32) -> &str {
-    if latency < 300 {
+fn latency_badge_color<'a>(
+    state: &StatusLineState,
+    colors: &'a ThemeColors,
+    latency: u32,
+) -> &'a str {
+    if let Some(rtf_x1000) = state.last_latency_rtf_x1000 {
+        if rtf_x1000 < LATENCY_RTF_WARNING_X1000 {
+            colors.success
+        } else if rtf_x1000 < LATENCY_RTF_ERROR_X1000 {
+            colors.warning
+        } else {
+            colors.error
+        }
+    } else if latency < 300 {
         colors.success
     } else if latency < 500 {
         colors.warning
@@ -586,7 +639,7 @@ fn format_latency_badge(
     };
     Some(format!(
         "{}{}{}",
-        latency_badge_color(colors, latency),
+        latency_badge_color(state, colors, latency),
         text,
         colors.reset
     ))
@@ -647,9 +700,15 @@ fn format_button_row_with_positions(
         None
     };
     match (ready_badge, latency_badge) {
-        (Some(ready), Some(latency)) => items.push(format!("{ready} {latency}")),
-        (Some(ready), None) => items.push(ready),
-        (None, Some(latency)) => items.push(latency),
+        (Some(ready), Some(latency)) => {
+            items.push(format!("{ready} {latency}"));
+        }
+        (Some(ready), None) => {
+            items.push(ready);
+        }
+        (None, Some(latency)) => {
+            items.push(latency);
+        }
         (None, None) => {}
     }
 

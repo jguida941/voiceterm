@@ -2,6 +2,8 @@
 
 use super::*;
 
+const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
+
 pub(super) fn run_periodic_tasks(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -85,6 +87,10 @@ pub(super) fn run_periodic_tasks(
         }
     }
 
+    if state.status_state.recording_state != RecordingState::Recording {
+        state.meter_floor_started_at = None;
+    }
+
     if state.status_state.recording_state == RecordingState::Recording
         && now.duration_since(timers.last_meter_update)
             >= Duration::from_millis(deps.meter_update_ms)
@@ -94,7 +100,21 @@ pub(super) fn run_periodic_tasks(
         if state.meter_levels.len() > METER_HISTORY_MAX {
             state.meter_levels.pop_front();
         }
-        state.status_state.meter_db = Some(level);
+        let is_floor_level = level <= METER_DB_FLOOR + METER_FLOOR_EPSILON_DB;
+        if is_floor_level {
+            let floor_started_at = state.meter_floor_started_at.get_or_insert(now);
+            let quiet_for = now.saturating_duration_since(*floor_started_at);
+            if quiet_for >= Duration::from_millis(METER_NO_SIGNAL_PLACEHOLDER_MS) {
+                // Keep the last rendered value visible instead of collapsing to "--dB"/empty.
+                // If nothing has ever been rendered this capture, seed with the floor level.
+                state.status_state.meter_db = state.status_state.meter_db.or(Some(level));
+            } else {
+                state.status_state.meter_db = Some(level);
+            }
+        } else {
+            state.meter_floor_started_at = None;
+            state.status_state.meter_db = Some(level);
+        }
         state.status_state.meter_levels.clear();
         state
             .status_state
@@ -166,6 +186,7 @@ pub(super) fn run_periodic_tasks(
             deps.transcript_idle_timeout,
         );
     }
+    maybe_expire_stale_latency(state, deps, now);
 
     if state.auto_voice_enabled
         && deps.voice_manager.is_idle()
@@ -188,6 +209,7 @@ pub(super) fn run_periodic_tasks(
         } else {
             timers.last_auto_trigger_at = Some(now);
             timers.recording_started_at = Some(now);
+            state.meter_floor_started_at = None;
             reset_capture_visuals(
                 &mut state.status_state,
                 &mut timers.preview_clear_deadline,
@@ -232,4 +254,28 @@ pub(super) fn run_periodic_tasks(
             );
         }
     }
+}
+
+fn maybe_expire_stale_latency(state: &mut EventLoopState, deps: &EventLoopDeps, now: Instant) {
+    if state.status_state.recording_state != RecordingState::Idle {
+        return;
+    }
+    let Some(updated_at) = state.status_state.last_latency_updated_at else {
+        return;
+    };
+    if now.duration_since(updated_at) < Duration::from_secs(LATENCY_BADGE_MAX_AGE_SECS) {
+        return;
+    }
+    state.status_state.last_latency_ms = None;
+    state.status_state.last_latency_speech_ms = None;
+    state.status_state.last_latency_rtf_x1000 = None;
+    state.status_state.last_latency_updated_at = None;
+    send_enhanced_status_with_buttons(
+        &deps.writer_tx,
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
 }

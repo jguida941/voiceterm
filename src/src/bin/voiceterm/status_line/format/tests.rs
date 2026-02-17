@@ -1,5 +1,20 @@
 use super::*;
 
+fn expected_recording_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    let base = match mode {
+        VoiceMode::Auto => colors.indicator_auto,
+        VoiceMode::Manual => colors.indicator_manual,
+        VoiceMode::Idle => colors.indicator_idle,
+    };
+    crate::theme::filled_indicator(base)
+}
+
+fn has_pulse_color_prefix(rendered: &str, indicator: &str, colors: &ThemeColors) -> bool {
+    colors.recording.is_empty()
+        || rendered.contains(&format!("{}{}", colors.recording, indicator))
+        || rendered.contains(&format!("{}{}", colors.dim, indicator))
+}
+
 fn separator_columns(row: &str) -> Vec<usize> {
     let mut cols = Vec::new();
     let mut display_col = 0usize;
@@ -25,6 +40,41 @@ fn separator_columns(row: &str) -> Vec<usize> {
     cols
 }
 
+fn strip_ansi(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut in_escape = false;
+    for ch in input.chars() {
+        if ch == '\x1b' {
+            in_escape = true;
+            continue;
+        }
+        if in_escape {
+            if ch == 'm' {
+                in_escape = false;
+            }
+            continue;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+#[test]
+fn recording_indicator_color_pulses_with_theme_palette() {
+    for theme in [
+        Theme::Ansi,
+        Theme::Claude,
+        Theme::Codex,
+        Theme::TokyoNight,
+        Theme::Coral,
+        Theme::ChatGpt,
+    ] {
+        let colors = theme.colors();
+        let pulse = recording_indicator_color(&colors);
+        assert!(pulse == colors.recording || pulse == colors.dim);
+    }
+}
+
 fn internal_separator_columns(row: &str) -> Vec<usize> {
     let mut cols = separator_columns(row);
     if cols.len() >= 2 {
@@ -32,6 +82,17 @@ fn internal_separator_columns(row: &str) -> Vec<usize> {
         cols.pop();
     }
     cols
+}
+
+fn button_start_col(banner: &StatusBanner, action: crate::buttons::ButtonAction) -> usize {
+    usize::from(
+        banner
+            .buttons
+            .iter()
+            .find(|button| button.row == 2 && button.action == action)
+            .expect("button position should exist on shortcuts row")
+            .start_x,
+    )
 }
 
 #[test]
@@ -266,6 +327,36 @@ fn format_status_banner_full_mode_recording_uses_theme_recording_indicator() {
 }
 
 #[test]
+fn format_status_banner_full_mode_recording_uses_recording_color_for_mode_lane() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Recording;
+    state.message.clear();
+
+    let theme = Theme::TokyoNight;
+    let colors = theme.colors();
+    assert_ne!(colors.recording, colors.border);
+    let indicator = expected_recording_indicator(state.voice_mode, &colors);
+
+    let banner = format_status_banner(&state, theme, 96);
+    assert!(has_pulse_color_prefix(&banner.lines[1], indicator, &colors));
+}
+
+#[test]
+fn format_mode_indicator_recording_keeps_theme_indicator_visible() {
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Recording;
+    state.recording_duration = Some(0.60);
+
+    let colors = Theme::Coral.colors();
+    let mode = format_mode_indicator(&state, &colors);
+    assert!(mode.contains(expected_recording_indicator(state.voice_mode, &colors)));
+    assert!(mode.contains("AUTO"));
+}
+
+#[test]
 fn format_status_line_compact_recording_uses_theme_recording_indicator() {
     let mut state = StatusLineState::new();
     state.recording_state = RecordingState::Recording;
@@ -327,6 +418,41 @@ fn format_status_banner_full_mode_duration_lane_is_fixed_width() {
 }
 
 #[test]
+fn format_status_banner_full_mode_recording_without_meter_uses_floor_db() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.recording_state = RecordingState::Recording;
+    state.recording_duration = Some(0.5);
+    state.meter_db = None;
+    state.meter_levels.clear();
+
+    let banner = format_status_banner(&state, Theme::None, 120);
+    let main_row = strip_ansi(&banner.lines[1]);
+    assert!(main_row.contains("-60dB"), "main_row={main_row}");
+    assert!(!main_row.contains(" --dB "), "main_row={main_row}");
+}
+
+#[test]
+fn format_status_banner_full_mode_meter_separator_stays_stable_placeholder_to_recording() {
+    let mut idle = StatusLineState::new();
+    idle.hud_style = HudStyle::Full;
+    idle.recording_state = RecordingState::Idle;
+    idle.meter_db = None;
+    idle.meter_levels.clear();
+
+    let mut recording = idle.clone();
+    recording.recording_state = RecordingState::Recording;
+    recording.recording_duration = Some(0.5);
+
+    let idle_banner = format_status_banner(&idle, Theme::None, 120);
+    let recording_banner = format_status_banner(&recording, Theme::None, 120);
+
+    let idle_cols = internal_separator_columns(&idle_banner.lines[1]);
+    let recording_cols = internal_separator_columns(&recording_banner.lines[1]);
+    assert_eq!(idle_cols, recording_cols);
+}
+
+#[test]
 fn format_status_banner_full_mode_duration_separator_stays_right_of_edit_button_lane() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
@@ -354,6 +480,31 @@ fn format_status_banner_full_mode_duration_separator_stays_right_of_edit_button_
             .expect("shortcuts row should include edit button"),
     );
     assert!(separator_col >= edit_col);
+}
+
+#[test]
+fn format_status_banner_full_mode_manual_matches_reference_spacing_from_this_md() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Manual;
+    state.auto_voice_enabled = false;
+    state.recording_state = RecordingState::Idle;
+    state.message.clear();
+    state.hud_right_panel = HudRightPanel::Off;
+
+    let banner = format_status_banner(&state, Theme::TokyoNight, 200);
+    let main_row = strip_ansi(&banner.lines[1]);
+    let shortcuts_row = strip_ansi(&banner.lines[2]);
+
+    assert!(main_row.contains("▹ PTT"), "main_row={main_row}");
+    assert!(
+        main_row.contains("PTT   │ --.-s │  --dB  │ Ready"),
+        "main_row={main_row}"
+    );
+    assert!(
+        shortcuts_row.contains("[rec] · [ptt] · [send] · [set] · [hud] · [help] · [theme]"),
+        "shortcuts_row={shortcuts_row}"
+    );
 }
 
 #[test]
@@ -402,48 +553,55 @@ fn format_status_banner_full_mode_separators_align_with_shortcut_boundaries() {
     state.meter_db = Some(-60.0);
     state.message = "Recording".to_string();
 
-    let banner = format_status_banner(&state, Theme::None, 120);
-    let separators = internal_separator_columns(&banner.lines[1]);
+    let banner = format_status_banner(&state, Theme::None, 200);
+    let main_row = strip_ansi(&banner.lines[1]);
+    let shortcuts_row = strip_ansi(&banner.lines[2]);
+    let separators = internal_separator_columns(&main_row);
     assert_eq!(separators.len(), 3);
-
-    let toggle_auto = banner
-        .buttons
-        .iter()
-        .find(|button| {
-            button.row == 2 && button.action == crate::buttons::ButtonAction::ToggleAutoVoice
-        })
-        .expect("auto button position");
-    let toggle_send = banner
-        .buttons
-        .iter()
-        .find(|button| {
-            button.row == 2 && button.action == crate::buttons::ButtonAction::ToggleSendMode
-        })
-        .expect("send button position");
-    let settings = banner
-        .buttons
-        .iter()
-        .find(|button| {
-            button.row == 2 && button.action == crate::buttons::ButtonAction::SettingsToggle
-        })
-        .expect("settings button position");
-
-    let auto_end = usize::from(toggle_auto.end_x);
-    let send_end = usize::from(toggle_send.end_x);
-    let settings_end = usize::from(settings.end_x);
-
-    assert!(
-        separators[0] == auto_end || separators[0] == auto_end + 1,
-        "auto separator should sit on the button boundary"
+    let expected = vec![
+        button_start_col(&banner, crate::buttons::ButtonAction::ToggleAutoVoice),
+        button_start_col(&banner, crate::buttons::ButtonAction::ToggleSendMode),
+        button_start_col(&banner, crate::buttons::ButtonAction::SettingsToggle),
+    ];
+    assert_eq!(
+        separators, expected,
+        "main_row={main_row}\nshortcuts_row={shortcuts_row}"
     );
-    assert!(
-        separators[1] == send_end || separators[1] == send_end + 1,
-        "send separator should sit on the button boundary"
+    assert!(main_row.contains("21.9s"));
+    assert!(main_row.contains("-60dB"));
+    assert!(shortcuts_row.contains("[edit]"));
+    assert!(shortcuts_row.contains("[set]"));
+}
+
+#[test]
+fn format_status_banner_full_mode_manual_ptt_keeps_separator_alignment() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Manual;
+    state.auto_voice_enabled = false;
+    state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.recording_state = RecordingState::Idle;
+    state.message.clear();
+
+    let banner = format_status_banner(&state, Theme::None, 200);
+    let main_row = strip_ansi(&banner.lines[1]);
+    let shortcuts_row = strip_ansi(&banner.lines[2]);
+    let separators = internal_separator_columns(&main_row);
+    assert_eq!(separators.len(), 3);
+    let expected = vec![
+        button_start_col(&banner, crate::buttons::ButtonAction::ToggleAutoVoice),
+        button_start_col(&banner, crate::buttons::ButtonAction::ToggleSendMode),
+        button_start_col(&banner, crate::buttons::ButtonAction::SettingsToggle),
+    ];
+    assert_eq!(
+        separators, expected,
+        "main_row={main_row}\nshortcuts_row={shortcuts_row}"
     );
-    assert!(
-        separators[2] == settings_end || separators[2] == settings_end + 1,
-        "settings separator should sit on the button boundary"
-    );
+    assert!(main_row.contains("PTT"));
+    assert!(main_row.contains(" --.-s "));
+    assert!(main_row.contains("--dB"));
+    assert!(shortcuts_row.contains("[ptt]"));
+    assert!(shortcuts_row.contains("[edit]"));
 }
 
 #[test]

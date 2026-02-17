@@ -156,12 +156,14 @@ impl InputParser {
                         self.esc_buffer = None;
                         return true;
                     }
-                    self.pending.extend_from_slice(buffer);
+                    // Malformed/overflowed X10 mouse report; drop it instead of
+                    // forwarding raw escape bytes into the wrapped CLI.
                     self.esc_buffer = None;
                     return true;
                 }
 
                 if buffer.len() >= 3 && is_csi_final(byte) {
+                    let sgr_mouse_prefixed = is_sgr_mouse_prefix(buffer);
                     let (is_csi_u, event) = {
                         let is_csi_u = is_csi_u_numeric(buffer);
                         let event = if is_csi_u {
@@ -184,6 +186,10 @@ impl InputParser {
                     } else if is_mouse_sequence(buffer) {
                         // Ignore non-click mouse events (scroll/motion) to avoid flooding output.
                         self.esc_buffer = None;
+                    } else if sgr_mouse_prefixed {
+                        // Fragmented SGR mouse reports can end with arbitrary CSI finals after
+                        // interrupts; never leak those escape bytes to the child PTY.
+                        self.esc_buffer = None;
                     } else {
                         self.pending.extend_from_slice(buffer);
                         self.esc_buffer = None;
@@ -191,7 +197,9 @@ impl InputParser {
                     return true;
                 }
                 if buffer.len() > MAX_CSI_LEN {
-                    self.pending.extend_from_slice(buffer);
+                    if !is_sgr_mouse_prefix(buffer) {
+                        self.pending.extend_from_slice(buffer);
+                    }
                     self.esc_buffer = None;
                     return true;
                 }
@@ -211,6 +219,11 @@ impl InputParser {
         }
         false
     }
+}
+
+#[inline]
+fn is_sgr_mouse_prefix(buffer: &[u8]) -> bool {
+    buffer.len() >= 3 && buffer[0] == 0x1b && buffer[1] == b'[' && buffer[2] == b'<'
 }
 
 /// Check if byte is a CSI final character (0x40-0x7e).
@@ -472,6 +485,16 @@ mod tests {
         parser.flush_pending(&mut out);
         assert!(out.is_empty());
         parser.consume_bytes(b"5M", &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn input_parser_drops_malformed_sgr_mouse_sequence_instead_of_forwarding_bytes() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Final byte `A` is not valid for SGR mouse reports; treat as mouse noise.
+        parser.consume_bytes(b"\x1b[<64;10;5A", &mut out);
         parser.flush_pending(&mut out);
         assert!(out.is_empty());
     }

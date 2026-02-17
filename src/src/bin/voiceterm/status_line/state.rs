@@ -1,5 +1,7 @@
 //! Shared status-line state so rendering and interactions read one source of truth.
 
+use std::time::Instant;
+
 use crate::buttons::ButtonAction;
 use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 
@@ -147,6 +149,12 @@ pub struct StatusLineState {
     pub queue_depth: usize,
     /// Last measured transcription latency in milliseconds
     pub last_latency_ms: Option<u32>,
+    /// Speech duration associated with `last_latency_ms` (if reported by capture metrics).
+    pub last_latency_speech_ms: Option<u32>,
+    /// STT real-time factor scaled by 1000 (e.g. 250 = 0.25x realtime).
+    pub last_latency_rtf_x1000: Option<u32>,
+    /// Timestamp when `last_latency_ms` was most recently updated.
+    pub last_latency_updated_at: Option<Instant>,
     /// Latency badge style shown in the shortcuts row.
     pub latency_display: LatencyDisplayMode,
     /// Recent latency samples in milliseconds for HUD telemetry sparklines.
@@ -220,6 +228,9 @@ mod tests {
         assert!(!state.macros_enabled);
         assert!(!state.insert_pending_send);
         assert!(state.latency_history_ms.is_empty());
+        assert!(state.last_latency_speech_ms.is_none());
+        assert!(state.last_latency_rtf_x1000.is_none());
+        assert!(state.last_latency_updated_at.is_none());
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
     }

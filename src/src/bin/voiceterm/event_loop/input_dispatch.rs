@@ -220,9 +220,7 @@ pub(super) fn handle_input_event(
 }
 
 fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
-    state.config.voice_send_mode == VoiceSendMode::Insert
-        && state.status_state.recording_state == RecordingState::Recording
-        && state.status_state.insert_pending_send
+    state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
 fn should_request_early_send_hotkey(state: &EventLoopState) -> bool {

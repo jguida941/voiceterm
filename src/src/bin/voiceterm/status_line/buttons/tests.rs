@@ -5,6 +5,21 @@ fn count_substring(haystack: &str, needle: &str) -> usize {
     haystack.match_indices(needle).count()
 }
 
+fn expected_recording_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
+    let base = match mode {
+        VoiceMode::Auto => colors.indicator_auto,
+        VoiceMode::Manual => colors.indicator_manual,
+        VoiceMode::Idle => colors.indicator_idle,
+    };
+    crate::theme::filled_indicator(base)
+}
+
+fn has_pulse_color_prefix(rendered: &str, indicator: &str, colors: &ThemeColors) -> bool {
+    colors.recording.is_empty()
+        || rendered.contains(&format!("{}{}", colors.recording, indicator))
+        || rendered.contains(&format!("{}{}", colors.dim, indicator))
+}
+
 #[test]
 fn get_button_positions_hidden_idle_has_open_button() {
     let mut state = StatusLineState::new();
@@ -41,6 +56,24 @@ fn hidden_launcher_text_contains_hint() {
     let line = hidden_launcher_text(&state, &colors);
     assert!(line.contains("Voice"));
     assert!(line.contains("Ctrl+U"));
+}
+
+#[test]
+fn hidden_launcher_uses_neutral_gray_color_instead_of_theme_dim() {
+    let colors = Theme::Codex.colors();
+    let state = StatusLineState::new();
+    let line = hidden_launcher_text(&state, &colors);
+    assert!(line.contains("\x1b[90mVoiceTerm hidden"));
+    assert!(!line.contains(&format!("{}VoiceTerm hidden", colors.dim)));
+}
+
+#[test]
+fn hidden_launcher_open_button_uses_neutral_gray_when_unfocused() {
+    let colors = Theme::Codex.colors();
+    let state = StatusLineState::new();
+    let (line, _) = format_hidden_launcher_with_button(&state, &colors, 80);
+    assert!(line.contains("\x1b[90m[open]"));
+    assert!(!line.contains(&format!("{}open", colors.info)));
 }
 
 #[test]
@@ -101,6 +134,42 @@ fn minimal_strip_text_includes_panel_when_enabled() {
     state.meter_db = Some(-8.0);
     let line = minimal_strip_text(&state, &colors);
     assert!(line.contains("•"));
+}
+
+#[test]
+fn minimal_strip_recording_always_shows_db_lane() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+    state.meter_db = None;
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains("-60dB"));
+}
+
+#[test]
+fn minimal_strip_recording_keeps_panel_anchor_when_meter_db_missing() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+    state.hud_right_panel = HudRightPanel::Ribbon;
+    state.hud_right_panel_recording_only = false;
+    state
+        .meter_levels
+        .extend_from_slice(&[-48.0, -40.0, -33.0, -22.0, -15.0, -12.0]);
+    state.meter_db = Some(-41.0);
+    let with_meter = minimal_strip_text(&state, &colors);
+
+    state.meter_db = None;
+    let without_meter = minimal_strip_text(&state, &colors);
+
+    let with_panel_col = with_meter
+        .find('[')
+        .expect("recording strip should render right panel");
+    let without_panel_col = without_meter
+        .find('[')
+        .expect("recording strip should render right panel");
+    assert_eq!(with_panel_col, without_panel_col);
 }
 
 #[test]
@@ -188,11 +257,41 @@ fn minimal_strip_idle_uses_theme_specific_auto_indicator() {
 fn minimal_strip_recording_uses_theme_specific_recording_indicator() {
     let colors = Theme::Codex.colors();
     let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Auto;
     state.recording_state = RecordingState::Recording;
 
     let line = minimal_strip_text(&state, &colors);
     assert!(line.contains("◆"));
     assert!(!line.contains("◇"));
+}
+
+#[test]
+fn minimal_strip_recording_uses_theme_recording_indicator_with_stable_color() {
+    let colors = Theme::TokyoNight.colors();
+    assert_ne!(colors.recording, colors.border);
+
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Recording;
+    let indicator = expected_recording_indicator(state.voice_mode, &colors);
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains(indicator));
+    assert!(has_pulse_color_prefix(&line, indicator, &colors));
+    assert!(line.contains("REC"));
+}
+
+#[test]
+fn minimal_strip_recording_keeps_indicator_visible() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Recording;
+    state.recording_duration = Some(0.60);
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains(expected_recording_indicator(state.voice_mode, &colors)));
+    assert!(line.contains("REC"));
 }
 
 #[test]
@@ -293,7 +392,7 @@ fn shortcuts_row_trailing_panel_hugs_right_border() {
 fn hidden_launcher_button_aligns_to_right_edge_when_space_available() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = format_button(&colors, "open", colors.info, false);
+    let open_button = hidden_launcher_button(&colors, false);
     let button_width = display_width(&open_button);
     let width = button_width + 18;
 
@@ -311,7 +410,7 @@ fn hidden_launcher_button_aligns_to_right_edge_when_space_available() {
 fn hidden_launcher_hides_button_when_width_too_small() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = format_button(&colors, "open", colors.info, false);
+    let open_button = hidden_launcher_button(&colors, false);
     let width = display_width(&open_button) + 1;
 
     let (line, button) = format_hidden_launcher_with_button(&state, &colors, width);
@@ -441,6 +540,55 @@ fn full_hud_button_positions_match_expected_geometry() {
 }
 
 #[test]
+fn full_hud_button_geometry_shifts_by_one_between_auto_and_ptt_labels() {
+    let colors = Theme::None.colors();
+
+    let mut auto_state = StatusLineState::new();
+    auto_state.auto_voice_enabled = true;
+    let (auto_row, auto_positions) =
+        format_button_row_with_positions(&auto_state, &colors, 300, 2, true, false);
+    assert!(auto_row.contains("[auto]"));
+
+    let mut ptt_state = StatusLineState::new();
+    ptt_state.auto_voice_enabled = false;
+    let (ptt_row, ptt_positions) =
+        format_button_row_with_positions(&ptt_state, &colors, 300, 2, true, false);
+    assert!(ptt_row.contains("[ptt]"));
+
+    let auto_send = auto_positions
+        .iter()
+        .find(|p| p.action == ButtonAction::ToggleSendMode)
+        .expect("auto send position");
+    let ptt_send = ptt_positions
+        .iter()
+        .find(|p| p.action == ButtonAction::ToggleSendMode)
+        .expect("ptt send position");
+    let auto_settings = auto_positions
+        .iter()
+        .find(|p| p.action == ButtonAction::SettingsToggle)
+        .expect("auto settings position");
+    let ptt_settings = ptt_positions
+        .iter()
+        .find(|p| p.action == ButtonAction::SettingsToggle)
+        .expect("ptt settings position");
+
+    assert_eq!(auto_send.start_x, ptt_send.start_x + 1);
+    assert_eq!(auto_settings.start_x, ptt_settings.start_x + 1);
+}
+
+#[test]
+fn full_hud_button_row_uses_uniform_separator_spacing_in_ptt_mode() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.auto_voice_enabled = false;
+
+    let (row, _) = format_button_row_with_positions(&state, &colors, 300, 2, true, false);
+    assert!(row.contains("[ptt] · [send]"));
+    assert!(!row.contains("·  ["));
+    assert!(!row.contains("]  ·"));
+}
+
+#[test]
 fn compact_hud_button_positions_match_expected_geometry() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
@@ -490,7 +638,7 @@ fn minimal_status_text_shows_processing_message_when_idle() {
 fn hidden_launcher_boundary_width_shows_button_at_exact_threshold() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = format_button(&colors, "open", colors.info, false);
+    let open_button = hidden_launcher_button(&colors, false);
     let width = display_width(&open_button) + 2;
 
     let (_, button) = format_hidden_launcher_with_button(&state, &colors, width);
@@ -579,6 +727,43 @@ fn latency_threshold_colors_are_correct_in_full_and_legacy_rows() {
     state.last_latency_ms = Some(500);
     let legacy_500 = format_button_row_legacy(&state, &colors, 200);
     assert!(legacy_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
+}
+
+#[test]
+fn latency_threshold_color_uses_rtf_when_available() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Idle;
+    state.last_latency_ms = Some(1100);
+    state.last_latency_speech_ms = Some(6000);
+    state.last_latency_rtf_x1000 = Some(183);
+
+    let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(row.contains(&format!("{}1100ms{}", colors.success, colors.reset)));
+
+    state.last_latency_rtf_x1000 = Some(500);
+    let (row_warning, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(row_warning.contains(&format!("{}1100ms{}", colors.warning, colors.reset)));
+
+    state.last_latency_rtf_x1000 = Some(900);
+    let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(row_error.contains(&format!("{}1100ms{}", colors.error, colors.reset)));
+}
+
+#[test]
+fn recording_indicator_color_pulses_with_theme_palette() {
+    for theme in [
+        Theme::Ansi,
+        Theme::Claude,
+        Theme::Codex,
+        Theme::TokyoNight,
+        Theme::Coral,
+        Theme::ChatGpt,
+    ] {
+        let colors = theme.colors();
+        let pulse = recording_indicator_color(&colors);
+        assert!(pulse == colors.recording || pulse == colors.dim);
+    }
 }
 
 #[test]

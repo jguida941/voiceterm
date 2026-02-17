@@ -62,8 +62,10 @@ Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 If a macro and built-in phrase overlap, the macro runs first; use explicit
 `voice scroll up`/`voice scroll down` to force built-in navigation phrases.
 Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
-insert-mode captures early while recording, and `Enter` is submit-only for staged
-text.
+staged insert-mode text immediately and (when recording with no staged text)
+requests early-stop submit, and `Enter` is submit-only for staged text.
+Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
+fragments) are dropped instead of being forwarded to the wrapped CLI input stream.
 
 ---
 
@@ -170,11 +172,14 @@ voiceterm --login --claude      # Login to Claude CLI
 
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
 - `minimal`: Single-line strip with optional compact right-panel visualization chip
-- `hidden`: Branded launcher row when idle (`VoiceTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
+- `hidden`: Muted launcher row when idle (`VoiceTerm hidden · Ctrl+U` + subtle `[open]` button); shows dim "REC" indicator while recording
 - In Full HUD, right-panel telemetry (`ribbon`/`dots`/`heartbeat`) is shown on
   the main status row (top-right lane).
 - Full HUD border style can be overridden with `--hud-border-style` (`theme`, `single`, `rounded`, `double`, `heavy`, `none`)
 - To disable the right-side waveform/pulse panel, set `--hud-right-panel off`
+- Latency badge reports direct STT delay (`stt_ms`) only, hides on no-speech/error
+  captures, and auto-expires stale idle values; severity color follows
+  speech-relative STT speed (`rtf`) when speech metrics are available.
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 Theme controls at runtime: `Ctrl+Y` opens the picker and `Ctrl+G` quick-cycles

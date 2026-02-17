@@ -9,6 +9,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.78] - 2026-02-17
+
+### UX
+
+- Prevent malformed/fragmented mouse-report escape sequences from leaking into the wrapped CLI input stream during interrupts, which could previously surface raw `[<...` fragments in the terminal.
+- Hide/reset latency badges when captures produce no transcript (`Empty`/error paths), use direct STT timing only (no derived fallback math), auto-expire stale idle latency badges after a short window, and color latency severity by speech-relative STT speed (`rtf`) so long utterances do not falsely read as regressions.
+- Expand transcript non-speech sanitization to strip additional Whisper ambient-sound hallucination tags such as `(siren wailing)`, `(engine revving)`, and `(water splashing)`.
+- In insert mode, make `Ctrl+E` send staged text immediately even when not actively recording; if recording with no staged text, keep the existing early-stop submit path.
+- Tune hidden HUD idle visuals to a subdued/dull gray launcher treatment (`VoiceTerm hidden · Ctrl+U` + `[open]`) so hidden mode stays unobtrusive.
+
 ## [1.0.77] - 2026-02-17
 
 ### UX

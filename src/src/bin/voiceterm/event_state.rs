@@ -38,6 +38,7 @@ pub(crate) struct EventLoopState {
     pub(crate) terminal_rows: u16,
     pub(crate) terminal_cols: u16,
     pub(crate) last_recording_duration: f32,
+    pub(crate) meter_floor_started_at: Option<Instant>,
     pub(crate) processing_spinner_index: usize,
     pub(crate) pending_pty_output: Option<Vec<u8>>,
     pub(crate) pending_pty_input: VecDeque<Vec<u8>>,

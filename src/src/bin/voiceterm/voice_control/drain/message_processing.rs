@@ -155,13 +155,9 @@ pub(super) fn update_last_latency(
         value.min(u64::from(u32::MAX)) as u32
     }
 
-    let Some(started_at) = recording_started_at else {
-        return;
-    };
-    let Some(elapsed) = now.checked_duration_since(started_at) else {
-        return;
-    };
-    let elapsed_ms = elapsed.as_millis().min(u128::from(u32::MAX)) as u32;
+    let elapsed_ms = recording_started_at
+        .and_then(|started_at| now.checked_duration_since(started_at))
+        .map(|elapsed| elapsed.as_millis().min(u128::from(u32::MAX)) as u32);
 
     let capture_ms = metrics
         .filter(|m| m.capture_ms > 0)
@@ -169,16 +165,26 @@ pub(super) fn update_last_latency(
     let stt_ms = metrics
         .filter(|m| m.transcribe_ms > 0)
         .map(|m| clamp_u64_to_u32(m.transcribe_ms));
+    let speech_ms = metrics
+        .filter(|m| m.speech_ms > 0)
+        .map(|m| clamp_u64_to_u32(m.speech_ms));
 
-    // HUD latency is intentionally "processing after capture" rather than full utterance time.
-    // Recording duration is shown separately, so we hide latency when metrics are insufficient.
-    let latency_ms = match (stt_ms, capture_ms) {
-        (Some(stt), _) => Some(stt),
-        (None, Some(capture)) => Some(elapsed_ms.saturating_sub(capture)),
-        (None, None) => None,
+    // Trust mode: display only direct STT timing, never derived estimates.
+    let latency_ms = stt_ms;
+    let rtf_x1000 = match (stt_ms, speech_ms) {
+        (Some(stt), Some(speech)) if speech > 0 => Some(
+            (u64::from(stt) * 1000)
+                .saturating_div(u64::from(speech))
+                .min(u64::from(u32::MAX)) as u32,
+        ),
+        _ => None,
     };
-
+    let speech_for_display = latency_ms.and(speech_ms);
+    let rtf_for_display = latency_ms.and(rtf_x1000);
     status_state.last_latency_ms = latency_ms;
+    status_state.last_latency_speech_ms = speech_for_display;
+    status_state.last_latency_rtf_x1000 = rtf_for_display;
+    status_state.last_latency_updated_at = latency_ms.map(|_| now);
     if let Some(sample) = latency_ms {
         status_state.push_latency_sample(sample);
     }
@@ -192,9 +198,25 @@ pub(super) fn update_last_latency(
     let stt_field = stt_ms
         .map(|v| v.to_string())
         .unwrap_or_else(|| "na".to_string());
+    let speech_field = speech_ms
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "na".to_string());
+    let rtf_field = rtf_x1000
+        .map(|v| format!("{:.3}", v as f32 / 1000.0))
+        .unwrap_or_else(|| "na".to_string());
+    let elapsed_field = elapsed_ms
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "na".to_string());
     log_debug(&format!(
-        "latency_audit|display_ms={display_field}|elapsed_ms={elapsed_ms}|capture_ms={capture_field}|stt_ms={stt_field}"
+        "latency_audit|display_ms={display_field}|elapsed_ms={elapsed_field}|capture_ms={capture_field}|speech_ms={speech_field}|stt_ms={stt_field}|rtf={rtf_field}"
     ));
+}
+
+pub(super) fn clear_last_latency(status_state: &mut StatusLineState) {
+    status_state.last_latency_ms = None;
+    status_state.last_latency_speech_ms = None;
+    status_state.last_latency_rtf_x1000 = None;
+    status_state.last_latency_updated_at = None;
 }
 
 pub(super) fn format_transcript_preview(text: &str, max_len: usize) -> String {

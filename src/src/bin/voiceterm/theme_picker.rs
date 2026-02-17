@@ -3,7 +3,7 @@
 //! Displays available themes and allows selecting by number.
 //! Now shows a visual preview of each theme's unique style.
 
-use crate::theme::{Theme, ThemeColors};
+use crate::theme::{filled_indicator, Theme, ThemeColors};
 
 /// Theme options with labels and descriptions.
 pub const THEME_OPTIONS: &[(Theme, &str, &str)] = &[
@@ -163,7 +163,10 @@ fn format_option_line_with_preview(
     let desc_truncated: String = desc.chars().take(desc_col).collect();
     let desc_padded = format!("{:<width$}", desc_truncated, width = desc_col);
     let (preview_color, preview_icon) = if show_theme_preview {
-        (theme_colors.recording, theme_colors.indicator_rec)
+        (
+            theme_colors.recording,
+            filled_indicator(theme_colors.indicator_auto),
+        )
     } else {
         ("", " ")
     };

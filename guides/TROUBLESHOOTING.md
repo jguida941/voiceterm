@@ -24,6 +24,9 @@ Docs map:
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
 | JetBrains cursor briefly flashes pipe/block cursor over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
+| Raw `[<...` text appears in terminal input | Update to latest and verify mouse-sequence handling | [Raw mouse escape text appears in terminal](#raw-mouse-escape-text-appears-in-terminal) |
+| Latency badge appears during no-speech auto cycles | Verify release + inspect latency audit logs | [Latency badge seems wrong in auto mode](#latency-badge-seems-wrong-in-auto-mode) |
+| Transcript includes tags like `(siren wailing)` | Update sanitizer behavior and verify logs | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
@@ -82,6 +85,49 @@ Transcription is taking longer than expected.
    `Ctrl+E` to stop and submit during noisy captures; `Enter` is submit-only for
    staged text.
 
+### Latency badge seems wrong in auto mode
+
+The HUD latency badge is meant to reflect the latest completed transcript STT
+processing delay (`stt_ms`), not backend response time.
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Re-run with logs and inspect latency audit lines:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+   Look for `latency_audit|display_ms=...|capture_ms=...|speech_ms=...|stt_ms=...|rtf=...`.
+3. If `stt_ms` rises on longer utterances, that is usually expected. Final-result
+   latency scales with audio length for non-streaming STT.
+4. Compare `rtf` (real-time factor) for consistency across short and long clips:
+   lower is faster (`0.20` means 1 second of speech took ~200ms to transcribe).
+   If `rtf` stays roughly stable while `stt_ms` changes, the pipeline is
+   behaving normally.
+5. If no transcript was produced (`No speech detected` / capture errors), the
+   badge should hide instead of showing a synthetic value.
+6. Color severity follows speech-relative STT speed (`rtf`) when speech metrics
+   are present, with absolute-ms thresholds only as fallback.
+7. The badge is STT-only (no derived elapsed/capture fallback math) and stale
+   idle values auto-expire after a short window.
+
+### Transcript includes ambient-sound tags
+
+If Whisper emits ambient placeholders such as `(siren wailing)` or
+`(water splashing)`, update to the latest build. Current sanitizer rules strip
+known non-speech tags in both `(...)` and `[...]` forms before delivery.
+
+If artifacts persist:
+
+1. Run with logs: `voiceterm --logs`
+2. Capture the exact emitted token from `${TMPDIR}/voiceterm_tui.log`
+3. Report the phrase so the non-speech filter list can be extended
+
 ### Voice macro not expanding
 
 Macros load from `<project>/.voiceterm/macros.yaml` and apply only when
@@ -111,6 +157,17 @@ Native STT was unavailable, so Python fallback was used.
 2. Download model: `./scripts/setup.sh models --base`
 3. Ensure fallback dependencies exist (`python3`, `ffmpeg`, `whisper`) or use
    `--no-python-fallback`.
+
+### Raw mouse escape text appears in terminal
+
+If you see fragments like `[<0;35;25M` in the wrapped CLI while clicking or
+interrupting, those are mouse-report escape sequences that should be handled by
+the HUD parser, not forwarded to the backend.
+
+1. Confirm version: `voiceterm --version`
+2. Re-run with logs: `voiceterm --logs`
+3. If needed as a temporary workaround, set `Settings -> Mouse` to `OFF`
+4. Report terminal/IDE + version if raw fragments still appear on latest build
 
 ## Audio Setup
 

@@ -19,7 +19,7 @@ use crate::writer::WriterMessage;
 
 use super::manager::VoiceManager;
 use auto_rearm::{finalize_drain_state, maybe_rearm_auto_after_empty, AutoRearmContext};
-use message_processing::{handle_voice_message, update_last_latency};
+use message_processing::{clear_last_latency, handle_voice_message};
 use transcript_delivery::{handle_transcript_message, TranscriptDeliveryContext};
 
 pub(crate) fn clear_capture_metrics(status_state: &mut StatusLineState) {
@@ -131,7 +131,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         VoiceJobMessage::Empty { source, metrics } => {
             *force_send_on_next_transcript = false;
-            update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
+            clear_last_latency(status_state);
             let mut non_transcript_ctx = NonTranscriptDispatchContext {
                 config,
                 session,
@@ -162,6 +162,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         other => {
             *force_send_on_next_transcript = false;
+            clear_last_latency(status_state);
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
                 let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
             }

@@ -121,6 +121,14 @@ On `xterm-256color` terminals, selected themes are preserved; ANSI fallback is
 used only on ANSI16 terminals.
 Status wording is pipeline-neutral (`Listening Manual Mode`,
 `No speech detected`); use Settings (`Ctrl+O`) to verify `Voice pipeline`.
+Latency badge now reflects direct STT delay (`stt_ms`) only, hides on
+no-speech/error captures, and auto-clears stale idle values after a short
+window.
+Hidden HUD launcher text and `[open]` are intentionally muted gray to keep
+hidden mode unobtrusive while idle.
+If you ever see raw mouse fragments like `[<0;35;25M`, update to the latest
+build; malformed/fragmented mouse-report escapes are now dropped before they
+reach the wrapped CLI input stream.
 
 ## Option B: PyPI
 

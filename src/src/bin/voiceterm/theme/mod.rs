@@ -130,6 +130,32 @@ impl Theme {
     }
 }
 
+/// Convert a theme's base mode indicator into its filled recording variant.
+///
+/// This keeps recording visuals in the same symbol family instead of switching
+/// to an unrelated glyph shape.
+#[must_use]
+pub fn filled_indicator(symbol: &'static str) -> &'static str {
+    match symbol {
+        "◎" => "◉",
+        "◍" => "◉",
+        "◇" => "◆",
+        "⊙" => "◉",
+        "◈" => "◆",
+        "☆" => "★",
+        "▢" => "▣",
+        "○" => "●",
+        "◌" => "●",
+        "·" => "•",
+        "□" => "■",
+        "-" => "•",
+        "▸" => "▶",
+        "▹" => "▶",
+        "▷" => "▶",
+        _ => symbol,
+    }
+}
+
 impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -237,5 +263,14 @@ mod tests {
         let colors = Theme::Coral.colors();
         assert!(!colors.indicator_rec.is_empty());
         assert!(!colors.indicator_auto.is_empty());
+    }
+
+    #[test]
+    fn filled_indicator_keeps_symbol_family() {
+        assert_eq!(filled_indicator("☆"), "★");
+        assert_eq!(filled_indicator("▢"), "▣");
+        assert_eq!(filled_indicator("◇"), "◆");
+        assert_eq!(filled_indicator("◎"), "◉");
+        assert_eq!(filled_indicator("▶"), "▶");
     }
 }
