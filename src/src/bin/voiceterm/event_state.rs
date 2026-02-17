@@ -44,6 +44,7 @@ pub(crate) struct EventLoopState {
     pub(crate) pending_pty_input_offset: usize,
     pub(crate) pending_pty_input_bytes: usize,
     pub(crate) suppress_startup_escape_input: bool,
+    pub(crate) force_send_on_next_transcript: bool,
 }
 
 pub(crate) struct EventLoopTimers {

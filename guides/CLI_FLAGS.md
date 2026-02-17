@@ -62,7 +62,7 @@ Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 If a macro and built-in phrase overlap, the macro runs first; use explicit
 `voice scroll up`/`voice scroll down` to force built-in navigation phrases.
 Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
-staged insert-mode text while recording, and `Enter` is submit-only for staged
+insert-mode captures early while recording, and `Enter` is submit-only for staged
 text.
 
 ---

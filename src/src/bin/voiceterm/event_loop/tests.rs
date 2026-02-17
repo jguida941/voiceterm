@@ -20,6 +20,7 @@ use crate::voice_macros::VoiceMacros;
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
+    static EARLY_STOP_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
 struct TrySendHookGuard;
@@ -68,6 +69,21 @@ fn install_start_capture_hook(hook: StartCaptureHook) -> StartCaptureHookGuard {
     set_start_capture_hook(Some(hook));
     START_CAPTURE_CALLS.with(|calls| calls.set(0));
     StartCaptureHookGuard
+}
+
+struct EarlyStopHookGuard;
+
+impl Drop for EarlyStopHookGuard {
+    fn drop(&mut self) {
+        set_request_early_stop_hook(None);
+        EARLY_STOP_CALLS.with(|calls| calls.set(0));
+    }
+}
+
+fn install_request_early_stop_hook(hook: RequestEarlyStopHook) -> EarlyStopHookGuard {
+    set_request_early_stop_hook(Some(hook));
+    EARLY_STOP_CALLS.with(|calls| calls.set(0));
+    EarlyStopHookGuard
 }
 
 fn hook_would_block(_: &[u8]) -> io::Result<usize> {
@@ -152,6 +168,11 @@ fn hook_start_capture_err(
     Err(anyhow::anyhow!("forced start capture failure"))
 }
 
+fn hook_request_early_stop_true(_: &mut crate::voice_control::VoiceManager) -> bool {
+    EARLY_STOP_CALLS.with(|calls| calls.set(calls.get() + 1));
+    true
+}
+
 fn build_harness(
     cmd: &str,
     args: &[&str],
@@ -217,6 +238,7 @@ fn build_harness(
         pending_pty_input_offset: 0,
         pending_pty_input_bytes: 0,
         suppress_startup_escape_input: false,
+        force_send_on_next_transcript: false,
     };
 
     let now = Instant::now();
@@ -971,6 +993,32 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_without_capture_stop() {
         state.status_state.recording_state,
         RecordingState::Recording
     );
+}
+
+#[test]
+fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_send() {
+    let _early_stop = install_request_early_stop_hook(hook_request_early_stop_true);
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.insert_pending_send = false;
+
+    input_tx
+        .send(InputEvent::SendStagedText)
+        .expect("queue ctrl+e send");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    EARLY_STOP_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(timers.last_enter_at.is_none());
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Processing
+    );
+    assert!(state.force_send_on_next_transcript);
 }
 
 #[test]

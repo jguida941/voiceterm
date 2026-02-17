@@ -367,6 +367,7 @@ fn main() -> Result<()> {
         pending_pty_input_offset: 0,
         pending_pty_input_bytes: 0,
         suppress_startup_escape_input: true,
+        force_send_on_next_transcript: false,
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,

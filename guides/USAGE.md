@@ -82,7 +82,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | In `insert` mode while recording: send staged prompt text now |
+| `Ctrl+E` | In `insert` mode while recording: stop early and submit current capture now |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
@@ -143,7 +143,7 @@ Three controls define runtime behavior:
 ### Practical notes
 
 - In `insert` mode, Enter is submit-only; use `Ctrl+R` to stop recording early.
-- In noisy auto+insert sessions, use `Ctrl+E` to submit staged text immediately without waiting for silence.
+- In noisy auto+insert sessions, use `Ctrl+E` to stop recording early and submit without waiting for silence.
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
 
@@ -168,7 +168,7 @@ Precedence:
 
 Capture is chunked by duration (default 30s, max 60s via
 `--voice-max-capture-ms`). Each chunk is transcribed and injected; press Enter
-once when ready to submit, or use `Ctrl+E` while recording to submit immediately.
+once when ready to submit, or use `Ctrl+E` while recording to stop early and submit immediately.
 
 ## Common Tasks
 

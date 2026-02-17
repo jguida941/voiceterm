@@ -89,11 +89,14 @@ type StartCaptureHook = fn(
     &mut crate::status_line::StatusLineState,
 ) -> anyhow::Result<()>;
 #[cfg(test)]
+type RequestEarlyStopHook = fn(&mut crate::voice_control::VoiceManager) -> bool;
+#[cfg(test)]
 thread_local! {
     static TRY_SEND_HOOK: Cell<Option<TrySendHook>> = const { Cell::new(None) };
     static TAKE_SIGWINCH_HOOK: Cell<Option<TakeSigwinchHook>> = const { Cell::new(None) };
     static TERMINAL_SIZE_HOOK: Cell<Option<TerminalSizeHook>> = const { Cell::new(None) };
     static START_CAPTURE_HOOK: Cell<Option<StartCaptureHook>> = const { Cell::new(None) };
+    static REQUEST_EARLY_STOP_HOOK: Cell<Option<RequestEarlyStopHook>> = const { Cell::new(None) };
 }
 
 #[cfg(test)]
@@ -114,6 +117,11 @@ fn set_terminal_size_hook(hook: Option<TerminalSizeHook>) {
 #[cfg(test)]
 fn set_start_capture_hook(hook: Option<StartCaptureHook>) {
     START_CAPTURE_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_request_early_stop_hook(hook: Option<RequestEarlyStopHook>) {
+    REQUEST_EARLY_STOP_HOOK.with(|slot| slot.set(hook));
 }
 
 fn try_send_pty_bytes(
@@ -180,6 +188,16 @@ fn start_voice_capture_with_hook(
     )
 }
 
+fn request_early_stop_with_hook(voice_manager: &mut crate::voice_control::VoiceManager) -> bool {
+    #[cfg(test)]
+    {
+        if let Some(hook) = REQUEST_EARLY_STOP_HOOK.with(|slot| slot.get()) {
+            return hook(voice_manager);
+        }
+    }
+    voice_manager.request_early_stop()
+}
+
 fn drain_voice_messages_once(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -205,6 +223,7 @@ fn drain_voice_messages_once(
         preview_clear_deadline: &mut timers.preview_clear_deadline,
         last_meter_update: &mut timers.last_meter_update,
         last_auto_trigger_at: &mut timers.last_auto_trigger_at,
+        force_send_on_next_transcript: &mut state.force_send_on_next_transcript,
         auto_voice_enabled: state.auto_voice_enabled,
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,

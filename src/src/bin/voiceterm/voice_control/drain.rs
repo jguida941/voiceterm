@@ -58,6 +58,7 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub preview_clear_deadline: &'a mut Option<Instant>,
     pub last_meter_update: &'a mut Instant,
     pub last_auto_trigger_at: &'a mut Option<Instant>,
+    pub force_send_on_next_transcript: &'a mut bool,
     pub auto_voice_enabled: bool,
     pub sound_on_complete: bool,
     pub sound_on_error: bool,
@@ -82,6 +83,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let preview_clear_deadline = &mut *ctx.preview_clear_deadline;
     let last_meter_update = &mut *ctx.last_meter_update;
     let last_auto_trigger_at = &mut *ctx.last_auto_trigger_at;
+    let force_send_on_next_transcript = &mut *ctx.force_send_on_next_transcript;
     let auto_voice_enabled = ctx.auto_voice_enabled;
     let sound_on_complete = ctx.sound_on_complete;
     let sound_on_error = ctx.sound_on_error;
@@ -121,12 +123,14 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 preview_clear_deadline,
                 last_meter_update,
                 last_auto_trigger_at,
+                force_send_on_next_transcript,
                 auto_voice_enabled,
                 sound_on_complete,
             };
             handle_transcript_message(&mut transcript_ctx);
         }
         VoiceJobMessage::Empty { source, metrics } => {
+            *force_send_on_next_transcript = false;
             update_last_latency(status_state, *recording_started_at, metrics.as_ref(), now);
             let mut non_transcript_ctx = NonTranscriptDispatchContext {
                 config,
@@ -157,6 +161,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
             maybe_rearm_auto_after_empty(&mut rearm_ctx, auto_voice_enabled);
         }
         other => {
+            *force_send_on_next_transcript = false;
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
                 let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
             }

@@ -216,8 +216,8 @@ Short version: `Ctrl+G` quick-cycles theme, and built-in voice commands support
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
 `explain last error`.
 Recording/send controls: `Ctrl+R` toggles recording start/stop, `Ctrl+E` sends
-staged insert-mode text during active recording, and `Enter` remains submit-only
-for staged text.
+insert-mode captures early during active recording, and `Enter` remains
+submit-only for staged text.
 If a macro and built-in phrase overlap, macros run first; use explicit
 `voice scroll up` / `voice scroll down` to force built-in navigation.
 Status text is pipeline-neutral (for example `Listening Manual Mode` and

@@ -118,6 +118,7 @@ pub(super) fn handle_input_event(
                     return;
                 }
                 timers.recording_started_at = Some(Instant::now());
+                state.force_send_on_next_transcript = false;
                 reset_capture_visuals(
                     &mut state.status_state,
                     &mut timers.preview_clear_deadline,
@@ -135,7 +136,8 @@ pub(super) fn handle_input_event(
                 }
                 return;
             }
-            if should_ignore_send_staged_text_hotkey(state) {
+            if should_request_early_send_hotkey(state) {
+                let _ = request_early_send_capture(state, timers, deps);
                 return;
             }
             if !write_or_queue_pty_input(state, deps, vec![0x05]) {
@@ -223,10 +225,31 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
         && state.status_state.insert_pending_send
 }
 
-fn should_ignore_send_staged_text_hotkey(state: &EventLoopState) -> bool {
+fn should_request_early_send_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert
         && state.status_state.recording_state == RecordingState::Recording
         && !state.status_state.insert_pending_send
+}
+
+fn request_early_send_capture(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) -> bool {
+    if !request_early_stop_with_hook(&mut deps.voice_manager) {
+        return false;
+    }
+    state.force_send_on_next_transcript = true;
+    state.status_state.recording_state = RecordingState::Processing;
+    set_status(
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+        "Sending capture...",
+        Some(Duration::from_secs(2)),
+    );
+    true
 }
 
 fn stop_active_capture(
@@ -237,6 +260,7 @@ fn stop_active_capture(
     if !deps.voice_manager.cancel_capture() {
         return false;
     }
+    state.force_send_on_next_transcript = false;
     state.status_state.recording_state = RecordingState::Idle;
     clear_capture_metrics(&mut state.status_state);
     timers.recording_started_at = None;

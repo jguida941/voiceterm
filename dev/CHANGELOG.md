@@ -9,6 +9,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.77] - 2026-02-17
+
+### UX
+
+- Fix `Ctrl+E` behavior in insert/edit mode while recording: when no staged text is pending, it now requests early-stop processing and forces one-shot transcript submit so noisy-room captures can be sent immediately without waiting for silence timeout.
+
+### Documentation
+
+- Clarify control docs (`README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/TROUBLESHOOTING.md`) so `Ctrl+R` is documented as stop-without-send and `Ctrl+E` as stop-and-submit for insert-mode active recording.
+
 ## [1.0.76] - 2026-02-17
 
 ### UX

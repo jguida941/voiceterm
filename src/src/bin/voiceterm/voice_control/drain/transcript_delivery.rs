@@ -24,6 +24,7 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) preview_clear_deadline: &'a mut Option<Instant>,
     pub(super) last_meter_update: &'a mut Instant,
     pub(super) last_auto_trigger_at: &'a mut Option<Instant>,
+    pub(super) force_send_on_next_transcript: &'a mut bool,
     pub(super) auto_voice_enabled: bool,
     pub(super) sound_on_complete: bool,
 }
@@ -71,12 +72,16 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         .unwrap_or(0.0);
     ctx.session_stats.record_transcript(duration_secs);
 
-    let (text, transcript_mode, macro_note) = super::message_processing::apply_macro_mode(
+    let (text, mut transcript_mode, macro_note) = super::message_processing::apply_macro_mode(
         &ctx.text,
         ctx.config.voice_send_mode,
         ctx.status_state.macros_enabled,
         ctx.voice_macros,
     );
+    if *ctx.force_send_on_next_transcript {
+        transcript_mode = VoiceSendMode::Auto;
+        *ctx.force_send_on_next_transcript = false;
+    }
     if let Some(action) =
         super::super::navigation::resolve_voice_navigation_action(&text, macro_note.is_some())
     {
