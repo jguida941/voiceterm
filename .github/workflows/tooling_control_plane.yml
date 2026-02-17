@@ -1,0 +1,88 @@
+name: Tooling Control Plane
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "dev/scripts/**"
+      - "scripts/macro-packs/**"
+      - "Makefile"
+      - "AGENTS.md"
+      - "dev/DEVELOPMENT.md"
+      - "dev/scripts/README.md"
+      - ".github/workflows/tooling_control_plane.yml"
+  pull_request:
+    paths:
+      - "dev/scripts/**"
+      - "scripts/macro-packs/**"
+      - "Makefile"
+      - "AGENTS.md"
+      - "dev/DEVELOPMENT.md"
+      - "dev/scripts/README.md"
+      - ".github/workflows/tooling_control_plane.yml"
+
+jobs:
+  devctl-tests:
+    name: devctl unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run devctl tests
+        run: python3 -m unittest discover -s dev/scripts/devctl/tests -p "test_*.py"
+
+      - name: Smoke devctl ship/pypi/list commands
+        run: |
+          python3 dev/scripts/devctl.py list --format md
+          python3 dev/scripts/devctl.py pypi --dry-run
+          python3 dev/scripts/devctl.py ship --version 0.0.0 --notes --dry-run --format json
+
+  shell-integrity:
+    name: shell script integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: bash -n maintainer scripts
+        run: |
+          bash -n dev/scripts/*.sh
+          bash -n scripts/*.sh
+
+  docs-policy:
+    name: docs policy + deprecated guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run docs-check policy gate
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            SINCE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            SINCE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [[ -z "${SINCE}" || "${SINCE}" == "0000000000000000000000000000000000000000" ]]; then
+            SINCE="HEAD~1"
+          fi
+          python3 dev/scripts/devctl.py docs-check --since-ref "${SINCE}" --head-ref "${HEAD}" --strict-tooling --format md

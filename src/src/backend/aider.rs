@@ -1,4 +1,5 @@
 //! Aider backend definition so the shared registry can launch Aider consistently.
+//! The Aider backend is not implemented yet, but is a possibe future feature for voiceTerm.
 
 use super::AiBackend;
 

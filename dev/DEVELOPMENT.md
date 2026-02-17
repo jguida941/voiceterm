@@ -38,10 +38,10 @@ voiceterm/
 │   ├── archive/            # Completed work entries
 │   ├── adr/                # Architecture decision records
 │   └── scripts/            # Developer scripts
-│       ├── release.sh         # GitHub release script
+│       ├── release.sh         # Legacy adapter -> devctl release
 │       ├── generate-release-notes.sh # Markdown notes from git diff history
-│       ├── publish-pypi.sh    # PyPI build/publish helper
-│       ├── update-homebrew.sh # Homebrew tap update
+│       ├── publish-pypi.sh    # Legacy adapter -> devctl pypi
+│       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew
 │       ├── check_mutation_score.py # Mutation score helper
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
@@ -186,11 +186,20 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Tooling/release docs policy (change-class aware + deprecated-command guard)
+python3 dev/scripts/devctl.py docs-check --strict-tooling
+
 # Post-commit docs check over a commit range (works on clean trees)
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 
 # Governance hygiene audit (archive + ADR + scripts docs)
 python3 dev/scripts/devctl.py hygiene
+
+# Release/distribution control plane
+python3 dev/scripts/devctl.py release --version X.Y.Z
+python3 dev/scripts/devctl.py pypi --upload
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
+python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --pypi --homebrew --verify-pypi
 
 # Generate a report (JSON/MD)
 python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.json
@@ -211,6 +220,8 @@ Implementation layout:
 - `dev/scripts/devctl/commands/`: per-command implementations
 - `dev/scripts/devctl/common.py`: shared helpers (run_cmd, env, output)
 - `dev/scripts/devctl/collect.py`: git/CI/mutation summaries for reports
+
+Legacy shell scripts in `dev/scripts/*.sh` are compatibility adapters and should not be the canonical maintainer workflow.
 
 ## Manual QA checklist
 
@@ -264,6 +275,7 @@ GitHub Actions run on every push and PR:
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs/deprecated-command policy guard |
 
 **Before pushing, run locally (recommended):**
 
@@ -276,6 +288,7 @@ make prepush
 
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/devctl.py docs-check --strict-tooling
 
 # Security advisory policy gate (matches security_guard.yml)
 cargo install cargo-audit --locked
@@ -323,39 +336,43 @@ python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.j
 ### Create GitHub release
 
 ```bash
-# Use the release script (recommended)
-./dev/scripts/release.sh X.Y.Z
+# Canonical control plane
+python3 dev/scripts/devctl.py release --version X.Y.Z
 
 # Create release on GitHub
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
 ```
 
-`release.sh` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
+`devctl release` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
 compare range (previous tag to current tag). You can also generate it manually:
 
 ```bash
-./dev/scripts/generate-release-notes.sh X.Y.Z
+python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 ```
 
 ### Update Homebrew tap
 
 ```bash
-# Use the update script (recommended)
-./dev/scripts/update-homebrew.sh X.Y.Z
+# Canonical control plane
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
 ### Publish PyPI package
 
 ```bash
 # Build + upload package to PyPI
-./dev/scripts/publish-pypi.sh --upload
+python3 dev/scripts/devctl.py pypi --upload
 
 # Verify the published version appears (replace X.Y.Z)
 curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 ```
 
-Use `./dev/scripts/update-homebrew.sh X.Y.Z` in the previous step to fetch
+Use `python3 dev/scripts/devctl.py homebrew --version X.Y.Z` in the previous step to fetch
 the SHA256 and update the Homebrew formula.
+
+Legacy wrappers (`dev/scripts/release.sh`, `dev/scripts/publish-pypi.sh`,
+`dev/scripts/update-homebrew.sh`) remain for compatibility and route into
+`devctl`.
 
 Users can then upgrade:
 

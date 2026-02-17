@@ -11,9 +11,11 @@ from .commands import (
     listing,
     mutation_score,
     mutants,
+    pypi,
     release,
     release_notes,
     report,
+    ship,
     status,
 )
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
@@ -89,12 +91,33 @@ def build_parser() -> argparse.ArgumentParser:
     score_cmd.add_argument("--dry-run", action="store_true")
 
     # release
-    release_cmd = sub.add_parser("release", help="Run release.sh (optional homebrew)")
+    release_cmd = sub.add_parser("release", help="Run tag + notes release flow (legacy-compatible)")
     release_cmd.add_argument("--version", required=True)
     release_cmd.add_argument("--homebrew", action="store_true")
     release_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
     release_cmd.add_argument("--allow-ci", action="store_true")
     release_cmd.add_argument("--dry-run", action="store_true")
+
+    # ship
+    ship_cmd = sub.add_parser("ship", help="Run release/distribution steps from one control-plane command")
+    ship_cmd.add_argument("--version", required=True)
+    ship_cmd.add_argument("--verify", action="store_true", help="Run release verification checks")
+    ship_cmd.add_argument("--verify-docs", action="store_true", help="Include docs-check in verify step")
+    ship_cmd.add_argument("--tag", action="store_true", help="Create/push git tag")
+    ship_cmd.add_argument("--notes", action="store_true", help="Generate release notes markdown")
+    ship_cmd.add_argument("--github", action="store_true", help="Create GitHub release")
+    ship_cmd.add_argument("--github-fail-on-no-commits", action="store_true", help="Pass --fail-on-no-commits to gh release create")
+    ship_cmd.add_argument("--pypi", action="store_true", help="Publish PyPI package")
+    ship_cmd.add_argument("--homebrew", action="store_true", help="Update Homebrew tap")
+    ship_cmd.add_argument("--verify-pypi", action="store_true", help="Verify PyPI JSON endpoint version")
+    ship_cmd.add_argument("--notes-output", help="Release notes output file path")
+    ship_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    ship_cmd.add_argument("--allow-ci", action="store_true")
+    ship_cmd.add_argument("--dry-run", action="store_true")
+    ship_cmd.add_argument("--format", choices=["text", "json", "md"], default="text")
+    ship_cmd.add_argument("--output")
+    ship_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
+    ship_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
 
     # release-notes
     notes_cmd = sub.add_parser("release-notes", help="Generate markdown release notes from git diff history")
@@ -105,16 +128,28 @@ def build_parser() -> argparse.ArgumentParser:
     notes_cmd.add_argument("--dry-run", action="store_true")
 
     # homebrew
-    homebrew_cmd = sub.add_parser("homebrew", help="Run update-homebrew.sh")
+    homebrew_cmd = sub.add_parser("homebrew", help="Run Homebrew tap update flow")
     homebrew_cmd.add_argument("--version", required=True)
     homebrew_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
     homebrew_cmd.add_argument("--allow-ci", action="store_true")
     homebrew_cmd.add_argument("--dry-run", action="store_true")
 
+    # pypi
+    pypi_cmd = sub.add_parser("pypi", help="Run PyPI build/check/upload flow")
+    pypi_cmd.add_argument("--upload", action="store_true", help="Upload package to PyPI")
+    pypi_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    pypi_cmd.add_argument("--allow-ci", action="store_true")
+    pypi_cmd.add_argument("--dry-run", action="store_true")
+
     # docs-check
     docs_cmd = sub.add_parser("docs-check", help="Verify user-facing docs are updated")
     docs_cmd.add_argument("--user-facing", action="store_true", help="Enforce user-facing doc updates")
     docs_cmd.add_argument("--strict", action="store_true", help="Require all user docs when --user-facing")
+    docs_cmd.add_argument(
+        "--strict-tooling",
+        action="store_true",
+        help="Require all canonical maintainer docs for tooling/release changes",
+    )
     docs_cmd.add_argument(
         "--since-ref",
         help="Use commit-range mode by comparing changes from this ref (e.g. origin/develop, HEAD~1)",
@@ -186,10 +221,14 @@ def main() -> int:
         return docs_check.run(args)
     if args.command == "release":
         return release.run(args)
+    if args.command == "ship":
+        return ship.run(args)
     if args.command == "release-notes":
         return release_notes.run(args)
     if args.command == "homebrew":
         return homebrew.run(args)
+    if args.command == "pypi":
+        return pypi.run(args)
     if args.command == "status":
         return status.run(args)
     if args.command == "report":

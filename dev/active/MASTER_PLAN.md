@@ -12,7 +12,7 @@
 - Current release target: `TBD` (next post-`v1.0.70` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while continuing visual HUD differentiation.
+- Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while executing a visual-surface-first Theme Studio track.
 
 ## Strategic Direction
 
@@ -21,7 +21,8 @@
 - Build differentiated product value in phases:
   1. Visual-first UX pass (telemetry, motion, layout polish, theme ergonomics)
   2. Workflow differentiators (voice navigation, history, CLI workflow polish)
-  3. Advanced expansion (streaming STT, tmux/neovim, accessibility)
+  3. Theme-systemization (visual surfaces first, then full Theme Studio control parity)
+  4. Advanced expansion (streaming STT, tmux/neovim, accessibility)
 
 ## Phase 0 - Completed Release Stabilization (v1.0.51-v1.0.52)
 
@@ -96,12 +97,27 @@
 - [x] MP-138 Enforce audit/master-plan traceability updates as a mandatory part of each hardening fix (FX-012).
 - [x] MP-152 Consolidate hardening governance to `MASTER_PLAN` as the only active tracker: archive `RUST_GUI_AUDIT_2026-02-15.md` under `dev/archive/` and retire dedicated audit-traceability CI/tooling.
 
-## Phase 2C - Theme System Upgrade (Activation)
+## Phase 2C - Theme System Upgrade (Architecture + Guardrails)
 
-- [ ] MP-148 Activate `dev/active/theme_upgrade.md` as an executable phased track in this plan, with strict non-regression requirements for current HUD/theme behavior before feature expansion.
+- [ ] MP-148 Activate `dev/active/theme_upgrade.md` as an executable phased track in this plan, and lock the IA boundary: dedicated `Theme Studio` mode (not `Settings -> Studio`) plus Settings-vs-Studio ownership matrix.
 - [ ] MP-149 Implement Theme Upgrade Phase 0 safety rails (golden render snapshots, terminal compatibility matrix coverage, and style-schema migration harness) before any user-visible editor expansion.
 - [ ] MP-150 Implement Theme Upgrade Phase 1 style engine foundation (`StylePack` schema + resolver + runtime), preserving current built-in theme behavior and startup defaults.
-- [ ] MP-151 Ship docs/architecture updates for the new theme system (`dev/ARCHITECTURE.md`, `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, `dev/CHANGELOG.md`) in lockstep with implementation, including operator guidance and fallback behavior.
+- [ ] MP-151 Ship docs/architecture updates for the new theme system (`dev/ARCHITECTURE.md`, `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, `dev/CHANGELOG.md`) in lockstep with implementation, including operator guidance, settings-migration guidance, and fallback behavior.
+
+## Phase 2D - Visual Surface Expansion (Theme Studio Prerequisite)
+
+- [ ] MP-161 Execute a visual-first runtime pass before deep Studio editing: complete MP-102 and promote MP-103, MP-106, MP-107, MP-108, and MP-109 from Backlog into active execution order with non-regression gates.
+- [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship.
+- [ ] MP-163 Add explicit coverage tests/gates that fail if new visual runtime surfaces bypass theme resolver paths with hardcoded style constants.
+- [ ] MP-172 Add a styleable component registry and state-matrix contract for all renderable control surfaces (buttons, tabs, lists, tables, trees, scrollbars, modal/popup/tooltip, input/caret/selection) with schema + resolver + snapshot coverage.
+
+## Phase 2E - Theme Studio Delivery (After Visual Surface Expansion)
+
+- [ ] MP-164 Implement dedicated `Theme Studio` overlay mode entry points/navigation and remove deep theme editing from generic Settings flows.
+- [ ] MP-165 Migrate legacy visual controls out of settings list (`SettingsItem::Theme`, `SettingsItem::HudStyle`, `SettingsItem::HudBorders`, `SettingsItem::HudPanel`, `SettingsItem::HudAnimate`) so Settings keeps non-theme runtime controls only.
+- [ ] MP-166 Deliver Studio page control parity for all `StylePack` fields (tokens, layout, widgets, motion, behavior, notifications, command/discovery surfaces, voice-state scenes, accessibility, keybinds, profiles) with undo/redo + rollback.
+- [ ] MP-167 Run Theme Studio GA validation and docs lockstep updates (snapshot matrix, terminal compatibility matrix, architecture docs, user docs, troubleshooting guidance, changelog entry).
+- [ ] MP-173 Add CI policy gates for future visuals: fail if a new renderable component lacks style-ID registration, and fail if post-parity a style-pack field lacks Studio control mapping.
 
 ## Phase 3 - Overlay Differentiators
 
@@ -112,14 +128,19 @@
 - [x] MP-156 Add release-notes automation (`generate-release-notes.sh`, `devctl release-notes`, `release.sh` notes-file handoff) so each tag has consistent diff-derived markdown notes for GitHub releases.
 - [x] MP-144 Add macro-pack onboarding wizard hardening (expanded developer command packs, repo-aware placeholder templating, and optional post-install setup prompt).
 - [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk (adjacent runtime architecture debt; tracked separately from tooling-control-plane work).
+  - [x] MP-143a Extract shared settings-item action dispatch in `event_loop.rs` so Enter/Left/Right settings paths stop duplicating mutation logic.
+  - [x] MP-143b Split `event_loop.rs` overlay/input/output handlers into focused modules (`overlay_dispatch`, `input_dispatch`, `output_dispatch`, `periodic_tasks`) and move tests to `event_loop/tests.rs` while preserving regression coverage.
+  - [x] MP-143c0 Move `voice_control/drain.rs` tests into `voice_control/drain/tests.rs` so runtime decomposition can land in smaller, reviewable slices.
+  - [ ] MP-143c Split `voice_control/drain.rs` into transcript-delivery, status/latency updates, and auto-rearm components with unchanged behavior coverage.
+- [x] MP-170 Harden IPC test event capture isolation so parallel test runs remain deterministic under `cargo test` and `devctl check --profile ci`.
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
-## Phase 3B - Tooling Control Plane Consolidation (Active)
+## Phase 3B - Tooling Control Plane Consolidation
 
-- [ ] MP-157 Execute `dev/active/tooling_control_plane_consolidation.md` (Phases 1-2): implement `devctl ship`, deterministic step exits, dry-run behavior, machine-readable step reports, and adapter conversion for release entry points.
-- [ ] MP-158 Harden `devctl docs-check` policy enforcement so docs requirements are change-class aware and deprecated maintainer command references are surfaced as actionable failures.
-- [ ] MP-159 Add a dedicated tooling CI quality lane for `devctl` command behavior and maintainer shell-script integrity (release, release-notes, PyPI, Homebrew helpers).
-- [ ] MP-160 Canonicalize maintainer docs and macro/help surfaces to `devctl` first (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, maintainer macro packs, and `Makefile` help), keeping legacy wrappers documented as transitional adapters.
+- [x] MP-157 Execute tooling-control-plane consolidation (archived at `dev/archive/2026-02-17-tooling-control-plane-consolidation.md`): implement `devctl ship`, deterministic step exits, dry-run behavior, machine-readable step reports, and adapter conversion for release entry points.
+- [x] MP-158 Harden `devctl docs-check` policy enforcement so docs requirements are change-class aware and deprecated maintainer command references are surfaced as actionable failures.
+- [x] MP-159 Add a dedicated tooling CI quality lane for `devctl` command behavior and maintainer shell-script integrity (release, release-notes, PyPI, Homebrew helpers).
+- [x] MP-160 Canonicalize maintainer docs and macro/help surfaces to `devctl` first (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, maintainer macro packs, and `Makefile` help), keeping legacy wrappers documented as transitional adapters.
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 
@@ -150,11 +171,6 @@
 - [ ] MP-033 Add benchmarks to CI for latency regression detection.
 - [ ] MP-034 Add mic-meter hotkey for calibration.
 - [ ] MP-037 Consider configurable PTY output channel capacity.
-- [ ] MP-103 Add searchable command palette for settings/actions/macros with keyboard-first flow.
-- [ ] MP-106 Add hybrid voice+keyboard transcript input panel for correction and selective send.
-- [ ] MP-107 Add session dashboard with voice metrics (latency/WPM/error rate) and export path.
-- [ ] MP-108 Prototype contextual autocomplete/suggestion dropdowns for macros/corrections.
-- [ ] MP-109 Evaluate block-based voice command history UI against PTY/session constraints.
 - [ ] MP-145 Eliminate startup cursor/ANSI escape artifacts shown in Cursor (Codex and Claude backends), with focus on the splash-screen teardown to VoiceTerm HUD handoff window where artifacts appear before full load.
 - [ ] MP-146 Improve controls-row bracket styling so `[` `]` tokens track active theme colors and selected states use stronger contrast/readability (especially for arrow-mode focus visibility).
 - [ ] MP-147 Fix Cursor-only mouse-mode scroll conflict: with mouse mode ON, chat/conversation scroll should still work in Cursor for both Codex and Claude backends; preserve current JetBrains behavior (works today in PyCharm/JetBrains), keep architecture/change scope explicitly Cursor-specific, and require JetBrains non-regression validation so the Cursor fix does not break JetBrains scrolling.
@@ -204,3 +220,4 @@
 - `dev/archive/2026-02-01-terminal-restore-guard.md`
 - `dev/archive/2026-02-01-transcript-queue-flush.md`
 - `dev/archive/2026-02-02-release-audit-completed.md`
+- `dev/archive/2026-02-17-tooling-control-plane-consolidation.md`

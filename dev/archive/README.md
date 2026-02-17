@@ -18,3 +18,4 @@ This folder stores completed work items pulled from the active master plan.
 - 2026-02-06-modularization-plan.md
 - 2026-02-15-rust-gui-audit.md
 - 2026-02-16-post-v1-0-64-audit.md
+- 2026-02-17-tooling-control-plane-consolidation.md

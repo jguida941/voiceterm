@@ -7,12 +7,23 @@
 #
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+if [[ "${VOICETERM_DEVCTL_INTERNAL:-0}" != "1" ]]; then
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        echo "Usage: ./dev/scripts/publish-pypi.sh [--upload] [--yes] [--allow-ci] [--dry-run]"
+        echo "Canonical: python3 dev/scripts/devctl.py pypi [--upload]"
+        exit 0
+    fi
+    exec python3 "$REPO_ROOT/dev/scripts/devctl.py" pypi "$@"
+fi
+
 UPLOAD=0
 if [[ "${1:-}" == "--upload" ]]; then
     UPLOAD=1
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PYPI_DIR="$REPO_ROOT/pypi"
 DIST_DIR="$PYPI_DIR/dist"
 CARGO_TOML="$REPO_ROOT/src/Cargo.toml"
@@ -55,4 +66,3 @@ else
     echo ""
     echo "To publish: ./dev/scripts/publish-pypi.sh --upload"
 fi
-
