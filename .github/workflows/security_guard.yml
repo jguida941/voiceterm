@@ -47,7 +47,7 @@ jobs:
             ${{ runner.os }}-security-cargo-
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        run: cargo install cargo-audit --locked --force
 
       - name: Generate RustSec report
         id: audit
