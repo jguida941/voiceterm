@@ -90,41 +90,7 @@ pub(super) fn handle_input_event(
             }
         }
         InputEvent::VoiceTrigger => {
-            if state.status_state.recording_state == RecordingState::Recording {
-                let _ = stop_active_capture(state, timers, deps);
-            } else {
-                let trigger = if state.auto_voice_enabled {
-                    VoiceCaptureTrigger::Auto
-                } else {
-                    VoiceCaptureTrigger::Manual
-                };
-                if let Err(err) = start_voice_capture(
-                    &mut deps.voice_manager,
-                    trigger,
-                    &deps.writer_tx,
-                    &mut timers.status_clear_deadline,
-                    &mut state.current_status,
-                    &mut state.status_state,
-                ) {
-                    set_status(
-                        &deps.writer_tx,
-                        &mut timers.status_clear_deadline,
-                        &mut state.current_status,
-                        &mut state.status_state,
-                        "Voice capture failed (see log)",
-                        Some(Duration::from_secs(2)),
-                    );
-                    log_debug(&format!("voice capture failed: {err:#}"));
-                    return;
-                }
-                timers.recording_started_at = Some(Instant::now());
-                state.force_send_on_next_transcript = false;
-                reset_capture_visuals(
-                    &mut state.status_state,
-                    &mut timers.preview_clear_deadline,
-                    &mut timers.last_meter_update,
-                );
-            }
+            handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::ManualHotkey);
         }
         InputEvent::SendStagedText => {
             if should_send_staged_text_hotkey(state) {
@@ -220,6 +186,80 @@ pub(super) fn handle_input_event(
             }
         }
     }
+}
+
+pub(super) fn handle_wake_word_detection(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    if !state.config.wake_word || state.overlay_mode != OverlayMode::None {
+        return;
+    }
+    handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::WakeWord);
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum VoiceTriggerOrigin {
+    ManualHotkey,
+    WakeWord,
+}
+
+fn handle_voice_trigger(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    origin: VoiceTriggerOrigin,
+) {
+    if state.status_state.recording_state == RecordingState::Recording {
+        if origin == VoiceTriggerOrigin::ManualHotkey {
+            let _ = stop_active_capture(state, timers, deps);
+        }
+        return;
+    }
+    start_capture_for_trigger(state, timers, deps, origin);
+}
+
+fn start_capture_for_trigger(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    origin: VoiceTriggerOrigin,
+) {
+    let trigger = if state.auto_voice_enabled {
+        VoiceCaptureTrigger::Auto
+    } else {
+        VoiceCaptureTrigger::Manual
+    };
+    if let Err(err) = start_voice_capture_with_hook(
+        &mut deps.voice_manager,
+        trigger,
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+    ) {
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            "Voice capture failed (see log)",
+            Some(Duration::from_secs(2)),
+        );
+        log_debug(&format!("voice capture failed: {err:#}"));
+        return;
+    }
+    if origin == VoiceTriggerOrigin::WakeWord {
+        log_debug("wake-word detection triggered capture");
+    }
+    timers.recording_started_at = Some(Instant::now());
+    state.force_send_on_next_transcript = false;
+    reset_capture_visuals(
+        &mut state.status_state,
+        &mut timers.preview_clear_deadline,
+        &mut timers.last_meter_update,
+    );
 }
 
 fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
@@ -431,8 +471,10 @@ fn handle_overlay_input_event(
                         ArrowKey::Down | ArrowKey::Right => 1,
                     };
                     if direction != 0 && total > 0 {
-                        let next = (state.theme_picker_selected as i32 + direction)
-                            .rem_euclid(total as i32) as usize;
+                        let total_i64 = i64::try_from(total).unwrap_or(1);
+                        let selected_i64 = i64::try_from(state.theme_picker_selected).unwrap_or(0);
+                        let next_i64 = (selected_i64 + i64::from(direction)).rem_euclid(total_i64);
+                        let next = usize::try_from(next_i64).unwrap_or(0);
                         if next != state.theme_picker_selected {
                             state.theme_picker_selected = next;
                             moved = true;

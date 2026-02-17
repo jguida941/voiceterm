@@ -17,6 +17,7 @@ impl CustomBackend {
     ///
     /// The command string is parsed as a shell command (split on whitespace).
     /// Uses default patterns that work with most CLI tools.
+    #[must_use]
     pub fn new(command_str: String) -> Self {
         Self {
             command_str,
@@ -26,6 +27,7 @@ impl CustomBackend {
     }
 
     /// Create a custom backend with full configuration.
+    #[must_use]
     pub fn with_patterns(
         command_str: String,
         prompt_pattern: String,

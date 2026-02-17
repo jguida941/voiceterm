@@ -57,6 +57,27 @@ fn format_settings_row(
             toggle_button(view.auto_voice_enabled),
             width = LABEL_WIDTH
         ),
+        SettingsItem::WakeWord => format!(
+            "{marker} {:<width$} {}",
+            "Wake word",
+            toggle_button(view.wake_word_enabled),
+            width = LABEL_WIDTH
+        ),
+        SettingsItem::WakeSensitivity => {
+            let slider = format_normalized_slider(view.wake_word_sensitivity, 14);
+            format!(
+                "{marker} {:<width$} {slider} {:>3.0}%",
+                "Wake sens",
+                view.wake_word_sensitivity * 100.0,
+                width = LABEL_WIDTH
+            )
+        }
+        SettingsItem::WakeCooldown => format!(
+            "{marker} {:<width$} {}",
+            "Wake cooldn",
+            button_label(&format!("{} ms", view.wake_word_cooldown_ms)),
+            width = LABEL_WIDTH
+        ),
         SettingsItem::SendMode => format!(
             "{marker} {:<width$} {}",
             "Send mode",
@@ -222,6 +243,20 @@ fn format_slider(value_db: f32, width: usize) -> String {
     bar
 }
 
+fn format_normalized_slider(value: f32, width: usize) -> String {
+    let clamped = value.clamp(0.0, 1.0);
+    let pos = ((width.saturating_sub(1)) as f32 * clamped).round() as usize;
+    let mut bar = String::with_capacity(width);
+    for idx in 0..width {
+        if idx == pos {
+            bar.push('●');
+        } else {
+            bar.push('─');
+        }
+    }
+    bar
+}
+
 fn format_box_top(colors: &ThemeColors, width: usize) -> String {
     let borders = &colors.borders;
     // width is the total box width including corners
@@ -323,6 +358,9 @@ mod tests {
         let view = SettingsView {
             selected: 1,
             auto_voice_enabled: false,
+            wake_word_enabled: false,
+            wake_word_sensitivity: 0.55,
+            wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Insert,
             macros_enabled: true,
             sensitivity_db: -35.0,

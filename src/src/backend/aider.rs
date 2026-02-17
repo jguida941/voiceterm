@@ -1,7 +1,7 @@
 //! Aider backend definition so the shared registry can launch Aider consistently.
 //! The Aider backend is not implemented yet, but is a possibe future feature for voiceTerm.
 
-use super::AiBackend;
+use super::{command_with_args, AiBackend};
 
 /// Backend for Aider CLI.
 pub struct AiderBackend {
@@ -16,17 +16,19 @@ impl Default for AiderBackend {
 
 impl AiderBackend {
     /// Create a new Aider backend with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            command: vec!["aider".to_string()],
+            command: command_with_args("aider", Vec::new()),
         }
     }
 
     /// Create an Aider backend with additional arguments.
+    #[must_use]
     pub fn with_args(args: Vec<String>) -> Self {
-        let mut command = vec!["aider".to_string()];
-        command.extend(args);
-        Self { command }
+        Self {
+            command: command_with_args("aider", args),
+        }
     }
 }
 

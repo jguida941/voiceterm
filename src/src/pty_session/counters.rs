@@ -51,13 +51,13 @@ pub(crate) fn reset_pty_session_counters() {
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn pty_session_send_count() -> usize {
-    PTY_SEND_COUNT.with(|count| count.get())
+    PTY_SEND_COUNT.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn pty_session_read_count() -> usize {
-    PTY_READ_COUNT.with(|count| count.get())
+    PTY_READ_COUNT.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -82,7 +82,9 @@ pub(crate) fn set_write_all_limit(limit: Option<usize>) {
 #[allow(dead_code)]
 pub(crate) fn set_terminal_size_override(value: Option<(bool, u16, u16)>) {
     let lock = TERMINAL_SIZE_OVERRIDE.get_or_init(|| Mutex::new(None));
-    *lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = value;
+    *lock
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = value;
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -127,13 +129,13 @@ pub(crate) fn reset_respond_osc_counters() {
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn respond_osc_start() -> usize {
-    RESPOND_OSC_START.with(|val| val.get())
+    RESPOND_OSC_START.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn respond_osc_hits() -> usize {
-    RESPOND_OSC_HITS.with(|val| val.get())
+    RESPOND_OSC_HITS.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -146,13 +148,13 @@ pub(crate) fn reset_apply_osc_counters() {
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn apply_osc_start() -> usize {
-    APPLY_OSC_START.with(|val| val.get())
+    APPLY_OSC_START.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn apply_osc_hits() -> usize {
-    APPLY_OSC_HITS.with(|val| val.get())
+    APPLY_OSC_HITS.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -164,7 +166,7 @@ pub(crate) fn reset_apply_linestart_recalc_count() {
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(crate) fn apply_linestart_recalc_count() -> usize {
-    APPLY_LINESTART_RECALC_COUNT.with(|val| val.get())
+    APPLY_LINESTART_RECALC_COUNT.with(Cell::get)
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -271,7 +273,7 @@ pub(super) fn terminal_size_override() -> Option<(bool, u16, u16)> {
         *TERMINAL_SIZE_OVERRIDE
             .get_or_init(|| Mutex::new(None))
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
     #[cfg(not(any(test, feature = "mutants")))]
     {

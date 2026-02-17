@@ -45,12 +45,17 @@ voiceterm --logs                        # Enable debug logging
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
 | `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
 | `--voice-send-mode <auto\|insert>` | `auto` types text and presses Enter; `insert` types text, you press Enter | auto |
+| `--wake-word` | Enable local wake-word listening (off by default) | off |
+| `--wake-word-sensitivity <0.0-1.0>` | Wake detector sensitivity | 0.55 |
+| `--wake-word-cooldown-ms <MS>` | Cooldown between wake triggers (500-10000) | 2000 |
 | `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
 `Macros` is currently a runtime Settings toggle (`Ctrl+O`) and does not yet
 have a CLI flag.
 `Voice pipeline` is also a runtime Settings value (no dedicated CLI flag), and
 status text remains pipeline-neutral.
+Wake-word listening uses local audio/STT and requires an available local
+Whisper model path.
 High-load HUD responsiveness and meter visualization behavior are also runtime
 Settings/HUD concerns (no dedicated CLI flags); see
 [`Testing_Guide.md`](../Testing_Guide.md) sections `3`, `3A`, and `4A` for

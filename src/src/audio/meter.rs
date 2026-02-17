@@ -13,6 +13,7 @@ pub struct LiveMeter {
 
 impl LiveMeter {
     /// Initialize to a floor value so UI status starts from silence, not zero.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             level_bits: Arc::new(AtomicU32::new(DEFAULT_METER_DB.to_bits())),
@@ -25,6 +26,7 @@ impl LiveMeter {
     }
 
     /// Read the most recent dB value.
+    #[must_use]
     pub fn level_db(&self) -> f32 {
         f32::from_bits(self.level_bits.load(Ordering::Relaxed))
     }

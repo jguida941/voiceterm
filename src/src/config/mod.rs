@@ -262,6 +262,7 @@ pub enum VadEngineKind {
 
 impl VadEngineKind {
     /// Stable lowercase identifier used in logs, metrics, and status output.
+    #[must_use]
     pub fn label(self) -> &'static str {
         match self {
             VadEngineKind::Earshot => "earshot",

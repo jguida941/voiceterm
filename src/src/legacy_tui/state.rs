@@ -238,6 +238,7 @@ pub struct CodexApp {
 
 impl CodexApp {
     /// Create the application state with default status text.
+    #[must_use]
     pub fn new(config: AppConfig) -> Self {
         let backend: Arc<dyn CodexJobRunner> = Arc::new(CodexCliBackend::new(config.clone()));
         Self {
@@ -339,7 +340,7 @@ impl CodexApp {
             None
         };
         let using_native = transcriber.is_some() && recorder.is_some();
-        let job = voice::start_voice_job(recorder, transcriber.clone(), self.config.clone(), None);
+        let job = voice::start_voice_job(recorder, transcriber, self.config.clone(), None);
         self.voice_job = Some(job);
 
         let pipeline_label = if using_native {

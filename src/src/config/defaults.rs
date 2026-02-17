@@ -52,6 +52,7 @@ pub(super) const DEFAULT_PIPELINE_SCRIPT: &str =
 // PTY helper removed - using native Rust PtyCliSession instead
 
 /// Select the default VAD engine based on compile-time feature availability.
+#[must_use]
 pub const fn default_vad_engine() -> VadEngineKind {
     #[cfg(feature = "vad_earshot")]
     {

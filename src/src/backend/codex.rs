@@ -1,6 +1,6 @@
 //! Codex backend definition so Codex CLI plugs into the shared backend registry.
 
-use super::AiBackend;
+use super::{command_with_args, AiBackend};
 
 /// Backend for Codex CLI.
 pub struct CodexBackend {
@@ -15,17 +15,19 @@ impl Default for CodexBackend {
 
 impl CodexBackend {
     /// Create a new Codex backend with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            command: vec!["codex".to_string()],
+            command: command_with_args("codex", Vec::new()),
         }
     }
 
     /// Create a Codex backend with additional arguments.
+    #[must_use]
     pub fn with_args(args: Vec<String>) -> Self {
-        let mut command = vec!["codex".to_string()];
-        command.extend(args);
-        Self { command }
+        Self {
+            command: command_with_args("codex", args),
+        }
     }
 }
 

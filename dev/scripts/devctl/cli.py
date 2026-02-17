@@ -28,7 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     # check
     check_cmd = sub.add_parser("check", help="Run fmt/clippy/tests/build (and optional extras)")
-    check_cmd.add_argument("--profile", choices=["ci", "prepush", "release", "quick"])
+    check_cmd.add_argument(
+        "--profile",
+        choices=["ci", "prepush", "release", "maintainer-lint", "quick"],
+    )
     check_cmd.add_argument("--ci", action="store_true", help="Match rust_ci.yml scope (alias for --profile ci)")
     check_cmd.add_argument("--prepush", action="store_true", help="Run CI + perf/mem loop (alias for --profile prepush)")
     check_cmd.add_argument("--skip-fmt", action="store_true")
@@ -39,6 +42,13 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.add_argument("--with-perf", action="store_true", help="Run perf smoke + verify")
     check_cmd.add_argument("--with-mem-loop", action="store_true", help="Run memory guard loop")
     check_cmd.add_argument("--mem-iterations", type=int, default=DEFAULT_MEM_ITERATIONS)
+    check_cmd.add_argument("--with-wake-guard", action="store_true", help="Run wake-word regression + soak guard")
+    check_cmd.add_argument(
+        "--wake-soak-rounds",
+        type=int,
+        default=4,
+        help="Wake-word soak iterations when wake guard is enabled",
+    )
     check_cmd.add_argument("--with-mutants", action="store_true", help="Run mutants after checks")
     check_cmd.add_argument("--with-mutation-score", action="store_true", help="Check mutation score")
     check_cmd.add_argument("--mutation-score-path", help="Path to outcomes.json")

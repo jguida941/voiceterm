@@ -121,10 +121,7 @@ impl HudRegistry {
     /// Get a module by ID.
     #[allow(dead_code)]
     pub fn get(&self, id: &str) -> Option<&dyn HudModule> {
-        self.modules
-            .iter()
-            .find(|m| m.id() == id)
-            .map(|m| m.as_ref())
+        self.modules.iter().find(|m| m.id() == id).map(Box::as_ref)
     }
 
     /// Number of registered modules.
@@ -199,7 +196,7 @@ impl HudRegistry {
     /// Iterate over all registered modules.
     #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = &dyn HudModule> {
-        self.modules.iter().map(|m| m.as_ref())
+        self.modules.iter().map(Box::as_ref)
     }
 }
 

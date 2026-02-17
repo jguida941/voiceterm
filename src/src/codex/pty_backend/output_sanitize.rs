@@ -1,6 +1,7 @@
 use strip_ansi_escapes::strip;
 
 /// Normalize CR/LF pairs, strip ANSI, and guarantee clean UTF-8 suitable for the TUI.
+#[must_use]
 pub fn sanitize_pty_output(raw: &[u8]) -> String {
     if raw.is_empty() {
         return String::new();
@@ -16,8 +17,9 @@ pub fn sanitize_pty_output(raw: &[u8]) -> String {
 }
 
 /// Split normalized text into UI-ready lines for terminal rendering.
+#[must_use]
 pub fn prepare_for_display(text: &str) -> Vec<String> {
-    text.lines().map(|line| line.to_string()).collect()
+    text.lines().map(ToString::to_string).collect()
 }
 
 pub(in crate::codex) fn normalize_control_bytes(raw: &[u8]) -> Vec<u8> {

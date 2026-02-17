@@ -104,7 +104,7 @@ After each push, run this loop before ending the session:
 2. Verify CI status (`python3 dev/scripts/devctl.py status --ci --format md` or Actions UI).
    - Confirm all push-triggered workflows for the release commit are green.
    - Check latest `mutation-testing.yml` run status separately (scheduled/manual lane).
-   - Explicitly verify scope-critical lanes (at minimum: `rust_ci.yml`, `voice_mode_guard.yml`, `security_guard.yml`, and `docs_lint.yml`).
+   - Explicitly verify scope-critical lanes (at minimum: `rust_ci.yml`, `voice_mode_guard.yml`, `wake_word_guard.yml`, `security_guard.yml`, and `docs_lint.yml`).
 3. If CI fails, add/adjust a `MASTER_PLAN` item and rerun checks until green.
 4. Re-validate docs alignment for any behavior/flag/UI changes.
    - For post-commit clean trees, use commit-range mode:
@@ -120,6 +120,9 @@ After each push, run this loop before ending the session:
   - `python3 dev/scripts/devctl.py check --profile prepush`
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic` (baseline runs)
   - `./dev/scripts/tests/measure_latency.sh --ci-guard` (synthetic regression guardrails)
+- Wake-word runtime/detection changes:
+  - `bash dev/scripts/tests/wake_word_guard.sh`
+  - `python3 dev/scripts/devctl.py check --profile release`
 - Threading/lifecycle/memory changes:
   - `cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
 - Unsafe/FFI lifecycle changes:
@@ -215,6 +218,9 @@ python3 dev/scripts/devctl.py check --profile ci
 # Pre-push scope (CI + perf + mem loop)
 python3 dev/scripts/devctl.py check --profile prepush
 
+# Maintainer lint-hardening scope (strict clippy subset)
+python3 dev/scripts/devctl.py check --profile maintainer-lint
+
 # User-facing docs enforcement
 python3 dev/scripts/devctl.py docs-check --user-facing
 
@@ -240,6 +246,7 @@ Legacy shell scripts under `dev/scripts/*.sh` are transitional adapters. For mai
 
 - `rust_ci.yml`: format, clippy, and test for `src/`.
 - `voice_mode_guard.yml`: targeted macros-toggle and send-mode regression tests.
+- `wake_word_guard.yml`: wake-word regression + soak guardrails (false-positive and matcher-latency gates).
 - `perf_smoke.yml`: perf smoke test and voice metrics verification.
 - `latency_guard.yml`: synthetic latency regression guardrails.
 - `memory_guard.yml`: repeated memory guard test.
@@ -247,6 +254,7 @@ Legacy shell scripts under `dev/scripts/*.sh` are transitional adapters. For mai
 - `security_guard.yml`: RustSec advisory policy lane (high/critical CVSS threshold + yanked/unsound fail list).
 - `parser_fuzz_guard.yml`: property-fuzz coverage for PTY parser/ANSI-OSC boundary handling.
 - `docs_lint.yml`: markdownlint checks for published user/developer docs.
+- `lint_hardening.yml`: focused maintainer lint-hardening lane (`devctl check --profile maintainer-lint`) for high-value clippy risks (redundant clones/closures, risky wrap casts, dead-code drift).
 - `tooling_control_plane.yml`: devctl unit tests, shell adapter integrity, and docs-policy/deprecated-command guard for maintainer tooling surfaces.
 
 ## CI expansion policy

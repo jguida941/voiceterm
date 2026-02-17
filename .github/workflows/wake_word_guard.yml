@@ -1,0 +1,31 @@
+name: Wake Word Guard
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "dev/scripts/tests/wake_word_guard.sh"
+      - ".github/workflows/wake_word_guard.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dev/scripts/tests/wake_word_guard.sh"
+      - ".github/workflows/wake_word_guard.yml"
+
+jobs:
+  wake-word-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Run wake-word guardrails
+        env:
+          WAKE_WORD_SOAK_ROUNDS: "4"
+        run: bash dev/scripts/tests/wake_word_guard.sh

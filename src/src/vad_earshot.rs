@@ -13,6 +13,7 @@ pub struct EarshotVad {
 
 impl EarshotVad {
     /// Build an Earshot-backed VAD using thresholds/frame sizing from pipeline config.
+    #[must_use]
     pub fn from_config(cfg: &VoicePipelineConfig) -> Self {
         let profile = match cfg.vad_threshold_db {
             t if t <= -50.0 => VoiceActivityProfile::VERY_AGGRESSIVE,

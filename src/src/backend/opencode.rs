@@ -1,6 +1,6 @@
 //! OpenCode backend definition so OpenCode can run via the common launcher path.
 
-use super::AiBackend;
+use super::{command_with_args, AiBackend};
 
 /// Backend for OpenCode CLI.
 pub struct OpenCodeBackend {
@@ -15,17 +15,19 @@ impl Default for OpenCodeBackend {
 
 impl OpenCodeBackend {
     /// Create a new OpenCode backend with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            command: vec!["opencode".to_string()],
+            command: command_with_args("opencode", Vec::new()),
         }
     }
 
     /// Create an OpenCode backend with additional arguments.
+    #[must_use]
     pub fn with_args(args: Vec<String>) -> Self {
-        let mut command = vec!["opencode".to_string()];
-        command.extend(args);
-        Self { command }
+        Self {
+            command: command_with_args("opencode", args),
+        }
     }
 }
 

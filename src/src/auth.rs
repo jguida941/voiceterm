@@ -4,6 +4,11 @@
 pub type AuthResult = std::result::Result<(), String>;
 
 /// Run `<command> login` using the controlling TTY so the CLI can prompt the user.
+///
+/// # Errors
+///
+/// Returns an error when the command is empty, a controlling TTY cannot be
+/// opened, process launch fails, or the login command exits unsuccessfully.
 pub fn run_login_command(command: &str) -> AuthResult {
     let trimmed = command.trim();
     if trimmed.is_empty() {

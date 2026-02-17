@@ -114,6 +114,9 @@ cd src && cargo test --bin voiceterm
 # Perf smoke (voice metrics)
 cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
 
+# Wake-word regression + soak guardrails
+bash dev/scripts/tests/wake_word_guard.sh
+
 # Memory guard (thread cleanup)
 cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
@@ -173,6 +176,12 @@ python3 dev/scripts/devctl.py check --profile ci
 
 # Pre-push scope (CI + perf + mem loop)
 python3 dev/scripts/devctl.py check --profile prepush
+
+# Maintainer lint-hardening lane (strict clippy policy subset)
+python3 dev/scripts/devctl.py check --profile maintainer-lint
+
+# Release verification lane (includes wake-word guard + mutation-score gate)
+python3 dev/scripts/devctl.py check --profile release
 
 # Quick scope (fmt-check + clippy only)
 python3 dev/scripts/devctl.py check --profile quick
@@ -272,6 +281,7 @@ GitHub Actions run on every push and PR:
 |----------|------|----------------|
 | Rust TUI CI | `.github/workflows/rust_ci.yml` | Build, test, clippy, fmt |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | Focused macros toggle + send-mode label regressions |
+| Wake Word Guard | `.github/workflows/wake_word_guard.yml` | Wake-word regression + soak guardrails |
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | Perf smoke test + metrics verification |
 | Latency Guard | `.github/workflows/latency_guard.yml` | Synthetic latency regression guardrails |
 | Memory Guard | `.github/workflows/memory_guard.yml` | 20x memory guard loop |
@@ -279,6 +289,7 @@ GitHub Actions run on every push and PR:
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
+| Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs/deprecated-command policy guard |
 
 **Before pushing, run locally (recommended):**

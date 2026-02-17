@@ -11,6 +11,21 @@ from ..steps import format_steps_md
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
+# Enforced maintainer-lint families (all clean at zero findings):
+#   redundant_clone, redundant_closure_for_method_calls, cast_possible_wrap, dead_code
+# Deferred (intentional DSP casts in audio pipeline; needs per-site #[allow] sweep first):
+#   cast_precision_loss, cast_possible_truncation (20+ usize<->f32/f64 casts in signal processing)
+MAINTAINER_LINT_CLIPPY_ARGS = [
+    "-W",
+    "clippy::redundant_clone",
+    "-W",
+    "clippy::redundant_closure_for_method_calls",
+    "-W",
+    "clippy::cast_possible_wrap",
+    "-W",
+    "dead_code",
+]
+
 
 def run(args) -> int:
     """Run the configured check profile and return exit code."""
@@ -23,6 +38,8 @@ def run(args) -> int:
     with_mem_loop = args.with_mem_loop
     with_mutants = args.with_mutants
     with_mutation_score = args.with_mutation_score
+    with_wake_guard = args.with_wake_guard
+    clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
 
     if args.profile == "ci":
         skip_build = True
@@ -30,17 +47,38 @@ def run(args) -> int:
         with_mem_loop = False
         with_mutants = False
         with_mutation_score = False
+        with_wake_guard = False
     elif args.profile == "prepush":
         with_perf = True
         with_mem_loop = True
     elif args.profile == "release":
         with_mutation_score = True
+        with_wake_guard = True
+    elif args.profile == "maintainer-lint":
+        skip_tests = True
+        skip_build = True
+        with_perf = False
+        with_mem_loop = False
+        with_mutants = False
+        with_mutation_score = False
+        with_wake_guard = False
+        clippy_cmd = [
+            "cargo",
+            "clippy",
+            "--workspace",
+            "--all-features",
+            "--",
+            "-D",
+            "warnings",
+            *MAINTAINER_LINT_CLIPPY_ARGS,
+        ]
     elif args.profile == "quick":
         skip_build = True
         skip_tests = True
+        with_wake_guard = False
 
-    def add_step(name: str, cmd: List[str], cwd=None) -> None:
-        result = run_cmd(name, cmd, cwd=cwd, env=env, dry_run=args.dry_run)
+    def add_step(name: str, cmd: List[str], cwd=None, step_env=None) -> None:
+        result = run_cmd(name, cmd, cwd=cwd, env=step_env or env, dry_run=args.dry_run)
         steps.append(result)
         if result["returncode"] != 0 and not args.keep_going:
             raise RuntimeError(f"{name} failed")
@@ -58,7 +96,7 @@ def run(args) -> int:
         if not args.skip_clippy:
             add_step(
                 "clippy",
-                ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"],
+                clippy_cmd,
                 cwd=SRC_DIR,
             )
         if not skip_tests:
@@ -68,6 +106,15 @@ def run(args) -> int:
                 "build-release",
                 ["cargo", "build", "--release", "--bin", "voiceterm"],
                 cwd=SRC_DIR,
+            )
+        if with_wake_guard:
+            wake_guard_env = dict(env)
+            wake_guard_env["WAKE_WORD_SOAK_ROUNDS"] = str(args.wake_soak_rounds)
+            add_step(
+                "wake-guard",
+                ["bash", "dev/scripts/tests/wake_word_guard.sh"],
+                cwd=REPO_ROOT,
+                step_env=wake_guard_env,
             )
         if with_perf:
             add_step(

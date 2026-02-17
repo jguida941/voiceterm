@@ -113,9 +113,11 @@ graph TD
   PtyReader["PTY reader thread<br>raw ANSI output"]
   WriterThread["Writer thread<br>serializes output + status"]
   VoiceThread["Voice worker thread<br>capture + STT"]
+  WakeThread["Wake listener thread<br>local detect + cooldown"]
 
   InputThread -->|InputEvent| Main
   PtyReader -->|PTY output| Main
+  WakeThread -->|WakeWordEvent| Main
   Main -->|WriterMessage| WriterThread
   Main -->|start voice| VoiceThread
   VoiceThread -->|VoiceJobMessage| Main
@@ -127,6 +129,7 @@ Why this matters:
 - **PTY reader** keeps ANSI intact while replying to terminal queries (DSR/DA).
 - **Writer thread** prevents output + status/help overlay interleaving.
 - **Voice thread** keeps audio/Whisper work off the main loop.
+- **Wake listener thread** runs local hotword detection behind an opt-in toggle and emits bounded wake events that reuse the main capture pipeline.
 
 ## Startup Sequence
 
@@ -231,8 +234,9 @@ When workflow mechanics change (dev loop, CI lanes, release flow), update this s
 2. Implement code + tests in one change.
 3. Run local verification (`python3 dev/scripts/devctl.py check --profile ci` minimum).
 4. For latency-sensitive work, also run `./dev/scripts/tests/measure_latency.sh --ci-guard`.
-5. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
-6. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
+5. For wake-word runtime/matching changes, run `bash dev/scripts/tests/wake_word_guard.sh`.
+6. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
+7. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
 
 Primary command entrypoint: `dev/scripts/devctl.py`.
 
@@ -242,6 +246,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 |---|---|---|
 | Rust CI | `.github/workflows/rust_ci.yml` | fmt + clippy + workspace tests |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | macros-toggle and send-mode regression tests |
+| Wake Word Guard | `.github/workflows/wake_word_guard.yml` | wake-word regression + soak guardrails (false-positive + matcher-latency checks) |
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | validate `voice_metrics\|...` logging contract |
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
@@ -249,11 +254,12 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (fail on high/critical CVSS, yanked, unsound) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
+| Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` (redundant clones/closures, risky wrap casts, dead-code drift) |
 
 ### 3) Release Workflow (Master Branch)
 
 1. Finalize release metadata (`src/Cargo.toml`, `dev/CHANGELOG.md`).
-2. Verify release scope (at least CI-profile checks; release profile when needed).
+2. Verify release scope (at least CI-profile checks; `devctl check --profile release` when wake/soak/mutation gates are required).
 3. Promote/push from `master`, tag (`vX.Y.Z`), publish GitHub release.
 4. Publish PyPI package via `./dev/scripts/publish-pypi.sh --upload`.
 5. Update Homebrew tap via `./dev/scripts/update-homebrew.sh <version>`.
@@ -405,6 +411,7 @@ sequenceDiagram
 - On SIGWINCH, `ioctl(TIOCSWINSZ)` updates the PTY size and forwards SIGWINCH to the PTY process group (with direct-PID fallback).
 - On drop, PTY sessions attempt graceful `exit`, then send `SIGTERM`/`SIGKILL` to the PTY process group (with direct-PID fallback) and reap the direct child to prevent orphan/zombie buildup.
 - Before new PTY spawns, VoiceTerm scans stale session-lease files (owner PID + backend PID metadata) and reaps only leases whose owner process is gone, so multi-session runtime remains supported while orphaned backend parents from crashed sessions are cleaned automatically.
+- As a secondary fail-safe, session-guard also sweeps detached backend CLIs (`PPID=1`) that are old enough, not tied to active lease files, and no longer share a TTY with any live shell process; this catches stale backend leftovers that escaped lease-based ownership tracking.
 
 ## Output Serialization
 
@@ -435,6 +442,7 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/event_loop/periodic_tasks.rs` - timer-driven tasks (spinner, status expiry, meter cadence)
 - `src/src/bin/voiceterm/event_loop/tests.rs` - event-loop regression coverage for overlay/input/output behavior
 - `src/src/bin/voiceterm/event_state.rs` - event loop state, deps, and timers shared by the main loop
+- `src/src/bin/voiceterm/wake_word.rs` - wake listener runtime ownership, local detector lifecycle, and wake event channel wiring
 - `src/src/bin/voiceterm/banner.rs` - startup splash + banner configuration
 - `src/src/bin/voiceterm/terminal.rs` - terminal sizing, modes, and signal handling
 - `src/src/bin/voiceterm/arrow_keys.rs` - arrow key normalization helpers

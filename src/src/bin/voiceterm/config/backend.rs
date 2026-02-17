@@ -78,7 +78,7 @@ impl OverlayConfig {
         }
 
         ResolvedBackend {
-            command: primary.clone(),
+            command: primary,
             args: extra_args,
             label: primary_label.to_lowercase(),
             prompt_pattern: None,
@@ -104,6 +104,9 @@ mod tests {
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
             voice_send_mode: VoiceSendMode::Auto,
+            wake_word: false,
+            wake_word_sensitivity: 0.55,
+            wake_word_cooldown_ms: 2000,
             theme_name: None,
             no_color: false,
             hud_right_panel: HudRightPanel::Ribbon,

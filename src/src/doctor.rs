@@ -11,6 +11,7 @@ pub struct DoctorReport {
 
 impl DoctorReport {
     /// Create a new report with the provided title line.
+    #[must_use]
     pub fn new(title: &str) -> Self {
         Self {
             lines: vec![title.to_string()],
@@ -34,12 +35,14 @@ impl DoctorReport {
     }
 
     /// Render the full report as newline-separated text.
+    #[must_use]
     pub fn render(&self) -> String {
         self.lines.join("\n")
     }
 }
 
 /// Build the baseline doctor report shared by all VoiceTerm binaries.
+#[must_use]
 pub fn base_doctor_report(config: &AppConfig, binary_name: &str) -> DoctorReport {
     let mut report = DoctorReport::new("VoiceTerm Doctor");
     report.push_kv("version", env!("CARGO_PKG_VERSION"));

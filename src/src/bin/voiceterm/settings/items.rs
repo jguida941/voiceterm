@@ -7,6 +7,9 @@ use crate::theme::Theme;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsItem {
     AutoVoice,
+    WakeWord,
+    WakeSensitivity,
+    WakeCooldown,
     SendMode,
     Macros,
     Sensitivity,
@@ -25,6 +28,9 @@ pub enum SettingsItem {
 
 pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::AutoVoice,
+    SettingsItem::WakeWord,
+    SettingsItem::WakeSensitivity,
+    SettingsItem::WakeCooldown,
     SettingsItem::SendMode,
     SettingsItem::Macros,
     SettingsItem::Sensitivity,
@@ -59,6 +65,9 @@ pub fn settings_overlay_height() -> usize {
 pub struct SettingsView<'a> {
     pub selected: usize,
     pub auto_voice_enabled: bool,
+    pub wake_word_enabled: bool,
+    pub wake_word_sensitivity: f32,
+    pub wake_word_cooldown_ms: u64,
     pub send_mode: VoiceSendMode,
     pub macros_enabled: bool,
     pub sensitivity_db: f32,

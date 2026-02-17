@@ -7,6 +7,7 @@ use unicode_width::UnicodeWidthChar;
 
 /// Returns a prefix of the string up to `max_chars` characters.
 /// Respects UTF-8 boundaries and won't panic on multi-byte characters.
+#[must_use]
 pub fn safe_prefix(s: &str, max_chars: usize) -> &str {
     if s.is_empty() || max_chars == 0 {
         return "";
@@ -25,6 +26,7 @@ pub fn safe_prefix(s: &str, max_chars: usize) -> &str {
 
 /// Returns a slice of the string from `start_chars` for `len_chars` characters.
 /// Respects UTF-8 boundaries and won't panic on multi-byte characters.
+#[must_use]
 pub fn safe_slice(s: &str, start_chars: usize, len_chars: usize) -> &str {
     if len_chars == 0 || s.is_empty() {
         return "";
@@ -57,6 +59,7 @@ pub fn safe_slice(s: &str, start_chars: usize, len_chars: usize) -> &str {
 
 /// Returns a suffix of the string starting from the last `max_chars` characters.
 /// Respects UTF-8 boundaries and won't panic on multi-byte characters.
+#[must_use]
 pub fn safe_suffix(s: &str, max_chars: usize) -> &str {
     if s.is_empty() || max_chars == 0 {
         return "";
@@ -81,6 +84,7 @@ pub fn safe_suffix(s: &str, max_chars: usize) -> &str {
 
 /// Truncates a string to `max_chars` characters and adds an ellipsis if truncated.
 /// Respects UTF-8 boundaries and won't panic on multi-byte characters.
+#[must_use]
 pub fn ellipsize(s: &str, max_chars: usize) -> String {
     if s.chars().count() <= max_chars {
         return s.to_string();
@@ -100,6 +104,7 @@ pub fn ellipsize(s: &str, max_chars: usize) -> String {
 
 /// Return a slice of the string bounded by display columns rather than raw characters.
 /// This prevents splitting a multi-byte or double-width glyph when showing a viewport.
+#[must_use]
 pub fn window_by_columns(s: &str, start_cols: usize, width_cols: usize) -> &str {
     if width_cols == 0 || s.is_empty() {
         return "";
@@ -161,6 +166,7 @@ pub fn window_by_columns(s: &str, start_cols: usize, width_cols: usize) -> &str 
 
 /// Safely splits a string at a byte position, returning None if the position
 /// is not on a UTF-8 character boundary.
+#[must_use]
 pub fn safe_split_at(s: &str, byte_pos: usize) -> Option<(&str, &str)> {
     if byte_pos > s.len() {
         return None;
@@ -175,6 +181,7 @@ pub fn safe_split_at(s: &str, byte_pos: usize) -> Option<(&str, &str)> {
 
 /// Returns a safe substring from byte positions, adjusting to nearest character boundaries.
 /// If start or end are not on boundaries, they are adjusted inward.
+#[must_use]
 pub fn safe_byte_slice(s: &str, start: usize, end: usize) -> &str {
     if start >= s.len() {
         return "";
@@ -210,11 +217,13 @@ pub fn safe_byte_slice(s: &str, start: usize, end: usize) -> &str {
 }
 
 /// Counts the number of characters in a string (not bytes).
+#[must_use]
 pub fn char_count(s: &str) -> usize {
     s.chars().count()
 }
 
 /// Safely gets a character at a given character index (not byte index).
+#[must_use]
 pub fn char_at(s: &str, char_idx: usize) -> Option<char> {
     s.chars().nth(char_idx)
 }

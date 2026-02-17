@@ -26,6 +26,11 @@ use unicode_width::UnicodeWidthChar;
 use unicode_width::UnicodeWidthStr;
 
 /// Configure the terminal, run the legacy TUI drawing loop, and tear everything down.
+///
+/// # Errors
+///
+/// Returns an error if terminal initialization fails, event polling/reading
+/// fails, or backend/voice job polling returns an error.
 pub fn run_legacy_ui(app: &mut CodexApp) -> Result<()> {
     let terminal_guard = TerminalRestoreGuard::new();
     terminal_guard.enable_raw_mode()?;

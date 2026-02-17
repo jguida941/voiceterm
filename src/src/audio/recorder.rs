@@ -40,6 +40,10 @@ pub struct Recorder {
 
 impl Recorder {
     /// List microphone names so the CLI can expose a human-friendly selector.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the host cannot enumerate input devices.
     pub fn list_devices() -> Result<Vec<String>> {
         let host = cpal::default_host();
         let devices = host.input_devices().context("no input devices available")?;
@@ -54,6 +58,11 @@ impl Recorder {
 
     /// Create a recorder, optionally forcing a specific device so users can pick
     /// the right microphone when a laptop exposes multiple inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if input devices cannot be enumerated, no default device
+    /// exists, or the requested device name is not available.
     pub fn new(preferred_device: Option<&str>) -> Result<Self> {
         let host = cpal::default_host();
         let device = match preferred_device {
@@ -71,6 +80,7 @@ impl Recorder {
     }
 
     /// Get the name of the active recording device.
+    #[must_use]
     pub fn device_name(&self) -> String {
         self.device
             .name()
@@ -79,11 +89,16 @@ impl Recorder {
 
     /// Record audio for `duration`, normalize the incoming format, and return
     /// 16 kHz mono data that Whisper can consume directly.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stream setup fails, capture yields no samples, or
+    /// synchronization around the shared callback buffer fails.
     pub fn record_for(&self, duration: Duration) -> Result<Vec<f32>> {
         // Get the device's default config so we know the native format and channel count.
         let default_config = self.device.default_input_config()?;
         let format = default_config.sample_format();
-        let device_config: StreamConfig = default_config.clone().into();
+        let device_config: StreamConfig = default_config.into();
         let device_sample_rate = device_config.sample_rate.0;
         let channels = usize::from(device_config.channels.max(1));
         let device_name = self
@@ -169,12 +184,21 @@ impl Recorder {
     }
 
     /// Record audio for `seconds`. Convenience wrapper around record_for.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error produced by [`Self::record_for`].
     pub fn record(&self, seconds: u64) -> Result<Vec<f32>> {
         self.record_for(Duration::from_secs(seconds))
     }
 
     #[cfg(not(test))]
     /// Record audio until VAD signals stop or the stop flag is set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input stream cannot be created/started, frame
+    /// collection fails, or no usable audio is captured before exit.
     pub fn record_with_vad(
         &self,
         cfg: &VadConfig,
@@ -244,7 +268,7 @@ fn record_with_vad_impl(
 ) -> Result<CaptureResult> {
     let default_config = recorder.device.default_input_config()?;
     let format = default_config.sample_format();
-    let device_config: StreamConfig = default_config.clone().into();
+    let device_config: StreamConfig = default_config.into();
     let device_sample_rate = device_config.sample_rate.0;
     let channels = usize::from(device_config.channels.max(1));
     let frame_ms = cfg.frame_ms.clamp(5, 120);
@@ -261,7 +285,6 @@ fn record_with_vad_impl(
     let err_fn = |err| log_debug(&format!("audio_stream_error: {err}"));
     let stream = match format {
         SampleFormat::F32 => {
-            let dispatcher = dispatcher.clone();
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,
@@ -277,7 +300,6 @@ fn record_with_vad_impl(
             )?
         }
         SampleFormat::I16 => {
-            let dispatcher = dispatcher.clone();
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,
@@ -293,7 +315,6 @@ fn record_with_vad_impl(
             )?
         }
         SampleFormat::U16 => {
-            let dispatcher = dispatcher.clone();
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,

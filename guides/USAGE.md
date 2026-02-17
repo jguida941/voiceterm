@@ -114,6 +114,7 @@ Open with `Ctrl+O`.
 Common settings:
 
 - Auto-voice
+- Wake word (`OFF`/`ON`, sensitivity, cooldown; default `OFF`)
 - Send mode (`auto` or `insert`)
 - Macros toggle
 - Mic threshold
@@ -145,6 +146,8 @@ Three controls define runtime behavior:
 - In `insert` mode, Enter is submit-only for staged text.
 - `Ctrl+R` stops recording without sending.
 - `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it is a no-op.
+- Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
+- In Full HUD, wake privacy state is explicit: `Wake: ON` (theme-matched pulse) means always-listening is active, and `Wake: PAUSED` means wake listening is temporarily suspended during active capture/transcription.
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
 

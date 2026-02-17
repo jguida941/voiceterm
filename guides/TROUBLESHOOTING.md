@@ -3,11 +3,6 @@
 Single troubleshooting reference for VoiceTerm.
 Use the quick-fix table first, then jump to the detailed section.
 
-Docs map:
-
-- User guides index: [README.md](README.md)
-- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
-
 ## Quick Fixes
 
 | Problem | First action | Section |
@@ -20,13 +15,13 @@ Docs map:
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
 | No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
 | Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
-| Settings/HUD lags while backend is busy | Run high-load responsiveness checks | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
+| Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
 | JetBrains cursor briefly flashes pipe/block cursor over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
 | Raw `[<...` text appears in terminal input | Update to latest and verify mouse-sequence handling | [Raw mouse escape text appears in terminal](#raw-mouse-escape-text-appears-in-terminal) |
-| Latency badge appears during no-speech auto cycles | Verify release + inspect latency audit logs | [Latency badge seems wrong in auto mode](#latency-badge-seems-wrong-in-auto-mode) |
-| Transcript includes tags like `(siren wailing)` | Update sanitizer behavior and verify logs | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
+| Latency badge appears during no-speech auto cycles | Re-run with logs and compare latest transcript timing | [Latency badge seems wrong in auto mode](#latency-badge-seems-wrong-in-auto-mode) |
+| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
@@ -275,12 +270,8 @@ If Claude tool actions run without approval prompts, check whether
 
 ### Many codex or claude processes remain after quitting
 
-Current releases terminate backend process groups and reap child processes on exit.
-VoiceTerm also records per-session backend ownership leases and reaps stale
-backend parents from dead VoiceTerm owners before new PTY launches. This
-startup cleanup does **not** force single-session usage; concurrently active
-VoiceTerm sessions are preserved.
-If you still observe leftovers:
+VoiceTerm should clean up backend processes on exit. If you still observe
+leftover `codex`/`claude` processes:
 
 1. Confirm version:
 
@@ -288,21 +279,19 @@ If you still observe leftovers:
    voiceterm --version
    ```
 
-2. Check for orphaned backend processes:
+2. Fully quit VoiceTerm and reopen it once.
+3. Check for orphaned backend processes:
 
    ```bash
    ps -axo ppid,pid,command | egrep '(^ *1 .*\\b(codex|claude)\\b)'
    ```
 
-3. If orphans remain, report with:
+4. If orphans remain, report with:
 
    - `voiceterm --version`
    - terminal/IDE name + version
    - launch command
    - relevant `${TMPDIR}/voiceterm_tui.log` lines
-
-For full manual release validation, run `Testing_Guide.md` sections `3` and
-`3A` (normal exit, abrupt kill, multi-session isolation, and churn checks).
 
 ### Auto-voice not triggering
 
@@ -321,6 +310,23 @@ Auto-voice waits for prompt readiness before listening again.
    ```
 
 3. Inspect the prompt log and adjust regex.
+
+### Wake-word enabled but no wake triggers yet
+
+Wake-word listening is local and depends on microphone capture + local Whisper
+transcription, so setup issues can prevent detections.
+
+1. In Full HUD, confirm wake privacy status:
+   - `Wake: ON` means always-listening is active.
+   - `Wake: PAUSED` means wake listening is temporarily suspended while capture/transcription is active.
+2. Confirm expected values in Settings (`Ctrl+O`) or via
+   `--wake-word-sensitivity` / `--wake-word-cooldown-ms`.
+3. Confirm a local Whisper model path is configured and usable in your install.
+4. Try moderate sensitivity first (for example `0.55` to `0.70`), then retest.
+5. Use expected wake phrases (`hey codex`, `ok codex`, `hey claude`, or
+   `voiceterm`) and speak clearly near the mic.
+6. If this persists, keep using `Ctrl+R` / `Ctrl+E` controls and share logs
+   (`voiceterm --logs`).
 
 ### Transcript queued (N)
 
@@ -387,17 +393,10 @@ If arrow keys/settings updates feel delayed while backend output is streaming:
    voiceterm --version
    ```
 
-2. Run the high-load checks in `Testing_Guide.md` section `4A`:
-
-   ```bash
-   yes "voiceterm-load-line" | head -n 50000
-   ```
-
-3. While output is active, open Settings (`Ctrl+O`) and hold arrow navigation
+2. While output is active, open Settings (`Ctrl+O`) and hold arrow navigation
    for several seconds.
-4. In current builds, high-output redraw pacing and queue handling were tuned
-   to keep HUD/settings more reactive; if you still see lag, capture logs.
-5. If lag persists, collect logs with `voiceterm --logs` and include:
+3. Reduce competing terminal load (for example pause very noisy commands) and retry.
+4. If lag persists, collect logs with `voiceterm --logs` and include:
    - terminal/IDE name + version
    - backend (`--codex` or `--claude`)
    - whether recording was active
@@ -433,7 +432,7 @@ speech:
 
 2. Check threshold in Settings (`Ctrl+O`) and adjust sensitivity with `Ctrl+]`
    or `Ctrl+\\` as needed.
-3. Validate expected behavior from `Testing_Guide.md` section `4A`:
+3. Expected behavior after calibration:
    - silence near floor
    - normal speech mostly green
    - loud transients may briefly hit yellow/red
@@ -467,9 +466,6 @@ If HUD rapidly flashes in JetBrains but not Cursor/VS Code:
    reduce random `|`/block cursor artifact flashes over HUD rows.
 3. Reproduce with `voiceterm --logs`.
 4. Share logs + terminal app/version if it persists.
-
-Implementation details on redraw/resize behavior are in
-`dev/ARCHITECTURE.md`.
 
 ### PTY exit write error in logs
 
@@ -675,4 +671,3 @@ When reporting an issue, include:
 | Usage guide | [USAGE.md](USAGE.md) |
 | CLI flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
 | Whisper guide | [WHISPER.md](WHISPER.md) |
-| Developer architecture | [../dev/ARCHITECTURE.md](../dev/ARCHITECTURE.md) |

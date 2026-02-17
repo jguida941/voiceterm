@@ -3,6 +3,36 @@
 //! Wraps `whisper_rs` to provide a simple transcription API. The model is loaded
 //! once and reused across captures to avoid repeated initialization overhead.
 
+#[inline]
+fn should_insert_boundary_space(prev: char, next: char) -> bool {
+    if prev.is_whitespace() || next.is_whitespace() {
+        return false;
+    }
+    if matches!(
+        next,
+        '.' | ',' | '!' | '?' | ';' | ':' | '%' | ')' | ']' | '}' | '"' | '\''
+    ) {
+        return false;
+    }
+    if matches!(prev, '(' | '[' | '{' | '"' | '\'' | '/' | '-') {
+        return false;
+    }
+    true
+}
+
+fn append_whisper_segment(transcript: &mut String, segment: &str) {
+    let segment = segment.trim();
+    if segment.is_empty() {
+        return;
+    }
+    if let (Some(prev), Some(next)) = (transcript.chars().last(), segment.chars().next()) {
+        if should_insert_boundary_space(prev, next) {
+            transcript.push(' ');
+        }
+    }
+    transcript.push_str(segment);
+}
+
 #[cfg(unix)]
 mod platform {
     use crate::config::AppConfig;
@@ -92,14 +122,20 @@ mod platform {
         }
 
         /// Run transcription for the captured PCM samples and return the concatenated text.
+        ///
+        /// # Errors
+        ///
+        /// Returns an error if Whisper state allocation fails, decoding fails, or
+        /// inference cannot complete for the provided samples.
         pub fn transcribe(&self, samples: &[f32], config: &AppConfig) -> Result<String> {
             let mut state = self
                 .ctx
                 .create_state()
                 .context("failed to create whisper state")?;
+            let beam_size = i32::try_from(config.whisper_beam_size).unwrap_or(1);
             let mut params = if config.whisper_beam_size > 1 {
                 FullParams::new(SamplingStrategy::BeamSearch {
-                    beam_size: config.whisper_beam_size as i32,
+                    beam_size,
                     patience: -1.0,
                 })
             } else {
@@ -113,8 +149,10 @@ mod platform {
                 params.set_detect_language(false);
             }
             params.set_temperature(config.whisper_temperature);
-            // Limit CPU usage so laptops don't max out all cores.
-            params.set_n_threads(num_cpus::get().min(8) as i32);
+            // Keep one logical core free and clamp worker fanout to reduce contention spikes.
+            let n_threads = num_cpus::get().saturating_sub(1).clamp(1, 4);
+            let n_threads = i32::try_from(n_threads).unwrap_or(1);
+            params.set_n_threads(n_threads);
             params.set_print_progress(false);
             params.set_print_timestamps(false);
             params.set_print_special(false);
@@ -137,7 +175,7 @@ mod platform {
             // Whisper splits output into small segments; stitch them together.
             for i in 0..num_segments {
                 match state.full_get_segment_text_lossy(i) {
-                    Ok(text) => transcript.push_str(&text),
+                    Ok(text) => super::append_whisper_segment(&mut transcript, &text),
                     Err(err) => log_debug(&format!("Failed to read whisper segment {i}: {err}")),
                 }
             }
@@ -178,12 +216,18 @@ mod platform {
     pub struct Transcriber;
 
     impl Transcriber {
+        /// # Errors
+        ///
+        /// Always returns an error because this target does not support Whisper.
         pub fn new(_: &str) -> Result<Self> {
             Err(anyhow!(
                 "Whisper transcription is currently supported only on Unix-like platforms"
             ))
         }
 
+        /// # Errors
+        ///
+        /// Always returns an error because this target does not support Whisper.
         pub fn transcribe(&self, _: &[f32], _: &AppConfig) -> Result<String> {
             Err(anyhow!(
                 "Whisper transcription is currently supported only on Unix-like platforms"
@@ -206,6 +250,36 @@ mod tests {
     use std::thread;
     #[cfg(unix)]
     use std::time::Duration;
+
+    #[test]
+    fn append_whisper_segment_inserts_spaces_for_sentence_boundaries() {
+        let mut transcript = String::new();
+        append_whisper_segment(&mut transcript, "I guess now it does.");
+        append_whisper_segment(&mut transcript, "That's kind of weird.");
+        append_whisper_segment(&mut transcript, "Nope, there we go.");
+        assert_eq!(
+            transcript,
+            "I guess now it does. That's kind of weird. Nope, there we go."
+        );
+    }
+
+    #[test]
+    fn append_whisper_segment_avoids_extra_space_before_punctuation() {
+        let mut transcript = String::new();
+        append_whisper_segment(&mut transcript, "hello");
+        append_whisper_segment(&mut transcript, "!");
+        append_whisper_segment(&mut transcript, "?");
+        assert_eq!(transcript, "hello!?");
+    }
+
+    #[test]
+    fn append_whisper_segment_keeps_contractions_attached() {
+        let mut transcript = String::new();
+        append_whisper_segment(&mut transcript, "I");
+        append_whisper_segment(&mut transcript, "'m");
+        append_whisper_segment(&mut transcript, "ready");
+        assert_eq!(transcript, "I'm ready");
+    }
 
     #[cfg(unix)]
     fn stderr_test_lock() -> &'static Mutex<()> {

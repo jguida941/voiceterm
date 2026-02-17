@@ -170,6 +170,7 @@ pub struct SimpleThresholdVad {
 
 impl SimpleThresholdVad {
     /// Create a threshold-based VAD using the provided dB cutoff.
+    #[must_use]
     pub fn new(threshold_db: f32) -> Self {
         Self { threshold_db }
     }

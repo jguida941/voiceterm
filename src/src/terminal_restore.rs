@@ -25,12 +25,17 @@ pub struct TerminalRestoreGuard;
 
 impl TerminalRestoreGuard {
     /// Create a guard and install the shared panic hook (once).
+    #[must_use]
     pub fn new() -> Self {
         install_terminal_panic_hook();
         TerminalRestoreGuard
     }
 
     /// Enable terminal raw mode and track state for guaranteed restoration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the terminal cannot enter raw mode.
     pub fn enable_raw_mode(&self) -> io::Result<()> {
         enable_raw_mode()?;
         RAW_MODE_ENABLED.store(true, Ordering::SeqCst);
@@ -38,6 +43,10 @@ impl TerminalRestoreGuard {
     }
 
     /// Enter alternate screen and track state for guaranteed restoration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if alternate-screen activation fails.
     pub fn enter_alt_screen(&self, stdout: &mut impl Write) -> io::Result<()> {
         execute!(stdout, EnterAlternateScreen)?;
         ALT_SCREEN_ENABLED.store(true, Ordering::SeqCst);
@@ -46,6 +55,10 @@ impl TerminalRestoreGuard {
 
     #[allow(dead_code)]
     /// Enable mouse capture and track state for guaranteed restoration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mouse capture cannot be enabled.
     pub fn enable_mouse_capture(&self, stdout: &mut impl Write) -> io::Result<()> {
         execute!(stdout, crossterm::event::EnableMouseCapture)?;
         MOUSE_CAPTURE_ENABLED.store(true, Ordering::SeqCst);

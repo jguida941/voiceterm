@@ -12,7 +12,12 @@ use super::{ClaudeJob, ClaudeJobOutput};
 pub(super) fn terminate_piped_child(child: &mut std::process::Child) {
     #[cfg(unix)]
     {
-        let pid = child.id() as i32;
+        let Some(pid) = i32::try_from(child.id()).ok() else {
+            log_debug("Claude job: child pid out of i32 range, using direct kill");
+            let _ = child.kill();
+            let _ = child.wait();
+            return;
+        };
 
         let _ = signal_process_group_or_pid(pid, libc::SIGTERM, true);
         let deadline = Instant::now() + Duration::from_millis(150);

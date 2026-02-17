@@ -7,15 +7,17 @@ use std::io;
 use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::buttons::ButtonRegistry;
+use crate::config::HudStyle;
 use crate::config::OverlayConfig;
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
-use crate::status_line::{Pipeline, StatusLineState, VoiceMode};
+use crate::status_line::{Pipeline, StatusLineState, VoiceMode, WakeWordHudState};
 use crate::theme::Theme;
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
+use crate::wake_word::WakeWordRuntime;
 
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
@@ -212,6 +214,8 @@ fn build_harness(
     let theme = Theme::Codex;
     let prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
     let voice_manager = VoiceManager::new(config.app.clone());
+    let wake_word_runtime = WakeWordRuntime::new(config.app.clone());
+    let wake_word_rx = wake_word_runtime.receiver();
     let live_meter = voice_manager.meter();
     let arg_vec: Vec<String> = args.iter().map(|arg| (*arg).to_string()).collect();
     let session =
@@ -259,11 +263,14 @@ fn build_harness(
         last_processing_tick: now,
         last_heartbeat_tick: now,
         last_meter_update: now,
+        last_wake_hud_tick: now,
     };
 
     let deps = EventLoopDeps {
         session,
         voice_manager,
+        wake_word_runtime,
+        wake_word_rx,
         writer_tx,
         input_rx,
         button_registry: ButtonRegistry::new(),
@@ -498,6 +505,52 @@ fn start_voice_capture_with_hook_propagates_hook_error() {
         &mut state.status_state,
     );
     assert!(result.is_err());
+}
+
+#[test]
+fn wake_word_detection_starts_capture_via_shared_trigger_path() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn wake_word_detection_is_ignored_while_recording() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.status_state.recording_state = RecordingState::Recording;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn wake_word_detection_is_ignored_when_disabled() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = false;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn wake_word_detection_is_ignored_when_overlay_is_open() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.overlay_mode = OverlayMode::Settings;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
@@ -762,6 +815,45 @@ fn run_periodic_tasks_heartbeat_only_runs_for_heartbeat_panel() {
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
     assert_eq!(timers.last_heartbeat_tick, prior_tick);
+}
+
+#[test]
+fn run_periodic_tasks_wake_badge_pulse_refreshes_full_hud_when_interval_elapsed() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.wake_word_state = WakeWordHudState::Listening;
+    timers.last_wake_hud_tick = now - Duration::from_secs(1);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert_eq!(timers.last_wake_hud_tick, now);
+    assert!(
+        writer_rx.try_recv().is_ok(),
+        "expected wake-badge pulse redraw when interval elapsed"
+    );
+}
+
+#[test]
+fn run_periodic_tasks_wake_badge_pulse_waits_for_interval() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.wake_word_state = WakeWordHudState::Listening;
+    timers.last_wake_hud_tick = now - Duration::from_millis(100);
+    let prior_tick = timers.last_wake_hud_tick;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert_eq!(timers.last_wake_hud_tick, prior_tick);
+    assert!(
+        writer_rx.try_recv().is_err(),
+        "no wake-badge redraw expected before pulse interval"
+    );
 }
 
 #[test]

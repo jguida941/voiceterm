@@ -1,6 +1,6 @@
 //! Claude backend definition so Claude Code fits the shared backend interface.
 
-use super::AiBackend;
+use super::{command_with_args, AiBackend};
 
 /// Backend for Claude Code CLI.
 pub struct ClaudeBackend {
@@ -15,17 +15,19 @@ impl Default for ClaudeBackend {
 
 impl ClaudeBackend {
     /// Create a new Claude Code backend with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            command: vec!["claude".to_string()],
+            command: command_with_args("claude", Vec::new()),
         }
     }
 
     /// Create a Claude Code backend with additional arguments.
+    #[must_use]
     pub fn with_args(args: Vec<String>) -> Self {
-        let mut command = vec!["claude".to_string()];
-        command.extend(args);
-        Self { command }
+        Self {
+            command: command_with_args("claude", args),
+        }
     }
 }
 

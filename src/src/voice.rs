@@ -73,6 +73,7 @@ pub enum VoiceCaptureSource {
 
 impl VoiceCaptureSource {
     /// Human-readable pipeline label for status messages.
+    #[must_use]
     pub fn label(self) -> &'static str {
         match self {
             VoiceCaptureSource::Native => "Rust pipeline",
@@ -82,6 +83,7 @@ impl VoiceCaptureSource {
 }
 
 /// Spawn a worker thread that records audio and runs transcription.
+#[must_use]
 pub fn start_voice_job(
     recorder: Option<Arc<Mutex<audio::Recorder>>>,
     transcriber: Option<Arc<Mutex<stt::Transcriber>>>,
@@ -118,7 +120,7 @@ fn perform_voice_capture(
             config,
             "native pipeline unavailable",
             Some(stop_flag),
-            meter.clone(),
+            meter,
         );
     };
 
@@ -138,12 +140,9 @@ fn perform_voice_capture(
             source: VoiceCaptureSource::Native,
             metrics: Some(metrics),
         },
-        Err(native_err) => fallback_or_error(
-            config,
-            &format!("{native_err:#}"),
-            Some(stop_flag),
-            meter.clone(),
-        ),
+        Err(native_err) => {
+            fallback_or_error(config, &format!("{native_err:#}"), Some(stop_flag), meter)
+        }
     }
 }
 
@@ -255,12 +254,7 @@ fn capture_voice_native(
             .lock()
             .map_err(|_| anyhow!("audio recorder lock poisoned"))?;
         let mut vad_engine = create_vad_engine(&pipeline_cfg);
-        recorder_guard.record_with_vad(
-            &vad_cfg,
-            vad_engine.as_mut(),
-            Some(stop_flag),
-            meter.clone(),
-        )
+        recorder_guard.record_with_vad(&vad_cfg, vad_engine.as_mut(), Some(stop_flag), meter)
     }?;
     let audio::CaptureResult { audio, mut metrics } = capture;
     log_voice_metrics(&metrics);

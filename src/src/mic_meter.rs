@@ -89,6 +89,11 @@ fn validate_sample_ms(label: &str, value: u64) -> Result<()> {
 }
 
 /// Run interactive mic calibration and print a suggested VAD threshold.
+///
+/// # Errors
+///
+/// Returns an error if sample windows are invalid, recorder setup fails, or
+/// either calibration recording cannot be captured.
 pub fn run_mic_meter(config: &AppConfig) -> Result<()> {
     validate_sample_ms("ambient", config.mic_meter_ambient_ms)?;
     validate_sample_ms("speech", config.mic_meter_speech_ms)?;

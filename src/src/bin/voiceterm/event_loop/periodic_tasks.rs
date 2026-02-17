@@ -3,6 +3,7 @@
 use super::*;
 
 const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
+const WAKE_HUD_PULSE_TICK_MS: u64 = 420;
 
 pub(super) fn run_periodic_tasks(
     state: &mut EventLoopState,
@@ -169,6 +170,16 @@ pub(super) fn run_periodic_tasks(
 
     drain_voice_messages_once(state, timers, deps, now);
 
+    let wake_paused = !deps.voice_manager.is_idle();
+    deps.wake_word_runtime.sync(
+        state.config.wake_word,
+        state.config.wake_word_sensitivity,
+        state.config.wake_word_cooldown_ms,
+        wake_paused,
+    );
+    update_wake_word_hud_state(state, timers, deps, wake_paused, now);
+    maybe_tick_wake_word_hud_animation(state, timers, deps, now);
+
     {
         let mut io = TranscriptIo {
             session: &mut deps.session,
@@ -270,6 +281,67 @@ fn maybe_expire_stale_latency(state: &mut EventLoopState, deps: &EventLoopDeps, 
     state.status_state.last_latency_speech_ms = None;
     state.status_state.last_latency_rtf_x1000 = None;
     state.status_state.last_latency_updated_at = None;
+    send_enhanced_status_with_buttons(
+        &deps.writer_tx,
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+}
+
+fn update_wake_word_hud_state(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &EventLoopDeps,
+    wake_paused: bool,
+    now: Instant,
+) {
+    use crate::status_line::WakeWordHudState;
+
+    let next_state = if !state.config.wake_word {
+        WakeWordHudState::Off
+    } else if wake_paused {
+        WakeWordHudState::Paused
+    } else {
+        WakeWordHudState::Listening
+    };
+    if state.status_state.wake_word_state == next_state {
+        return;
+    }
+    state.status_state.wake_word_state = next_state;
+    timers.last_wake_hud_tick = now;
+    send_enhanced_status_with_buttons(
+        &deps.writer_tx,
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+}
+
+fn maybe_tick_wake_word_hud_animation(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &EventLoopDeps,
+    now: Instant,
+) {
+    use crate::config::HudStyle;
+    use crate::status_line::WakeWordHudState;
+
+    if state.status_state.wake_word_state != WakeWordHudState::Listening
+        || state.status_state.hud_style != HudStyle::Full
+        || state.overlay_mode != OverlayMode::None
+    {
+        return;
+    }
+    if now.duration_since(timers.last_wake_hud_tick) < Duration::from_millis(WAKE_HUD_PULSE_TICK_MS)
+    {
+        return;
+    }
+    timers.last_wake_hud_tick = now;
     send_enhanced_status_with_buttons(
         &deps.writer_tx,
         &deps.button_registry,

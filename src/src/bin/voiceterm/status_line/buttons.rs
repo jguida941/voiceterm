@@ -7,7 +7,7 @@ use crate::theme::{filled_indicator, BorderSet, Theme, ThemeColors};
 
 use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_on};
 use super::layout::breakpoints;
-use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
+use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode, WakeWordHudState};
 use super::text::{display_width, truncate_display};
 
 // Keep right-panel color bands responsive to normal speaking dynamics.
@@ -591,6 +591,23 @@ fn format_queue_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<S
         .then(|| format!("{}Q:{}{}", colors.warning, state.queue_depth, colors.reset))
 }
 
+fn format_wake_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
+    match state.wake_word_state {
+        WakeWordHudState::Off => None,
+        WakeWordHudState::Listening => {
+            // Keep a calm baseline, then pulse into a brighter accent so listening
+            // is visible without looking "always hot".
+            let (color, emphasis) = if recording_pulse_on() {
+                (colors.success, "\x1b[1m")
+            } else {
+                (colors.border, "")
+            };
+            Some(format!("{color}{emphasis}Wake: ON{}", colors.reset))
+        }
+        WakeWordHudState::Paused => Some(format!("{}Wake: PAUSED{}", colors.warning, colors.reset)),
+    }
+}
+
 fn format_ready_badge(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -600,25 +617,50 @@ fn format_ready_badge(
         .then(|| format!("{}Ready{}", colors.success, colors.reset))
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum LatencySeverity {
+    Success,
+    Warning,
+    Error,
+}
+
+fn absolute_latency_severity(latency: u32) -> LatencySeverity {
+    if latency < 300 {
+        LatencySeverity::Success
+    } else if latency < 500 {
+        LatencySeverity::Warning
+    } else {
+        LatencySeverity::Error
+    }
+}
+
+fn rtf_latency_severity(rtf_x1000: u32) -> LatencySeverity {
+    if rtf_x1000 < LATENCY_RTF_WARNING_X1000 {
+        LatencySeverity::Success
+    } else if rtf_x1000 < LATENCY_RTF_ERROR_X1000 {
+        LatencySeverity::Warning
+    } else {
+        LatencySeverity::Error
+    }
+}
+
+fn latency_severity(state: &StatusLineState, latency: u32) -> LatencySeverity {
+    let absolute = absolute_latency_severity(latency);
+    state
+        .last_latency_rtf_x1000
+        .map(rtf_latency_severity)
+        .map_or(absolute, |relative| absolute.max(relative))
+}
+
 fn latency_badge_color<'a>(
     state: &StatusLineState,
     colors: &'a ThemeColors,
     latency: u32,
 ) -> &'a str {
-    if let Some(rtf_x1000) = state.last_latency_rtf_x1000 {
-        if rtf_x1000 < LATENCY_RTF_WARNING_X1000 {
-            colors.success
-        } else if rtf_x1000 < LATENCY_RTF_ERROR_X1000 {
-            colors.warning
-        } else {
-            colors.error
-        }
-    } else if latency < 300 {
-        colors.success
-    } else if latency < 500 {
-        colors.warning
-    } else {
-        colors.error
+    match latency_severity(state, latency) {
+        LatencySeverity::Success => colors.success,
+        LatencySeverity::Warning => colors.warning,
+        LatencySeverity::Error => colors.error,
     }
 }
 
@@ -627,6 +669,12 @@ fn format_latency_badge(
     colors: &ThemeColors,
     respect_display_mode: bool,
 ) -> Option<String> {
+    if matches!(
+        state.recording_state,
+        RecordingState::Recording | RecordingState::Processing
+    ) {
+        return None;
+    }
     let latency = state.last_latency_ms?;
     let text = if respect_display_mode {
         match state.latency_display {
@@ -692,6 +740,9 @@ fn format_button_row_with_positions(
     if let Some(queue_badge) = format_queue_badge(state, colors) {
         items.push(queue_badge);
     }
+    if let Some(wake_badge) = format_wake_badge(state, colors) {
+        items.push(wake_badge);
+    }
 
     let ready_badge = format_ready_badge(state, colors, show_ready_badge);
     let latency_badge = if show_latency_badge {
@@ -752,6 +803,9 @@ fn format_button_row_with_positions(
     if let Some(queue_badge) = format_queue_badge(state, colors) {
         compact_items.push(queue_badge);
     }
+    if let Some(wake_badge) = format_wake_badge(state, colors) {
+        compact_items.push(wake_badge);
+    }
 
     let compact_row = truncate_display(&compact_items.join(COMPACT_ITEM_SEPARATOR), inner_width);
     (compact_row, compact_positions)
@@ -805,6 +859,9 @@ fn format_button_row_legacy(
     if let Some(queue_badge) = format_queue_badge(state, colors) {
         items.push(queue_badge);
     }
+    if let Some(wake_badge) = format_wake_badge(state, colors) {
+        items.push(wake_badge);
+    }
 
     if let Some(latency_badge) = format_latency_badge(state, colors, false) {
         items.push(latency_badge);
@@ -822,6 +879,9 @@ fn format_button_row_legacy(
         .collect();
     if let Some(queue_badge) = format_queue_badge(state, colors) {
         compact.push(queue_badge);
+    }
+    if let Some(wake_badge) = format_wake_badge(state, colors) {
+        compact.push(wake_badge);
     }
     truncate_display(&compact.join(COMPACT_ITEM_SEPARATOR), inner_width)
 }
