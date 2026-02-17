@@ -67,8 +67,14 @@ class DocsCheckCommandTests(unittest.TestCase):
     """Validate docs-check command wiring for commit-range mode."""
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
-    def test_docs_check_forwards_commit_range(self, mock_collect_git_status, _mock_write_output) -> None:
+    def test_docs_check_forwards_commit_range(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
         mock_collect_git_status.return_value = {
             "changes": [
                 {"status": "M", "path": "dev/CHANGELOG.md"},
@@ -84,12 +90,78 @@ class DocsCheckCommandTests(unittest.TestCase):
             pipe_args=None,
             since_ref="origin/develop",
             head_ref="HEAD",
+            strict_tooling=False,
         )
 
         code = docs_check.run(args)
 
         self.assertEqual(code, 0)
         mock_collect_git_status.assert_called_once_with("origin/develop", "HEAD")
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_fails_when_tooling_changes_without_tooling_docs(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {
+            "changes": [
+                {"status": "M", "path": "Makefile"},
+            ]
+        }
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=False,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref="HEAD~1",
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references")
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_fails_on_deprecated_reference_violations(
+        self,
+        mock_collect_git_status,
+        mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        mock_scan_deprecated.return_value = [
+            {
+                "file": "AGENTS.md",
+                "line": 1,
+                "pattern": "release-script",
+                "replacement": "python3 dev/scripts/devctl.py release --version <version>",
+                "line_text": "./dev/scripts/release.sh 1.2.3",
+            }
+        ]
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=False,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":

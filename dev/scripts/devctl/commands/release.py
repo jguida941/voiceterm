@@ -1,34 +1,32 @@
 """devctl release command wrapper."""
 
-import os
+from types import SimpleNamespace
 
-from ..common import build_env, confirm_or_abort, run_cmd
-from ..config import REPO_ROOT
+from ..common import confirm_or_abort
+from . import ship
 
 
 def run(args) -> int:
-    """Run release.sh and optional homebrew update."""
-    if os.environ.get("CI") and not args.allow_ci:
-        print("Refusing to run release/homebrew in CI. Use --allow-ci to override.")
-        return 2
-    confirm_or_abort(f"Run release.sh {args.version}?", args.yes)
-    result = run_cmd(
-        "release",
-        ["./dev/scripts/release.sh", args.version],
-        cwd=REPO_ROOT,
-        env=build_env(args),
+    """Run legacy release flow via canonical ship command."""
+    confirm_or_abort(f"Run release flow for {args.version}?", args.yes or args.dry_run)
+    ship_args = SimpleNamespace(
+        version=args.version,
+        verify=False,
+        verify_docs=False,
+        tag=True,
+        notes=True,
+        github=False,
+        github_fail_on_no_commits=False,
+        pypi=False,
+        homebrew=args.homebrew,
+        verify_pypi=False,
+        notes_output=None,
+        yes=args.yes,
+        allow_ci=args.allow_ci,
         dry_run=args.dry_run,
+        format="text",
+        output=None,
+        pipe_command=None,
+        pipe_args=None,
     )
-    if result["returncode"] != 0:
-        return result["returncode"]
-    if args.homebrew:
-        confirm_or_abort(f"Run update-homebrew.sh {args.version}?", args.yes)
-        hb = run_cmd(
-            "homebrew",
-            ["./dev/scripts/update-homebrew.sh", args.version],
-            cwd=REPO_ROOT,
-            env=build_env(args),
-            dry_run=args.dry_run,
-        )
-        return hb["returncode"]
-    return 0
+    return ship.run(ship_args)

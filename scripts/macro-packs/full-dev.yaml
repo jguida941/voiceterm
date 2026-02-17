@@ -244,15 +244,15 @@ macros:
     mode: auto
 
   create release tag:
-    template: "make release V={TRANSCRIPT}"
+    template: "python3 dev/scripts/devctl.py release --version {TRANSCRIPT}"
     mode: insert
 
   update homebrew tap:
-    template: "make homebrew V={TRANSCRIPT}"
+    template: "python3 dev/scripts/devctl.py homebrew --version {TRANSCRIPT}"
     mode: insert
 
   publish pypi package:
-    expansion: "./dev/scripts/publish-pypi.sh --upload"
+    expansion: "python3 dev/scripts/devctl.py pypi --upload"
     mode: insert
 
   verify pypi release:
@@ -260,5 +260,5 @@ macros:
     mode: auto
 
   create github release:
-    template: "gh release create v{TRANSCRIPT} --title 'v{TRANSCRIPT}' --notes-file /tmp/voiceterm-release-v{TRANSCRIPT}.md"
+    template: "python3 dev/scripts/devctl.py ship --version {TRANSCRIPT} --github --notes --yes"
     mode: insert

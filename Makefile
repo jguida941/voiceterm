@@ -1,7 +1,7 @@
 # VoiceTerm Developer Makefile
 # Run `make help` to see available commands
 
-.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release release-notes homebrew model-base model-small model-tiny clean clean-tests
+.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release release-notes homebrew pypi ship model-base model-small model-tiny clean clean-tests
 
 # Default target
 help:
@@ -51,9 +51,11 @@ help:
 	@echo "  make bench        Run voice benchmark"
 	@echo ""
 	@echo "Release:"
-	@echo "  make release V=1.0.33   Create release tag"
-	@echo "  make release-notes V=1.0.33  Generate release notes markdown from git diff"
-	@echo "  make homebrew V=1.0.33  Update Homebrew formula"
+	@echo "  make release V=X.Y.Z   Create/push release tag + notes via devctl"
+	@echo "  make release-notes V=X.Y.Z  Generate release notes markdown via devctl"
+	@echo "  make homebrew V=X.Y.Z  Update Homebrew formula via devctl"
+	@echo "  make pypi               Build/check PyPI package via devctl"
+	@echo "  make ship V=X.Y.Z      Full release control-plane flow via devctl ship"
 	@echo ""
 	@echo "Models:"
 	@echo "  make model-base   Download base.en model (recommended)"
@@ -222,26 +224,36 @@ dev-report:
 # Release
 # =============================================================================
 
-# Usage: make release V=1.0.33
+# Usage: make release V=X.Y.Z
 release:
 ifndef V
-	$(error Version required. Usage: make release V=1.0.33)
+	$(error Version required. Usage: make release V=X.Y.Z)
 endif
-	./dev/scripts/release.sh $(V)
+	python3 dev/scripts/devctl.py release --version $(V)
 
-# Usage: make release-notes V=1.0.33
+# Usage: make release-notes V=X.Y.Z
 release-notes:
 ifndef V
-	$(error Version required. Usage: make release-notes V=1.0.33)
+	$(error Version required. Usage: make release-notes V=X.Y.Z)
 endif
-	./dev/scripts/generate-release-notes.sh $(V)
+	python3 dev/scripts/devctl.py release-notes --version $(V)
 
-# Usage: make homebrew V=1.0.33
+# Usage: make homebrew V=X.Y.Z
 homebrew:
 ifndef V
-	$(error Version required. Usage: make homebrew V=1.0.33)
+	$(error Version required. Usage: make homebrew V=X.Y.Z)
 endif
-	./dev/scripts/update-homebrew.sh $(V)
+	python3 dev/scripts/devctl.py homebrew --version $(V)
+
+pypi:
+	python3 dev/scripts/devctl.py pypi
+
+# Usage: make ship V=X.Y.Z
+ship:
+ifndef V
+	$(error Version required. Usage: make ship V=X.Y.Z)
+endif
+	python3 dev/scripts/devctl.py ship --version $(V) --verify --tag --notes --github --pypi --homebrew --verify-pypi
 
 # =============================================================================
 # Model Management

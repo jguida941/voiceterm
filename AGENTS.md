@@ -86,14 +86,14 @@ python3 dev/scripts/devctl.py status --ci --format md
 For release work:
 
 1. Bump `src/Cargo.toml` and finalize `dev/CHANGELOG.md`.
-2. Tag/push release from `master` (or via `dev/scripts/release.sh`).
+2. Tag/push release from `master` via `python3 dev/scripts/devctl.py release --version <version>`.
 3. Publish GitHub release using generated notes markdown (`gh release create ... --notes-file /tmp/voiceterm-release-v<version>.md`).
-4. Publish PyPI package using `./dev/scripts/publish-pypi.sh --upload`.
+4. Publish PyPI package using `python3 dev/scripts/devctl.py pypi --upload`.
    - Non-interactive publish requires PyPI credentials (for example
      `TWINE_USERNAME=__token__` and `TWINE_PASSWORD=<pypi-token>`, or a valid
      `~/.pypirc`/trusted-publishing setup).
 5. Verify PyPI publish with `https://pypi.org/pypi/voiceterm/<version>/json`.
-6. Update Homebrew tap using `./dev/scripts/update-homebrew.sh <version>`.
+6. Update Homebrew tap using `python3 dev/scripts/devctl.py homebrew --version <version>`.
 
 ## Post-push audit loop (required)
 
@@ -217,12 +217,23 @@ python3 dev/scripts/devctl.py check --profile prepush
 # User-facing docs enforcement
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Tooling/release docs governance (change-class aware + deprecated-command guard)
+python3 dev/scripts/devctl.py docs-check --strict-tooling
+
 # Markdown style/readability checks for key docs
 markdownlint -c .markdownlint.yaml README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 
 # Mutation score only
 python3 dev/scripts/devctl.py mutation-score --threshold 0.80
+
+# Release/distribution control plane
+python3 dev/scripts/devctl.py release --version <version>
+python3 dev/scripts/devctl.py pypi --upload
+python3 dev/scripts/devctl.py homebrew --version <version>
+python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --pypi --homebrew --verify-pypi
 ```
+
+Legacy shell scripts under `dev/scripts/*.sh` are transitional adapters. For maintainer workflows, prefer `devctl` commands first.
 
 ## CI workflows (reference)
 
@@ -235,6 +246,7 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 - `security_guard.yml`: RustSec advisory policy lane (high/critical CVSS threshold + yanked/unsound fail list).
 - `parser_fuzz_guard.yml`: property-fuzz coverage for PTY parser/ANSI-OSC boundary handling.
 - `docs_lint.yml`: markdownlint checks for published user/developer docs.
+- `tooling_control_plane.yml`: devctl unit tests, shell adapter integrity, and docs-policy/deprecated-command guard for maintainer tooling surfaces.
 
 ## CI expansion policy
 
@@ -333,28 +345,32 @@ Enforcement commands:
 
 ## Releases
 
-**Using release scripts (recommended):**
+**Using devctl (recommended):**
 
 ```bash
 # 1. Update version in src/Cargo.toml
 # 2. Update dev/CHANGELOG.md with release notes
 # 3. Commit all changes
-# 4. Create GitHub tag
-./dev/scripts/release.sh <version>
-#    (also generates /tmp/voiceterm-release-v<version>.md)
+# 4. Tag + notes
+python3 dev/scripts/devctl.py release --version <version>
+
+# Optional single-command control-plane flow:
+python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --pypi --homebrew --verify-pypi
 
 # 5. Create GitHub release (after tag is pushed)
 gh release create v<version> --title "v<version>" --notes-file /tmp/voiceterm-release-v<version>.md
 
 # 6. Publish PyPI package
-./dev/scripts/publish-pypi.sh --upload
+python3 dev/scripts/devctl.py pypi --upload
 
 # 7. Verify PyPI publish
 curl -fsSL https://pypi.org/pypi/voiceterm/<version>/json | rg '"version"'
 
 # 8. Update Homebrew tap
-./dev/scripts/update-homebrew.sh <version>
+python3 dev/scripts/devctl.py homebrew --version <version>
 ```
+
+Legacy wrappers (`dev/scripts/release.sh`, `dev/scripts/publish-pypi.sh`, `dev/scripts/update-homebrew.sh`) remain as transitional adapters and route into `devctl`.
 
 **Manual steps (if scripts fail):**
 
@@ -370,7 +386,7 @@ Tap repo: <https://github.com/jguida941/homebrew-voiceterm>
 **Automated update (recommended):**
 
 ```bash
-./dev/scripts/update-homebrew.sh <version>
+python3 dev/scripts/devctl.py homebrew --version <version>
 ```
 
 This script:

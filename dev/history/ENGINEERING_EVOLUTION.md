@@ -3,8 +3,8 @@
 <!-- markdownlint-disable MD024 -->
 
 **Status:** Draft v4 (historical design and process record)<br>
-**Audience:** Developers<br>
-**Last Updated:** 2026-02-16<br>
+**Audience:** users and developers<br>
+**Last Updated:** 2026-02-17<br>
 
 ## At a Glance
 
@@ -44,7 +44,7 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - VAD: voice activity detection for start/stop capture behavior.
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
-## Audit Snapshot (Repo-Verified on 2026-02-15)
+## Audit Snapshot (Repo-Verified on 2026-02-17)
 
 Fact: Repository history and tags in this document were re-checked against local git state.
 
@@ -58,15 +58,15 @@ Evidence:
 Fact: This audit confirms:
 
 - First commit is `8aef111` on 2025-11-06.
-- Drafting HEAD is `e2c8d4a` on 2026-02-15.
-- Tag range is `v0.2.0` to `v1.0.66` with 68 tags.
+- Drafting HEAD is `ed069f1` on 2026-02-16.
+- Tag range is `v0.2.0` to `v1.0.70` with 72 tags.
 - All commit hashes cited in this document resolve.
 
 ## Scope and Evidence Model
 
-Fact: This timeline covers commit history from `8aef111` (2025-11-06) through `e2c8d4a` (2026-02-15).
+Fact: This timeline covers commit history from `8aef111` (2025-11-06) through `ed069f1` (2026-02-16).
 
-Fact: The source range includes 317 commits and tags from `v0.2.0` through `v1.0.66`.
+Fact: The source range includes 337 commits and tags from `v0.2.0` through `v1.0.70`.
 
 Evidence:
 
@@ -119,7 +119,7 @@ Evidence: `55a9c5e`, `39b36e4`, `6fec195`, `c6151d5`, `2ce6fa2`, `d823121`, `c17
 
 Fact: Release cadence was high, but behavior regression handling was explicit.
 
-Evidence: `19371b6`, `6cb1964`, `fe48120`, tags `v1.0.51` to `v1.0.66`.
+Evidence: `19371b6`, `6cb1964`, `fe48120`, tags `v1.0.51` to `v1.0.70`.
 
 ### HUD Visuals (Current UI)
 
@@ -206,7 +206,7 @@ Evidence:
 - Plan and tracking: `b6987f5`, `2ac54bd`, `dev/active/MASTER_PLAN.md`
 - ADR governance: `b6987f5`, `7f9f585`, `fe48120`
 - Verification and guardrails: `50f2738`, `05ff790`, `fe6d79a`, `b60ebc3`
-- Release loop: `dev/CHANGELOG.md`, tags `v0.2.0` to `v1.0.66`
+- Release loop: `dev/CHANGELOG.md`, tags `v0.2.0` to `v1.0.70`
 
 ## Evolution at a Glance
 
@@ -216,6 +216,7 @@ Evidence:
 | Era 2 | 2026-01-11 to 2026-01-25 | 65 | Install and overlay UX became usable at scale |
 | Era 3 | 2026-01-28 to 2026-02-03 | 91 | ADR governance and HUD interaction model expansion |
 | Era 4 | 2026-02-06 to 2026-02-15 | 135 | Reliability hardening and process discipline |
+| Era 5 | 2026-02-16 to 2026-02-17 | 22 | Release hardening, lifecycle verification, and tooling signal clarity |
 
 Fact: Commit volume uses `git rev-list --count --since <start> --until <end> HEAD` for each date window.
 
@@ -231,6 +232,7 @@ timeline
   2026-02-03 : Era 3 reorganization and HUD expansion
   2026-02-13 : latency + voice-mode guardrails (fe6d79a, b60ebc3)
   2026-02-15 : e2c8d4a VoiceTerm alignment and docs polish
+  2026-02-16 : v1.0.69 and v1.0.70 release train, release-notes automation, and mutation score badge endpoint
 ```
 
 ## Original Hypothesis and Why It Changed
@@ -435,6 +437,52 @@ Terminal edge cases, heavy PTY output, and high release frequency exposed reliab
 - CI guardrails must map to known failure classes.
 - Naming/distribution consistency reduces release confusion.
 
+## Era 5: Release Hardening and Signal Clarity
+
+Date window: 2026-02-16 to 2026-02-17
+
+### Pressure
+
+Close release-loop ambiguity while validating process-lifecycle hardening and improving public quality signals.
+
+### User Track
+
+- Release notes gained consistent tag-to-tag markdown generation.
+- Orphan backend worker cleanup after abrupt terminal death was validated and released.
+- Public mutation badge moved from binary workflow state to numeric score signaling.
+
+### Developer Track
+
+- Release workflow now carries generated notes-file handoff through script and docs.
+- Active governance was consolidated under `MASTER_PLAN` after archiving dedicated hardening audit artifacts.
+- Mutation score reporting was clarified with endpoint-style badge semantics.
+
+### Where to Inspect in Repo
+
+- `dev/scripts/generate-release-notes.sh`
+- `dev/scripts/release.sh`
+- `.github/workflows/mutation-testing.yml`
+- `dev/scripts/render_mutation_badge.py`
+- `.github/badges/mutation-score.json`
+- `src/src/pty_session/pty.rs` and `src/src/pty_session/tests.rs`
+
+### Key Decisions + Evidence
+
+- Rust hardening audit tracking consolidated into `MASTER_PLAN` and archive reference. Evidence: `fc68982`, `4194dd4`.
+- Release-notes automation shipped via script + devctl wrapper + release handoff. Evidence: `4194dd4`.
+- PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
+- Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
+
+### What Changed in the SDLC
+
+- Release messaging became reproducible from git/tag history instead of manual note assembly.
+- Quality signal semantics moved from workflow-pass abstraction to direct score visibility.
+
+### Learning
+
+- Public release signals should report the metric users care about, not only workflow status.
+- Lifecycle hardening needs both unit/property tests and physical teardown validation guidance.
+
 ## Process Maturity Timeline
 
 ### 1. Planning moved to one active execution source
@@ -571,8 +619,10 @@ Recommended verification workflow:
 | 2026-02-13 | Explicit `develop`/`master` branch policy | `695b652` | predictable integration and release promotion |
 | 2026-02-13 | Latency guardrail workflow | `fe6d79a` | protects latency-sensitive behavior |
 | 2026-02-13 | Voice-mode guard workflow | `b60ebc3` | prevents send/macro behavior drift |
+| 2026-02-16 | Release-notes generation wired into release flow | `4194dd4` | ensures tag releases carry consistent diff-derived notes |
+| 2026-02-16 | Mutation score endpoint badge introduced | `de82d7b`, `ed069f1` | keeps public mutation signal tied to real score, not stale pass/fail |
 
-## Current End State (as of 2026-02-15)
+## Current End State (as of 2026-02-17)
 
 Fact:
 
@@ -580,6 +630,8 @@ Fact:
 - Core runtime architecture is Rust-first with ADR evidence.
 - Primary support remains Codex and Claude.
 - Reliability work shifted from reactive fixes to proactive guardrails.
+- Latest tagged release is `v1.0.70` with release-notes automation and PTY-lifecycle hardening in published flow.
+- Maintainer release/distribution workflow is consolidated around `devctl` (`ship`, `release`, `pypi`, `homebrew`) with compatibility adapters retained and a dedicated tooling CI lane (`tooling_control_plane.yml`).
 
 Inference:
 
@@ -645,6 +697,15 @@ Inference:
 - `dadabf0` rename to VoiceTerm + PyPI
 - `1a3752a` release 1.0.66
 
+### Era 5 (2026-02-16 to 2026-02-17)
+
+- `fc68982` hardening track closure and release prep
+- `be8c075` release prep for 1.0.68
+- `321ef62` release 1.0.69
+- `4194dd4` release 1.0.70 with notes automation + PTY lifecycle hardening
+- `de82d7b` mutation badge endpoint publishing fix
+- `ed069f1` mutation badge synced to latest shard score
+
 </details>
 
 ## Appendix B: ADR Crosswalk
@@ -694,6 +755,7 @@ Inference:
 | 2026-02-06 to 2026-02-09 | `v1.0.43` to `v1.0.50` | compatibility fixes, parser/PTY hardening |
 | 2026-02-12 to 2026-02-13 | `v1.0.51` to `v1.0.62` | latency truth, heavy output stability, guardrails |
 | 2026-02-14 to 2026-02-15 | `v1.0.63` to `v1.0.66` | VoiceTerm identity alignment, packaging polish, CI deflake |
+| 2026-02-16 to 2026-02-17 | `v1.0.67` to `v1.0.70` | hardening governance consolidation, release-notes automation, lifecycle cleanup, and mutation signal clarity |
 
 </details>
 

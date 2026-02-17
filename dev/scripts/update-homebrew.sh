@@ -2,14 +2,33 @@
 #
 # Update Homebrew tap for VoiceTerm
 # Usage: ./dev/scripts/update-homebrew.sh <version>
-# Example: ./dev/scripts/update-homebrew.sh 1.0.33
+# Example: ./dev/scripts/update-homebrew.sh X.Y.Z
 #
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+if [[ "${VOICETERM_DEVCTL_INTERNAL:-0}" != "1" ]]; then
+    VERSION="${1:-}"
+    if [[ "$VERSION" == "--help" || "$VERSION" == "-h" ]]; then
+        echo "Usage: ./dev/scripts/update-homebrew.sh <version> [--yes] [--allow-ci] [--dry-run]"
+        echo "Canonical: python3 dev/scripts/devctl.py homebrew --version <version>"
+        exit 0
+    fi
+    if [[ -z "$VERSION" ]]; then
+        echo "Usage: ./dev/scripts/update-homebrew.sh <version> [--yes] [--allow-ci] [--dry-run]"
+        echo "Canonical: python3 dev/scripts/devctl.py homebrew --version <version>"
+        exit 1
+    fi
+    shift || true
+    exec python3 "$REPO_ROOT/dev/scripts/devctl.py" homebrew --version "$VERSION" "$@"
+fi
 
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then
     echo "Usage: $0 <version>"
-    echo "Example: $0 1.0.33"
+    echo "Example: $0 X.Y.Z"
     exit 1
 fi
 
@@ -141,8 +160,15 @@ else
 fi
 
 # Commit and push
-read -p "Commit and push these changes? (y/n) " -n 1 -r
-echo
+ASSUME_YES="${VOICETERM_DEVCTL_ASSUME_YES:-0}"
+if [[ "$ASSUME_YES" == "1" ]]; then
+    REPLY="y"
+    echo "Commit and push these changes? (y/n) y"
+else
+    read -p "Commit and push these changes? (y/n) " -n 1 -r
+    echo
+fi
+
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     if [[ -f "$README" ]]; then
         git add "$FORMULA" "$README"

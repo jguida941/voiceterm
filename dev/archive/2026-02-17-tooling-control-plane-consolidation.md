@@ -1,4 +1,30 @@
-# Tooling Control Plane Consolidation (Active Plan)
+# Tooling Control Plane Consolidation (Archived Completed Plan)
+
+## Completion Status (2026-02-17)
+
+- Status: Completed and archived.
+- Active tracking moved back to `dev/active/MASTER_PLAN.md` (`MP-157` through
+  `MP-160` marked complete).
+- Canonical maintainer control plane is now `python3 dev/scripts/devctl.py ...`.
+- Legacy release scripts are retained only as compatibility adapters.
+
+## Completion Summary
+
+- Added `devctl ship` orchestrator with explicit step toggles, dry-run support,
+  deterministic step exits, and machine-readable reports.
+- Added `devctl pypi` command and updated command inventory.
+- Converted `release.sh`, `publish-pypi.sh`, and `update-homebrew.sh` into
+  adapter entry points that route through `devctl`.
+- Updated `Makefile` release targets and maintainer macro-pack release commands
+  to call canonical `devctl` commands.
+- Hardened `devctl docs-check` with:
+  - tooling/release change-class docs policy enforcement
+  - deprecated maintainer command reference detection in canonical maintainer
+    docs surfaces
+- Added dedicated tooling CI lane:
+  `.github/workflows/tooling_control_plane.yml`.
+- Canonicalized maintainer docs (`AGENTS.md`, `dev/DEVELOPMENT.md`,
+  `dev/scripts/README.md`) to teach when/how to use the control-plane CLI.
 
 ## Goal
 
