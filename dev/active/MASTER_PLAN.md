@@ -8,12 +8,12 @@
 
 ## Status Snapshot (2026-02-17)
 
-- Last tagged release: `v1.0.77` (2026-02-17)
-- Current release target: `v1.0.79`
+- Last tagged release: `v1.0.79` (2026-02-17)
+- Current release target: `v1.0.80`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while executing a visual-surface-first Theme Studio track.
-- Release-scope addition: wake-word activation ships in the same release track as current MP-188/MP-189 work, gated behind opt-in defaults and soak/regression evidence (`MP-199`..`MP-203`).
+- Strategic focus: MP-188/MP-189 boundary decomposition and lint hardening; mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while executing a visual-surface-first Theme Studio track.
+- In-flight: wake-word feature (MP-199..MP-203) landed and soak-gated; MP-188 backend decomposition and MP-189 lint lane completing on `fix/mp188-mp189-quality`.
 
 ## Strategic Direction
 
