@@ -5,7 +5,7 @@ mod render;
 mod sanitize;
 mod state;
 
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, TrySendError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -82,7 +82,10 @@ pub(crate) fn set_status(
     if !same_text {
         *current_status = Some(status_state.message.clone());
     }
-    let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
+    let _ = try_send_message(
+        writer_tx,
+        WriterMessage::EnhancedStatus(status_state.clone()),
+    );
     *clear_deadline = clear_after.map(|duration| Instant::now() + duration);
 }
 
@@ -90,7 +93,17 @@ pub(crate) fn send_enhanced_status(
     writer_tx: &Sender<WriterMessage>,
     status_state: &StatusLineState,
 ) {
-    let _ = writer_tx.send(WriterMessage::EnhancedStatus(status_state.clone()));
+    let _ = try_send_message(
+        writer_tx,
+        WriterMessage::EnhancedStatus(status_state.clone()),
+    );
+}
+
+pub(crate) fn try_send_message(writer_tx: &Sender<WriterMessage>, message: WriterMessage) -> bool {
+    match writer_tx.try_send(message) {
+        Ok(()) => true,
+        Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => false,
+    }
 }
 
 #[cfg(test)]
@@ -131,5 +144,36 @@ mod tests {
             None,
         );
         assert!(deadline.is_none());
+    }
+
+    #[test]
+    fn set_status_does_not_block_when_queue_is_full() {
+        let (tx, _rx) = crossbeam_channel::bounded(1);
+        tx.try_send(WriterMessage::PtyOutput(vec![1, 2, 3]))
+            .expect("queue should accept prefill");
+
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        set_status(
+            &tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+            "status while saturated",
+            Some(Duration::from_millis(10)),
+        );
+
+        assert_eq!(status_state.message, "status while saturated");
+        assert_eq!(current_status.as_deref(), Some("status while saturated"));
+        assert!(deadline.is_some());
+    }
+
+    #[test]
+    fn try_send_message_returns_false_on_full_queue() {
+        let (tx, _rx) = crossbeam_channel::bounded(1);
+        tx.try_send(WriterMessage::PtyOutput(vec![1]))
+            .expect("queue should accept prefill");
+        assert!(!try_send_message(&tx, WriterMessage::ClearStatus));
     }
 }

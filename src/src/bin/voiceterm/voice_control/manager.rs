@@ -209,11 +209,10 @@ impl VoiceManager {
             let recorder = audio::Recorder::new(self.config.input_device.as_deref())?;
             self.recorder = Some(Arc::new(Mutex::new(recorder)));
         }
-        Ok(self
-            .recorder
+        self.recorder
             .as_ref()
-            .expect("recorder initialized")
-            .clone())
+            .cloned()
+            .ok_or_else(|| anyhow!("audio recorder should be initialized"))
     }
 
     fn get_transcriber(&mut self) -> Result<Option<Arc<Mutex<stt::Transcriber>>>> {

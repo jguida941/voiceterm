@@ -221,7 +221,7 @@ python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 
 # Markdown style/readability checks for key docs
-markdownlint -c .markdownlint.yaml README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 
 # Mutation score only
 python3 dev/scripts/devctl.py mutation-score --threshold 0.80

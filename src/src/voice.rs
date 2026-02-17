@@ -309,14 +309,21 @@ fn sanitize_transcript(text: &str) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    static NON_SPEECH_RE: OnceLock<Regex> = OnceLock::new();
-    let re = NON_SPEECH_RE.get_or_init(|| {
-        Regex::new(
-            r"(?i)\[\s*\]|\(\s*\)|\[(?:\s*(?:silence|noise|inaudible|blank_audio|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background)\s*)\]|\((?:\s*(?:silence|noise|inaudible|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background|wind blowing)\s*)\)",
-        )
-        .expect("non-speech regex should compile")
+    const NON_SPEECH_PATTERN: &str = r"(?i)\[\s*\]|\(\s*\)|\[(?:\s*(?:silence|noise|inaudible|blank_audio|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background)\s*)\]|\((?:\s*(?:silence|noise|inaudible|blank audio|music|laughter|applause|cough|breath(?:ing)?|wind|background|wind blowing)\s*)\)";
+    static NON_SPEECH_RE: OnceLock<Option<Regex>> = OnceLock::new();
+    let re = NON_SPEECH_RE.get_or_init(|| match Regex::new(NON_SPEECH_PATTERN) {
+        Ok(compiled) => Some(compiled),
+        Err(err) => {
+            log_debug(&format!(
+                "sanitize_transcript: failed to compile non-speech regex: {err}"
+            ));
+            None
+        }
     });
-    let without_markers = re.replace_all(trimmed, " ");
+    let without_markers = match re {
+        Some(re) => re.replace_all(trimmed, " ").into_owned(),
+        None => trimmed.to_string(),
+    };
     without_markers
         .split_whitespace()
         .collect::<Vec<_>>()

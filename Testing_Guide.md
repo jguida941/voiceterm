@@ -9,11 +9,32 @@ This runbook verifies:
 
 - User-facing behavior added in `v1.0.64` through the current release candidate (`v1.0.70` and newer).
 - Backend worker lifecycle hardening (`v1.0.70`) for normal exit and abrupt termination paths.
+- Backend worker/process leak prevention under repeated start/stop churn and CPU pressure.
 - Phase 2B hardening closure (`FX-001..FX-012`) remains tracked.
 - Built-in voice navigation and `responding` behavior.
 - Macro system behavior (packs + wizard + precedence + GitHub integration).
 - Cursor-specific known-open regressions tracked in backlog (`MP-145`, `MP-146`, `MP-147`).
+- High-load HUD/settings responsiveness and meter visualization sanity.
+- A paired operator protocol (`you run`, `assistant verifies`) for every command step.
 - Local release-quality gates, release-note tooling, and workflow status.
+
+## 0.1 Paired Operator Protocol (You + Assistant)
+
+Use this loop for every section so we do not miss failures:
+
+1. You run exactly one numbered step command.
+1. Paste command output (full output for short commands, last ~80 lines for long commands).
+1. Assistant replies with:
+   - `PASS` or `FAIL`
+   - why
+   - the exact next command
+1. If `FAIL`, stop and open a follow-up fix item before continuing.
+1. Keep a test transcript log for release evidence:
+
+```bash
+mkdir -p /tmp/voiceterm-test-logs
+script -q /tmp/voiceterm-test-logs/manual-$(date +%Y%m%d-%H%M%S).log
+```
 
 ## 1. Preflight (once)
 
@@ -24,6 +45,12 @@ pwd
 git branch --show-current
 git status --short
 rg -n '^version\s*=\s*"' src/Cargo.toml pypi/pyproject.toml
+```
+
+1. Confirm changelog range coverage for this runbook:
+
+```bash
+rg -n '^## \[1\.0\.(64|65|66|67|68|69|70)\]' dev/CHANGELOG.md
 ```
 
 1. Build release binary:
@@ -78,6 +105,14 @@ This section validates the orphan-worker fix for repeated sessions and abrupt te
 
 ```bash
 ps -axo pid,ppid,pgid,command | rg 'voiceterm|codex-aarch64-apple-darwin|claude' || true
+```
+
+1. Capture baseline process counts:
+
+```bash
+VOICE_BASELINE="$(pgrep -fc 'target/release/voiceterm --codex' || true)"
+CODEX_BASELINE="$(pgrep -fc 'codex-aarch64-apple-darwin' || true)"
+echo "voice_baseline=$VOICE_BASELINE codex_baseline=$CODEX_BASELINE"
 ```
 
 1. Start one session in Terminal A:
@@ -148,6 +183,30 @@ Expected:
 - Cleanup is per-session, not global.
 - Remaining active sessions continue functioning.
 
+## 3A. Process Churn + CPU Leak Checks (Critical)
+
+1. Repeated start/kill churn (manual physical loop, 5 rounds):
+
+- Round start: launch `./target/release/voiceterm --codex`.
+- Let it fully initialize.
+- Kill that one session (`Ctrl+Q` for 2 rounds, `kill -9 <voice_pid>` for 3 rounds).
+- Wait 2-3 seconds between rounds.
+
+1. After round 5, re-check counts:
+
+```bash
+VOICE_NOW="$(pgrep -fc 'target/release/voiceterm --codex' || true)"
+CODEX_NOW="$(pgrep -fc 'codex-aarch64-apple-darwin' || true)"
+echo "voice_now=$VOICE_NOW codex_now=$CODEX_NOW"
+ps -axo pid,ppid,pgid,%cpu,etime,command | rg 'voiceterm|codex-aarch64-apple-darwin' || true
+```
+
+Expected:
+
+- `voice_now` returns to baseline when no sessions are open.
+- `codex_now` returns to baseline (or baseline + short-lived transient) within ~10 seconds.
+- No stale `codex-aarch64-apple-darwin` rows with growing `etime` and non-trivial `%cpu` after all sessions are closed.
+
 ## 4. Core UX Checks
 
 1. Theme quick-cycle:
@@ -164,6 +223,52 @@ Expected:
 
 - Press `Ctrl+R`, do not speak, stop capture.
 - Expected: `No speech detected` appears without Rust/Python pipeline label text.
+
+1. Overlay body-click behavior:
+
+- Open Settings (`Ctrl+O`) and click inside overlay body on a non-action area.
+- Expected: overlay remains open.
+- Click explicit close control (`[×]` footer).
+- Expected: overlay closes.
+
+## 4A. High-Load UI Responsiveness + Meter Sanity
+
+1. Create sustained backend output load:
+
+```bash
+yes "voiceterm-load-line" | head -n 50000
+```
+
+1. While output is streaming:
+
+- Open Settings (`Ctrl+O`).
+- Hold arrow navigation (`Up`/`Down`) and value changes (`Left`/`Right`) for 10+ seconds.
+
+Expected:
+
+- Focus and value updates remain responsive.
+- No multi-second freezes while output is active.
+
+1. During/after heavy output, record voice input:
+
+- Start recording (`Ctrl+R`) and speak for ~5 seconds.
+- Watch recording duration and right-panel meter while moving through settings.
+
+Expected:
+
+- Recording duration advances smoothly (no long stalls).
+- Settings arrow handling stays responsive while capture is active.
+
+1. Meter visualization sanity checks:
+
+- Silence: ribbon stays near floor / dots mostly inactive.
+- Normal speech: mostly green, occasional yellow.
+- Intentional loud input (close mic/clap): yellow/red may appear briefly.
+
+Expected:
+
+- “Always loud” visual state is not present during normal speech.
+- Meter severity roughly matches perceived loudness.
 
 ## 5. Voice State + Responding
 
@@ -468,6 +573,54 @@ Expected:
 - Mutation score `>= 0.80`.
 - PTY lifecycle regression tests pass for descendant cleanup and parent-crash paths.
 
+## 14A. Release Cut + Homebrew Publish (Do Only After Integration Green)
+
+Preconditions:
+
+- Your other agent’s refactor is merged.
+- Local gates in Section 14 are green.
+- CI is green for the target commit.
+
+1. Bump version + finalize changelog:
+
+```bash
+rg -n '^version\s*=' src/Cargo.toml
+rg -n '^## \[1\.0\.' dev/CHANGELOG.md | head -n 5
+```
+
+1. Generate release notes and tag:
+
+```bash
+./dev/scripts/release.sh <VERSION>
+```
+
+1. Create GitHub release:
+
+```bash
+gh release create v<VERSION> --title "v<VERSION>" --notes-file /tmp/voiceterm-release-v<VERSION>.md
+```
+
+1. Publish/update package channels:
+
+```bash
+./dev/scripts/publish-pypi.sh --upload
+./dev/scripts/update-homebrew.sh <VERSION>
+```
+
+1. Validate Homebrew artifact install:
+
+```bash
+brew update
+brew reinstall voiceterm
+which voiceterm
+voiceterm --version
+```
+
+Expected:
+
+- Installed `voiceterm --version` matches `<VERSION>`.
+- You can run this runbook against the Homebrew-installed binary for physical validation.
+
 ## 15. GitHub Workflow Audit
 
 1. Check release commit SHA:
@@ -524,7 +677,13 @@ Backend(s):
 Worker lifecycle normal-exit cleanup: PASS/FAIL
 Worker lifecycle abrupt-kill cleanup: PASS/FAIL
 Worker lifecycle multi-session isolation: PASS/FAIL
+Worker churn cleanup (5 rounds): PASS/FAIL
+No stale codex CPU burners after close: PASS/FAIL
 Core UX: PASS/FAIL
+Overlay body-click behavior: PASS/FAIL
+High-load settings responsiveness: PASS/FAIL
+High-load recording responsiveness: PASS/FAIL
+Meter loudness sanity: PASS/FAIL
 Responding state: PASS/FAIL
 Built-in voice nav: PASS/FAIL
 Macro precedence: PASS/FAIL
@@ -537,6 +696,7 @@ JetBrains non-regression: PASS/FAIL
 Release notes generation: PASS/FAIL
 FX-001..FX-012 closure check: PASS/FAIL
 Local release gates: PASS/FAIL
+Release cut + Homebrew publish: PASS/FAIL
 GitHub workflows: PASS/FAIL
 
 Notes / failures:

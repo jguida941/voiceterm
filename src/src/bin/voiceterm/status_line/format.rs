@@ -29,6 +29,8 @@ const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
 const MAIN_ROW_RIGHT_GUTTER: usize = 1;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
+const LEVEL_WARNING_DB: f32 = -15.0;
+const LEVEL_ERROR_DB: f32 = -6.0;
 
 /// Keyboard shortcuts to display.
 const SHORTCUTS: &[(&str, &str)] = &[
@@ -452,19 +454,13 @@ fn format_right_panel(
 fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
     let active = (normalized * 5.0).round() as usize;
+    let color = meter_level_color(level_db, colors);
     // Pre-allocate for 5 dots with color codes
     let mut result = String::with_capacity(128);
     result.push_str(colors.dim);
     result.push('[');
     for idx in 0..5 {
         if idx < active {
-            let color = if normalized < 0.6 {
-                colors.success
-            } else if normalized < 0.85 {
-                colors.warning
-            } else {
-                colors.error
-            };
             result.push_str(color);
             result.push('•');
             result.push_str(colors.reset);
@@ -478,6 +474,17 @@ fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     result.push(']');
     result.push_str(colors.reset);
     result
+}
+
+#[inline]
+fn meter_level_color(level_db: f32, colors: &ThemeColors) -> &str {
+    if level_db < LEVEL_WARNING_DB {
+        colors.success
+    } else if level_db < LEVEL_ERROR_DB {
+        colors.warning
+    } else {
+        colors.error
+    }
 }
 
 fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> String {

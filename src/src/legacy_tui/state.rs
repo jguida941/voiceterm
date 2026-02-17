@@ -264,11 +264,10 @@ impl CodexApp {
             let recorder = audio::Recorder::new(self.config.input_device.as_deref())?;
             self.audio_recorder = Some(Arc::new(Mutex::new(recorder)));
         }
-        Ok(self
-            .audio_recorder
+        self.audio_recorder
             .as_ref()
-            .expect("recorder initialized")
-            .clone())
+            .cloned()
+            .ok_or_else(|| anyhow!("audio recorder should be initialized"))
     }
 
     /// Load the Whisper model lazily because it is heavy and can take seconds.

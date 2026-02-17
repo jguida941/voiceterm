@@ -427,7 +427,12 @@ intervals to avoid corrupting the backend's screen.
 ## Key Files
 
 - `src/src/bin/voiceterm/main.rs` - main loop, input handling, prompt detection (binary: `voiceterm`)
-- `src/src/bin/voiceterm/event_loop.rs` - event loop execution and input/output handling
+- `src/src/bin/voiceterm/event_loop.rs` - event loop orchestration + select-loop coordination
+- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` - keyboard/mouse dispatch + settings/hotkey actions
+- `src/src/bin/voiceterm/event_loop/output_dispatch.rs` - PTY output handling + redraw-safe output routing
+- `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs` - overlay open/close transitions + overlay mode state updates
+- `src/src/bin/voiceterm/event_loop/periodic_tasks.rs` - timer-driven tasks (spinner, status expiry, meter cadence)
+- `src/src/bin/voiceterm/event_loop/tests.rs` - event-loop regression coverage for overlay/input/output behavior
 - `src/src/bin/voiceterm/event_state.rs` - event loop state, deps, and timers shared by the main loop
 - `src/src/bin/voiceterm/banner.rs` - startup splash + banner configuration
 - `src/src/bin/voiceterm/terminal.rs` - terminal sizing, modes, and signal handling
@@ -461,7 +466,11 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/prompt/strip.rs` - ANSI stripping for prompt matching
 - `src/src/bin/voiceterm/voice_control/` - voice capture manager + drain logic
 - `src/src/bin/voiceterm/voice_control/manager.rs` - voice capture lifecycle + start helpers
-- `src/src/bin/voiceterm/voice_control/drain.rs` - voice job handling + transcript delivery
+- `src/src/bin/voiceterm/voice_control/drain.rs` - voice-drain orchestration + message fanout
+- `src/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs` - transcript transform/queue/send flow
+- `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` - status updates, latency display, and preview lifecycle
+- `src/src/bin/voiceterm/voice_control/drain/auto_rearm.rs` - auto-voice rearm/finalize behavior after drain outcomes
+- `src/src/bin/voiceterm/voice_control/drain/tests.rs` - drain-path regression coverage
 - `src/src/bin/voiceterm/voice_control/pipeline.rs` - pipeline selection helpers
 - `src/src/bin/voiceterm/voice_macros.rs` - project macro loader + transcript trigger expansion
 - `src/src/bin/voiceterm/transcript/` - transcript queue + delivery helpers
@@ -491,7 +500,10 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/audio/` - CPAL recorder + VAD
 - `src/src/stt.rs` - Whisper transcription
 - `src/src/config/` - CLI flags + validation
-- `src/src/ipc/` - JSON IPC session loop
+- `src/src/ipc/` - JSON IPC mode + protocol/router entrypoints
+- `src/src/ipc/session.rs` - IPC loop orchestration + command dispatch
+- `src/src/ipc/session/loop_runtime.rs` - command dispatch + active-job draining helpers for the IPC loop
+- `src/src/ipc/session/event_processing/` - non-blocking Codex/Claude/voice/auth event processors
 - `src/src/auth.rs` - backend auth helpers
 - `src/src/doctor.rs` - diagnostics report
 - `src/src/telemetry.rs` - tracing/JSON logs

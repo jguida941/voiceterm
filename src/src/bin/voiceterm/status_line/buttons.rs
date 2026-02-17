@@ -10,6 +10,9 @@ use super::layout::breakpoints;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
 
+const LEVEL_WARNING_DB: f32 = -15.0;
+const LEVEL_ERROR_DB: f32 = -6.0;
+
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
 /// Hidden mode exposes an "open" launcher button while idle.
@@ -216,14 +219,8 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
     }
     for db in slice {
         let normalized = ((*db + 60.0) / 60.0).clamp(0.0, 1.0);
-        let idx = (normalized * (GLYPHS.len() as f32 - 1.0)).round() as usize;
-        let color = if normalized < 0.6 {
-            colors.success
-        } else if normalized < 0.85 {
-            colors.warning
-        } else {
-            colors.error
-        };
+        let idx = (normalized * (GLYPHS.len() as f32 - 1.0)) as usize;
+        let color = meter_level_color(*db, colors);
         out.push_str(color);
         out.push(GLYPHS[idx]);
         out.push_str(colors.reset);
@@ -234,19 +231,13 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
 fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
     let active = (normalized * 5.0).round() as usize;
+    let color = meter_level_color(level_db, colors);
     let mut result = String::with_capacity(64);
     result.push_str(colors.dim);
     result.push('[');
     result.push_str(colors.reset);
     for idx in 0..5 {
         if idx < active {
-            let color = if normalized < 0.6 {
-                colors.success
-            } else if normalized < 0.85 {
-                colors.warning
-            } else {
-                colors.error
-            };
             result.push_str(color);
             result.push('•');
             result.push_str(colors.reset);
@@ -260,6 +251,17 @@ fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     result.push(']');
     result.push_str(colors.reset);
     result
+}
+
+#[inline]
+fn meter_level_color(level_db: f32, colors: &ThemeColors) -> &str {
+    if level_db < LEVEL_WARNING_DB {
+        colors.success
+    } else if level_db < LEVEL_ERROR_DB {
+        colors.warning
+    } else {
+        colors.error
+    }
 }
 
 pub(super) fn format_minimal_strip_with_button(
@@ -1298,14 +1300,14 @@ mod tests {
     #[test]
     fn minimal_waveform_handles_padding_and_boundaries() {
         let none = Theme::None.colors();
-        assert_eq!(minimal_waveform(&[-30.0], 3, &none), "▁▁▅");
-        assert_eq!(minimal_waveform(&[-30.0, -30.0, -30.0], 3, &none), "▅▅▅");
+        assert_eq!(minimal_waveform(&[-30.0], 3, &none), "▁▁▄");
+        assert_eq!(minimal_waveform(&[-30.0, -30.0, -30.0], 3, &none), "▄▄▄");
 
         let colors = Theme::Coral.colors();
         let waveform = minimal_waveform(&[-24.0, -9.0], 2, &colors);
         let expected = format!(
-            "{}▅{}{}▇{}",
-            colors.warning, colors.reset, colors.error, colors.reset
+            "{}▅{}{}▆{}",
+            colors.success, colors.reset, colors.warning, colors.reset
         );
         assert_eq!(waveform, expected);
     }
@@ -1320,10 +1322,10 @@ mod tests {
 
         let colors = Theme::Coral.colors();
         let warning = minimal_pulse_dots(-24.0, &colors);
-        assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
-        assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
+        assert!(warning.contains(&format!("{}•{}", colors.success, colors.reset)));
+        assert!(!warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
 
-        let error = minimal_pulse_dots(-9.0, &colors);
+        let error = minimal_pulse_dots(-3.0, &colors);
         assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
     }
 

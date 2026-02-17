@@ -10,6 +10,8 @@ const BAR_FULL: char = '█';
 const BAR_HALF: char = '▌';
 const BAR_EMPTY: char = '░';
 const PEAK_MARKER: char = '│';
+const LEVEL_WARNING_DB: f32 = -15.0;
+const LEVEL_ERROR_DB: f32 = -6.0;
 
 /// Format a horizontal audio level meter.
 #[must_use]
@@ -24,14 +26,14 @@ pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme)
     // Convert to character positions
     let rms_chars = (rms_pos * config.width as f32) as usize;
     let peak_char = (peak_pos * config.width as f32) as usize;
+    let fill_color = level_color(level.rms_db, &colors);
 
     let mut bar = String::new();
 
     for i in 0..config.width {
         if i < rms_chars {
-            // Filled portion - color based on level
-            let color = level_color(i, config.width, &colors);
-            bar.push_str(color);
+            // Filled portion - color reflects current level severity.
+            bar.push_str(fill_color);
             bar.push(BAR_FULL);
             bar.push_str(colors.reset);
         } else if config.show_peak && i == peak_char && peak_char > rms_chars {
@@ -48,16 +50,15 @@ pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme)
     bar
 }
 
-/// Get color for a position in the meter (green -> yellow -> red).
+/// Get severity color for a level in dB.
 #[inline]
-fn level_color(pos: usize, width: usize, colors: &ThemeColors) -> &str {
-    let ratio = pos as f32 / width as f32;
-    if ratio < 0.6 {
-        colors.success // Green - safe level
-    } else if ratio < 0.85 {
-        colors.warning // Yellow - getting loud
+fn level_color(level_db: f32, colors: &ThemeColors) -> &str {
+    if level_db < LEVEL_WARNING_DB {
+        colors.success
+    } else if level_db < LEVEL_ERROR_DB {
+        colors.warning
     } else {
-        colors.error // Red - too loud / clipping
+        colors.error
     }
 }
 
@@ -169,14 +170,7 @@ pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
         let char_idx = (normalized * (WAVEFORM_CHARS.len() - 1) as f32) as usize;
         let ch = WAVEFORM_CHARS[char_idx];
 
-        // Color based on level
-        let color = if normalized < 0.6 {
-            colors.success
-        } else if normalized < 0.85 {
-            colors.warning
-        } else {
-            colors.error
-        };
+        let color = level_color(level, &colors);
 
         result.push_str(color);
         result.push(ch);

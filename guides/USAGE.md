@@ -250,6 +250,7 @@ Tips:
 - Set at startup: `voiceterm --theme catppuccin`
 - Disable color: `voiceterm --no-color` or `NO_COLOR=1`
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
+- Mouse behavior in overlays: click a Theme Picker row to apply/select it; click footer `[×] close` to dismiss an overlay.
 
 ### HUD styles
 
