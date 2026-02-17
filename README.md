@@ -215,6 +215,9 @@ If a macro and built-in phrase overlap, macros run first; use explicit
 `voice scroll up` / `voice scroll down` to force built-in navigation.
 Status text is pipeline-neutral (for example `Listening Manual Mode` and
 `No speech detected`); check Settings (`Ctrl+O`) for `Voice pipeline`.
+If you are validating pre-release builds, use `Testing_Guide.md` sections `3`,
+`3A`, and `4A` to verify process cleanup, CPU stability, and high-load UI
+responsiveness.
 
 ## Engineering History
 

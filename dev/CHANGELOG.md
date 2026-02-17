@@ -5,6 +5,18 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `AGENTS.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
+## [Unreleased] - 2026-02-17
+
+### Runtime Hardening
+
+- Keep status/overlay UI updates non-blocking under writer queue pressure so heavy backend output does not stall settings navigation or recording HUD refreshes.
+- Rebalance meter severity coloring for normal speech vs loud transients to reduce false "too loud" visual signals in waveform/dot panels.
+
+### Documentation
+
+- Expand release test guidance (`Testing_Guide.md`) with paired operator workflow, process churn/CPU leak checks, and high-load responsiveness validation.
+- Sync user docs (`README.md`, `QUICK_START.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`, `guides/USAGE.md`) with pre-release validation flow and updated lag/meter troubleshooting guidance.
+
 ## [1.0.70] - 2026-02-17
 
 ### Documentation

@@ -116,6 +116,17 @@ Optional macro setup (project-local):
 If you install from source, `./scripts/install.sh` now prompts to run the macro
 wizard at the end of install.
 
+- Pre-release test builds from a branch:
+
+```bash
+git clone --branch <branch-name> https://github.com/jguida941/voiceterm.git
+cd voiceterm
+./scripts/install.sh
+```
+
+After installing a test branch build, run `Testing_Guide.md` sections `3`,
+`3A`, and `4A` before promoting to a tagged release.
+
 - Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 
 ## 5) Common flags
