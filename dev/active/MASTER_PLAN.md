@@ -12,8 +12,8 @@
 - Current release target: `v1.0.82`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: post-v1.0.80 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
-- In-flight: v1.0.80 shipped to GitHub Releases/Homebrew with full CI pass; PyPI publish/verification remains pending credentials.
+- Strategic focus: post-v1.0.81 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
+- In-flight: v1.0.81 shipped to GitHub Releases/Homebrew/PyPI with full CI pass.
 
 ## Strategic Direction
 
