@@ -23,7 +23,7 @@ Docs map:
 | Settings/HUD lags while backend is busy | Run high-load responsiveness checks | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
-| JetBrains cursor briefly flashes `|`/block over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
+| JetBrains cursor briefly flashes pipe/block cursor over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
