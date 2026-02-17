@@ -368,18 +368,21 @@ pub(super) fn format_shortcuts_row_with_positions(
         format_button_row_with_positions(state, colors, row_width, 2, true, false);
 
     // Add leading space to match main row's left margin
-    let mut interior = truncate_display(&format!(" {}", shortcuts_str), inner_width);
-    let mut interior_width = display_width(&interior);
+    let shortcuts = truncate_display(&format!(" {}", shortcuts_str), inner_width);
+    let shortcuts_width = display_width(&shortcuts);
+    let mut interior = shortcuts.clone();
+    let mut interior_width = shortcuts_width;
 
     // Keep shortcut/button geometry stable: only append trailing panel if there is spare room.
     if let Some(panel) = trailing_panel {
         if !panel.is_empty() {
             let panel = truncate_display(panel, inner_width);
             let panel_width = display_width(&panel);
-            if panel_width > 0 && interior_width + 1 + panel_width <= inner_width {
-                interior.push(' ');
-                interior.push_str(&panel);
-                interior_width += 1 + panel_width;
+            if panel_width > 0 && shortcuts_width + 1 + panel_width <= inner_width {
+                // Right-align the visualization panel to keep it anchored in the corner.
+                let gap = inner_width.saturating_sub(shortcuts_width + panel_width);
+                interior = format!("{shortcuts}{}{}", " ".repeat(gap), panel);
+                interior_width = inner_width;
             }
         }
     }
@@ -1079,6 +1082,26 @@ mod tests {
             display_width(&row) <= inner_width + 2,
             "shortcuts row should not exceed full HUD width"
         );
+    }
+
+    #[test]
+    fn shortcuts_row_trailing_panel_hugs_right_border() {
+        let colors = Theme::None.colors();
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        let panel = "[▁▂▃▅▆]";
+
+        let (row, _) =
+            format_shortcuts_row_with_positions(&state, &colors, &colors.borders, 120, Some(panel));
+
+        assert!(row.contains(panel));
+        let panel_end_idx = row
+            .rfind(']')
+            .expect("row should contain panel close bracket");
+        let right_border_idx = row.rfind('│').expect("row should contain right border");
+        let panel_end_col = display_width(&row[..=panel_end_idx]);
+        let right_border_col = display_width(&row[..right_border_idx]);
+        assert_eq!(panel_end_col, right_border_col);
     }
 
     #[test]

@@ -73,6 +73,8 @@
 - [x] MP-120 Revert unstable post-release scroll-region protection changes that reintroduced severe Full HUD duplication/corruption during active Codex output.
 - [x] MP-121 Harden JetBrains startup/render handoff by auto-skipping splash in IDE terminals and clearing stale HUD/overlay rows on resize before redraw.
 - [x] MP-123 Harden PTY/IPC backend teardown to signal process groups and reap child processes, with regression tests that verify descendant cleanup.
+- [x] MP-183 Add a PTY session-lease guard that reaps backend process groups from dead VoiceTerm owners before spawning new sessions, without disrupting concurrently active sessions.
+- [x] MP-190 Restore Full HUD shortcuts-row trailing visualization alignment so the right panel remains anchored to the far-right corner in full-width layouts.
 - [x] MP-124 Add Full-HUD border-style customization (including borderless mode) and keep right-panel telemetry explicitly user-toggleable to `Off`.
 - [x] MP-125 Fix HUD right-panel `Anim only` behavior so idle state keeps a static panel visible instead of hiding the panel until recording.
 - [x] MP-126 Complete product/distribution naming rebrand to VoiceTerm across code/docs/scripts/app launcher, and add a PyPI launcher package scaffold (`pypi/`) for `voiceterm`.
@@ -158,6 +160,15 @@ documented pass evidence for its mapped gates.
 - [x] MP-159 Add a dedicated tooling CI quality lane for `devctl` command behavior and maintainer shell-script integrity (release, release-notes, PyPI, Homebrew helpers).
 - [x] MP-160 Canonicalize maintainer docs and macro/help surfaces to `devctl` first (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, maintainer macro packs, and `Makefile` help), keeping legacy wrappers documented as transitional adapters.
 
+## Phase 3C - Codebase Best-Practice Consolidation (Active Audit Track)
+
+- [x] MP-184 Publish active execution plan for full-repo Rust best-practice cleanup and keep task-level progress in `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
+- [ ] MP-185 Decompose settings action handling for lower coupling and clearer ownership (`settings_handlers` runtime/test separation landed; next is context-shape simplification and helper extraction).
+- [ ] MP-186 Consolidate status-line rendering/button logic (`status_line/buttons.rs` and `status_line/format.rs`) to remove duplicated style/layout decisions and isolate legacy compatibility paths.
+- [ ] MP-187 Consolidate PTY lifecycle internals into canonical spawn/shutdown helpers and harden session-guard identity/cleanup throttling to reduce stale-process risk without blocking concurrent sessions.
+- [ ] MP-188 Decompose backend orchestration hotspots (`codex/pty_backend.rs`, `ipc/session.rs`) into narrower modules with explicit policy boundaries and lower test/runtime coupling.
+- [ ] MP-189 Add a focused maintainer lint-hardening lane (strict clippy profile + targeted allowlist) and burn down high-value warnings (`must_use`, error docs, redundant clones/closures, risky casts, dead-code drift).
+
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 
 - [ ] MP-015 Improve mutation score with targeted high-value tests (promoted from Backlog).
@@ -225,6 +236,7 @@ documented pass evidence for its mapped gates.
 
 - Execution + release tracking: `dev/active/MASTER_PLAN.md`
 - Market, competitor, and UX evidence: `dev/active/overlay.md`
+- Code-quality execution plan: `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`
 - SDLC policy: `AGENTS.md`
 - Architecture: `dev/ARCHITECTURE.md`
 - Changelog: `dev/CHANGELOG.md`

@@ -24,6 +24,7 @@ use super::counters::{
 };
 use super::counters::{read_output_elapsed, read_output_grace_elapsed, wait_for_exit_elapsed};
 use super::io::{spawn_passthrough_reader_thread, spawn_reader_thread, try_write, write_all};
+use super::session_guard;
 
 /// Uses PTY to run a backend CLI in a proper terminal environment.
 pub struct PtyCliSession {
@@ -43,6 +44,7 @@ impl PtyCliSession {
         args: &[String],
         term_value: &str,
     ) -> Result<Self> {
+        session_guard::cleanup_stale_sessions();
         let cwd = CString::new(working_dir)
             .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
         let term_value_cstr = term_value_cstring(term_value)?;
@@ -64,6 +66,7 @@ impl PtyCliSession {
             let (master_fd, lifeline_write_fd, child_pid) =
                 spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
+            session_guard::register_session(master_fd, child_pid, cli_cmd);
 
             let (tx, rx) = bounded(100);
             let output_thread = spawn_reader_thread(master_fd, tx);
@@ -192,6 +195,7 @@ impl Drop for PtyCliSession {
     fn drop(&mut self) {
         unsafe {
             if self.child_pid < 0 {
+                session_guard::unregister_session(self.master_fd);
                 close_fd(self.lifeline_write_fd);
                 self.lifeline_write_fd = -1;
                 close_fd(self.master_fd);
@@ -232,6 +236,7 @@ impl Drop for PtyCliSession {
                     }
                 }
             }
+            session_guard::unregister_session(self.master_fd);
             close_fd(self.lifeline_write_fd);
             self.lifeline_write_fd = -1;
             close_fd(self.master_fd);
@@ -257,6 +262,7 @@ impl PtyOverlaySession {
         args: &[String],
         term_value: &str,
     ) -> Result<Self> {
+        session_guard::cleanup_stale_sessions();
         let cwd = CString::new(working_dir)
             .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
         let term_value_cstr = term_value_cstring(term_value)?;
@@ -278,6 +284,7 @@ impl PtyOverlaySession {
             let (master_fd, lifeline_write_fd, child_pid) =
                 spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
+            session_guard::register_session(master_fd, child_pid, cli_cmd);
 
             let (tx, rx) = bounded(100);
             let output_thread = spawn_passthrough_reader_thread(master_fd, tx);
@@ -374,6 +381,7 @@ impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
         unsafe {
             if self.child_pid < 0 {
+                session_guard::unregister_session(self.master_fd);
                 close_fd(self.lifeline_write_fd);
                 self.lifeline_write_fd = -1;
                 close_fd(self.master_fd);
@@ -414,6 +422,7 @@ impl Drop for PtyOverlaySession {
                     }
                 }
             }
+            session_guard::unregister_session(self.master_fd);
             close_fd(self.lifeline_write_fd);
             self.lifeline_write_fd = -1;
             close_fd(self.master_fd);

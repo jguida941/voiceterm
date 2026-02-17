@@ -9,6 +9,24 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.73] - 2026-02-17
+
+### UX
+
+- Restore right-edge anchoring for the Full HUD trailing visualization panel so the waveform lane stays pinned to the far-right corner instead of drifting next to shortcut text.
+
+### Runtime Hardening
+
+- Add a PTY session-lease guard that records VoiceTerm-owned backend parent PIDs and reaps stale process groups from dead owners before each new PTY spawn, preventing orphan carryover without blocking multiple concurrent VoiceTerm sessions.
+
+### Code Quality
+
+- Reduce `settings_handlers` duplication by introducing a shared enum-cycling helper and moving its large test module into `settings_handlers/tests.rs` for lower runtime-file coupling.
+
+### Documentation
+
+- Document startup PTY stale-lease cleanup behavior for maintainers (`dev/ARCHITECTURE.md`) and operators (`guides/TROUBLESHOOTING.md`).
+
 ## [1.0.72] - 2026-02-17
 
 ### UX

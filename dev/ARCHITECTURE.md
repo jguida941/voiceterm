@@ -404,6 +404,7 @@ sequenceDiagram
 - It **replies to terminal queries** (DSR/DA) but leaves all ANSI intact.
 - On SIGWINCH, `ioctl(TIOCSWINSZ)` updates the PTY size and forwards SIGWINCH to the PTY process group (with direct-PID fallback).
 - On drop, PTY sessions attempt graceful `exit`, then send `SIGTERM`/`SIGKILL` to the PTY process group (with direct-PID fallback) and reap the direct child to prevent orphan/zombie buildup.
+- Before new PTY spawns, VoiceTerm scans stale session-lease files (owner PID + backend PID metadata) and reaps only leases whose owner process is gone, so multi-session runtime remains supported while orphaned backend parents from crashed sessions are cleaned automatically.
 
 ## Output Serialization
 

@@ -5,6 +5,7 @@ mod counters;
 mod io;
 mod osc;
 mod pty;
+mod session_guard;
 
 #[cfg(test)]
 mod tests;

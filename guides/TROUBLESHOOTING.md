@@ -215,6 +215,10 @@ If Claude tool actions run without approval prompts, check whether
 ### Many codex or claude processes remain after quitting
 
 Recent builds terminate backend process groups and reap child processes on exit.
+VoiceTerm also records per-session backend ownership leases and reaps stale
+backend parents from dead VoiceTerm owners before new PTY launches. This
+startup cleanup does **not** force single-session usage; concurrently active
+VoiceTerm sessions are preserved.
 If you still observe leftovers:
 
 1. Confirm version:
