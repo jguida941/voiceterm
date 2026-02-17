@@ -123,20 +123,31 @@ Targets:
   `session/test_support.rs` extraction for event-sink and loop-count test
   infrastructure, with `loop_control` updating counts through focused helpers
   instead of direct static wiring; landed `session/state.rs` extraction for
-  `IpcState` construction/capabilities emission so `session.rs` stays focused on
-  runtime adapters and loop orchestration; remaining boundary hardening is now
-  incremental cleanup).
+  `IpcState` construction/capabilities emission and `session/event_sink.rs`
+  extraction for event emit/test capture plumbing so `session.rs` stays focused
+  on runtime adapters and loop orchestration; remaining boundary hardening is
+  now incremental cleanup).
 
 ## Workstream 5 - Lint Policy Hardening
 
-- [ ] `CQ-005a` Define a strict maintainer lint profile with a scoped allowlist
-  (pedantic/nursery subset focused on maintainability and safety).
+- [x] `CQ-005a` Define a strict maintainer lint profile with a scoped allowlist
+  (landed `devctl check --profile maintainer-lint` + CI workflow
+  `.github/workflows/lint_hardening.yml`, using a focused clippy subset:
+  `redundant_clone`, `redundant_closure_for_method_calls`,
+  `cast_possible_wrap`, and `dead_code`).
 - [ ] `CQ-005b` Burn down high-value warnings first:
   - missing `#[must_use]` where meaningful
   - missing `# Errors` docs on public fallible APIs
   - redundant clones/closures
   - risky integer/float cast hot spots
   - dead-code/legacy drift in runtime modules
+  - progress: current `redundant_clone`, `redundant_closure_for_method_calls`,
+    and `cast_possible_wrap` findings for the maintainer-lint profile are
+    resolved across `src/` and `src/bin/voiceterm/`; `#[must_use]` and
+    `# Errors` docs burn-down sweep is now clean under
+    `cargo clippy --workspace --all-features -- -W clippy::must_use_candidate -W clippy::missing_errors_doc`;
+    remaining burn-down is scoped to evaluating/adding precision and
+    truncation cast lint families to maintainer policy.
 
 ## Verification Gates Per Slice
 

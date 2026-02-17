@@ -3,7 +3,7 @@
 use crate::lock_or_recover;
 use crate::log_debug;
 use crate::process_signal::signal_process_group_or_pid;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 use std::os::unix::io::RawFd;
@@ -16,9 +16,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const SESSION_GUARD_DIR_ENV: &str = "VOICETERM_SESSION_GUARD_DIR";
 const SESSION_GUARD_ENABLED_ENV: &str = "VOICETERM_SESSION_GUARD";
+const ORPHAN_SWEEP_ENABLED_ENV: &str = "VOICETERM_ORPHAN_SWEEP";
 const SESSION_GUARD_DIR_NAME: &str = "voiceterm-session-guard";
 const SESSION_TERMINATION_GRACE_MS: u64 = 500;
 const STALE_CLEANUP_MIN_INTERVAL_MS: u64 = 2_000;
+const ORPHAN_SWEEP_MIN_AGE_SECS: u64 = 60;
 
 static SESSION_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 static LAST_STALE_CLEANUP_MS: AtomicU64 = AtomicU64::new(0);
@@ -86,6 +88,16 @@ impl SessionLeaseEntry {
     }
 }
 
+#[derive(Debug, Clone)]
+struct ProcessSnapshot {
+    pid: i32,
+    ppid: i32,
+    tty: String,
+    elapsed: Duration,
+    command_line: String,
+    exec_name: String,
+}
+
 fn active_session_files() -> &'static Mutex<HashMap<RawFd, PathBuf>> {
     ACTIVE_SESSION_FILES.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -93,6 +105,24 @@ fn active_session_files() -> &'static Mutex<HashMap<RawFd, PathBuf>> {
 fn session_guard_enabled() -> bool {
     !matches!(
         std::env::var(SESSION_GUARD_ENABLED_ENV),
+        Ok(value)
+            if value.eq_ignore_ascii_case("0")
+                || value.eq_ignore_ascii_case("false")
+                || value.eq_ignore_ascii_case("off")
+    )
+}
+
+fn orphan_sweep_enabled() -> bool {
+    #[cfg(test)]
+    if !matches!(
+        std::env::var("VOICETERM_ORPHAN_SWEEP_TEST"),
+        Ok(value) if value == "1"
+    ) {
+        return false;
+    }
+
+    !matches!(
+        std::env::var(ORPHAN_SWEEP_ENABLED_ENV),
         Ok(value)
             if value.eq_ignore_ascii_case("0")
                 || value.eq_ignore_ascii_case("false")
@@ -114,7 +144,7 @@ fn exec_basename(cli_cmd: &str) -> String {
     Path::new(cli_cmd)
         .file_name()
         .and_then(|name| name.to_str())
-        .map(|name| name.to_string())
+        .map(ToString::to_string)
         .unwrap_or_else(|| cli_cmd.to_string())
 }
 
@@ -127,6 +157,132 @@ fn session_file_path(base_dir: &Path, owner_pid: i32, child_pid: i32) -> PathBuf
     base_dir.join(format!(
         "session-{owner_pid}-{child_pid}-{now_ns}-{seq}.lease"
     ))
+}
+
+fn parse_etime_seconds(raw: &str) -> Option<u64> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let (days, rest) = if let Some((day_part, time_part)) = trimmed.split_once('-') {
+        (day_part.parse::<u64>().ok()?, time_part)
+    } else {
+        (0, trimmed)
+    };
+
+    let mut parts = rest.split(':');
+    let first = parts.next()?.parse::<u64>().ok()?;
+    let second = parts.next()?.parse::<u64>().ok()?;
+    let third = parts.next().and_then(|value| value.parse::<u64>().ok());
+
+    let seconds = match third {
+        Some(ss) => first
+            .saturating_mul(3600)
+            .saturating_add(second.saturating_mul(60))
+            .saturating_add(ss),
+        None => first.saturating_mul(60).saturating_add(second),
+    };
+    Some(days.saturating_mul(86_400).saturating_add(seconds))
+}
+
+fn parse_ps_snapshot_line(line: &str) -> Option<ProcessSnapshot> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut parts = trimmed.split_whitespace();
+    let pid = parts.next()?.parse::<i32>().ok()?;
+    let ppid = parts.next()?.parse::<i32>().ok()?;
+    let tty = parts.next()?.to_string();
+    let elapsed = Duration::from_secs(parse_etime_seconds(parts.next()?)?);
+    let command_line = parts.collect::<Vec<_>>().join(" ");
+    if command_line.is_empty() {
+        return None;
+    }
+    let exec_name = command_basename(&command_line)?;
+    Some(ProcessSnapshot {
+        pid,
+        ppid,
+        tty,
+        elapsed,
+        command_line,
+        exec_name,
+    })
+}
+
+fn process_snapshots() -> Vec<ProcessSnapshot> {
+    let Ok(output) = Command::new("ps")
+        .args(["-axo", "pid=,ppid=,tty=,etime=,command="])
+        .output()
+    else {
+        log_debug("session guard: detached orphan sweep skipped (ps snapshot unavailable)");
+        return Vec::new();
+    };
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(parse_ps_snapshot_line)
+        .collect()
+}
+
+fn collect_leased_child_pids(base_dir: &Path) -> HashSet<i32> {
+    let mut leased_pids = HashSet::new();
+    let Ok(entries) = fs::read_dir(base_dir) else {
+        return leased_pids;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(path) else {
+            continue;
+        };
+        let Some(lease) = SessionLeaseEntry::parse(&contents) else {
+            continue;
+        };
+        leased_pids.insert(lease.child_pid);
+    }
+    leased_pids
+}
+
+fn exec_is_shell(exec_name: &str) -> bool {
+    matches!(
+        exec_name,
+        "sh" | "bash" | "zsh" | "fish" | "nu" | "ksh" | "tcsh"
+    )
+}
+
+fn exec_is_backend(exec_name: &str) -> bool {
+    matches!(
+        exec_name,
+        "codex" | "claude" | "gemini" | "aider" | "opencode"
+    )
+}
+
+fn orphan_candidates_from_snapshots(
+    snapshots: &[ProcessSnapshot],
+    leased_child_pids: &HashSet<i32>,
+    min_age: Duration,
+) -> Vec<ProcessSnapshot> {
+    let tty_with_shell: HashSet<&str> = snapshots
+        .iter()
+        .filter(|snapshot| exec_is_shell(&snapshot.exec_name))
+        .map(|snapshot| snapshot.tty.as_str())
+        .collect();
+
+    snapshots
+        .iter()
+        .filter(|snapshot| snapshot.pid > 1)
+        .filter(|snapshot| snapshot.ppid == 1)
+        .filter(|snapshot| snapshot.tty != "?" && snapshot.tty != "??")
+        .filter(|snapshot| exec_is_backend(&snapshot.exec_name))
+        .filter(|snapshot| snapshot.elapsed >= min_age)
+        .filter(|snapshot| !leased_child_pids.contains(&snapshot.pid))
+        .filter(|snapshot| !tty_with_shell.contains(snapshot.tty.as_str()))
+        .cloned()
+        .collect()
 }
 
 fn process_exists(pid: i32) -> bool {
@@ -356,6 +512,29 @@ fn cleanup_stale_sessions_in_dir(base_dir: &Path) {
     }
 }
 
+fn cleanup_detached_backend_orphans(base_dir: &Path) {
+    if !orphan_sweep_enabled() {
+        return;
+    }
+    let leased_child_pids = collect_leased_child_pids(base_dir);
+    let candidates = orphan_candidates_from_snapshots(
+        &process_snapshots(),
+        &leased_child_pids,
+        Duration::from_secs(ORPHAN_SWEEP_MIN_AGE_SECS),
+    );
+    for candidate in candidates {
+        log_debug(&format!(
+            "session guard: reaping detached backend pid={} exec={} tty={} elapsed={:?} cmd={}",
+            candidate.pid,
+            candidate.exec_name,
+            candidate.tty,
+            candidate.elapsed,
+            candidate.command_line
+        ));
+        terminate_stale_process_tree(candidate.pid);
+    }
+}
+
 pub(super) fn cleanup_stale_sessions() {
     if !session_guard_enabled() {
         return;
@@ -373,6 +552,7 @@ pub(super) fn cleanup_stale_sessions() {
         return;
     }
     cleanup_stale_sessions_in_dir(&base_dir);
+    cleanup_detached_backend_orphans(&base_dir);
 }
 
 pub(super) fn register_session(master_fd: RawFd, child_pid: i32, cli_cmd: &str) {
@@ -581,5 +761,102 @@ mod tests {
         cleanup_stale_sessions_in_dir(&dir);
         assert!(path.exists(), "live-owner lease should remain");
         remove_test_dir(&dir);
+    }
+
+    #[test]
+    fn parse_etime_seconds_handles_common_ps_formats() {
+        assert_eq!(parse_etime_seconds("00:05"), Some(5));
+        assert_eq!(parse_etime_seconds("03:20"), Some(200));
+        assert_eq!(parse_etime_seconds("01:02:03"), Some(3723));
+        assert_eq!(
+            parse_etime_seconds("2-03:04:05"),
+            Some((2 * 86_400) + (3 * 3600) + (4 * 60) + 5)
+        );
+        assert_eq!(parse_etime_seconds(""), None);
+        assert_eq!(parse_etime_seconds("bad"), None);
+    }
+
+    #[test]
+    fn parse_ps_snapshot_line_extracts_fields() {
+        let line = "123 1 ttys080 01:23 codex -C /tmp";
+        let parsed = parse_ps_snapshot_line(line).expect("snapshot parse");
+        assert_eq!(parsed.pid, 123);
+        assert_eq!(parsed.ppid, 1);
+        assert_eq!(parsed.tty, "ttys080");
+        assert_eq!(parsed.elapsed, Duration::from_secs(83));
+        assert_eq!(parsed.exec_name, "codex");
+        assert_eq!(parsed.command_line, "codex -C /tmp");
+    }
+
+    #[test]
+    fn orphan_candidates_require_detached_backend_without_shell() {
+        let snapshots = vec![
+            ProcessSnapshot {
+                pid: 700,
+                ppid: 1,
+                tty: "ttys080".to_string(),
+                elapsed: Duration::from_secs(240),
+                command_line: "codex".to_string(),
+                exec_name: "codex".to_string(),
+            },
+            ProcessSnapshot {
+                pid: 701,
+                ppid: 995,
+                tty: "ttys080".to_string(),
+                elapsed: Duration::from_secs(240),
+                command_line: "/bin/zsh -il".to_string(),
+                exec_name: "zsh".to_string(),
+            },
+            ProcessSnapshot {
+                pid: 702,
+                ppid: 1,
+                tty: "ttys081".to_string(),
+                elapsed: Duration::from_secs(240),
+                command_line: "claude".to_string(),
+                exec_name: "claude".to_string(),
+            },
+            ProcessSnapshot {
+                pid: 703,
+                ppid: 1,
+                tty: "??".to_string(),
+                elapsed: Duration::from_secs(240),
+                command_line: "codex".to_string(),
+                exec_name: "codex".to_string(),
+            },
+            ProcessSnapshot {
+                pid: 704,
+                ppid: 1,
+                tty: "ttys082".to_string(),
+                elapsed: Duration::from_secs(10),
+                command_line: "codex".to_string(),
+                exec_name: "codex".to_string(),
+            },
+        ];
+
+        let leased = HashSet::from([702]);
+        let candidates =
+            orphan_candidates_from_snapshots(&snapshots, &leased, Duration::from_secs(60));
+
+        assert!(
+            candidates.is_empty(),
+            "shell-backed, leased, detached-tty, and too-young candidates should all be filtered"
+        );
+    }
+
+    #[test]
+    fn orphan_candidates_include_detached_backend_without_shell_or_lease() {
+        let snapshots = vec![ProcessSnapshot {
+            pid: 801,
+            ppid: 1,
+            tty: "ttys090".to_string(),
+            elapsed: Duration::from_secs(600),
+            command_line: "codex".to_string(),
+            exec_name: "codex".to_string(),
+        }];
+        let leased = HashSet::new();
+        let candidates =
+            orphan_candidates_from_snapshots(&snapshots, &leased, Duration::from_secs(60));
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].pid, 801);
     }
 }

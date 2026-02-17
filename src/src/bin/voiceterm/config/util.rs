@@ -7,8 +7,12 @@ pub(super) fn split_backend_command(raw: &str) -> (String, Vec<String>) {
     if trimmed.is_empty() {
         return (String::new(), Vec::new());
     }
-    let parts = shell_words::split(trimmed)
-        .unwrap_or_else(|_| trimmed.split_whitespace().map(|s| s.to_string()).collect());
+    let parts = shell_words::split(trimmed).unwrap_or_else(|_| {
+        trimmed
+            .split_whitespace()
+            .map(ToString::to_string)
+            .collect()
+    });
     if parts.is_empty() {
         return (String::new(), Vec::new());
     }

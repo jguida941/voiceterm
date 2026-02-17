@@ -13,7 +13,7 @@ use crate::config::{
 };
 use crate::log_debug;
 use crate::overlays::OverlayMode;
-use crate::status_line::{RecordingState, StatusLineState, VoiceMode};
+use crate::status_line::{RecordingState, StatusLineState, VoiceMode, WakeWordHudState};
 use crate::terminal::update_pty_winsize;
 use crate::theme::Theme;
 use crate::theme_ops::{apply_theme_selection, cycle_theme};
@@ -21,6 +21,10 @@ use crate::voice_control::{
     clear_capture_metrics, reset_capture_visuals, start_voice_capture, VoiceManager,
 };
 use crate::writer::{set_status, try_send_message, WriterMessage};
+
+const WAKE_WORD_SENSITIVITY_MIN: f32 = 0.0;
+const WAKE_WORD_SENSITIVITY_MAX: f32 = 1.0;
+const WAKE_WORD_COOLDOWN_OPTIONS_MS: &[u64] = &[500, 1000, 1500, 2000, 3000, 5000, 8000, 10_000];
 
 pub(crate) struct SettingsStatusContext<'a> {
     pub(crate) status_state: &'a mut StatusLineState,
@@ -116,6 +120,52 @@ impl SettingsActionContext<'_> {
             }
         };
         self.set_transient_status(msg, Duration::from_secs(2));
+    }
+
+    pub(crate) fn toggle_wake_word(&mut self) {
+        self.config.wake_word = !self.config.wake_word;
+        self.status.status_state.wake_word_state = if self.config.wake_word {
+            if self.voice.voice_manager.is_idle() {
+                WakeWordHudState::Listening
+            } else {
+                WakeWordHudState::Paused
+            }
+        } else {
+            WakeWordHudState::Off
+        };
+        let msg = if self.config.wake_word {
+            "Wake word: ON"
+        } else {
+            "Wake word: OFF"
+        };
+        self.set_transient_status(msg, Duration::from_secs(2));
+    }
+
+    pub(crate) fn adjust_wake_word_sensitivity(&mut self, delta: f32) {
+        let next = (self.config.wake_word_sensitivity + delta)
+            .clamp(WAKE_WORD_SENSITIVITY_MIN, WAKE_WORD_SENSITIVITY_MAX);
+        self.config.wake_word_sensitivity = (next * 100.0).round() / 100.0;
+        let percent = self.config.wake_word_sensitivity * 100.0;
+        let direction = if delta >= 0.0 {
+            "more sensitive"
+        } else {
+            "less sensitive"
+        };
+        let msg = format!("Wake-word sensitivity: {percent:.0}% ({direction})");
+        self.set_transient_status(&msg, Duration::from_secs(3));
+    }
+
+    pub(crate) fn cycle_wake_word_cooldown(&mut self, direction: i32) {
+        self.config.wake_word_cooldown_ms = cycle_option(
+            WAKE_WORD_COOLDOWN_OPTIONS_MS,
+            self.config.wake_word_cooldown_ms,
+            direction,
+        );
+        let msg = format!(
+            "Wake-word cooldown: {} ms",
+            self.config.wake_word_cooldown_ms
+        );
+        self.set_transient_status(&msg, Duration::from_secs(3));
     }
 
     pub(crate) fn toggle_send_mode(&mut self) {
@@ -247,15 +297,18 @@ fn cycle_option<T>(options: &[T], current: T, direction: i32) -> T
 where
     T: Copy + PartialEq,
 {
-    let len = options.len() as i32;
+    let len = options.len();
     if len == 0 {
         return current;
     }
     let idx = options
         .iter()
         .position(|item| *item == current)
-        .unwrap_or(0) as i32;
-    let next = (idx + direction).rem_euclid(len) as usize;
+        .unwrap_or(0);
+    let len_i64 = i64::try_from(len).unwrap_or(1);
+    let idx_i64 = i64::try_from(idx).unwrap_or(0);
+    let next_i64 = (idx_i64 + i64::from(direction)).rem_euclid(len_i64);
+    let next = usize::try_from(next_i64).unwrap_or(0);
     options[next]
 }
 

@@ -50,6 +50,7 @@ pub struct CodexRequest {
 
 impl CodexRequest {
     /// Build a chat request with default timeout and no extra workspace files.
+    #[must_use]
     pub fn chat(prompt: String) -> Self {
         Self {
             payload: RequestPayload::Chat { prompt },
@@ -171,6 +172,11 @@ pub enum CodexBackendError {
 /// Runtime implementation of the Codex backend interface.
 pub trait CodexJobRunner: Send + Sync {
     /// Start a new asynchronous Codex job.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CodexBackendError`] when the request is invalid or the runtime
+    /// backend cannot start work.
     fn start(&self, request: CodexRequest) -> Result<CodexJob, CodexBackendError>;
     /// Request cancellation for a running job id.
     fn cancel(&self, job_id: JobId);
@@ -212,11 +218,17 @@ impl CodexJob {
     }
 
     /// Poll the signal channel without blocking to determine whether new events exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TryRecvError::Empty`] when no signal is pending and
+    /// [`TryRecvError::Disconnected`] when the worker side has exited.
     pub fn try_recv_signal(&self) -> Result<(), TryRecvError> {
         self.signal_rx.try_recv().map(|_| ())
     }
 
     /// Drain any queued backend events.
+    #[must_use]
     pub fn drain_events(&self) -> Vec<CodexEvent> {
         self.events.drain()
     }

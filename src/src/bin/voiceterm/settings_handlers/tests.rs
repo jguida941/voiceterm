@@ -651,6 +651,258 @@ fn toggle_auto_voice_updates_state_and_status() {
 }
 
 #[test]
+fn toggle_wake_word_updates_state_and_status() {
+    let mut config = OverlayConfig::parse_from(["test-app"]);
+    let mut voice_manager = VoiceManager::new(config.app.clone());
+    let (writer_tx, writer_rx) = bounded(4);
+    let mut status_clear_deadline = None;
+    let mut current_status = None;
+    let mut status_state = StatusLineState::new();
+    let mut auto_voice_enabled = false;
+    let mut last_auto_trigger_at = None;
+    let mut recording_started_at = None;
+    let mut preview_clear_deadline = None;
+    let mut last_meter_update = Instant::now();
+    let button_registry = ButtonRegistry::new();
+    let mut terminal_rows = 24;
+    let mut terminal_cols = 80;
+    let mut theme = Theme::Coral;
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.toggle_wake_word();
+    }
+    assert!(config.wake_word);
+    assert_eq!(
+        status_state.wake_word_state,
+        crate::status_line::WakeWordHudState::Listening
+    );
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("Wake word: ON"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.toggle_wake_word();
+    }
+    assert!(!config.wake_word);
+    assert_eq!(
+        status_state.wake_word_state,
+        crate::status_line::WakeWordHudState::Off
+    );
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("Wake word: OFF"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn adjust_wake_word_sensitivity_clamps_and_reports() {
+    let mut config = OverlayConfig::parse_from(["test-app"]);
+    let mut voice_manager = VoiceManager::new(config.app.clone());
+    let (writer_tx, writer_rx) = bounded(4);
+    let mut status_clear_deadline = None;
+    let mut current_status = None;
+    let mut status_state = StatusLineState::new();
+    let mut auto_voice_enabled = false;
+    let mut last_auto_trigger_at = None;
+    let mut recording_started_at = None;
+    let mut preview_clear_deadline = None;
+    let mut last_meter_update = Instant::now();
+    let button_registry = ButtonRegistry::new();
+    let mut terminal_rows = 24;
+    let mut terminal_cols = 80;
+    let mut theme = Theme::Coral;
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.adjust_wake_word_sensitivity(0.8);
+    }
+    assert!((config.wake_word_sensitivity - 1.0).abs() < f32::EPSILON);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("100%"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.adjust_wake_word_sensitivity(-2.0);
+    }
+    assert!((config.wake_word_sensitivity - 0.0).abs() < f32::EPSILON);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("0%"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn cycle_wake_word_cooldown_wraps_and_reports() {
+    let mut config = OverlayConfig::parse_from(["test-app"]);
+    let mut voice_manager = VoiceManager::new(config.app.clone());
+    let (writer_tx, writer_rx) = bounded(6);
+    let mut status_clear_deadline = None;
+    let mut current_status = None;
+    let mut status_state = StatusLineState::new();
+    let mut auto_voice_enabled = false;
+    let mut last_auto_trigger_at = None;
+    let mut recording_started_at = None;
+    let mut preview_clear_deadline = None;
+    let mut last_meter_update = Instant::now();
+    let button_registry = ButtonRegistry::new();
+    let mut terminal_rows = 24;
+    let mut terminal_cols = 80;
+    let mut theme = Theme::Coral;
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.cycle_wake_word_cooldown(1);
+    }
+    assert_eq!(config.wake_word_cooldown_ms, 3000);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("3000 ms"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+
+    config.wake_word_cooldown_ms = 500;
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.cycle_wake_word_cooldown(-1);
+    }
+    assert_eq!(config.wake_word_cooldown_ms, 10_000);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("10000 ms"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
 fn cycle_theme_updates_selected_theme() {
     let mut config = OverlayConfig::parse_from(["test-app"]);
     let mut voice_manager = VoiceManager::new(config.app.clone());

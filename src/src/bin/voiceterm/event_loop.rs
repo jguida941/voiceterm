@@ -56,7 +56,7 @@ use crate::voice_control::{
     VoiceDrainContext,
 };
 use crate::writer::{set_status, WriterMessage};
-use input_dispatch::handle_input_event;
+use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
@@ -338,6 +338,23 @@ fn apply_settings_item_action(
             settings_ctx.toggle_auto_voice();
             true
         }
+        SettingsItem::WakeWord => {
+            settings_ctx.toggle_wake_word();
+            true
+        }
+        SettingsItem::WakeSensitivity => {
+            if direction == 0 {
+                false
+            } else {
+                let delta = if direction < 0 { -0.05 } else { 0.05 };
+                settings_ctx.adjust_wake_word_sensitivity(delta);
+                true
+            }
+        }
+        SettingsItem::WakeCooldown => {
+            settings_ctx.cycle_wake_word_cooldown(step);
+            true
+        }
         SettingsItem::SendMode => {
             settings_ctx.toggle_send_mode();
             true
@@ -563,6 +580,7 @@ pub(crate) fn run_event_loop(
         };
         let input_rx = input_guard.as_ref().unwrap_or(&deps.input_rx);
         let output_rx = output_guard.as_ref().unwrap_or(&deps.session.output_rx);
+        let wake_rx = &deps.wake_word_rx;
         select! {
             recv(input_rx) -> event => {
                 match event {
@@ -578,6 +596,11 @@ pub(crate) fn run_event_loop(
                     Err(_) => {
                         running = false;
                     }
+                }
+            }
+            recv(wake_rx) -> wake_event => {
+                if wake_event.is_ok() {
+                    handle_wake_word_detection(state, timers, deps);
                 }
             }
             default(select_timeout) => {}

@@ -60,6 +60,7 @@ pub(super) struct CodexCliBackendState {
 
 impl CodexCliBackend {
     /// Build a backend instance using the provided validated app config.
+    #[must_use]
     pub fn new(config: AppConfig) -> Self {
         let working_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let state = CodexCliBackendState {

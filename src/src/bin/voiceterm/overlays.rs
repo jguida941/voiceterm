@@ -32,6 +32,9 @@ pub(crate) fn show_settings_overlay(
     let view = SettingsView {
         selected: settings_menu.selected,
         auto_voice_enabled: status_state.auto_voice_enabled,
+        wake_word_enabled: config.wake_word,
+        wake_word_sensitivity: config.wake_word_sensitivity,
+        wake_word_cooldown_ms: config.wake_word_cooldown_ms,
         send_mode: config.voice_send_mode,
         macros_enabled: status_state.macros_enabled,
         sensitivity_db: status_state.sensitivity_db,

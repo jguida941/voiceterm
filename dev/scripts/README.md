@@ -16,6 +16,8 @@ For current execution scope, use `dev/active/MASTER_PLAN.md` and
 ```bash
 # Core quality checks
 python3 dev/scripts/devctl.py check --profile ci
+python3 dev/scripts/devctl.py check --profile maintainer-lint
+python3 dev/scripts/devctl.py check --profile release
 
 # Docs + governance checks
 python3 dev/scripts/devctl.py docs-check --user-facing
@@ -53,7 +55,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 
 ## Devctl Command Set
 
-- `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `quick`)
+- `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`)
+  - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
@@ -104,6 +107,7 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --gith
 | `dev/scripts/tests/benchmark_voice.sh` | Voice pipeline benchmarking |
 | `dev/scripts/tests/measure_latency.sh` | Latency profiling + CI guardrails |
 | `dev/scripts/tests/integration_test.sh` | IPC integration testing |
+| `dev/scripts/tests/wake_word_guard.sh` | Wake-word regression + soak guardrails |
 
 Example latency guard command:
 

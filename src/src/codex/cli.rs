@@ -156,7 +156,15 @@ pub(super) fn send_signal(pid: u32, signal: Signal) {
             Signal::Term => libc::SIGTERM,
             Signal::Kill => libc::SIGKILL,
         };
-        if let Err(err) = signal_process_group_or_pid(pid as i32, signo, false) {
+        let Some(pid_i32) = i32::try_from(pid).ok() else {
+            #[cfg(test)]
+            SEND_SIGNAL_FAILURES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            log_debug(&format!(
+                "CodexJob: refusing to send signal {signo} to out-of-range pid {pid}",
+            ));
+            return;
+        };
+        if let Err(err) = signal_process_group_or_pid(pid_i32, signo, false) {
             #[cfg(test)]
             SEND_SIGNAL_FAILURES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             log_debug(&format!(

@@ -154,6 +154,10 @@ unsafe fn close_pty_session_handles(master_fd: RawFd, lifeline_write_fd: &mut Ra
 
 impl PtyCliSession {
     /// Start a backend CLI under a pseudo-terminal so it behaves like an interactive shell.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if PTY allocation, process spawn, or reader thread setup fails.
     pub fn new(
         cli_cmd: &str,
         working_dir: &str,
@@ -171,6 +175,10 @@ impl PtyCliSession {
     }
 
     /// Write text to the PTY, automatically ensuring prompts end with a newline.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing to the PTY master fails.
     pub fn send(&mut self, text: &str) -> Result<()> {
         #[cfg(any(test, feature = "mutants"))]
         record_pty_send();
@@ -178,6 +186,7 @@ impl PtyCliSession {
     }
 
     /// Drain any waiting output without blocking.
+    #[must_use]
     pub fn read_output(&self) -> Vec<Vec<u8>> {
         let mut output = Vec::new();
         while let Ok(line) = self.output_rx.try_recv() {
@@ -187,6 +196,7 @@ impl PtyCliSession {
     }
 
     /// Block for a short window until output arrives or the timeout expires.
+    #[must_use]
     pub fn read_output_timeout(&self, timeout: Duration) -> Vec<Vec<u8>> {
         #[cfg(any(test, feature = "mutants"))]
         record_pty_read();
@@ -234,6 +244,7 @@ impl PtyCliSession {
     }
 
     /// Wait up to `timeout` for at least one output chunk, then drain any remaining bytes.
+    #[must_use]
     pub fn wait_for_output(&self, timeout: Duration) -> Vec<Vec<u8>> {
         let mut output = Vec::new();
         if let Ok(chunk) = self.output_rx.recv_timeout(timeout) {
@@ -244,6 +255,7 @@ impl PtyCliSession {
     }
 
     /// Peek whether the child is still running (without reaping it).
+    #[must_use]
     pub fn is_alive(&self) -> bool {
         child_process_is_alive(self.child_pid)
     }
@@ -287,6 +299,10 @@ pub struct PtyOverlaySession {
 
 impl PtyOverlaySession {
     /// Start a backend CLI under a pseudo-terminal but keep output raw for overlay rendering.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if PTY allocation, process spawn, or reader thread setup fails.
     pub fn new(
         cli_cmd: &str,
         working_dir: &str,
@@ -310,26 +326,46 @@ impl PtyOverlaySession {
     }
 
     /// Write raw bytes to the PTY master.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the provided bytes to the PTY fails.
     pub fn send_bytes(&mut self, bytes: &[u8]) -> Result<()> {
         write_all(self.master_fd, bytes)
     }
 
     /// Attempt a single non-blocking write to the PTY master.
+    ///
+    /// # Errors
+    ///
+    /// Returns any I/O error produced by a non-blocking write attempt.
     pub fn try_send_bytes(&mut self, bytes: &[u8]) -> io::Result<usize> {
         try_write(self.master_fd, bytes)
     }
 
     /// Write text to the PTY master.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing UTF-8 bytes to the PTY fails.
     pub fn send_text(&mut self, text: &str) -> Result<()> {
         write_all(self.master_fd, text.as_bytes())
     }
 
     /// Write text to the PTY master and ensure it ends with a newline.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing to the PTY master fails.
     pub fn send_text_with_newline(&mut self, text: &str) -> Result<()> {
         write_text_with_newline(self.master_fd, text)
     }
 
     /// Update the PTY window size and notify the child.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the window-size ioctl fails.
     pub fn set_winsize(&self, rows: u16, cols: u16) -> Result<()> {
         // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
         let mut ws: libc::winsize = unsafe { mem::zeroed() };
@@ -348,6 +384,7 @@ impl PtyOverlaySession {
     }
 
     /// Peek whether the child is still running (without reaping it).
+    #[must_use]
     pub fn is_alive(&self) -> bool {
         child_process_is_alive(self.child_pid)
     }
@@ -355,6 +392,7 @@ impl PtyOverlaySession {
 
 #[cfg(any(test, feature = "mutants"))]
 impl PtyOverlaySession {
+    #[must_use]
     pub fn test_winsize(&self) -> (u16, u16) {
         super::osc::current_terminal_size(self.master_fd)
     }

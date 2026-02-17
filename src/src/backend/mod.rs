@@ -20,6 +20,13 @@ pub use custom::CustomBackend;
 pub use gemini::GeminiBackend;
 pub use opencode::OpenCodeBackend;
 
+pub(super) fn command_with_args(binary: &str, args: Vec<String>) -> Vec<String> {
+    let mut command = Vec::with_capacity(args.len().saturating_add(1));
+    command.push(binary.to_string());
+    command.extend(args);
+    command
+}
+
 /// Trait defining the interface for AI CLI backends.
 ///
 /// Each backend implementation provides the command to launch the AI tool
@@ -61,6 +68,7 @@ fn fallback_codex_backend() -> &'static dyn AiBackend {
 
 impl BackendRegistry {
     /// Create a new registry with all built-in backends.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             backends: vec![
@@ -79,10 +87,11 @@ impl BackendRegistry {
         self.backends
             .iter()
             .find(|b| b.name().to_lowercase() == name_lower)
-            .map(|b| b.as_ref())
+            .map(Box::as_ref)
     }
 
     /// Get the default backend (Codex CLI).
+    #[must_use]
     pub fn default_backend(&self) -> &dyn AiBackend {
         if let Some(backend) = self.get("codex") {
             backend
@@ -94,6 +103,7 @@ impl BackendRegistry {
     }
 
     /// List all available backend names.
+    #[must_use]
     pub fn available_backends(&self) -> Vec<&str> {
         self.backends.iter().map(|b| b.name()).collect()
     }

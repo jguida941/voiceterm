@@ -14,6 +14,10 @@ use std::{
 
 impl AppConfig {
     /// Parse CLI arguments and validate them right away.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when CLI parsing succeeds but validation fails.
     pub fn parse_args() -> Result<Self> {
         let mut config = Self::parse();
         config.validate()?;
@@ -21,6 +25,12 @@ impl AppConfig {
     }
 
     /// Check CLI values and normalize paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when any supplied value violates safety bounds, when
+    /// path canonicalization fails, or when configured binaries/models are
+    /// unavailable.
     pub fn validate(&mut self) -> Result<()> {
         const MIN_RECORD_SECONDS: u64 = 1;
         const MAX_RECORD_SECONDS: u64 = 60;
@@ -180,7 +190,7 @@ impl AppConfig {
                 .with_context(|| format!("failed to canonicalize whisper model path '{model}'"))?;
             *model = canonical
                 .to_str()
-                .map(|s| s.to_string())
+                .map(ToString::to_string)
                 .ok_or_else(|| anyhow!("whisper model path must be valid UTF-8"))?;
         }
 
@@ -218,7 +228,7 @@ impl AppConfig {
             );
         }
         // Also limit the total byte length to keep argv small.
-        let total_arg_bytes: usize = self.codex_args.iter().map(|arg| arg.len()).sum();
+        let total_arg_bytes: usize = self.codex_args.iter().map(String::len).sum();
         if total_arg_bytes > MAX_CODEX_ARG_BYTES {
             bail!("combined --codex-arg length exceeds {MAX_CODEX_ARG_BYTES} bytes");
         }
@@ -241,6 +251,7 @@ impl AppConfig {
     }
 
     /// Snapshot the current CLI-controlled voice/VAD settings for downstream consumers.
+    #[must_use]
     pub fn voice_pipeline_config(&self) -> VoicePipelineConfig {
         VoicePipelineConfig {
             sample_rate: self.voice_sample_rate,
@@ -370,7 +381,7 @@ pub(super) fn sanitize_binary(value: &str, flag: &str, allowlist: &[&str]) -> Re
         }
         return canonical
             .to_str()
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
             .ok_or_else(|| anyhow!("{flag} must be valid UTF-8"));
     }
 

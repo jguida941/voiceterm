@@ -197,7 +197,8 @@ Use `Ctrl+Y` to open the picker (or `Ctrl+G` to quick-cycle themes), then use
 
 Mouse control is enabled by default, and Settings (`Ctrl+O`) covers the main
 runtime toggles: send mode, auto-voice, macros, HUD style/border, right-panel
-telemetry, and latency display.
+telemetry, latency display, and wake-word controls (wake toggle,
+sensitivity, cooldown; default OFF).
 In Full HUD mode, the right-panel visualizer (`Ribbon`, `Dots`, `Heartbeat`)
 is shown on the main status row (top-right lane).
 On `xterm-256color` terminals, VoiceTerm now keeps your selected theme

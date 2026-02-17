@@ -1,0 +1,24 @@
+name: lint_hardening
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "dev/scripts/devctl/**"
+      - ".github/workflows/lint_hardening.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dev/scripts/devctl/**"
+      - ".github/workflows/lint_hardening.yml"
+
+jobs:
+  maintainer-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run maintainer lint-hardening profile
+        run: python3 dev/scripts/devctl.py check --profile maintainer-lint

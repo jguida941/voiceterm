@@ -110,7 +110,8 @@ If Homebrew still shows an older version or `voiceterm` runs an older binary, se
 
 After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
-`Latency display`) are available.
+`Latency display`) are available. Wake-word controls are also present there,
+but default to `OFF` unless explicitly enabled.
 You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
 `Ctrl+E` (insert mode: send staged text now; recording with no staged text
 finalizes+submits; idle with no staged text is no-op), `Ctrl+G` (quick theme

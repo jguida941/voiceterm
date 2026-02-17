@@ -1,6 +1,6 @@
 //! Gemini backend definition so Gemini CLI can run through the shared overlay flow.
 
-use super::AiBackend;
+use super::{command_with_args, AiBackend};
 
 /// Backend for Gemini CLI.
 pub struct GeminiBackend {
@@ -15,17 +15,19 @@ impl Default for GeminiBackend {
 
 impl GeminiBackend {
     /// Create a new Gemini CLI backend with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            command: vec!["gemini".to_string()],
+            command: command_with_args("gemini", Vec::new()),
         }
     }
 
     /// Create a Gemini CLI backend with additional arguments.
+    #[must_use]
     pub fn with_args(args: Vec<String>) -> Self {
-        let mut command = vec!["gemini".to_string()];
-        command.extend(args);
-        Self { command }
+        Self {
+            command: command_with_args("gemini", args),
+        }
     }
 }
 

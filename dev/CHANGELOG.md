@@ -7,7 +7,19 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-- No changes yet.
+### UX
+
+- Add wake-word controls plus runtime listener wiring: settings/CLI now configure `Wake word` ON/OFF, sensitivity, and cooldown (still default OFF), detections feed the same capture-start path used by `Ctrl+R`, and wake-listener lifecycle now has explicit start/stop ownership with bounded shutdown joins.
+- Add explicit wake privacy HUD state plus guardrails: Full HUD now shows `Wake: ON` (theme-matched pulse) vs `Wake: PAUSED`, and wake phrase matching is constrained to short, command-like utterances to reduce false positives from background conversation.
+
+### Runtime Hardening
+
+- Extend PTY session-guard cleanup with a detached-backend orphan sweep: during cleanup, VoiceTerm now also reaps backend CLIs (`codex`, `claude`, `gemini`, `aider`, `opencode`) that are detached (`PPID=1`), older than a safety threshold, not covered by active lease files, and no longer have a live shell process on the same TTY.
+
+### Tests
+
+- Add session-guard unit coverage for `ps` elapsed-time parsing and detached-orphan candidate filtering so process-cleanup heuristics remain deterministic and reviewable.
+- Add wake-word regression/soak validation gates: new lifecycle + detection-path regression coverage, long-run false-positive/matcher-latency soak test, reusable guard script (`dev/scripts/tests/wake_word_guard.sh`), release-profile `devctl check` integration, and CI lane (`wake_word_guard.yml`).
 
 ## [1.0.79] - 2026-02-17
 

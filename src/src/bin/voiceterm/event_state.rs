@@ -19,6 +19,7 @@ use crate::theme::Theme;
 use crate::transcript::PendingTranscript;
 use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
+use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 use crate::writer::WriterMessage;
 
 pub(crate) struct EventLoopState {
@@ -59,11 +60,14 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_processing_tick: Instant,
     pub(crate) last_heartbeat_tick: Instant,
     pub(crate) last_meter_update: Instant,
+    pub(crate) last_wake_hud_tick: Instant,
 }
 
 pub(crate) struct EventLoopDeps {
     pub(crate) session: PtyOverlaySession,
     pub(crate) voice_manager: VoiceManager,
+    pub(crate) wake_word_runtime: WakeWordRuntime,
+    pub(crate) wake_word_rx: Receiver<WakeWordEvent>,
     pub(crate) writer_tx: Sender<WriterMessage>,
     pub(crate) input_rx: Receiver<InputEvent>,
     pub(crate) button_registry: ButtonRegistry,

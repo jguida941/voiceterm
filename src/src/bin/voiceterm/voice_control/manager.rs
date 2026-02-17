@@ -140,7 +140,7 @@ impl VoiceManager {
         };
         let job = voice::start_voice_job(
             recorder,
-            transcriber.clone(),
+            transcriber,
             self.config.clone(),
             Some(self.live_meter.clone()),
         );

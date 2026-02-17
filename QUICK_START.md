@@ -151,7 +151,11 @@ voiceterm --latency-display label
 voiceterm --voice-max-capture-ms 60000 --voice-buffer-ms 60000
 voiceterm --transcript-idle-ms 250
 voiceterm --prompt-regex '^codex> $'
+voiceterm --wake-word --wake-word-sensitivity 0.65 --wake-word-cooldown-ms 3000
 ```
+
+Wake-word remains OFF by default; use the flag above or Settings (`Ctrl+O`) to
+enable and tune sensitivity/cooldown.
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full CLI flag and env var list.
 

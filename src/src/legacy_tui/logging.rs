@@ -22,11 +22,13 @@ static CRASH_LOG_ENABLED: AtomicBool = AtomicBool::new(false);
 static LOG_STATE: OnceLock<Mutex<LogState>> = OnceLock::new();
 
 /// Path to the temp log file we rotate between runs.
+#[must_use]
 pub fn log_file_path() -> PathBuf {
     env::temp_dir().join("voiceterm_tui.log")
 }
 
 /// Path to the crash log file (metadata only).
+#[must_use]
 pub fn crash_log_path() -> PathBuf {
     env::temp_dir().join("voiceterm_crash.log")
 }
@@ -102,7 +104,7 @@ pub fn init_logging(config: &AppConfig) {
 
     let mut state = log_state()
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if enabled {
         state.writer = LogWriter::new(log_file_path(), LOG_MAX_BYTES);
     } else {
@@ -123,7 +125,7 @@ pub fn log_debug(msg: &str) {
     let line = format!("[{timestamp}] {msg}\n");
     let mut state = log_state()
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(writer) = state.writer.as_mut() {
         writer.write_line(&line);
     }

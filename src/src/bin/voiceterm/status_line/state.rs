@@ -71,6 +71,18 @@ impl Pipeline {
     }
 }
 
+/// Wake-word listener state shown in the HUD.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WakeWordHudState {
+    /// Wake listening is disabled.
+    #[default]
+    Off,
+    /// Wake listening is active.
+    Listening,
+    /// Wake listening is temporarily paused while capture/transcription is active.
+    Paused,
+}
+
 /// Maximum number of meter level samples to keep for waveform display.
 pub const METER_HISTORY_MAX: usize = 24;
 /// Maximum number of latency samples to keep for HUD sparkline telemetry.
@@ -139,6 +151,8 @@ pub struct StatusLineState {
     pub recording_duration: Option<f32>,
     /// Whether auto-voice is enabled
     pub auto_voice_enabled: bool,
+    /// Wake-word listener HUD state.
+    pub wake_word_state: WakeWordHudState,
     /// Recent audio meter samples in dBFS for waveform display (capped at METER_HISTORY_MAX)
     pub meter_levels: Vec<f32>,
     /// Latest audio meter level in dBFS
@@ -225,6 +239,7 @@ mod tests {
         let state = StatusLineState::new();
         assert_eq!(state.sensitivity_db, -35.0);
         assert!(!state.auto_voice_enabled);
+        assert_eq!(state.wake_word_state, WakeWordHudState::Off);
         assert!(!state.macros_enabled);
         assert!(!state.insert_pending_send);
         assert!(state.latency_history_ms.is_empty());

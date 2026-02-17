@@ -15,15 +15,18 @@ use crate::theme_picker::THEME_OPTIONS;
 use crate::writer::{set_status, WriterMessage};
 
 pub(crate) fn cycle_theme(current: Theme, direction: i32) -> Theme {
-    let len = THEME_OPTIONS.len() as i32;
+    let len = THEME_OPTIONS.len();
     if len == 0 {
         return current;
     }
     let idx = THEME_OPTIONS
         .iter()
         .position(|(theme, _, _)| *theme == current)
-        .unwrap_or(0) as i32;
-    let next = (idx + direction).rem_euclid(len) as usize;
+        .unwrap_or(0);
+    let len_i64 = i64::try_from(len).unwrap_or(1);
+    let idx_i64 = i64::try_from(idx).unwrap_or(0);
+    let next_i64 = (idx_i64 + i64::from(direction)).rem_euclid(len_i64);
+    let next = usize::try_from(next_i64).unwrap_or(0);
     THEME_OPTIONS[next].0
 }
 

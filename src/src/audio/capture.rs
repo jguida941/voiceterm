@@ -64,6 +64,7 @@ pub enum StopReason {
 
 impl StopReason {
     /// Compact label used in logs/metrics.
+    #[must_use]
     pub fn label(&self) -> &'static str {
         match self {
             StopReason::VadSilence { .. } => "vad_silence",

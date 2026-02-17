@@ -104,10 +104,10 @@ impl<'a> ButtonActionContext<'a> {
                 }
             }
             ButtonAction::ToggleAutoVoice => {
-                self.with_settings_context(|settings_ctx| settings_ctx.toggle_auto_voice());
+                self.toggle_auto_voice();
             }
             ButtonAction::ToggleSendMode => {
-                self.with_settings_context(|settings_ctx| settings_ctx.toggle_send_mode());
+                self.toggle_send_mode();
             }
             ButtonAction::SettingsToggle => {
                 self.open_settings_overlay();
@@ -137,9 +137,22 @@ impl<'a> ButtonActionContext<'a> {
         }
     }
 
-    fn with_settings_context(&mut self, apply: impl FnOnce(&mut SettingsActionContext<'_>)) {
+    fn with_settings_context<F>(&mut self, apply: F)
+    where
+        F: for<'ctx> FnOnce(&mut SettingsActionContext<'ctx>),
+    {
         let mut settings_ctx = self.settings_context();
         apply(&mut settings_ctx);
+    }
+
+    fn toggle_auto_voice(&mut self) {
+        let mut settings_ctx = self.settings_context();
+        settings_ctx.toggle_auto_voice();
+    }
+
+    fn toggle_send_mode(&mut self) {
+        let mut settings_ctx = self.settings_context();
+        settings_ctx.toggle_send_mode();
     }
 
     fn sync_overlay_winsize(&mut self) {
@@ -256,8 +269,10 @@ pub(crate) fn advance_hud_button_focus(
         .and_then(|action| actions.iter().position(|candidate| *candidate == action))
     {
         Some(current_idx) => {
-            let len = actions.len() as i32;
-            (current_idx as i32 + direction).rem_euclid(len) as usize
+            let len_i64 = i64::try_from(actions.len()).unwrap_or(1);
+            let current_i64 = i64::try_from(current_idx).unwrap_or(0);
+            let next_i64 = (current_i64 + i64::from(direction)).rem_euclid(len_i64);
+            usize::try_from(next_i64).unwrap_or(0)
         }
         None => {
             if direction >= 0 {

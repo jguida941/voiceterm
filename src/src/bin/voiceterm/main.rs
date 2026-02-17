@@ -39,6 +39,7 @@ mod theme_picker;
 mod transcript;
 mod voice_control;
 mod voice_macros;
+mod wake_word;
 mod writer;
 
 pub(crate) use overlays::OverlayMode;
@@ -71,11 +72,14 @@ use crate::input::spawn_input_thread;
 use crate::prompt::{resolve_prompt_log, resolve_prompt_regex, PromptLogger, PromptTracker};
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::SettingsMenuState;
-use crate::status_line::{Pipeline, StatusLineState, VoiceMode, METER_HISTORY_MAX};
+use crate::status_line::{
+    Pipeline, StatusLineState, VoiceMode, WakeWordHudState, METER_HISTORY_MAX,
+};
 use crate::terminal::{apply_pty_winsize, install_sigwinch_handler};
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::voice_macros::VoiceMacros;
+use crate::wake_word::WakeWordRuntime;
 use crate::writer::{set_status, spawn_writer_thread, WriterMessage};
 
 /// Max pending messages for the output writer thread.
@@ -324,11 +328,18 @@ fn main() -> Result<()> {
     let hud_registry = HudRegistry::with_defaults();
     let meter_update_ms = resolved_meter_update_ms(&hud_registry);
     let voice_manager = VoiceManager::new(config.app.clone());
+    let wake_word_runtime = WakeWordRuntime::new(config.app.clone());
+    let wake_word_rx = wake_word_runtime.receiver();
     let live_meter = voice_manager.meter();
     let auto_voice_enabled = config.auto_voice;
     let mut status_state = StatusLineState::new();
     status_state.sensitivity_db = config.app.voice_vad_threshold_db;
     status_state.auto_voice_enabled = auto_voice_enabled;
+    status_state.wake_word_state = if config.wake_word {
+        WakeWordHudState::Listening
+    } else {
+        WakeWordHudState::Off
+    };
     status_state.send_mode = config.voice_send_mode;
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = false;
@@ -381,10 +392,13 @@ fn main() -> Result<()> {
         last_processing_tick: Instant::now(),
         last_heartbeat_tick: Instant::now(),
         last_meter_update: Instant::now(),
+        last_wake_hud_tick: Instant::now(),
     };
     let mut deps = EventLoopDeps {
         session,
         voice_manager,
+        wake_word_runtime,
+        wake_word_rx,
         writer_tx,
         input_rx,
         button_registry,
@@ -397,6 +411,13 @@ fn main() -> Result<()> {
         transcript_idle_timeout,
         voice_macros,
     };
+
+    deps.wake_word_runtime.sync(
+        state.config.wake_word,
+        state.config.wake_word_sensitivity,
+        state.config.wake_word_cooldown_ms,
+        false,
+    );
 
     if state.auto_voice_enabled {
         set_status(

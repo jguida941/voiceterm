@@ -349,6 +349,35 @@ fn full_row_latency_off_mode_hides_badge() {
 }
 
 #[test]
+fn wake_badge_is_hidden_when_wake_listener_is_off() {
+    let colors = Theme::None.colors();
+    let state = StatusLineState::new();
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    assert!(!row.contains("Wake:"));
+}
+
+#[test]
+fn wake_badge_renders_theme_matched_on_and_paused_states() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.wake_word_state = WakeWordHudState::Listening;
+    let (on_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(on_row.contains("Wake: ON"));
+    assert!(
+        on_row.contains(&format!("{}Wake: ON{}", colors.border, colors.reset))
+            || on_row.contains(&format!(
+                "{}\u{1b}[1mWake: ON{}",
+                colors.success, colors.reset
+            ))
+    );
+
+    state.wake_word_state = WakeWordHudState::Paused;
+    let (paused_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(paused_row.contains("Wake: PAUSED"));
+    assert!(paused_row.contains(&format!("{}Wake: PAUSED{}", colors.warning, colors.reset)));
+}
+
+#[test]
 fn shortcuts_row_stays_within_banner_width() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
@@ -730,7 +759,7 @@ fn latency_threshold_colors_are_correct_in_full_and_legacy_rows() {
 }
 
 #[test]
-fn latency_threshold_color_uses_rtf_when_available() {
+fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.recording_state = RecordingState::Idle;
@@ -739,15 +768,38 @@ fn latency_threshold_color_uses_rtf_when_available() {
     state.last_latency_rtf_x1000 = Some(183);
 
     let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    assert!(row.contains(&format!("{}1100ms{}", colors.success, colors.reset)));
+    assert!(row.contains(&format!("{}1100ms{}", colors.error, colors.reset)));
 
+    state.last_latency_ms = Some(320);
     state.last_latency_rtf_x1000 = Some(500);
     let (row_warning, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    assert!(row_warning.contains(&format!("{}1100ms{}", colors.warning, colors.reset)));
+    assert!(row_warning.contains(&format!("{}320ms{}", colors.warning, colors.reset)));
 
+    state.last_latency_ms = Some(180);
     state.last_latency_rtf_x1000 = Some(900);
     let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    assert!(row_error.contains(&format!("{}1100ms{}", colors.error, colors.reset)));
+    assert!(row_error.contains(&format!("{}180ms{}", colors.error, colors.reset)));
+}
+
+#[test]
+fn latency_badge_hides_during_recording_and_processing() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.last_latency_ms = Some(412);
+    state.last_latency_rtf_x1000 = Some(300);
+
+    state.recording_state = RecordingState::Recording;
+    let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(!recording_row.contains("412ms"));
+
+    state.recording_state = RecordingState::Processing;
+    let (processing_row, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(!processing_row.contains("412ms"));
+
+    state.recording_state = RecordingState::Idle;
+    let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(idle_row.contains("412ms"));
 }
 
 #[test]

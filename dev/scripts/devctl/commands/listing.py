@@ -21,7 +21,7 @@ COMMANDS = [
     "list",
 ]
 
-PROFILES = ["ci", "prepush", "release", "quick"]
+PROFILES = ["ci", "prepush", "release", "maintainer-lint", "quick"]
 
 
 def run(args) -> int:

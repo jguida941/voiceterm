@@ -4,6 +4,11 @@ use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use voiceterm::config::AppConfig;
 
+pub(crate) const DEFAULT_WAKE_WORD_SENSITIVITY: f32 = 0.55;
+pub(crate) const DEFAULT_WAKE_WORD_COOLDOWN_MS: u64 = 2000;
+pub(crate) const MIN_WAKE_WORD_COOLDOWN_MS: u64 = 500;
+pub(crate) const MAX_WAKE_WORD_COOLDOWN_MS: u64 = 10_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub(crate) enum VoiceSendMode {
     #[default]
@@ -129,6 +134,26 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "voice-send-mode", value_enum, default_value_t = VoiceSendMode::Auto)]
     pub(crate) voice_send_mode: VoiceSendMode,
 
+    /// Enable local wake-word listening (default OFF until fully hardened).
+    #[arg(long = "wake-word", default_value_t = false)]
+    pub(crate) wake_word: bool,
+
+    /// Wake-word detector sensitivity in normalized range [0.0, 1.0].
+    #[arg(
+        long = "wake-word-sensitivity",
+        default_value_t = DEFAULT_WAKE_WORD_SENSITIVITY,
+        value_parser = parse_wake_word_sensitivity
+    )]
+    pub(crate) wake_word_sensitivity: f32,
+
+    /// Cooldown applied after wake detection to suppress immediate retriggers (ms).
+    #[arg(
+        long = "wake-word-cooldown-ms",
+        default_value_t = DEFAULT_WAKE_WORD_COOLDOWN_MS,
+        value_parser = parse_wake_word_cooldown_ms
+    )]
+    pub(crate) wake_word_cooldown_ms: u64,
+
     /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, gruvbox, nord, tokyonight, ansi, none)
     /// Defaults to the backend-specific theme if not provided.
     #[arg(long = "theme")]
@@ -195,4 +220,64 @@ pub(crate) struct OverlayConfig {
     /// Run backend login before starting the overlay
     #[arg(long = "login", default_value_t = false)]
     pub(crate) login: bool,
+}
+
+fn parse_wake_word_sensitivity(raw: &str) -> Result<f32, String> {
+    let value: f32 = raw
+        .parse()
+        .map_err(|_| format!("invalid wake-word sensitivity '{raw}'"))?;
+    if !(0.0..=1.0).contains(&value) {
+        return Err("wake-word sensitivity must be between 0.0 and 1.0".to_string());
+    }
+    Ok(value)
+}
+
+fn parse_wake_word_cooldown_ms(raw: &str) -> Result<u64, String> {
+    let value: u64 = raw
+        .parse()
+        .map_err(|_| format!("invalid wake-word cooldown '{raw}'"))?;
+    if !(MIN_WAKE_WORD_COOLDOWN_MS..=MAX_WAKE_WORD_COOLDOWN_MS).contains(&value) {
+        return Err(format!(
+            "wake-word cooldown must be between {MIN_WAKE_WORD_COOLDOWN_MS} and {MAX_WAKE_WORD_COOLDOWN_MS} ms"
+        ));
+    }
+    Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wake_word_defaults_are_safe() {
+        let cfg = OverlayConfig::parse_from(["test-app"]);
+        assert!(!cfg.wake_word);
+        assert!((cfg.wake_word_sensitivity - DEFAULT_WAKE_WORD_SENSITIVITY).abs() < f32::EPSILON);
+        assert_eq!(cfg.wake_word_cooldown_ms, DEFAULT_WAKE_WORD_COOLDOWN_MS);
+    }
+
+    #[test]
+    fn wake_word_parser_accepts_bounds() {
+        let cfg = OverlayConfig::parse_from([
+            "test-app",
+            "--wake-word",
+            "--wake-word-sensitivity",
+            "1.0",
+            "--wake-word-cooldown-ms",
+            "500",
+        ]);
+        assert!(cfg.wake_word);
+        assert!((cfg.wake_word_sensitivity - 1.0).abs() < f32::EPSILON);
+        assert_eq!(cfg.wake_word_cooldown_ms, 500);
+    }
+
+    #[test]
+    fn wake_word_parser_rejects_out_of_bounds_values() {
+        assert!(
+            OverlayConfig::try_parse_from(["test-app", "--wake-word-sensitivity", "1.5",]).is_err()
+        );
+        assert!(
+            OverlayConfig::try_parse_from(["test-app", "--wake-word-cooldown-ms", "200",]).is_err()
+        );
+    }
 }

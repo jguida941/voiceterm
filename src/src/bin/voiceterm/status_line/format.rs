@@ -855,7 +855,7 @@ fn format_compact(
     };
     let modules = registry.render_all(&hud_state, module_budget, " · ");
     let left = if modules.is_empty() {
-        mode.clone()
+        mode
     } else {
         format!("{} {}", mode, modules)
     };

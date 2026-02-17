@@ -58,15 +58,16 @@ Evidence:
 Fact: This audit confirms:
 
 - First commit is `8aef111` on 2025-11-06.
-- Drafting HEAD is `ed069f1` on 2026-02-16.
-- Tag range is `v0.2.0` to `v1.0.70` with 72 tags.
+- Drafting HEAD is `fd0a5c6` on 2026-02-17.
+- Tag range is `v0.2.0` to `v1.0.79` with 80 tags.
 - All commit hashes cited in this document resolve.
+- This timeline includes committed git history only; in-progress working-tree changes (including near-`v1.0.80` scope) are intentionally excluded until commit/tag.
 
 ## Scope and Evidence Model
 
-Fact: This timeline covers commit history from `8aef111` (2025-11-06) through `ed069f1` (2026-02-16).
+Fact: This timeline covers commit history from `8aef111` (2025-11-06) through `fd0a5c6` (2026-02-17).
 
-Fact: The source range includes 337 commits and tags from `v0.2.0` through `v1.0.70`.
+Fact: The source range includes 357 commits and tags from `v0.2.0` through `v1.0.79`.
 
 Evidence:
 
@@ -119,7 +120,7 @@ Evidence: `55a9c5e`, `39b36e4`, `6fec195`, `c6151d5`, `2ce6fa2`, `d823121`, `c17
 
 Fact: Release cadence was high, but behavior regression handling was explicit.
 
-Evidence: `19371b6`, `6cb1964`, `fe48120`, tags `v1.0.51` to `v1.0.70`.
+Evidence: `19371b6`, `6cb1964`, `fe48120`, tags `v1.0.51` to `v1.0.79`.
 
 ### HUD Visuals (Current UI)
 
@@ -206,7 +207,7 @@ Evidence:
 - Plan and tracking: `b6987f5`, `2ac54bd`, `dev/active/MASTER_PLAN.md`
 - ADR governance: `b6987f5`, `7f9f585`, `fe48120`
 - Verification and guardrails: `50f2738`, `05ff790`, `fe6d79a`, `b60ebc3`
-- Release loop: `dev/CHANGELOG.md`, tags `v0.2.0` to `v1.0.70`
+- Release loop: `dev/CHANGELOG.md`, tags `v0.2.0` to `v1.0.79`
 
 ## Evolution at a Glance
 
@@ -215,8 +216,8 @@ Evidence:
 | Era 1 | 2025-11-06 to 2025-11-14 | 22 | Core loop proved, then runtime corrections |
 | Era 2 | 2026-01-11 to 2026-01-25 | 65 | Install and overlay UX became usable at scale |
 | Era 3 | 2026-01-28 to 2026-02-03 | 91 | ADR governance and HUD interaction model expansion |
-| Era 4 | 2026-02-06 to 2026-02-15 | 135 | Reliability hardening and process discipline |
-| Era 5 | 2026-02-16 to 2026-02-17 | 22 | Release hardening, lifecycle verification, runtime modularization, and tooling signal clarity |
+| Era 4 | 2026-02-06 to 2026-02-15 | 136 | Reliability hardening and process discipline |
+| Era 5 | 2026-02-16 to 2026-02-17 | 39 | Release hardening, lifecycle verification, runtime modularization, and tooling signal clarity |
 
 Fact: Commit volume uses `git rev-list --count --since <start> --until <end> HEAD` for each date window.
 
@@ -233,6 +234,7 @@ timeline
   2026-02-13 : latency + voice-mode guardrails (fe6d79a, b60ebc3)
   2026-02-15 : e2c8d4a VoiceTerm alignment and docs polish
   2026-02-16 : v1.0.69 and v1.0.70 release train, release-notes automation, and mutation score badge endpoint
+  2026-02-17 : v1.0.71 to v1.0.79 release wave, HUD/control semantics hardening, and docs consistency push
 ```
 
 ## Original Hypothesis and Why It Changed
@@ -450,14 +452,21 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Release notes gained consistent tag-to-tag markdown generation.
 - Orphan backend worker cleanup after abrupt terminal death was validated and released.
 - Public mutation badge moved from binary workflow state to numeric score signaling.
+- Insert-mode capture controls were stabilized (`Ctrl+R` stop/cancel, `Ctrl+E` finalize/submit or send staged text) with matching docs.
+- HUD rendering/layout behavior was refined across visualizer placement, recording indicators, and hidden-mode presentation polish.
 
 ### Developer Track
 
 - Release workflow now carries generated notes-file handoff through script and docs.
+- Release validation guidance expanded to include process churn / CPU leak checks in paired operator runs.
 - Active governance was consolidated under `MASTER_PLAN` after archiving dedicated hardening audit artifacts.
 - Mutation score reporting was clarified with endpoint-style badge semantics.
 - Runtime hot-paths were decomposed into focused modules so behavior changes land in smaller review units.
 - IPC session event processing moved into a dedicated submodule so command-loop orchestration and non-blocking job draining can be reviewed independently.
+- Session lifecycle hardening expanded with PTY lease cleanup between runs to prevent stale backend carryover.
+- Session lifecycle hardening added a detached-backend orphan sweep fallback for stale backend CLIs not covered by active lease records.
+- Release gating added repeated forced-crash validation focus for detached backend cleanup behavior (count returns to zero).
+- Release hardening included Homebrew `opt` model-path persistence fixes so upgrades keep shared model cache.
 
 ### Where to Inspect in Repo
 
@@ -467,6 +476,7 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `dev/scripts/render_mutation_badge.py`
 - `.github/badges/mutation-score.json`
 - `src/src/pty_session/pty.rs` and `src/src/pty_session/tests.rs`
+- `src/src/pty_session/session_guard.rs`
 - `src/src/bin/voiceterm/event_loop.rs` and `src/src/bin/voiceterm/event_loop/`
 - `src/src/bin/voiceterm/voice_control/drain.rs` and `src/src/bin/voiceterm/voice_control/drain/`
 - `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, and `src/src/ipc/session/event_processing/`
@@ -479,6 +489,13 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
 - Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.
 - IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, `src/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
+- Process churn / CPU leak validation was formalized in release-test guidance so long-run backend process cleanup regressions are caught before tagging. Evidence: `dev/CHANGELOG.md` (`v1.0.71`), `Testing_Guide.md`.
+- PTY session-lease guard added to reap stale VoiceTerm-owned process groups before new backend spawn. Evidence: `5d77a59`.
+- Secondary detached-orphan sweep fail-safe added for backend CLIs (`PPID=1`) not tied to active leases and no longer sharing a TTY with a live shell process. Evidence: `src/src/pty_session/session_guard.rs`, `dev/CHANGELOG.md`, `dev/ARCHITECTURE.md`.
+- Session-guard hardening added deterministic coverage for elapsed-time parsing and detached-orphan candidate filtering to keep cleanup heuristics testable. Evidence: `src/src/pty_session/session_guard.rs` tests.
+- HUD responsiveness/layout wave shipped with right-panel anchoring restoration and high-output non-blocking behavior hardening. Evidence: `10f0b49`, `28424bb`, `5d77a59`.
+- Insert-mode `Ctrl+R`/`Ctrl+E` semantics were aligned and documented through rapid patch releases. Evidence: `e4170b7`, `4cfc2c2`, `7bd4c2b`, `fd0a5c6`.
+- Homebrew launcher path handling was fixed for both `Cellar` and `opt` prefixes to preserve model cache across upgrades. Evidence: `8530132`.
 
 ### What Changed in the SDLC
 
@@ -637,8 +654,9 @@ Fact:
 - Core runtime architecture is Rust-first with ADR evidence.
 - Primary support remains Codex and Claude.
 - Reliability work shifted from reactive fixes to proactive guardrails.
-- Latest tagged release is `v1.0.70` with release-notes automation and PTY-lifecycle hardening in published flow.
+- Latest tagged release is `v1.0.79`, extending the hardening wave with insert-mode control consistency, latency/HUD polish, and docs alignment.
 - Maintainer release/distribution workflow is consolidated around `devctl` (`ship`, `release`, `pypi`, `homebrew`) with compatibility adapters retained and a dedicated tooling CI lane (`tooling_control_plane.yml`).
+- Current working tree is active and untagged; new changes are intentionally excluded from this commit-anchored timeline until release/tag.
 
 Inference:
 
@@ -712,6 +730,15 @@ Inference:
 - `4194dd4` release 1.0.70 with notes automation + PTY lifecycle hardening
 - `de82d7b` mutation badge endpoint publishing fix
 - `ed069f1` mutation badge synced to latest shard score
+- `93343b6` release prep for 1.0.71
+- `10f0b49` release 1.0.72 with HUD responsiveness and visualizer fixes
+- `5d77a59` release 1.0.73 with session guard and HUD alignment
+- `28424bb` HUD right-panel placement + auto-voice rearm hardening
+- `e4170b7` release 1.0.75 with insert-mode control updates
+- `8530132` release 1.0.76 with Homebrew model-path persistence fixes
+- `4cfc2c2` release 1.0.77 with insert-mode `Ctrl+E` stop-and-submit fix
+- `7bd4c2b` release 1.0.78 with latency/docs hardening
+- `fd0a5c6` release 1.0.79 with `Ctrl+E` and docs consistency updates
 
 </details>
 
@@ -762,7 +789,7 @@ Inference:
 | 2026-02-06 to 2026-02-09 | `v1.0.43` to `v1.0.50` | compatibility fixes, parser/PTY hardening |
 | 2026-02-12 to 2026-02-13 | `v1.0.51` to `v1.0.62` | latency truth, heavy output stability, guardrails |
 | 2026-02-14 to 2026-02-15 | `v1.0.63` to `v1.0.66` | VoiceTerm identity alignment, packaging polish, CI deflake |
-| 2026-02-16 to 2026-02-17 | `v1.0.67` to `v1.0.70` | hardening governance consolidation, release-notes automation, lifecycle cleanup, and mutation signal clarity |
+| 2026-02-16 to 2026-02-17 | `v1.0.67` to `v1.0.79` | hardening governance consolidation, release-notes automation, lifecycle cleanup, control/HUD polish, and mutation signal clarity |
 
 </details>
 
