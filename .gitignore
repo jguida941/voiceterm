@@ -103,3 +103,6 @@ CLAUDE.md
 docs/active/claude_review*.md
 docs/active/visual*.md
 dev/active/DEV_MODE_PLAN.md
+
+# Local-only testing notes
+Testing_Guide.md
