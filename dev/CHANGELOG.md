@@ -5,7 +5,11 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `AGENTS.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
-## [Unreleased] - 2026-02-17
+## [Unreleased]
+
+- No changes yet.
+
+## [1.0.71] - 2026-02-17
 
 ### Runtime Hardening
 
