@@ -377,6 +377,7 @@ Common statuses:
 | `Transcript queued (N)` | Backend was busy; transcript is queued |
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
 | `No speech detected` | Capture ended without enough detected speech |
+
 Pipeline selection is available in Settings (`Ctrl+O`) under `Voice pipeline`.
 
 ## Launch Recipes

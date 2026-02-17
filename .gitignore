@@ -38,6 +38,8 @@ whisper_models/*.onnx
 *.srt
 *.vtt
 *.json
+!.github/badges/
+!.github/badges/*.json
 
 # IDE
 .idea/

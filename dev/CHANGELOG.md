@@ -11,6 +11,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Archive `RUST_GUI_AUDIT_2026-02-15.md` to `dev/archive/2026-02-15-rust-gui-audit.md` and keep `dev/active/MASTER_PLAN.md` as the sole active hardening execution tracker.
 - Refresh developer governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `dev/scripts/README.md`, `.github/GUIDE.md`, `Testing_Guide.md`) to remove active dependency on the archived Rust GUI audit file.
+- Fix `guides/USAGE.md` status-table spacing to keep `docs_lint` markdown table validation green.
 
 ### UX
 
