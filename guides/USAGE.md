@@ -82,7 +82,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | In `insert` mode: send staged text now; while recording with no staged text, stop early and submit current capture |
+| `Ctrl+E` | In `insert` mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, no-op |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
@@ -142,8 +142,9 @@ Three controls define runtime behavior:
 
 ### Practical notes
 
-- In `insert` mode, Enter is submit-only; use `Ctrl+R` to stop recording early.
-- In noisy auto+insert sessions, use `Ctrl+E` to stop recording early and submit without waiting for silence.
+- In `insert` mode, Enter is submit-only for staged text.
+- `Ctrl+R` stops recording without sending.
+- `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it is a no-op.
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
 
@@ -270,7 +271,7 @@ Tips:
 |-------|------|---------|
 | Full | default | Multi-row HUD with detailed controls and telemetry |
 | Minimal | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
-| Hidden | `--hud-style hidden` | Muted launcher row when idle |
+| Hidden | `--hud-style hidden` | Muted launcher row when idle, muted recording indicator when active |
 
 Full HUD border style options:
 

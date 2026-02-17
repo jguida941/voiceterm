@@ -75,7 +75,7 @@ voiceterm --claude
 ## 4) Essential controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
-- `Ctrl+E` - in insert mode: send staged text now; while recording with no staged text, stop early and submit current capture
+- `Ctrl+E` - in insert mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, no-op
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+G` - quick cycle theme
@@ -99,8 +99,8 @@ use Settings (`Ctrl+O`) to view the current `Voice pipeline`.
 Latency badge reflects direct STT delay (`stt_ms`) only, hides for
 no-speech/error captures, and auto-clears stale idle values after a short
 window.
-Hidden HUD idle launcher text and `[open]` button are intentionally muted gray
-so hidden mode stays unobtrusive.
+Hidden HUD launcher text, `[open]`, and recording indicator are intentionally
+muted gray so hidden mode stays unobtrusive.
 
 Built-in voice navigation phrases include `scroll up`, `scroll down`,
 `show last error`, `copy last error`, and `explain last error`.

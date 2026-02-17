@@ -24,7 +24,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+E",
-        description: "Send staged text now (insert/recording)",
+        description: "Send staged text / stop+submit (insert mode)",
     },
     Shortcut {
         key: "Ctrl+V",

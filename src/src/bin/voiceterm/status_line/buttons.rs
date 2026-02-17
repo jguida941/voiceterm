@@ -356,11 +356,11 @@ fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String
     } else {
         format!("VoiceTerm · {}", state.message)
     };
-    with_color(&base, hidden_launcher_muted(colors), colors)
+    with_color(&base, hidden_muted_color(colors), colors)
 }
 
 #[inline]
-fn hidden_launcher_muted(colors: &ThemeColors) -> &str {
+pub(super) fn hidden_muted_color(colors: &ThemeColors) -> &str {
     if colors.reset.is_empty() {
         ""
     } else {
@@ -372,7 +372,7 @@ fn hidden_launcher_button(colors: &ThemeColors, focused: bool) -> String {
     if focused {
         return format_button(colors, "open", colors.info, true);
     }
-    with_color("[open]", hidden_launcher_muted(colors), colors)
+    with_color("[open]", hidden_muted_color(colors), colors)
 }
 
 pub(super) fn format_hidden_launcher_with_button(

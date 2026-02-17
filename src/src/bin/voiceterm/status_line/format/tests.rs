@@ -222,6 +222,21 @@ fn format_status_banner_hidden_mode_recording() {
 }
 
 #[test]
+fn format_status_banner_hidden_mode_recording_uses_neutral_gray() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Hidden;
+    state.recording_state = RecordingState::Recording;
+    state.recording_duration = Some(3.0);
+
+    let banner = format_status_banner(&state, Theme::Codex, 80);
+    let line = &banner.lines[0];
+    let colors = Theme::Codex.colors();
+
+    assert!(line.contains("\x1b[90m"));
+    assert!(!line.contains(colors.dim));
+}
+
+#[test]
 fn format_status_banner_minimal_mode_recording() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Minimal;

@@ -9,6 +9,18 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.79] - 2026-02-17
+
+### UX
+
+- In insert send mode, consume `Ctrl+E` when no staged text is pending and recording is idle so raw `Ctrl+E` is no longer forwarded to the wrapped CLI.
+- Rename insert-mode early-submit status from `Sending capture...` to `Finalizing capture...` to match the stop-and-transcribe behavior.
+- Apply hidden launcher muted-gray styling to hidden recording strip output so hidden mode uses one consistent subdued color treatment.
+
+### Documentation
+
+- Run a full user-doc sync for recording/send controls and hidden HUD behavior across `README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, and `guides/TROUBLESHOOTING.md`.
+
 ## [1.0.78] - 2026-02-17
 
 ### UX
@@ -16,7 +28,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Prevent malformed/fragmented mouse-report escape sequences from leaking into the wrapped CLI input stream during interrupts, which could previously surface raw `[<...` fragments in the terminal.
 - Hide/reset latency badges when captures produce no transcript (`Empty`/error paths), use direct STT timing only (no derived fallback math), auto-expire stale idle latency badges after a short window, and color latency severity by speech-relative STT speed (`rtf`) so long utterances do not falsely read as regressions.
 - Expand transcript non-speech sanitization to strip additional Whisper ambient-sound hallucination tags such as `(siren wailing)`, `(engine revving)`, and `(water splashing)`.
-- In insert mode, make `Ctrl+E` send staged text immediately even when not actively recording; if recording with no staged text, keep the existing early-stop submit path.
+- In insert mode, make `Ctrl+E` send staged text immediately when present, and otherwise request early-stop submit while recording with no staged text.
 - Tune hidden HUD idle visuals to a subdued/dull gray launcher treatment (`VoiceTerm hidden · Ctrl+U` + `[open]`) so hidden mode stays unobtrusive.
 
 ## [1.0.77] - 2026-02-17

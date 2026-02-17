@@ -81,9 +81,10 @@ Transcription is taking longer than expected.
 1. Wait up to 60 seconds for longer captures.
 2. If still stuck, press `Ctrl+C` and restart.
 3. Try a smaller model (`--whisper-model base`).
-4. In insert mode, use `Ctrl+R` to stop active recording without sending, and
-   `Ctrl+E` to stop and submit during noisy captures; `Enter` is submit-only for
-   staged text.
+4. In insert mode, use `Ctrl+R` to stop active recording without sending.
+   `Ctrl+E` sends staged text immediately; with no staged text it only
+   finalizes+submits during active recording (idle with no staged text is a
+   no-op). `Enter` is submit-only for staged text.
 
 ### Latency badge seems wrong in auto mode
 

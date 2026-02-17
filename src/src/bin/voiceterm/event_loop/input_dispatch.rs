@@ -136,8 +136,11 @@ pub(super) fn handle_input_event(
                 }
                 return;
             }
-            if should_request_early_send_hotkey(state) {
-                let _ = request_early_send_capture(state, timers, deps);
+            if should_finalize_insert_capture_hotkey(state) {
+                let _ = request_early_finalize_capture(state, timers, deps);
+                return;
+            }
+            if should_consume_insert_send_hotkey(state) {
                 return;
             }
             if !write_or_queue_pty_input(state, deps, vec![0x05]) {
@@ -223,13 +226,17 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
-fn should_request_early_send_hotkey(state: &EventLoopState) -> bool {
+fn should_finalize_insert_capture_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert
         && state.status_state.recording_state == RecordingState::Recording
         && !state.status_state.insert_pending_send
 }
 
-fn request_early_send_capture(
+fn should_consume_insert_send_hotkey(state: &EventLoopState) -> bool {
+    state.config.voice_send_mode == VoiceSendMode::Insert
+}
+
+fn request_early_finalize_capture(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
@@ -244,7 +251,7 @@ fn request_early_send_capture(
         &mut timers.status_clear_deadline,
         &mut state.current_status,
         &mut state.status_state,
-        "Sending capture...",
+        "Finalizing capture...",
         Some(Duration::from_secs(2)),
     );
     true

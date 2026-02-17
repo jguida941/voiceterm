@@ -112,8 +112,9 @@ After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
 `Latency display`) are available.
 You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
-`Ctrl+E` (send staged text during active insert-mode recording), `Ctrl+G`
-(quick theme cycle), and `Ctrl+Y` (theme picker).
+`Ctrl+E` (insert mode: send staged text now; recording with no staged text
+finalizes+submits; idle with no staged text is no-op), `Ctrl+G` (quick theme
+cycle), and `Ctrl+Y` (theme picker).
 In insert mode, `Enter` remains submit-only for staged text.
 In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
 rendered on the main status row (top-right lane).
@@ -124,8 +125,8 @@ Status wording is pipeline-neutral (`Listening Manual Mode`,
 Latency badge now reflects direct STT delay (`stt_ms`) only, hides on
 no-speech/error captures, and auto-clears stale idle values after a short
 window.
-Hidden HUD launcher text and `[open]` are intentionally muted gray to keep
-hidden mode unobtrusive while idle.
+Hidden HUD launcher text, `[open]`, and recording indicator are intentionally
+muted gray to keep hidden mode unobtrusive.
 If you ever see raw mouse fragments like `[<0;35;25M`, update to the latest
 build; malformed/fragmented mouse-report escapes are now dropped before they
 reach the wrapped CLI input stream.

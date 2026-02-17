@@ -215,15 +215,16 @@ For complete keybindings and behavior details, see:
 Short version: `Ctrl+G` quick-cycles theme, and built-in voice commands support
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
 `explain last error`.
-Recording/send controls: `Ctrl+R` toggles recording start/stop, `Ctrl+E` sends
-insert-mode captures early during active recording, and `Enter` remains
-submit-only for staged text.
+Recording/send controls: `Ctrl+R` toggles recording start/stop, and in insert
+mode `Ctrl+E` sends staged text immediately; if recording with no staged text,
+it stops early and submits when transcription completes; if idle with no staged
+text, it is consumed as a no-op. `Enter` remains submit-only for staged text.
 Latency badge shows direct STT delay (`stt_ms`) when available, hides on
 no-speech/error captures, and auto-expires stale idle values after a short
 window; severity color uses speech-relative speed (`rtf`) when speech metrics
 exist.
-Hidden HUD idle launcher text and `[open]` are intentionally muted/dull to stay
-out of the way.
+Hidden HUD launcher text, `[open]`, and recording indicator use intentionally
+muted/dull gray so hidden mode stays out of the way.
 If a macro and built-in phrase overlap, macros run first; use explicit
 `voice scroll up` / `voice scroll down` to force built-in navigation.
 Status text is pipeline-neutral (for example `Listening Manual Mode` and

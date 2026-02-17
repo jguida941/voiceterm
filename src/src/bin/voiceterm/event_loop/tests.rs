@@ -133,6 +133,11 @@ fn hook_partial_then_would_block(bytes: &[u8]) -> io::Result<usize> {
     })
 }
 
+fn hook_count_writes(bytes: &[u8]) -> io::Result<usize> {
+    HOOK_CALLS.with(|calls| calls.set(calls.get() + 1));
+    Ok(bytes.len())
+}
+
 fn hook_take_sigwinch_true() -> bool {
     true
 }
@@ -1064,7 +1069,9 @@ fn run_event_loop_enter_without_pending_insert_text_does_not_stop_recording() {
 }
 
 #[test]
-fn run_event_loop_ctrl_e_with_pending_insert_text_sends_without_capture_stop() {
+fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_while_recording() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let _early_stop = install_request_early_stop_hook(hook_request_early_stop_true);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
@@ -1078,16 +1085,19 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_without_capture_stop() {
 
     run_event_loop(&mut state, &mut timers, &mut deps);
 
+    EARLY_STOP_CALLS.with(|calls| assert_eq!(calls.get(), 0));
     assert!(timers.last_enter_at.is_some());
     assert!(!state.status_state.insert_pending_send);
     assert_eq!(
         state.status_state.recording_state,
         RecordingState::Recording
     );
+    assert!(!state.force_send_on_next_transcript);
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
 }
 
 #[test]
-fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_send() {
+fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_finalize() {
     let _early_stop = install_request_early_stop_hook(hook_request_early_stop_true);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
@@ -1113,7 +1123,8 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_send() {
 }
 
 #[test]
-fn run_event_loop_ctrl_e_with_pending_insert_text_sends_outside_recording() {
+fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_outside_recording() {
+    let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
@@ -1131,4 +1142,28 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_outside_recording() {
     assert!(!state.status_state.insert_pending_send);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     assert!(!state.force_send_on_next_transcript);
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn run_event_loop_ctrl_e_without_pending_insert_text_is_consumed_outside_recording() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.insert_pending_send = false;
+
+    input_tx
+        .send(InputEvent::SendStagedText)
+        .expect("queue ctrl+e send");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    assert!(timers.last_enter_at.is_none());
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    assert!(!state.force_send_on_next_transcript);
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }

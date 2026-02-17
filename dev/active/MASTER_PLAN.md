@@ -9,7 +9,7 @@
 ## Status Snapshot (2026-02-17)
 
 - Last tagged release: `v1.0.77` (2026-02-17)
-- Current release target: `v1.0.78`
+- Current release target: `v1.0.79`
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while executing a visual-surface-first Theme Studio track.
@@ -175,6 +175,7 @@ documented pass evidence for its mapped gates.
 - [x] MP-192 Fix Full HUD ribbon baseline rendering by padding short waveform history at floor level (`-60 dB`) so right-panel visuals ramp upward instead of drawing a full-height block.
 - [x] MP-193 Restore insert-mode early-send behavior for `Ctrl+E` while recording so noisy-room captures can stop early and submit immediately (one-shot force-send path + regression tests + docs alignment).
 - [x] MP-197 Make hidden-HUD idle launcher visuals intentionally subdued (dull/muted text and `[open]`) so hidden mode remains non-intrusive.
+- [x] MP-198 Align insert-mode `Ctrl+E` dispatch semantics (send staged text, finalize+submit while recording, consume idle/no-staged input) and apply the same muted hidden-launcher gray to hidden recording output.
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 

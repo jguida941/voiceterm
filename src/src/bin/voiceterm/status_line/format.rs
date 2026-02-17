@@ -16,7 +16,7 @@ use super::animation::{
 };
 use super::buttons::{
     format_hidden_launcher_with_button, format_minimal_strip_with_button,
-    format_shortcuts_row_with_positions,
+    format_shortcuts_row_with_positions, hidden_muted_color,
 };
 use super::layout::breakpoints;
 #[cfg(test)]
@@ -156,7 +156,7 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
         }
     }
 
-    let muted = with_color(&line, colors.dim, colors);
+    let muted = with_color(&line, hidden_muted_color(colors), colors);
     truncate_display(&muted, width)
 }
 
