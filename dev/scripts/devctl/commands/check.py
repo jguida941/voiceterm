@@ -11,6 +11,10 @@ from ..steps import format_steps_md
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
+# Enforced maintainer-lint families (all clean at zero findings):
+#   redundant_clone, redundant_closure_for_method_calls, cast_possible_wrap, dead_code
+# Deferred (intentional DSP casts in audio pipeline; needs per-site #[allow] sweep first):
+#   cast_precision_loss, cast_possible_truncation (20+ usize<->f32/f64 casts in signal processing)
 MAINTAINER_LINT_CLIPPY_ARGS = [
     "-W",
     "clippy::redundant_clone",

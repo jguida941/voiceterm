@@ -87,6 +87,11 @@ class CheckProfileTests(TestCase):
         self.assertIn("clippy::redundant_closure_for_method_calls", clippy_cmd)
         self.assertIn("clippy::cast_possible_wrap", clippy_cmd)
         self.assertIn("dead_code", clippy_cmd)
+        # cast_precision_loss / cast_possible_truncation are deferred:
+        # 20+ intentional usize<->f32/f64 casts in audio DSP pipeline require
+        # per-site #[allow] annotations before these can be enforced.
+        self.assertNotIn("clippy::cast_precision_loss", clippy_cmd)
+        self.assertNotIn("clippy::cast_possible_truncation", clippy_cmd)
 
     @patch("dev.scripts.devctl.commands.check.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
