@@ -169,7 +169,7 @@ voiceterm --login --claude      # Login to Claude CLI
 - `minimal`: Single-line strip with optional compact right-panel visualization chip
 - `hidden`: Branded launcher row when idle (`VoiceTerm` + `Ctrl+U` hint + clickable open button); shows dim "REC" indicator while recording
 - In Full HUD, right-panel telemetry (`ribbon`/`dots`/`heartbeat`) is shown on
-  the shortcuts row with latency/theme/help controls.
+  the shortcuts row alongside latency/theme/help controls.
 - Full HUD border style can be overridden with `--hud-border-style` (`theme`, `single`, `rounded`, `double`, `heavy`, `none`)
 - To disable the right-side waveform/pulse panel, set `--hud-right-panel off`
 

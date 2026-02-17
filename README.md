@@ -160,7 +160,7 @@ All CLI output passes through unchanged.
 VoiceTerm is optimized for Codex and Claude Code.
 For canonical backend support status and experimental backend notes, see
 [Usage Guide -> Backend Support](guides/USAGE.md#backend-support).
-For advanced backend configuration, see the [Usage Guide](guides/USAGE.md).
+For backend configuration details, see the [Usage Guide](guides/USAGE.md).
 
 ### Codex
 

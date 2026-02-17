@@ -90,6 +90,7 @@ voiceterm/
 ```
 
 Note: `src/` is the Rust workspace root and the crate lives under `src/src/`. This layout is intentional (workspace + crate separation).
+Active code-quality execution detail lives in `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
 
 ## Building
 

@@ -278,7 +278,7 @@ Right panel options:
 
 - `off`, `ribbon`, `dots`, `heartbeat`
 - Optional recording-only animation in Settings
-- In Full HUD, right-panel telemetry is rendered on the shortcuts row with the
+- In Full HUD, right-panel telemetry is rendered on the shortcuts row alongside
   latency/theme/help controls.
 
 Examples:

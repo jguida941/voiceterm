@@ -8,6 +8,8 @@ python3 dev/scripts/devctl.py ...
 
 Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
+For current execution scope, use `dev/active/MASTER_PLAN.md` and
+`dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
 
 ## Canonical Commands
 

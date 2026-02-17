@@ -112,7 +112,7 @@ confirm your expected defaults (for example `Send mode`, `Macros`, and
 You can also sanity-check runtime controls with `Ctrl+G` (quick theme cycle)
 and `Ctrl+Y` (theme picker).
 In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
-rendered on the shortcuts row with latency/theme/help controls.
+rendered on the shortcuts row alongside latency/theme/help controls.
 On `xterm-256color` terminals, selected themes are preserved; ANSI fallback is
 used only on ANSI16 terminals.
 Status wording is pipeline-neutral (`Listening Manual Mode`,

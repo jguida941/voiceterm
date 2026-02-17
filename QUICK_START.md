@@ -106,7 +106,7 @@ More detailed topics:
 - Macros: [guides/USAGE.md#project-voice-macros](guides/USAGE.md#project-voice-macros)
 - HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
 - Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
-- Full HUD note: right-panel visualizer (`ribbon`, `dots`, `heartbeat`) now
+- Full HUD note: right-panel visualizer (`ribbon`, `dots`, `heartbeat`)
   appears on the shortcuts row with latency/theme/help controls.
 - Theme note: on `xterm-256color`, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.

@@ -7,7 +7,9 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-- No changes yet.
+### Documentation
+
+- Refresh user and developer docs for current HUD wording, install/flags guidance, and active planning indexes without version-specific callouts in user-facing guides.
 
 ## [1.0.73] - 2026-02-17
 
