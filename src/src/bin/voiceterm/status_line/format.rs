@@ -19,7 +19,9 @@ use super::buttons::{
     format_shortcuts_row_with_positions,
 };
 use super::layout::breakpoints;
-use super::state::{Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode};
+#[cfg(test)]
+use super::state::Pipeline;
+use super::state::{RecordingState, StatusBanner, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
 
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
@@ -68,13 +70,6 @@ fn resolve_hud_border_set<'a>(
 
 fn borderless_row(width: usize) -> String {
     " ".repeat(width)
-}
-
-fn pipeline_tag_short(pipeline: Pipeline) -> &'static str {
-    match pipeline {
-        Pipeline::Rust => "R",
-        Pipeline::Python => "PY",
-    }
 }
 
 fn full_mode_voice_label(mode: VoiceMode) -> &'static str {
@@ -650,21 +645,20 @@ fn compact_mode_parts<'a>(
     state: &'a StatusLineState,
     colors: &'a ThemeColors,
 ) -> CompactModeParts<'a> {
-    let pipeline_tag = pipeline_tag_short(state.pipeline);
     match state.recording_state {
         RecordingState::Recording => CompactModeParts {
             indicator: "●",
-            label: pipeline_tag,
+            label: "",
             color: colors.recording,
         },
         RecordingState::Processing => CompactModeParts {
             indicator: "◐",
-            label: pipeline_tag,
+            label: "",
             color: colors.processing,
         },
         RecordingState::Responding => CompactModeParts {
             indicator: "↺",
-            label: pipeline_tag,
+            label: "",
             color: colors.info,
         },
         RecordingState::Idle => {
@@ -834,7 +828,6 @@ fn format_shortcuts_compact(colors: &ThemeColors) -> String {
 }
 
 fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let pipeline_tag = pipeline_tag_short(state.pipeline);
     let transition = format_transition_suffix(state, colors);
     let mode_color = match state.recording_state {
         RecordingState::Recording => colors.recording,
@@ -858,9 +851,9 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
     };
 
     let mode_label = match state.recording_state {
-        RecordingState::Recording => format!("REC {pipeline_tag}{transition}"),
-        RecordingState::Processing => format!("processing {pipeline_tag}{transition}"),
-        RecordingState::Responding => format!("RESP {pipeline_tag}{transition}"),
+        RecordingState::Recording => format!("REC{transition}"),
+        RecordingState::Processing => format!("processing{transition}"),
+        RecordingState::Responding => format!("RESP{transition}"),
         RecordingState::Idle => {
             format!("{}{}", full_mode_voice_label(state.voice_mode), transition)
         }
@@ -1259,7 +1252,7 @@ mod tests {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.recording_state = RecordingState::Idle;
-        state.message = "Transcript ready (Rust pipeline)".to_string();
+        state.message = "Transcript ready".to_string();
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert!(banner.lines.iter().any(|line| line.contains("Ready")));
@@ -1302,7 +1295,7 @@ mod tests {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.recording_state = RecordingState::Recording;
-        state.message = "Transcript ready (Rust pipeline)".to_string();
+        state.message = "Transcript ready".to_string();
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert!(!banner.lines.iter().any(|line| line.contains("Ready")));

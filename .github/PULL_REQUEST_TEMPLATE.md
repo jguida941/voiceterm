@@ -2,7 +2,7 @@
 What does this change do and why?
 
 ## Testing
-- [ ] `cd src && cargo build --release --bin voxterm`
+- [ ] `cd src && cargo build --release --bin voiceterm`
 - [ ] Other (describe):
 
 ## Checklist

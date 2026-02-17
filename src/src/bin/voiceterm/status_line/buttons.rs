@@ -920,7 +920,7 @@ mod tests {
         let mut state = StatusLineState::new();
         state.recording_state = RecordingState::Idle;
         state.voice_mode = VoiceMode::Auto;
-        state.message = "Transcript ready (Rust pipeline)".to_string();
+        state.message = "Transcript ready".to_string();
 
         let line = minimal_strip_text(&state, &colors);
         assert!(line.contains("Ready"));

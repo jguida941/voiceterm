@@ -93,6 +93,8 @@ Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 Send mode note: "auto" types your words and presses Enter. "Insert" types your words
 but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY) and
 does not call Codex/Claude directly.
+Status text is pipeline-neutral (`Listening Manual Mode`, `No speech detected`);
+use Settings (`Ctrl+O`) to view the current `Voice pipeline`.
 
 Built-in voice navigation phrases include `scroll up`, `scroll down`,
 `show last error`, `copy last error`, and `explain last error`.

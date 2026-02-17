@@ -27,7 +27,7 @@ speech-to-text integration where FFI and raw file descriptors are involved.
    - Add or update targeted tests listed in the hotspot inventory below.
    - Do not merge unsafe changes without matching test updates (or explicit deferral note in the audit).
 5. Update traceability:
-   - Update `RUST_GUI_AUDIT_2026-02-15.md` (`FX-010`) and `dev/active/MASTER_PLAN.md` in the same change.
+   - Update `dev/active/MASTER_PLAN.md` with any new risk/follow-up tasks in the same change.
 
 ## Unsafe Hotspot Inventory And Test Expectations
 

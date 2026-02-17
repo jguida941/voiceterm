@@ -1,7 +1,7 @@
 # VoiceTerm Developer Makefile
 # Run `make help` to see available commands
 
-.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz traceability-audit security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release homebrew model-base model-small model-tiny clean clean-tests
+.PHONY: help build run doctor fmt fmt-check lint check test test-bin test-perf test-mem test-mem-loop parser-fuzz security-audit bench ci prepush mutants mutants-all mutants-audio mutants-config mutants-voice mutants-pty mutants-results mutants-raw dev-check dev-ci dev-prepush dev-mutants dev-mutants-results dev-mutation-score dev-docs-check dev-hygiene dev-list dev-status dev-report release release-notes homebrew model-base model-small model-tiny clean clean-tests
 
 # Default target
 help:
@@ -48,11 +48,11 @@ help:
 	@echo "  make test-mem     Run memory guard test once"
 	@echo "  make test-mem-loop Run memory guard loop (CI parity)"
 	@echo "  make parser-fuzz  Run parser property-fuzz tests"
-	@echo "  make traceability-audit Validate MASTER_PLAN <-> audit traceability"
 	@echo "  make bench        Run voice benchmark"
 	@echo ""
 	@echo "Release:"
 	@echo "  make release V=1.0.33   Create release tag"
+	@echo "  make release-notes V=1.0.33  Generate release notes markdown from git diff"
 	@echo "  make homebrew V=1.0.33  Update Homebrew formula"
 	@echo ""
 	@echo "Models:"
@@ -127,9 +127,6 @@ parser-fuzz:
 	cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
 	cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
 	cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
-
-traceability-audit:
-	python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
 
 security-audit:
 	cargo install cargo-audit --locked
@@ -231,6 +228,13 @@ ifndef V
 	$(error Version required. Usage: make release V=1.0.33)
 endif
 	./dev/scripts/release.sh $(V)
+
+# Usage: make release-notes V=1.0.33
+release-notes:
+ifndef V
+	$(error Version required. Usage: make release-notes V=1.0.33)
+endif
+	./dev/scripts/generate-release-notes.sh $(V)
 
 # Usage: make homebrew V=1.0.33
 homebrew:

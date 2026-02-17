@@ -48,6 +48,9 @@ The mic recorded but no voice crossed the current threshold.
 2. Lower threshold with `Ctrl+\\` (or `Ctrl+/`).
 3. Run `voiceterm --mic-meter` to calibrate.
 
+Status text is pipeline-neutral; check Settings (`Ctrl+O`) -> `Voice pipeline`
+if you need to confirm native Rust vs fallback capture.
+
 ### Voice capture failed (see log)
 
 Capture could not start.

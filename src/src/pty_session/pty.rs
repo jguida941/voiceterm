@@ -28,6 +28,7 @@ use super::io::{spawn_passthrough_reader_thread, spawn_reader_thread, try_write,
 /// Uses PTY to run a backend CLI in a proper terminal environment.
 pub struct PtyCliSession {
     pub(super) master_fd: RawFd,
+    pub(super) lifeline_write_fd: RawFd,
     pub(super) child_pid: i32,
     /// Stream of raw PTY output chunks from the child process.
     pub output_rx: Receiver<Vec<u8>>,
@@ -62,7 +63,8 @@ impl PtyCliSession {
         // SAFETY: argv/cwd/TERM are valid CStrings; spawn_pty_child returns a valid master fd.
         // set_nonblocking only touches the returned master fd.
         unsafe {
-            let (master_fd, child_pid) = spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
+            let (master_fd, lifeline_write_fd, child_pid) =
+                spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
 
             let (tx, rx) = bounded(100);
@@ -70,6 +72,7 @@ impl PtyCliSession {
 
             let session = Self {
                 master_fd,
+                lifeline_write_fd,
                 child_pid,
                 output_rx: rx,
                 _output_thread: output_thread,
@@ -191,6 +194,8 @@ impl Drop for PtyCliSession {
     fn drop(&mut self) {
         unsafe {
             if self.child_pid < 0 {
+                close_fd(self.lifeline_write_fd);
+                self.lifeline_write_fd = -1;
                 close_fd(self.master_fd);
                 return;
             }
@@ -229,6 +234,8 @@ impl Drop for PtyCliSession {
                     }
                 }
             }
+            close_fd(self.lifeline_write_fd);
+            self.lifeline_write_fd = -1;
             close_fd(self.master_fd);
         }
     }
@@ -237,6 +244,7 @@ impl Drop for PtyCliSession {
 /// PTY session that forwards raw output (ANSI intact) while answering terminal queries.
 pub struct PtyOverlaySession {
     pub(super) master_fd: RawFd,
+    pub(super) lifeline_write_fd: RawFd,
     pub(super) child_pid: i32,
     /// Stream of raw PTY output chunks from the child process.
     pub output_rx: Receiver<Vec<u8>>,
@@ -271,7 +279,8 @@ impl PtyOverlaySession {
         // SAFETY: argv/cwd/TERM are valid CStrings; spawn_pty_child returns a valid master fd.
         // set_nonblocking only touches the returned master fd.
         unsafe {
-            let (master_fd, child_pid) = spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
+            let (master_fd, lifeline_write_fd, child_pid) =
+                spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
             set_nonblocking(master_fd)?;
 
             let (tx, rx) = bounded(100);
@@ -279,6 +288,7 @@ impl PtyOverlaySession {
 
             Ok(Self {
                 master_fd,
+                lifeline_write_fd,
                 child_pid,
                 output_rx: rx,
                 _output_thread: output_thread,
@@ -350,12 +360,14 @@ impl PtyOverlaySession {
 #[cfg_attr(any(test, feature = "mutants"), allow(dead_code))]
 pub(crate) fn test_pty_session(
     master_fd: RawFd,
+    lifeline_write_fd: RawFd,
     child_pid: i32,
     output_rx: Receiver<Vec<u8>>,
 ) -> PtyCliSession {
     let handle = thread::spawn(|| {});
     PtyCliSession {
         master_fd,
+        lifeline_write_fd,
         child_pid,
         output_rx,
         _output_thread: handle,
@@ -366,6 +378,8 @@ impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
         unsafe {
             if self.child_pid < 0 {
+                close_fd(self.lifeline_write_fd);
+                self.lifeline_write_fd = -1;
                 close_fd(self.master_fd);
                 return;
             }
@@ -404,6 +418,8 @@ impl Drop for PtyOverlaySession {
                     }
                 }
             }
+            close_fd(self.lifeline_write_fd);
+            self.lifeline_write_fd = -1;
             close_fd(self.master_fd);
         }
     }
@@ -446,9 +462,10 @@ pub(super) unsafe fn spawn_pty_child(
     argv: &[CString],
     working_dir: &CString,
     term_value: &CString,
-) -> Result<(RawFd, i32)> {
+) -> Result<(RawFd, RawFd, i32)> {
     let mut master_fd: RawFd = -1;
     let mut slave_fd: RawFd = -1;
+    let mut lifeline_fds = [-1; 2];
 
     // Set a proper terminal size - some backends check this for terminal detection
     // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
@@ -471,20 +488,42 @@ pub(super) unsafe fn spawn_pty_child(
         return Err(errno_error("openpty failed"));
     }
 
+    if libc::pipe(lifeline_fds.as_mut_ptr()) != 0 {
+        close_fd(master_fd);
+        close_fd(slave_fd);
+        return Err(errno_error("pipe(lifeline) failed"));
+    }
+
+    set_cloexec(master_fd)?;
+    set_cloexec(slave_fd)?;
+    set_cloexec(lifeline_fds[0])?;
+    set_cloexec(lifeline_fds[1])?;
+
     // SAFETY: fork is called before any unsafe Rust invariants are relied on.
     let pid = libc::fork();
     if pid < 0 {
         close_fd(master_fd);
         close_fd(slave_fd);
+        close_fd(lifeline_fds[0]);
+        close_fd(lifeline_fds[1]);
         return Err(errno_error("fork failed"));
     }
 
     if pid == 0 {
-        child_exec(slave_fd, argv, working_dir, term_value);
+        close_fd(lifeline_fds[1]);
+        child_exec(
+            master_fd,
+            slave_fd,
+            lifeline_fds[0],
+            argv,
+            working_dir,
+            term_value,
+        );
     }
 
     close_fd(slave_fd);
-    Ok((master_fd, pid))
+    close_fd(lifeline_fds[0]);
+    Ok((master_fd, lifeline_fds[1], pid))
 }
 
 /// Child process setup after fork: configures PTY and execs the target binary.
@@ -497,7 +536,9 @@ pub(super) unsafe fn spawn_pty_child(
 ///
 /// The `-> !` return type indicates this function diverges (never returns).
 pub(super) unsafe fn child_exec(
+    master_fd: RawFd,
     slave_fd: RawFd,
+    lifeline_read_fd: RawFd,
     argv: &[CString],
     working_dir: &CString,
     term_value: &CString,
@@ -513,6 +554,10 @@ pub(super) unsafe fn child_exec(
         );
         libc::_exit(1);
     };
+
+    spawn_lifeline_watchdog(lifeline_read_fd);
+    close_fd(lifeline_read_fd);
+    close_fd(master_fd);
 
     if libc::setsid() == -1 {
         fail("setsid");
@@ -544,6 +589,79 @@ pub(super) unsafe fn child_exec(
     fail("execvp");
 }
 
+/// Spawn a watchdog process that kills the PTY process group if the parent process disappears.
+///
+/// The watchdog blocks on a dedicated lifeline pipe. When the parent dies unexpectedly
+/// (for example IDE crash / forced terminal kill), the write end closes and the watchdog
+/// sends SIGTERM/SIGKILL to the PTY process group rooted at `target_pid`.
+unsafe fn spawn_lifeline_watchdog(lifeline_read_fd: RawFd) {
+    let target_pid = libc::getpid();
+    let watchdog_pid = libc::fork();
+    if watchdog_pid < 0 {
+        return;
+    }
+    if watchdog_pid != 0 {
+        return;
+    }
+
+    close_fds_for_watchdog(lifeline_read_fd);
+    wait_for_lifeline_close(lifeline_read_fd);
+    close_fd(lifeline_read_fd);
+    terminate_process_group_with_escalation(target_pid, Duration::from_millis(500));
+    libc::_exit(0);
+}
+
+unsafe fn close_fds_for_watchdog(lifeline_read_fd: RawFd) {
+    let max_fd = libc::sysconf(libc::_SC_OPEN_MAX);
+    let upper = if max_fd > 3 { max_fd as RawFd } else { 1024 };
+    for fd in 3..upper {
+        if fd == lifeline_read_fd {
+            continue;
+        }
+        let _ = libc::close(fd);
+    }
+}
+
+unsafe fn wait_for_lifeline_close(lifeline_read_fd: RawFd) {
+    let mut byte = [0u8; 1];
+    loop {
+        let n = libc::read(lifeline_read_fd, byte.as_mut_ptr() as *mut libc::c_void, 1);
+        if n == 0 {
+            break;
+        }
+        if n > 0 {
+            continue;
+        }
+        let err = io::Error::last_os_error();
+        if matches!(err.raw_os_error(), Some(code) if code == libc::EINTR) {
+            continue;
+        }
+        break;
+    }
+}
+
+unsafe fn process_exists(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
+    if libc::kill(pid, 0) == 0 {
+        return true;
+    }
+    matches!(io::Error::last_os_error().raw_os_error(), Some(code) if code == libc::EPERM)
+}
+
+unsafe fn terminate_process_group_with_escalation(pid: i32, grace: Duration) {
+    let _ = signal_process_group_or_pid(pid, libc::SIGTERM, true);
+    let start = Instant::now();
+    while start.elapsed() < grace {
+        if !process_exists(pid) {
+            return;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    let _ = signal_process_group_or_pid(pid, libc::SIGKILL, true);
+}
+
 /// Configure the PTY master for non-blocking reads.
 ///
 /// # Safety
@@ -556,6 +674,23 @@ pub(super) unsafe fn set_nonblocking(fd: RawFd) -> Result<()> {
     }
     if libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) < 0 {
         return Err(errno_error("fcntl(F_SETFL) failed"));
+    }
+    Ok(())
+}
+
+/// Mark a file descriptor close-on-exec so leaked descriptors do not survive exec boundaries.
+pub(super) fn set_cloexec(fd: RawFd) -> Result<()> {
+    if fd < 0 {
+        return Ok(());
+    }
+
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    if flags < 0 {
+        return Err(errno_error("fcntl(F_GETFD) failed"));
+    }
+    let result = unsafe { libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC) };
+    if result < 0 {
+        return Err(errno_error("fcntl(F_SETFD, FD_CLOEXEC) failed"));
     }
     Ok(())
 }

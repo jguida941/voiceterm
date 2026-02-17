@@ -196,7 +196,7 @@ macros:
     mode: auto
 
   check traceability:
-    expansion: "python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md"
+    expansion: "python3 dev/scripts/devctl.py hygiene"
     mode: auto
 
   run rust fmt check:
@@ -260,5 +260,5 @@ macros:
     mode: auto
 
   create github release:
-    template: "gh release create v{TRANSCRIPT} --title 'v{TRANSCRIPT}' --notes 'See dev/CHANGELOG.md'"
+    template: "gh release create v{TRANSCRIPT} --title 'v{TRANSCRIPT}' --notes-file /tmp/voiceterm-release-v{TRANSCRIPT}.md"
     mode: insert

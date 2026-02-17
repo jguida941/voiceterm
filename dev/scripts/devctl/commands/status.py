@@ -9,13 +9,14 @@ from ..common import pipe_output, write_output
 
 def run(args) -> int:
     """Render a status summary from git and mutation results."""
+    ci_requested = bool(args.ci or getattr(args, "require_ci", False))
     report = {
         "command": "status",
         "timestamp": datetime.now().isoformat(),
         "git": collect_git_status(),
         "mutants": collect_mutation_summary(),
     }
-    if args.ci:
+    if ci_requested:
         report["ci"] = collect_ci_runs(args.ci_limit)
 
     if args.format == "json":
@@ -30,6 +31,18 @@ def run(args) -> int:
             lines.append(f"- Changelog updated: {git_info.get('changelog_updated')}")
             lines.append(f"- Master plan updated: {git_info.get('master_plan_updated')}")
             lines.append(f"- Changed files: {len(git_info.get('changes', []))}")
+        if ci_requested:
+            ci_info = report.get("ci", {})
+            if "error" in ci_info:
+                lines.append(f"- CI: error ({ci_info['error']})")
+            else:
+                runs = ci_info.get("runs", [])
+                lines.append(f"- CI runs: {len(runs)}")
+                for run in runs[:5]:
+                    title = run.get("displayTitle", "unknown")
+                    status = run.get("status", "unknown")
+                    conclusion = run.get("conclusion") or "pending"
+                    lines.append(f"  - {title}: {status}/{conclusion}")
         output = "\n".join(lines)
     else:
         output = json.dumps(report, indent=2)
@@ -37,4 +50,8 @@ def run(args) -> int:
     write_output(output, args.output)
     if args.pipe_command:
         return pipe_output(output, args.pipe_command, args.pipe_args)
+    if getattr(args, "require_ci", False):
+        ci_info = report.get("ci", {})
+        if "error" in ci_info:
+            return 2
     return 0

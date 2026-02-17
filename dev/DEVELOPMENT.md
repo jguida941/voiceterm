@@ -39,6 +39,7 @@ voiceterm/
 │   ├── adr/                # Architecture decision records
 │   └── scripts/            # Developer scripts
 │       ├── release.sh         # GitHub release script
+│       ├── generate-release-notes.sh # Markdown notes from git diff history
 │       ├── publish-pypi.sh    # PyPI build/publish helper
 │       ├── update-homebrew.sh # Homebrew tap update
 │       ├── check_mutation_score.py # Mutation score helper
@@ -128,9 +129,6 @@ cd src && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_
 cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
 cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
 cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
-
-# Hardening audit traceability guard (MASTER_PLAN <-> RUST_GUI_AUDIT)
-python3 ../dev/scripts/check_audit_traceability.py --master-plan ../dev/active/MASTER_PLAN.md --audit ../RUST_GUI_AUDIT_2026-02-15.md
 
 # Mutation tests (single run; CI enforces 80% minimum score)
 cd src && cargo mutants --timeout 300 -o mutants.out --json
@@ -265,7 +263,6 @@ GitHub Actions run on every push and PR:
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated 80% score gate |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
-| Audit Traceability Guard | `.github/workflows/audit_traceability_guard.yml` | enforce hardening plan/audit traceability consistency |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 
 **Before pushing, run locally (recommended):**
@@ -289,9 +286,6 @@ python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --m
 cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
 cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
 cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
-
-# Hardening traceability guard (matches audit_traceability_guard.yml)
-python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
 
 # Markdown style/readability checks for key docs
 markdownlint -c .markdownlint.yaml README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -333,7 +327,14 @@ python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.j
 ./dev/scripts/release.sh X.Y.Z
 
 # Create release on GitHub
-gh release create vX.Y.Z --title "vX.Y.Z" --notes "See CHANGELOG.md"
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
+```
+
+`release.sh` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
+compare range (previous tag to current tag). You can also generate it manually:
+
+```bash
+./dev/scripts/generate-release-notes.sh X.Y.Z
 ```
 
 ### Update Homebrew tap

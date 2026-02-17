@@ -5,7 +5,26 @@
 All notable changes to this project will be documented here, following the SDLC policy defined in `AGENTS.md`.
 Note: Some historical entries reference internal documents that are not published in this repository.
 
-## [Unreleased]
+## [1.0.70] - 2026-02-17
+
+### Documentation
+
+- Archive `RUST_GUI_AUDIT_2026-02-15.md` to `dev/archive/2026-02-15-rust-gui-audit.md` and keep `dev/active/MASTER_PLAN.md` as the sole active hardening execution tracker.
+- Refresh developer governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `dev/scripts/README.md`, `.github/GUIDE.md`, `Testing_Guide.md`) to remove active dependency on the archived Rust GUI audit file.
+
+### UX
+
+- Remove remaining pipeline labels from user-facing status text (`Listening Manual Mode`, `Transcript ready`, `No speech detected`, and HUD mode tokens) and keep pipeline visibility in Settings (`Voice pipeline`).
+
+### CI/Tooling
+
+- Retire `.github/workflows/audit_traceability_guard.yml`, remove `dev/scripts/check_audit_traceability.py`, and remove the `make traceability-audit` helper target to simplify active CI/tooling flow around `MASTER_PLAN.md`.
+- Add `dev/scripts/generate-release-notes.sh` plus `devctl release-notes`/`make release-notes` wrappers, and wire `release.sh` to auto-generate `/tmp/voiceterm-release-vX.Y.Z.md` for `gh release create --notes-file`.
+- Add mutation-score badge generation (`dev/scripts/render_mutation_badge.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
+
+### Runtime Hardening
+
+- Prevent orphaned backend CLI processes on abrupt terminal/IDE termination by adding a PTY child lifeline watchdog that escalates `SIGTERM` -> `SIGKILL` on parent disappearance, plus regression coverage for parent `SIGKILL` teardown.
 
 ## [1.0.69] - 2026-02-17
 

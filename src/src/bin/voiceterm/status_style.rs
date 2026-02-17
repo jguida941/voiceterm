@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn status_type_from_message_success() {
         assert_eq!(
-            StatusType::from_message("Transcript ready (Rust pipeline)"),
+            StatusType::from_message("Transcript ready"),
             StatusType::Success
         );
     }

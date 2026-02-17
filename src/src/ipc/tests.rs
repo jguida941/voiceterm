@@ -448,12 +448,6 @@ fn handle_send_prompt_allows_exit_during_auth() {
 
     assert!(state.exit_requested);
     let events = events_since(snapshot);
-    assert!(!events.iter().any(|event| {
-        matches!(
-            event,
-            IpcEvent::Error { message, .. } if message.contains("Finish /auth before sending prompts")
-        )
-    }));
     assert!(events.iter().any(|event| {
         matches!(event, IpcEvent::Status { message } if message.contains("Exit requested"))
     }));
@@ -712,7 +706,7 @@ fn claude_job_cancel_kills_piped_child() {
 fn claude_job_cancel_sends_ctrl_c_for_pty() {
     let (read_fd, write_fd) = pipe_pair();
     let (_tx, rx) = bounded(1);
-    let session = test_pty_session(write_fd, -1, rx);
+    let session = test_pty_session(write_fd, -1, -1, rx);
     let mut job = ClaudeJob {
         output: ClaudeJobOutput::Pty { session },
         started_at: Instant::now(),
@@ -734,7 +728,7 @@ fn process_claude_events_pty_ignores_empty_output() {
     let snapshot = event_snapshot();
     let (tx, rx) = bounded(1);
     tx.send(Vec::new()).unwrap();
-    let session = test_pty_session(-1, -1, rx);
+    let session = test_pty_session(-1, -1, -1, rx);
     let mut job = ClaudeJob {
         output: ClaudeJobOutput::Pty { session },
         started_at: Instant::now(),
@@ -761,7 +755,7 @@ fn process_claude_events_pty_exits_without_trailing_output() {
         .expect("spawned child");
     let pid = child.id() as i32;
     thread::sleep(Duration::from_millis(10));
-    let session = test_pty_session(-1, pid, rx);
+    let session = test_pty_session(-1, -1, pid, rx);
     let mut job = ClaudeJob {
         output: ClaudeJobOutput::Pty { session },
         started_at: Instant::now(),

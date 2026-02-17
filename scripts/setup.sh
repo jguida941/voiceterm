@@ -88,6 +88,7 @@ print_error() {
 
 # Whisper model URLs from HuggingFace
 WHISPER_BASE_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
+WHISPER_SHA256_FILE="${VOICETERM_MODEL_SHA256_FILE:-$PROJECT_ROOT/scripts/whisper-models.sha256}"
 
 # Get model size (compatible with bash 3)
 get_model_size() {
@@ -99,6 +100,106 @@ get_model_size() {
         large) echo "3.1G" ;;
         *) echo "unknown" ;;
     esac
+}
+
+# Minimum size guardrails to catch truncated/error payload downloads.
+get_model_min_size_bytes() {
+    case "$1" in
+        tiny.en|tiny) echo $((60 * 1024 * 1024)) ;;
+        base.en|base) echo $((120 * 1024 * 1024)) ;;
+        small.en|small) echo $((380 * 1024 * 1024)) ;;
+        medium.en|medium) echo $((1200 * 1024 * 1024)) ;;
+        large) echo $((2500 * 1024 * 1024)) ;;
+        *) echo $((1 * 1024 * 1024)) ;;
+    esac
+}
+
+file_size_bytes() {
+    local path="$1"
+    if stat -f%z "$path" >/dev/null 2>&1; then
+        stat -f%z "$path"
+    else
+        stat -c%s "$path"
+    fi
+}
+
+sha256_of_file() {
+    local path="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$path" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$path" | awk '{print $1}'
+    else
+        print_warning "No sha256 tool found (sha256sum/shasum). Skipping checksum verification."
+        return 2
+    fi
+}
+
+expected_model_sha256() {
+    local model_file="$1"
+    if [ ! -f "$WHISPER_SHA256_FILE" ]; then
+        return 1
+    fi
+    awk -v file="$model_file" '$2 == file {print $1}' "$WHISPER_SHA256_FILE" | head -n1
+}
+
+verify_model_checksum() {
+    local model_file="$1"
+    local model_path="$2"
+    local expected
+    local actual
+
+    expected="$(expected_model_sha256 "$model_file")" || return 0
+    if [ -z "$expected" ]; then
+        print_error "Checksum manifest exists but has no entry for $model_file"
+        return 1
+    fi
+
+    actual="$(sha256_of_file "$model_path")"
+    case "$?" in
+        0) ;;
+        2) return 0 ;;
+        *) return 1 ;;
+    esac
+
+    if [ "$actual" != "$expected" ]; then
+        print_error "Checksum mismatch for $model_file"
+        print_error "Expected: $expected"
+        print_error "Actual:   $actual"
+        return 1
+    fi
+
+    return 0
+}
+
+verify_downloaded_model() {
+    local model_name="$1"
+    local model_file="$2"
+    local model_path="$3"
+    local min_bytes
+    local actual_bytes
+    local first_bytes
+
+    min_bytes="$(get_model_min_size_bytes "$model_name")"
+    actual_bytes="$(file_size_bytes "$model_path")"
+
+    if [ "$actual_bytes" -lt "$min_bytes" ]; then
+        print_error "Downloaded file is too small for $model_name (${actual_bytes} bytes)"
+        print_error "Expected at least ${min_bytes} bytes; refusing to keep this file."
+        return 1
+    fi
+
+    first_bytes="$(head -c 64 "$model_path" | tr -d '\000')"
+    if printf '%s' "$first_bytes" | grep -Eiq "<!doctype html|<html|access denied|error"; then
+        print_error "Downloaded payload for $model_name appears to be an HTML/error response."
+        return 1
+    fi
+
+    if ! verify_model_checksum "$model_file" "$model_path"; then
+        return 1
+    fi
+
+    return 0
 }
 
 resolve_single_model() {
@@ -166,7 +267,7 @@ download_whisper_model() {
     mkdir -p "$MODELS_DIR"
 
     if command -v curl &> /dev/null; then
-        curl -L --progress-bar "$model_url" -o "$model_path" || {
+        curl --fail --location --progress-bar "$model_url" -o "$model_path" || {
             print_error "Failed to download $model_name"
             rm -f "$model_path"
             return 1
@@ -179,6 +280,11 @@ download_whisper_model() {
         }
     else
         print_error "Neither curl nor wget found. Please install one of them."
+        return 1
+    fi
+
+    if ! verify_downloaded_model "$model_name" "$model_file" "$model_path"; then
+        rm -f "$model_path"
         return 1
     fi
 

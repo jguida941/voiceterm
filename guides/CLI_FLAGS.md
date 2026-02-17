@@ -49,6 +49,8 @@ voiceterm --logs                        # Enable debug logging
 
 `Macros` is currently a runtime Settings toggle (`Ctrl+O`) and does not yet
 have a CLI flag.
+`Voice pipeline` is also a runtime Settings value (no dedicated CLI flag), and
+status text remains pipeline-neutral.
 
 Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and

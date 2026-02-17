@@ -248,7 +248,6 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (fail on high/critical CVSS, yanked, unsound) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
-| Audit Traceability Guard | `.github/workflows/audit_traceability_guard.yml` | enforce hardening traceability sync between `MASTER_PLAN` and `RUST_GUI_AUDIT_2026-02-15.md` |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
 
 ### 3) Release Workflow (Master Branch)

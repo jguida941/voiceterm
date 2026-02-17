@@ -1,7 +1,7 @@
 //! Transcript queue management so auto-send/order guarantees remain predictable.
 
 use std::collections::VecDeque;
-use voiceterm::{log_debug, VoiceCaptureSource};
+use voiceterm::log_debug;
 
 use crate::config::VoiceSendMode;
 
@@ -11,8 +11,6 @@ pub(crate) const MAX_PENDING_TRANSCRIPTS: usize = 5;
 pub(crate) struct PendingTranscript {
     /// Raw transcript text.
     pub(crate) text: String,
-    /// Pipeline that produced the transcript.
-    pub(crate) source: VoiceCaptureSource,
     /// Send mode to apply when flushing.
     pub(crate) mode: VoiceSendMode,
 }
@@ -43,7 +41,6 @@ mod tests {
                 &mut pending,
                 PendingTranscript {
                     text: format!("t{i}"),
-                    source: VoiceCaptureSource::Native,
                     mode: VoiceSendMode::Auto,
                 },
             );
@@ -53,7 +50,6 @@ mod tests {
             &mut pending,
             PendingTranscript {
                 text: "last".to_string(),
-                source: VoiceCaptureSource::Native,
                 mode: VoiceSendMode::Auto,
             },
         );

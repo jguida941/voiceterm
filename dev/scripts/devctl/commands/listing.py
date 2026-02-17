@@ -12,6 +12,7 @@ COMMANDS = [
     "docs-check",
     "hygiene",
     "release",
+    "release-notes",
     "homebrew",
     "status",
     "report",

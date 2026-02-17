@@ -14,7 +14,7 @@ Thanks for taking the time to contribute.
 - Install prerequisites in `guides/INSTALL.md`.
 - Build the overlay:
   ```bash
-  cd src && cargo build --release --bin voxterm
+  cd src && cargo build --release --bin voiceterm
   ```
 
 ## Code style
@@ -33,7 +33,7 @@ cd src && cargo test
 For overlay-only changes:
 
 ```bash
-cd src && cargo test --bin voxterm
+cd src && cargo test --bin voiceterm
 ```
 
 Targeted checks mirrored in CI (run when relevant):

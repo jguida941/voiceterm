@@ -6,10 +6,10 @@
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-02-16)
+## Status Snapshot (2026-02-17)
 
-- Last tagged release: `v1.0.68` (2026-02-16)
-- Current release target: `TBD` (next post-`v1.0.68` target pending planning sync)
+- Last tagged release: `v1.0.70` (2026-02-17)
+- Current release target: `TBD` (next post-`v1.0.70` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while continuing visual HUD differentiation.
@@ -94,6 +94,14 @@
 - [x] MP-136 Establish unsafe-governance checklist for unsafe hotspots with per-invariant test expectations (FX-010).
 - [x] MP-137 Add property/fuzz coverage lane for parser and ANSI/OSC boundary handling (FX-011).
 - [x] MP-138 Enforce audit/master-plan traceability updates as a mandatory part of each hardening fix (FX-012).
+- [x] MP-152 Consolidate hardening governance to `MASTER_PLAN` as the only active tracker: archive `RUST_GUI_AUDIT_2026-02-15.md` under `dev/archive/` and retire dedicated audit-traceability CI/tooling.
+
+## Phase 2C - Theme System Upgrade (Activation)
+
+- [ ] MP-148 Activate `dev/active/theme_upgrade.md` as an executable phased track in this plan, with strict non-regression requirements for current HUD/theme behavior before feature expansion.
+- [ ] MP-149 Implement Theme Upgrade Phase 0 safety rails (golden render snapshots, terminal compatibility matrix coverage, and style-schema migration harness) before any user-visible editor expansion.
+- [ ] MP-150 Implement Theme Upgrade Phase 1 style engine foundation (`StylePack` schema + resolver + runtime), preserving current built-in theme behavior and startup defaults.
+- [ ] MP-151 Ship docs/architecture updates for the new theme system (`dev/ARCHITECTURE.md`, `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, `dev/CHANGELOG.md`) in lockstep with implementation, including operator guidance and fallback behavior.
 
 ## Phase 3 - Overlay Differentiators
 
@@ -101,9 +109,17 @@
 - [x] MP-140 Define and enforce macro-vs-navigation precedence (macros first, explicit built-in phrase escape path).
 - [x] MP-141 Add Linux clipboard fallback support for voice `copy last error` (wl-copy/xclip/xsel).
 - [x] MP-142 Add `devctl docs-check` commit-range mode for post-commit doc audits on clean working trees.
+- [x] MP-156 Add release-notes automation (`generate-release-notes.sh`, `devctl release-notes`, `release.sh` notes-file handoff) so each tag has consistent diff-derived markdown notes for GitHub releases.
 - [x] MP-144 Add macro-pack onboarding wizard hardening (expanded developer command packs, repo-aware placeholder templating, and optional post-install setup prompt).
-- [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk.
+- [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk (adjacent runtime architecture debt; tracked separately from tooling-control-plane work).
 - [ ] MP-091 Searchable transcript history and replay workflow.
+
+## Phase 3B - Tooling Control Plane Consolidation (Active)
+
+- [ ] MP-157 Execute `dev/active/tooling_control_plane_consolidation.md` (Phases 1-2): implement `devctl ship`, deterministic step exits, dry-run behavior, machine-readable step reports, and adapter conversion for release entry points.
+- [ ] MP-158 Harden `devctl docs-check` policy enforcement so docs requirements are change-class aware and deprecated maintainer command references are surfaced as actionable failures.
+- [ ] MP-159 Add a dedicated tooling CI quality lane for `devctl` command behavior and maintainer shell-script integrity (release, release-notes, PyPI, Homebrew helpers).
+- [ ] MP-160 Canonicalize maintainer docs and macro/help surfaces to `devctl` first (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, maintainer macro packs, and `Makefile` help), keeping legacy wrappers documented as transitional adapters.
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 
@@ -139,6 +155,12 @@
 - [ ] MP-107 Add session dashboard with voice metrics (latency/WPM/error rate) and export path.
 - [ ] MP-108 Prototype contextual autocomplete/suggestion dropdowns for macros/corrections.
 - [ ] MP-109 Evaluate block-based voice command history UI against PTY/session constraints.
+- [ ] MP-145 Eliminate startup cursor/ANSI escape artifacts shown in Cursor (Codex and Claude backends), with focus on the splash-screen teardown to VoiceTerm HUD handoff window where artifacts appear before full load.
+- [ ] MP-146 Improve controls-row bracket styling so `[` `]` tokens track active theme colors and selected states use stronger contrast/readability (especially for arrow-mode focus visibility).
+- [ ] MP-147 Fix Cursor-only mouse-mode scroll conflict: with mouse mode ON, chat/conversation scroll should still work in Cursor for both Codex and Claude backends; preserve current JetBrains behavior (works today in PyCharm/JetBrains), keep architecture/change scope explicitly Cursor-specific, and require JetBrains non-regression validation so the Cursor fix does not break JetBrains scrolling.
+- [ ] MP-153 Add a CI docs-governance lane that runs `python3 dev/scripts/devctl.py docs-check --user-facing --strict` for user-facing behavior/doc changes so documentation drift fails early.
+- [ ] MP-154 Add a governance consistency check for active docs + macro packs so removed workflows/scripts are not referenced in non-archive content.
+- [ ] MP-155 Add a single pre-release verification command/profile that aggregates CI checks, mutation threshold, docs-governance checks, and hygiene into one machine-readable report artifact.
 
 ## Deferred Plans
 

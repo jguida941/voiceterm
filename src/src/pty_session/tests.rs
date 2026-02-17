@@ -7,6 +7,7 @@ use super::pty::*;
 use crate::set_logging_for_tests;
 use crossbeam_channel::{bounded, RecvTimeoutError};
 use proptest::prelude::*;
+use std::ffi::CString;
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::mem;
@@ -114,6 +115,74 @@ fn wait_for_process_to_exit(pid: i32, timeout: Duration) -> bool {
         thread::sleep(Duration::from_millis(10));
     }
     !process_exists(pid)
+}
+
+#[cfg(unix)]
+fn spawn_pty_holder_for_crash_test() -> (i32, i32) {
+    let mut pid_pipe = [0; 2];
+    let pipe_result = unsafe { libc::pipe(pid_pipe.as_mut_ptr()) };
+    assert_eq!(
+        pipe_result,
+        0,
+        "pipe() failed with errno {}",
+        io::Error::last_os_error()
+    );
+
+    unsafe {
+        let holder_pid = libc::fork();
+        assert!(holder_pid >= 0, "fork failed for crash-test holder");
+
+        if holder_pid == 0 {
+            libc::close(pid_pipe[0]);
+            let cmd = CString::new("cat").expect("valid command");
+            let cwd = CString::new(".").expect("valid cwd");
+            let term = CString::new("xterm-256color").expect("valid term");
+            let argv = vec![cmd];
+
+            let (master_fd, _lifeline_write_fd, pty_child_pid) =
+                spawn_pty_child(&argv, &cwd, &term).unwrap_or_else(|_| libc::_exit(1));
+            let bytes = pty_child_pid.to_ne_bytes();
+            let wrote = libc::write(
+                pid_pipe[1],
+                bytes.as_ptr() as *const libc::c_void,
+                bytes.len(),
+            );
+            if wrote != bytes.len() as isize {
+                libc::_exit(1);
+            }
+            libc::close(pid_pipe[1]);
+
+            // Keep the holder alive to model an active parent process.
+            // The test kills this process with SIGKILL to simulate abrupt terminal death.
+            let _ = master_fd;
+            loop {
+                libc::pause();
+            }
+        }
+
+        libc::close(pid_pipe[1]);
+        let mut bytes = [0u8; mem::size_of::<i32>()];
+        let mut read_total = 0usize;
+        while read_total < bytes.len() {
+            let n = libc::read(
+                pid_pipe[0],
+                bytes[read_total..].as_mut_ptr() as *mut libc::c_void,
+                bytes.len() - read_total,
+            );
+            if n <= 0 {
+                break;
+            }
+            read_total += n as usize;
+        }
+        libc::close(pid_pipe[0]);
+        assert_eq!(
+            read_total,
+            bytes.len(),
+            "failed to read pty child pid from crash-test holder"
+        );
+
+        (holder_pid, i32::from_ne_bytes(bytes))
+    }
 }
 
 #[cfg(unix)]
@@ -677,6 +746,7 @@ fn pty_cli_session_send_appends_newline() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyCliSession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -695,6 +765,7 @@ fn pty_overlay_session_send_text_with_newline_appends() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyOverlaySession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -758,6 +829,7 @@ fn pty_session_counters_track_send_and_read() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyCliSession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -773,6 +845,7 @@ fn pty_session_counters_track_send_and_read() {
     let handle2 = thread::spawn(|| {});
     let session2 = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx2,
         _output_thread: handle2,
@@ -1291,6 +1364,7 @@ fn pty_cli_session_read_output_drains_channel() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1318,6 +1392,7 @@ fn pty_cli_session_read_output_timeout_elapsed_override_prevents_loop() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1335,6 +1410,7 @@ fn pty_cli_session_read_output_timeout_respects_zero_timeout() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1361,6 +1437,7 @@ fn pty_cli_session_read_output_timeout_elapsed_boundary() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1377,6 +1454,7 @@ fn pty_cli_session_read_output_timeout_collects_recent_chunks() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1408,6 +1486,7 @@ fn pty_cli_session_read_output_timeout_breaks_on_grace_boundary() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1428,6 +1507,7 @@ fn pty_cli_session_wait_for_output_collects_and_drains() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1452,6 +1532,7 @@ fn pty_cli_session_is_responsive_tracks_liveness() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1468,6 +1549,7 @@ fn pty_cli_session_is_alive_with_negative_pid_returns_false() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1486,6 +1568,7 @@ fn pty_cli_session_try_wait_reaps_exited_child() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1515,6 +1598,7 @@ fn pty_cli_session_is_alive_reflects_child() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyCliSession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1532,6 +1616,7 @@ fn pty_overlay_session_send_bytes_writes() {
     let handle = thread::spawn(|| {});
     let mut session = ManuallyDrop::new(PtyOverlaySession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: -1,
         output_rx: rx,
         _output_thread: handle,
@@ -1550,6 +1635,7 @@ fn pty_overlay_session_set_winsize_updates_and_minimums() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyOverlaySession {
         master_fd: master,
+        lifeline_write_fd: -1,
         child_pid: unsafe { libc::getpid() },
         output_rx: rx,
         _output_thread: handle,
@@ -1573,6 +1659,7 @@ fn pty_overlay_session_set_winsize_errors_on_invalid_fd() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyOverlaySession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: unsafe { libc::getpid() },
         output_rx: rx,
         _output_thread: handle,
@@ -1591,6 +1678,7 @@ fn pty_overlay_session_is_alive_reflects_child() {
     let handle = thread::spawn(|| {});
     let session = ManuallyDrop::new(PtyOverlaySession {
         master_fd: -1,
+        lifeline_write_fd: -1,
         child_pid: pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1734,6 +1822,7 @@ fn pty_cli_session_drop_terminates_child() {
     let log = capture_new_log(|| {
         let session = PtyCliSession {
             master_fd: write_fd,
+            lifeline_write_fd: -1,
             child_pid: pid,
             output_rx: rx,
             _output_thread: handle,
@@ -1776,6 +1865,7 @@ fn pty_cli_session_drop_terminates_descendants_in_process_group() {
     let handle = thread::spawn(|| {});
     let session = PtyCliSession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: process_tree.leader_pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1799,6 +1889,7 @@ fn pty_cli_session_drop_writes_exit_for_zero_pid() {
     let handle = thread::spawn(|| {});
     let session = PtyCliSession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: 0,
         output_rx: rx,
         _output_thread: handle,
@@ -1828,6 +1919,7 @@ fn pty_cli_session_drop_sigkill_for_ignored_sigterm() {
     let log = capture_new_log(|| {
         let session = PtyCliSession {
             master_fd: write_fd,
+            lifeline_write_fd: -1,
             child_pid: pid,
             output_rx: rx,
             _output_thread: handle,
@@ -1865,6 +1957,7 @@ fn pty_overlay_session_drop_terminates_child() {
     let log = capture_new_log(|| {
         let session = PtyOverlaySession {
             master_fd: write_fd,
+            lifeline_write_fd: -1,
             child_pid: pid,
             output_rx: rx,
             _output_thread: handle,
@@ -1898,6 +1991,36 @@ fn pty_overlay_session_drop_terminates_child() {
 
 #[cfg(unix)]
 #[test]
+fn pty_overlay_session_parent_sigkill_terminates_child() {
+    let (holder_pid, child_pid) = spawn_pty_holder_for_crash_test();
+    assert!(
+        process_exists(child_pid),
+        "pty child should be alive before kill"
+    );
+
+    unsafe {
+        let _ = libc::kill(holder_pid, libc::SIGKILL);
+        let mut status = 0;
+        let _ = libc::waitpid(holder_pid, &mut status, 0);
+    }
+
+    if !wait_for_process_to_exit(child_pid, Duration::from_secs(3)) {
+        unsafe {
+            let _ = libc::kill(-child_pid, libc::SIGKILL);
+            let _ = libc::kill(child_pid, libc::SIGKILL);
+            let mut status = 0;
+            let _ = libc::waitpid(child_pid, &mut status, libc::WNOHANG);
+            let _ = libc::waitpid(child_pid, &mut status, 0);
+        }
+        panic!(
+            "pty child pid {} remained alive after holder SIGKILL",
+            child_pid
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn pty_overlay_session_drop_terminates_descendants_in_process_group() {
     let process_tree = SessionProcessTree::spawn(true);
     assert!(process_exists(process_tree.descendant_pid));
@@ -1907,6 +2030,7 @@ fn pty_overlay_session_drop_terminates_descendants_in_process_group() {
     let handle = thread::spawn(|| {});
     let session = PtyOverlaySession {
         master_fd: write_fd,
+        lifeline_write_fd: -1,
         child_pid: process_tree.leader_pid,
         output_rx: rx,
         _output_thread: handle,
@@ -1936,6 +2060,7 @@ fn pty_overlay_session_drop_sigkill_for_ignored_sigterm() {
     let log = capture_new_log(|| {
         let session = PtyOverlaySession {
             master_fd: write_fd,
+            lifeline_write_fd: -1,
             child_pid: pid,
             output_rx: rx,
             _output_thread: handle,

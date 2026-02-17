@@ -1,5 +1,8 @@
 name: Mutation Testing
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   schedule:
@@ -96,6 +99,7 @@ jobs:
   mutation-score:
     name: enforce aggregated mutation score
     runs-on: ubuntu-latest
+    if: always()
     needs: mutants
     steps:
       - name: Checkout
@@ -106,6 +110,23 @@ jobs:
         with:
           pattern: mutation-outcomes-shard-*
           path: mutation-shards
+          if-no-files-found: ignore
+
+      - name: Render mutation score badge
+        run: python3 dev/scripts/render_mutation_badge.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json
+
+      - name: Commit mutation badge update
+        if: github.ref == 'refs/heads/master'
+        run: |
+          if git diff --quiet -- .github/badges/mutation-score.json; then
+            echo "No mutation badge change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/mutation-score.json
+          git commit -m "chore: update mutation score badge"
+          git push
 
       - name: Enforce mutation score threshold
         run: python3 dev/scripts/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80

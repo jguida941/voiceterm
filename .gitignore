@@ -16,7 +16,6 @@ build/
 /src/target/
 **/*.rs.bk
 *.pdb
-Cargo.lock
 
 # TypeScript/Node
 ts_cli/
@@ -87,11 +86,11 @@ credentials.json
 PROJECT_OVERVIEW.md
 master_index.md
 project.md
+dev/BACKLOG.md
 # Old docs paths (removed)
 # dev/archive/ is tracked
 **/PROJECT_OVERVIEW.md
 **/master_index.md
-/AGENTS.md
 src/mutants.out*
 claudeaudit.md
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version as package_version
 import os
 import shutil
 import subprocess
@@ -11,6 +12,28 @@ from pathlib import Path
 
 
 DEFAULT_REPO_URL = "https://github.com/jguida941/voiceterm"
+
+
+def _launcher_version() -> str:
+    try:
+        return package_version("voiceterm")
+    except PackageNotFoundError:
+        try:
+            from . import __version__
+
+            return __version__
+        except Exception:
+            return "unknown"
+
+
+def _default_repo_ref() -> str:
+    version = _launcher_version()
+    if version == "unknown":
+        raise RuntimeError(
+            "Cannot detect installed voiceterm package version. "
+            "Set VOICETERM_REPO_REF to an explicit tag/commit."
+        )
+    return f"v{version}"
 
 
 def _native_root() -> Path:
@@ -49,10 +72,17 @@ def _bootstrap_native_bin() -> Path:
     root = _native_root()
     root.mkdir(parents=True, exist_ok=True)
     repo_url = os.environ.get("VOICETERM_REPO_URL", DEFAULT_REPO_URL)
+    repo_ref = os.environ.get("VOICETERM_REPO_REF", _default_repo_ref())
 
     with tempfile.TemporaryDirectory(prefix="voiceterm-bootstrap-") as tmp:
         repo_dir = Path(tmp) / "repo"
-        _run([git, "clone", "--depth", "1", repo_url, str(repo_dir)])
+        try:
+            _run([git, "clone", "--depth", "1", "--branch", repo_ref, repo_url, str(repo_dir)])
+        except subprocess.CalledProcessError as err:
+            raise RuntimeError(
+                f"Failed to clone {repo_url} at ref {repo_ref}. "
+                "Set VOICETERM_REPO_REF to a valid tag/commit if needed."
+            ) from err
         manifest_dir = repo_dir / "src"
         if not manifest_dir.exists():
             raise RuntimeError(
@@ -105,4 +135,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

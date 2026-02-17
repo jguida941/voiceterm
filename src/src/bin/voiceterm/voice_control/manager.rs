@@ -18,7 +18,6 @@ use super::pipeline::using_native_pipeline;
 use super::STATUS_TOAST_SECS;
 
 struct VoiceStartInfo {
-    pipeline_display: &'static str,
     source: VoiceCaptureSource,
     fallback_note: Option<String>,
 }
@@ -124,8 +123,7 @@ impl VoiceManager {
                     log_debug(&format!(
                         "Audio recorder unavailable ({err:#}); falling back to python pipeline."
                     ));
-                    fallback_note =
-                        Some("Recorder unavailable; falling back to python pipeline.".into());
+                    fallback_note = Some("Recorder unavailable; using fallback capture.".into());
                     None
                 }
             }
@@ -154,8 +152,6 @@ impl VoiceManager {
         } else {
             "Python pipeline"
         };
-        let pipeline_display = if using_native { "Rust" } else { "Python" };
-
         let status = match trigger {
             VoiceCaptureTrigger::Manual => "manual",
             VoiceCaptureTrigger::Auto => "auto",
@@ -165,7 +161,6 @@ impl VoiceManager {
         ));
 
         Ok(Some(VoiceStartInfo {
-            pipeline_display,
             source,
             fallback_note,
         }))
@@ -286,7 +281,7 @@ pub(crate) fn start_voice_capture(
                 VoiceCaptureTrigger::Manual => "Manual Mode",
                 VoiceCaptureTrigger::Auto => "Auto Mode",
             };
-            let mut status = format!("Listening {mode_label} ({})", info.pipeline_display);
+            let mut status = format!("Listening {mode_label}");
             if let Some(note) = info.fallback_note {
                 status.push(' ');
                 status.push_str(&note);

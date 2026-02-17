@@ -3,7 +3,19 @@
 import argparse
 import sys
 
-from .commands import check, docs_check, homebrew, hygiene, listing, mutation_score, mutants, release, report, status
+from .commands import (
+    check,
+    docs_check,
+    homebrew,
+    hygiene,
+    listing,
+    mutation_score,
+    mutants,
+    release,
+    release_notes,
+    report,
+    status,
+)
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
 
 
@@ -84,6 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
     release_cmd.add_argument("--allow-ci", action="store_true")
     release_cmd.add_argument("--dry-run", action="store_true")
 
+    # release-notes
+    notes_cmd = sub.add_parser("release-notes", help="Generate markdown release notes from git diff history")
+    notes_cmd.add_argument("--version", required=True)
+    notes_cmd.add_argument("--output", help="Output markdown path (default: /tmp/voiceterm-release-vX.Y.Z.md)")
+    notes_cmd.add_argument("--end-ref", help="End ref for compare range (default: vX.Y.Z if tag exists, else HEAD)")
+    notes_cmd.add_argument("--previous-tag", help="Explicit previous tag (default: latest prior v* tag)")
+    notes_cmd.add_argument("--dry-run", action="store_true")
+
     # homebrew
     homebrew_cmd = sub.add_parser("homebrew", help="Run update-homebrew.sh")
     homebrew_cmd.add_argument("--version", required=True)
@@ -113,6 +133,11 @@ def build_parser() -> argparse.ArgumentParser:
     status_cmd = sub.add_parser("status", help="Summarize git + mutation status")
     status_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     status_cmd.add_argument("--ci-limit", type=int, default=DEFAULT_CI_LIMIT)
+    status_cmd.add_argument(
+        "--require-ci",
+        action="store_true",
+        help="Exit non-zero when CI fetch fails (implies --ci)",
+    )
     status_cmd.add_argument("--format", choices=["json", "md", "text"], default="text")
     status_cmd.add_argument("--output")
     status_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
@@ -161,6 +186,8 @@ def main() -> int:
         return docs_check.run(args)
     if args.command == "release":
         return release.run(args)
+    if args.command == "release-notes":
+        return release_notes.run(args)
     if args.command == "homebrew":
         return homebrew.run(args)
     if args.command == "status":

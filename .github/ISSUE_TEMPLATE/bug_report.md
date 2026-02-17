@@ -21,7 +21,7 @@ What actually happened.
 
 ## Environment
 - OS:
-- VoxTerm version:
+- VoiceTerm version:
 - Backend CLI (codex/claude/gemini/aider/opencode/custom):
 - Install method (brew/source/app):
 

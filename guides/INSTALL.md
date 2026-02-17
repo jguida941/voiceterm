@@ -111,6 +111,8 @@ confirm your expected defaults (for example `Send mode`, `Macros`, and
 `Latency display`) are available.
 You can also sanity-check runtime controls with `Ctrl+G` (quick theme cycle)
 and `Ctrl+Y` (theme picker).
+Status wording is pipeline-neutral (`Listening Manual Mode`,
+`No speech detected`); use Settings (`Ctrl+O`) to verify `Voice pipeline`.
 
 ## Option B: PyPI
 

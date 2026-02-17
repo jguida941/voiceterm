@@ -34,7 +34,8 @@ On first run, it bootstraps the native VoiceTerm binary into:
 
 - `~/.local/share/voiceterm/native/bin/voiceterm` (default)
 
-By default it builds from the official VoiceTerm repository source.
+By default it builds from the official VoiceTerm repository at the matching
+tag (`v<package-version>`).
 
 ## Runtime Requirements
 
@@ -50,6 +51,8 @@ By default it builds from the official VoiceTerm repository source.
   - Change where the bootstrap binary is installed.
 - `VOICETERM_REPO_URL=https://github.com/jguida941/voiceterm`
   - Use a different source repository URL.
+- `VOICETERM_REPO_REF=v1.0.69`
+  - Use a different git tag/branch/commit for bootstrap.
 
 ## Documentation
 

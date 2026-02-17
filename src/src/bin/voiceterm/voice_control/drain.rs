@@ -18,7 +18,6 @@ use crate::writer::{set_status, WriterMessage};
 
 use super::manager::{start_voice_capture, VoiceManager};
 use super::navigation::{execute_voice_navigation_action, resolve_voice_navigation_action};
-use super::pipeline::pipeline_status_label;
 use super::{PREVIEW_CLEAR_MS, STATUS_TOAST_SECS, TRANSCRIPT_PREVIEW_MAX};
 
 fn apply_macro_mode(
@@ -76,15 +75,14 @@ pub(crate) fn handle_voice_message(
                 VoiceCaptureSource::Native => Pipeline::Rust,
                 VoiceCaptureSource::Python => Pipeline::Python,
             };
-            let label = pipeline_status_label(source);
             let drop_note = metrics
                 .as_ref()
                 .filter(|metrics| metrics.frames_dropped > 0)
                 .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
             let status = if let Some(note) = drop_note {
-                format!("Transcript ready ({label}, {note})")
+                format!("Transcript ready ({note})")
             } else {
-                format!("Transcript ready ({label})")
+                "Transcript ready".to_string()
             };
             set_status(
                 writer_tx,
@@ -114,13 +112,12 @@ pub(crate) fn handle_voice_message(
                 VoiceCaptureSource::Native => Pipeline::Rust,
                 VoiceCaptureSource::Python => Pipeline::Python,
             };
-            let label = pipeline_status_label(source);
             let drop_note = metrics
                 .as_ref()
                 .filter(|metrics| metrics.frames_dropped > 0)
                 .map(|metrics| format!("dropped {} frames", metrics.frames_dropped));
             if auto_voice_enabled {
-                log_debug(&format!("auto voice capture detected no speech ({label})"));
+                log_debug("auto voice capture detected no speech");
                 // Don't show redundant "Auto-voice enabled" - the mode indicator shows it
                 // Only show a note if frames were dropped
                 if let Some(note) = drop_note {
@@ -315,7 +312,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                     };
                     let sent_newline = deliver_transcript(
                         &text,
-                        source.label(),
                         transcript_mode,
                         &mut io,
                         0,
@@ -329,7 +325,6 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                         pending_transcripts,
                         PendingTranscript {
                             text,
-                            source,
                             mode: transcript_mode,
                         },
                     );

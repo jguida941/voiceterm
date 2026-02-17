@@ -349,7 +349,7 @@ mod tests {
     fn write_status_line_truncation_preserves_status_type() {
         let theme = Theme::Coral;
         let mut buf = Vec::new();
-        let long_msg = "Transcript ready (Rust pipeline with extra detail)";
+        let long_msg = "Transcript ready (with extra detail)";
         // Force truncation so the status keyword would be removed from the visible text.
         write_status_line(&mut buf, long_msg, 2, 12, theme).unwrap();
         let output = String::from_utf8_lossy(&buf);

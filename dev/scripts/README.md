@@ -16,13 +16,14 @@ make prepush  # All push/PR checks (ci + perf smoke + memory guard)
 | Script | Purpose | Usage |
 |--------|---------|-------|
 | `release.sh` | Create GitHub release tag | `./dev/scripts/release.sh 1.0.33` |
+| `generate-release-notes.sh` | Generate per-tag markdown notes from git diff/commits | `./dev/scripts/generate-release-notes.sh 1.0.33` |
 | `update-homebrew.sh` | Update Homebrew formula | `./dev/scripts/update-homebrew.sh 1.0.33` |
 | `publish-pypi.sh` | Build/publish PyPI package | `./dev/scripts/publish-pypi.sh --upload` |
 | `devctl.py` | Unified dev CLI (checks, mutants, release, report) | `python3 dev/scripts/devctl.py` |
 | `mutants.py` | Interactive mutation testing | `python3 dev/scripts/mutants.py` |
 | `check_mutation_score.py` | Verify mutation score | Used by CI |
+| `render_mutation_badge.py` | Render shields endpoint JSON badge from mutation outcomes | `python3 dev/scripts/render_mutation_badge.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json` |
 | `check_rustsec_policy.py` | Enforce RustSec advisory policy thresholds | `python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --allowlist-file dev/security/rustsec_allowlist.md` |
-| `check_audit_traceability.py` | Enforce MASTER_PLAN and Rust audit traceability sync | `python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md` |
 
 ## release.sh
 
@@ -38,6 +39,25 @@ Creates a Git tag for a new release.
 - No uncommitted changes
 - `src/Cargo.toml` version matches
 - `dev/CHANGELOG.md` has entry
+
+`release.sh` also generates a markdown release-notes file at
+`/tmp/voiceterm-release-vX.Y.Z.md` (or `VOICETERM_RELEASE_NOTES_FILE`) based on
+the previous tag diff.
+
+## generate-release-notes.sh
+
+Generates markdown release notes from git history (previous tag -> target ref).
+
+```bash
+# Default output: /tmp/voiceterm-release-v1.0.33.md
+./dev/scripts/generate-release-notes.sh 1.0.33
+
+# Explicit output path
+./dev/scripts/generate-release-notes.sh 1.0.33 --output /tmp/release-v1.0.33.md
+
+# Explicit compare range
+./dev/scripts/generate-release-notes.sh 1.0.33 --previous-tag v1.0.32 --end-ref v1.0.33
+```
 
 ## update-homebrew.sh
 
@@ -153,6 +173,9 @@ python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
 
+# Generate release notes markdown from git diff history
+python3 dev/scripts/devctl.py release-notes --version 1.0.33
+
 # Post-commit docs check over a commit range (works on clean trees)
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 
@@ -166,9 +189,6 @@ python3 dev/scripts/devctl.py hygiene
 cargo install cargo-audit --locked
 cd src && (cargo audit --json > ../rustsec-audit.json || true)
 python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
-
-# Hardening audit traceability guard (MASTER_PLAN <-> RUST_GUI_AUDIT)
-python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md
 
 # Plot top 25% hotspots by directory
 python3 dev/scripts/devctl.py mutants --results-only --plot --plot-scope dir --plot-top-pct 25
@@ -200,6 +220,7 @@ make dev-hygiene
 make dev-list
 make dev-status
 make dev-report
+make release-notes V=1.0.33
 ```
 
 ## tests/
@@ -236,7 +257,7 @@ git add -A && git commit -m "Release v1.0.33"
 ./dev/scripts/release.sh 1.0.33
 
 # 5. Create GitHub release
-gh release create v1.0.33 --title "v1.0.33" --notes "See CHANGELOG.md"
+gh release create v1.0.33 --title "v1.0.33" --notes-file /tmp/voiceterm-release-v1.0.33.md
 
 # 6. Publish PyPI package
 ./dev/scripts/publish-pypi.sh --upload

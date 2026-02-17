@@ -23,6 +23,8 @@ TAG="v$VERSION"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO_TOML="$REPO_ROOT/src/Cargo.toml"
 CHANGELOG="$REPO_ROOT/dev/CHANGELOG.md"
+NOTES_SCRIPT="$REPO_ROOT/dev/scripts/generate-release-notes.sh"
+NOTES_FILE="${VOICETERM_RELEASE_NOTES_FILE:-/tmp/voiceterm-release-$TAG.md}"
 
 echo "=== VoiceTerm Release $TAG ==="
 
@@ -60,7 +62,7 @@ fi
 
 # Pull latest
 echo "Pulling latest changes..."
-git pull origin master
+git pull --ff-only origin master
 
 # Create tag
 echo "Creating tag $TAG..."
@@ -70,11 +72,21 @@ git tag -a "$TAG" -m "Release $TAG"
 echo "Pushing tag to origin..."
 git push origin "$TAG"
 
+# Generate release notes markdown from git diff history.
+if [[ -x "$NOTES_SCRIPT" ]]; then
+    echo "Generating release notes..."
+    "$NOTES_SCRIPT" "$VERSION" --output "$NOTES_FILE" --end-ref "$TAG"
+else
+    echo "Warning: release notes generator not found at $NOTES_SCRIPT"
+fi
+
 echo ""
 echo "=== Tag $TAG pushed ==="
 echo ""
+echo "Release notes file: $NOTES_FILE"
+echo ""
 echo "Next steps:"
-echo "1. Create GitHub release: gh release create $TAG --title '$TAG' --notes 'See CHANGELOG.md'"
+echo "1. Create GitHub release: gh release create $TAG --title '$TAG' --notes-file \"$NOTES_FILE\""
 echo "2. Run: ./dev/scripts/publish-pypi.sh --upload"
 echo "3. Run: ./dev/scripts/update-homebrew.sh $VERSION"
 echo ""

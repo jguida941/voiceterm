@@ -4,7 +4,7 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use voiceterm::{log_debug, VoiceCaptureSource};
+use voiceterm::log_debug;
 
 use crate::config::VoiceSendMode;
 use crate::prompt::PromptTracker;
@@ -17,7 +17,6 @@ use super::session::TranscriptSession;
 
 struct PendingBatch {
     text: String,
-    label: String,
     mode: VoiceSendMode,
 }
 
@@ -66,8 +65,7 @@ pub(crate) fn try_flush_pending<S: TranscriptSession>(
     };
     let remaining = pending.len();
     io.status_state.queue_depth = remaining;
-    let sent_newline =
-        deliver_transcript(&batch.text, &batch.label, batch.mode, io, remaining, None);
+    let sent_newline = deliver_transcript(&batch.text, batch.mode, io, remaining, None);
     if sent_newline {
         *last_enter_at = Some(Instant::now());
     }
@@ -77,7 +75,6 @@ fn merge_pending_transcripts(pending: &mut VecDeque<PendingTranscript>) -> Optio
     // Batch consecutive transcripts with the same send mode to avoid mixing auto/insert.
     let mode = pending.front()?.mode;
     let mut parts: Vec<String> = Vec::new();
-    let mut sources: Vec<VoiceCaptureSource> = Vec::new();
     while let Some(next) = pending.front() {
         if next.mode != mode {
             break;
@@ -88,20 +85,13 @@ fn merge_pending_transcripts(pending: &mut VecDeque<PendingTranscript>) -> Optio
         let trimmed = next.text.trim();
         if !trimmed.is_empty() {
             parts.push(trimmed.to_string());
-            sources.push(next.source);
         }
     }
     if parts.is_empty() {
         return None;
     }
-    let label = if sources.iter().all(|source| *source == sources[0]) {
-        sources[0].label().to_string()
-    } else {
-        "Mixed pipelines".to_string()
-    };
     Some(PendingBatch {
         text: parts.join(" "),
-        label,
         mode,
     })
 }
@@ -129,21 +119,21 @@ pub(crate) fn send_transcript(
 
 pub(crate) fn deliver_transcript<S: TranscriptSession>(
     text: &str,
-    label: &str,
     mode: VoiceSendMode,
     io: &mut TranscriptIo<'_, S>,
     queued_remaining: usize,
     drop_note: Option<&str>,
 ) -> bool {
-    let mut label = label.to_string();
-    if let Some(note) = drop_note {
-        label.push_str(", ");
-        label.push_str(note);
-    }
     let status = if queued_remaining > 0 {
-        format!("Transcript ready ({label}) • queued {queued_remaining}")
+        if let Some(note) = drop_note {
+            format!("Transcript ready ({note}) • queued {queued_remaining}")
+        } else {
+            format!("Transcript ready • queued {queued_remaining}")
+        }
+    } else if let Some(note) = drop_note {
+        format!("Transcript ready ({note})")
     } else {
-        format!("Transcript ready ({label})")
+        "Transcript ready".to_string()
     };
     io.set_status(&status, Some(Duration::from_secs(2)));
     match send_transcript(io.session, text, mode) {
@@ -235,7 +225,7 @@ mod tests {
             status_state: &mut status_state,
         };
 
-        let sent = deliver_transcript("hello", "Native", VoiceSendMode::Auto, &mut io, 0, None);
+        let sent = deliver_transcript("hello", VoiceSendMode::Auto, &mut io, 0, None);
         assert!(sent);
         assert_eq!(io.status_state.recording_state, RecordingState::Responding);
     }
@@ -256,7 +246,7 @@ mod tests {
             status_state: &mut status_state,
         };
 
-        let sent = deliver_transcript("hello", "Native", VoiceSendMode::Insert, &mut io, 0, None);
+        let sent = deliver_transcript("hello", VoiceSendMode::Insert, &mut io, 0, None);
         assert!(!sent);
         assert_eq!(io.status_state.recording_state, RecordingState::Idle);
     }
@@ -268,7 +258,6 @@ mod tests {
             &mut pending,
             PendingTranscript {
                 text: "hello".to_string(),
-                source: VoiceCaptureSource::Native,
                 mode: VoiceSendMode::Auto,
             },
         );
@@ -276,7 +265,6 @@ mod tests {
             &mut pending,
             PendingTranscript {
                 text: "world".to_string(),
-                source: VoiceCaptureSource::Native,
                 mode: VoiceSendMode::Auto,
             },
         );
@@ -319,7 +307,6 @@ mod tests {
             &mut pending,
             PendingTranscript {
                 text: "hello".to_string(),
-                source: VoiceCaptureSource::Native,
                 mode: VoiceSendMode::Auto,
             },
         );
@@ -395,8 +382,7 @@ mod tests {
             current_status: &mut current_status,
             status_state: &mut status_state,
         };
-        let sent_newline =
-            deliver_transcript("hello", "Rust", VoiceSendMode::Auto, &mut io, 0, None);
+        let sent_newline = deliver_transcript("hello", VoiceSendMode::Auto, &mut io, 0, None);
         assert!(sent_newline);
         assert!(recv_output_contains(&session.output_rx, "hello"));
     }
