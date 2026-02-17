@@ -7,6 +7,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.82] - 2026-02-17
+
+### Packaging
+
+- Align PyPI package metadata version with Rust/app release metadata so `devctl ship --pypi` and version consistency gates pass in one release flow.
+
+### Documentation
+
+- Refresh active plan shipment snapshot after the `v1.0.81` distribution run so release status and next target planning stay synchronized.
+
 ## [1.0.81] - 2026-02-17
 
 ### UX
