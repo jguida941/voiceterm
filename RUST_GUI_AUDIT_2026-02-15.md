@@ -771,3 +771,16 @@ Verification runs recorded:
 - `make traceability-audit` (pass; plan/audit sync guard)
 - `python3 dev/scripts/devctl.py hygiene` (pass; known `__pycache__` warning only)
 - targeted regression tests above (pass)
+
+## Post-Release Follow-up (2026-02-17)
+
+- MP-015 (mutation hardening) was promoted from Backlog to active execution in `dev/active/MASTER_PLAN.md` after `v1.0.68`.
+- Follow-up scope:
+  - maintain aggregate mutation score `>=0.80` on `master`.
+  - prioritize highest-survivor hotspots from sharded outcomes.
+  - keep baseline quality/security lanes green while hardening (`check --profile ci`, `Security Guard`).
+- This follow-up is outside the FX-001..FX-012 traceability table and does not change those finding statuses.
+- Follow-up validation gates:
+  1. `Mutation Testing` workflow passes on `master` at threshold `0.80`.
+  2. Shard outcomes upload for every shard and aggregate gate executes.
+  3. `python3 dev/scripts/devctl.py check --profile ci` remains green on hardening commits.

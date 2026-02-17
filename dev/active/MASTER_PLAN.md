@@ -12,7 +12,7 @@
 - Current release target: `TBD` (next post-`v1.0.68` target pending planning sync)
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: visual HUD differentiation (telemetry richness, transitions, visualization modes)
+- Strategic focus: mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while continuing visual HUD differentiation.
 
 ## Strategic Direction
 
@@ -104,6 +104,20 @@
 - [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk.
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
+## Phase 3A - Mutation Hardening (Current Execution Focus)
+
+- [ ] MP-015 Improve mutation score with targeted high-value tests (promoted from Backlog).
+  - [ ] Build a fresh shard-by-shard survivor baseline on `master` and rank hotspots by missed mutants.
+  - [ ] Add targeted tests for top survivors in current hotspots (`src/bin/voiceterm/config/*`, `src/bin/voiceterm/hud/*`, `src/bin/voiceterm/input/mouse.rs`) and any new top offenders.
+  - [ ] Ensure shard jobs always publish outcomes artifacts even when mutants survive.
+  - [ ] Re-run mutation workflow until aggregate score holds at or above `0.80` on `master` for two consecutive runs (manual + scheduled).
+  - [ ] Keep non-mutation quality gates green after each hardening batch (`python3 dev/scripts/devctl.py check --profile ci`, `Security Guard`).
+- MP-015 acceptance gates:
+  1. `.github/workflows/mutation-testing.yml` passes on `master` with threshold `0.80`.
+  2. Aggregated score gate passes via `python3 dev/scripts/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80`.
+  3. Shard outcomes artifacts are present for all 8 shards in each validation run.
+  4. Added hardening tests remain stable across two consecutive mutation workflow runs.
+
 ## Phase 4 - Advanced Expansion
 
 - [ ] MP-092 Streaming STT and partial transcript overlay.
@@ -113,7 +127,6 @@
 
 ## Backlog (Not Scheduled)
 
-- [ ] MP-015 Improve mutation score with targeted high-value tests.
 - [ ] MP-016 Stress test heavy I/O for bounded-memory behavior.
 - [ ] MP-031 Add PTY health monitoring for hung process detection.
 - [ ] MP-032 Add retry logic for transient audio device failures.
