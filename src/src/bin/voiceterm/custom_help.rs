@@ -148,7 +148,7 @@ impl HelpArgMeta {
         let help = arg
             .get_help()
             .or_else(|| arg.get_long_help())
-            .map(|text| text.to_string())
+            .map(std::string::ToString::to_string)
             .unwrap_or_default();
         let defaults = arg
             .get_default_values()
@@ -494,7 +494,7 @@ fn value_hint_for_arg(arg: &Arg) -> String {
     }
     if let Some(name) = arg
         .get_value_names()
-        .and_then(|names| names.first().map(|value| value.to_string()))
+        .and_then(|names| names.first().map(std::string::ToString::to_string))
     {
         if name.len() <= 12 {
             return format!(" <{name}>");
