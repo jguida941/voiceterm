@@ -1,0 +1,112 @@
+macros:
+  stage all changes:
+    expansion: "git add -A"
+    mode: insert
+
+  stage tracked changes:
+    expansion: "git add -u"
+    mode: insert
+
+  unstage all changes:
+    expansion: "git reset HEAD -- ."
+    mode: insert
+
+  restore working tree file:
+    template: "git restore {TRANSCRIPT}"
+    mode: insert
+
+  create feature branch:
+    template: "git switch -c feature/{TRANSCRIPT}"
+    mode: insert
+
+  create fix branch:
+    template: "git switch -c fix/{TRANSCRIPT}"
+    mode: insert
+
+  switch branch:
+    template: "git switch {TRANSCRIPT}"
+    mode: insert
+
+  rename current branch:
+    template: "git branch -m {TRANSCRIPT}"
+    mode: insert
+
+  delete local branch:
+    template: "git branch -d {TRANSCRIPT}"
+    mode: insert
+
+  commit with message:
+    template: "git commit -m '{TRANSCRIPT}'"
+    mode: insert
+
+  amend commit message:
+    template: "git commit --amend -m '{TRANSCRIPT}'"
+    mode: insert
+
+  squash last commit with message:
+    template: "git reset --soft HEAD~1 && git commit -m '{TRANSCRIPT}'"
+    mode: insert
+
+  rebase onto default branch:
+    expansion: "git fetch origin && git rebase origin/__DEFAULT_BRANCH__"
+    mode: insert
+
+  merge default branch:
+    expansion: "git fetch origin && git merge origin/__DEFAULT_BRANCH__"
+    mode: insert
+
+  push current branch:
+    expansion: "git push"
+    mode: insert
+
+  push current branch with upstream:
+    expansion: "git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+    mode: insert
+
+  force push with lease:
+    expansion: "git push --force-with-lease"
+    mode: insert
+
+  open pull request:
+    template: "gh pr create --repo __GITHUB_REPO__ --fill --title '{TRANSCRIPT}'"
+    mode: insert
+
+  open draft pull request:
+    template: "gh pr create --repo __GITHUB_REPO__ --fill --draft --title '{TRANSCRIPT}'"
+    mode: insert
+
+  mark pull request ready:
+    expansion: "gh pr ready --repo __GITHUB_REPO__"
+    mode: insert
+
+  update pull request body:
+    template: "gh pr edit --repo __GITHUB_REPO__ --body '{TRANSCRIPT}'"
+    mode: insert
+
+  approve pull request:
+    template: "gh pr review --repo __GITHUB_REPO__ --approve --body '{TRANSCRIPT}'"
+    mode: insert
+
+  request pull request changes:
+    template: "gh pr review --repo __GITHUB_REPO__ --request-changes --body '{TRANSCRIPT}'"
+    mode: insert
+
+  create github issue:
+    template: "gh issue create --repo __GITHUB_REPO__ --title '{TRANSCRIPT}'"
+    mode: insert
+
+  comment on pull request:
+    template: "gh pr comment --repo __GITHUB_REPO__ --body '{TRANSCRIPT}'"
+    mode: insert
+
+  assign issue to me:
+    template: "gh issue edit --repo __GITHUB_REPO__ {TRANSCRIPT} --add-assignee __GITHUB_USER__"
+    mode: insert
+
+  merge pull request squash:
+    expansion: "gh pr merge --repo __GITHUB_REPO__ --squash --auto"
+    mode: insert
+
+  rerun failed checks:
+    expansion: "gh run rerun --failed --repo __GITHUB_REPO__"
+    mode: insert

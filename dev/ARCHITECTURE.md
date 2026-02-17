@@ -320,7 +320,7 @@ Notes:
 
 - Python fallback requires `python3`, `ffmpeg`, and the `whisper` CLI on PATH.
 - Use `--no-python-fallback` to force native Whisper and surface errors early.
-- When fallback is active, the overlay tags recordings with `REC PY` and status messages report "Python"; logs record the switch.
+- When fallback is active, overlay status/logs report `Python` pipeline context; recording/state visuals remain mode-first (`AUTO`/`PTT`) in Full HUD.
 
 ## Logging and privacy
 

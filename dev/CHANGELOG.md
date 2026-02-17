@@ -7,6 +7,18 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.69] - 2026-02-17
+
+### UX
+
+- Stabilize Full HUD mode labels so the left mode lane keeps `PTT`/`AUTO`/`IDLE` while active capture/transcription state transitions appear in the main status message lane.
+- Simplify empty-capture wording by removing backend pipeline labels from the user-facing `No speech detected` status text.
+- Start `Settings -> Macros` in `OFF` state on startup so macro expansion is opt-in.
+- Add a project starter macro pack at `.voiceterm/macros.yaml` with common codex-voice developer workflow commands.
+- Add dedicated macro onboarding wizard `scripts/macros.sh` with pack selection (`safe-core`, `power-git`, `full-dev`), git-origin repo auto-detection, and generated-file validation.
+- Expand shipped macro packs with high-frequency git/GitHub workflows plus codex-voice maintainer checks/release helpers, add placeholder templating (`__GITHUB_REPO__`, `__GITHUB_OWNER__`, `__DEFAULT_BRANCH__`, `__GITHUB_USER__`, `__CURRENT_BRANCH__`), and validate GitHub CLI readiness/auth for GitHub macro packs.
+- Extend source install flow (`scripts/setup.sh install`) with an optional post-install macro wizard prompt and explicit `--with-macros-wizard` / `--macros-pack` flags.
+
 ## [1.0.68] - 2026-02-16
 
 ### UX

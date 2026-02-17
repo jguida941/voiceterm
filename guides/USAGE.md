@@ -291,6 +291,37 @@ Project-local macros live at:
 
 `<project>/.voiceterm/macros.yaml`
 
+Default behavior:
+
+- `Settings -> Macros` starts `OFF` on startup.
+- Turn macros `ON` in Settings when you want trigger expansion.
+
+Setup helpers:
+
+```bash
+# interactive wizard (recommended)
+./scripts/macros.sh wizard
+
+# non-interactive install
+./scripts/macros.sh install --pack safe-core
+./scripts/macros.sh install --pack power-git --overwrite
+./scripts/macros.sh install --pack full-dev --overwrite
+```
+
+Pack summary:
+
+- `safe-core`: low-risk git/GitHub inspection commands
+- `power-git`: write actions (commit/push/PR/issue) defaulting to `insert` mode
+- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+
+The wizard can auto-fill repo-specific placeholders:
+
+- `__GITHUB_REPO__`, `__GITHUB_OWNER__`, `__DEFAULT_BRANCH__`,
+  `__GITHUB_USER__`, `__CURRENT_BRANCH__`
+
+For GitHub macros, the wizard validates `gh` readiness (installed/authenticated)
+and warns if `gh auth login` is required.
+
 Example:
 
 ```yaml
@@ -307,6 +338,8 @@ Rules:
 - Template macros can consume remaining spoken text with `{TRANSCRIPT}`.
 - `mode` is optional and can be `auto` or `insert`.
 - Macros apply only when Settings -> Macros is ON.
+- This repo ships a starter pack at `.voiceterm/macros.yaml` for expanded
+  git/GitHub voice workflows plus codex-voice check/release commands.
 
 ## Status Line Reference
 
@@ -317,9 +350,9 @@ Example:
 Main areas:
 
 - mode indicator
-- voice-state lane (`IDLE`, `REC`, `processing`, `responding`)
+- mode lane (`PTT`, `AUTO`, `IDLE`) with active color transitions
 - mic threshold
-- status message
+- status message lane (`Ready`, `Recording`, `Processing`, `Responding`, warnings/errors)
 - shortcut hints (space permitting)
 - optional telemetry/right-panel modules
 
@@ -340,12 +373,13 @@ Common statuses:
 | `Auto-voice enabled` | VoiceTerm will start listening when prompt is ready |
 | `Listening Manual Mode (Rust)` | Recording from manual trigger |
 | `Processing ...` | Transcription is in progress |
-| `Transcript ready (Rust)` | Transcript was injected (and sent in `auto` mode) |
+| `Ready` | Idle/success state after transcript delivery |
 | `Transcript queued (N)` | Backend was busy; transcript is queued |
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
 | `No speech detected` | Capture ended without enough detected speech |
 
-`Rust` indicates native STT path. `Python` indicates fallback STT path.
+`Rust` / `Python` labels appear only in statuses that need pipeline context
+(for example manual listening/fallback notices).
 
 ## Launch Recipes
 

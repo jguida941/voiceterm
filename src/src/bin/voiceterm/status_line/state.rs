@@ -178,7 +178,7 @@ impl StatusLineState {
             meter_levels: Vec::with_capacity(METER_HISTORY_MAX),
             latency_history_ms: Vec::with_capacity(LATENCY_HISTORY_MAX),
             latency_display: LatencyDisplayMode::Short,
-            macros_enabled: true,
+            macros_enabled: false,
             ..Default::default()
         }
     }
@@ -214,7 +214,7 @@ mod tests {
         let state = StatusLineState::new();
         assert_eq!(state.sensitivity_db, -35.0);
         assert!(!state.auto_voice_enabled);
-        assert!(state.macros_enabled);
+        assert!(!state.macros_enabled);
         assert!(state.latency_history_ms.is_empty());
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());

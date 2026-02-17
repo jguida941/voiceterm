@@ -104,6 +104,16 @@ More detailed topics:
 - Macros: [guides/USAGE.md#project-voice-macros](guides/USAGE.md#project-voice-macros)
 - HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
 - Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
+
+Optional macro setup (project-local):
+
+```bash
+./scripts/macros.sh wizard
+```
+
+If you install from source, `./scripts/install.sh` now prompts to run the macro
+wizard at the end of install.
+
 - Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 
 ## 5) Common flags

@@ -569,13 +569,13 @@ mod tests {
             );
             ctx.toggle_macros_enabled();
         }
-        assert!(!status_state.macros_enabled);
+        assert!(status_state.macros_enabled);
         match writer_rx
             .recv_timeout(Duration::from_millis(200))
             .expect("status message")
         {
             WriterMessage::EnhancedStatus(state) => {
-                assert!(state.message.contains("Macros: OFF"));
+                assert!(state.message.contains("Macros: ON"));
             }
             other => panic!("unexpected writer message: {other:?}"),
         }
@@ -600,13 +600,13 @@ mod tests {
             );
             ctx.toggle_macros_enabled();
         }
-        assert!(status_state.macros_enabled);
+        assert!(!status_state.macros_enabled);
         match writer_rx
             .recv_timeout(Duration::from_millis(200))
             .expect("status message")
         {
             WriterMessage::EnhancedStatus(state) => {
-                assert!(state.message.contains("Macros: ON"));
+                assert!(state.message.contains("Macros: OFF"));
             }
             other => panic!("unexpected writer message: {other:?}"),
         }

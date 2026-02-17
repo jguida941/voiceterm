@@ -1,0 +1,56 @@
+macros:
+  show git status: git status -sb
+
+  show current branch: git branch --show-current
+
+  show remote urls: git remote -v
+
+  show changed files: git diff --name-only
+
+  show unstaged diff: git diff
+
+  show staged diff: git diff --staged
+
+  show recent commits: git log --oneline -15
+
+  show last commit: git show --stat --oneline -1
+
+  show branch graph: git log --oneline --decorate --graph -20
+
+  list branches: git branch --all
+
+  list stashes: git stash list
+
+  fetch remotes: git fetch --all --prune
+
+  pull latest: git pull --ff-only
+
+  show tags: git tag --sort=-creatordate | head -20
+
+  show commit difference from default: git log --oneline origin/__DEFAULT_BRANCH__..HEAD
+
+  show changed files from default: git diff --name-status origin/__DEFAULT_BRANCH__...HEAD
+
+  list pull requests: gh pr list --repo __GITHUB_REPO__ --limit 20
+
+  list my pull requests: gh pr list --repo __GITHUB_REPO__ --author @me --limit 20
+
+  list review requests: gh pr list --repo __GITHUB_REPO__ --search "is:open review-requested:@me" --limit 20
+
+  view current pull request: gh pr view --repo __GITHUB_REPO__
+
+  check pull request status: gh pr checks
+
+  list github issues: gh issue list --repo __GITHUB_REPO__ --limit 20
+
+  list github workflows: gh workflow list --repo __GITHUB_REPO__
+
+  list ci runs: gh run list --repo __GITHUB_REPO__ --limit 20
+
+  watch latest ci run: gh run watch
+
+  show workflow failures: gh run list --repo __GITHUB_REPO__ --status failure --limit 10
+
+  show latest release: gh release view --repo __GITHUB_REPO__
+
+  open repo in browser: gh repo view --repo __GITHUB_REPO__ --web

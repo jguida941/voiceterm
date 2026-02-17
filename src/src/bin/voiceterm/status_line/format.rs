@@ -329,10 +329,20 @@ fn format_main_row(
     )
 }
 
+fn active_state_fallback_message(state: &StatusLineState, colors: &ThemeColors) -> String {
+    match state.recording_state {
+        RecordingState::Recording => format!("{}Recording{}", colors.recording, colors.reset),
+        RecordingState::Processing => format!("{}Processing{}", colors.processing, colors.reset),
+        RecordingState::Responding => format!("{}Responding{}", colors.info, colors.reset),
+        RecordingState::Idle => String::new(),
+    }
+}
+
 fn format_full_hud_message(state: &StatusLineState, colors: &ThemeColors) -> String {
     if state.recording_state != RecordingState::Idle {
+        let fallback = active_state_fallback_message(state, colors);
         if state.message.is_empty() {
-            return String::new();
+            return fallback;
         }
         let status_type = StatusType::from_message(&state.message);
         return match status_type {
@@ -340,7 +350,14 @@ fn format_full_hud_message(state: &StatusLineState, colors: &ThemeColors) -> Str
             StatusType::Warning => format!("{}{}{}", colors.warning, state.message, colors.reset),
             StatusType::Error => format!("{}{}{}", colors.error, state.message, colors.reset),
             StatusType::Info => format!("{}{}{}", colors.info, state.message, colors.reset),
-            StatusType::Recording | StatusType::Processing | StatusType::Success => String::new(),
+            StatusType::Recording => {
+                format!("{}{}{}", colors.recording, state.message, colors.reset)
+            }
+            StatusType::Processing => {
+                format!("{}{}{}", colors.processing, state.message, colors.reset)
+            }
+            // Avoid stale "Transcript ready" while we're still in an active state.
+            StatusType::Success => fallback,
         };
     }
 
@@ -490,48 +507,29 @@ fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> Stri
 /// Uses animated indicators for recording (pulsing) and processing (spinning).
 #[inline]
 fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let pipeline_tag = pipeline_tag_short(state.pipeline);
-
     let mut result = String::with_capacity(32);
     result.push(' ');
 
-    match state.recording_state {
-        RecordingState::Recording => {
-            result.push_str(colors.recording);
-            result.push_str(get_recording_indicator());
-            result.push_str(" REC ");
-            result.push_str(pipeline_tag);
-            result.push_str(colors.reset);
-        }
-        RecordingState::Processing => {
-            result.push_str(colors.processing);
-            result.push_str(get_processing_spinner());
-            result.push_str(" processing ");
-            result.push_str(pipeline_tag);
-            result.push_str(colors.reset);
-        }
-        RecordingState::Responding => {
-            result.push_str(colors.info);
-            result.push_str("↺ responding ");
-            result.push_str(pipeline_tag);
-            result.push_str(colors.reset);
-        }
-        RecordingState::Idle => {
-            let (indicator, label, color) = match state.voice_mode {
-                VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
-                VoiceMode::Manual => (colors.indicator_manual, "PTT", ""),
-                VoiceMode::Idle => (colors.indicator_idle, "IDLE", ""),
-            };
-            if !color.is_empty() {
-                result.push_str(color);
-            }
-            result.push_str(indicator);
-            result.push(' ');
-            result.push_str(label);
-            if !color.is_empty() {
-                result.push_str(colors.reset);
-            }
-        }
+    let (indicator, label, idle_color) = match state.voice_mode {
+        VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
+        VoiceMode::Manual => (colors.indicator_manual, "PTT", ""),
+        VoiceMode::Idle => (colors.indicator_idle, "IDLE", ""),
+    };
+    let color = match state.recording_state {
+        RecordingState::Recording => colors.recording,
+        RecordingState::Processing => colors.processing,
+        RecordingState::Responding => colors.info,
+        RecordingState::Idle => idle_color,
+    };
+    let mode_label = format!("{label:<5}");
+    if !color.is_empty() {
+        result.push_str(color);
+    }
+    result.push_str(indicator);
+    result.push(' ');
+    result.push_str(&mode_label);
+    if !color.is_empty() {
+        result.push_str(colors.reset);
     }
 
     if state.recording_state == RecordingState::Idle && state.transition_progress > 0.0 {
@@ -1141,7 +1139,8 @@ mod tests {
 
         let banner = format_status_banner(&state, Theme::Coral, 80);
         assert_eq!(banner.height, 4);
-        assert!(banner.lines.iter().any(|line| line.contains("REC")));
+        assert!(banner.lines.iter().any(|line| line.contains("AUTO")));
+        assert!(banner.lines.iter().any(|line| line.contains("Recording")));
         assert!(banner.lines.iter().any(|line| line.contains("dB")));
     }
 
@@ -1324,11 +1323,13 @@ mod tests {
     fn format_status_banner_full_mode_processing_does_not_duplicate_processing_text() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
+        state.voice_mode = VoiceMode::Manual;
         state.recording_state = RecordingState::Processing;
         state.message = "Processing...".to_string();
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         let main_row = &banner.lines[1];
+        assert!(main_row.contains("PTT"));
         let count = main_row.to_lowercase().matches("processing").count();
         assert_eq!(count, 1);
     }

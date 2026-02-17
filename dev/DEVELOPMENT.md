@@ -216,7 +216,7 @@ Implementation layout:
 
 ## Manual QA checklist
 
-- [ ] Auto-voice status visibility: REC tag + meter while capture is active.
+- [ ] Auto-voice status visibility: Full HUD keeps mode label (`AUTO`/`PTT`) while active-state text (`Recording`/`Processing`) and meter remain visible.
 - [ ] Queue flush works in both insert and auto send modes.
 - [ ] Prompt logging is off by default unless explicitly enabled.
 - [ ] Two terminals can run independently without shared state leaks.

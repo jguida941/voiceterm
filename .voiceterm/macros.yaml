@@ -1,0 +1,264 @@
+macros:
+  show git status: git status -sb
+
+  show current branch: git branch --show-current
+
+  show remote urls: git remote -v
+
+  show changed files: git diff --name-only
+
+  show unstaged diff: git diff
+
+  show staged diff: git diff --staged
+
+  show recent commits: git log --oneline -15
+
+  show last commit: git show --stat --oneline -1
+
+  show branch graph: git log --oneline --decorate --graph -20
+
+  list branches: git branch --all
+
+  list stashes: git stash list
+
+  fetch remotes: git fetch --all --prune
+
+  pull latest: git pull --ff-only
+
+  show tags: git tag --sort=-creatordate | head -20
+
+  show commit difference from default: git log --oneline origin/master..HEAD
+
+  show changed files from default: git diff --name-status origin/master...HEAD
+
+  list pull requests: gh pr list --repo jguida941/voiceterm --limit 20
+
+  list my pull requests: gh pr list --repo jguida941/voiceterm --author @me --limit 20
+
+  list review requests: gh pr list --repo jguida941/voiceterm --search "is:open review-requested:@me" --limit 20
+
+  view current pull request: gh pr view --repo jguida941/voiceterm
+
+  check pull request status: gh pr checks
+
+  list github issues: gh issue list --repo jguida941/voiceterm --limit 20
+
+  list github workflows: gh workflow list --repo jguida941/voiceterm
+
+  list ci runs: gh run list --repo jguida941/voiceterm --limit 20
+
+  watch latest ci run: gh run watch
+
+  show workflow failures: gh run list --repo jguida941/voiceterm --status failure --limit 10
+
+  show latest release: gh release view --repo jguida941/voiceterm
+
+  open repo in browser: gh repo view --repo jguida941/voiceterm --web
+
+  stage all changes:
+    expansion: "git add -A"
+    mode: insert
+
+  stage tracked changes:
+    expansion: "git add -u"
+    mode: insert
+
+  unstage all changes:
+    expansion: "git reset HEAD -- ."
+    mode: insert
+
+  restore working tree file:
+    template: "git restore {TRANSCRIPT}"
+    mode: insert
+
+  create feature branch:
+    template: "git switch -c feature/{TRANSCRIPT}"
+    mode: insert
+
+  create fix branch:
+    template: "git switch -c fix/{TRANSCRIPT}"
+    mode: insert
+
+  switch branch:
+    template: "git switch {TRANSCRIPT}"
+    mode: insert
+
+  rename current branch:
+    template: "git branch -m {TRANSCRIPT}"
+    mode: insert
+
+  delete local branch:
+    template: "git branch -d {TRANSCRIPT}"
+    mode: insert
+
+  commit with message:
+    template: "git commit -m '{TRANSCRIPT}'"
+    mode: insert
+
+  amend commit message:
+    template: "git commit --amend -m '{TRANSCRIPT}'"
+    mode: insert
+
+  squash last commit with message:
+    template: "git reset --soft HEAD~1 && git commit -m '{TRANSCRIPT}'"
+    mode: insert
+
+  rebase onto default branch:
+    expansion: "git fetch origin && git rebase origin/master"
+    mode: insert
+
+  merge default branch:
+    expansion: "git fetch origin && git merge origin/master"
+    mode: insert
+
+  push current branch:
+    expansion: "git push"
+    mode: insert
+
+  push current branch with upstream:
+    expansion: "git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+    mode: insert
+
+  force push with lease:
+    expansion: "git push --force-with-lease"
+    mode: insert
+
+  open pull request:
+    template: "gh pr create --repo jguida941/voiceterm --fill --title '{TRANSCRIPT}'"
+    mode: insert
+
+  open draft pull request:
+    template: "gh pr create --repo jguida941/voiceterm --fill --draft --title '{TRANSCRIPT}'"
+    mode: insert
+
+  mark pull request ready:
+    expansion: "gh pr ready --repo jguida941/voiceterm"
+    mode: insert
+
+  update pull request body:
+    template: "gh pr edit --repo jguida941/voiceterm --body '{TRANSCRIPT}'"
+    mode: insert
+
+  approve pull request:
+    template: "gh pr review --repo jguida941/voiceterm --approve --body '{TRANSCRIPT}'"
+    mode: insert
+
+  request pull request changes:
+    template: "gh pr review --repo jguida941/voiceterm --request-changes --body '{TRANSCRIPT}'"
+    mode: insert
+
+  create github issue:
+    template: "gh issue create --repo jguida941/voiceterm --title '{TRANSCRIPT}'"
+    mode: insert
+
+  comment on pull request:
+    template: "gh pr comment --repo jguida941/voiceterm --body '{TRANSCRIPT}'"
+    mode: insert
+
+  assign issue to me:
+    template: "gh issue edit --repo jguida941/voiceterm {TRANSCRIPT} --add-assignee jguida941"
+    mode: insert
+
+  merge pull request squash:
+    expansion: "gh pr merge --repo jguida941/voiceterm --squash --auto"
+    mode: insert
+
+  rerun failed checks:
+    expansion: "gh run rerun --failed --repo jguida941/voiceterm"
+    mode: insert
+
+  run ci checks:
+    expansion: "python3 dev/scripts/devctl.py check --profile ci"
+    mode: auto
+
+  run prepush checks:
+    expansion: "python3 dev/scripts/devctl.py check --profile prepush"
+    mode: auto
+
+  run docs check:
+    expansion: "python3 dev/scripts/devctl.py docs-check --user-facing"
+    mode: auto
+
+  run docs strict check:
+    expansion: "python3 dev/scripts/devctl.py docs-check --user-facing --strict"
+    mode: auto
+
+  run hygiene audit:
+    expansion: "python3 dev/scripts/devctl.py hygiene"
+    mode: auto
+
+  check mutation score:
+    expansion: "python3 dev/scripts/devctl.py mutation-score --threshold 0.80"
+    mode: auto
+
+  check ci status:
+    expansion: "python3 dev/scripts/devctl.py status --ci --format md"
+    mode: auto
+
+  check traceability:
+    expansion: "python3 dev/scripts/check_audit_traceability.py --master-plan dev/active/MASTER_PLAN.md --audit RUST_GUI_AUDIT_2026-02-15.md"
+    mode: auto
+
+  run rust fmt check:
+    expansion: "cd src && cargo fmt --all -- --check"
+    mode: auto
+
+  run rust clippy:
+    expansion: "cd src && cargo clippy --workspace --all-features -- -D warnings"
+    mode: auto
+
+  run workspace tests:
+    expansion: "cd src && cargo test"
+    mode: auto
+
+  run voiceterm tests:
+    expansion: "cd src && cargo test --bin voiceterm"
+    mode: auto
+
+  run parser fuzz guard:
+    expansion: "make parser-fuzz"
+    mode: auto
+
+  run perf smoke:
+    expansion: "make test-perf"
+    mode: auto
+
+  run memory guard:
+    expansion: "make test-mem"
+    mode: auto
+
+  run memory guard loop:
+    expansion: "make test-mem-loop"
+    mode: auto
+
+  run security audit:
+    expansion: "make security-audit"
+    mode: auto
+
+  build release binary:
+    expansion: "cd src && cargo build --release --bin voiceterm"
+    mode: auto
+
+  launch voiceterm:
+    expansion: "./scripts/start.sh"
+    mode: auto
+
+  create release tag:
+    template: "make release V={TRANSCRIPT}"
+    mode: insert
+
+  update homebrew tap:
+    template: "make homebrew V={TRANSCRIPT}"
+    mode: insert
+
+  publish pypi package:
+    expansion: "./dev/scripts/publish-pypi.sh --upload"
+    mode: insert
+
+  verify pypi release:
+    template: "curl -fsSL https://pypi.org/pypi/voiceterm/{TRANSCRIPT}/json | rg '\"version\"'"
+    mode: auto
+
+  create github release:
+    template: "gh release create v{TRANSCRIPT} --title 'v{TRANSCRIPT}' --notes 'See dev/CHANGELOG.md'"
+    mode: insert

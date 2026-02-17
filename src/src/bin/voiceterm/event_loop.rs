@@ -1657,7 +1657,7 @@ mod tests {
         status_state.auto_voice_enabled = auto_voice_enabled;
         status_state.send_mode = config.voice_send_mode;
         status_state.latency_display = config.latency_display;
-        status_state.macros_enabled = true;
+        status_state.macros_enabled = false;
         status_state.hud_right_panel = config.hud_right_panel;
         status_state.hud_border_style = config.hud_border_style;
         status_state.hud_right_panel_recording_only = config.hud_right_panel_recording_only;

@@ -226,6 +226,28 @@ Want the design and process timeline?
 Voice macros are project-local voice shortcuts defined in
 `.voiceterm/macros.yaml`.
 
+Startup default: `Settings -> Macros` starts as `OFF` (safe mode). Turn it on
+when you want macro expansion.
+
+Quick setup:
+
+```bash
+# Interactive wizard (recommended)
+./scripts/macros.sh wizard
+
+# or generate a pack directly
+./scripts/macros.sh install --pack safe-core
+```
+
+Packs:
+
+- `safe-core`: low-risk git/GitHub inspection commands
+- `power-git`: write actions (commit/push/PR/issue) in `insert` mode by default
+- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+
+If you use GitHub macros, the wizard checks `gh` availability/auth and can
+prompt for `gh auth login`.
+
 Example:
 
 - You say: `run tests`
@@ -240,6 +262,9 @@ When it runs:
 
 See [Project Voice Macros](guides/USAGE.md#project-voice-macros) for the file
 format, templates, and matching rules.
+
+This repository includes a starter macro pack at `.voiceterm/macros.yaml` with
+expanded git/GitHub voice workflows plus codex-voice check/release commands.
 
 ## Documentation
 

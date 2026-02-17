@@ -79,8 +79,13 @@ Macros load from `<project>/.voiceterm/macros.yaml` and apply only when
 `Settings -> Macros` is ON.
 
 1. Confirm file path and YAML structure.
-2. Check trigger text match (case/whitespace-insensitive).
-3. Restart VoiceTerm after editing macros.
+2. Check `Macros` toggle state in Settings (`Ctrl+O`) since startup default is `OFF`.
+3. Check trigger text match (case/whitespace-insensitive).
+4. Run `./scripts/macros.sh validate --output ./.voiceterm/macros.yaml`.
+   If it warns about unresolved placeholders (for example `__GITHUB_REPO__`),
+   rerun `./scripts/macros.sh wizard` and provide repo details.
+   If it warns about GitHub auth, run `gh auth login`.
+5. Restart VoiceTerm after editing macros.
 
 ### Voice macro expanded unexpectedly
 

@@ -174,6 +174,13 @@ To choose a model size during install:
 ./scripts/install.sh --medium
 ```
 
+To launch macro setup from install:
+
+```bash
+./scripts/install.sh --with-macros-wizard
+./scripts/install.sh --with-macros-wizard --macros-pack full-dev
+```
+
 ### PATH notes
 
 If `voiceterm` is not found, the installer used the first writable directory in
@@ -229,6 +236,21 @@ Built-in voice navigation phrases are available after install:
 
 Linux clipboard note: `copy last error` uses `wl-copy`, `xclip`, or `xsel`
 when available.
+
+Optional macro wizard (project-local smart command pack):
+
+```bash
+./scripts/macros.sh wizard
+```
+
+Available packs:
+
+- `safe-core`: low-risk git/GitHub inspection commands
+- `power-git`: write actions (commit/push/PR/issue) in insert mode
+- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+
+For GitHub macros, wizard validation expects `gh` to be authenticated
+(`gh auth login`).
 
 ## Windows
 

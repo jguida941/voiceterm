@@ -115,6 +115,40 @@ resolve_single_model() {
     esac
 }
 
+parse_install_args() {
+    local model_arg=""
+    INSTALL_RUN_MACROS_WIZARD=0
+    INSTALL_MACROS_PACK="safe-core"
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --tiny|--base|--small|--medium|tiny|base|base.en|small|small.en|medium|medium.en)
+                model_arg="$1"
+                ;;
+            --with-macros-wizard)
+                INSTALL_RUN_MACROS_WIZARD=1
+                ;;
+            --macros-pack)
+                INSTALL_MACROS_PACK="${2:-}"
+                if [ -z "$INSTALL_MACROS_PACK" ]; then
+                    print_error "Missing value for --macros-pack"
+                    show_usage
+                    exit 1
+                fi
+                shift
+                ;;
+            *)
+                print_error "Unknown install option: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
+
+    INSTALL_MODEL="$(resolve_single_model "$model_arg")"
+}
+
 download_whisper_model() {
     local model_name="$1"
     local model_file="ggml-${model_name}.bin"
@@ -275,11 +309,18 @@ show_usage() {
     echo "  --medium         Download medium.en model (1.5G)"
     echo "  --all-models     Download all English models"
     echo ""
+    echo "Install options (for 'install' command):"
+    echo "  --tiny|--base|--small|--medium  Model size shortcut"
+    echo "  --with-macros-wizard             Launch macro wizard after install"
+    echo "  --macros-pack <name>             safe-core | power-git | full-dev (used with --with-macros-wizard)"
+    echo ""
     echo "Examples:"
-    echo "  $0                    # Full setup with base.en model"
-    echo "  $0 models --tiny      # Download only tiny.en model"
-    echo "  $0 check              # Check dependencies only"
-    echo "  $0 build              # Build only (skip model download)"
+    echo "  $0                                # Full setup with base.en model"
+    echo "  $0 install --small               # Install with small.en model"
+    echo "  $0 install --with-macros-wizard  # Install + interactive macro wizard"
+    echo "  $0 models --tiny                 # Download only tiny.en model"
+    echo "  $0 check                         # Check dependencies only"
+    echo "  $0 build                         # Build only (skip model download)"
 }
 
 main() {
@@ -290,20 +331,41 @@ main() {
 
     case "$command" in
         install)
-            local model
-            model="$(resolve_single_model "${1:-}")"
+            parse_install_args "$@"
 
             check_rust || exit 1
             check_codex
 
             echo ""
-            download_whisper_model "$model"
+            download_whisper_model "$INSTALL_MODEL"
 
             echo ""
             build_rust_overlay || exit 1
 
             echo ""
             install_wrapper
+
+            local run_macros_wizard=0
+            if [ "$INSTALL_RUN_MACROS_WIZARD" -eq 1 ]; then
+                run_macros_wizard=1
+            elif [ -t 0 ] && [ -t 1 ]; then
+                local setup_macros
+                read -r -p "Run VoiceTerm macro wizard now? (y/N): " setup_macros
+                case "$setup_macros" in
+                    y|Y|yes|YES) run_macros_wizard=1 ;;
+                esac
+            fi
+
+            if [ "$run_macros_wizard" -eq 1 ]; then
+                echo ""
+                if [ "$INSTALL_RUN_MACROS_WIZARD" -eq 1 ] && [ -n "$INSTALL_MACROS_PACK" ]; then
+                    "$SCRIPT_DIR/macros.sh" wizard --pack "$INSTALL_MACROS_PACK" || \
+                        print_warning "Macro wizard exited without writing a file"
+                else
+                    "$SCRIPT_DIR/macros.sh" wizard || \
+                        print_warning "Macro wizard exited without writing a file"
+                fi
+            fi
 
             print_banner "✓ Install Complete!"
             echo ""

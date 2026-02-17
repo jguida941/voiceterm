@@ -7,6 +7,7 @@ Scripts for installing and running VoiceTerm.
 | `install.sh` | One-time installer | `./scripts/install.sh` |
 | `start.sh` | Launch VoiceTerm | `./scripts/start.sh` |
 | `setup.sh` | Download Whisper models | `./scripts/setup.sh models --base` |
+| `macros.sh` | Macro pack wizard/installer | `./scripts/macros.sh wizard` |
 | `python_fallback.py` | Fallback STT pipeline | Used automatically |
 
 ## install.sh
@@ -21,6 +22,13 @@ Pick a model size during install:
 
 ```bash
 ./scripts/install.sh --small
+```
+
+Launch the macro wizard at the end of install:
+
+```bash
+./scripts/install.sh --with-macros-wizard
+./scripts/install.sh --with-macros-wizard --macros-pack full-dev
 ```
 
 ## start.sh
@@ -45,6 +53,38 @@ Downloads Whisper models and performs initial setup.
 # Show help
 ./scripts/setup.sh --help
 ```
+
+## macros.sh
+
+Interactive wizard to generate project-local macro files.
+
+```bash
+# Wizard (recommended)
+./scripts/macros.sh wizard
+
+# Non-interactive install
+./scripts/macros.sh install --pack safe-core
+./scripts/macros.sh install --pack full-dev --overwrite
+
+# Validate an existing file
+./scripts/macros.sh validate --output ./.voiceterm/macros.yaml
+```
+
+Pack summary:
+
+- `safe-core`: low-risk git/GitHub inspection commands
+- `power-git`: write actions (commit/push/PR/issue) defaulting to `insert` mode
+- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+
+Wizard personalization:
+
+- Auto-detects and templates values from your repo where possible:
+  - `__GITHUB_REPO__` (owner/name)
+  - `__GITHUB_OWNER__`
+  - `__DEFAULT_BRANCH__`
+  - `__GITHUB_USER__`
+  - `__CURRENT_BRANCH__`
+- Validates GitHub CLI readiness for GitHub macros (`gh` install/auth/repo access).
 
 ## python_fallback.py
 

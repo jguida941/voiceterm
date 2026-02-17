@@ -136,9 +136,9 @@ pub(crate) fn handle_voice_message(
                 // Otherwise leave the message empty - mode indicator shows we're in auto mode
             } else {
                 let status = if let Some(note) = drop_note {
-                    format!("No speech detected ({label}, {note})")
+                    format!("No speech detected ({note})")
                 } else {
-                    format!("No speech detected ({label})")
+                    "No speech detected".to_string()
                 };
                 set_status(
                     writer_tx,
@@ -581,6 +581,31 @@ mod tests {
         dir
     }
 
+    fn test_overlay_config(send_mode: VoiceSendMode) -> OverlayConfig {
+        OverlayConfig {
+            app: AppConfig::parse_from(["test"]),
+            prompt_regex: None,
+            prompt_log: None,
+            auto_voice: false,
+            auto_voice_idle_ms: 1200,
+            transcript_idle_ms: 250,
+            voice_send_mode: send_mode,
+            theme_name: None,
+            no_color: false,
+            hud_right_panel: crate::config::HudRightPanel::Ribbon,
+            hud_border_style: crate::config::HudBorderStyle::Theme,
+            hud_right_panel_recording_only: true,
+            hud_style: crate::config::HudStyle::Full,
+            latency_display: crate::config::LatencyDisplayMode::Short,
+            minimal_hud: false,
+            backend: "codex".to_string(),
+            codex: false,
+            claude: false,
+            gemini: false,
+            login: false,
+        }
+    }
+
     #[test]
     fn apply_macro_mode_applies_macros_when_enabled() {
         let dir = write_test_macros_file(
@@ -617,28 +642,7 @@ macros:
 
     #[test]
     fn handle_voice_message_sends_status_and_transcript() {
-        let config = OverlayConfig {
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: None,
-            prompt_log: None,
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-        };
+        let config = test_overlay_config(VoiceSendMode::Auto);
         let mut session = StubSession::default();
         let (writer_tx, writer_rx) = crossbeam_channel::unbounded();
         let mut deadline = None;
@@ -675,6 +679,47 @@ macros:
             _ => panic!("unexpected writer message"),
         }
         assert_eq!(session.sent_with_newline, vec!["hello"]);
+    }
+
+    #[test]
+    fn handle_voice_message_no_speech_omits_pipeline_label() {
+        let config = test_overlay_config(VoiceSendMode::Insert);
+        let mut session = StubSession::default();
+        let (writer_tx, writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+        let mut session_stats = SessionStats::new();
+        let mut ctx = VoiceMessageContext {
+            config: &config,
+            session: &mut session,
+            writer_tx: &writer_tx,
+            status_clear_deadline: &mut deadline,
+            current_status: &mut current_status,
+            status_state: &mut status_state,
+            session_stats: &mut session_stats,
+            auto_voice_enabled: false,
+        };
+
+        handle_voice_message(
+            VoiceJobMessage::Empty {
+                source: VoiceCaptureSource::Native,
+                metrics: None,
+            },
+            &mut ctx,
+        );
+
+        let msg = writer_rx
+            .recv_timeout(Duration::from_millis(200))
+            .expect("status message");
+        match msg {
+            WriterMessage::EnhancedStatus(state) => {
+                assert_eq!(state.message, "No speech detected");
+                assert!(!state.message.contains("Rust"));
+                assert!(!state.message.contains("Python"));
+            }
+            _ => panic!("unexpected writer message"),
+        }
     }
 
     #[test]

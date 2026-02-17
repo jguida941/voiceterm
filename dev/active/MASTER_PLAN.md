@@ -101,6 +101,7 @@
 - [x] MP-140 Define and enforce macro-vs-navigation precedence (macros first, explicit built-in phrase escape path).
 - [x] MP-141 Add Linux clipboard fallback support for voice `copy last error` (wl-copy/xclip/xsel).
 - [x] MP-142 Add `devctl docs-check` commit-range mode for post-commit doc audits on clean working trees.
+- [x] MP-144 Add macro-pack onboarding wizard hardening (expanded developer command packs, repo-aware placeholder templating, and optional post-install setup prompt).
 - [ ] MP-143 Decompose `voice_control/drain.rs` and `event_loop.rs` into smaller modules to reduce review and regression risk.
 - [ ] MP-091 Searchable transcript history and replay workflow.
 
