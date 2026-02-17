@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Run maintainer lint-hardening profile
         # Enforces: redundant_clone, redundant_closure_for_method_calls,
         # cast_possible_wrap, dead_code
