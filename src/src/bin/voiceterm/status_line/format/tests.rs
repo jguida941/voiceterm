@@ -1,5 +1,39 @@
 use super::*;
 
+fn separator_columns(row: &str) -> Vec<usize> {
+    let mut cols = Vec::new();
+    let mut display_col = 0usize;
+    let mut chars = row.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' {
+            // Skip ANSI escape sequences.
+            for next in chars.by_ref() {
+                if ('@'..='~').contains(&next) {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        display_col += 1;
+        if ch == '│' {
+            cols.push(display_col);
+        }
+    }
+
+    cols
+}
+
+fn internal_separator_columns(row: &str) -> Vec<usize> {
+    let mut cols = separator_columns(row);
+    if cols.len() >= 2 {
+        cols.remove(0);
+        cols.pop();
+    }
+    cols
+}
+
 #[test]
 fn format_status_line_basic() {
     let state = StatusLineState {
@@ -182,7 +216,7 @@ fn format_status_banner_full_mode_recording_shows_rec_and_meter() {
 }
 
 #[test]
-fn format_status_banner_full_mode_recording_mode_lane_shows_auto_rec() {
+fn format_status_banner_full_mode_recording_mode_lane_keeps_auto_without_rec_suffix() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
     state.voice_mode = VoiceMode::Auto;
@@ -190,11 +224,12 @@ fn format_status_banner_full_mode_recording_mode_lane_shows_auto_rec() {
     state.message.clear();
 
     let banner = format_status_banner(&state, Theme::Coral, 96);
-    assert!(banner.lines[1].contains("AUTO REC"));
+    assert!(banner.lines[1].contains("AUTO"));
+    assert!(!banner.lines[1].contains("AUTO REC"));
 }
 
 #[test]
-fn format_status_banner_full_mode_manual_recording_mode_lane_shows_ptt_rec() {
+fn format_status_banner_full_mode_manual_recording_mode_lane_keeps_ptt_without_rec_suffix() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
     state.voice_mode = VoiceMode::Manual;
@@ -202,7 +237,44 @@ fn format_status_banner_full_mode_manual_recording_mode_lane_shows_ptt_rec() {
     state.message.clear();
 
     let banner = format_status_banner(&state, Theme::Coral, 96);
-    assert!(banner.lines[1].contains("PTT REC"));
+    assert!(banner.lines[1].contains("PTT"));
+    assert!(!banner.lines[1].contains("PTT REC"));
+}
+
+#[test]
+fn format_status_banner_full_mode_idle_uses_theme_idle_indicator() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Idle;
+
+    let banner = format_status_banner(&state, Theme::Codex, 96);
+    assert!(banner.lines[1].contains("◇"));
+}
+
+#[test]
+fn format_status_banner_full_mode_recording_uses_theme_recording_indicator() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Auto;
+    state.recording_state = RecordingState::Recording;
+    state.message.clear();
+
+    let banner = format_status_banner(&state, Theme::Codex, 96);
+    assert!(banner.lines[1].contains("◆"));
+    assert!(!banner.lines[1].contains("◇"));
+}
+
+#[test]
+fn format_status_line_compact_recording_uses_theme_recording_indicator() {
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+    state.voice_mode = VoiceMode::Auto;
+    state.message.clear();
+
+    let line = format_status_line(&state, Theme::Codex, 48);
+    assert!(line.contains("◆"));
+    assert!(!line.contains("◇"));
 }
 
 #[test]
@@ -282,6 +354,96 @@ fn format_status_banner_full_mode_duration_separator_stays_right_of_edit_button_
             .expect("shortcuts row should include edit button"),
     );
     assert!(separator_col >= edit_col);
+}
+
+#[test]
+fn format_status_banner_full_mode_main_row_separators_stay_stable_across_states() {
+    let mut idle = StatusLineState::new();
+    idle.hud_style = HudStyle::Full;
+    idle.voice_mode = VoiceMode::Auto;
+    idle.auto_voice_enabled = true;
+    idle.recording_state = RecordingState::Idle;
+    idle.meter_db = Some(-60.0);
+
+    let mut recording = idle.clone();
+    recording.recording_state = RecordingState::Recording;
+    recording.recording_duration = Some(21.9);
+    recording.message = "Recording".to_string();
+
+    let mut processing = idle.clone();
+    processing.recording_state = RecordingState::Processing;
+    processing.recording_duration = Some(120.0);
+    processing.meter_db = Some(-23.0);
+    processing.transition_progress = 0.9;
+    processing.message = "Processing...".to_string();
+
+    let idle_banner = format_status_banner(&idle, Theme::None, 120);
+    let recording_banner = format_status_banner(&recording, Theme::None, 120);
+    let processing_banner = format_status_banner(&processing, Theme::None, 120);
+
+    let idle_cols = internal_separator_columns(&idle_banner.lines[1]);
+    let recording_cols = internal_separator_columns(&recording_banner.lines[1]);
+    let processing_cols = internal_separator_columns(&processing_banner.lines[1]);
+
+    assert_eq!(idle_cols.len(), 3);
+    assert_eq!(idle_cols, recording_cols);
+    assert_eq!(idle_cols, processing_cols);
+}
+
+#[test]
+fn format_status_banner_full_mode_separators_align_with_shortcut_boundaries() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.voice_mode = VoiceMode::Auto;
+    state.auto_voice_enabled = true;
+    state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.recording_state = RecordingState::Recording;
+    state.recording_duration = Some(21.9);
+    state.meter_db = Some(-60.0);
+    state.message = "Recording".to_string();
+
+    let banner = format_status_banner(&state, Theme::None, 120);
+    let separators = internal_separator_columns(&banner.lines[1]);
+    assert_eq!(separators.len(), 3);
+
+    let toggle_auto = banner
+        .buttons
+        .iter()
+        .find(|button| {
+            button.row == 2 && button.action == crate::buttons::ButtonAction::ToggleAutoVoice
+        })
+        .expect("auto button position");
+    let toggle_send = banner
+        .buttons
+        .iter()
+        .find(|button| {
+            button.row == 2 && button.action == crate::buttons::ButtonAction::ToggleSendMode
+        })
+        .expect("send button position");
+    let settings = banner
+        .buttons
+        .iter()
+        .find(|button| {
+            button.row == 2 && button.action == crate::buttons::ButtonAction::SettingsToggle
+        })
+        .expect("settings button position");
+
+    let auto_end = usize::from(toggle_auto.end_x);
+    let send_end = usize::from(toggle_send.end_x);
+    let settings_end = usize::from(settings.end_x);
+
+    assert!(
+        separators[0] == auto_end || separators[0] == auto_end + 1,
+        "auto separator should sit on the button boundary"
+    );
+    assert!(
+        separators[1] == send_end || separators[1] == send_end + 1,
+        "send separator should sit on the button boundary"
+    );
+    assert!(
+        separators[2] == settings_end || separators[2] == settings_end + 1,
+        "settings separator should sit on the button boundary"
+    );
 }
 
 #[test]

@@ -174,6 +174,28 @@ fn minimal_strip_responding_shows_state_lane() {
 }
 
 #[test]
+fn minimal_strip_idle_uses_theme_specific_auto_indicator() {
+    let colors = Theme::Codex.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Idle;
+    state.voice_mode = VoiceMode::Auto;
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains("◇"));
+}
+
+#[test]
+fn minimal_strip_recording_uses_theme_specific_recording_indicator() {
+    let colors = Theme::Codex.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains("◆"));
+    assert!(!line.contains("◇"));
+}
+
+#[test]
 fn minimal_ribbon_waveform_uses_level_colors() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
@@ -567,6 +589,16 @@ fn recording_button_highlight_uses_theme_recording_color() {
 
     let highlight = button_highlight(&state, &colors, ButtonAction::VoiceTrigger);
     assert_eq!(highlight, colors.recording);
+}
+
+#[test]
+fn full_row_rec_button_includes_recording_color_when_recording() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+
+    let row = format_button_row(&state, &colors, 200);
+    assert!(row.contains(&format!("{}rec", colors.recording)));
 }
 
 #[test]

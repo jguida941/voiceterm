@@ -22,6 +22,10 @@ fi
 export VOICETERM_CWD="$(pwd)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR_REAL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P 2>/dev/null || true)"
+if [ -z "$SCRIPT_DIR_REAL" ]; then
+    SCRIPT_DIR_REAL="$SCRIPT_DIR"
+fi
 cd "$SCRIPT_DIR"
 
 # Colors - Vibrant red theme
@@ -136,8 +140,10 @@ FALLBACK_MODELS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/voiceterm/models"
 MODEL_DIR=""
 
 IS_HOMEBREW=0
-case "$SCRIPT_DIR" in
-    /opt/homebrew/Cellar/*|/usr/local/Cellar/*) IS_HOMEBREW=1 ;;
+case "$SCRIPT_DIR_REAL" in
+    /opt/homebrew/Cellar/*|/usr/local/Cellar/*|/home/linuxbrew/.linuxbrew/Cellar/*|/opt/homebrew/opt/*|/usr/local/opt/*|/home/linuxbrew/.linuxbrew/opt/*)
+        IS_HOMEBREW=1
+        ;;
 esac
 
 if [ -n "${VOICETERM_MODEL_DIR:-}" ]; then

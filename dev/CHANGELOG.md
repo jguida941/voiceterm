@@ -9,6 +9,23 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.76] - 2026-02-17
+
+### UX
+
+- Fix Full HUD `ribbon` visualizer baseline behavior by padding short waveform history with floor-level samples, so bars rise from the baseline instead of rendering as a full-height block at startup.
+- Make `Ctrl+R` a strict recording start/stop toggle for both manual and auto capture, and ensure stop cancels capture without sending text; `Ctrl+E` remains the explicit send-now path for staged insert-mode text.
+- Restore theme-specific recording indicators across Full/Minimal/Hidden/compact HUD rendering so each theme keeps matching icons while recording state pulses through theme-native accent colors.
+
+### Packaging
+
+- Fix Homebrew model-cache persistence for `opt` launch paths: `scripts/start.sh` and `scripts/setup.sh` now detect both Homebrew `Cellar` and `opt` prefixes (including symlink-resolved paths) so model downloads stay in `~/.local/share/voiceterm/models` across upgrades instead of being redownloaded per-version under `libexec/whisper_models`.
+
+### Tests
+
+- Add `dev/scripts/devctl/tests/test_homebrew_model_paths.py` to guard Homebrew `opt` path detection and symlink-aware (`pwd -P`) script resolution in startup/setup model-directory logic.
+- Add status-line regression coverage that enforces theme-specific recording indicators in Full/Minimal/compact HUD paths.
+
 ## [1.0.75] - 2026-02-17
 
 ### UX

@@ -61,6 +61,7 @@ impl VoiceManager {
         self.job.is_none()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn active_source(&self) -> Option<VoiceCaptureSource> {
         self.active_source
     }
@@ -83,6 +84,7 @@ impl VoiceManager {
 
     /// Request early stop of voice capture (stop recording and process what was captured).
     /// Returns true if a capture was running and will be stopped.
+    #[allow(dead_code)]
     pub(crate) fn request_early_stop(&mut self) -> bool {
         if let Some(ref job) = self.job {
             job.request_stop();

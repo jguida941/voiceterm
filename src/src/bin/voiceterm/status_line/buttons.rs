@@ -5,7 +5,7 @@ use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_style::StatusType;
 use crate::theme::{BorderSet, Theme, ThemeColors};
 
-use super::animation::{get_processing_spinner, get_recording_indicator, heartbeat_glyph};
+use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_emphasis};
 use super::layout::breakpoints;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
@@ -53,13 +53,17 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     // Use animated indicators for recording and processing states
     // Minimal mode: theme-colored indicators for all states
     let (indicator, label, color) = match state.recording_state {
-        RecordingState::Recording => (get_recording_indicator(), "REC", colors.recording),
+        RecordingState::Recording => (
+            colors.indicator_rec,
+            "REC",
+            recording_indicator_color(colors),
+        ),
         RecordingState::Processing => (get_processing_spinner(), "processing", colors.processing),
         RecordingState::Responding => ("↺", "responding", colors.info),
         RecordingState::Idle => match state.voice_mode {
-            VoiceMode::Auto => ("◉", "AUTO", colors.info), // Blue filled - auto mode active
-            VoiceMode::Manual => ("●", "PTT", colors.border), // Theme accent - push-to-talk ready
-            VoiceMode::Idle => ("○", "IDLE", colors.dim),  // Dim - inactive
+            VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
+            VoiceMode::Manual => (colors.indicator_manual, "PTT", colors.border),
+            VoiceMode::Idle => (colors.indicator_idle, "IDLE", colors.dim),
         },
     };
 
@@ -199,6 +203,15 @@ fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<
 #[inline]
 fn should_animate_heartbeat(recording_only: bool, recording_active: bool) -> bool {
     !recording_only || recording_active
+}
+
+#[inline]
+fn recording_indicator_color(colors: &ThemeColors) -> &str {
+    if recording_pulse_emphasis() || colors.border.is_empty() {
+        colors.recording
+    } else {
+        colors.border
+    }
 }
 
 fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> String {

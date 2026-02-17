@@ -25,13 +25,21 @@ case "$OS" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR_REAL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P 2>/dev/null || true)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+if [ -n "$SCRIPT_DIR_REAL" ]; then
+    PROJECT_ROOT_REAL="$(dirname "$SCRIPT_DIR_REAL")"
+else
+    PROJECT_ROOT_REAL="$PROJECT_ROOT"
+fi
 DEFAULT_MODELS_DIR="$PROJECT_ROOT/whisper_models"
 FALLBACK_MODELS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/voiceterm/models"
 
 IS_HOMEBREW=0
-case "$PROJECT_ROOT" in
-    /opt/homebrew/Cellar/*|/usr/local/Cellar/*) IS_HOMEBREW=1 ;;
+case "$PROJECT_ROOT_REAL" in
+    /opt/homebrew/Cellar/*|/usr/local/Cellar/*|/home/linuxbrew/.linuxbrew/Cellar/*|/opt/homebrew/opt/*|/usr/local/opt/*|/home/linuxbrew/.linuxbrew/opt/*)
+        IS_HOMEBREW=1
+        ;;
 esac
 
 if [ -n "${VOICETERM_MODEL_DIR:-}" ]; then

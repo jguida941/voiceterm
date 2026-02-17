@@ -7,8 +7,8 @@ const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
 #[allow(dead_code)]
 const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
-/// Pulsing recording indicator frames (cycles every ~400ms at 10fps).
-const RECORDING_PULSE_FRAMES: &[&str] = &["●", "◉", "●", "○"];
+/// Recording pulse emphasis frames (cycles every ~1s at 4fps).
+const RECORDING_PULSE_EMPHASIS_FRAMES: &[bool] = &[true, false, true, false];
 
 /// Processing spinner frames (braille dots for smooth animation).
 const PROCESSING_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -24,11 +24,15 @@ fn get_animation_frame(frame_count: usize, cycle_ms: u64) -> usize {
     ((now / cycle_ms) % frame_count as u64) as usize
 }
 
-/// Get the pulsing recording indicator.
 #[inline]
-pub(super) fn get_recording_indicator() -> &'static str {
-    let frame = get_animation_frame(RECORDING_PULSE_FRAMES.len(), 250);
-    RECORDING_PULSE_FRAMES[frame]
+fn recording_pulse_frame() -> usize {
+    get_animation_frame(RECORDING_PULSE_EMPHASIS_FRAMES.len(), 250)
+}
+
+/// Return whether the recording pulse is in its emphasized frame.
+#[inline]
+pub(super) fn recording_pulse_emphasis() -> bool {
+    RECORDING_PULSE_EMPHASIS_FRAMES[recording_pulse_frame()]
 }
 
 /// Get the processing spinner character.
@@ -84,9 +88,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn recording_indicator_in_range() {
-        let indicator = get_recording_indicator();
-        assert!(RECORDING_PULSE_FRAMES.contains(&indicator));
+    fn recording_pulse_frame_in_range() {
+        let idx = recording_pulse_frame();
+        assert!(idx < RECORDING_PULSE_EMPHASIS_FRAMES.len());
     }
 
     #[test]

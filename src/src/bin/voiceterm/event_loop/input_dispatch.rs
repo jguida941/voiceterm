@@ -91,25 +91,32 @@ pub(super) fn handle_input_event(
         }
         InputEvent::VoiceTrigger => {
             if state.status_state.recording_state == RecordingState::Recording {
-                let _ = stop_or_cancel_capture_for_enter(state, timers, deps);
-            } else if let Err(err) = start_voice_capture(
-                &mut deps.voice_manager,
-                VoiceCaptureTrigger::Manual,
-                &deps.writer_tx,
-                &mut timers.status_clear_deadline,
-                &mut state.current_status,
-                &mut state.status_state,
-            ) {
-                set_status(
+                let _ = stop_active_capture(state, timers, deps);
+            } else {
+                let trigger = if state.auto_voice_enabled {
+                    VoiceCaptureTrigger::Auto
+                } else {
+                    VoiceCaptureTrigger::Manual
+                };
+                if let Err(err) = start_voice_capture(
+                    &mut deps.voice_manager,
+                    trigger,
                     &deps.writer_tx,
                     &mut timers.status_clear_deadline,
                     &mut state.current_status,
                     &mut state.status_state,
-                    "Voice capture failed (see log)",
-                    Some(Duration::from_secs(2)),
-                );
-                log_debug(&format!("voice capture failed: {err:#}"));
-            } else {
+                ) {
+                    set_status(
+                        &deps.writer_tx,
+                        &mut timers.status_clear_deadline,
+                        &mut state.current_status,
+                        &mut state.status_state,
+                        "Voice capture failed (see log)",
+                        Some(Duration::from_secs(2)),
+                    );
+                    log_debug(&format!("voice capture failed: {err:#}"));
+                    return;
+                }
                 timers.recording_started_at = Some(Instant::now());
                 reset_capture_visuals(
                     &mut state.status_state,
@@ -222,45 +229,26 @@ fn should_ignore_send_staged_text_hotkey(state: &EventLoopState) -> bool {
         && !state.status_state.insert_pending_send
 }
 
-fn stop_or_cancel_capture_for_enter(
+fn stop_active_capture(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) -> bool {
-    if deps.voice_manager.active_source() == Some(VoiceCaptureSource::Python) {
-        if !deps.voice_manager.cancel_capture() {
-            return false;
-        }
-        state.status_state.recording_state = RecordingState::Idle;
-        clear_capture_metrics(&mut state.status_state);
-        timers.recording_started_at = None;
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Capture cancelled (python fallback cannot stop early)",
-            Some(Duration::from_secs(3)),
-        );
-        true
-    } else {
-        if !deps.voice_manager.request_early_stop() {
-            return false;
-        }
-        state.status_state.recording_state = RecordingState::Processing;
-        clear_capture_metrics(&mut state.status_state);
-        state.processing_spinner_index = 0;
-        timers.last_processing_tick = Instant::now();
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Processing",
-            None,
-        );
-        true
+    if !deps.voice_manager.cancel_capture() {
+        return false;
     }
+    state.status_state.recording_state = RecordingState::Idle;
+    clear_capture_metrics(&mut state.status_state);
+    timers.recording_started_at = None;
+    set_status(
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+        "Capture stopped",
+        Some(Duration::from_secs(2)),
+    );
+    true
 }
 
 fn handle_overlay_input_event(

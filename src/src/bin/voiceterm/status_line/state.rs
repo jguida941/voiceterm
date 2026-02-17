@@ -25,6 +25,7 @@ impl VoiceMode {
         }
     }
 
+    #[allow(dead_code)]
     pub fn indicator(&self) -> &'static str {
         match self {
             Self::Auto => "◉",

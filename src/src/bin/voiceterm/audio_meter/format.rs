@@ -162,8 +162,9 @@ pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
     // Uses iterator chain to avoid Vec allocation
     let start = levels.len().saturating_sub(width);
     let pad_count = width.saturating_sub(levels.len());
+    // Missing history should render as floor-level baseline, not peak bars.
     let samples_iter =
-        std::iter::repeat_n(0.0_f32, pad_count).chain(levels[start..].iter().copied());
+        std::iter::repeat_n(-60.0_f32, pad_count).chain(levels[start..].iter().copied());
 
     for level in samples_iter {
         // Convert dB to waveform character (assuming -60 to 0 range)
@@ -241,6 +242,14 @@ mod tests {
         // Should contain waveform characters
         let has_waveform = WAVEFORM_CHARS.iter().any(|&c| waveform.contains(c));
         assert!(has_waveform);
+    }
+
+    #[test]
+    fn format_waveform_padding_uses_floor_baseline() {
+        let waveform = format_waveform(&[-18.0], 4, Theme::None);
+        let chars: Vec<char> = waveform.chars().collect();
+        assert_eq!(chars.len(), 4);
+        assert_eq!(chars[..3], ['▁', '▁', '▁']);
     }
 
     #[test]

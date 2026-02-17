@@ -89,6 +89,8 @@ voiceterm
 Model storage defaults to `~/.local/share/voiceterm/models` for Homebrew installs
 (or when the repo directory is not writable). The install/start scripts honor
 `VOICETERM_MODEL_DIR` for a custom path.
+Homebrew upgrades should reuse this directory, so the Whisper model is not
+redownloaded on each version bump unless the file is missing.
 
 Optional pre-download:
 

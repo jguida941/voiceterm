@@ -347,6 +347,8 @@ If arrow keys/settings updates feel delayed while backend output is streaming:
 
 In Full HUD mode, the right-panel visualizer (`ribbon`, `dots`, `heartbeat`)
 renders on the **main status row** (top-right lane), not on the shortcuts row.
+For `ribbon`, short sample history should render from a low baseline with peaks
+above it, not as a full-height block across the entire lane.
 
 1. Verify `HUD panel` in Settings (`Ctrl+O`) is not `Off`.
 2. Confirm terminal width is large enough for Full HUD (`>= 60` columns is a

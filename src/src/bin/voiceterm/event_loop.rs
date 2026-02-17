@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use crossbeam_channel::{never, select, TryRecvError, TrySendError};
 use crossterm::terminal::size as terminal_size;
-use voiceterm::{log_debug, VoiceCaptureSource, VoiceCaptureTrigger};
+use voiceterm::{log_debug, VoiceCaptureTrigger};
 
 use crate::arrow_keys::{is_arrow_escape_noise, parse_arrow_keys, parse_arrow_keys_only, ArrowKey};
 use crate::button_handlers::{

@@ -53,30 +53,54 @@ impl<'a> ButtonActionContext<'a> {
 
         match action {
             ButtonAction::VoiceTrigger => {
-                if let Err(err) = start_voice_capture(
-                    self.voice_manager,
-                    VoiceCaptureTrigger::Manual,
-                    self.writer_tx,
-                    self.status_clear_deadline,
-                    self.current_status,
-                    self.status_state,
-                ) {
-                    set_status(
+                if self.status_state.recording_state
+                    == crate::status_line::RecordingState::Recording
+                {
+                    if self.voice_manager.cancel_capture() {
+                        self.status_state.recording_state =
+                            crate::status_line::RecordingState::Idle;
+                        crate::voice_control::clear_capture_metrics(self.status_state);
+                        *self.recording_started_at = None;
+                        set_status(
+                            self.writer_tx,
+                            self.status_clear_deadline,
+                            self.current_status,
+                            self.status_state,
+                            "Capture stopped",
+                            Some(Duration::from_secs(2)),
+                        );
+                    }
+                } else {
+                    let trigger = if *self.auto_voice_enabled {
+                        VoiceCaptureTrigger::Auto
+                    } else {
+                        VoiceCaptureTrigger::Manual
+                    };
+                    if let Err(err) = start_voice_capture(
+                        self.voice_manager,
+                        trigger,
                         self.writer_tx,
                         self.status_clear_deadline,
                         self.current_status,
                         self.status_state,
-                        "Voice capture failed (see log)",
-                        Some(Duration::from_secs(2)),
-                    );
-                    log_debug(&format!("voice capture failed: {err:#}"));
-                } else {
-                    *self.recording_started_at = Some(Instant::now());
-                    reset_capture_visuals(
-                        self.status_state,
-                        self.preview_clear_deadline,
-                        self.last_meter_update,
-                    );
+                    ) {
+                        set_status(
+                            self.writer_tx,
+                            self.status_clear_deadline,
+                            self.current_status,
+                            self.status_state,
+                            "Voice capture failed (see log)",
+                            Some(Duration::from_secs(2)),
+                        );
+                        log_debug(&format!("voice capture failed: {err:#}"));
+                    } else {
+                        *self.recording_started_at = Some(Instant::now());
+                        reset_capture_visuals(
+                            self.status_state,
+                            self.preview_clear_deadline,
+                            self.last_meter_update,
+                        );
+                    }
                 }
             }
             ButtonAction::ToggleAutoVoice => {
