@@ -2,9 +2,9 @@
 
 <!-- markdownlint-disable MD024 -->
 
-Status: Draft v4 (historical design and process record)  
-Audience: users and developers  
-Last Updated: 2026-02-15  
+**Status:** Draft v4 (historical design and process record)<br>
+**Audience:** Developers<br>
+**Last Updated:** 2026-02-16<br>
 
 ## At a Glance
 
