@@ -12,13 +12,13 @@ VoiceTerm is a voice-first HUD overlay for AI CLIs, with primary support for Cod
 
 What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, STT latency trust, and fast release cycles aligned in one local runtime.
 
-What this repo demonstrates:
+**What this repo demonstrates:**
 
 - Architecture growth from MVP assumptions to Rust-first runtime control.
 - Reliability growth from reactive fixes to CI guardrails and safe rollback.
 - Process growth from ad-hoc iteration to ADR-backed decisions and repeatable checks.
 
-Key docs to cross-reference:
+**Key docs to cross-reference:**
 
 - `dev/active/MASTER_PLAN.md`
 - `dev/ARCHITECTURE.md`
@@ -26,7 +26,7 @@ Key docs to cross-reference:
 - `dev/CHANGELOG.md`
 - `dev/adr/README.md`
 
-Appendix quick pointers:
+**Appendix quick pointers:**
 
 - ADR crosswalk: [Appendix B](#appendix-b-adr-crosswalk)
 - Naming timeline: [Appendix E](#appendix-e-naming-timeline)
