@@ -11,6 +11,8 @@ mod custom;
 mod gemini;
 mod opencode;
 
+use std::sync::OnceLock;
+
 pub use aider::AiderBackend;
 pub use claude::ClaudeBackend;
 pub use codex::CodexBackend;
@@ -52,6 +54,11 @@ impl Default for BackendRegistry {
     }
 }
 
+fn fallback_codex_backend() -> &'static dyn AiBackend {
+    static FALLBACK: OnceLock<CodexBackend> = OnceLock::new();
+    FALLBACK.get_or_init(CodexBackend::new) as &dyn AiBackend
+}
+
 impl BackendRegistry {
     /// Create a new registry with all built-in backends.
     pub fn new() -> Self {
@@ -77,7 +84,13 @@ impl BackendRegistry {
 
     /// Get the default backend (Codex CLI).
     pub fn default_backend(&self) -> &dyn AiBackend {
-        self.get("codex").expect("codex backend always exists")
+        if let Some(backend) = self.get("codex") {
+            backend
+        } else if let Some(backend) = self.backends.first() {
+            backend.as_ref()
+        } else {
+            fallback_codex_backend()
+        }
     }
 
     /// List all available backend names.

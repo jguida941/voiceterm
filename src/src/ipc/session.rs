@@ -5,14 +5,16 @@ use crate::codex::{sanitize_pty_output, CodexCliBackend, CodexEvent, CodexEventK
 use crate::config::AppConfig;
 use crate::process_signal::signal_process_group_or_pid;
 use crate::pty_session::PtyCliSession;
-use crate::voice::{VoiceJob, VoiceJobMessage};
+use crate::voice::VoiceJob;
 use crate::{audio, log_debug, log_debug_content, stt};
 use anyhow::Result;
+#[cfg(any(test, feature = "mutants"))]
+use std::collections::HashMap;
 use std::env;
 use std::io::{self, BufRead, Write};
 #[cfg(any(test, feature = "mutants"))]
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 #[cfg(any(test, feature = "mutants"))]
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
@@ -20,9 +22,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use super::protocol::{IpcCommand, IpcEvent, Provider};
-use super::router::{
-    handle_auth_command, handle_cancel, handle_send_prompt, handle_set_provider, handle_start_voice,
-};
+mod event_processing;
+mod loop_runtime;
 
 // ============================================================================
 // PTY toggle for tests/mutants so IPC paths can run without PTY dependencies.
@@ -207,7 +208,13 @@ pub(super) fn send_event(event: &IpcEvent) {
 }
 
 #[cfg(any(test, feature = "mutants"))]
-static EVENT_SINK: OnceLock<Mutex<Vec<IpcEvent>>> = OnceLock::new();
+#[derive(Default)]
+struct EventSink {
+    per_thread: HashMap<std::thread::ThreadId, Vec<IpcEvent>>,
+}
+
+#[cfg(any(test, feature = "mutants"))]
+static EVENT_SINK: OnceLock<Mutex<EventSink>> = OnceLock::new();
 #[cfg(any(test, feature = "mutants"))]
 pub(super) static IPC_LOOP_COUNT: AtomicU64 = AtomicU64::new(0);
 
@@ -215,7 +222,11 @@ pub(super) static IPC_LOOP_COUNT: AtomicU64 = AtomicU64::new(0);
 fn capture_test_event(event: &IpcEvent) -> bool {
     if let Some(sink) = EVENT_SINK.get() {
         if let Ok(mut events) = sink.lock() {
-            events.push(event.clone());
+            events
+                .per_thread
+                .entry(std::thread::current().id())
+                .or_default()
+                .push(event.clone());
             return true;
         }
     }
@@ -225,7 +236,7 @@ fn capture_test_event(event: &IpcEvent) -> bool {
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(super) fn init_event_sink() {
-    let _ = EVENT_SINK.get_or_init(|| Mutex::new(Vec::new()));
+    let _ = EVENT_SINK.get_or_init(|| Mutex::new(EventSink::default()));
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -244,21 +255,30 @@ pub(super) fn ipc_loop_count() -> u64 {
 #[allow(dead_code)]
 pub(super) fn event_snapshot() -> usize {
     init_event_sink();
+    let current = std::thread::current().id();
     EVENT_SINK
         .get()
-        .and_then(|sink| sink.lock().ok().map(|events| events.len()))
+        .and_then(|sink| {
+            sink.lock()
+                .ok()
+                .and_then(|events| events.per_thread.get(&current).map(Vec::len))
+        })
         .unwrap_or(0)
 }
 
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(super) fn events_since(start: usize) -> Vec<IpcEvent> {
+    let current = std::thread::current().id();
     EVENT_SINK
         .get()
         .and_then(|sink| {
-            sink.lock()
-                .ok()
-                .map(|events| events.iter().skip(start).cloned().collect())
+            sink.lock().ok().and_then(|events| {
+                events
+                    .per_thread
+                    .get(&current)
+                    .map(|thread_events| thread_events.iter().skip(start).cloned().collect())
+            })
         })
         .unwrap_or_default()
 }
@@ -557,28 +577,7 @@ pub(super) fn run_ipc_loop(
         match cmd_rx.recv_timeout(Duration::from_millis(IPC_LOOP_WAIT_MS)) {
             Ok(cmd) => {
                 log_debug_content(&format!("IPC command received: {cmd:?}"));
-                state.cancelled = false;
-
-                match cmd {
-                    IpcCommand::SendPrompt { prompt, provider } => {
-                        handle_send_prompt(state, &prompt, provider);
-                    }
-                    IpcCommand::StartVoice => {
-                        handle_start_voice(state);
-                    }
-                    IpcCommand::Cancel => {
-                        handle_cancel(state);
-                    }
-                    IpcCommand::SetProvider { provider } => {
-                        handle_set_provider(state, &provider);
-                    }
-                    IpcCommand::Auth { provider } => {
-                        handle_auth_command(state, provider);
-                    }
-                    IpcCommand::GetCapabilities => {
-                        state.emit_capabilities();
-                    }
-                }
+                loop_runtime::handle_command(state, cmd);
             }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => {
@@ -587,38 +586,9 @@ pub(super) fn run_ipc_loop(
             }
         }
 
-        // Process active job events
-        if let Some(job) = &mut state.current_job {
-            match job {
-                ActiveJob::Codex(codex_job) => {
-                    if process_codex_events(codex_job, state.cancelled) {
-                        state.current_job = None;
-                    }
-                }
-                ActiveJob::Claude(claude_job) => {
-                    if process_claude_events(claude_job, state.cancelled) {
-                        state.current_job = None;
-                    }
-                }
-            }
-        }
+        loop_runtime::drain_active_jobs(state);
 
-        // Process voice job events
-        if let Some(voice_job) = &state.current_voice_job {
-            if process_voice_events(voice_job, state.cancelled) {
-                state.current_voice_job = None;
-            }
-        }
-
-        if process_auth_events(state) {
-            state.current_auth_job = None;
-        }
-
-        if state.exit_requested
-            && state.current_job.is_none()
-            && state.current_voice_job.is_none()
-            && state.current_auth_job.is_none()
-        {
+        if loop_runtime::should_exit(state) {
             log_debug("IPC graceful exit requested; no active work remains");
             break;
         }
@@ -628,331 +598,18 @@ pub(super) fn run_ipc_loop(
     Ok(())
 }
 
-// ============================================================================
-// Event Processing (Non-blocking, returns true when job complete)
-// ============================================================================
-
 pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool {
-    if cancelled {
-        return true;
-    }
-
-    let handle_event = |event: CodexEvent| -> bool {
-        match event.kind {
-            CodexEventKind::Token { text } => {
-                send_event(&IpcEvent::Token { text });
-                false
-            }
-            CodexEventKind::Status { message } => {
-                send_event(&IpcEvent::Status { message });
-                false
-            }
-            CodexEventKind::Started { .. } => {
-                send_event(&IpcEvent::Status {
-                    message: "Processing...".to_string(),
-                });
-                false
-            }
-            CodexEventKind::Finished { lines, .. } => {
-                for line in lines {
-                    send_event(&IpcEvent::Token {
-                        text: format!("{line}\n"),
-                    });
-                }
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: true,
-                    error: None,
-                });
-                true
-            }
-            CodexEventKind::FatalError { message, .. } => {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: false,
-                    error: Some(message),
-                });
-                true
-            }
-            CodexEventKind::RecoverableError { message, .. } => {
-                send_event(&IpcEvent::Status {
-                    message: format!("Retrying: {message}"),
-                });
-                false
-            }
-            CodexEventKind::Canceled { .. } => {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: false,
-                    error: Some("Cancelled".to_string()),
-                });
-                true
-            }
-        }
-    };
-
-    // Check for new events via signal channel
-    match job.try_recv_signal() {
-        Ok(()) => {
-            // Signal received, drain events
-            for event in job.drain_events() {
-                if handle_event(event) {
-                    return true;
-                }
-            }
-            false
-        }
-        Err(TryRecvError::Empty) => false,
-        Err(TryRecvError::Disconnected) => {
-            // Worker finished, drain any remaining events
-            let mut completed = false;
-            for event in job.drain_events() {
-                if handle_event(event) {
-                    completed = true;
-                    break;
-                }
-            }
-            if !completed {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: true,
-                    error: None,
-                });
-            }
-            true
-        }
-    }
+    event_processing::process_codex_events(job, cancelled)
 }
 
 pub(super) fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
-    if cancelled {
-        log_debug("Claude job: cancelled");
-        job.cancel();
-        return true;
-    }
-
-    match &mut job.output {
-        ClaudeJobOutput::Piped { child, stdout_rx } => match stdout_rx.try_recv() {
-            Ok(line) => {
-                log_debug_content(&format!(
-                    "Claude job: got line: {}",
-                    &line[..line.len().min(50)]
-                ));
-                send_event(&IpcEvent::Token {
-                    text: format!("{line}\n"),
-                });
-                false
-            }
-            Err(TryRecvError::Empty) => match child.try_wait() {
-                Ok(Some(status)) => {
-                    log_debug(&format!(
-                        "Claude job: process exited with status {status:?}"
-                    ));
-                    send_event(&IpcEvent::JobEnd {
-                        provider: "claude".to_string(),
-                        success: status.success(),
-                        error: if status.success() {
-                            None
-                        } else {
-                            Some(format!("Exit code: {:?}", status.code()))
-                        },
-                    });
-                    true
-                }
-                Ok(None) => false,
-                Err(e) => {
-                    send_event(&IpcEvent::JobEnd {
-                        provider: "claude".to_string(),
-                        success: false,
-                        error: Some(format!("Process error: {e}")),
-                    });
-                    true
-                }
-            },
-            Err(TryRecvError::Disconnected) => {
-                log_debug("Claude job: stdout disconnected");
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        log_debug(&format!(
-                            "Claude job: process already exited with {status:?}"
-                        ));
-                        send_event(&IpcEvent::JobEnd {
-                            provider: "claude".to_string(),
-                            success: status.success(),
-                            error: None,
-                        });
-                        true
-                    }
-                    Ok(None) => {
-                        log_debug("Claude job: process still running, killing it");
-                        terminate_piped_child(child);
-                        send_event(&IpcEvent::JobEnd {
-                            provider: "claude".to_string(),
-                            success: true,
-                            error: None,
-                        });
-                        true
-                    }
-                    Err(e) => {
-                        send_event(&IpcEvent::JobEnd {
-                            provider: "claude".to_string(),
-                            success: false,
-                            error: Some(format!("Wait error: {e}")),
-                        });
-                        true
-                    }
-                }
-            }
-        },
-        ClaudeJobOutput::Pty { session } => {
-            for chunk in session.read_output() {
-                let text = sanitize_pty_output(&chunk);
-                if !text.is_empty() {
-                    send_event(&IpcEvent::Token { text });
-                }
-            }
-            if let Some(status) = job.pending_exit.take() {
-                let (success, error) = if status.success() {
-                    (true, None)
-                } else {
-                    let msg = status
-                        .code()
-                        .map(|code| format!("Exit code: {code}"))
-                        .unwrap_or_else(|| "Exited by signal".to_string());
-                    (false, Some(msg))
-                };
-                send_event(&IpcEvent::JobEnd {
-                    provider: "claude".to_string(),
-                    success,
-                    error,
-                });
-                return true;
-            }
-            if let Some(status) = session.try_wait() {
-                let trailing = session.read_output_timeout(Duration::from_millis(50));
-                if !trailing.is_empty() {
-                    for chunk in trailing {
-                        let text = sanitize_pty_output(&chunk);
-                        if !text.is_empty() {
-                            send_event(&IpcEvent::Token { text });
-                        }
-                    }
-                    job.pending_exit = Some(status);
-                    return false;
-                }
-                let (success, error) = if status.success() {
-                    (true, None)
-                } else {
-                    let msg = status
-                        .code()
-                        .map(|code| format!("Exit code: {code}"))
-                        .unwrap_or_else(|| "Exited by signal".to_string());
-                    (false, Some(msg))
-                };
-                send_event(&IpcEvent::JobEnd {
-                    provider: "claude".to_string(),
-                    success,
-                    error,
-                });
-                return true;
-            }
-            false
-        }
-    }
+    event_processing::process_claude_events(job, cancelled)
 }
 
 pub(super) fn process_voice_events(job: &VoiceJob, cancelled: bool) -> bool {
-    if cancelled {
-        return true;
-    }
-
-    match job.receiver.try_recv() {
-        Ok(msg) => {
-            match msg {
-                VoiceJobMessage::Transcript {
-                    text,
-                    source,
-                    metrics,
-                } => {
-                    let duration_ms = metrics.as_ref().map(|m| m.capture_ms).unwrap_or(0);
-                    send_event(&IpcEvent::VoiceEnd { error: None });
-                    send_event(&IpcEvent::Transcript { text, duration_ms });
-                    log_debug(&format!("Voice transcript via {}", source.label()));
-                }
-                VoiceJobMessage::Empty { source, metrics: _ } => {
-                    send_event(&IpcEvent::VoiceEnd {
-                        error: Some("No speech detected".to_string()),
-                    });
-                    log_debug(&format!("Voice empty via {}", source.label()));
-                }
-                VoiceJobMessage::Error(message) => {
-                    send_event(&IpcEvent::VoiceEnd {
-                        error: Some(message),
-                    });
-                }
-            }
-            true
-        }
-        Err(TryRecvError::Empty) => false,
-        Err(TryRecvError::Disconnected) => {
-            send_event(&IpcEvent::VoiceEnd {
-                error: Some("Voice worker disconnected".to_string()),
-            });
-            true
-        }
-    }
+    event_processing::process_voice_events(job, cancelled)
 }
 
 pub(super) fn process_auth_events(state: &mut IpcState) -> bool {
-    let job = match state.current_auth_job.as_mut() {
-        Some(job) => job,
-        None => return false,
-    };
-
-    if job.started_at.elapsed() >= AUTH_TIMEOUT {
-        let provider = job.provider;
-        send_event(&IpcEvent::AuthEnd {
-            provider: provider.as_str().to_string(),
-            success: false,
-            error: Some(format!(
-                "Authentication timed out after {}s",
-                AUTH_TIMEOUT.as_secs()
-            )),
-        });
-        state.emit_capabilities();
-        return true;
-    }
-
-    match job.receiver.try_recv() {
-        Ok(result) => {
-            let provider = job.provider;
-            let (success, error) = match result {
-                Ok(()) => (true, None),
-                Err(err) => (false, Some(err)),
-            };
-
-            if success && provider == Provider::Codex {
-                state.codex_cli_backend.reset_session();
-            }
-
-            send_event(&IpcEvent::AuthEnd {
-                provider: provider.as_str().to_string(),
-                success,
-                error,
-            });
-            state.emit_capabilities();
-            true
-        }
-        Err(TryRecvError::Empty) => false,
-        Err(TryRecvError::Disconnected) => {
-            let provider = job.provider;
-            send_event(&IpcEvent::AuthEnd {
-                provider: provider.as_str().to_string(),
-                success: false,
-                error: Some("Auth worker disconnected".to_string()),
-            });
-            state.emit_capabilities();
-            true
-        }
-    }
+    event_processing::process_auth_events(state)
 }

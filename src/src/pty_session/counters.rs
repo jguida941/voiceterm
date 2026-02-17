@@ -82,7 +82,7 @@ pub(crate) fn set_write_all_limit(limit: Option<usize>) {
 #[allow(dead_code)]
 pub(crate) fn set_terminal_size_override(value: Option<(bool, u16, u16)>) {
     let lock = TERMINAL_SIZE_OVERRIDE.get_or_init(|| Mutex::new(None));
-    *lock.lock().unwrap() = value;
+    *lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = value;
 }
 
 #[cfg(any(test, feature = "mutants"))]
@@ -271,7 +271,7 @@ pub(super) fn terminal_size_override() -> Option<(bool, u16, u16)> {
         *TERMINAL_SIZE_OVERRIDE
             .get_or_init(|| Mutex::new(None))
             .lock()
-            .unwrap()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
     #[cfg(not(any(test, feature = "mutants")))]
     {

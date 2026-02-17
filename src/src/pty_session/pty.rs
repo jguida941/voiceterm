@@ -45,9 +45,7 @@ impl PtyCliSession {
     ) -> Result<Self> {
         let cwd = CString::new(working_dir)
             .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
-        let term_value_cstr = CString::new(term_value).unwrap_or_else(|_| {
-            CString::new("xterm-256color").expect("static TERM fallback should be valid")
-        });
+        let term_value_cstr = term_value_cstring(term_value)?;
         let mut argv: Vec<CString> = Vec::with_capacity(args.len() + 1);
         argv.push(
             CString::new(cli_cmd)
@@ -261,9 +259,7 @@ impl PtyOverlaySession {
     ) -> Result<Self> {
         let cwd = CString::new(working_dir)
             .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
-        let term_value_cstr = CString::new(term_value).unwrap_or_else(|_| {
-            CString::new("xterm-256color").expect("static TERM fallback should be valid")
-        });
+        let term_value_cstr = term_value_cstring(term_value)?;
         let mut argv: Vec<CString> = Vec::with_capacity(args.len() + 1);
         argv.push(
             CString::new(cli_cmd)
@@ -577,8 +573,13 @@ pub(super) unsafe fn child_exec(
         fail("chdir");
     }
 
-    let term_key = CString::new("TERM").expect("TERM constant is valid");
-    if libc::setenv(term_key.as_ptr(), term_value.as_ptr(), 1) != 0 {
+    let term_key = b"TERM\0";
+    if libc::setenv(
+        term_key.as_ptr() as *const libc::c_char,
+        term_value.as_ptr(),
+        1,
+    ) != 0
+    {
         fail("setenv(TERM)");
     }
 
@@ -638,6 +639,12 @@ unsafe fn wait_for_lifeline_close(lifeline_read_fd: RawFd) {
         }
         break;
     }
+}
+
+fn term_value_cstring(term_value: &str) -> Result<CString> {
+    CString::new(term_value)
+        .or_else(|_| CString::new("xterm-256color"))
+        .map_err(|_| anyhow!("TERM fallback constant contains an interior NUL byte"))
 }
 
 unsafe fn process_exists(pid: i32) -> bool {

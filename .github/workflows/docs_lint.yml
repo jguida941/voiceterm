@@ -11,7 +11,8 @@ on:
       - "scripts/README.md"
       - "pypi/README.md"
       - "app/README.md"
-      - ".markdownlint.yaml"
+      - "dev/config/markdownlint.yaml"
+      - "dev/config/markdownlint.ignore"
       - ".github/workflows/docs_lint.yml"
   push:
     branches:
@@ -26,7 +27,8 @@ on:
       - "scripts/README.md"
       - "pypi/README.md"
       - "app/README.md"
-      - ".markdownlint.yaml"
+      - "dev/config/markdownlint.yaml"
+      - "dev/config/markdownlint.ignore"
       - ".github/workflows/docs_lint.yml"
 
 jobs:
@@ -47,7 +49,7 @@ jobs:
 
       - name: Lint key docs
         run: |
-          markdownlint -c .markdownlint.yaml \
+          markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \
             DEV_INDEX.md \

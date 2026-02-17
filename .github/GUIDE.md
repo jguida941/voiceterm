@@ -10,6 +10,7 @@ This file explains what lives in `.github/`, why it exists, and what to update w
 | `.github/CONTRIBUTING.md` | Contributor workflow, checks, and PR expectations. | Build/test/docs workflow changes. |
 | `.github/SECURITY.md` | Vulnerability reporting and security posture/policy. | Threat model, risky flags, or disclosure/security gate policy changes. |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Standard PR checklist for reviewers and authors. | Required checks/docs expectations change. |
+| `.github/PULL_REQUEST_TEMPLATE/theme_studio.md` | Theme Studio gate checklist (`TS-G01`..`TS-G15`) and evidence fields for MP-148..MP-182. | Theme Studio gate definitions, verification bundle, or MP mapping rules change. |
 | `.github/ISSUE_TEMPLATE/bug_report.md` | Bug report template. | New required reproduction info or renamed product/version fields. |
 | `.github/ISSUE_TEMPLATE/feature_request.md` | Feature request template. | Planning intake format changes. |
 | `.github/scripts/verify_perf_metrics.py` | Perf-smoke log validator used by CI. | Voice metrics schema or thresholds change. |

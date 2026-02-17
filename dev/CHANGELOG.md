@@ -16,6 +16,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Remove remaining pipeline labels from user-facing status text (`Listening Manual Mode`, `Transcript ready`, `No speech detected`, and HUD mode tokens) and keep pipeline visibility in Settings (`Voice pipeline`).
+- Fix overlay mouse interaction handling so non-action body clicks no longer close active overlays; keep close behavior on explicit controls (footer `[×]`) and preserve clickable theme-row selection in Theme Picker.
 
 ### CI/Tooling
 
@@ -26,6 +27,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Runtime Hardening
 
 - Prevent orphaned backend CLI processes on abrupt terminal/IDE termination by adding a PTY child lifeline watchdog that escalates `SIGTERM` -> `SIGKILL` on parent disappearance, plus regression coverage for parent `SIGKILL` teardown.
+- Decompose runtime hot-path modules for lower review risk: split `event_loop` input/output/periodic/overlay handlers into focused modules, split `voice_control/drain` message-processing helpers into dedicated submodules, and extract IPC non-blocking event processors into `ipc/session/event_processing/` (plus `ipc/session/loop_runtime.rs` for command/loop helpers) while preserving regression coverage.
 
 ## [1.0.69] - 2026-02-17
 

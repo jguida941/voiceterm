@@ -159,8 +159,12 @@ fn collect_synthetic_measurements(
     args: &Args,
     config: &AppConfig,
 ) -> Result<Vec<LatencyMeasurement>> {
-    let speech_ms = args.speech_ms.unwrap();
-    let silence_ms = args.silence_ms.unwrap();
+    let speech_ms = args
+        .speech_ms
+        .context("synthetic mode requires --speech-ms")?;
+    let silence_ms = args
+        .silence_ms
+        .context("synthetic mode requires --silence-ms")?;
     let synthetic_cfg = SyntheticRunConfig {
         speech_ms,
         silence_ms,

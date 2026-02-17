@@ -10,7 +10,7 @@ use crate::settings::{
 use crate::status_line::StatusLineState;
 use crate::theme::Theme;
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
-use crate::writer::WriterMessage;
+use crate::writer::{try_send_message, WriterMessage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OverlayMode {
@@ -47,7 +47,7 @@ pub(crate) fn show_settings_overlay(
     };
     let content = format_settings_overlay(&view, cols as usize);
     let height = settings_overlay_height();
-    let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
 pub(crate) fn show_theme_picker_overlay(
@@ -58,13 +58,13 @@ pub(crate) fn show_theme_picker_overlay(
 ) {
     let content = format_theme_picker(theme, selected_idx, cols as usize);
     let height = theme_picker_height();
-    let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
 pub(crate) fn show_help_overlay(writer_tx: &Sender<WriterMessage>, theme: Theme, cols: u16) {
     let content = format_help_overlay(theme, cols as usize);
     let height = help_overlay_height();
-    let _ = writer_tx.send(WriterMessage::ShowOverlay { content, height });
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
 #[cfg(test)]

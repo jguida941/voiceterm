@@ -123,69 +123,25 @@ impl<'a> ButtonActionContext<'a> {
                 }
             }
             ButtonAction::ToggleAutoVoice => {
-                let mut settings_ctx = self.settings_context();
-                settings_ctx.toggle_auto_voice();
+                self.with_settings_context(|settings_ctx| settings_ctx.toggle_auto_voice());
             }
             ButtonAction::ToggleSendMode => {
-                let mut settings_ctx = self.settings_context();
-                settings_ctx.toggle_send_mode();
+                self.with_settings_context(|settings_ctx| settings_ctx.toggle_send_mode());
             }
             ButtonAction::SettingsToggle => {
-                *self.overlay_mode = OverlayMode::Settings;
-                update_pty_winsize(
-                    self.session,
-                    self.terminal_rows,
-                    self.terminal_cols,
-                    *self.overlay_mode,
-                    self.status_state.hud_style,
-                );
-                let cols = resolved_cols(*self.terminal_cols);
-                show_settings_overlay(
-                    self.writer_tx,
-                    *self.theme,
-                    cols,
-                    self.settings_menu,
-                    self.config,
-                    self.status_state,
-                    self.backend_label,
-                );
+                self.open_settings_overlay();
             }
             ButtonAction::ToggleHudStyle => {
-                let mut settings_ctx = self.settings_context();
-                settings_ctx.update_hud_style(1);
+                self.with_settings_context(|settings_ctx| settings_ctx.update_hud_style(1));
             }
             ButtonAction::HudBack => {
-                let mut settings_ctx = self.settings_context();
-                settings_ctx.update_hud_style(-1);
+                self.with_settings_context(|settings_ctx| settings_ctx.update_hud_style(-1));
             }
             ButtonAction::HelpToggle => {
-                *self.overlay_mode = OverlayMode::Help;
-                update_pty_winsize(
-                    self.session,
-                    self.terminal_rows,
-                    self.terminal_cols,
-                    *self.overlay_mode,
-                    self.status_state.hud_style,
-                );
-                let cols = resolved_cols(*self.terminal_cols);
-                show_help_overlay(self.writer_tx, *self.theme, cols);
+                self.open_help_overlay();
             }
             ButtonAction::ThemePicker => {
-                *self.overlay_mode = OverlayMode::ThemePicker;
-                update_pty_winsize(
-                    self.session,
-                    self.terminal_rows,
-                    self.terminal_cols,
-                    *self.overlay_mode,
-                    self.status_state.hud_style,
-                );
-                let cols = resolved_cols(*self.terminal_cols);
-                show_theme_picker_overlay(
-                    self.writer_tx,
-                    *self.theme,
-                    theme_index_from_theme(*self.theme),
-                    cols,
-                );
+                self.open_theme_picker_overlay();
             }
         }
 
@@ -198,6 +154,55 @@ impl<'a> ButtonActionContext<'a> {
                 *self.theme,
             );
         }
+    }
+
+    fn with_settings_context(&mut self, apply: impl FnOnce(&mut SettingsActionContext<'_>)) {
+        let mut settings_ctx = self.settings_context();
+        apply(&mut settings_ctx);
+    }
+
+    fn sync_overlay_winsize(&mut self) {
+        update_pty_winsize(
+            self.session,
+            self.terminal_rows,
+            self.terminal_cols,
+            *self.overlay_mode,
+            self.status_state.hud_style,
+        );
+    }
+
+    fn open_settings_overlay(&mut self) {
+        *self.overlay_mode = OverlayMode::Settings;
+        self.sync_overlay_winsize();
+        let cols = resolved_cols(*self.terminal_cols);
+        show_settings_overlay(
+            self.writer_tx,
+            *self.theme,
+            cols,
+            self.settings_menu,
+            self.config,
+            self.status_state,
+            self.backend_label,
+        );
+    }
+
+    fn open_help_overlay(&mut self) {
+        *self.overlay_mode = OverlayMode::Help;
+        self.sync_overlay_winsize();
+        let cols = resolved_cols(*self.terminal_cols);
+        show_help_overlay(self.writer_tx, *self.theme, cols);
+    }
+
+    fn open_theme_picker_overlay(&mut self) {
+        *self.overlay_mode = OverlayMode::ThemePicker;
+        self.sync_overlay_winsize();
+        let cols = resolved_cols(*self.terminal_cols);
+        show_theme_picker_overlay(
+            self.writer_tx,
+            *self.theme,
+            theme_index_from_theme(*self.theme),
+            cols,
+        );
     }
 
     fn settings_context(&mut self) -> SettingsActionContext<'_> {
@@ -259,23 +264,24 @@ pub(crate) fn advance_hud_button_focus(
         return false;
     }
 
-    let current = status_state.hud_button_focus;
-    let mut idx =
-        current.and_then(|action| actions.iter().position(|candidate| *candidate == action));
+    let idx = match status_state
+        .hud_button_focus
+        .and_then(|action| actions.iter().position(|candidate| *candidate == action))
+    {
+        Some(current_idx) => {
+            let len = actions.len() as i32;
+            (current_idx as i32 + direction).rem_euclid(len) as usize
+        }
+        None => {
+            if direction >= 0 {
+                0
+            } else {
+                actions.len().saturating_sub(1)
+            }
+        }
+    };
 
-    if idx.is_none() {
-        idx = if direction >= 0 {
-            Some(0)
-        } else {
-            Some(actions.len().saturating_sub(1))
-        };
-    } else {
-        let len = actions.len() as i32;
-        let next = (idx.unwrap() as i32 + direction).rem_euclid(len) as usize;
-        idx = Some(next);
-    }
-
-    let next_action = actions[idx.unwrap()];
+    let next_action = actions[idx];
     if status_state.hud_button_focus == Some(next_action) {
         return false;
     }

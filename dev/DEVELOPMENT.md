@@ -52,12 +52,14 @@ voiceterm/
 │       ├── bin/voiceterm/banner.rs # Startup splash + banner config
 │       ├── bin/voiceterm/help.rs # Shortcut overlay rendering
 │       ├── bin/voiceterm/terminal.rs # Terminal sizing + signal handling
+│       ├── bin/voiceterm/event_loop/ # Event-loop dispatch modules + tests
 │       ├── bin/voiceterm/audio_meter/ # Mic meter UI (`--mic-meter`)
 │       ├── bin/voiceterm/hud/ # HUD modules and right panel visuals
 │       ├── bin/voiceterm/status_line/ # Status line layout + formatting
 │       ├── bin/voiceterm/settings/ # Settings overlay
 │       ├── bin/voiceterm/transcript/ # Transcript queue + delivery
-│       ├── bin/voiceterm/voice_control/ # Voice capture lifecycle
+│       ├── bin/voiceterm/voice_control/ # Voice capture lifecycle + drain orchestration
+│       ├── bin/voiceterm/voice_control/drain/ # Voice drain helpers + tests
 │       ├── bin/voiceterm/input/ # Input parsing + events
 │       ├── bin/voiceterm/writer/ # Output writer + overlays
 │       ├── bin/voiceterm/theme/ # Theme definitions
@@ -66,7 +68,8 @@ voiceterm/
 │       ├── backend/     # AI CLI backend presets (overlay)
 │       ├── codex/       # Codex-specific backend + PTY worker (TUI/IPC)
 │       ├── config/      # CLI flags + validation
-│       ├── ipc/         # JSON IPC mode
+│       ├── ipc/         # JSON IPC mode + protocol/router/session loop
+│       ├── ipc/session/ # IPC non-blocking event processing helpers
 │       ├── pty_session/ # PTY wrapper
 │       ├── voice.rs     # Voice capture orchestration
 │       ├── mic_meter.rs # Ambient/speech level sampler
@@ -301,7 +304,7 @@ cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bound
 cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
 # Markdown style/readability checks for key docs
-markdownlint -c .markdownlint.yaml README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 ```
 
 **Manual equivalents (if you prefer direct cargo commands):**

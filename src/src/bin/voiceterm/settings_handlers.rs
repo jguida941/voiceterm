@@ -20,7 +20,7 @@ use crate::theme_ops::{apply_theme_selection, cycle_theme};
 use crate::voice_control::{
     clear_capture_metrics, reset_capture_visuals, start_voice_capture, VoiceManager,
 };
-use crate::writer::{set_status, WriterMessage};
+use crate::writer::{set_status, try_send_message, WriterMessage};
 
 pub(crate) struct SettingsActionContext<'a> {
     pub(crate) config: &'a mut OverlayConfig,
@@ -302,7 +302,7 @@ impl<'a> SettingsActionContext<'a> {
     pub(crate) fn toggle_mouse(&mut self) {
         self.status_state.mouse_enabled = !self.status_state.mouse_enabled;
         if self.status_state.mouse_enabled {
-            let _ = self.writer_tx.send(WriterMessage::EnableMouse);
+            let _ = try_send_message(self.writer_tx, WriterMessage::EnableMouse);
             update_button_registry(
                 self.button_registry,
                 self.status_state,
@@ -319,7 +319,7 @@ impl<'a> SettingsActionContext<'a> {
                 Some(Duration::from_secs(2)),
             );
         } else {
-            let _ = self.writer_tx.send(WriterMessage::DisableMouse);
+            let _ = try_send_message(self.writer_tx, WriterMessage::DisableMouse);
             self.button_registry.clear();
             self.status_state.hud_button_focus = None;
             set_status(

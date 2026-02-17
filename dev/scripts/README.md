@@ -19,6 +19,7 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 
 # Release notes from git diff range
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
@@ -62,6 +63,13 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `pypi`: PyPI build/check/upload flow
 - `status` and `report`: machine-readable project status outputs
 - `list`: command/profile inventory
+
+## Markdown Lint Config
+
+Markdown lint policy files live under `dev/config/`:
+
+- `dev/config/markdownlint.yaml`
+- `dev/config/markdownlint.ignore`
 
 ## Release Workflow (Recommended)
 

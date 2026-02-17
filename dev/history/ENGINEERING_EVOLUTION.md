@@ -137,7 +137,7 @@ Inference: These screenshots improve readability for users. They show current UI
 - Architecture and lifecycle: `dev/ARCHITECTURE.md`
 - Verification workflow: `dev/DEVELOPMENT.md`
 - Decision records: `dev/adr/README.md`
-- Latency display logic path: `src/src/bin/voiceterm/voice_control/drain.rs`
+- Latency display logic path: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs`
 
 ### Developer Fast Start
 
@@ -157,7 +157,7 @@ Inference: These screenshots improve readability for users. They show current UI
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
 2. `git log --merges --date=short --pretty=format:'%ad %h %s'`
 3. `git show <hash>`
-4. `git log -- <path>` (example: `git log -- src/src/bin/voiceterm/voice_control/drain.rs`)
+4. `git log -- <path>` (example: `git log -- src/src/bin/voiceterm/voice_control/drain/message_processing.rs`)
 5. `git tag --sort=creatordate`
 
 ### Visual Guide
@@ -173,7 +173,7 @@ Inference: These screenshots improve readability for users. They show current UI
 flowchart LR
   MIC[Mic Input] --> STT[src/src/stt.rs]
   STT --> VOICE[src/src/bin/voiceterm/voice_control]
-  VOICE --> HUD[src/src/legacy_tui]
+  VOICE --> HUD[src/src/bin/voiceterm/event_loop and writer]
   HUD <--> PTY[src/src/pty_session/pty.rs]
   PTY <--> CLI[Codex or Claude CLI via PTY]
   HUD <--> IPC[src/src/ipc]
@@ -216,7 +216,7 @@ Evidence:
 | Era 2 | 2026-01-11 to 2026-01-25 | 65 | Install and overlay UX became usable at scale |
 | Era 3 | 2026-01-28 to 2026-02-03 | 91 | ADR governance and HUD interaction model expansion |
 | Era 4 | 2026-02-06 to 2026-02-15 | 135 | Reliability hardening and process discipline |
-| Era 5 | 2026-02-16 to 2026-02-17 | 22 | Release hardening, lifecycle verification, and tooling signal clarity |
+| Era 5 | 2026-02-16 to 2026-02-17 | 22 | Release hardening, lifecycle verification, runtime modularization, and tooling signal clarity |
 
 Fact: Commit volume uses `git rev-list --count --since <start> --until <end> HEAD` for each date window.
 
@@ -413,7 +413,7 @@ Terminal edge cases, heavy PTY output, and high release frequency exposed reliab
 
 - `.github/workflows/latency_guard.yml` and `.github/workflows/voice_mode_guard.yml`
 - `dev/scripts/tests/measure_latency.sh` and `dev/scripts/devctl.py`
-- `src/src/pty_session/pty.rs` and `src/src/bin/voiceterm/voice_control/drain.rs`
+- `src/src/pty_session/pty.rs` and `src/src/bin/voiceterm/voice_control/drain/`
 
 ### Key Decisions + Evidence
 
@@ -456,6 +456,8 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Release workflow now carries generated notes-file handoff through script and docs.
 - Active governance was consolidated under `MASTER_PLAN` after archiving dedicated hardening audit artifacts.
 - Mutation score reporting was clarified with endpoint-style badge semantics.
+- Runtime hot-paths were decomposed into focused modules so behavior changes land in smaller review units.
+- IPC session event processing moved into a dedicated submodule so command-loop orchestration and non-blocking job draining can be reviewed independently.
 
 ### Where to Inspect in Repo
 
@@ -465,6 +467,9 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `dev/scripts/render_mutation_badge.py`
 - `.github/badges/mutation-score.json`
 - `src/src/pty_session/pty.rs` and `src/src/pty_session/tests.rs`
+- `src/src/bin/voiceterm/event_loop.rs` and `src/src/bin/voiceterm/event_loop/`
+- `src/src/bin/voiceterm/voice_control/drain.rs` and `src/src/bin/voiceterm/voice_control/drain/`
+- `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, and `src/src/ipc/session/event_processing/`
 
 ### Key Decisions + Evidence
 
@@ -472,6 +477,8 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Release-notes automation shipped via script + devctl wrapper + release handoff. Evidence: `4194dd4`.
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
+- Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.
+- IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, `src/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
 
 ### What Changed in the SDLC
 
@@ -577,7 +584,7 @@ Concrete example:
 
 Fact: HUD latency is a post-capture processing metric, not full speak-to-final-response time.
 
-Fact: `src/src/bin/voiceterm/voice_control/drain.rs` uses this logic:
+Fact: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` uses this logic:
 
 - `display_ms = stt_ms` when STT timing exists.
 - Else `display_ms = elapsed_ms - capture_ms` when only capture timing exists.
