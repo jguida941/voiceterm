@@ -15,6 +15,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - In insert send mode, make `Enter` submit-only (always forwards newline) so command submission is never blocked by recording-state stop logic.
 - Add `Ctrl+R` recording toggle behavior (start when idle, stop early when recording) and `Ctrl+E` send-now handling for staged insert-mode text during active capture.
+- Keep idle ribbon placeholder bars theme-accented in status-line waveform panels so HUD visuals stay consistent with the active palette.
 
 ### Documentation
 

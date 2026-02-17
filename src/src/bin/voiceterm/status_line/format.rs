@@ -241,8 +241,10 @@ fn format_duration_section(state: &StatusLineState, colors: &ThemeColors) -> Str
 }
 
 fn dim_waveform_placeholder(width: usize, colors: &ThemeColors) -> String {
-    let mut result = String::with_capacity(width + colors.dim.len() + colors.reset.len());
-    result.push_str(colors.dim);
+    // Keep idle ribbon placeholders theme-colored so the right panel still matches
+    // the active palette instead of fading to neutral gray.
+    let mut result = String::with_capacity(width + colors.success.len() + colors.reset.len());
+    result.push_str(colors.success);
     for _ in 0..width {
         result.push('▁');
     }

@@ -207,7 +207,8 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
         return String::new();
     }
     if levels.is_empty() {
-        return format!("{}{}{}", colors.dim, "▁".repeat(width), colors.reset);
+        // Match full HUD behavior: keep idle placeholder in theme accent.
+        return format!("{}{}{}", colors.success, "▁".repeat(width), colors.reset);
     }
 
     let mut out = String::with_capacity(width * 8);
