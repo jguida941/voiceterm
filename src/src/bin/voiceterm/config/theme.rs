@@ -18,7 +18,7 @@ impl OverlayConfig {
         let mode = self.color_mode();
         if !mode.supports_color() {
             Theme::None
-        } else if !mode.supports_truecolor() {
+        } else if matches!(mode, ColorMode::Ansi16) {
             requested.fallback_for_ansi()
         } else {
             requested
@@ -98,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn theme_for_backend_uses_ansi_fallback_on_256color_term() {
+    fn theme_for_backend_keeps_requested_theme_on_256color_term() {
         let _guard = ENV_GUARD
             .get_or_init(|| Mutex::new(()))
             .lock()
@@ -115,7 +115,7 @@ mod tests {
         std::env::remove_var("TERMINAL_EMULATOR");
 
         let config = OverlayConfig::parse_from(["test", "--theme", "dracula"]);
-        assert_eq!(config.theme_for_backend("codex"), Theme::Ansi);
+        assert_eq!(config.theme_for_backend("codex"), Theme::Dracula);
 
         match prev_colorterm {
             Some(value) => std::env::set_var("COLORTERM", value),

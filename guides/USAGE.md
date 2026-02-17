@@ -258,6 +258,8 @@ Tips:
 - Set at startup: `voiceterm --theme catppuccin`
 - Disable color: `voiceterm --no-color` or `NO_COLOR=1`
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
+- On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
+  applies only on ANSI16 terminals.
 - Mouse behavior in overlays: click a Theme Picker row to apply/select it; click footer `[×] close` to dismiss an overlay.
 
 ### HUD styles
@@ -276,6 +278,8 @@ Right panel options:
 
 - `off`, `ribbon`, `dots`, `heartbeat`
 - Optional recording-only animation in Settings
+- In Full HUD, right-panel telemetry is rendered on the shortcuts row with the
+  latency/theme/help controls.
 
 Examples:
 

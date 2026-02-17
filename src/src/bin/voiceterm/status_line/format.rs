@@ -29,8 +29,9 @@ const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
 const MAIN_ROW_RIGHT_GUTTER: usize = 1;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
-const LEVEL_WARNING_DB: f32 = -15.0;
-const LEVEL_ERROR_DB: f32 = -6.0;
+// Keep right-panel color bands responsive to normal speaking dynamics.
+const LEVEL_WARNING_DB: f32 = -30.0;
+const LEVEL_ERROR_DB: f32 = -18.0;
 
 /// Keyboard shortcuts to display.
 const SHORTCUTS: &[(&str, &str)] = &[
@@ -152,9 +153,20 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
 
             let inner_width = width.saturating_sub(2); // Account for left/right borders
 
+            let shortcuts_panel =
+                format_right_panel(state, &colors, theme, inner_width.saturating_sub(12));
             // Get shortcuts row with button positions
-            let (shortcuts_line, buttons) =
-                format_shortcuts_row_with_positions(state, &colors, borders, inner_width);
+            let (shortcuts_line, buttons) = format_shortcuts_row_with_positions(
+                state,
+                &colors,
+                borders,
+                inner_width,
+                if shortcuts_panel.is_empty() {
+                    None
+                } else {
+                    Some(shortcuts_panel.as_str())
+                },
+            );
 
             let lines = vec![
                 if borderless {
@@ -162,7 +174,7 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
                 } else {
                     format_top_border(&colors, borders, width)
                 },
-                format_main_row(state, &colors, borders, theme, inner_width),
+                format_main_row(state, &colors, borders, inner_width),
                 shortcuts_line,
                 if borderless {
                     borderless_row(width)
@@ -271,7 +283,6 @@ fn format_main_row(
     state: &StatusLineState,
     colors: &ThemeColors,
     borders: &BorderSet,
-    theme: Theme,
     inner_width: usize,
 ) -> String {
     let render_width = inner_width.saturating_sub(MAIN_ROW_RIGHT_GUTTER);
@@ -293,32 +304,24 @@ fn format_main_row(
     };
 
     let content_width = display_width(&content);
-    let right_panel = format_right_panel(
-        state,
-        colors,
-        theme,
-        render_width.saturating_sub(content_width + 1),
-    );
-    let right_width = display_width(&right_panel);
-    let message_available = render_width.saturating_sub(content_width + right_width);
+    let message_available = render_width.saturating_sub(content_width);
     let truncated_message = truncate_display(&message_lane, message_available);
     let message_width = display_width(&truncated_message);
     let interior = format!("{content}{truncated_message}");
 
-    // Padding to fill the row (leave room for right panel)
-    let padding_needed = render_width.saturating_sub(content_width + message_width + right_width);
+    // Padding to fill the row.
+    let padding_needed = render_width.saturating_sub(content_width + message_width);
     let padding = " ".repeat(padding_needed);
     let right_gutter = " ".repeat(inner_width.saturating_sub(render_width));
 
     // No background colors - use transparent backgrounds for terminal compatibility
     format!(
-        "{}{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}",
         colors.border,
         borders.vertical,
         colors.reset,
         interior,
         padding,
-        right_panel,
         right_gutter,
         colors.border,
         borders.vertical,
@@ -445,9 +448,7 @@ fn format_right_panel(
         return String::new();
     }
 
-    let with_pad = format!(" {}", panel);
-    // Return only the panel content width; caller handles row-level padding/right alignment.
-    truncate_display(&with_pad, max_width)
+    truncate_display(&panel, max_width)
 }
 
 #[inline]
@@ -1236,7 +1237,7 @@ mod tests {
         assert_eq!(banner.height, 4);
         assert!(banner.lines[1].contains("Ready"));
         assert!(!banner.lines[2].contains("Ready"));
-        assert!(banner.lines[1].contains("["));
+        assert!(banner.lines[2].contains("["));
     }
 
     #[test]
@@ -1250,8 +1251,8 @@ mod tests {
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert!(banner.lines[1].contains("Ready"));
-        assert!(banner.lines[1].contains("["));
-        assert!(banner.lines[1].contains("▁"));
+        assert!(banner.lines[2].contains("["));
+        assert!(banner.lines[2].contains("▁"));
     }
 
     #[test]
@@ -1343,6 +1344,22 @@ mod tests {
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert!(!banner.lines[1].contains("228ms"));
+        assert!(banner.lines[2].contains("228ms"));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_places_ribbon_panel_on_shortcuts_row() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.recording_state = RecordingState::Idle;
+        state.last_latency_ms = Some(228);
+        state.hud_right_panel = HudRightPanel::Ribbon;
+        state.hud_right_panel_recording_only = false;
+
+        let banner = format_status_banner(&state, Theme::Coral, 120);
+        assert!(!banner.lines[1].contains("▁"));
+        assert!(banner.lines[2].contains("["));
+        assert!(banner.lines[2].contains("▁"));
         assert!(banner.lines[2].contains("228ms"));
     }
 

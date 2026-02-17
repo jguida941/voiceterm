@@ -198,6 +198,10 @@ Use `Ctrl+Y` to open the picker (or `Ctrl+G` to quick-cycle themes), then use
 Mouse control is enabled by default, and Settings (`Ctrl+O`) covers the main
 runtime toggles: send mode, auto-voice, macros, HUD style/border, right-panel
 telemetry, and latency display.
+In Full HUD mode, the right-panel visualizer (`Ribbon`, `Dots`, `Heartbeat`)
+is shown on the shortcuts row with latency/theme/help controls.
+On `xterm-256color` terminals, VoiceTerm now keeps your selected theme
+instead of forcing ANSI fallback (ANSI fallback remains for ANSI16 terminals).
 See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
 
 ## Controls

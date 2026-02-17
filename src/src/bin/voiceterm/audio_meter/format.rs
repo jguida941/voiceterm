@@ -10,8 +10,9 @@ const BAR_FULL: char = '█';
 const BAR_HALF: char = '▌';
 const BAR_EMPTY: char = '░';
 const PEAK_MARKER: char = '│';
-const LEVEL_WARNING_DB: f32 = -15.0;
-const LEVEL_ERROR_DB: f32 = -6.0;
+// Keep warning/error transitions visually reactive for normal speech dynamics.
+const LEVEL_WARNING_DB: f32 = -30.0;
+const LEVEL_ERROR_DB: f32 = -18.0;
 
 /// Format a horizontal audio level meter.
 #[must_use]

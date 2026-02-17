@@ -23,6 +23,7 @@ Docs map:
 | Settings/HUD lags while backend is busy | Run high-load responsiveness checks | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
+| JetBrains cursor briefly flashes `|`/block over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
@@ -329,7 +330,9 @@ If arrow keys/settings updates feel delayed while backend output is streaming:
 
 3. While output is active, open Settings (`Ctrl+O`) and hold arrow navigation
    for several seconds.
-4. If lag persists, collect logs with `voiceterm --logs` and include:
+4. In current builds, high-output redraw pacing and queue handling were tuned
+   to keep HUD/settings more reactive; if you still see lag, capture logs.
+5. If lag persists, collect logs with `voiceterm --logs` and include:
    - terminal/IDE name + version
    - backend (`--codex` or `--claude`)
    - whether recording was active
@@ -377,8 +380,10 @@ If Full HUD appears stacked/repeated:
 If HUD rapidly flashes in JetBrains but not Cursor/VS Code:
 
 1. Verify version.
-2. Reproduce with `voiceterm --logs`.
-3. Share logs + terminal app/version if it persists.
+2. Current builds hide/show the cursor around JetBrains redraw sequences to
+   reduce random `|`/block cursor artifact flashes over HUD rows.
+3. Reproduce with `voiceterm --logs`.
+4. Share logs + terminal app/version if it persists.
 
 Implementation details on redraw/resize behavior are in
 `dev/ARCHITECTURE.md`.

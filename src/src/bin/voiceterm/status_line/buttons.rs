@@ -10,8 +10,9 @@ use super::layout::breakpoints;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
 
-const LEVEL_WARNING_DB: f32 = -15.0;
-const LEVEL_ERROR_DB: f32 = -6.0;
+// Keep right-panel color bands responsive to normal speaking dynamics.
+const LEVEL_WARNING_DB: f32 = -30.0;
+const LEVEL_ERROR_DB: f32 = -18.0;
 
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
@@ -359,6 +360,7 @@ pub(super) fn format_shortcuts_row_with_positions(
     colors: &ThemeColors,
     borders: &BorderSet,
     inner_width: usize,
+    trailing_panel: Option<&str>,
 ) -> (String, Vec<ButtonPosition>) {
     let row_width = inner_width.saturating_sub(1);
     // Row 2 from bottom of HUD (row 1 = bottom border)
@@ -366,8 +368,22 @@ pub(super) fn format_shortcuts_row_with_positions(
         format_button_row_with_positions(state, colors, row_width, 2, true, false);
 
     // Add leading space to match main row's left margin
-    let interior = truncate_display(&format!(" {}", shortcuts_str), inner_width);
-    let interior_width = display_width(&interior);
+    let mut interior = truncate_display(&format!(" {}", shortcuts_str), inner_width);
+    let mut interior_width = display_width(&interior);
+
+    // Keep shortcut/button geometry stable: only append trailing panel if there is spare room.
+    if let Some(panel) = trailing_panel {
+        if !panel.is_empty() {
+            let panel = truncate_display(panel, inner_width);
+            let panel_width = display_width(&panel);
+            if panel_width > 0 && interior_width + 1 + panel_width <= inner_width {
+                interior.push(' ');
+                interior.push_str(&panel);
+                interior_width += 1 + panel_width;
+            }
+        }
+    }
+
     let padding_needed = inner_width.saturating_sub(interior_width);
     let padding = " ".repeat(padding_needed);
 
@@ -395,7 +411,7 @@ fn format_shortcuts_row(
     borders: &BorderSet,
     inner_width: usize,
 ) -> String {
-    let (line, _) = format_shortcuts_row_with_positions(state, colors, borders, inner_width);
+    let (line, _) = format_shortcuts_row_with_positions(state, colors, borders, inner_width, None);
     line
 }
 
@@ -1050,8 +1066,13 @@ mod tests {
         state.latency_display = LatencyDisplayMode::Short;
 
         let inner_width = 90;
-        let (row, _) =
-            format_shortcuts_row_with_positions(&state, &colors, &colors.borders, inner_width);
+        let (row, _) = format_shortcuts_row_with_positions(
+            &state,
+            &colors,
+            &colors.borders,
+            inner_width,
+            None,
+        );
 
         // +2 accounts for left/right border columns in full HUD rows.
         assert!(
@@ -1177,8 +1198,13 @@ mod tests {
         state.latency_display = LatencyDisplayMode::Label;
 
         let inner_width = 200;
-        let (positioned, buttons) =
-            format_shortcuts_row_with_positions(&state, &colors, &colors.borders, inner_width);
+        let (positioned, buttons) = format_shortcuts_row_with_positions(
+            &state,
+            &colors,
+            &colors.borders,
+            inner_width,
+            None,
+        );
         let legacy = format_shortcuts_row_legacy(&state, &colors, &colors.borders, inner_width);
 
         assert_eq!(positioned, legacy);
@@ -1304,10 +1330,10 @@ mod tests {
         assert_eq!(minimal_waveform(&[-30.0, -30.0, -30.0], 3, &none), "▄▄▄");
 
         let colors = Theme::Coral.colors();
-        let waveform = minimal_waveform(&[-24.0, -9.0], 2, &colors);
+        let waveform = minimal_waveform(&[-25.0, -10.0], 2, &colors);
         let expected = format!(
             "{}▅{}{}▆{}",
-            colors.success, colors.reset, colors.warning, colors.reset
+            colors.warning, colors.reset, colors.error, colors.reset
         );
         assert_eq!(waveform, expected);
     }
@@ -1321,11 +1347,11 @@ mod tests {
         assert_eq!(minimal_pulse_dots(0.0, &none), "[•••••]");
 
         let colors = Theme::Coral.colors();
-        let warning = minimal_pulse_dots(-24.0, &colors);
-        assert!(warning.contains(&format!("{}•{}", colors.success, colors.reset)));
-        assert!(!warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
+        let warning = minimal_pulse_dots(-25.0, &colors);
+        assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
+        assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
 
-        let error = minimal_pulse_dots(-3.0, &colors);
+        let error = minimal_pulse_dots(-5.0, &colors);
         assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
     }
 

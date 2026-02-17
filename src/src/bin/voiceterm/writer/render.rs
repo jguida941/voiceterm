@@ -16,6 +16,8 @@ const SAVE_CURSOR_ANSI: &[u8] = b"\x1b[s";
 const RESTORE_CURSOR_ANSI: &[u8] = b"\x1b[u";
 const WRAP_DISABLE: &[u8] = b"\x1b[?7l";
 const WRAP_ENABLE: &[u8] = b"\x1b[?7h";
+const CURSOR_HIDE: &[u8] = b"\x1b[?25l";
+const CURSOR_SHOW: &[u8] = b"\x1b[?25h";
 
 fn contains_jetbrains_hint(value: &str) -> bool {
     let value = value.to_ascii_lowercase();
@@ -119,10 +121,17 @@ fn should_disable_autowrap_during_redraw() -> bool {
     is_jetbrains_terminal()
 }
 
+fn should_hide_cursor_during_redraw() -> bool {
+    is_jetbrains_terminal()
+}
+
 fn push_cursor_prefix(sequence: &mut Vec<u8>) {
     sequence.extend_from_slice(save_cursor_sequence());
     if should_disable_autowrap_during_redraw() {
         sequence.extend_from_slice(WRAP_DISABLE);
+    }
+    if should_hide_cursor_during_redraw() {
+        sequence.extend_from_slice(CURSOR_HIDE);
     }
 }
 
@@ -131,6 +140,9 @@ fn push_cursor_suffix(sequence: &mut Vec<u8>) {
         sequence.extend_from_slice(WRAP_ENABLE);
     }
     sequence.extend_from_slice(restore_cursor_sequence());
+    if should_hide_cursor_during_redraw() {
+        sequence.extend_from_slice(CURSOR_SHOW);
+    }
 }
 
 pub(super) fn write_status_line(

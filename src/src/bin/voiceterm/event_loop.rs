@@ -61,12 +61,13 @@ use overlay_dispatch::{
 };
 use periodic_tasks::run_periodic_tasks;
 
-const EVENT_LOOP_IDLE_MS: u64 = 50;
+const EVENT_LOOP_IDLE_MS: u64 = 20;
 const THEME_PICKER_NUMERIC_TIMEOUT_MS: u64 = 350;
 const RECORDING_DURATION_UPDATE_MS: u64 = 200;
 const PROCESSING_SPINNER_TICK_MS: u64 = 120;
 const METER_DB_FLOOR: f32 = -60.0;
-const PTY_OUTPUT_BATCH_CHUNKS: usize = 8;
+const PTY_OUTPUT_BATCH_CHUNKS: usize = 16;
+const PENDING_OUTPUT_RETRY_MS: u64 = 5;
 const PTY_INPUT_FLUSH_ATTEMPTS: usize = 16;
 const PTY_INPUT_MAX_BUFFER_BYTES: usize = 256 * 1024;
 
@@ -507,14 +508,20 @@ pub(crate) fn run_event_loop(
             running = false;
             continue;
         }
-        if !flush_pending_output_or_continue(state, deps) {
-            running = false;
-        }
         let now = Instant::now();
         if now.duration_since(last_periodic_tick) >= tick_interval {
             run_periodic_tasks(state, timers, deps, now);
             last_periodic_tick = now;
         }
+        if !flush_pending_output_or_continue(state, deps) {
+            running = false;
+            continue;
+        }
+        let select_timeout = if state.pending_pty_output.is_some() {
+            Duration::from_millis(PENDING_OUTPUT_RETRY_MS)
+        } else {
+            tick_interval
+        };
         let output_guard = if state.pending_pty_output.is_some() {
             Some(never::<Vec<u8>>())
         } else {
@@ -544,7 +551,7 @@ pub(crate) fn run_event_loop(
                     }
                 }
             }
-            default(tick_interval) => {}
+            default(select_timeout) => {}
         }
     }
 }

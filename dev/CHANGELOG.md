@@ -9,6 +9,20 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.72] - 2026-02-17
+
+### UX
+
+- Move the Full HUD right-panel visualizer lane (`Ribbon`/`Dots`/`Heartbeat`) to the shortcuts row so it aligns with latency/theme/help controls instead of occupying the main status row.
+- Reduce transient JetBrains cursor artifact flashes (`|`/block cursor) during HUD redraws by hiding/restoring the cursor around JetBrains-specific status/overlay paint sequences.
+- Preserve selected themes on `xterm-256color` terminals (fallback to `ansi` only on ANSI16 terminals) so visualizer/border styling no longer collapses to a single ANSI look.
+- Rebalance HUD/mic meter severity thresholds to restore visible green/yellow/red transitions during normal-to-loud speech.
+- Improve high-output HUD responsiveness by prioritizing pending status/overlay redraws and increasing PTY output chunk batching to reduce settings/navigation lag while backend output is streaming.
+
+### Documentation
+
+- Sync user guides (`README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`) with Full HUD visualizer lane placement, `xterm-256color` theme behavior, JetBrains cursor-flash mitigation notes, and high-output responsiveness guidance.
+
 ## [1.0.71] - 2026-02-17
 
 ### Runtime Hardening

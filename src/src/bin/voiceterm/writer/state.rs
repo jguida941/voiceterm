@@ -221,13 +221,30 @@ impl WriterState {
     pub(super) fn maybe_redraw_status(&mut self) {
         const STATUS_IDLE_MS: u64 = 50;
         const STATUS_MAX_WAIT_MS: u64 = 150;
+        const PRIORITY_STATUS_IDLE_MS: u64 = 12;
+        const PRIORITY_STATUS_MAX_WAIT_MS: u64 = 40;
         if !self.needs_redraw {
             return;
         }
         let since_output = self.last_output_at.elapsed();
         let since_draw = self.last_status_draw_at.elapsed();
-        if since_output < Duration::from_millis(STATUS_IDLE_MS)
-            && since_draw < Duration::from_millis(STATUS_MAX_WAIT_MS)
+
+        // Prioritize explicit status/overlay updates over passive PTY-driven repaints.
+        // This keeps settings navigation and meter changes reactive under heavy backend output.
+        let priority_update_pending = self.pending.has_any();
+        let idle_ms = if priority_update_pending {
+            PRIORITY_STATUS_IDLE_MS
+        } else {
+            STATUS_IDLE_MS
+        };
+        let max_wait_ms = if priority_update_pending {
+            PRIORITY_STATUS_MAX_WAIT_MS
+        } else {
+            STATUS_MAX_WAIT_MS
+        };
+
+        if since_output < Duration::from_millis(idle_ms)
+            && since_draw < Duration::from_millis(max_wait_ms)
         {
             return;
         }

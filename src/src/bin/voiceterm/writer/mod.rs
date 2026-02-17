@@ -13,6 +13,7 @@ use crate::status_line::StatusLineState;
 use crate::theme::Theme;
 
 const WRITER_RECV_TIMEOUT_MS: u64 = 25;
+const STATUS_SEND_TIMEOUT_MS: u64 = 2;
 
 #[derive(Debug, Clone)]
 pub(crate) enum WriterMessage {
@@ -82,7 +83,7 @@ pub(crate) fn set_status(
     if !same_text {
         *current_status = Some(status_state.message.clone());
     }
-    let _ = try_send_message(
+    let _ = try_send_status_message(
         writer_tx,
         WriterMessage::EnhancedStatus(status_state.clone()),
     );
@@ -93,10 +94,20 @@ pub(crate) fn send_enhanced_status(
     writer_tx: &Sender<WriterMessage>,
     status_state: &StatusLineState,
 ) {
-    let _ = try_send_message(
+    let _ = try_send_status_message(
         writer_tx,
         WriterMessage::EnhancedStatus(status_state.clone()),
     );
+}
+
+fn try_send_status_message(writer_tx: &Sender<WriterMessage>, message: WriterMessage) -> bool {
+    match writer_tx.try_send(message) {
+        Ok(()) => true,
+        Err(TrySendError::Full(message)) => writer_tx
+            .send_timeout(message, Duration::from_millis(STATUS_SEND_TIMEOUT_MS))
+            .is_ok(),
+        Err(TrySendError::Disconnected(_)) => false,
+    }
 }
 
 pub(crate) fn try_send_message(writer_tx: &Sender<WriterMessage>, message: WriterMessage) -> bool {
