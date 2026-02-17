@@ -212,6 +212,14 @@ pub(super) fn handle_input_event(
                         button_ctx.handle_action(action);
                     }
                     state.status_state.hud_button_focus = None;
+                    send_enhanced_status_with_buttons(
+                        &deps.writer_tx,
+                        &deps.button_registry,
+                        &state.status_state,
+                        state.overlay_mode,
+                        state.terminal_cols,
+                        state.theme,
+                    );
                 }
             }
         }

@@ -359,6 +359,25 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
     )
 }
 
+fn hud_button_click_coords(
+    state: &EventLoopState,
+    deps: &EventLoopDeps,
+    action: ButtonAction,
+) -> (u16, u16) {
+    let button = deps
+        .button_registry
+        .all_buttons()
+        .into_iter()
+        .find(|button| button.event == action)
+        .expect("button should be registered");
+    let x = button.start_x + (button.end_x.saturating_sub(button.start_x) / 2);
+    let y = state
+        .terminal_rows
+        .saturating_sub(button.y)
+        .saturating_add(1);
+    (x, y)
+}
+
 #[test]
 fn flush_pending_pty_output_returns_true_when_empty() {
     let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
@@ -1533,6 +1552,82 @@ fn hidden_open_enter_cycles_style_after_launcher_is_expanded() {
 
     assert!(running);
     assert_eq!(state.status_state.hud_style, HudStyle::Full);
+}
+
+#[test]
+fn hidden_hide_mouse_click_collapses_launcher_and_emits_status_redraw() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.status_state.hidden_launcher_collapsed = false;
+    update_button_registry(
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+    let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::CollapseHiddenLauncher);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.hud_style, HudStyle::Hidden);
+    assert!(state.status_state.hidden_launcher_collapsed);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("hidden hide click should trigger redraw")
+    {
+        WriterMessage::EnhancedStatus(status) => {
+            assert_eq!(status.hud_style, HudStyle::Hidden);
+            assert!(status.hidden_launcher_collapsed);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn hidden_open_mouse_click_expands_collapsed_launcher_and_emits_status_redraw() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.status_state.hidden_launcher_collapsed = true;
+    update_button_registry(
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+    let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::ToggleHudStyle);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.hud_style, HudStyle::Hidden);
+    assert!(!state.status_state.hidden_launcher_collapsed);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("hidden open click should trigger redraw")
+    {
+        WriterMessage::EnhancedStatus(status) => {
+            assert_eq!(status.hud_style, HudStyle::Hidden);
+            assert!(!status.hidden_launcher_collapsed);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
 }
 
 #[test]

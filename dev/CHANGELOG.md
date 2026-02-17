@@ -7,6 +7,12 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.83] - 2026-02-17
+
+### UX
+
+- Fix hidden-mode launcher mouse interaction feedback: clicking `[hide]` and collapsed `[open]` now triggers an immediate HUD redraw (matching arrow-key + `Enter` behavior) instead of waiting for a later periodic repaint.
+
 ## [1.0.82] - 2026-02-17
 
 ### Packaging

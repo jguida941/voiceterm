@@ -8,12 +8,12 @@
 
 ## Status Snapshot (2026-02-17)
 
-- Last tagged release: `v1.0.81` (2026-02-17)
-- Current release target: `v1.0.82`
+- Last tagged release: `v1.0.82` (2026-02-17)
+- Current release target: `v1.0.83`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: post-v1.0.81 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
-- In-flight: v1.0.81 shipped to GitHub Releases/Homebrew/PyPI with full CI pass.
+- Strategic focus: post-v1.0.82 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
+- In-flight: v1.0.82 shipped to GitHub Releases/Homebrew/PyPI with full CI pass; v1.0.83 release candidate packages hidden-launcher mouse redraw parity.
 
 ## Strategic Direction
 
@@ -195,6 +195,7 @@ documented pass evidence for its mapped gates.
 - [x] MP-218 Fix overlay mouse hit-testing for non-left-aligned coordinate spaces so settings/theme/help row clicks and slider adjustments still apply when terminals report centered-panel `x` coordinates.
 - [x] MP-219 Clarify settings overlay footer control hints (`[×] close · ↑/↓ move · Enter select · Click/Tap select`) and add regression coverage so footer close click hit-testing stays intact after copy updates.
 - [x] MP-220 Fix settings slider click direction handling so pointer input on `Sensitivity`/`Wake sensitivity` tracks can move left/right by click position, with regression tests for backward slider clicks.
+- [x] MP-221 Fix hidden-launcher mouse click redraw parity so `[hide]` and collapsed `[open]` clicks immediately repaint launcher state (matching arrow-key `Enter` behavior), with regression tests for both click paths.
 - [ ] MP-214 Close out the active code-quality track by triaging remaining `code_review.md` findings, archiving `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`, and continuing execution from Theme Upgrade (`MP-148+`).
 - [ ] MP-215 Standardize runtime status-line width/truncation on Unicode-aware display width in remaining char-count paths (`src/src/bin/voiceterm/writer/render.rs` and `src/src/bin/voiceterm/status_style.rs`) with regression coverage for wide glyphs.
 - [ ] MP-216 Consolidate duplicate transcript-preview formatting logic shared by `src/src/bin/voiceterm/voice_control/navigation.rs` and `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` into a single helper with shared tests.

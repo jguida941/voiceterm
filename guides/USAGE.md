@@ -287,6 +287,7 @@ Hidden launcher controls:
 
 - `hide` collapses the idle launcher to `[open]` only.
 - In collapsed mode, first `open` restores the hidden launcher, next `open` switches HUD style.
+- Mouse clicks on `[open]`/`[hide]` redraw launcher state immediately (same behavior as Left/Right + Enter).
 
 Full HUD border style options:
 
