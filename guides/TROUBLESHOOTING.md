@@ -341,6 +341,22 @@ If arrow keys/settings updates feel delayed while backend output is streaming:
    - backend (`--codex` or `--claude`)
    - whether recording was active
 
+### Full HUD right-panel visualizer missing or misplaced
+
+In Full HUD mode, the right-panel visualizer (`ribbon`, `dots`, `heartbeat`)
+renders on the **main status row** (top-right lane), not on the shortcuts row.
+
+1. Verify `HUD panel` in Settings (`Ctrl+O`) is not `Off`.
+2. Confirm terminal width is large enough for Full HUD (`>= 60` columns is a
+   practical minimum; very narrow widths may fall back to compact rendering).
+3. If visualizer placement still looks wrong, run once with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+4. Share `${TMPDIR}/voiceterm_tui.log` with terminal/IDE details.
+
 ### Meter looks too loud for normal speech
 
 If meter bars/dots frequently appear at warning/error levels during normal

@@ -96,7 +96,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         queue_or_deliver_transcript(text, transcript_mode, macro_note, ready, ctx);
     }
 
-    super::auto_rearm::maybe_rearm_auto_after_insert(transcript_mode, ctx);
+    super::auto_rearm::maybe_rearm_auto_after_transcript(transcript_mode, ctx);
 
     if ctx.sound_on_complete {
         let _ = ctx.writer_tx.send(WriterMessage::Bell { count: 1 });

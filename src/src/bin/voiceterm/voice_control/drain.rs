@@ -18,7 +18,7 @@ use crate::voice_macros::VoiceMacros;
 use crate::writer::WriterMessage;
 
 use super::manager::VoiceManager;
-use auto_rearm::finalize_drain_state;
+use auto_rearm::{finalize_drain_state, maybe_rearm_auto_after_empty, AutoRearmContext};
 use message_processing::{handle_voice_message, update_last_latency};
 use transcript_delivery::{handle_transcript_message, TranscriptDeliveryContext};
 
@@ -142,6 +142,19 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 VoiceJobMessage::Empty { source, metrics },
                 &mut non_transcript_ctx,
             );
+            let mut rearm_ctx = AutoRearmContext {
+                voice_manager,
+                writer_tx,
+                status_clear_deadline,
+                current_status,
+                status_state,
+                last_auto_trigger_at,
+                recording_started_at,
+                preview_clear_deadline,
+                last_meter_update,
+                now,
+            };
+            maybe_rearm_auto_after_empty(&mut rearm_ctx, auto_voice_enabled);
         }
         other => {
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {

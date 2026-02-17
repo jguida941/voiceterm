@@ -29,6 +29,7 @@ const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
 const MAIN_ROW_RIGHT_GUTTER: usize = 1;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
 const RIGHT_PANEL_MIN_CONTENT_WIDTH: usize = 4;
+const MODE_LABEL_WIDTH: usize = 8;
 // Keep right-panel color bands responsive to normal speaking dynamics.
 const LEVEL_WARNING_DB: f32 = -30.0;
 const LEVEL_ERROR_DB: f32 = -18.0;
@@ -153,20 +154,11 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
 
             let inner_width = width.saturating_sub(2); // Account for left/right borders
 
-            let shortcuts_panel =
+            let main_row_panel =
                 format_right_panel(state, &colors, theme, inner_width.saturating_sub(12));
             // Get shortcuts row with button positions
-            let (shortcuts_line, buttons) = format_shortcuts_row_with_positions(
-                state,
-                &colors,
-                borders,
-                inner_width,
-                if shortcuts_panel.is_empty() {
-                    None
-                } else {
-                    Some(shortcuts_panel.as_str())
-                },
-            );
+            let (shortcuts_line, buttons) =
+                format_shortcuts_row_with_positions(state, &colors, borders, inner_width, None);
 
             let lines = vec![
                 if borderless {
@@ -174,7 +166,17 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
                 } else {
                     format_top_border(&colors, borders, width)
                 },
-                format_main_row(state, &colors, borders, inner_width),
+                format_main_row(
+                    state,
+                    &colors,
+                    borders,
+                    inner_width,
+                    if main_row_panel.is_empty() {
+                        None
+                    } else {
+                        Some(main_row_panel.as_str())
+                    },
+                ),
                 shortcuts_line,
                 if borderless {
                     borderless_row(width)
@@ -284,6 +286,7 @@ fn format_main_row(
     colors: &ThemeColors,
     borders: &BorderSet,
     inner_width: usize,
+    trailing_panel: Option<&str>,
 ) -> String {
     let render_width = inner_width.saturating_sub(MAIN_ROW_RIGHT_GUTTER);
 
@@ -304,24 +307,38 @@ fn format_main_row(
     };
 
     let content_width = display_width(&content);
-    let message_available = render_width.saturating_sub(content_width);
+    let panel_segment = trailing_panel
+        .filter(|panel| !panel.is_empty())
+        .and_then(|panel| {
+            let segment = format!(" {panel}");
+            if content_width + display_width(&segment) <= render_width {
+                Some(segment)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+    let panel_width = display_width(&panel_segment);
+    let text_render_width = render_width.saturating_sub(panel_width);
+    let message_available = text_render_width.saturating_sub(content_width);
     let truncated_message = truncate_display(&message_lane, message_available);
     let message_width = display_width(&truncated_message);
     let interior = format!("{content}{truncated_message}");
 
     // Padding to fill the row.
-    let padding_needed = render_width.saturating_sub(content_width + message_width);
+    let padding_needed = text_render_width.saturating_sub(content_width + message_width);
     let padding = " ".repeat(padding_needed);
     let right_gutter = " ".repeat(inner_width.saturating_sub(render_width));
 
     // No background colors - use transparent backgrounds for terminal compatibility
     format!(
-        "{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}{}",
         colors.border,
         borders.vertical,
         colors.reset,
         interior,
         padding,
+        panel_segment,
         right_gutter,
         colors.border,
         borders.vertical,
@@ -513,18 +530,36 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
     let mut result = String::with_capacity(32);
     result.push(' ');
 
-    let (indicator, label, idle_color) = match state.voice_mode {
-        VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info),
-        VoiceMode::Manual => (colors.indicator_manual, "PTT", ""),
-        VoiceMode::Idle => (colors.indicator_idle, "IDLE", ""),
+    let (indicator, label, color) = match state.recording_state {
+        RecordingState::Recording => (
+            get_recording_indicator(),
+            format!("{} REC", full_mode_voice_label(state.voice_mode)),
+            colors.recording,
+        ),
+        RecordingState::Processing => (
+            get_processing_spinner(),
+            format!("{} PROC", full_mode_voice_label(state.voice_mode)),
+            colors.processing,
+        ),
+        RecordingState::Responding => (
+            "↺",
+            format!("{} RESP", full_mode_voice_label(state.voice_mode)),
+            colors.info,
+        ),
+        RecordingState::Idle => {
+            let (idle_indicator, idle_color) = match state.voice_mode {
+                VoiceMode::Auto => (colors.indicator_auto, colors.info),
+                VoiceMode::Manual => (colors.indicator_manual, ""),
+                VoiceMode::Idle => (colors.indicator_idle, ""),
+            };
+            (
+                idle_indicator,
+                full_mode_voice_label(state.voice_mode).to_string(),
+                idle_color,
+            )
+        }
     };
-    let color = match state.recording_state {
-        RecordingState::Recording => colors.recording,
-        RecordingState::Processing => colors.processing,
-        RecordingState::Responding => colors.info,
-        RecordingState::Idle => idle_color,
-    };
-    let mode_label = format!("{label:<5}");
+    let mode_label = format!("{label:<width$}", width = MODE_LABEL_WIDTH);
     if !color.is_empty() {
         result.push_str(color);
     }
@@ -1146,6 +1181,30 @@ mod tests {
     }
 
     #[test]
+    fn format_status_banner_full_mode_recording_mode_lane_shows_auto_rec() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.voice_mode = VoiceMode::Auto;
+        state.recording_state = RecordingState::Recording;
+        state.message.clear();
+
+        let banner = format_status_banner(&state, Theme::Coral, 96);
+        assert!(banner.lines[1].contains("AUTO REC"));
+    }
+
+    #[test]
+    fn format_status_banner_full_mode_manual_recording_mode_lane_shows_ptt_rec() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.voice_mode = VoiceMode::Manual;
+        state.recording_state = RecordingState::Recording;
+        state.message.clear();
+
+        let banner = format_status_banner(&state, Theme::Coral, 96);
+        assert!(banner.lines[1].contains("PTT REC"));
+    }
+
+    #[test]
     fn format_status_banner_full_mode_border_style_override_uses_double_glyphs() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
@@ -1195,7 +1254,7 @@ mod tests {
     }
 
     #[test]
-    fn format_status_banner_full_mode_duration_separator_aligns_with_edit_button_lane() {
+    fn format_status_banner_full_mode_duration_separator_stays_right_of_edit_button_lane() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.recording_state = RecordingState::Recording;
@@ -1221,7 +1280,7 @@ mod tests {
                 .next()
                 .expect("shortcuts row should include edit button"),
         );
-        assert_eq!(separator_col, edit_col);
+        assert!(separator_col >= edit_col);
     }
 
     #[test]
@@ -1237,7 +1296,7 @@ mod tests {
         assert_eq!(banner.height, 4);
         assert!(banner.lines[1].contains("Ready"));
         assert!(!banner.lines[2].contains("Ready"));
-        assert!(banner.lines[2].contains("["));
+        assert!(banner.lines[1].contains("▁"));
     }
 
     #[test]
@@ -1251,8 +1310,7 @@ mod tests {
 
         let banner = format_status_banner(&state, Theme::Coral, 96);
         assert!(banner.lines[1].contains("Ready"));
-        assert!(banner.lines[2].contains("["));
-        assert!(banner.lines[2].contains("▁"));
+        assert!(banner.lines[1].contains("▁"));
     }
 
     #[test]
@@ -1348,7 +1406,7 @@ mod tests {
     }
 
     #[test]
-    fn format_status_banner_full_mode_places_ribbon_panel_on_shortcuts_row() {
+    fn format_status_banner_full_mode_places_ribbon_panel_on_main_row() {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         state.recording_state = RecordingState::Idle;
@@ -1357,9 +1415,9 @@ mod tests {
         state.hud_right_panel_recording_only = false;
 
         let banner = format_status_banner(&state, Theme::Coral, 120);
-        assert!(!banner.lines[1].contains("▁"));
-        assert!(banner.lines[2].contains("["));
-        assert!(banner.lines[2].contains("▁"));
+        assert!(banner.lines[1].contains("["));
+        assert!(banner.lines[1].contains("▁"));
+        assert!(!banner.lines[2].contains("▁"));
         assert!(banner.lines[2].contains("228ms"));
     }
 

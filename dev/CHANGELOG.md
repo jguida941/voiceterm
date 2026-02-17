@@ -7,9 +7,15 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-### Documentation
+- No changes yet.
 
-- Refresh user and developer docs for current HUD wording, install/flags guidance, and active planning indexes without version-specific callouts in user-facing guides.
+## [1.0.74] - 2026-02-17
+
+### UX
+
+- Restore Full HUD right-panel telemetry (`ribbon`/`dots`/`heartbeat`) to the main status row (top-right lane) while keeping the shortcuts row focused on interactive controls.
+- Expand active mode signaling so Full HUD now shows live state labels (`AUTO REC`, `PTT REC`, `AUTO PROC`, `PTT RESP`) with animated recording/processing indicators.
+- Keep recording button highlighting theme-native (`colors.recording`) so active capture remains consistent with each theme palette.
 
 ## [1.0.73] - 2026-02-17
 

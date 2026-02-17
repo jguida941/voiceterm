@@ -107,7 +107,7 @@ More detailed topics:
 - HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
 - Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
 - Full HUD note: right-panel visualizer (`ribbon`, `dots`, `heartbeat`)
-  appears on the shortcuts row with latency/theme/help controls.
+  appears on the main status row (top-right lane).
 - Theme note: on `xterm-256color`, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
 
