@@ -7,6 +7,34 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.81] - 2026-02-17
+
+### UX
+
+- Refine hidden HUD idle launcher behavior: remove the inline `Ctrl+U` hint from hidden launcher text, add a muted `[hide]` control next to `[open]`, let `hide` collapse the launcher to only `[open]`, and make `open` two-step from collapsed mode (first click restores launcher, next click switches HUD style) while keeping the existing `Ctrl+U` shortcut path.
+- Expand startup and first-run discoverability: startup splash shortcuts now surface `?` help + `Ctrl+O` settings + mouse-click support, and first run shows a persistent `Getting started` hint until the first successful transcript capture.
+- Replace flat clap `--help` output with a themed, grouped help screen (manual `-h`/`--help` path) that now uses a single accent family for faster scanning (gold-toned flags + matching section headers), dim/quiet frame/meta styling, plus bracketed section headers and `> --flag` label prefixes for a terminal-native visual style, while keeping runtime `--no-color`/`NO_COLOR` plain-text behavior.
+- Group help overlay shortcuts into task categories (`Recording`, `Mode`, `Appearance`, `Sensitivity`, `Navigation`) for faster scanning.
+- Add persistent runtime help discoverability without changing splash behavior: hidden HUD idle launcher now surfaces `? help` + `^O settings`, and the help overlay now includes clickable Docs/Troubleshooting OSC-8 links.
+- Tighten settings overlay readability: widened labels, explicit `Wake cooldown`/`Anim rec-only` naming, selected-item description footer, slider range hints, and read-only indicators for `Backend`/`Pipeline`.
+- Clarify settings footer controls with explicit keyboard and pointer guidance (`[×] close · ↑/↓ move · Enter select · Click/Tap select`) so overlay navigation is more readable and touch-friendly.
+- Fix settings slider pointer behavior so clicking left/right on slider tracks now moves in the matching direction (instead of always stepping forward).
+- Add settings-overlay mouse row actions: clicking a settings row now selects it and applies the same toggle/cycle behavior as keyboard controls (with row-click support for `Close` and `Quit`).
+- Fix overlay mouse hit-testing for settings/theme/help panels so click actions continue to work when terminals report non-left-aligned panel `x` coordinates (restores reliable row toggles and slider adjustments by click).
+- When `Ctrl+E` is pressed in insert mode while idle with no staged text, VoiceTerm now shows `Nothing to send` instead of silently consuming the key.
+
+### Runtime Hardening
+
+- Remove overlay input drop behavior for unmatched keys: when help/settings/theme overlays are open, unmatched input now closes the overlay and replays the action into the normal input path instead of swallowing it.
+- Replace generic capture/transcript failure statuses with actionable log-path messages (`... (log: <path>)`) across event-loop, button-handler, and transcript delivery paths.
+- Persist first-run onboarding completion to `~/.config/voiceterm/onboarding_state.toml` (overrideable via `VOICETERM_ONBOARDING_STATE`) after the first successful transcript.
+
+### Code Quality
+
+- Extract shared overlay frame rendering primitives (`overlay_frame`) and remove duplicated border/title/separator implementations from help/settings/theme-picker overlays.
+- Standardize overlay/HUD width logic to Unicode-aware display-width helpers and add HUD module priority ordering so queue/latency modules are retained first under constrained widths.
+- Extract themed help/status message helpers into dedicated modules (`custom_help.rs`, `status_messages.rs`) so help rendering and log-path status formatting are reused across runtime paths.
+
 ## [1.0.80] - 2026-02-17
 
 ### UX
@@ -144,7 +172,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Documentation
 
-- Expand release test guidance (`Testing_Guide.md`) with paired operator workflow, process churn/CPU leak checks, and high-load responsiveness validation.
+- Expand release test guidance (`dev/DEVELOPMENT.md`) with paired operator workflow, process churn/CPU leak checks, and high-load responsiveness validation.
 - Sync user docs (`README.md`, `QUICK_START.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`, `guides/USAGE.md`) with pre-release validation flow and updated lag/meter troubleshooting guidance.
 
 ## [1.0.70] - 2026-02-17
@@ -152,7 +180,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 
 - Archive `RUST_GUI_AUDIT_2026-02-15.md` to `dev/archive/2026-02-15-rust-gui-audit.md` and keep `dev/active/MASTER_PLAN.md` as the sole active hardening execution tracker.
-- Refresh developer governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `dev/scripts/README.md`, `.github/GUIDE.md`, `Testing_Guide.md`) to remove active dependency on the archived Rust GUI audit file.
+- Refresh developer governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `dev/scripts/README.md`, `.github/GUIDE.md`) to remove active dependency on the archived Rust GUI audit file.
 - Fix `guides/USAGE.md` status-table spacing to keep `docs_lint` markdown table validation green.
 
 ### UX
@@ -1221,7 +1249,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - **Docs sweep**: removed legacy CLI references from user-facing docs and the audit.
 - **Launchers aligned**: `start.sh` and `scripts/setup.sh` now run overlay-only; Windows launcher points to WSL/macos/linux.
-- **Backlog added**: `dev/active/BACKLOG.md` tracks follow-up work and open UX items.
+- **Backlog tracking**: follow-up work and open UX items are tracked in `dev/active/MASTER_PLAN.md`.
 
 ### Overlay UX (2026-01-23) - COMPLETE
 

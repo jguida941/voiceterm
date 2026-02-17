@@ -34,7 +34,8 @@ use crate::progress;
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
     settings_overlay_height, settings_overlay_inner_width_for_terminal,
-    settings_overlay_width_for_terminal, SettingsItem, SETTINGS_OVERLAY_FOOTER,
+    settings_overlay_width_for_terminal, SettingsItem, SETTINGS_ITEMS, SETTINGS_OPTION_START_ROW,
+    SETTINGS_OVERLAY_FOOTER,
 };
 use crate::settings_handlers::{
     SettingsActionContext, SettingsHudContext, SettingsStatusContext, SettingsVoiceContext,

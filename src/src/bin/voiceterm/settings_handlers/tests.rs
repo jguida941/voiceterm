@@ -516,6 +516,7 @@ fn cycle_hud_style_updates_state_and_status() {
     let mut status_clear_deadline = None;
     let mut current_status = None;
     let mut status_state = StatusLineState::new();
+    status_state.hidden_launcher_collapsed = true;
     let mut auto_voice_enabled = false;
     let mut last_auto_trigger_at = None;
     let mut recording_started_at = None;
@@ -546,6 +547,7 @@ fn cycle_hud_style_updates_state_and_status() {
 
     ctx.cycle_hud_style(1);
     assert_eq!(status_state.hud_style, HudStyle::Minimal);
+    assert!(!status_state.hidden_launcher_collapsed);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("status message")

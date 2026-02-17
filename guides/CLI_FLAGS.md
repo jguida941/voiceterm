@@ -1,6 +1,7 @@
 # CLI Flags
 
-All flags for the `voiceterm` command. Run `voiceterm --help` for the live output.
+All flags for the `voiceterm` command. Run `voiceterm --help` for the live
+themed, grouped output.
 
 ## Contents
 
@@ -58,8 +59,8 @@ Wake-word listening uses local audio/STT and requires an available local
 Whisper model path.
 High-load HUD responsiveness and meter visualization behavior are also runtime
 Settings/HUD concerns (no dedicated CLI flags); see
-[`Testing_Guide.md`](../Testing_Guide.md) sections `3`, `3A`, and `4A` for
-release validation commands.
+`dev/DEVELOPMENT.md` (`Testing` and `Manual QA checklist`) for release
+validation commands.
 
 Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
@@ -143,7 +144,7 @@ voiceterm --login --claude      # Login to Claude CLI
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--voice-vad-threshold-db <DB>` | Mic sensitivity (-120 = very sensitive, 0 = less; hotkeys clamp -80..-10) | -55 |
+| `--voice-vad-threshold-db <DB>` | Mic sensitivity (-120 = very sensitive, 0 = less; hotkeys clamp -80..-10) | -55.0 |
 | `--voice-max-capture-ms <MS>` | Max recording duration (max 60000) | 30000 |
 | `--voice-silence-tail-ms <MS>` | Silence duration to stop recording | 1000 |
 | `--voice-min-speech-ms-before-stt <MS>` | Minimum speech before STT starts | 300 |
@@ -178,7 +179,7 @@ voiceterm --login --claude      # Login to Claude CLI
 
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
 - `minimal`: Single-line strip with optional compact right-panel visualization chip
-- `hidden`: Muted launcher row when idle (`VoiceTerm hidden · Ctrl+U` + subtle `[open]` button); same muted gray `rec` indicator while recording
+- `hidden`: Muted launcher row when idle (`VoiceTerm hidden` + `? help` + `^O settings` + subtle `[open] [hide]` controls; selecting `hide` collapses to `[open]` only, first `open` restores launcher, next `open` switches HUD style); same muted gray `rec` indicator while recording
 - In Full HUD, right-panel telemetry (`ribbon`/`dots`/`heartbeat`) is shown on
   the main status row (top-right lane).
 - Full HUD border style can be overridden with `--hud-border-style` (`theme`, `single`, `rounded`, `double`, `heavy`, `none`)
@@ -186,6 +187,10 @@ voiceterm --login --claude      # Login to Claude CLI
 - Latency badge reports direct STT delay (`stt_ms`) only, hides on no-speech/error
   captures, and auto-expires stale idle values; severity color follows
   speech-relative STT speed (`rtf`) when speech metrics are available.
+- Startup and first-run discoverability now surfaces `?` help + `Ctrl+O` settings
+  hints, and first-run guidance remains visible until the first successful transcript.
+- Help overlay now includes clickable Docs/Troubleshooting links on OSC-8
+  capable terminals.
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
 Theme controls at runtime: `Ctrl+Y` opens the picker and `Ctrl+G` quick-cycles

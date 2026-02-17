@@ -2,7 +2,7 @@
 //!
 //! Shows the number of pending transcripts in queue: "Q: 2"
 
-use super::{HudModule, HudState};
+use super::{display_width, HudModule, HudState};
 
 /// Queue depth module showing pending transcript count.
 pub struct QueueModule;
@@ -36,7 +36,7 @@ impl HudModule for QueueModule {
         }
 
         let full = format!("Q: {}", state.queue_depth);
-        if full.chars().count() <= max_width {
+        if display_width(&full) <= max_width {
             full
         } else if max_width >= 2 {
             // Ultra compact
@@ -49,6 +49,10 @@ impl HudModule for QueueModule {
     fn min_width(&self) -> usize {
         // Minimum: "Q1" = 2 chars
         2
+    }
+
+    fn priority(&self) -> u8 {
+        240
     }
 }
 

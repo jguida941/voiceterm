@@ -21,9 +21,22 @@ fn has_pulse_color_prefix(rendered: &str, indicator: &str, colors: &ThemeColors)
 }
 
 #[test]
-fn get_button_positions_hidden_idle_has_open_button() {
+fn get_button_positions_hidden_idle_has_open_and_hide_buttons() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Hidden;
+    let positions = get_button_positions(&state, Theme::None, 80);
+    assert_eq!(positions.len(), 2);
+    assert_eq!(positions[0].row, 1);
+    assert_eq!(positions[0].action, ButtonAction::ToggleHudStyle);
+    assert_eq!(positions[1].row, 1);
+    assert_eq!(positions[1].action, ButtonAction::CollapseHiddenLauncher);
+}
+
+#[test]
+fn get_button_positions_hidden_collapsed_keeps_only_open_button() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Hidden;
+    state.hidden_launcher_collapsed = true;
     let positions = get_button_positions(&state, Theme::None, 80);
     assert_eq!(positions.len(), 1);
     assert_eq!(positions[0].row, 1);
@@ -50,12 +63,14 @@ fn get_button_positions_minimal_has_back_button() {
 }
 
 #[test]
-fn hidden_launcher_text_contains_hint() {
+fn hidden_launcher_text_omits_ctrl_u_hint() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
     let line = hidden_launcher_text(&state, &colors);
     assert!(line.contains("Voice"));
-    assert!(line.contains("Ctrl+U"));
+    assert!(!line.contains("Ctrl+U"));
+    assert!(line.contains("? help"));
+    assert!(line.contains("^O settings"));
 }
 
 #[test]
@@ -71,9 +86,21 @@ fn hidden_launcher_uses_neutral_gray_color_instead_of_theme_dim() {
 fn hidden_launcher_open_button_uses_neutral_gray_when_unfocused() {
     let colors = Theme::Codex.colors();
     let state = StatusLineState::new();
-    let (line, _) = format_hidden_launcher_with_button(&state, &colors, 80);
+    let (line, _) = format_hidden_launcher_with_buttons(&state, &colors, 80);
     assert!(line.contains("\x1b[90m[open]"));
     assert!(!line.contains(&format!("{}open", colors.info)));
+}
+
+#[test]
+fn hidden_launcher_collapsed_renders_only_open_button() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hidden_launcher_collapsed = true;
+    let (line, buttons) = format_hidden_launcher_with_buttons(&state, &colors, 80);
+    assert!(line.contains("[open]"));
+    assert!(!line.contains("[hide]"));
+    assert_eq!(buttons.len(), 1);
+    assert_eq!(buttons[0].action, ButtonAction::ToggleHudStyle);
 }
 
 #[test]
@@ -418,33 +445,44 @@ fn shortcuts_row_trailing_panel_hugs_right_border() {
 }
 
 #[test]
-fn hidden_launcher_button_aligns_to_right_edge_when_space_available() {
+fn hidden_launcher_buttons_align_to_right_edge_when_space_available() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = hidden_launcher_button(&colors, false);
-    let button_width = display_width(&open_button);
+    let open_button = hidden_launcher_button(&colors, "open", false);
+    let hide_button = hidden_launcher_button(&colors, "hide", false);
+    let buttons = format!("{open_button} {hide_button}");
+    let button_width = display_width(&buttons);
     let width = button_width + 18;
 
-    let (line, button) = format_hidden_launcher_with_button(&state, &colors, width);
-    let button = button.expect("open button should be present");
+    let (line, button_positions) = format_hidden_launcher_with_buttons(&state, &colors, width);
+    assert_eq!(button_positions.len(), 2);
+    let open = button_positions
+        .iter()
+        .find(|button| button.action == ButtonAction::ToggleHudStyle)
+        .expect("open button should be present");
+    let hide = button_positions
+        .iter()
+        .find(|button| button.action == ButtonAction::CollapseHiddenLauncher)
+        .expect("hide button should be present");
 
     assert_eq!(display_width(&line), width);
-    assert_eq!(button.start_x, (width - button_width + 1) as u16);
-    assert_eq!(button.end_x, width as u16);
-    assert_eq!(button.row, 1);
-    assert_eq!(button.action, ButtonAction::ToggleHudStyle);
+    assert_eq!(open.start_x, (width - button_width + 1) as u16);
+    assert_eq!(hide.end_x, width as u16);
+    assert_eq!(open.row, 1);
+    assert_eq!(hide.row, 1);
 }
 
 #[test]
-fn hidden_launcher_hides_button_when_width_too_small() {
+fn hidden_launcher_hides_buttons_when_width_too_small() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = hidden_launcher_button(&colors, false);
-    let width = display_width(&open_button) + 1;
+    let open_button = hidden_launcher_button(&colors, "open", false);
+    let hide_button = hidden_launcher_button(&colors, "hide", false);
+    let width = display_width(&format!("{open_button} {hide_button}")) + 1;
 
-    let (line, button) = format_hidden_launcher_with_button(&state, &colors, width);
+    let (line, buttons) = format_hidden_launcher_with_buttons(&state, &colors, width);
 
-    assert!(button.is_none());
+    assert!(buttons.is_empty());
     assert_eq!(display_width(&line), width);
 }
 
@@ -667,11 +705,12 @@ fn minimal_status_text_shows_processing_message_when_idle() {
 fn hidden_launcher_boundary_width_shows_button_at_exact_threshold() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let open_button = hidden_launcher_button(&colors, false);
-    let width = display_width(&open_button) + 2;
+    let open_button = hidden_launcher_button(&colors, "open", false);
+    let hide_button = hidden_launcher_button(&colors, "hide", false);
+    let width = display_width(&format!("{open_button} {hide_button}")) + 2;
 
-    let (_, button) = format_hidden_launcher_with_button(&state, &colors, width);
-    assert!(button.is_some());
+    let (_, buttons) = format_hidden_launcher_with_buttons(&state, &colors, width);
+    assert_eq!(buttons.len(), 2);
 }
 
 #[test]
@@ -680,10 +719,16 @@ fn focused_buttons_use_info_brackets() {
 
     let mut hidden_state = StatusLineState::new();
     hidden_state.hud_button_focus = Some(ButtonAction::ToggleHudStyle);
-    let (hidden_line, hidden_button) =
-        format_hidden_launcher_with_button(&hidden_state, &colors, 80);
-    assert!(hidden_button.is_some());
+    let (hidden_line, hidden_buttons) =
+        format_hidden_launcher_with_buttons(&hidden_state, &colors, 80);
+    assert!(!hidden_buttons.is_empty());
     assert!(hidden_line.contains(&format!("{}[", colors.info)));
+
+    hidden_state.hud_button_focus = Some(ButtonAction::CollapseHiddenLauncher);
+    let (hidden_line_hide, hidden_buttons_hide) =
+        format_hidden_launcher_with_buttons(&hidden_state, &colors, 80);
+    assert!(!hidden_buttons_hide.is_empty());
+    assert!(hidden_line_hide.contains(&format!("{}[", colors.info)));
 
     let mut minimal_state = StatusLineState::new();
     minimal_state.hud_button_focus = Some(ButtonAction::HudBack);

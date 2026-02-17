@@ -2,7 +2,7 @@
 //!
 //! Shows the current voice mode: "● AUTO", "○ MANUAL", or "◐ INSERT".
 
-use super::{HudModule, HudState, Mode};
+use super::{display_width, HudModule, HudState, Mode};
 
 /// Mode indicator module showing current voice mode.
 pub struct ModeModule;
@@ -41,7 +41,7 @@ impl HudModule for ModeModule {
         };
 
         let full = format!("{} {}", indicator, label);
-        if full.chars().count() <= max_width {
+        if display_width(&full) <= max_width {
             full
         } else if max_width >= 1 {
             // Just the indicator
@@ -54,6 +54,10 @@ impl HudModule for ModeModule {
     fn min_width(&self) -> usize {
         // Minimum: indicator only
         1
+    }
+
+    fn priority(&self) -> u8 {
+        90
     }
 }
 

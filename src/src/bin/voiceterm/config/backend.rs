@@ -97,6 +97,7 @@ mod tests {
 
     fn make_config_with_backend(backend: &str) -> OverlayConfig {
         OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: None,
             prompt_log: None,

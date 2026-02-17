@@ -94,13 +94,25 @@ Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 Send mode note: "auto" types your words and presses Enter. "Insert" types your words
 but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY) and
 does not call Codex/Claude directly.
+In insert mode, pressing `Ctrl+E` while idle with no staged text now shows
+`Nothing to send` (instead of silently doing nothing).
+When help/settings/theme overlays are open, unmatched input now closes the
+overlay and replays the action instead of dropping it.
 Status text is pipeline-neutral (`Listening Manual Mode`, `No speech detected`);
 use Settings (`Ctrl+O`) to view the current `Voice pipeline`.
 Latency badge reflects direct STT delay (`stt_ms`) only, hides for
 no-speech/error captures, and auto-clears stale idle values after a short
 window.
-Hidden HUD launcher text, `[open]`, and recording indicator are intentionally
-muted gray so hidden mode stays unobtrusive.
+Hidden HUD launcher text/buttons and recording indicator are intentionally
+muted gray so hidden mode stays unobtrusive. Idle hidden mode shows
+`? help`, `^O settings`, and `[open] [hide]`; selecting `hide` collapses the
+launcher to only `[open]`.
+In collapsed mode, the first `open` restores the hidden launcher, and the next
+`open` switches HUD style.
+Help overlay includes clickable Docs/Troubleshooting links (OSC-8 capable
+terminals).
+On first run, VoiceTerm shows a persistent `Getting started` hint
+(`Ctrl+R` / `?` / `Ctrl+O`) until your first successful transcript capture.
 
 Built-in voice navigation phrases include `scroll up`, `scroll down`,
 `show last error`, `copy last error`, and `explain last error`.
@@ -134,8 +146,9 @@ cd voiceterm
 ./scripts/install.sh
 ```
 
-After installing a test branch build, run `Testing_Guide.md` sections `3`,
-`3A`, and `4A` before promoting to a tagged release.
+After installing a test branch build, run the release verification commands in
+`dev/DEVELOPMENT.md` (`Testing` and `Manual QA checklist`) before promoting to
+a tagged release.
 
 - Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 

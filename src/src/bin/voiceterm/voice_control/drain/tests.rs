@@ -47,6 +47,7 @@ fn write_test_macros_file(yaml: &str) -> std::path::PathBuf {
 
 fn test_overlay_config(send_mode: VoiceSendMode) -> OverlayConfig {
     OverlayConfig {
+        help: false,
         app: AppConfig::parse_from(["test"]),
         prompt_regex: None,
         prompt_log: None,

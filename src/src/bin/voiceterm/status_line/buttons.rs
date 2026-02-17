@@ -23,7 +23,7 @@ const HIDDEN_LAUNCHER_MUTED_ANSI: &str = "\x1b[90m";
 
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
-/// Hidden mode exposes an "open" launcher button while idle.
+/// Hidden mode exposes an "open" launcher and optional "hide" control while idle.
 pub fn get_button_positions(
     state: &StatusLineState,
     theme: Theme,
@@ -50,8 +50,8 @@ pub fn get_button_positions(
                 return Vec::new();
             }
             let colors = theme.colors();
-            let (_, button) = format_hidden_launcher_with_button(state, &colors, width);
-            button.into_iter().collect()
+            let (_, buttons) = format_hidden_launcher_with_buttons(state, &colors, width);
+            buttons
         }
     }
 }
@@ -352,7 +352,7 @@ pub(super) fn format_minimal_strip_with_button(
 
 fn hidden_launcher_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     let base = if state.message.is_empty() {
-        "VoiceTerm hidden · Ctrl+U".to_string()
+        "VoiceTerm hidden · ? help · ^O settings".to_string()
     } else {
         format!("VoiceTerm · {}", state.message)
     };
@@ -368,45 +368,88 @@ pub(super) fn hidden_muted_color(colors: &ThemeColors) -> &str {
     }
 }
 
-fn hidden_launcher_button(colors: &ThemeColors, focused: bool) -> String {
+fn hidden_launcher_button(colors: &ThemeColors, label: &str, focused: bool) -> String {
     if focused {
-        return format_button(colors, "open", colors.info, true);
+        return format_button(colors, label, colors.info, true);
     }
-    with_color("[open]", hidden_muted_color(colors), colors)
+    with_color(&format!("[{label}]"), hidden_muted_color(colors), colors)
 }
 
-pub(super) fn format_hidden_launcher_with_button(
+fn hidden_launcher_button_defs(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+) -> Vec<(ButtonAction, String)> {
+    let mut defs = Vec::with_capacity(2);
+    defs.push((
+        ButtonAction::ToggleHudStyle,
+        hidden_launcher_button(
+            colors,
+            "open",
+            state.hud_button_focus == Some(ButtonAction::ToggleHudStyle),
+        ),
+    ));
+    if !state.hidden_launcher_collapsed {
+        defs.push((
+            ButtonAction::CollapseHiddenLauncher,
+            hidden_launcher_button(
+                colors,
+                "hide",
+                state.hud_button_focus == Some(ButtonAction::CollapseHiddenLauncher),
+            ),
+        ));
+    }
+    defs
+}
+
+pub(super) fn format_hidden_launcher_with_buttons(
     state: &StatusLineState,
     colors: &ThemeColors,
     width: usize,
-) -> (String, Option<ButtonPosition>) {
+) -> (String, Vec<ButtonPosition>) {
     if width == 0 {
-        return (String::new(), None);
+        return (String::new(), Vec::new());
     }
 
-    let base = hidden_launcher_text(state, colors);
-    let focused = state.hud_button_focus == Some(ButtonAction::ToggleHudStyle);
-    let button = hidden_launcher_button(colors, focused);
-    let button_width = display_width(&button);
+    let base = if state.hidden_launcher_collapsed {
+        String::new()
+    } else {
+        hidden_launcher_text(state, colors)
+    };
+    let button_defs = hidden_launcher_button_defs(state, colors);
+    let button_row = button_defs
+        .iter()
+        .map(|(_, rendered)| rendered.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let button_row_width = display_width(&button_row);
 
-    if width >= button_width + 2 {
-        let button_start = width.saturating_sub(button_width) + 1;
+    if width >= button_row_width + 2 {
+        let button_start = width.saturating_sub(button_row_width) + 1;
         let status_width = button_start.saturating_sub(2);
         let status = truncate_display(&base, status_width);
         let status_width = display_width(&status);
         let padding = button_start.saturating_sub(1 + status_width);
-        let line = format!("{status}{}{}", " ".repeat(padding), button);
-        let button_pos = ButtonPosition {
-            start_x: button_start as u16,
-            end_x: (button_start + button_width - 1) as u16,
-            row: 1,
-            action: ButtonAction::ToggleHudStyle,
-        };
-        return (line, Some(button_pos));
+        let line = format!("{status}{}{}", " ".repeat(padding), button_row);
+        let mut button_positions = Vec::with_capacity(button_defs.len());
+        let mut cursor = button_start;
+        for (idx, (action, rendered)) in button_defs.iter().enumerate() {
+            let button_width = display_width(rendered);
+            button_positions.push(ButtonPosition {
+                start_x: cursor as u16,
+                end_x: (cursor + button_width - 1) as u16,
+                row: 1,
+                action: *action,
+            });
+            cursor += button_width;
+            if idx + 1 < button_defs.len() {
+                cursor += 1;
+            }
+        }
+        return (line, button_positions);
     }
 
     let line = truncate_display(&base, width);
-    (line, None)
+    (line, Vec::new())
 }
 
 /// Format the shortcuts row with dimmed styling and return button positions.
@@ -580,6 +623,7 @@ fn button_highlight<'a>(
         },
         ButtonAction::SettingsToggle
         | ButtonAction::ToggleHudStyle
+        | ButtonAction::CollapseHiddenLauncher
         | ButtonAction::HudBack
         | ButtonAction::HelpToggle
         | ButtonAction::ThemePicker => colors.border,

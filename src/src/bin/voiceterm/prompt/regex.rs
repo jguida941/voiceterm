@@ -54,6 +54,7 @@ mod tests {
     #[test]
     fn resolve_prompt_regex_honors_config() {
         let config = OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: Some("^codex> $".to_string()),
             prompt_log: None,
@@ -86,6 +87,7 @@ mod tests {
     #[test]
     fn resolve_prompt_regex_rejects_invalid() {
         let config = OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: Some("[".to_string()),
             prompt_log: None,

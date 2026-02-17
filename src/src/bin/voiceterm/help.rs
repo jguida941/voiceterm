@@ -1,7 +1,8 @@
-//! Help overlay that documents live keyboard shortcuts directly in the terminal UI.
-//!
-//! Displays available keyboard shortcuts in a formatted panel.
+//! Help overlay that documents keyboard shortcuts directly in the terminal UI.
 
+use crate::overlay_frame::{
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+};
 use crate::theme::{Theme, ThemeColors};
 
 /// Keyboard shortcut definition.
@@ -12,12 +13,7 @@ pub struct Shortcut {
     pub description: &'static str,
 }
 
-/// All available keyboard shortcuts.
-pub const SHORTCUTS: &[Shortcut] = &[
-    Shortcut {
-        key: "?",
-        description: "Show help",
-    },
+const RECORDING_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+R",
         description: "Toggle voice capture (start/stop)",
@@ -26,6 +22,9 @@ pub const SHORTCUTS: &[Shortcut] = &[
         key: "Ctrl+E",
         description: "Send staged text / stop+submit (insert mode)",
     },
+];
+
+const MODE_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+V",
         description: "Toggle auto-voice mode",
@@ -34,6 +33,9 @@ pub const SHORTCUTS: &[Shortcut] = &[
         key: "Ctrl+T",
         description: "Toggle send mode (auto/insert)",
     },
+];
+
+const APPEARANCE_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+Y",
         description: "Theme picker",
@@ -43,13 +45,12 @@ pub const SHORTCUTS: &[Shortcut] = &[
         description: "Quick theme cycle",
     },
     Shortcut {
-        key: "Ctrl+O",
-        description: "Settings menu (use arrows)",
-    },
-    Shortcut {
         key: "Ctrl+U",
         description: "Cycle HUD style (full/min/hidden)",
     },
+];
+
+const SENSITIVITY_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+]",
         description: "Less sensitive (+5 dB)",
@@ -62,19 +63,42 @@ pub const SHORTCUTS: &[Shortcut] = &[
         key: "Ctrl+/",
         description: "More sensitive (-5 dB)",
     },
+];
+
+const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
-        key: "Ctrl+Q",
-        description: "Exit VoiceTerm",
+        key: "?",
+        description: "Show help",
+    },
+    Shortcut {
+        key: "Ctrl+O",
+        description: "Settings menu (use arrows)",
+    },
+    Shortcut {
+        key: "Enter",
+        description: "Send prompt",
     },
     Shortcut {
         key: "Ctrl+C",
         description: "Cancel / Forward to CLI",
     },
     Shortcut {
-        key: "Enter",
-        description: "Send prompt",
+        key: "Ctrl+Q",
+        description: "Exit VoiceTerm",
     },
 ];
+
+const SHORTCUT_SECTIONS: &[(&str, &[Shortcut])] = &[
+    ("Recording", RECORDING_SHORTCUTS),
+    ("Mode", MODE_SHORTCUTS),
+    ("Appearance", APPEARANCE_SHORTCUTS),
+    ("Sensitivity", SENSITIVITY_SHORTCUTS),
+    ("Navigation", NAVIGATION_SHORTCUTS),
+];
+
+const DOCS_URL: &str = "https://github.com/jguida941/voiceterm/blob/master/README.md";
+const TROUBLESHOOTING_URL: &str =
+    "https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md";
 
 pub const HELP_OVERLAY_FOOTER: &str = "[×] close · ^O settings";
 
@@ -92,103 +116,68 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     let borders = &colors.borders;
     let mut lines = Vec::new();
 
-    // Calculate box width
     let content_width = help_overlay_width_for_terminal(width);
 
-    // Top border
-    lines.push(format_box_top(&colors, borders, content_width));
-
-    // Title
-    lines.push(format_title_line(
+    lines.push(frame_top(&colors, borders, content_width));
+    lines.push(centered_title_line(
         &colors,
         borders,
         "VoiceTerm - Shortcuts",
         content_width,
     ));
+    lines.push(frame_separator(&colors, borders, content_width));
 
-    // Separator
-    lines.push(format_separator(&colors, borders, content_width));
-
-    // Shortcuts
-    for shortcut in SHORTCUTS {
-        lines.push(format_shortcut_line(&colors, shortcut, content_width));
+    for (idx, (title, shortcuts)) in SHORTCUT_SECTIONS.iter().enumerate() {
+        lines.push(format_section_line(&colors, title, content_width));
+        for shortcut in *shortcuts {
+            lines.push(format_shortcut_line(&colors, shortcut, content_width));
+        }
+        if idx + 1 < SHORTCUT_SECTIONS.len() {
+            lines.push(frame_separator(&colors, borders, content_width));
+        }
     }
 
-    // Separator
-    lines.push(format_separator(&colors, borders, content_width));
-
-    // Footer with clickable close button
-    lines.push(format_title_line(
+    lines.push(frame_separator(&colors, borders, content_width));
+    lines.push(format_section_line(&colors, "Resources", content_width));
+    lines.push(format_resource_link_line(
+        &colors,
+        "Docs",
+        "README",
+        DOCS_URL,
+        content_width,
+    ));
+    lines.push(format_resource_link_line(
+        &colors,
+        "Troubleshooting",
+        "Guide",
+        TROUBLESHOOTING_URL,
+        content_width,
+    ));
+    lines.push(frame_separator(&colors, borders, content_width));
+    lines.push(centered_title_line(
         &colors,
         borders,
         HELP_OVERLAY_FOOTER,
         content_width,
     ));
-
-    // Bottom border
-    lines.push(format_box_bottom(&colors, borders, content_width));
+    lines.push(frame_bottom(&colors, borders, content_width));
 
     lines.join("\n")
 }
 
-fn format_box_top(colors: &ThemeColors, borders: &crate::theme::BorderSet, width: usize) -> String {
-    // width is the total box width including corners
-    // Inner horizontal chars = width - 2 (for the two corners)
+fn format_section_line(colors: &ThemeColors, title: &str, width: usize) -> String {
+    let borders = &colors.borders;
     let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
+    let heading = format!(" {title}");
+    let clipped = truncate_display(&heading, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
     format!(
-        "{}{}{}{}{}",
-        colors.border, borders.top_left, inner, borders.top_right, colors.reset
-    )
-}
-
-fn format_box_bottom(
-    colors: &ThemeColors,
-    borders: &crate::theme::BorderSet,
-    width: usize,
-) -> String {
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.bottom_left, inner, borders.bottom_right, colors.reset
-    )
-}
-
-fn format_separator(
-    colors: &ThemeColors,
-    borders: &crate::theme::BorderSet,
-    width: usize,
-) -> String {
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.t_left, inner, borders.t_right, colors.reset
-    )
-}
-
-fn format_title_line(
-    colors: &ThemeColors,
-    borders: &crate::theme::BorderSet,
-    title: &str,
-    width: usize,
-) -> String {
-    // Content between borders must equal width - 2 (for the two border chars)
-    let inner_width = width.saturating_sub(2);
-    // Use character count, not byte length, for proper Unicode support
-    let title_display_len = title.chars().count();
-    let padding = inner_width.saturating_sub(title_display_len);
-    let left_pad = padding / 2;
-    let right_pad = padding - left_pad;
-    format!(
-        "{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}",
         colors.border,
         borders.vertical,
-        colors.reset,
-        " ".repeat(left_pad),
-        title,
-        " ".repeat(right_pad),
+        colors.dim,
+        clipped,
+        pad,
         colors.border,
         borders.vertical,
         colors.reset
@@ -197,24 +186,63 @@ fn format_title_line(
 
 fn format_shortcut_line(colors: &ThemeColors, shortcut: &Shortcut, width: usize) -> String {
     let borders = &colors.borders;
-    // Content width between vertical borders
     let inner_width = width.saturating_sub(2);
     let key_width = 10;
-    // Layout: "  " (2) + key (10) + "  " (2) + desc = 14 + desc_width = inner_width
     let desc_width = inner_width.saturating_sub(key_width + 4);
     let key_padded = format!("{:>width$}", shortcut.key, width = key_width);
-    let desc_truncated: String = shortcut.description.chars().take(desc_width).collect();
-    let desc_padded = format!("{:<width$}", desc_truncated, width = desc_width);
+    let desc_clipped = truncate_display(shortcut.description, desc_width);
+    let desc_pad = " ".repeat(desc_width.saturating_sub(display_width(&desc_clipped)));
 
     format!(
-        "{}{}{}  {}{}{}  {}{}{}{}",
+        "{}{}{}  {}{}{}  {}{}{}{}{}",
         colors.border,
         borders.vertical,
         colors.reset,
         colors.info,
         key_padded,
         colors.reset,
-        desc_padded,
+        desc_clipped,
+        desc_pad,
+        colors.border,
+        borders.vertical,
+        colors.reset
+    )
+}
+
+fn osc8_link(label: &str, url: &str) -> String {
+    format!("\x1b]8;;{url}\x1b\\{label}\x1b]8;;\x1b\\")
+}
+
+fn format_resource_link_line(
+    colors: &ThemeColors,
+    label: &str,
+    link_label: &str,
+    url: &str,
+    width: usize,
+) -> String {
+    let borders = &colors.borders;
+    let inner_width = width.saturating_sub(2);
+    let prefix = format!(" {label}: ");
+    let visible_link = format!("[{link_label}]");
+    let visible = format!("{prefix}{visible_link}");
+    let visible_clipped = truncate_display(&visible, inner_width);
+    let clipped_width = display_width(&visible_clipped);
+    let padding = " ".repeat(inner_width.saturating_sub(clipped_width));
+
+    let rendered = if display_width(&visible) > inner_width {
+        visible_clipped
+    } else {
+        let linked = osc8_link(&visible_link, url);
+        format!("{prefix}{linked}")
+    };
+
+    format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        rendered,
+        padding,
         colors.border,
         borders.vertical,
         colors.reset
@@ -223,8 +251,16 @@ fn format_shortcut_line(colors: &ThemeColors, shortcut: &Shortcut, width: usize)
 
 /// Calculate the height of the help overlay.
 pub fn help_overlay_height() -> usize {
-    // Top border + title + separator + shortcuts + separator + footer + bottom border
-    3 + SHORTCUTS.len() + 3
+    let section_rows: usize = SHORTCUT_SECTIONS
+        .iter()
+        .map(|(_, shortcuts)| 1 + shortcuts.len())
+        .sum();
+    let inter_section_separators = SHORTCUT_SECTIONS.len().saturating_sub(1);
+
+    // top + title + initial separator + section rows + separators
+    // + resources separator + resources header + two resource lines
+    // + footer separator + footer + bottom
+    3 + section_rows + inter_section_separators + 7
 }
 
 /// Calculate the width of the help overlay.
@@ -238,19 +274,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn shortcuts_defined() {
-        assert!(!SHORTCUTS.is_empty());
-        assert!(SHORTCUTS.len() >= 5);
+    fn shortcuts_defined_in_sections() {
+        assert!(!SHORTCUT_SECTIONS.is_empty());
+        assert!(SHORTCUT_SECTIONS.len() >= 5);
     }
 
     #[test]
-    fn format_help_overlay_contains_shortcuts() {
+    fn format_help_overlay_contains_shortcuts_and_sections() {
         let help = format_help_overlay(Theme::Coral, 60);
+        assert!(help.contains("Recording"));
         assert!(help.contains("Ctrl+R"));
-        assert!(help.contains("Toggle voice capture"));
-        assert!(help.contains("Ctrl+E"));
+        assert!(help.contains("Mode"));
         assert!(help.contains("Ctrl+V"));
-        assert!(help.contains("Toggle auto-voice"));
+        assert!(help.contains("Navigation"));
+        assert!(help.contains("?"));
+        assert!(help.contains("Resources"));
+        assert!(help.contains("Docs:"));
+        assert!(help.contains("Troubleshooting:"));
     }
 
     #[test]
@@ -276,40 +316,6 @@ mod tests {
     }
 
     #[test]
-    fn format_separator_matches_width_and_borders() {
-        let colors = Theme::None.colors();
-        let borders = &colors.borders;
-        let rendered = format_separator(&colors, borders, 10);
-        assert_eq!(rendered.chars().count(), 10);
-        let expected = format!(
-            "{}{}{}{}{}",
-            "",
-            borders.t_left,
-            "─".repeat(8),
-            borders.t_right,
-            ""
-        );
-        assert_eq!(rendered, expected);
-    }
-
-    #[test]
-    fn format_title_line_centers_text_with_balanced_padding() {
-        let colors = Theme::None.colors();
-        let borders = &colors.borders;
-        let line = format_title_line(&colors, borders, "ABC", 20);
-        assert_eq!(
-            line,
-            format!(
-                "{}{}{}{}",
-                borders.vertical,
-                " ".repeat(7),
-                "ABC",
-                " ".repeat(8)
-            ) + &format!("{}", borders.vertical)
-        );
-    }
-
-    #[test]
     fn format_shortcut_line_respects_calculated_description_width() {
         let colors = Theme::None.colors();
         let line = format_shortcut_line(
@@ -320,14 +326,22 @@ mod tests {
             },
             30,
         );
-        assert_eq!(line.chars().count(), 30);
+        assert_eq!(display_width(&line), 30);
         assert!(line.contains("1234567890ABCD"));
         assert!(!line.contains("1234567890ABCDE"));
     }
 
     #[test]
     fn help_overlay_height_matches_documented_formula() {
-        assert_eq!(help_overlay_height(), SHORTCUTS.len() + 6);
+        let section_rows: usize = SHORTCUT_SECTIONS
+            .iter()
+            .map(|(_, shortcuts)| 1 + shortcuts.len())
+            .sum();
+        let inter_section_separators = SHORTCUT_SECTIONS.len().saturating_sub(1);
+        assert_eq!(
+            help_overlay_height(),
+            3 + section_rows + inter_section_separators + 7
+        );
     }
 
     #[test]
@@ -335,6 +349,13 @@ mod tests {
         let help = format_help_overlay(Theme::None, 60);
         assert!(help.contains("Ctrl+R"));
         // Should not have ANSI color codes (only box drawing)
-        assert!(!help.contains("\x1b[9")); // No color codes like \x1b[91m
+        assert!(!help.contains("\x1b[9"));
+    }
+
+    #[test]
+    fn format_help_overlay_includes_clickable_resource_links() {
+        let help = format_help_overlay(Theme::None, 60);
+        assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/README.md\x1b\\[README]\x1b]8;;\x1b\\"));
+        assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md\x1b\\[Guide]\x1b]8;;\x1b\\"));
     }
 }

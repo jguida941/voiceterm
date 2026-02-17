@@ -1,6 +1,9 @@
 //! Settings panel rendering so menu state maps to stable terminal output.
 
 use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
+use crate::overlay_frame::{
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+};
 use crate::status_line::Pipeline;
 use crate::theme::ThemeColors;
 
@@ -11,16 +14,18 @@ use super::items::{
 
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
     let colors = view.theme.colors();
+    let borders = &colors.borders;
     let mut lines = Vec::new();
     let content_width = settings_overlay_width_for_terminal(width);
 
-    lines.push(format_box_top(&colors, content_width));
-    lines.push(format_title_line(
+    lines.push(frame_top(&colors, borders, content_width));
+    lines.push(centered_title_line(
         &colors,
+        borders,
         "VoiceTerm Settings",
         content_width,
     ));
-    lines.push(format_separator(&colors, content_width));
+    lines.push(frame_separator(&colors, borders, content_width));
 
     for (idx, item) in SETTINGS_ITEMS.iter().enumerate() {
         let selected = idx == view.selected;
@@ -28,14 +33,24 @@ pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String 
         lines.push(line);
     }
 
-    lines.push(format_separator(&colors, content_width));
-    // Footer with clickable close button
-    lines.push(format_title_line(
+    let selected_item = SETTINGS_ITEMS
+        .get(view.selected)
+        .copied()
+        .unwrap_or(SettingsItem::AutoVoice);
+    lines.push(format_description_row(
         &colors,
+        content_width,
+        setting_description(selected_item),
+    ));
+    lines.push(frame_separator(&colors, borders, content_width));
+    // Footer with clickable close button
+    lines.push(centered_title_line(
+        &colors,
+        borders,
         SETTINGS_OVERLAY_FOOTER,
         content_width,
     ));
-    lines.push(format_box_bottom(&colors, content_width));
+    lines.push(frame_bottom(&colors, borders, content_width));
 
     lines.join("\n")
 }
@@ -47,8 +62,9 @@ fn format_settings_row(
     colors: &ThemeColors,
     width: usize,
 ) -> String {
-    const LABEL_WIDTH: usize = 12;
+    const LABEL_WIDTH: usize = 15;
     let marker = if selected { "▸" } else { " " };
+    let read_only = matches!(item, SettingsItem::Backend | SettingsItem::Pipeline);
 
     let row_text = match item {
         SettingsItem::AutoVoice => format!(
@@ -66,15 +82,15 @@ fn format_settings_row(
         SettingsItem::WakeSensitivity => {
             let slider = format_normalized_slider(view.wake_word_sensitivity, 14);
             format!(
-                "{marker} {:<width$} {slider} {:>3.0}%",
-                "Wake sens",
+                "{marker} {:<width$} {slider} {:>3.0}% (0-100%)",
+                "Wake sensitivity",
                 view.wake_word_sensitivity * 100.0,
                 width = LABEL_WIDTH
             )
         }
         SettingsItem::WakeCooldown => format!(
             "{marker} {:<width$} {}",
-            "Wake cooldn",
+            "Wake cooldown",
             button_label(&format!("{} ms", view.wake_word_cooldown_ms)),
             width = LABEL_WIDTH
         ),
@@ -93,7 +109,7 @@ fn format_settings_row(
         SettingsItem::Sensitivity => {
             let slider = format_slider(view.sensitivity_db, 14);
             format!(
-                "{marker} {:<width$} {slider} {:>4.0} dB",
+                "{marker} {:<width$} {slider} {:>4.0} dB (-80..-10)",
                 "Sensitivity",
                 view.sensitivity_db,
                 width = LABEL_WIDTH
@@ -125,7 +141,7 @@ fn format_settings_row(
         ),
         SettingsItem::HudAnimate => format!(
             "{marker} {:<width$} {}",
-            "Anim only",
+            "Anim rec-only",
             toggle_button(view.hud_right_panel_recording_only),
             width = LABEL_WIDTH
         ),
@@ -142,13 +158,13 @@ fn format_settings_row(
             width = LABEL_WIDTH
         ),
         SettingsItem::Backend => format!(
-            "{marker} {:<width$} {}",
+            "{marker} {:<width$} {} (read-only)",
             "Backend",
             view.backend_label,
             width = LABEL_WIDTH
         ),
         SettingsItem::Pipeline => format!(
-            "{marker} {:<width$} {}",
+            "{marker} {:<width$} {} (read-only)",
             "Pipeline",
             pipeline_label(view.pipeline),
             width = LABEL_WIDTH
@@ -157,7 +173,7 @@ fn format_settings_row(
         SettingsItem::Quit => format!("{marker} {}", button_label("Quit VoiceTerm")),
     };
 
-    format_menu_row(colors, width, &row_text, selected)
+    format_menu_row(colors, width, &row_text, selected, read_only)
 }
 
 fn pipeline_label(pipeline: Pipeline) -> &'static str {
@@ -257,70 +273,28 @@ fn format_normalized_slider(value: f32, width: usize) -> String {
     bar
 }
 
-fn format_box_top(colors: &ThemeColors, width: usize) -> String {
-    let borders = &colors.borders;
-    // width is the total box width including corners
-    // Inner horizontal chars = width - 2 (for the two corners)
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.top_left, inner, borders.top_right, colors.reset
-    )
-}
-
-fn format_box_bottom(colors: &ThemeColors, width: usize) -> String {
+fn format_menu_row(
+    colors: &ThemeColors,
+    width: usize,
+    text: &str,
+    selected: bool,
+    read_only: bool,
+) -> String {
     let borders = &colors.borders;
     let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.bottom_left, inner, borders.bottom_right, colors.reset
-    )
-}
-
-fn format_separator(colors: &ThemeColors, width: usize) -> String {
-    let borders = &colors.borders;
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.t_left, inner, borders.t_right, colors.reset
-    )
-}
-
-fn format_title_line(colors: &ThemeColors, title: &str, width: usize) -> String {
-    let borders = &colors.borders;
-    // Content width between vertical borders
-    let inner_width = width.saturating_sub(2);
-    // Use character count, not byte length, for proper Unicode support
-    let title_display_len = title.chars().count();
-    let padding = inner_width.saturating_sub(title_display_len);
-    let left_pad = padding / 2;
-    let right_pad = padding - left_pad;
-    format!(
-        "{}{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        " ".repeat(left_pad),
-        title,
-        " ".repeat(right_pad),
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
-}
-
-fn format_menu_row(colors: &ThemeColors, width: usize, text: &str, selected: bool) -> String {
-    let borders = &colors.borders;
-    // Content width between vertical borders
-    let inner_width = width.saturating_sub(2);
-    let truncated: String = text.chars().take(inner_width).collect();
-    let padded = format!("{:<width$}", truncated, width = inner_width);
-    // Use foreground color highlight for selected items (no background)
+    let clipped = truncate_display(text, inner_width);
+    let padded = format!(
+        "{clipped}{}",
+        " ".repeat(inner_width.saturating_sub(display_width(&clipped)))
+    );
     let styled = if selected {
-        format!("{}{}{}", colors.info, padded, colors.reset)
+        if read_only {
+            format!("{}{}{}", colors.dim, padded, colors.reset)
+        } else {
+            format!("{}{}{}", colors.info, padded, colors.reset)
+        }
+    } else if read_only {
+        format!("{}{}{}", colors.dim, padded, colors.reset)
     } else {
         padded
     };
@@ -337,6 +311,48 @@ fn format_menu_row(colors: &ThemeColors, width: usize, text: &str, selected: boo
     )
 }
 
+fn format_description_row(colors: &ThemeColors, width: usize, description: &str) -> String {
+    let borders = &colors.borders;
+    let inner_width = width.saturating_sub(2);
+    let text = format!(" tip: {description}");
+    let clipped = truncate_display(&text, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
+    format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.dim,
+        clipped,
+        pad,
+        colors.border,
+        borders.vertical,
+        colors.reset
+    )
+}
+
+fn setting_description(item: SettingsItem) -> &'static str {
+    match item {
+        SettingsItem::AutoVoice => "Enable continuous listening and auto-rearm behavior.",
+        SettingsItem::WakeWord => "Toggle always-listening wake detector.",
+        SettingsItem::WakeSensitivity => "Higher % is more sensitive to wake phrases.",
+        SettingsItem::WakeCooldown => "Minimum delay between consecutive wake triggers.",
+        SettingsItem::SendMode => "Auto sends transcript immediately; Edit stages text first.",
+        SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
+        SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",
+        SettingsItem::Theme => "Open theme picker to choose visual palette.",
+        SettingsItem::HudStyle => "Switch between Full, Minimal, and Hidden HUD.",
+        SettingsItem::HudBorders => "Choose HUD border style and framing.",
+        SettingsItem::HudPanel => "Select right-panel telemetry widget mode.",
+        SettingsItem::HudAnimate => "When ON, right-panel animates during recording only.",
+        SettingsItem::Latency => "Control visibility format of STT latency badge.",
+        SettingsItem::Mouse => "Enable clickable HUD controls and overlay rows.",
+        SettingsItem::Backend => "Current backend provider for this session (read-only).",
+        SettingsItem::Pipeline => "Active voice pipeline implementation (read-only).",
+        SettingsItem::Close => "Close settings overlay and return to HUD.",
+        SettingsItem::Quit => "Exit VoiceTerm immediately.",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,7 +366,7 @@ mod tests {
     #[test]
     fn settings_overlay_height_matches_items() {
         let height = settings_overlay_height();
-        assert_eq!(height, SETTINGS_ITEMS.len() + 6);
+        assert_eq!(height, SETTINGS_ITEMS.len() + 7);
     }
 
     #[test]
@@ -378,5 +394,62 @@ mod tests {
         assert!(rendered.contains("Send mode"));
         assert!(rendered.contains("[ Edit ]"));
         assert!(!rendered.contains("[ Insert ]"));
+    }
+
+    #[test]
+    fn settings_overlay_renders_selected_item_description() {
+        let view = SettingsView {
+            selected: SETTINGS_ITEMS
+                .iter()
+                .position(|item| *item == SettingsItem::WakeSensitivity)
+                .expect("wake sensitivity item exists"),
+            auto_voice_enabled: false,
+            wake_word_enabled: false,
+            wake_word_sensitivity: 0.55,
+            wake_word_cooldown_ms: 2000,
+            send_mode: VoiceSendMode::Auto,
+            macros_enabled: true,
+            sensitivity_db: -35.0,
+            theme: Theme::Coral,
+            hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
+            hud_right_panel: HudRightPanel::Off,
+            hud_right_panel_recording_only: false,
+            latency_display: LatencyDisplayMode::Short,
+            mouse_enabled: true,
+            backend_label: "codex",
+            pipeline: Pipeline::Rust,
+        };
+        let rendered = format_settings_overlay(&view, 90);
+        assert!(rendered.contains("tip: Higher % is more sensitive"));
+    }
+
+    #[test]
+    fn settings_overlay_marks_backend_as_read_only() {
+        let view = SettingsView {
+            selected: SETTINGS_ITEMS
+                .iter()
+                .position(|item| *item == SettingsItem::Backend)
+                .expect("backend item exists"),
+            auto_voice_enabled: false,
+            wake_word_enabled: false,
+            wake_word_sensitivity: 0.55,
+            wake_word_cooldown_ms: 2000,
+            send_mode: VoiceSendMode::Auto,
+            macros_enabled: true,
+            sensitivity_db: -35.0,
+            theme: Theme::Coral,
+            hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
+            hud_right_panel: HudRightPanel::Off,
+            hud_right_panel_recording_only: false,
+            latency_display: LatencyDisplayMode::Short,
+            mouse_enabled: true,
+            backend_label: "codex",
+            pipeline: Pipeline::Rust,
+        };
+        let rendered = format_settings_overlay(&view, 90);
+        assert!(rendered.contains("Backend"));
+        assert!(rendered.contains("(read-only)"));
     }
 }

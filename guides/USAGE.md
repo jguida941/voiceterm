@@ -82,7 +82,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | In `insert` mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, no-op |
+| `Ctrl+E` | In `insert` mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, show `Nothing to send` |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
@@ -99,6 +99,10 @@ Flow:
 
 When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still works
 with Left/Right + Enter.
+If help/settings/theme overlays are open, unmatched input closes the overlay and
+replays the key/action into normal input handling.
+Help overlay also includes clickable Docs/Troubleshooting links (OSC-8 capable
+terminals).
 
 ## Settings Menu
 
@@ -107,6 +111,7 @@ Open with `Ctrl+O`.
 - Navigate rows: Up/Down
 - Change values: Left/Right
 - Toggle/activate: Enter
+- Mouse: click a settings row to select it and apply the next toggle/cycle action
 - Close: Esc
 
 ![Settings Menu](../img/settings.png)
@@ -123,6 +128,7 @@ Common settings:
 - HUD style and border style
 - Right panel mode and recording-only animation
 - Mouse support
+- `Backend` / `Pipeline` rows are read-only session diagnostics
 
 ## Voice Modes
 
@@ -208,11 +214,12 @@ voiceterm --doctor
 
 ### Validate release-candidate behavior
 
-For pre-release builds, run `Testing_Guide.md` in order. Prioritize:
+For pre-release builds, run the release verification commands in
+`dev/DEVELOPMENT.md` and prioritize:
 
-- Section `3`: backend worker lifecycle (normal exit, abrupt kill, multi-session isolation)
-- Section `3A`: process churn + CPU leak checks
-- Section `4A`: high-load settings responsiveness and meter sanity
+- backend worker lifecycle checks (normal exit, abrupt kill, multi-session isolation)
+- process churn + CPU leak checks
+- high-load settings responsiveness and meter sanity
 
 ### Tune auto-voice timing
 
@@ -266,7 +273,7 @@ Tips:
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
 - On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
-- Mouse behavior in overlays: click a Theme Picker row to apply/select it; click footer `[×] close` to dismiss an overlay.
+- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` to dismiss an overlay.
 
 ### HUD styles
 
@@ -274,7 +281,12 @@ Tips:
 |-------|------|---------|
 | Full | default | Multi-row HUD with detailed controls and telemetry |
 | Minimal | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
-| Hidden | `--hud-style hidden` | Muted launcher row when idle, muted recording indicator when active |
+| Hidden | `--hud-style hidden` | Muted launcher row when idle (`open` + `hide` controls), muted recording indicator when active |
+
+Hidden launcher controls:
+
+- `hide` collapses the idle launcher to `[open]` only.
+- In collapsed mode, first `open` restores the hidden launcher, next `open` switches HUD style.
 
 Full HUD border style options:
 
@@ -364,7 +376,7 @@ Rules:
 
 Example:
 
-`◉ AUTO | -35dB | Auto-voice enabled`
+`◎ AUTO | -35dB | Auto-voice enabled`
 
 Main areas:
 

@@ -206,7 +206,33 @@ fn format_status_banner_hidden_mode_idle() {
     assert_eq!(banner.height, 1);
     assert_eq!(banner.lines.len(), 1);
     assert!(banner.lines[0].contains("Voice"));
-    assert!(banner.lines[0].contains("Ctrl+U"));
+    assert!(!banner.lines[0].contains("Ctrl+U"));
+    assert!(banner
+        .buttons
+        .iter()
+        .any(|button| button.action == crate::buttons::ButtonAction::ToggleHudStyle));
+    assert!(banner
+        .buttons
+        .iter()
+        .any(|button| button.action == crate::buttons::ButtonAction::CollapseHiddenLauncher));
+}
+
+#[test]
+fn format_status_banner_hidden_mode_collapsed_launcher_shows_only_open() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Hidden;
+    state.hidden_launcher_collapsed = true;
+    state.recording_state = RecordingState::Idle;
+
+    let banner = format_status_banner(&state, Theme::None, 80);
+    assert_eq!(banner.height, 1);
+    assert!(banner.lines[0].contains("[open]"));
+    assert!(!banner.lines[0].contains("[hide]"));
+    assert_eq!(banner.buttons.len(), 1);
+    assert_eq!(
+        banner.buttons[0].action,
+        crate::buttons::ButtonAction::ToggleHudStyle
+    );
 }
 
 #[test]

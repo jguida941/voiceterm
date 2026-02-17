@@ -22,6 +22,23 @@ fn voiceterm_help_mentions_name() {
     assert!(output.status.success());
     let combined = combined_output(&output);
     assert!(combined.contains("VoiceTerm"));
+    assert!(combined.contains("Themed, grouped CLI help"));
+    assert!(combined.contains("Backend"));
+    assert!(combined.contains("Voice"));
+    assert!(combined.contains("--backend"));
+    assert!(combined.contains("--voice-send-mode"));
+}
+
+#[test]
+fn voiceterm_help_no_color_has_no_ansi_sequences() {
+    let output = Command::new(voiceterm_bin())
+        .arg("--help")
+        .arg("--no-color")
+        .output()
+        .expect("run voiceterm --help --no-color");
+    assert!(output.status.success());
+    let combined = combined_output(&output);
+    assert!(!combined.contains("\x1b["));
 }
 
 #[test]

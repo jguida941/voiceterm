@@ -7,7 +7,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 use voiceterm::VoiceCaptureTrigger;
 
 use crate::buttons::{ButtonAction, ButtonRegistry};
-use crate::config::OverlayConfig;
+use crate::config::{HudStyle, OverlayConfig};
 use crate::log_debug;
 use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
@@ -89,7 +89,7 @@ impl<'a> ButtonActionContext<'a> {
                             self.status_clear_deadline,
                             self.current_status,
                             self.status_state,
-                            "Voice capture failed (see log)",
+                            &crate::status_messages::with_log_path("Voice capture failed"),
                             Some(Duration::from_secs(2)),
                         );
                         log_debug(&format!("voice capture failed: {err:#}"));
@@ -113,7 +113,16 @@ impl<'a> ButtonActionContext<'a> {
                 self.open_settings_overlay();
             }
             ButtonAction::ToggleHudStyle => {
-                self.with_settings_context(|settings_ctx| settings_ctx.cycle_hud_style(1));
+                if self.status_state.hud_style == HudStyle::Hidden
+                    && self.status_state.hidden_launcher_collapsed
+                {
+                    self.status_state.hidden_launcher_collapsed = false;
+                } else {
+                    self.with_settings_context(|settings_ctx| settings_ctx.cycle_hud_style(1));
+                }
+            }
+            ButtonAction::CollapseHiddenLauncher => {
+                self.status_state.hidden_launcher_collapsed = true;
             }
             ButtonAction::HudBack => {
                 self.with_settings_context(|settings_ctx| settings_ctx.cycle_hud_style(-1));

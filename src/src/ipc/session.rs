@@ -136,8 +136,21 @@ impl ClaudeJob {
                 terminate_piped_child(child);
             }
             ClaudeJobOutput::Pty { session } => {
+                // Send graceful Ctrl+C first; PtyCliSession::drop will escalate to
+                // SIGTERM → SIGKILL if the process ignores the interrupt.
                 let _ = session.send("\u{3}");
             }
+        }
+    }
+}
+
+impl Drop for ClaudeJob {
+    fn drop(&mut self) {
+        // std::process::Child does NOT kill on drop; ensure the piped child is
+        // always reaped so it cannot outlive the IPC session.
+        // The PTY path is covered by PtyCliSession::drop → shutdown_pty_child.
+        if let ClaudeJobOutput::Piped { child, .. } = &mut self.output {
+            terminate_piped_child(child);
         }
     }
 }

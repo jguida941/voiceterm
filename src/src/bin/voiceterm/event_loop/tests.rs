@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 use std::io;
 use voiceterm::pty_session::PtyOverlaySession;
 
-use crate::buttons::ButtonRegistry;
+use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::HudStyle;
 use crate::config::OverlayConfig;
 use crate::prompt::{PromptLogger, PromptTracker};
@@ -285,6 +285,78 @@ fn build_harness(
     };
 
     (state, timers, deps, writer_rx, input_tx)
+}
+
+fn settings_overlay_row_y(state: &EventLoopState, item: SettingsItem) -> u16 {
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(settings_overlay_height() as u16)
+        .saturating_add(1);
+    let item_index = SETTINGS_ITEMS
+        .iter()
+        .position(|candidate| *candidate == item)
+        .expect("settings item index");
+    let item_index_u16 = u16::try_from(item_index).expect("settings index fits in u16");
+    overlay_top_y
+        .saturating_add(SETTINGS_OPTION_START_ROW as u16)
+        .saturating_add(item_index_u16)
+        .saturating_sub(1)
+}
+
+fn centered_overlay_click_x(state: &EventLoopState) -> u16 {
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    u16::try_from(centered_left.saturating_add(2)).expect("overlay x fits in u16")
+}
+
+fn centered_settings_overlay_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
+    u16::try_from(x).expect("overlay x fits in u16")
+}
+
+fn settings_slider_click_x(state: &EventLoopState, slider_offset: usize) -> u16 {
+    const SETTINGS_SLIDER_START_REL_X: usize = 2 + 1 + 1 + 15 + 1;
+    centered_settings_overlay_rel_x_to_screen_x(
+        state,
+        SETTINGS_SLIDER_START_REL_X.saturating_add(slider_offset),
+    )
+}
+
+fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
+    let overlay_height = settings_overlay_height() as u16;
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(overlay_height)
+        .saturating_add(1);
+    let footer_y = overlay_top_y
+        .saturating_add(overlay_height.saturating_sub(1))
+        .saturating_sub(1);
+
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let inner_width = settings_overlay_inner_width_for_terminal(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+
+    let title_len = crate::overlay_frame::display_width(SETTINGS_OVERLAY_FOOTER);
+    let left_pad = inner_width.saturating_sub(title_len) / 2;
+    let close_prefix = SETTINGS_OVERLAY_FOOTER
+        .split('·')
+        .next()
+        .unwrap_or(SETTINGS_OVERLAY_FOOTER)
+        .trim_end();
+    let close_len = crate::overlay_frame::display_width(close_prefix);
+    let close_start = 2usize.saturating_add(left_pad);
+    let rel_x = close_start.saturating_add(close_len.saturating_sub(1) / 2);
+    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
+
+    (
+        u16::try_from(x).expect("footer close x fits in u16"),
+        footer_y,
+    )
 }
 
 #[test]
@@ -1068,6 +1140,49 @@ fn run_event_loop_help_overlay_mouse_body_click_keeps_overlay_open() {
 }
 
 #[test]
+fn help_overlay_unhandled_bytes_close_overlay_and_replay_input() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Help;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"status".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Help;
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.insert_pending_send = false;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::SendStagedText,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
+}
+
+#[test]
 fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::ThemePicker;
@@ -1086,6 +1201,225 @@ fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     run_event_loop(&mut state, &mut timers, &mut deps);
     assert_eq!(state.overlay_mode, OverlayMode::None);
     assert_ne!(state.theme, Theme::Codex);
+}
+
+#[test]
+fn settings_overlay_mouse_click_cycles_setting_value() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.status_state.hud_style = HudStyle::Full;
+    let hud_style_row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: 3,
+            y: hud_style_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
+    let hud_style_index = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::HudStyle)
+        .expect("hud style index");
+    assert_eq!(state.settings_menu.selected, hud_style_index);
+}
+
+#[test]
+fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.status_state.hud_style = HudStyle::Full;
+    let hud_style_row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    let click_x = centered_overlay_click_x(&state);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: click_x,
+            y: hud_style_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
+}
+
+#[test]
+fn settings_overlay_mouse_click_adjusts_sensitivity_with_centered_offset_x() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.status_state.sensitivity_db = -55.0;
+    let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::Sensitivity);
+    let click_x = centered_overlay_click_x(&state);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: click_x,
+            y: sensitivity_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.status_state.sensitivity_db, -50.0);
+}
+
+#[test]
+fn settings_overlay_mouse_click_sensitivity_slider_left_moves_more_sensitive() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.status_state.sensitivity_db = -55.0;
+    state.config.app.voice_vad_threshold_db = -55.0;
+    let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::Sensitivity);
+    let click_x = settings_slider_click_x(&state, 1);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: click_x,
+            y: sensitivity_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.status_state.sensitivity_db, -60.0);
+    assert_eq!(
+        state.current_status.as_deref(),
+        Some("Mic sensitivity: -60 dB (more sensitive)")
+    );
+}
+
+#[test]
+fn settings_overlay_mouse_click_wake_sensitivity_slider_left_moves_less_sensitive() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.config.wake_word_sensitivity = 0.55;
+    let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::WakeSensitivity);
+    let click_x = settings_slider_click_x(&state, 1);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: click_x,
+            y: sensitivity_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert!((state.config.wake_word_sensitivity - 0.50).abs() < f32::EPSILON);
+}
+
+#[test]
+fn settings_overlay_mouse_click_selects_read_only_row_without_state_change() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    let initial_auto_voice = state.auto_voice_enabled;
+    let backend_row = settings_overlay_row_y(&state, SettingsItem::Backend);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: 3,
+            y: backend_row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.auto_voice_enabled, initial_auto_voice);
+    let backend_index = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Backend)
+        .expect("backend index");
+    assert_eq!(state.settings_menu.selected, backend_index);
+}
+
+#[test]
+fn settings_overlay_mouse_click_close_row_closes_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    let close_row = settings_overlay_row_y(&state, SettingsItem::Close);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x: 3, y: close_row },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+}
+
+#[test]
+fn settings_overlay_mouse_click_quit_row_stops_event_loop() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    let quit_row = settings_overlay_row_y(&state, SettingsItem::Quit);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x: 3, y: quit_row },
+        &mut running,
+    );
+
+    assert!(!running);
+}
+
+#[test]
+fn settings_overlay_mouse_click_footer_close_prefix_closes_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    let (x, y) = settings_overlay_footer_close_click(&state);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
 }
 
 #[test]
@@ -1158,6 +1492,47 @@ fn run_event_loop_enter_without_pending_insert_text_does_not_stop_recording() {
         state.status_state.recording_state,
         RecordingState::Recording
     );
+}
+
+#[test]
+fn hidden_open_enter_expands_collapsed_launcher_before_style_cycle() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.status_state.hidden_launcher_collapsed = true;
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleHudStyle);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.hud_style, HudStyle::Hidden);
+    assert!(!state.status_state.hidden_launcher_collapsed);
+}
+
+#[test]
+fn hidden_open_enter_cycles_style_after_launcher_is_expanded() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.status_state.hidden_launcher_collapsed = false;
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleHudStyle);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.hud_style, HudStyle::Full);
 }
 
 #[test]
@@ -1238,7 +1613,7 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_outside_reco
 }
 
 #[test]
-fn run_event_loop_ctrl_e_without_pending_insert_text_is_consumed_outside_recording() {
+fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_send() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
@@ -1257,5 +1632,6 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_is_consumed_outside_recordi
     assert!(!state.status_state.insert_pending_send);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     assert!(!state.force_send_on_next_transcript);
+    assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
     HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }

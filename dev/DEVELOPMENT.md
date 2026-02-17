@@ -50,7 +50,11 @@ voiceterm/
 │   └── src/
 │       ├── bin/voiceterm/main.rs # Overlay entry point
 │       ├── bin/voiceterm/banner.rs # Startup splash + banner config
+│       ├── bin/voiceterm/custom_help.rs # Themed CLI help renderer
 │       ├── bin/voiceterm/help.rs # Shortcut overlay rendering
+│       ├── bin/voiceterm/onboarding.rs # First-run onboarding state persistence
+│       ├── bin/voiceterm/overlay_frame.rs # Shared overlay frame layout helpers
+│       ├── bin/voiceterm/status_messages.rs # Reusable status message builders
 │       ├── bin/voiceterm/terminal.rs # Terminal sizing + signal handling
 │       ├── bin/voiceterm/event_loop/ # Event-loop dispatch modules + tests
 │       ├── bin/voiceterm/audio_meter/ # Mic meter UI (`--mic-meter`)

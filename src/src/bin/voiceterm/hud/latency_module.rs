@@ -2,7 +2,7 @@
 //!
 //! Shows the last transcription latency: "◷ 1.2s"
 
-use super::{HudModule, HudState};
+use super::{display_width, HudModule, HudState};
 
 /// Latency indicator module showing last transcription time.
 pub struct LatencyModule;
@@ -70,7 +70,7 @@ impl HudModule for LatencyModule {
                     format!("◷ {:.1}s {trend}", secs)
                 };
 
-                if full.chars().count() <= max_width {
+                if display_width(&full) <= max_width {
                     full
                 } else if max_width >= 7 {
                     // Compact format with decimal precision + single trend marker.
@@ -91,6 +91,10 @@ impl HudModule for LatencyModule {
     fn min_width(&self) -> usize {
         // Minimum: "◷ --" = 4 chars
         4
+    }
+
+    fn priority(&self) -> u8 {
+        220
     }
 }
 

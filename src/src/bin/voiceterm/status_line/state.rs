@@ -191,6 +191,8 @@ pub struct StatusLineState {
     pub mouse_enabled: bool,
     /// Focused HUD button (for arrow key navigation)
     pub hud_button_focus: Option<ButtonAction>,
+    /// Whether hidden-HUD launcher chrome is collapsed to only show `[open]`.
+    pub hidden_launcher_collapsed: bool,
     /// Ephemeral transition progress (0.0-1.0) for state-change animations.
     /// This is populated by the writer thread at render time.
     pub transition_progress: f32,
@@ -246,6 +248,7 @@ mod tests {
         assert!(state.last_latency_speech_ms.is_none());
         assert!(state.last_latency_rtf_x1000.is_none());
         assert!(state.last_latency_updated_at.is_none());
+        assert!(!state.hidden_launcher_collapsed);
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
     }

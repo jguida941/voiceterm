@@ -97,7 +97,7 @@ pub fn format_ascii_banner(use_color: bool, terminal_width: u16) -> String {
 
     // Add tagline underneath with shortcuts
     let tagline = format!(
-        "v{} │ Ctrl+R record │ Ctrl+V auto-voice │ Ctrl+Q quit",
+        "v{} │ Ctrl+R record │ ? help │ Ctrl+O settings │ Ctrl+Q quit",
         VERSION
     );
     let tagline_padding = centered_padding(terminal_width, &tagline);
@@ -167,7 +167,7 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
     };
 
     let shortcuts = format!(
-        "{}Ctrl+R record │ Ctrl+V auto-voice │ Ctrl+Q quit{}",
+        "{}Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ctrl+Q quit{}",
         colors.dim, colors.reset
     );
 
@@ -189,7 +189,7 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
 pub fn format_minimal_banner(theme: Theme) -> String {
     let colors = theme.colors();
     format!(
-        "{}VoiceTerm{} v{} │ Ctrl+R rec │ Ctrl+V auto │ Ctrl+Q quit\n",
+        "{}VoiceTerm{} v{} │ Ctrl+R rec │ ? help │ Ctrl+O settings │ Ctrl+Q quit\n",
         colors.info, colors.reset, VERSION
     )
 }
@@ -326,7 +326,8 @@ mod tests {
     fn format_minimal_banner_contains_shortcuts() {
         let banner = format_minimal_banner(Theme::Coral);
         assert!(banner.contains("Ctrl+R"));
-        assert!(banner.contains("Ctrl+V"));
+        assert!(banner.contains("? help"));
+        assert!(banner.contains("Ctrl+O"));
         assert!(banner.contains("Ctrl+Q"));
     }
 
@@ -437,7 +438,8 @@ mod tests {
     fn ascii_banner_contains_tagline() {
         let banner = format_ascii_banner(false, 80);
         assert!(banner.contains("Ctrl+R record"));
-        assert!(banner.contains("Ctrl+V auto-voice"));
+        assert!(banner.contains("? help"));
+        assert!(banner.contains("Ctrl+O settings"));
         assert!(banner.contains("Ctrl+Q quit"));
         assert!(banner.contains(VERSION));
     }
@@ -468,7 +470,7 @@ mod tests {
             .expect("tagline line should exist");
         let leading_spaces = line.chars().take_while(|c| *c == ' ').count();
         let tagline = format!(
-            "v{} │ Ctrl+R record │ Ctrl+V auto-voice │ Ctrl+Q quit",
+            "v{} │ Ctrl+R record │ ? help │ Ctrl+O settings │ Ctrl+Q quit",
             VERSION
         );
         let expected = centered_padding(width, &tagline);

@@ -149,7 +149,7 @@ pub(crate) fn deliver_transcript<S: TranscriptSession>(
         Err(err) => {
             log_debug(&format!("failed to send transcript: {err:#}"));
             io.set_status(
-                "Failed to send transcript (see log)",
+                &crate::status_messages::with_log_path("Failed to send transcript"),
                 Some(Duration::from_secs(2)),
             );
             false

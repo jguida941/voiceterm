@@ -58,6 +58,11 @@ pub(super) fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> boo
                         true
                     }
                     Err(e) => {
+                        // try_wait failed; kill the child to avoid leaving it running.
+                        log_debug(&format!(
+                            "Claude job: try_wait error ({e}), terminating child"
+                        ));
+                        terminate_piped_child(child);
                         send_claude_job_end(false, Some(format!("Wait error: {e}")));
                         true
                     }

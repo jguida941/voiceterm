@@ -26,6 +26,7 @@ pub enum ButtonAction {
     ToggleSendMode,
     SettingsToggle,
     ToggleHudStyle,
+    CollapseHiddenLauncher,
     /// Return to full HUD from minimal mode.
     HudBack,
     HelpToggle,
@@ -42,6 +43,7 @@ impl ButtonAction {
             ButtonAction::ToggleSendMode => InputEvent::ToggleSendMode,
             ButtonAction::SettingsToggle => InputEvent::SettingsToggle,
             ButtonAction::ToggleHudStyle => InputEvent::ToggleHudStyle,
+            ButtonAction::CollapseHiddenLauncher => InputEvent::CollapseHiddenLauncher,
             ButtonAction::HudBack => InputEvent::ToggleHudStyle,
             ButtonAction::HelpToggle => InputEvent::HelpToggle,
             ButtonAction::ThemePicker => InputEvent::ThemePicker,

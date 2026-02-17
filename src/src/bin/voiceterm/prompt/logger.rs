@@ -119,6 +119,7 @@ mod tests {
     #[test]
     fn resolve_prompt_log_prefers_config() {
         let config = OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: None,
             prompt_log: Some(PathBuf::from("/tmp/codex_prompt_override.log")),
@@ -156,6 +157,7 @@ mod tests {
         let env_path = PathBuf::from("/tmp/codex_prompt_env.log");
         env::set_var("VOICETERM_PROMPT_LOG", &env_path);
         let config = OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: None,
             prompt_log: None,
@@ -190,6 +192,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         env::remove_var("VOICETERM_PROMPT_LOG");
         let config = OverlayConfig {
+            help: false,
             app: AppConfig::parse_from(["test"]),
             prompt_regex: None,
             prompt_log: None,

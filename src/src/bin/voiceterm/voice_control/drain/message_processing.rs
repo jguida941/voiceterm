@@ -80,7 +80,7 @@ pub(super) fn handle_voice_message(
                     status_clear_deadline,
                     current_status,
                     status_state,
-                    "Failed to send transcript (see log)",
+                    &crate::status_messages::with_log_path("Failed to send transcript"),
                     Some(Duration::from_secs(STATUS_TOAST_SECS)),
                 );
             }
@@ -136,7 +136,7 @@ pub(super) fn handle_voice_message(
                 status_clear_deadline,
                 current_status,
                 status_state,
-                "Voice capture error (see log)",
+                &crate::status_messages::with_log_path("Voice capture error"),
                 Some(Duration::from_secs(STATUS_TOAST_SECS)),
             );
             log_debug(&format!("voice capture error: {message}"));

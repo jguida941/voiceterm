@@ -3,6 +3,9 @@
 //! Displays available themes and allows selecting by number.
 //! Now shows a visual preview of each theme's unique style.
 
+use crate::overlay_frame::{
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+};
 use crate::theme::{filled_indicator, Theme, ThemeColors};
 
 /// Theme options with labels and descriptions.
@@ -36,31 +39,17 @@ pub fn format_theme_picker(current_theme: Theme, selected_idx: usize, width: usi
     let borders = &colors.borders;
     let show_theme_preview = current_theme != Theme::None;
     let mut lines = Vec::new();
-    // Inner width is what goes between the left and right border characters
-    // All rows must have exactly this many visible characters between borders
-    let inner_width = theme_picker_inner_width_for_terminal(width);
+    let total_width = theme_picker_total_width_for_terminal(width);
+    let inner_width = total_width.saturating_sub(2);
 
-    // Top border: corner + inner_width horizontal + corner
-    let top_inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    lines.push(format!(
-        "{}{}{}{}{}",
-        colors.border, borders.top_left, top_inner, borders.top_right, colors.reset
-    ));
-
-    // Title row
-    lines.push(format_title_line(
+    lines.push(frame_top(&colors, borders, total_width));
+    lines.push(centered_title_line(
         &colors,
         borders,
         "VoiceTerm - Themes",
-        inner_width,
+        total_width,
     ));
-
-    // Separator
-    let sep_inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    lines.push(format!(
-        "{}{}{}{}{}",
-        colors.border, borders.t_left, sep_inner, borders.t_right, colors.reset
-    ));
+    lines.push(frame_separator(&colors, borders, total_width));
 
     // Theme options with visual preview
     for (idx, (theme, name, desc)) in THEME_OPTIONS.iter().enumerate() {
@@ -87,57 +76,22 @@ pub fn format_theme_picker(current_theme: Theme, selected_idx: usize, width: usi
         ));
     }
 
-    // Bottom separator
-    lines.push(format!(
-        "{}{}{}{}{}",
-        colors.border, borders.t_left, sep_inner, borders.t_right, colors.reset
-    ));
+    lines.push(frame_separator(&colors, borders, total_width));
 
     // Footer with clickable close button
-    lines.push(format_title_line(
+    lines.push(centered_title_line(
         &colors,
         borders,
         THEME_PICKER_FOOTER,
-        inner_width,
+        total_width,
     ));
 
-    // Bottom border
-    let bottom_inner: String = std::iter::repeat_n(borders.horizontal, inner_width).collect();
-    lines.push(format!(
-        "{}{}{}{}{}",
-        colors.border, borders.bottom_left, bottom_inner, borders.bottom_right, colors.reset
-    ));
+    lines.push(frame_bottom(&colors, borders, total_width));
 
     lines.join("\n")
 }
 
 use crate::theme::BorderSet;
-
-fn format_title_line(
-    colors: &ThemeColors,
-    borders: &BorderSet,
-    title: &str,
-    inner_width: usize,
-) -> String {
-    // Content between borders must be exactly inner_width characters
-    // Use character count, not byte length, for proper Unicode support
-    let title_display_len = title.chars().count();
-    let padding = inner_width.saturating_sub(title_display_len);
-    let left_pad = padding / 2;
-    let right_pad = padding - left_pad;
-    format!(
-        "{}{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        " ".repeat(left_pad),
-        title,
-        " ".repeat(right_pad),
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
-}
 
 #[allow(clippy::too_many_arguments)]
 fn format_option_line_with_preview(
@@ -160,8 +114,11 @@ fn format_option_line_with_preview(
     // Layout: indicator(1) + space(1) + marker(1) + space(1) + label(14) + space(1) = 19 fixed
     let fixed_visible = 19;
     let desc_col = inner_width.saturating_sub(fixed_visible);
-    let desc_truncated: String = desc.chars().take(desc_col).collect();
-    let desc_padded = format!("{:<width$}", desc_truncated, width = desc_col);
+    let desc_clipped = truncate_display(desc, desc_col);
+    let desc_padded = format!(
+        "{desc_clipped}{}",
+        " ".repeat(desc_col.saturating_sub(display_width(&desc_clipped)))
+    );
     let (preview_color, preview_icon) = if show_theme_preview {
         (
             theme_colors.recording,

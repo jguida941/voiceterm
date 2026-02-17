@@ -2,7 +2,7 @@
 //!
 //! Shows the current audio level with a visual waveform: "-40dB ▁▂▃▅▆"
 
-use super::{HudModule, HudState};
+use super::{display_width, HudModule, HudState};
 use std::time::Duration;
 
 /// Waveform characters for visualization.
@@ -86,7 +86,7 @@ impl HudModule for MeterModule {
         };
 
         let full = format!("{} {}", db_str, waveform);
-        if full.chars().count() <= max_width {
+        if display_width(&full) <= max_width {
             full
         } else if max_width >= 5 {
             // Just the dB value
@@ -104,6 +104,10 @@ impl HudModule for MeterModule {
     fn tick_interval(&self) -> Option<Duration> {
         // Update meter at ~12fps for smooth animation
         Some(Duration::from_millis(80))
+    }
+
+    fn priority(&self) -> u8 {
+        70
     }
 }
 

@@ -15,7 +15,7 @@ use super::animation::{
     get_processing_spinner, heartbeat_glyph, recording_pulse_on, transition_marker,
 };
 use super::buttons::{
-    format_hidden_launcher_with_button, format_minimal_strip_with_button,
+    format_hidden_launcher_with_buttons, format_minimal_strip_with_button,
     format_shortcuts_row_with_positions, hidden_muted_color,
 };
 use super::layout::breakpoints;
@@ -171,7 +171,7 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
 /// ```
 ///
 /// Minimal mode: Theme-colored strip with indicator + status (e.g., "● PTT · Ready")
-/// Hidden mode: Branded launcher when idle; dim indicator when recording (e.g., "● rec 5s")
+/// Hidden mode: Branded launcher with `open`/`hide` controls when idle; dim indicator when recording (e.g., "● rec 5s")
 pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize) -> StatusBanner {
     let colors = theme.colors();
     let borders = resolve_hud_border_set(state, &colors.borders);
@@ -186,8 +186,8 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
                 StatusBanner::new(vec![line])
             } else {
                 // Idle hidden mode still renders a branded launcher to stay discoverable.
-                let (line, button) = format_hidden_launcher_with_button(state, &colors, width);
-                StatusBanner::with_buttons(vec![line], button.into_iter().collect())
+                let (line, buttons) = format_hidden_launcher_with_buttons(state, &colors, width);
+                StatusBanner::with_buttons(vec![line], buttons)
             }
         }
         HudStyle::Minimal => {

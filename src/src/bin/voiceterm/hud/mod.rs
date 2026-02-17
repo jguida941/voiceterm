@@ -14,6 +14,12 @@ pub use mode_module::ModeModule;
 pub use queue_module::QueueModule;
 
 use std::time::Duration;
+use unicode_width::UnicodeWidthStr;
+
+#[inline]
+pub(super) fn display_width(text: &str) -> usize {
+    UnicodeWidthStr::width(text)
+}
 
 /// Voice mode for the HUD.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -81,6 +87,11 @@ pub trait HudModule: Send + Sync {
     /// Minimum width this module needs to render meaningfully.
     fn min_width(&self) -> usize;
 
+    /// Relative priority when width is constrained. Higher values survive first.
+    fn priority(&self) -> u8 {
+        100
+    }
+
     /// Update interval for periodic refreshes.
     ///
     /// Returns `None` if the module is event-driven only and doesn't
@@ -145,11 +156,23 @@ impl HudRegistry {
             return String::new();
         }
 
-        let sep_width = separator.chars().count();
+        let sep_width = display_width(separator);
         let mut parts: Vec<String> = Vec::new();
         let mut remaining_width = max_width;
+        let mut ordered = self
+            .modules
+            .iter()
+            .enumerate()
+            .map(|(idx, module)| (idx, module.as_ref()))
+            .collect::<Vec<_>>();
+        ordered.sort_by(|(idx_a, module_a), (idx_b, module_b)| {
+            module_b
+                .priority()
+                .cmp(&module_a.priority())
+                .then_with(|| idx_a.cmp(idx_b))
+        });
 
-        for module in &self.modules {
+        for (_, module) in ordered {
             let min_w = module.min_width();
 
             // Check if we have room for this module plus separator
@@ -171,7 +194,7 @@ impl HudRegistry {
             };
 
             let rendered = module.render(state, available);
-            let rendered_width = rendered.chars().count();
+            let rendered_width = display_width(&rendered);
 
             if !rendered.is_empty() {
                 if !parts.is_empty() {
@@ -232,6 +255,10 @@ mod tests {
 
         fn tick_interval(&self) -> Option<Duration> {
             self.tick
+        }
+
+        fn priority(&self) -> u8 {
+            100
         }
     }
 
@@ -403,6 +430,51 @@ mod tests {
         let state = HudState::default();
         let output = registry.render_all(&state, 4, "::");
         assert_eq!(output, "A::L");
+    }
+
+    #[test]
+    fn render_all_prefers_higher_priority_modules_under_width_pressure() {
+        struct PriorityModule {
+            id: &'static str,
+            min_width: usize,
+            content: &'static str,
+            priority: u8,
+        }
+
+        impl HudModule for PriorityModule {
+            fn id(&self) -> &'static str {
+                self.id
+            }
+
+            fn render(&self, _state: &HudState, _max_width: usize) -> String {
+                self.content.to_string()
+            }
+
+            fn min_width(&self) -> usize {
+                self.min_width
+            }
+
+            fn priority(&self) -> u8 {
+                self.priority
+            }
+        }
+
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(PriorityModule {
+            id: "low",
+            min_width: 4,
+            content: "LOW",
+            priority: 10,
+        }));
+        registry.register(Box::new(PriorityModule {
+            id: "high",
+            min_width: 4,
+            content: "HIGH",
+            priority: 250,
+        }));
+        let state = HudState::default();
+        let output = registry.render_all(&state, 6, " ");
+        assert_eq!(output, "HIGH");
     }
 
     #[test]

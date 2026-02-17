@@ -1,6 +1,6 @@
 //! CLI flag schema so overlay startup behavior is explicit and discoverable.
 
-use clap::{Parser, ValueEnum};
+use clap::{ArgAction, Parser, ValueEnum};
 use std::path::PathBuf;
 use voiceterm::config::AppConfig;
 
@@ -105,8 +105,12 @@ impl std::fmt::Display for LatencyDisplayMode {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[command(about = "VoiceTerm", author, version)]
+#[command(about = "VoiceTerm", author, version, disable_help_flag = true)]
 pub(crate) struct OverlayConfig {
+    /// Show themed, grouped help and exit
+    #[arg(long = "help", short = 'h', action = ArgAction::SetTrue)]
+    pub(crate) help: bool,
+
     #[command(flatten)]
     pub(crate) app: AppConfig,
 
@@ -279,5 +283,14 @@ mod tests {
         assert!(
             OverlayConfig::try_parse_from(["test-app", "--wake-word-cooldown-ms", "200",]).is_err()
         );
+    }
+
+    #[test]
+    fn manual_help_flags_parse_without_clap_auto_exit() {
+        let long = OverlayConfig::parse_from(["test-app", "--help"]);
+        assert!(long.help);
+
+        let short = OverlayConfig::parse_from(["test-app", "-h"]);
+        assert!(short.help);
     }
 }

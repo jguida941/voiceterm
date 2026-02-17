@@ -171,7 +171,7 @@ mod tests {
             StatusType::Error
         );
         assert_eq!(
-            StatusType::from_message("Voice capture error (see log)"),
+            StatusType::from_message("Voice capture error (log: /tmp/voiceterm.log)"),
             StatusType::Error
         );
     }

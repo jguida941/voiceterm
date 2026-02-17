@@ -14,6 +14,7 @@ pub(crate) enum InputEvent {
     QuickThemeCycle,
     SettingsToggle,
     ToggleHudStyle,
+    CollapseHiddenLauncher,
     EnterKey,
     Exit,
     /// Mouse click at (x, y) coordinates (1-based, like terminal reports)

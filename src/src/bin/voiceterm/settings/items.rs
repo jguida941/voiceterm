@@ -47,7 +47,8 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::Quit,
 ];
 
-pub const SETTINGS_OVERLAY_FOOTER: &str = "[x] close · arrows · Enter select";
+pub const SETTINGS_OVERLAY_FOOTER: &str = "[×] close · ↑/↓ move · Enter select · Click/Tap select";
+pub const SETTINGS_OPTION_START_ROW: usize = 4;
 
 pub fn settings_overlay_width_for_terminal(width: usize) -> usize {
     width.saturating_sub(4).clamp(24, 70)
@@ -58,8 +59,8 @@ pub fn settings_overlay_inner_width_for_terminal(width: usize) -> usize {
 }
 
 pub fn settings_overlay_height() -> usize {
-    // Top border + title + separator + items + separator + footer + bottom border
-    SETTINGS_ITEMS.len() + 6
+    // Top border + title + separator + items + description + separator + footer + bottom border
+    SETTINGS_ITEMS.len() + 7
 }
 
 pub struct SettingsView<'a> {

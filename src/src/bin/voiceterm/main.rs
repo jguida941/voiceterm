@@ -18,12 +18,15 @@ mod buttons;
 mod cli_utils;
 mod color_mode;
 mod config;
+mod custom_help;
 mod event_loop;
 mod event_state;
 mod help;
 mod hud;
 mod icons;
 mod input;
+mod onboarding;
+mod overlay_frame;
 mod overlays;
 mod progress;
 mod prompt;
@@ -31,6 +34,7 @@ mod session_stats;
 mod settings;
 mod settings_handlers;
 mod status_line;
+mod status_messages;
 mod status_style;
 mod terminal;
 mod theme;
@@ -171,6 +175,12 @@ fn join_thread_with_timeout(name: &str, handle: thread::JoinHandle<()>, timeout:
 
 fn main() -> Result<()> {
     let mut config = OverlayConfig::parse();
+    if config.help {
+        let backend = config.resolve_backend();
+        let theme = config.theme_for_backend(&backend.label);
+        custom_help::print_themed_help(theme);
+        return Ok(());
+    }
     let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let backend = config.resolve_backend();
@@ -449,6 +459,17 @@ fn main() -> Result<()> {
                 );
             }
         }
+    }
+
+    if onboarding::should_show_hint() {
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            "Getting started: Ctrl+R record · ? help · Ctrl+O settings",
+            None,
+        );
     }
 
     // Ensure the HUD/launcher is visible immediately, before any user input arrives.

@@ -58,6 +58,7 @@ terminal experience without replacing it.
 - Add or update an entry in `dev/CHANGELOG.md` with a clear summary and the correct date.
 - For releases, bump `src/Cargo.toml` version and align docs with the new version.
 - Run verification before shipping. Minimum is a local build of `voiceterm`.
+- After substantive feature work, always include the exact local compile and run commands in chat using absolute paths (for example: `cd /Users/jguida941/testing_upgrade/codex-voice/src && cargo build --release --bin voiceterm` and `cd /Users/jguida941/testing_upgrade/codex-voice/src && cargo run --release --bin voiceterm -- --help`).
 - Keep UX tables/controls lists in sync with actual behavior.
 - If UI output or flags change, update any screenshots or tables that mention them.
 

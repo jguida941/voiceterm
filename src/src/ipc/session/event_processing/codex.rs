@@ -4,6 +4,8 @@ use super::super::{send_event, CodexEvent, CodexEventKind, CodexJob, IpcEvent};
 
 pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool {
     if cancelled {
+        // Fire the cancel token so the worker thread terminates its subprocess.
+        job.cancel();
         return true;
     }
 

@@ -213,26 +213,39 @@ For complete keybindings and behavior details, see:
 - [Settings Menu](guides/USAGE.md#settings-menu)
 - [Voice Modes](guides/USAGE.md#voice-modes)
 
+CLI option reference now uses a themed, grouped layout:
+`voiceterm --help` (or `voiceterm -h`).
+
 Short version: `Ctrl+G` quick-cycles theme, and built-in voice commands support
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and
 `explain last error`.
 Recording/send controls: `Ctrl+R` toggles recording start/stop, and in insert
 mode `Ctrl+E` sends staged text immediately; if recording with no staged text,
 it stops early and submits when transcription completes; if idle with no staged
-text, it is consumed as a no-op. `Enter` remains submit-only for staged text.
+text, it now shows `Nothing to send`. `Enter` remains submit-only for staged text.
+When help/settings/theme overlays are open, unmatched input now closes the
+overlay and replays the key/action instead of silently dropping it.
 Latency badge shows direct STT delay (`stt_ms`) when available, hides on
 no-speech/error captures, and auto-expires stale idle values after a short
 window; severity color uses speech-relative speed (`rtf`) when speech metrics
 exist.
-Hidden HUD launcher text, `[open]`, and recording indicator use intentionally
-muted/dull gray so hidden mode stays out of the way.
+Hidden HUD launcher text/buttons and recording indicator use intentionally
+muted/dull gray so hidden mode stays out of the way. Idle hidden mode shows
+`? help`, `^O settings`, and `[open] [hide]`; selecting `hide` collapses the
+launcher to only `[open]`.
+In collapsed mode, the first `open` restores the hidden launcher, and the next
+`open` switches HUD style.
+Help overlay now includes clickable Docs/Troubleshooting links (OSC-8 capable
+terminals).
+On first run, VoiceTerm shows a persistent `Getting started` hint
+(`Ctrl+R` / `?` / `Ctrl+O`) until your first successful transcript capture.
 If a macro and built-in phrase overlap, macros run first; use explicit
 `voice scroll up` / `voice scroll down` to force built-in navigation.
 Status text is pipeline-neutral (for example `Listening Manual Mode` and
 `No speech detected`); check Settings (`Ctrl+O`) for `Voice pipeline`.
-If you are validating pre-release builds, use `Testing_Guide.md` sections `3`,
-`3A`, and `4A` to verify process cleanup, CPU stability, and high-load UI
-responsiveness.
+If you are validating pre-release builds, use `dev/DEVELOPMENT.md` (`Testing`
+and `Manual QA checklist`) to verify process cleanup, CPU stability, and
+high-load UI responsiveness.
 
 ## Engineering History
 

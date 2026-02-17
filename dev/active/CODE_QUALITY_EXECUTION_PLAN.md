@@ -3,9 +3,13 @@
 Date: 2026-02-17  
 Status: Completed for v1.0.80 release (follow-on lint expansion tracked in `MASTER_PLAN`)  
 Parent tracker: `dev/active/MASTER_PLAN.md` (`MP-184`..`MP-189`)
+Research companion: `dev/active/code_review.md` (official docs + crate docs + review loop)
 
 `dev/active/MASTER_PLAN.md` remains the canonical plan. This document is the
 execution detail for the code-quality audit workstream.
+
+Use `dev/active/code_review.md` for current Rust/doc references and repeatable
+review intake format before adding any new `CQ-*` follow-on tasks.
 
 ## Objective
 
@@ -166,3 +170,17 @@ For each landed slice:
 - Rust Book (Test Organization): <https://doc.rust-lang.org/book/ch11-03-test-organization.html>
 - Clippy docs: <https://doc.rust-lang.org/clippy/>
 - Rust std safety comment guidance: <https://std-dev-guide.rust-lang.org/policy/safety-comments.html>
+
+## Closure + Archive Handoff
+
+This execution plan is functionally complete for `v1.0.80`. Remaining work is
+operational closure and handoff:
+
+1. Keep any newly discovered code-quality issues in `MASTER_PLAN` until they are
+   either fixed or explicitly deferred.
+2. Archive this execution record once follow-on `CQ-*` work is closed and
+   no active slices remain.
+3. Continue active implementation sequencing in `dev/active/MASTER_PLAN.md`,
+   prioritizing Theme Upgrade phases (`MP-148` onward).
+
+Current tracked closure items: `MP-214`, `MP-215`, and `MP-216`.

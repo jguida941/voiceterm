@@ -236,6 +236,7 @@ impl SettingsActionContext<'_> {
     pub(crate) fn cycle_hud_style(&mut self, direction: i32) {
         self.status.status_state.hud_style =
             cycle_hud_style(self.status.status_state.hud_style, direction);
+        self.status.status_state.hidden_launcher_collapsed = false;
         let label = format!("HUD style: {}", self.status.status_state.hud_style);
         self.set_transient_status(&label, Duration::from_secs(2));
         if let Some(session) = self.hud.pty_session.as_mut() {

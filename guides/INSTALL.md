@@ -245,9 +245,9 @@ cd voiceterm
 voiceterm --version
 ```
 
-After install, run the release runbook checks in `Testing_Guide.md`, especially
-sections `3`, `3A`, and `4A` for process teardown, CPU leak detection, and
-high-load UI responsiveness.
+After install, run the release verification commands in `dev/DEVELOPMENT.md`
+(`Testing` and `Manual QA checklist`) for process teardown, CPU leak detection,
+and high-load UI responsiveness.
 
 ## Using with your own projects
 

@@ -71,6 +71,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         .map(|metrics| metrics.speech_ms as f32 / 1000.0)
         .unwrap_or(0.0);
     ctx.session_stats.record_transcript(duration_secs);
+    crate::onboarding::mark_first_capture_complete();
 
     let (text, mut transcript_mode, macro_note) = super::message_processing::apply_macro_mode(
         &ctx.text,

@@ -8,8 +8,8 @@
 
 ## Status Snapshot (2026-02-17)
 
-- Last tagged release: `v1.0.80` (2026-02-17)
-- Current release target: `v1.0.81`
+- Last tagged release: `v1.0.81` (2026-02-17)
+- Current release target: `v1.0.82`
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: post-v1.0.80 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
@@ -182,6 +182,23 @@ documented pass evidence for its mapped gates.
 - [x] MP-193 Restore insert-mode early-send behavior for `Ctrl+E` while recording so noisy-room captures can stop early and submit immediately (one-shot force-send path + regression tests + docs alignment).
 - [x] MP-197 Make hidden-HUD idle launcher visuals intentionally subdued (dull/muted text and `[open]`) so hidden mode remains non-intrusive.
 - [x] MP-198 Align insert-mode `Ctrl+E` dispatch semantics (send staged text, finalize+submit while recording, consume idle/no-staged input) and apply the same muted hidden-launcher gray to hidden recording output.
+- [x] MP-204 Refine hidden-HUD idle launcher controls for lower visual noise and better explicitness (remove inline `Ctrl+U` hint from hidden launcher text, add muted `[hide]` control next to `[open]`, support collapsing hidden launcher chrome to `[open]` only, and make `open` two-step from collapsed mode: restore launcher first, then switch HUD style on the next open).
+- [x] MP-205 Harden discoverability + feedback ergonomics (expand startup hints for `?`/settings/mouse discoverability, add grouped help overlay sections, and surface explicit idle `Ctrl+E` feedback with `Nothing to send`).
+- [x] MP-206 Add first-run onboarding hint persistence (`~/.config/voiceterm/onboarding_state.toml`) so a `Getting started` hint remains until the first successful transcript capture.
+- [x] MP-207 Extract shared overlay frame rendering helpers (`overlay_frame`) and route help/settings/theme-picker framing through the shared path to reduce duplicated border/title/separator logic.
+- [x] MP-208 Standardize overlay/HUD width accounting with Unicode-aware display width and add HUD module `priority()` semantics so queue/latency indicators survive constrained widths ahead of lower-priority modules.
+- [x] MP-209 Replace opaque runtime status errors with log-path-aware messages (`... (log: <path>)`) across capture/transcript failure paths.
+- [x] MP-210 Keep splash unchanged, but move discoverability/help affordances into runtime HUD/overlay surfaces (hidden HUD idle hint now includes `? help` + `^O settings`; help overlay adds clickable Docs/Troubleshooting OSC-8 links).
+- [x] MP-211 Replace flat clap default `--help` output with a themed, grouped renderer backed by clap command metadata (manual `-h`/`--help` interception, sectioned categories, single-accent hacker-style scan path with dim borders + bracketed headers, theme/no-color parity, and coverage guard so new flags cannot silently skip grouping).
+- [x] MP-212 Remove stale pre-release/backlog doc references, align `VoiceTerm.app` Info.plist version with `src/Cargo.toml`, and sync new `voiceterm` modules in changelog/developer structure docs.
+- [x] MP-213 Add a Rust code-review research pack (`dev/active/code_review.md`) and wire it into the code-quality execution plan with an explicit closure/archive handoff path into Theme Upgrade phases (`MP-148+`).
+- [x] MP-218 Fix overlay mouse hit-testing for non-left-aligned coordinate spaces so settings/theme/help row clicks and slider adjustments still apply when terminals report centered-panel `x` coordinates.
+- [x] MP-219 Clarify settings overlay footer control hints (`[×] close · ↑/↓ move · Enter select · Click/Tap select`) and add regression coverage so footer close click hit-testing stays intact after copy updates.
+- [x] MP-220 Fix settings slider click direction handling so pointer input on `Sensitivity`/`Wake sensitivity` tracks can move left/right by click position, with regression tests for backward slider clicks.
+- [ ] MP-214 Close out the active code-quality track by triaging remaining `code_review.md` findings, archiving `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`, and continuing execution from Theme Upgrade (`MP-148+`).
+- [ ] MP-215 Standardize runtime status-line width/truncation on Unicode-aware display width in remaining char-count paths (`src/src/bin/voiceterm/writer/render.rs` and `src/src/bin/voiceterm/status_style.rs`) with regression coverage for wide glyphs.
+- [ ] MP-216 Consolidate duplicate transcript-preview formatting logic shared by `src/src/bin/voiceterm/voice_control/navigation.rs` and `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` into a single helper with shared tests.
+- [x] MP-217 Enable settings-overlay row mouse actions so row clicks select and apply setting toggles/cycles (including click paths for `Close` and `Quit`) instead of requiring keyboard-only action keys.
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 
