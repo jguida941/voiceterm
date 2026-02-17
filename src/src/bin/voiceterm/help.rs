@@ -20,7 +20,11 @@ pub const SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+R",
-        description: "Start voice capture",
+        description: "Toggle voice capture (start/stop)",
+    },
+    Shortcut {
+        key: "Ctrl+E",
+        description: "Send staged text now (insert/recording)",
     },
     Shortcut {
         key: "Ctrl+V",
@@ -68,7 +72,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Enter",
-        description: "Send prompt / Stop recording",
+        description: "Send prompt",
     },
 ];
 
@@ -243,7 +247,8 @@ mod tests {
     fn format_help_overlay_contains_shortcuts() {
         let help = format_help_overlay(Theme::Coral, 60);
         assert!(help.contains("Ctrl+R"));
-        assert!(help.contains("Start voice capture"));
+        assert!(help.contains("Toggle voice capture"));
+        assert!(help.contains("Ctrl+E"));
         assert!(help.contains("Ctrl+V"));
         assert!(help.contains("Toggle auto-voice"));
     }

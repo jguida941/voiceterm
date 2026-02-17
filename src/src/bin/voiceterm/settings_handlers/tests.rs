@@ -25,25 +25,31 @@ fn make_context<'a>(
     terminal_cols: &'a mut u16,
     theme: &'a mut Theme,
 ) -> SettingsActionContext<'a> {
-    SettingsActionContext::new(
+    SettingsActionContext {
         config,
-        status_state,
-        auto_voice_enabled,
-        voice_manager,
-        writer_tx,
-        status_clear_deadline,
-        current_status,
-        last_auto_trigger_at,
-        recording_started_at,
-        preview_clear_deadline,
-        last_meter_update,
-        button_registry,
-        OverlayMode::None,
-        terminal_rows,
-        terminal_cols,
-        theme,
-        None,
-    )
+        status: SettingsStatusContext {
+            status_state,
+            writer_tx,
+            status_clear_deadline,
+            current_status,
+            preview_clear_deadline,
+            last_meter_update,
+        },
+        voice: SettingsVoiceContext {
+            auto_voice_enabled,
+            voice_manager,
+            last_auto_trigger_at,
+            recording_started_at,
+        },
+        hud: SettingsHudContext {
+            button_registry,
+            overlay_mode: OverlayMode::None,
+            terminal_rows,
+            terminal_cols,
+            theme,
+            pty_session: None,
+        },
+    }
 }
 
 #[test]
@@ -86,6 +92,7 @@ fn toggle_send_mode_updates_state_and_status() {
     }
     assert_eq!(config.voice_send_mode, VoiceSendMode::Insert);
     assert_eq!(status_state.send_mode, VoiceSendMode::Insert);
+    status_state.insert_pending_send = true;
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("status message")
@@ -122,6 +129,7 @@ fn toggle_send_mode_updates_state_and_status() {
     }
     assert_eq!(config.voice_send_mode, VoiceSendMode::Auto);
     assert_eq!(status_state.send_mode, VoiceSendMode::Auto);
+    assert!(!status_state.insert_pending_send);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("status message")
@@ -328,7 +336,7 @@ fn cycle_hud_border_style_wraps() {
 }
 
 #[test]
-fn update_hud_panel_updates_state_and_status() {
+fn cycle_hud_panel_updates_state_and_status() {
     let mut config = OverlayConfig::parse_from(["test-app"]);
     let mut voice_manager = VoiceManager::new(config.app.clone());
     let (writer_tx, writer_rx) = bounded(4);
@@ -363,7 +371,7 @@ fn update_hud_panel_updates_state_and_status() {
         &mut theme,
     );
 
-    ctx.update_hud_panel(1);
+    ctx.cycle_hud_panel(1);
     assert_eq!(config.hud_right_panel, HudRightPanel::Dots);
     assert_eq!(status_state.hud_right_panel, HudRightPanel::Dots);
     match writer_rx
@@ -378,7 +386,7 @@ fn update_hud_panel_updates_state_and_status() {
 }
 
 #[test]
-fn update_hud_border_style_updates_state_and_status() {
+fn cycle_hud_border_style_updates_state_and_status() {
     let mut config = OverlayConfig::parse_from(["test-app"]);
     let mut voice_manager = VoiceManager::new(config.app.clone());
     let (writer_tx, writer_rx) = bounded(4);
@@ -413,7 +421,7 @@ fn update_hud_border_style_updates_state_and_status() {
         &mut theme,
     );
 
-    ctx.update_hud_border_style(1);
+    ctx.cycle_hud_border_style(1);
     assert_eq!(config.hud_border_style, HudBorderStyle::Single);
     assert_eq!(status_state.hud_border_style, HudBorderStyle::Single);
     match writer_rx
@@ -501,7 +509,7 @@ fn cycle_latency_display_updates_state_and_status() {
 }
 
 #[test]
-fn update_hud_style_updates_state_and_status() {
+fn cycle_hud_style_updates_state_and_status() {
     let mut config = OverlayConfig::parse_from(["test-app"]);
     let mut voice_manager = VoiceManager::new(config.app.clone());
     let (writer_tx, writer_rx) = bounded(4);
@@ -536,7 +544,7 @@ fn update_hud_style_updates_state_and_status() {
         &mut theme,
     );
 
-    ctx.update_hud_style(1);
+    ctx.cycle_hud_style(1);
     assert_eq!(status_state.hud_style, HudStyle::Minimal);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))

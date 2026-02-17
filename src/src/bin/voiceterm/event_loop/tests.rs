@@ -888,3 +888,107 @@ fn run_event_loop_does_not_run_periodic_before_first_tick() {
     run_event_loop(&mut state, &mut timers, &mut deps);
     assert_eq!(state.theme_picker_digits, "12");
 }
+
+#[test]
+fn handle_input_event_bytes_marks_insert_mode_pending_send() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"status".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.insert_pending_send);
+}
+
+#[test]
+fn run_event_loop_enter_with_pending_insert_text_sends_without_capture_stop() {
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.insert_pending_send = true;
+
+    input_tx.send(InputEvent::EnterKey).expect("queue enter");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    assert!(timers.last_enter_at.is_some());
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Recording
+    );
+}
+
+#[test]
+fn run_event_loop_enter_without_pending_insert_text_does_not_stop_recording() {
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.insert_pending_send = false;
+
+    input_tx.send(InputEvent::EnterKey).expect("queue enter");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    assert!(timers.last_enter_at.is_some());
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Recording
+    );
+}
+
+#[test]
+fn run_event_loop_ctrl_e_with_pending_insert_text_sends_without_capture_stop() {
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Recording;
+    state.status_state.insert_pending_send = true;
+
+    input_tx
+        .send(InputEvent::SendStagedText)
+        .expect("queue ctrl+e send");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    assert!(timers.last_enter_at.is_some());
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Recording
+    );
+}
+
+#[test]
+fn run_event_loop_ctrl_e_outside_recording_does_not_force_send() {
+    let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.insert_pending_send = true;
+
+    input_tx
+        .send(InputEvent::SendStagedText)
+        .expect("queue ctrl+e send");
+    input_tx.send(InputEvent::Exit).expect("queue exit event");
+
+    run_event_loop(&mut state, &mut timers, &mut deps);
+
+    assert!(timers.last_enter_at.is_none());
+    assert!(state.status_state.insert_pending_send);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+}

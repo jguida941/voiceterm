@@ -44,6 +44,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::VoiceTrigger);
                 }
+                0x05 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::SendStagedText);
+                }
                 0x16 => {
                     self.flush_pending(out);
                     out.push(InputEvent::ToggleAutoVoice);
@@ -257,6 +261,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
     let key = ch.to_ascii_lowercase();
     match key {
         'r' => Some(InputEvent::VoiceTrigger),
+        'e' => Some(InputEvent::SendStagedText),
         'v' => Some(InputEvent::ToggleAutoVoice),
         't' => Some(InputEvent::ToggleSendMode),
         'y' => Some(InputEvent::ThemePicker),
@@ -303,12 +308,17 @@ mod tests {
     fn input_parser_maps_control_keys() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
-        parser.consume_bytes(&[0x11, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f], &mut out);
+        parser.consume_bytes(
+            &[0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f],
+            &mut out,
+        );
         parser.flush_pending(&mut out);
         assert_eq!(
             out,
             vec![
                 InputEvent::Exit,
+                InputEvent::VoiceTrigger,
+                InputEvent::SendStagedText,
                 InputEvent::ToggleAutoVoice,
                 InputEvent::ToggleSendMode,
                 InputEvent::IncreaseSensitivity,
@@ -393,6 +403,16 @@ mod tests {
         parser.consume_bytes(b"\x1b[114;5u", &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::VoiceTrigger]);
+    }
+
+    #[test]
+    fn input_parser_maps_csi_u_ctrl_e_send_staged_text() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Ctrl+E (kitty/CSI-u: ESC [ 101 ; 5 u)
+        parser.consume_bytes(b"\x1b[101;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::SendStagedText]);
     }
 
     #[test]

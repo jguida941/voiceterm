@@ -7,7 +7,7 @@
 use crate::log_debug;
 use crate::process_signal::signal_process_group_or_pid;
 use anyhow::{anyhow, Context, Result};
-use crossbeam_channel::{bounded, Receiver};
+use crossbeam_channel::{bounded, Receiver, Sender};
 use std::ffi::CString;
 use std::io::{self};
 use std::mem;
@@ -36,6 +36,122 @@ pub struct PtyCliSession {
     pub(super) _output_thread: thread::JoinHandle<()>,
 }
 
+struct PtySessionInit {
+    master_fd: RawFd,
+    lifeline_write_fd: RawFd,
+    child_pid: i32,
+    output_rx: Receiver<Vec<u8>>,
+    output_thread: thread::JoinHandle<()>,
+}
+
+fn start_pty_session(
+    cli_cmd: &str,
+    working_dir: &str,
+    args: &[String],
+    term_value: &str,
+    spawn_reader: fn(RawFd, Sender<Vec<u8>>) -> thread::JoinHandle<()>,
+) -> Result<PtySessionInit> {
+    session_guard::cleanup_stale_sessions();
+    let cwd = CString::new(working_dir)
+        .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
+    let term_value_cstr = term_value_cstring(term_value)?;
+    let mut argv: Vec<CString> = Vec::with_capacity(args.len() + 1);
+    argv.push(
+        CString::new(cli_cmd).with_context(|| format!("cli_cmd contains NUL byte: {cli_cmd}"))?,
+    );
+    for arg in args {
+        argv.push(
+            CString::new(arg.as_str())
+                .with_context(|| format!("cli arg contains NUL byte: {arg}"))?,
+        );
+    }
+
+    // SAFETY: argv/cwd/TERM are valid CStrings; spawn_pty_child returns a valid master fd.
+    // set_nonblocking only touches the returned master fd.
+    unsafe {
+        let (master_fd, lifeline_write_fd, child_pid) =
+            spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
+        set_nonblocking(master_fd)?;
+        session_guard::register_session(master_fd, child_pid, cli_cmd);
+
+        let (tx, rx) = bounded(100);
+        let output_thread = spawn_reader(master_fd, tx);
+        Ok(PtySessionInit {
+            master_fd,
+            lifeline_write_fd,
+            child_pid,
+            output_rx: rx,
+            output_thread,
+        })
+    }
+}
+
+fn write_text_with_newline(master_fd: RawFd, text: &str) -> Result<()> {
+    write_all(master_fd, text.as_bytes())?;
+    if !text.ends_with('\n') {
+        write_all(master_fd, b"\n")?;
+    }
+    Ok(())
+}
+
+fn child_process_is_alive(child_pid: i32) -> bool {
+    if child_pid < 0 {
+        return false;
+    }
+    unsafe {
+        // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
+        let mut status = 0;
+        let ret = libc::waitpid(child_pid, &mut status, libc::WNOHANG);
+        ret == 0 // 0 means still running
+    }
+}
+
+unsafe fn shutdown_pty_child(master_fd: RawFd, child_pid: i32) {
+    if child_pid < 0 {
+        return;
+    }
+
+    // SAFETY: child_pid/master_fd come from spawn_pty_child; cleanup uses best-effort signals.
+    if let Err(err) = write_text_with_newline(master_fd, "exit") {
+        if !is_benign_shutdown_write_error(&err) {
+            log_debug(&format!("failed to send PTY exit command: {err:#}"));
+        }
+    }
+    if !wait_for_exit(child_pid, Duration::from_millis(500)) {
+        if let Err(err) = signal_process_group_or_pid(child_pid, libc::SIGTERM, true) {
+            log_debug(&format!("SIGTERM to PTY session failed: {}", err));
+        }
+        if !wait_for_exit(child_pid, Duration::from_millis(500)) {
+            if let Err(err) = signal_process_group_or_pid(child_pid, libc::SIGKILL, true) {
+                log_debug(&format!("SIGKILL to PTY session failed: {}", err));
+            }
+            #[cfg(any(test, feature = "mutants"))]
+            {
+                let mut status = 0;
+                let _ = libc::waitpid(child_pid, &mut status, libc::WNOHANG);
+            }
+            #[cfg(not(any(test, feature = "mutants")))]
+            {
+                let mut status = 0;
+                let ret = libc::waitpid(child_pid, &mut status, 0);
+                if waitpid_failed(ret) {
+                    log_debug(&format!(
+                        "waitpid after SIGKILL failed: {}",
+                        io::Error::last_os_error()
+                    ));
+                }
+            }
+        }
+    }
+}
+
+unsafe fn close_pty_session_handles(master_fd: RawFd, lifeline_write_fd: &mut RawFd) {
+    session_guard::unregister_session(master_fd);
+    close_fd(*lifeline_write_fd);
+    *lifeline_write_fd = -1;
+    close_fd(master_fd);
+}
+
 impl PtyCliSession {
     /// Start a backend CLI under a pseudo-terminal so it behaves like an interactive shell.
     pub fn new(
@@ -44,54 +160,21 @@ impl PtyCliSession {
         args: &[String],
         term_value: &str,
     ) -> Result<Self> {
-        session_guard::cleanup_stale_sessions();
-        let cwd = CString::new(working_dir)
-            .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
-        let term_value_cstr = term_value_cstring(term_value)?;
-        let mut argv: Vec<CString> = Vec::with_capacity(args.len() + 1);
-        argv.push(
-            CString::new(cli_cmd)
-                .with_context(|| format!("cli_cmd contains NUL byte: {cli_cmd}"))?,
-        );
-        for arg in args {
-            argv.push(
-                CString::new(arg.as_str())
-                    .with_context(|| format!("cli arg contains NUL byte: {arg}"))?,
-            );
-        }
-
-        // SAFETY: argv/cwd/TERM are valid CStrings; spawn_pty_child returns a valid master fd.
-        // set_nonblocking only touches the returned master fd.
-        unsafe {
-            let (master_fd, lifeline_write_fd, child_pid) =
-                spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
-            set_nonblocking(master_fd)?;
-            session_guard::register_session(master_fd, child_pid, cli_cmd);
-
-            let (tx, rx) = bounded(100);
-            let output_thread = spawn_reader_thread(master_fd, tx);
-
-            let session = Self {
-                master_fd,
-                lifeline_write_fd,
-                child_pid,
-                output_rx: rx,
-                _output_thread: output_thread,
-            };
-
-            Ok(session)
-        }
+        let init = start_pty_session(cli_cmd, working_dir, args, term_value, spawn_reader_thread)?;
+        Ok(Self {
+            master_fd: init.master_fd,
+            lifeline_write_fd: init.lifeline_write_fd,
+            child_pid: init.child_pid,
+            output_rx: init.output_rx,
+            _output_thread: init.output_thread,
+        })
     }
 
     /// Write text to the PTY, automatically ensuring prompts end with a newline.
     pub fn send(&mut self, text: &str) -> Result<()> {
         #[cfg(any(test, feature = "mutants"))]
         record_pty_send();
-        write_all(self.master_fd, text.as_bytes())?;
-        if !text.ends_with('\n') {
-            write_all(self.master_fd, b"\n")?;
-        }
-        Ok(())
+        write_text_with_newline(self.master_fd, text)
     }
 
     /// Drain any waiting output without blocking.
@@ -162,15 +245,7 @@ impl PtyCliSession {
 
     /// Peek whether the child is still running (without reaping it).
     pub fn is_alive(&self) -> bool {
-        if self.child_pid < 0 {
-            return false;
-        }
-        unsafe {
-            // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
-            let mut status = 0;
-            let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
-            ret == 0 // 0 means still running
-        }
+        child_process_is_alive(self.child_pid)
     }
 
     /// Non-blocking check for child exit; reaps the child on completion.
@@ -194,52 +269,8 @@ impl PtyCliSession {
 impl Drop for PtyCliSession {
     fn drop(&mut self) {
         unsafe {
-            if self.child_pid < 0 {
-                session_guard::unregister_session(self.master_fd);
-                close_fd(self.lifeline_write_fd);
-                self.lifeline_write_fd = -1;
-                close_fd(self.master_fd);
-                return;
-            }
-            // SAFETY: child_pid/master_fd come from spawn_pty_child; cleanup uses best-effort signals
-            // and closes the fd if still open.
-            if let Err(err) = self.send("exit\n") {
-                if !is_benign_shutdown_write_error(&err) {
-                    log_debug(&format!("failed to send PTY exit command: {err:#}"));
-                }
-            }
-            if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM, true) {
-                    log_debug(&format!("SIGTERM to PTY session failed: {}", err));
-                }
-                if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if let Err(err) =
-                        signal_process_group_or_pid(self.child_pid, libc::SIGKILL, true)
-                    {
-                        log_debug(&format!("SIGKILL to PTY session failed: {}", err));
-                    }
-                    #[cfg(any(test, feature = "mutants"))]
-                    {
-                        let mut status = 0;
-                        let _ = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
-                    }
-                    #[cfg(not(any(test, feature = "mutants")))]
-                    {
-                        let mut status = 0;
-                        let ret = libc::waitpid(self.child_pid, &mut status, 0);
-                        if waitpid_failed(ret) {
-                            log_debug(&format!(
-                                "waitpid after SIGKILL failed: {}",
-                                io::Error::last_os_error()
-                            ));
-                        }
-                    }
-                }
-            }
-            session_guard::unregister_session(self.master_fd);
-            close_fd(self.lifeline_write_fd);
-            self.lifeline_write_fd = -1;
-            close_fd(self.master_fd);
+            shutdown_pty_child(self.master_fd, self.child_pid);
+            close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
         }
     }
 }
@@ -262,41 +293,20 @@ impl PtyOverlaySession {
         args: &[String],
         term_value: &str,
     ) -> Result<Self> {
-        session_guard::cleanup_stale_sessions();
-        let cwd = CString::new(working_dir)
-            .with_context(|| format!("working directory contains NUL byte: {working_dir}"))?;
-        let term_value_cstr = term_value_cstring(term_value)?;
-        let mut argv: Vec<CString> = Vec::with_capacity(args.len() + 1);
-        argv.push(
-            CString::new(cli_cmd)
-                .with_context(|| format!("cli_cmd contains NUL byte: {cli_cmd}"))?,
-        );
-        for arg in args {
-            argv.push(
-                CString::new(arg.as_str())
-                    .with_context(|| format!("cli arg contains NUL byte: {arg}"))?,
-            );
-        }
-
-        // SAFETY: argv/cwd/TERM are valid CStrings; spawn_pty_child returns a valid master fd.
-        // set_nonblocking only touches the returned master fd.
-        unsafe {
-            let (master_fd, lifeline_write_fd, child_pid) =
-                spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
-            set_nonblocking(master_fd)?;
-            session_guard::register_session(master_fd, child_pid, cli_cmd);
-
-            let (tx, rx) = bounded(100);
-            let output_thread = spawn_passthrough_reader_thread(master_fd, tx);
-
-            Ok(Self {
-                master_fd,
-                lifeline_write_fd,
-                child_pid,
-                output_rx: rx,
-                _output_thread: output_thread,
-            })
-        }
+        let init = start_pty_session(
+            cli_cmd,
+            working_dir,
+            args,
+            term_value,
+            spawn_passthrough_reader_thread,
+        )?;
+        Ok(Self {
+            master_fd: init.master_fd,
+            lifeline_write_fd: init.lifeline_write_fd,
+            child_pid: init.child_pid,
+            output_rx: init.output_rx,
+            _output_thread: init.output_thread,
+        })
     }
 
     /// Write raw bytes to the PTY master.
@@ -316,11 +326,7 @@ impl PtyOverlaySession {
 
     /// Write text to the PTY master and ensure it ends with a newline.
     pub fn send_text_with_newline(&mut self, text: &str) -> Result<()> {
-        write_all(self.master_fd, text.as_bytes())?;
-        if !text.ends_with('\n') {
-            write_all(self.master_fd, b"\n")?;
-        }
-        Ok(())
+        write_text_with_newline(self.master_fd, text)
     }
 
     /// Update the PTY window size and notify the child.
@@ -343,12 +349,7 @@ impl PtyOverlaySession {
 
     /// Peek whether the child is still running (without reaping it).
     pub fn is_alive(&self) -> bool {
-        unsafe {
-            // SAFETY: child_pid is owned by this session; waitpid with WNOHANG only inspects state.
-            let mut status = 0;
-            let ret = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
-            ret == 0 // 0 means still running
-        }
+        child_process_is_alive(self.child_pid)
     }
 }
 
@@ -380,52 +381,8 @@ pub(crate) fn test_pty_session(
 impl Drop for PtyOverlaySession {
     fn drop(&mut self) {
         unsafe {
-            if self.child_pid < 0 {
-                session_guard::unregister_session(self.master_fd);
-                close_fd(self.lifeline_write_fd);
-                self.lifeline_write_fd = -1;
-                close_fd(self.master_fd);
-                return;
-            }
-            // SAFETY: child_pid/master_fd come from spawn_pty_child; cleanup uses best-effort signals
-            // and closes the fd if still open.
-            if let Err(err) = self.send_text_with_newline("exit") {
-                if !is_benign_shutdown_write_error(&err) {
-                    log_debug(&format!("failed to send PTY exit command: {err:#}"));
-                }
-            }
-            if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                if let Err(err) = signal_process_group_or_pid(self.child_pid, libc::SIGTERM, true) {
-                    log_debug(&format!("SIGTERM to PTY session failed: {}", err));
-                }
-                if !wait_for_exit(self.child_pid, Duration::from_millis(500)) {
-                    if let Err(err) =
-                        signal_process_group_or_pid(self.child_pid, libc::SIGKILL, true)
-                    {
-                        log_debug(&format!("SIGKILL to PTY session failed: {}", err));
-                    }
-                    #[cfg(any(test, feature = "mutants"))]
-                    {
-                        let mut status = 0;
-                        let _ = libc::waitpid(self.child_pid, &mut status, libc::WNOHANG);
-                    }
-                    #[cfg(not(any(test, feature = "mutants")))]
-                    {
-                        let mut status = 0;
-                        let ret = libc::waitpid(self.child_pid, &mut status, 0);
-                        if waitpid_failed(ret) {
-                            log_debug(&format!(
-                                "waitpid after SIGKILL failed: {}",
-                                io::Error::last_os_error()
-                            ));
-                        }
-                    }
-                }
-            }
-            session_guard::unregister_session(self.master_fd);
-            close_fd(self.lifeline_write_fd);
-            self.lifeline_write_fd = -1;
-            close_fd(self.master_fd);
+            shutdown_pty_child(self.master_fd, self.child_pid);
+            close_pty_session_handles(self.master_fd, &mut self.lifeline_write_fd);
         }
     }
 }

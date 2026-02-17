@@ -74,7 +74,8 @@ voiceterm --claude
 
 ## 4) Essential controls
 
-- `Ctrl+R` - start voice capture
+- `Ctrl+R` - toggle voice capture (start recording / stop early)
+- `Ctrl+E` - in insert mode while recording, send staged prompt text immediately
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+G` - quick cycle theme
@@ -86,7 +87,7 @@ voiceterm --claude
 - `?` - show shortcut help
 - `Ctrl+Q` - exit overlay
 - `Ctrl+C` - forwarded to the CLI
-- `Enter` - in insert mode, stop capture early and transcribe what was captured
+- `Enter` - send staged prompt text in insert mode
 
 Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 

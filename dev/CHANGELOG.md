@@ -9,6 +9,18 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - No changes yet.
 
+## [1.0.75] - 2026-02-17
+
+### UX
+
+- In insert send mode, make `Enter` submit-only (always forwards newline) so command submission is never blocked by recording-state stop logic.
+- Add `Ctrl+R` recording toggle behavior (start when idle, stop early when recording) and `Ctrl+E` send-now handling for staged insert-mode text during active capture.
+
+### Documentation
+
+- Update user docs (`README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`) for the new recording/send control model.
+- Refresh user and developer docs for current HUD wording, install/flags guidance, and active planning indexes without version-specific callouts in user-facing guides.
+
 ## [1.0.74] - 2026-02-17
 
 ### UX

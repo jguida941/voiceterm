@@ -38,7 +38,7 @@ pub(super) fn handle_input_event(
         InputEvent::ToggleHudStyle => {
             let overlay_mode = state.overlay_mode;
             run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
-                settings_ctx.update_hud_style(1);
+                settings_ctx.cycle_hud_style(1);
             });
             state.status_state.hud_button_focus = None;
             refresh_button_registry_if_mouse(state, deps);
@@ -81,12 +81,18 @@ pub(super) fn handle_input_event(
             }
 
             state.status_state.hud_button_focus = None;
+            let mark_insert_pending =
+                state.config.voice_send_mode == VoiceSendMode::Insert && !bytes.is_empty();
             if !write_or_queue_pty_input(state, deps, bytes) {
                 *running = false;
+            } else if mark_insert_pending {
+                state.status_state.insert_pending_send = true;
             }
         }
         InputEvent::VoiceTrigger => {
-            if let Err(err) = start_voice_capture(
+            if state.status_state.recording_state == RecordingState::Recording {
+                let _ = stop_or_cancel_capture_for_enter(state, timers, deps);
+            } else if let Err(err) = start_voice_capture(
                 &mut deps.voice_manager,
                 VoiceCaptureTrigger::Manual,
                 &deps.writer_tx,
@@ -110,6 +116,23 @@ pub(super) fn handle_input_event(
                     &mut timers.preview_clear_deadline,
                     &mut timers.last_meter_update,
                 );
+            }
+        }
+        InputEvent::SendStagedText => {
+            if should_send_staged_text_hotkey(state) {
+                if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
+                    *running = false;
+                } else {
+                    timers.last_enter_at = Some(Instant::now());
+                    state.status_state.insert_pending_send = false;
+                }
+                return;
+            }
+            if should_ignore_send_staged_text_hotkey(state) {
+                return;
+            }
+            if !write_or_queue_pty_input(state, deps, vec![0x05]) {
+                *running = false;
             }
         }
         InputEvent::ToggleAutoVoice => {
@@ -158,42 +181,11 @@ pub(super) fn handle_input_event(
                 );
                 return;
             }
-            // In insert mode, Enter stops capture early and sends what was recorded.
-            if state.config.voice_send_mode == VoiceSendMode::Insert
-                && !deps.voice_manager.is_idle()
-            {
-                if deps.voice_manager.active_source() == Some(VoiceCaptureSource::Python) {
-                    let _ = deps.voice_manager.cancel_capture();
-                    state.status_state.recording_state = RecordingState::Idle;
-                    clear_capture_metrics(&mut state.status_state);
-                    timers.recording_started_at = None;
-                    set_status(
-                        &deps.writer_tx,
-                        &mut timers.status_clear_deadline,
-                        &mut state.current_status,
-                        &mut state.status_state,
-                        "Capture cancelled (python fallback cannot stop early)",
-                        Some(Duration::from_secs(3)),
-                    );
-                } else {
-                    deps.voice_manager.request_early_stop();
-                    state.status_state.recording_state = RecordingState::Processing;
-                    clear_capture_metrics(&mut state.status_state);
-                    state.processing_spinner_index = 0;
-                    timers.last_processing_tick = Instant::now();
-                    set_status(
-                        &deps.writer_tx,
-                        &mut timers.status_clear_deadline,
-                        &mut state.current_status,
-                        &mut state.status_state,
-                        "Processing",
-                        None,
-                    );
-                }
-            } else if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
+            if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
                 *running = false;
             } else {
                 timers.last_enter_at = Some(Instant::now());
+                state.status_state.insert_pending_send = false;
             }
         }
         InputEvent::Exit => {
@@ -218,6 +210,59 @@ pub(super) fn handle_input_event(
     }
 }
 
+fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
+    state.config.voice_send_mode == VoiceSendMode::Insert
+        && state.status_state.recording_state == RecordingState::Recording
+        && state.status_state.insert_pending_send
+}
+
+fn should_ignore_send_staged_text_hotkey(state: &EventLoopState) -> bool {
+    state.config.voice_send_mode == VoiceSendMode::Insert
+        && state.status_state.recording_state == RecordingState::Recording
+        && !state.status_state.insert_pending_send
+}
+
+fn stop_or_cancel_capture_for_enter(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) -> bool {
+    if deps.voice_manager.active_source() == Some(VoiceCaptureSource::Python) {
+        if !deps.voice_manager.cancel_capture() {
+            return false;
+        }
+        state.status_state.recording_state = RecordingState::Idle;
+        clear_capture_metrics(&mut state.status_state);
+        timers.recording_started_at = None;
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            "Capture cancelled (python fallback cannot stop early)",
+            Some(Duration::from_secs(3)),
+        );
+        true
+    } else {
+        if !deps.voice_manager.request_early_stop() {
+            return false;
+        }
+        state.status_state.recording_state = RecordingState::Processing;
+        clear_capture_metrics(&mut state.status_state);
+        state.processing_spinner_index = 0;
+        timers.last_processing_tick = Instant::now();
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            "Processing",
+            None,
+        );
+        true
+    }
+}
+
 fn handle_overlay_input_event(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -232,7 +277,7 @@ fn handle_overlay_input_event(
         }
         (mode, InputEvent::ToggleHudStyle) => {
             run_settings_action(state, timers, deps, mode, |settings_ctx| {
-                settings_ctx.update_hud_style(1);
+                settings_ctx.cycle_hud_style(1);
             });
             if mode == OverlayMode::Settings {
                 render_settings_overlay_for_state(state, deps);

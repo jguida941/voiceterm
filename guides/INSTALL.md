@@ -109,8 +109,10 @@ If Homebrew still shows an older version or `voiceterm` runs an older binary, se
 After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
 `Latency display`) are available.
-You can also sanity-check runtime controls with `Ctrl+G` (quick theme cycle)
-and `Ctrl+Y` (theme picker).
+You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
+`Ctrl+E` (send staged text during active insert-mode recording), `Ctrl+G`
+(quick theme cycle), and `Ctrl+Y` (theme picker).
+In insert mode, `Enter` remains submit-only for staged text.
 In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
 rendered on the main status row (top-right lane).
 On `xterm-256color` terminals, selected themes are preserved; ANSI fallback is

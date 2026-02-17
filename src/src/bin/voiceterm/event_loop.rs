@@ -36,7 +36,9 @@ use crate::settings::{
     settings_overlay_height, settings_overlay_inner_width_for_terminal,
     settings_overlay_width_for_terminal, SettingsItem, SETTINGS_OVERLAY_FOOTER,
 };
-use crate::settings_handlers::SettingsActionContext;
+use crate::settings_handlers::{
+    SettingsActionContext, SettingsHudContext, SettingsStatusContext, SettingsVoiceContext,
+};
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
 use crate::terminal::{apply_pty_winsize, resolved_cols, take_sigwinch, update_pty_winsize};
 use crate::theme_ops::{
@@ -277,25 +279,31 @@ fn settings_action_context<'a>(
     deps: &'a mut EventLoopDeps,
     overlay_mode: OverlayMode,
 ) -> SettingsActionContext<'a> {
-    SettingsActionContext::new(
-        &mut state.config,
-        &mut state.status_state,
-        &mut state.auto_voice_enabled,
-        &mut deps.voice_manager,
-        &deps.writer_tx,
-        &mut timers.status_clear_deadline,
-        &mut state.current_status,
-        &mut timers.last_auto_trigger_at,
-        &mut timers.recording_started_at,
-        &mut timers.preview_clear_deadline,
-        &mut timers.last_meter_update,
-        &deps.button_registry,
-        overlay_mode,
-        &mut state.terminal_rows,
-        &mut state.terminal_cols,
-        &mut state.theme,
-        Some(&mut deps.session),
-    )
+    SettingsActionContext {
+        config: &mut state.config,
+        status: SettingsStatusContext {
+            status_state: &mut state.status_state,
+            writer_tx: &deps.writer_tx,
+            status_clear_deadline: &mut timers.status_clear_deadline,
+            current_status: &mut state.current_status,
+            preview_clear_deadline: &mut timers.preview_clear_deadline,
+            last_meter_update: &mut timers.last_meter_update,
+        },
+        voice: SettingsVoiceContext {
+            auto_voice_enabled: &mut state.auto_voice_enabled,
+            voice_manager: &mut deps.voice_manager,
+            last_auto_trigger_at: &mut timers.last_auto_trigger_at,
+            recording_started_at: &mut timers.recording_started_at,
+        },
+        hud: SettingsHudContext {
+            button_registry: &deps.button_registry,
+            overlay_mode,
+            terminal_rows: &mut state.terminal_rows,
+            terminal_cols: &mut state.terminal_cols,
+            theme: &mut state.theme,
+            pty_session: Some(&mut deps.session),
+        },
+    }
 }
 
 fn apply_settings_item_action(
@@ -331,15 +339,15 @@ fn apply_settings_item_action(
             true
         }
         SettingsItem::HudStyle => {
-            settings_ctx.update_hud_style(step);
+            settings_ctx.cycle_hud_style(step);
             true
         }
         SettingsItem::HudBorders => {
-            settings_ctx.update_hud_border_style(step);
+            settings_ctx.cycle_hud_border_style(step);
             true
         }
         SettingsItem::HudPanel => {
-            settings_ctx.update_hud_panel(step);
+            settings_ctx.cycle_hud_panel(step);
             true
         }
         SettingsItem::HudAnimate => {
@@ -366,27 +374,27 @@ fn button_action_context<'a>(
     timers: &'a mut EventLoopTimers,
     deps: &'a mut EventLoopDeps,
 ) -> ButtonActionContext<'a> {
-    ButtonActionContext::new(
-        &mut state.overlay_mode,
-        &mut state.settings_menu,
-        &mut state.config,
-        &mut state.status_state,
-        &mut state.auto_voice_enabled,
-        &mut deps.voice_manager,
-        &mut deps.session,
-        &deps.writer_tx,
-        &mut timers.status_clear_deadline,
-        &mut state.current_status,
-        &mut timers.recording_started_at,
-        &mut timers.preview_clear_deadline,
-        &mut timers.last_meter_update,
-        &mut timers.last_auto_trigger_at,
-        &mut state.terminal_rows,
-        &mut state.terminal_cols,
-        &deps.backend_label,
-        &mut state.theme,
-        &deps.button_registry,
-    )
+    ButtonActionContext {
+        overlay_mode: &mut state.overlay_mode,
+        settings_menu: &mut state.settings_menu,
+        config: &mut state.config,
+        status_state: &mut state.status_state,
+        auto_voice_enabled: &mut state.auto_voice_enabled,
+        voice_manager: &mut deps.voice_manager,
+        session: &mut deps.session,
+        writer_tx: &deps.writer_tx,
+        status_clear_deadline: &mut timers.status_clear_deadline,
+        current_status: &mut state.current_status,
+        recording_started_at: &mut timers.recording_started_at,
+        preview_clear_deadline: &mut timers.preview_clear_deadline,
+        last_meter_update: &mut timers.last_meter_update,
+        last_auto_trigger_at: &mut timers.last_auto_trigger_at,
+        terminal_rows: &mut state.terminal_rows,
+        terminal_cols: &mut state.terminal_cols,
+        backend_label: &deps.backend_label,
+        theme: &mut state.theme,
+        button_registry: &deps.button_registry,
+    }
 }
 
 fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {

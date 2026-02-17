@@ -13,7 +13,9 @@ use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
 };
 use crate::settings::SettingsMenuState;
-use crate::settings_handlers::SettingsActionContext;
+use crate::settings_handlers::{
+    SettingsActionContext, SettingsHudContext, SettingsStatusContext, SettingsVoiceContext,
+};
 use crate::status_line::{get_button_positions, status_banner_height, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
 use crate::theme::Theme;
@@ -44,51 +46,6 @@ pub(crate) struct ButtonActionContext<'a> {
 }
 
 impl<'a> ButtonActionContext<'a> {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
-        overlay_mode: &'a mut OverlayMode,
-        settings_menu: &'a mut SettingsMenuState,
-        config: &'a mut OverlayConfig,
-        status_state: &'a mut StatusLineState,
-        auto_voice_enabled: &'a mut bool,
-        voice_manager: &'a mut VoiceManager,
-        session: &'a mut PtyOverlaySession,
-        writer_tx: &'a Sender<WriterMessage>,
-        status_clear_deadline: &'a mut Option<Instant>,
-        current_status: &'a mut Option<String>,
-        recording_started_at: &'a mut Option<Instant>,
-        preview_clear_deadline: &'a mut Option<Instant>,
-        last_meter_update: &'a mut Instant,
-        last_auto_trigger_at: &'a mut Option<Instant>,
-        terminal_rows: &'a mut u16,
-        terminal_cols: &'a mut u16,
-        backend_label: &'a str,
-        theme: &'a mut Theme,
-        button_registry: &'a ButtonRegistry,
-    ) -> Self {
-        Self {
-            overlay_mode,
-            settings_menu,
-            config,
-            status_state,
-            auto_voice_enabled,
-            voice_manager,
-            session,
-            writer_tx,
-            status_clear_deadline,
-            current_status,
-            recording_started_at,
-            preview_clear_deadline,
-            last_meter_update,
-            last_auto_trigger_at,
-            terminal_rows,
-            terminal_cols,
-            backend_label,
-            theme,
-            button_registry,
-        }
-    }
-
     pub(crate) fn handle_action(&mut self, action: ButtonAction) {
         if *self.overlay_mode != OverlayMode::None {
             return;
@@ -132,10 +89,10 @@ impl<'a> ButtonActionContext<'a> {
                 self.open_settings_overlay();
             }
             ButtonAction::ToggleHudStyle => {
-                self.with_settings_context(|settings_ctx| settings_ctx.update_hud_style(1));
+                self.with_settings_context(|settings_ctx| settings_ctx.cycle_hud_style(1));
             }
             ButtonAction::HudBack => {
-                self.with_settings_context(|settings_ctx| settings_ctx.update_hud_style(-1));
+                self.with_settings_context(|settings_ctx| settings_ctx.cycle_hud_style(-1));
             }
             ButtonAction::HelpToggle => {
                 self.open_help_overlay();
@@ -206,25 +163,31 @@ impl<'a> ButtonActionContext<'a> {
     }
 
     fn settings_context(&mut self) -> SettingsActionContext<'_> {
-        SettingsActionContext::new(
-            &mut *self.config,
-            &mut *self.status_state,
-            &mut *self.auto_voice_enabled,
-            &mut *self.voice_manager,
-            self.writer_tx,
-            &mut *self.status_clear_deadline,
-            &mut *self.current_status,
-            &mut *self.last_auto_trigger_at,
-            &mut *self.recording_started_at,
-            &mut *self.preview_clear_deadline,
-            &mut *self.last_meter_update,
-            self.button_registry,
-            *self.overlay_mode,
-            &mut *self.terminal_rows,
-            &mut *self.terminal_cols,
-            &mut *self.theme,
-            Some(&mut *self.session),
-        )
+        SettingsActionContext {
+            config: &mut *self.config,
+            status: SettingsStatusContext {
+                status_state: &mut *self.status_state,
+                writer_tx: self.writer_tx,
+                status_clear_deadline: &mut *self.status_clear_deadline,
+                current_status: &mut *self.current_status,
+                preview_clear_deadline: &mut *self.preview_clear_deadline,
+                last_meter_update: &mut *self.last_meter_update,
+            },
+            voice: SettingsVoiceContext {
+                auto_voice_enabled: &mut *self.auto_voice_enabled,
+                voice_manager: &mut *self.voice_manager,
+                last_auto_trigger_at: &mut *self.last_auto_trigger_at,
+                recording_started_at: &mut *self.recording_started_at,
+            },
+            hud: SettingsHudContext {
+                button_registry: self.button_registry,
+                overlay_mode: *self.overlay_mode,
+                terminal_rows: &mut *self.terminal_rows,
+                terminal_cols: &mut *self.terminal_cols,
+                theme: &mut *self.theme,
+                pty_session: Some(&mut *self.session),
+            },
+        }
     }
 }
 

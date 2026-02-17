@@ -895,7 +895,7 @@ fn process_auth_events_emits_success_and_capabilities() {
 
 #[test]
 fn ipc_loop_count_reset_clears_count() {
-    IPC_LOOP_COUNT.store(5, Ordering::SeqCst);
+    ipc_loop_count_set(5);
     assert_eq!(ipc_loop_count(), 5);
     ipc_loop_count_reset();
     assert_eq!(ipc_loop_count(), 0);

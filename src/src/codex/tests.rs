@@ -12,7 +12,7 @@ use super::pty_backend::{
     call_codex_via_session, clamp_line_start, compute_deadline, current_line_start, duration_ms,
     find_csi_sequence, first_output_timed_out, init_guard, normalize_control_bytes,
     pop_last_codepoint, should_accept_printable, should_break_overall, should_fail_control_only,
-    skip_osc_sequence, step_guard, CodexCliBackendState, CodexSession,
+    skip_osc_sequence, step_guard, CodexCliBackendState, CodexSession, SanitizedOutputCache,
 };
 use super::{
     prepare_for_display, sanitize_pty_output, CodexCliBackend, CodexJobRunner, CodexRequest,
@@ -58,6 +58,28 @@ fn sanitize_keeps_wide_glyphs() {
 fn sanitize_strips_escape_wrapped_cursor_report() {
     let cleaned = sanitize_pty_output(b"\x1b[>0;0;0uHello");
     assert_eq!(cleaned, "Hello");
+}
+
+#[test]
+fn sanitized_output_cache_reuses_cached_text_until_marked_dirty() {
+    let mut cache = SanitizedOutputCache::default();
+    cache.mark_dirty();
+    assert_eq!(cache.sanitized(b"ping\n"), "ping\n");
+    assert_eq!(cache.refresh_count(), 1);
+
+    assert_eq!(cache.sanitized(b"ping\n"), "ping\n");
+    assert_eq!(cache.refresh_count(), 1);
+}
+
+#[test]
+fn sanitized_output_cache_refreshes_after_mark_dirty() {
+    let mut cache = SanitizedOutputCache::default();
+    cache.mark_dirty();
+    assert_eq!(cache.sanitized(b"\x1b[6nhello\n"), "hello\n");
+
+    cache.mark_dirty();
+    assert_eq!(cache.sanitized(b"world\n"), "world\n");
+    assert_eq!(cache.refresh_count(), 2);
 }
 
 #[test]

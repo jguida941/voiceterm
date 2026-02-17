@@ -18,38 +18,53 @@ const SESSION_GUARD_DIR_ENV: &str = "VOICETERM_SESSION_GUARD_DIR";
 const SESSION_GUARD_ENABLED_ENV: &str = "VOICETERM_SESSION_GUARD";
 const SESSION_GUARD_DIR_NAME: &str = "voiceterm-session-guard";
 const SESSION_TERMINATION_GRACE_MS: u64 = 500;
+const STALE_CLEANUP_MIN_INTERVAL_MS: u64 = 2_000;
 
 static SESSION_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static LAST_STALE_CLEANUP_MS: AtomicU64 = AtomicU64::new(0);
 static ACTIVE_SESSION_FILES: OnceLock<Mutex<HashMap<RawFd, PathBuf>>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 struct SessionLeaseEntry {
     owner_pid: i32,
     owner_exec_name: String,
+    owner_start_time: Option<String>,
     child_pid: i32,
     exec_name: String,
+    child_start_time: Option<String>,
 }
 
 impl SessionLeaseEntry {
     fn to_text(&self) -> String {
-        format!(
+        let mut text = format!(
             "owner_pid={}\nowner_exec_name={}\nchild_pid={}\nexec_name={}\n",
             self.owner_pid, self.owner_exec_name, self.child_pid, self.exec_name
-        )
+        );
+        if let Some(owner_start_time) = &self.owner_start_time {
+            text.push_str(&format!("owner_start_time={owner_start_time}\n"));
+        }
+        if let Some(child_start_time) = &self.child_start_time {
+            text.push_str(&format!("child_start_time={child_start_time}\n"));
+        }
+        text
     }
 
     fn parse(text: &str) -> Option<Self> {
         let mut owner_pid = None;
         let mut owner_exec_name = None;
+        let mut owner_start_time = None;
         let mut child_pid = None;
         let mut exec_name = None;
+        let mut child_start_time = None;
         for line in text.lines() {
             let (key, value) = line.split_once('=')?;
             match key {
                 "owner_pid" => owner_pid = value.parse::<i32>().ok(),
                 "owner_exec_name" => owner_exec_name = Some(value.to_string()),
+                "owner_start_time" => owner_start_time = Some(value.to_string()),
                 "child_pid" => child_pid = value.parse::<i32>().ok(),
                 "exec_name" => exec_name = Some(value.to_string()),
+                "child_start_time" => child_start_time = Some(value.to_string()),
                 _ => {}
             }
         }
@@ -63,8 +78,10 @@ impl SessionLeaseEntry {
         Some(Self {
             owner_pid,
             owner_exec_name,
+            owner_start_time,
             child_pid,
             exec_name,
+            child_start_time,
         })
     }
 }
@@ -170,13 +187,32 @@ fn process_parent_pid(pid: i32) -> Option<i32> {
     value.parse::<i32>().ok()
 }
 
+fn process_start_time(pid: i32) -> Option<String> {
+    if pid <= 0 {
+        return None;
+    }
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "lstart="])
+        .output()
+        .ok()?;
+    let start_time = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if start_time.is_empty() {
+        return None;
+    }
+    Some(start_time)
+}
+
 fn command_matches_exec_name(command_line: &str, exec_name: &str) -> bool {
     command_basename(command_line)
         .map(|basename| basename == exec_name)
         .unwrap_or(false)
 }
 
-fn owner_process_is_live(owner_pid: i32, expected_exec_name: &str) -> bool {
+fn owner_process_is_live(
+    owner_pid: i32,
+    expected_exec_name: &str,
+    expected_start_time: Option<&str>,
+) -> bool {
     if !process_exists(owner_pid) {
         return false;
     }
@@ -184,7 +220,47 @@ fn owner_process_is_live(owner_pid: i32, expected_exec_name: &str) -> bool {
         // If we cannot inspect the command line, be conservative and assume the owner is alive.
         return true;
     };
-    command_matches_exec_name(&command_line, expected_exec_name)
+    if !command_matches_exec_name(&command_line, expected_exec_name) {
+        return false;
+    }
+    if let Some(expected_start_time) = expected_start_time {
+        let Some(actual_start_time) = process_start_time(owner_pid) else {
+            // If we cannot inspect process start-time, prefer false-negative over false-positive cleanup.
+            return true;
+        };
+        return actual_start_time == expected_start_time;
+    }
+    true
+}
+
+fn cleanup_clock_millis() -> u64 {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    now_ms.min(u128::from(u64::MAX)) as u64
+}
+
+fn cleanup_allowed(last_cleanup_ms: u64, now_ms: u64, min_interval_ms: u64) -> bool {
+    last_cleanup_ms == 0 || now_ms.saturating_sub(last_cleanup_ms) >= min_interval_ms
+}
+
+fn should_run_cleanup(now_ms: u64, min_interval_ms: u64) -> bool {
+    let mut prior = LAST_STALE_CLEANUP_MS.load(Ordering::Relaxed);
+    loop {
+        if !cleanup_allowed(prior, now_ms, min_interval_ms) {
+            return false;
+        }
+        match LAST_STALE_CLEANUP_MS.compare_exchange_weak(
+            prior,
+            now_ms,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => return true,
+            Err(observed) => prior = observed,
+        }
+    }
 }
 
 fn terminate_stale_process_tree(child_pid: i32) {
@@ -218,7 +294,11 @@ fn cleanup_stale_sessions_in_dir(base_dir: &Path) {
             let _ = fs::remove_file(&path);
             continue;
         };
-        if owner_process_is_live(lease.owner_pid, &lease.owner_exec_name) {
+        if owner_process_is_live(
+            lease.owner_pid,
+            &lease.owner_exec_name,
+            lease.owner_start_time.as_deref(),
+        ) {
             continue;
         }
         if process_exists(lease.child_pid) {
@@ -232,20 +312,45 @@ fn cleanup_stale_sessions_in_dir(base_dir: &Path) {
                     continue;
                 }
             }
-            if let Some(command_line) = process_command_line(lease.child_pid) {
-                if command_matches_exec_name(&command_line, &lease.exec_name) {
+            let Some(command_line) = process_command_line(lease.child_pid) else {
+                log_debug(&format!(
+                    "session guard: stale lease command lookup failed for pid={}",
+                    lease.child_pid
+                ));
+                let _ = fs::remove_file(&path);
+                continue;
+            };
+            if !command_matches_exec_name(&command_line, &lease.exec_name) {
+                log_debug(&format!(
+                    "session guard: stale lease command mismatch for pid={} expected={} actual={}",
+                    lease.child_pid, lease.exec_name, command_line
+                ));
+                let _ = fs::remove_file(&path);
+                continue;
+            }
+            if let Some(expected_start_time) = lease.child_start_time.as_deref() {
+                let Some(actual_start_time) = process_start_time(lease.child_pid) else {
                     log_debug(&format!(
-                        "session guard: reaping stale backend pid={} exec={}",
-                        lease.child_pid, lease.exec_name
+                        "session guard: stale lease start-time lookup failed for pid={}",
+                        lease.child_pid
                     ));
-                    terminate_stale_process_tree(lease.child_pid);
-                } else {
+                    let _ = fs::remove_file(&path);
+                    continue;
+                };
+                if actual_start_time != expected_start_time {
                     log_debug(&format!(
-                        "session guard: stale lease command mismatch for pid={} expected={} actual={}",
-                        lease.child_pid, lease.exec_name, command_line
+                        "session guard: stale lease start-time mismatch for pid={} expected={} actual={}",
+                        lease.child_pid, expected_start_time, actual_start_time
                     ));
+                    let _ = fs::remove_file(&path);
+                    continue;
                 }
             }
+            log_debug(&format!(
+                "session guard: reaping stale backend pid={} exec={}",
+                lease.child_pid, lease.exec_name
+            ));
+            terminate_stale_process_tree(lease.child_pid);
         }
         let _ = fs::remove_file(&path);
     }
@@ -253,6 +358,9 @@ fn cleanup_stale_sessions_in_dir(base_dir: &Path) {
 
 pub(super) fn cleanup_stale_sessions() {
     if !session_guard_enabled() {
+        return;
+    }
+    if !should_run_cleanup(cleanup_clock_millis(), STALE_CLEANUP_MIN_INTERVAL_MS) {
         return;
     }
     let base_dir = session_guard_dir();
@@ -279,8 +387,10 @@ pub(super) fn register_session(master_fd: RawFd, child_pid: i32, cli_cmd: &str) 
     let lease = SessionLeaseEntry {
         owner_pid,
         owner_exec_name,
+        owner_start_time: process_start_time(owner_pid),
         child_pid,
         exec_name,
+        child_start_time: process_start_time(child_pid),
     };
     let base_dir = session_guard_dir();
     if let Err(err) = fs::create_dir_all(&base_dir) {
@@ -359,15 +469,37 @@ mod tests {
         let entry = SessionLeaseEntry {
             owner_pid: 11,
             owner_exec_name: "voiceterm".to_string(),
+            owner_start_time: Some("Mon Jan  1 00:00:00 2024".to_string()),
             child_pid: 22,
             exec_name: "codex".to_string(),
+            child_start_time: Some("Mon Jan  1 00:00:01 2024".to_string()),
         };
         let text = entry.to_text();
         let parsed = SessionLeaseEntry::parse(&text).expect("parse lease");
         assert_eq!(parsed.owner_pid, 11);
         assert_eq!(parsed.owner_exec_name, "voiceterm");
+        assert_eq!(
+            parsed.owner_start_time.as_deref(),
+            Some("Mon Jan  1 00:00:00 2024")
+        );
         assert_eq!(parsed.child_pid, 22);
         assert_eq!(parsed.exec_name, "codex");
+        assert_eq!(
+            parsed.child_start_time.as_deref(),
+            Some("Mon Jan  1 00:00:01 2024")
+        );
+    }
+
+    #[test]
+    fn lease_entry_parse_accepts_legacy_format_without_start_times() {
+        let text = "owner_pid=11\nowner_exec_name=voiceterm\nchild_pid=22\nexec_name=codex\n";
+        let parsed = SessionLeaseEntry::parse(text).expect("parse lease");
+        assert_eq!(parsed.owner_pid, 11);
+        assert_eq!(parsed.owner_exec_name, "voiceterm");
+        assert!(parsed.owner_start_time.is_none());
+        assert_eq!(parsed.child_pid, 22);
+        assert_eq!(parsed.exec_name, "codex");
+        assert!(parsed.child_start_time.is_none());
     }
 
     #[test]
@@ -383,14 +515,46 @@ mod tests {
     }
 
     #[test]
+    fn owner_process_liveness_rejects_start_time_mismatch() {
+        let owner_pid = unsafe { libc::getpid() as i32 };
+        let owner_exec_name = process_command_line(owner_pid)
+            .and_then(|line| command_basename(&line))
+            .unwrap_or_else(|| "voiceterm".to_string());
+        if let Some(owner_start_time) = process_start_time(owner_pid) {
+            assert!(owner_process_is_live(
+                owner_pid,
+                &owner_exec_name,
+                Some(&owner_start_time)
+            ));
+            let mismatched_start_time = format!("{owner_start_time}-mismatch");
+            assert!(!owner_process_is_live(
+                owner_pid,
+                &owner_exec_name,
+                Some(&mismatched_start_time)
+            ));
+        } else {
+            assert!(owner_process_is_live(owner_pid, &owner_exec_name, None));
+        }
+    }
+
+    #[test]
+    fn cleanup_allowed_respects_min_interval() {
+        assert!(cleanup_allowed(0, 10_000, 500));
+        assert!(!cleanup_allowed(10_000, 10_300, 500));
+        assert!(cleanup_allowed(10_000, 10_600, 500));
+    }
+
+    #[test]
     fn cleanup_removes_entry_for_missing_owner() {
         let dir = create_test_dir("missing-owner");
         let path = dir.join("lease.lease");
         let entry = SessionLeaseEntry {
             owner_pid: missing_pid(),
             owner_exec_name: "voiceterm".to_string(),
+            owner_start_time: None,
             child_pid: missing_pid() + 1,
             exec_name: "codex".to_string(),
+            child_start_time: None,
         };
         fs::write(&path, entry.to_text()).expect("write lease");
         cleanup_stale_sessions_in_dir(&dir);
@@ -408,8 +572,10 @@ mod tests {
             owner_exec_name: process_command_line(owner_pid)
                 .and_then(|line| command_basename(&line))
                 .unwrap_or_else(|| "voiceterm".to_string()),
+            owner_start_time: process_start_time(owner_pid),
             child_pid: missing_pid(),
             exec_name: "codex".to_string(),
+            child_start_time: None,
         };
         fs::write(&path, entry.to_text()).expect("write lease");
         cleanup_stale_sessions_in_dir(&dir);

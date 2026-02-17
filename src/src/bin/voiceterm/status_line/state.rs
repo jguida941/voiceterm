@@ -152,6 +152,8 @@ pub struct StatusLineState {
     pub latency_history_ms: Vec<u32>,
     /// Current voice send mode
     pub send_mode: VoiceSendMode,
+    /// Whether insert mode currently has unsent prompt text staged in the terminal.
+    pub insert_pending_send: bool,
     /// Whether macro expansion from `.voiceterm/macros.yaml` is enabled.
     pub macros_enabled: bool,
     /// Right-side HUD panel mode
@@ -215,6 +217,7 @@ mod tests {
         assert_eq!(state.sensitivity_db, -35.0);
         assert!(!state.auto_voice_enabled);
         assert!(!state.macros_enabled);
+        assert!(!state.insert_pending_send);
         assert!(state.latency_history_ms.is_empty());
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());

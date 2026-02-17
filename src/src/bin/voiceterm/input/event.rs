@@ -4,6 +4,7 @@
 pub(crate) enum InputEvent {
     Bytes(Vec<u8>),
     VoiceTrigger,
+    SendStagedText,
     ToggleAutoVoice,
     ToggleSendMode,
     IncreaseSensitivity,

@@ -1668,6 +1668,20 @@ fn pty_overlay_session_set_winsize_errors_on_invalid_fd() {
 }
 
 #[test]
+fn pty_overlay_session_is_alive_with_negative_pid_returns_false() {
+    let (_tx, rx) = bounded(1);
+    let handle = thread::spawn(|| {});
+    let session = ManuallyDrop::new(PtyOverlaySession {
+        master_fd: -1,
+        lifeline_write_fd: -1,
+        child_pid: -1,
+        output_rx: rx,
+        _output_thread: handle,
+    });
+    assert!(!session.is_alive());
+}
+
+#[test]
 fn pty_overlay_session_is_alive_reflects_child() {
     let mut child = std::process::Command::new("sleep")
         .arg("1")

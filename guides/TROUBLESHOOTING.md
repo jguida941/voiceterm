@@ -78,6 +78,8 @@ Transcription is taking longer than expected.
 1. Wait up to 60 seconds for longer captures.
 2. If still stuck, press `Ctrl+C` and restart.
 3. Try a smaller model (`--whisper-model base`).
+4. In insert mode, use `Ctrl+R` to stop active recording and `Ctrl+E` to submit
+   staged text during noisy captures; `Enter` is submit-only for staged text.
 
 ### Voice macro not expanding
 

@@ -140,6 +140,9 @@ pub(crate) fn deliver_transcript<S: TranscriptSession>(
         Ok(sent_newline) => {
             if sent_newline {
                 io.status_state.recording_state = RecordingState::Responding;
+                io.status_state.insert_pending_send = false;
+            } else {
+                io.status_state.insert_pending_send = true;
             }
             sent_newline
         }
@@ -228,6 +231,7 @@ mod tests {
         let sent = deliver_transcript("hello", VoiceSendMode::Auto, &mut io, 0, None);
         assert!(sent);
         assert_eq!(io.status_state.recording_state, RecordingState::Responding);
+        assert!(!io.status_state.insert_pending_send);
     }
 
     #[test]
@@ -249,6 +253,7 @@ mod tests {
         let sent = deliver_transcript("hello", VoiceSendMode::Insert, &mut io, 0, None);
         assert!(!sent);
         assert_eq!(io.status_state.recording_state, RecordingState::Idle);
+        assert!(io.status_state.insert_pending_send);
     }
 
     #[test]

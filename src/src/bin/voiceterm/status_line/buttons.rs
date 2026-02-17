@@ -371,7 +371,6 @@ pub(super) fn format_shortcuts_row_with_positions(
     let shortcuts = truncate_display(&format!(" {}", shortcuts_str), inner_width);
     let shortcuts_width = display_width(&shortcuts);
     let mut interior = shortcuts.clone();
-    let mut interior_width = shortcuts_width;
 
     // Keep shortcut/button geometry stable: only append trailing panel if there is spare room.
     if let Some(panel) = trailing_panel {
@@ -382,32 +381,17 @@ pub(super) fn format_shortcuts_row_with_positions(
                 // Right-align the visualization panel to keep it anchored in the corner.
                 let gap = inner_width.saturating_sub(shortcuts_width + panel_width);
                 interior = format!("{shortcuts}{}{}", " ".repeat(gap), panel);
-                interior_width = inner_width;
             }
         }
     }
 
-    let padding_needed = inner_width.saturating_sub(interior_width);
-    let padding = " ".repeat(padding_needed);
-
-    // Match main row format: border + interior + padding + border
-    let line = format!(
-        "{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        interior,
-        padding,
-        colors.border,
-        borders.vertical,
-        colors.reset,
-    );
+    let line = wrap_shortcuts_row(&interior, colors, borders, inner_width);
 
     (line, buttons)
 }
 
 /// Format the shortcuts row with dimmed styling.
-#[allow(dead_code)]
+#[cfg(test)]
 fn format_shortcuts_row(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -419,7 +403,7 @@ fn format_shortcuts_row(
 }
 
 /// Legacy format_shortcuts_row without position tracking.
-#[allow(dead_code)]
+#[cfg(test)]
 fn format_shortcuts_row_legacy(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -430,22 +414,7 @@ fn format_shortcuts_row_legacy(
 
     // Add leading space to match main row's left margin
     let interior = format!(" {}", shortcuts_str);
-    let interior_width = display_width(&interior);
-    let padding_needed = inner_width.saturating_sub(interior_width);
-    let padding = " ".repeat(padding_needed);
-
-    // Match main row format: border + interior + padding + border
-    format!(
-        "{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        interior,
-        padding,
-        colors.border,
-        borders.vertical,
-        colors.reset,
-    )
+    wrap_shortcuts_row(&interior, colors, borders, inner_width)
 }
 
 /// Button definition for position tracking.
@@ -498,6 +467,117 @@ fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
     ]
 }
 
+const ROW_ITEM_SEPARATOR: &str = " · ";
+const COMPACT_ITEM_SEPARATOR: &str = " ";
+const COMPACT_BUTTON_INDICES: [usize; 6] = [0, 1, 2, 3, 5, 6];
+#[cfg(test)]
+const LEGACY_COMPACT_ITEM_INDICES: [usize; 5] = [0, 1, 2, 3, 5];
+
+fn wrap_shortcuts_row(
+    interior: &str,
+    colors: &ThemeColors,
+    borders: &BorderSet,
+    inner_width: usize,
+) -> String {
+    let interior_width = display_width(interior);
+    let padding_needed = inner_width.saturating_sub(interior_width);
+    let padding = " ".repeat(padding_needed);
+    format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        interior,
+        padding,
+        colors.border,
+        borders.vertical,
+        colors.reset,
+    )
+}
+
+#[inline]
+fn recording_button_highlight(colors: &ThemeColors) -> &str {
+    colors.recording
+}
+
+fn button_highlight<'a>(
+    state: &StatusLineState,
+    colors: &'a ThemeColors,
+    action: ButtonAction,
+) -> &'a str {
+    match action {
+        ButtonAction::VoiceTrigger => match state.recording_state {
+            RecordingState::Recording => recording_button_highlight(colors),
+            RecordingState::Processing => colors.processing,
+            RecordingState::Responding => colors.info,
+            RecordingState::Idle => colors.border,
+        },
+        ButtonAction::ToggleAutoVoice => {
+            if state.auto_voice_enabled {
+                colors.info
+            } else {
+                colors.border
+            }
+        }
+        ButtonAction::ToggleSendMode => match state.send_mode {
+            VoiceSendMode::Auto => colors.success,
+            VoiceSendMode::Insert => colors.warning,
+        },
+        ButtonAction::SettingsToggle
+        | ButtonAction::ToggleHudStyle
+        | ButtonAction::HudBack
+        | ButtonAction::HelpToggle
+        | ButtonAction::ThemePicker => colors.border,
+    }
+}
+
+fn format_queue_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
+    (state.queue_depth > 0)
+        .then(|| format!("{}Q:{}{}", colors.warning, state.queue_depth, colors.reset))
+}
+
+fn format_ready_badge(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    enabled: bool,
+) -> Option<String> {
+    (enabled && state.recording_state == RecordingState::Idle && state.queue_depth == 0)
+        .then(|| format!("{}Ready{}", colors.success, colors.reset))
+}
+
+fn latency_badge_color(colors: &ThemeColors, latency: u32) -> &str {
+    if latency < 300 {
+        colors.success
+    } else if latency < 500 {
+        colors.warning
+    } else {
+        colors.error
+    }
+}
+
+fn format_latency_badge(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    respect_display_mode: bool,
+) -> Option<String> {
+    let latency = state.last_latency_ms?;
+    let text = if respect_display_mode {
+        match state.latency_display {
+            LatencyDisplayMode::Short => format!("{latency}ms"),
+            LatencyDisplayMode::Label => format!("Latency: {latency}ms"),
+            LatencyDisplayMode::Off => return None,
+        }
+    } else {
+        format!("{latency}ms")
+    };
+    Some(format!(
+        "{}{}{}",
+        latency_badge_color(colors, latency),
+        text,
+        colors.reset
+    ))
+}
+
 /// Format button row and return (formatted_string, button_positions).
 /// Button positions are relative to the row start (after border character).
 fn format_button_row_with_positions(
@@ -521,35 +601,13 @@ fn format_button_row_with_positions(
             current_x += separator_visible_width;
         }
 
-        // Get color for this button - static buttons use border/accent color
-        let highlight = match def.action {
-            ButtonAction::VoiceTrigger => match state.recording_state {
-                RecordingState::Recording => colors.recording,
-                RecordingState::Processing => colors.processing,
-                RecordingState::Responding => colors.info,
-                RecordingState::Idle => colors.border, // Accent color when idle
-            },
-            ButtonAction::ToggleAutoVoice => {
-                if state.auto_voice_enabled {
-                    colors.info
-                } else {
-                    colors.border
-                }
-            }
-            ButtonAction::ToggleSendMode => match state.send_mode {
-                VoiceSendMode::Auto => colors.success,
-                VoiceSendMode::Insert => colors.warning,
-            },
-            // Static buttons use border/accent color to pop
-            ButtonAction::SettingsToggle
-            | ButtonAction::ToggleHudStyle
-            | ButtonAction::HudBack
-            | ButtonAction::HelpToggle
-            | ButtonAction::ThemePicker => colors.border,
-        };
-
         let focused = state.hud_button_focus == Some(def.action);
-        let formatted = format_button(colors, def.label, highlight, focused);
+        let formatted = format_button(
+            colors,
+            def.label,
+            button_highlight(state, colors, def.action),
+            focused,
+        );
         let visible_width = def.label.len() as u16 + 2; // [label] = label + 2 brackets
 
         // Record position
@@ -564,42 +622,13 @@ fn format_button_row_with_positions(
         current_x += visible_width;
     }
 
-    // Queue badge (not clickable)
-    if state.queue_depth > 0 {
-        items.push(format!(
-            "{}Q:{}{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+    if let Some(queue_badge) = format_queue_badge(state, colors) {
+        items.push(queue_badge);
     }
 
-    // Ready badge (not clickable)
-    let ready_badge = if show_ready_badge
-        && state.recording_state == RecordingState::Idle
-        && state.queue_depth == 0
-    {
-        Some(format!("{}Ready{}", colors.success, colors.reset))
-    } else {
-        None
-    };
+    let ready_badge = format_ready_badge(state, colors, show_ready_badge);
     let latency_badge = if show_latency_badge {
-        state.last_latency_ms.and_then(|latency| {
-            if state.latency_display == LatencyDisplayMode::Off {
-                return None;
-            }
-            let latency_color = if latency < 300 {
-                colors.success
-            } else if latency < 500 {
-                colors.warning
-            } else {
-                colors.error
-            };
-            let text = match state.latency_display {
-                LatencyDisplayMode::Short => format!("{latency}ms"),
-                LatencyDisplayMode::Label => format!("Latency: {latency}ms"),
-                LatencyDisplayMode::Off => return None,
-            };
-            Some(format!("{latency_color}{text}{}", colors.reset))
-        })
+        format_latency_badge(state, colors, true)
     } else {
         None
     };
@@ -610,9 +639,7 @@ fn format_button_row_with_positions(
         (None, None) => {}
     }
 
-    // Use a plain separator to keep glyph rendering stable during rapid redraws.
-    let separator = " · ".to_string();
-    let row = items.join(&separator);
+    let row = items.join(ROW_ITEM_SEPARATOR);
 
     if display_width(&row) <= inner_width {
         return (row, positions);
@@ -621,42 +648,21 @@ fn format_button_row_with_positions(
     // Compact mode: fewer buttons, recalculate positions
     let mut compact_items = Vec::new();
     let mut compact_positions = Vec::new();
-    let compact_indices = [0, 1, 2, 3, 5, 6]; // rec, auto, send, set, help, theme
-
     current_x = 3;
-    for (i, &idx) in compact_indices.iter().enumerate() {
+    for (i, &idx) in COMPACT_BUTTON_INDICES.iter().enumerate() {
         if i > 0 {
             current_x += 1; // space separator in compact mode
         }
 
         let def = &button_defs[idx];
-        let highlight = match def.action {
-            ButtonAction::VoiceTrigger => match state.recording_state {
-                RecordingState::Recording => colors.recording,
-                RecordingState::Processing => colors.processing,
-                RecordingState::Responding => colors.info,
-                RecordingState::Idle => colors.border,
-            },
-            ButtonAction::ToggleAutoVoice => {
-                if state.auto_voice_enabled {
-                    colors.info
-                } else {
-                    colors.border
-                }
-            }
-            ButtonAction::ToggleSendMode => match state.send_mode {
-                VoiceSendMode::Auto => colors.success,
-                VoiceSendMode::Insert => colors.warning,
-            },
-            ButtonAction::SettingsToggle
-            | ButtonAction::ToggleHudStyle
-            | ButtonAction::HudBack
-            | ButtonAction::HelpToggle
-            | ButtonAction::ThemePicker => colors.border,
-        };
 
         let focused = state.hud_button_focus == Some(def.action);
-        let formatted = format_button(colors, def.label, highlight, focused);
+        let formatted = format_button(
+            colors,
+            def.label,
+            button_highlight(state, colors, def.action),
+            focused,
+        );
         let visible_width = def.label.len() as u16 + 2;
 
         compact_positions.push(ButtonPosition {
@@ -670,23 +676,21 @@ fn format_button_row_with_positions(
         current_x += visible_width;
     }
 
-    if state.queue_depth > 0 {
-        compact_items.push(format!(
-            "{}Q:{}{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+    if let Some(queue_badge) = format_queue_badge(state, colors) {
+        compact_items.push(queue_badge);
     }
 
-    let compact_row = truncate_display(&compact_items.join(" "), inner_width);
+    let compact_row = truncate_display(&compact_items.join(COMPACT_ITEM_SEPARATOR), inner_width);
     (compact_row, compact_positions)
 }
 
+#[cfg(test)]
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
     let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2, true, false);
     row
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn format_button_row_legacy(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -725,47 +729,28 @@ fn format_button_row_legacy(
     items.push(format_button(colors, "theme", "", false));
 
     // Queue badge - modern pill style
-    if state.queue_depth > 0 {
-        items.push(format!(
-            "{}Q:{}{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+    if let Some(queue_badge) = format_queue_badge(state, colors) {
+        items.push(queue_badge);
     }
 
-    // Latency badge if available
-    if let Some(latency) = state.last_latency_ms {
-        let latency_color = if latency < 300 {
-            colors.success
-        } else if latency < 500 {
-            colors.warning
-        } else {
-            colors.error
-        };
-        items.push(format!("{}{}ms{}", latency_color, latency, colors.reset));
+    if let Some(latency_badge) = format_latency_badge(state, colors, false) {
+        items.push(latency_badge);
     }
 
-    // Use a plain separator to keep glyph rendering stable during rapid redraws.
-    let separator = " · ".to_string();
-    let row = items.join(&separator);
+    let row = items.join(ROW_ITEM_SEPARATOR);
     if display_width(&row) <= inner_width {
         return row;
     }
 
     // Compact: keep essentials (rec/auto/send/settings/help)
-    let mut compact = vec![
-        items[0].clone(),
-        items[1].clone(),
-        items[2].clone(),
-        items[3].clone(),
-        items[5].clone(),
-    ];
-    if state.queue_depth > 0 {
-        compact.push(format!(
-            "{}Q:{}{}",
-            colors.warning, state.queue_depth, colors.reset
-        ));
+    let mut compact: Vec<String> = LEGACY_COMPACT_ITEM_INDICES
+        .iter()
+        .map(|idx| items[*idx].clone())
+        .collect();
+    if let Some(queue_badge) = format_queue_badge(state, colors) {
+        compact.push(queue_badge);
     }
-    truncate_display(&compact.join(" "), inner_width)
+    truncate_display(&compact.join(COMPACT_ITEM_SEPARATOR), inner_width)
 }
 
 /// Format a clickable button - colored label when active, dim otherwise.
@@ -829,738 +814,4 @@ fn format_shortcut_colored(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::status_line::layout::breakpoints;
-
-    fn count_substring(haystack: &str, needle: &str) -> usize {
-        haystack.match_indices(needle).count()
-    }
-
-    #[test]
-    fn get_button_positions_hidden_idle_has_open_button() {
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Hidden;
-        let positions = get_button_positions(&state, Theme::None, 80);
-        assert_eq!(positions.len(), 1);
-        assert_eq!(positions[0].row, 1);
-        assert_eq!(positions[0].action, ButtonAction::ToggleHudStyle);
-    }
-
-    #[test]
-    fn get_button_positions_full_has_buttons() {
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        let positions = get_button_positions(&state, Theme::None, 80);
-        assert!(!positions.is_empty());
-        assert_eq!(positions[0].row, 2);
-    }
-
-    #[test]
-    fn get_button_positions_minimal_has_back_button() {
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Minimal;
-        let positions = get_button_positions(&state, Theme::None, 40);
-        assert_eq!(positions.len(), 1);
-        assert_eq!(positions[0].row, 1);
-        assert_eq!(positions[0].action, ButtonAction::HudBack);
-    }
-
-    #[test]
-    fn hidden_launcher_text_contains_hint() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let line = hidden_launcher_text(&state, &colors);
-        assert!(line.contains("Voice"));
-        assert!(line.contains("Ctrl+U"));
-    }
-
-    #[test]
-    fn button_defs_use_send_label_from_send_mode() {
-        let mut state = StatusLineState::new();
-        let defs = get_button_defs(&state);
-        let send = defs
-            .iter()
-            .find(|def| def.action == ButtonAction::ToggleSendMode)
-            .expect("send button");
-        assert_eq!(send.label, "send");
-
-        state.send_mode = VoiceSendMode::Insert;
-        let defs = get_button_defs(&state);
-        let send = defs
-            .iter()
-            .find(|def| def.action == ButtonAction::ToggleSendMode)
-            .expect("send button");
-        assert_eq!(send.label, "edit");
-    }
-
-    #[test]
-    fn minimal_right_panel_respects_recording_only() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_right_panel = HudRightPanel::Dots;
-        state.hud_right_panel_recording_only = true;
-        state.recording_state = RecordingState::Idle;
-        state.meter_db = Some(-12.0);
-        let idle_panel = minimal_right_panel(&state, &colors).expect("idle panel");
-        assert!(idle_panel.contains("·"));
-
-        state.recording_state = RecordingState::Recording;
-        assert!(minimal_right_panel(&state, &colors).is_some());
-    }
-
-    #[test]
-    fn minimal_right_panel_ribbon_shows_waveform() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_right_panel = HudRightPanel::Ribbon;
-        state.hud_right_panel_recording_only = false;
-        state.recording_state = RecordingState::Recording;
-        state
-            .meter_levels
-            .extend_from_slice(&[-55.0, -42.0, -30.0, -18.0]);
-        let panel = minimal_right_panel(&state, &colors).expect("panel");
-        assert!(panel.contains("▁") || panel.contains("▂") || panel.contains("▃"));
-    }
-
-    #[test]
-    fn minimal_strip_text_includes_panel_when_enabled() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_right_panel = HudRightPanel::Dots;
-        state.hud_right_panel_recording_only = false;
-        state.recording_state = RecordingState::Recording;
-        state.meter_db = Some(-8.0);
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("•"));
-    }
-
-    #[test]
-    fn minimal_strip_idle_success_collapses_to_ready() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.voice_mode = VoiceMode::Auto;
-        state.message = "Transcript ready".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Ready"));
-        assert!(!line.contains("Transcript ready"));
-    }
-
-    #[test]
-    fn minimal_strip_idle_shows_queue_state() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.queue_depth = 2;
-        state.message = "Auto-voice enabled".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Queued 2"));
-    }
-
-    #[test]
-    fn minimal_strip_idle_shows_info_message_text() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.message = "Edit mode: press Enter to send".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Edit mode: press Enter to send"));
-    }
-
-    #[test]
-    fn minimal_strip_idle_shows_full_warning_message_text() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.message = "Auto-voice disabled (capture cancelled)".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Auto-voice disabled (capture cancelled)"));
-    }
-
-    #[test]
-    fn minimal_strip_recording_shows_info_message_text() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Recording;
-        state.meter_db = Some(-28.0);
-        state.message = "Edit mode: press Enter to send".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Edit mode: press Enter to send"));
-    }
-
-    #[test]
-    fn minimal_strip_responding_shows_state_lane() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Responding;
-        state.message = "Voice command: explain last error".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("responding"));
-    }
-
-    #[test]
-    fn minimal_ribbon_waveform_uses_level_colors() {
-        let colors = Theme::Coral.colors();
-        let mut state = StatusLineState::new();
-        state.hud_right_panel = HudRightPanel::Ribbon;
-        state.hud_right_panel_recording_only = false;
-        state.recording_state = RecordingState::Recording;
-        state
-            .meter_levels
-            .extend_from_slice(&[-55.0, -45.0, -35.0, -20.0, -10.0, -5.0]);
-
-        let panel = minimal_right_panel(&state, &colors).expect("panel");
-        assert!(panel.contains(colors.success));
-    }
-
-    #[test]
-    fn full_row_ready_and_latency_render_without_separator_dot_between_them() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        state.recording_state = RecordingState::Idle;
-        state.last_latency_ms = Some(199);
-
-        let row = format_button_row(&state, &colors, 120);
-        assert!(!row.contains("Ready"));
-        assert!(row.contains("199ms"));
-    }
-
-    #[test]
-    fn full_row_latency_label_mode_shows_prefixed_text() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        state.recording_state = RecordingState::Idle;
-        state.last_latency_ms = Some(300);
-        state.latency_display = LatencyDisplayMode::Label;
-
-        let row = format_button_row(&state, &colors, 120);
-        assert!(row.contains("Latency: 300ms"));
-    }
-
-    #[test]
-    fn full_row_latency_off_mode_hides_badge() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        state.recording_state = RecordingState::Idle;
-        state.last_latency_ms = Some(199);
-        state.latency_display = LatencyDisplayMode::Off;
-
-        let row = format_button_row(&state, &colors, 120);
-        assert!(!row.contains("199ms"));
-    }
-
-    #[test]
-    fn shortcuts_row_stays_within_banner_width() {
-        let colors = Theme::Coral.colors();
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        state.recording_state = RecordingState::Idle;
-        state.last_latency_ms = Some(316);
-        state.latency_display = LatencyDisplayMode::Short;
-
-        let inner_width = 90;
-        let (row, _) = format_shortcuts_row_with_positions(
-            &state,
-            &colors,
-            &colors.borders,
-            inner_width,
-            None,
-        );
-
-        // +2 accounts for left/right border columns in full HUD rows.
-        assert!(
-            display_width(&row) <= inner_width + 2,
-            "shortcuts row should not exceed full HUD width"
-        );
-    }
-
-    #[test]
-    fn shortcuts_row_trailing_panel_hugs_right_border() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-        let panel = "[▁▂▃▅▆]";
-
-        let (row, _) =
-            format_shortcuts_row_with_positions(&state, &colors, &colors.borders, 120, Some(panel));
-
-        assert!(row.contains(panel));
-        let panel_end_idx = row
-            .rfind(']')
-            .expect("row should contain panel close bracket");
-        let right_border_idx = row.rfind('│').expect("row should contain right border");
-        let panel_end_col = display_width(&row[..=panel_end_idx]);
-        let right_border_col = display_width(&row[..right_border_idx]);
-        assert_eq!(panel_end_col, right_border_col);
-    }
-
-    #[test]
-    fn hidden_launcher_button_aligns_to_right_edge_when_space_available() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let open_button = format_button(&colors, "open", colors.info, false);
-        let button_width = display_width(&open_button);
-        let width = button_width + 18;
-
-        let (line, button) = format_hidden_launcher_with_button(&state, &colors, width);
-        let button = button.expect("open button should be present");
-
-        assert_eq!(display_width(&line), width);
-        assert_eq!(button.start_x, (width - button_width + 1) as u16);
-        assert_eq!(button.end_x, width as u16);
-        assert_eq!(button.row, 1);
-        assert_eq!(button.action, ButtonAction::ToggleHudStyle);
-    }
-
-    #[test]
-    fn hidden_launcher_hides_button_when_width_too_small() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let open_button = format_button(&colors, "open", colors.info, false);
-        let width = display_width(&open_button) + 1;
-
-        let (line, button) = format_hidden_launcher_with_button(&state, &colors, width);
-
-        assert!(button.is_none());
-        assert_eq!(display_width(&line), width);
-    }
-
-    #[test]
-    fn minimal_strip_button_geometry_is_stable() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Recording;
-        state.meter_db = Some(-12.0);
-
-        let back_button = format_button(&colors, "back", colors.border, false);
-        let button_width = display_width(&back_button);
-        let width = button_width + 24;
-
-        let (line, button) = format_minimal_strip_with_button(&state, &colors, width);
-        let button = button.expect("back button should be present");
-
-        assert_eq!(display_width(&line), width);
-        assert_eq!(button.start_x, (width - button_width + 1) as u16);
-        assert_eq!(button.end_x, width as u16);
-        assert_eq!(button.row, 1);
-        assert_eq!(button.action, ButtonAction::HudBack);
-    }
-
-    #[test]
-    fn compact_button_row_omits_hud_button_and_recomputes_positions() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 1;
-        state.last_latency_ms = Some(312);
-
-        let (full_row, full_positions) =
-            format_button_row_with_positions(&state, &colors, 300, 2, true, false);
-        let compact_width = display_width(&full_row).saturating_sub(1);
-        let (compact_row, compact_positions) =
-            format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
-
-        assert_eq!(full_positions.len(), 7);
-        assert_eq!(compact_positions.len(), 6);
-        assert!(display_width(&compact_row) <= compact_width);
-        assert!(compact_positions
-            .iter()
-            .all(|pos| pos.action != ButtonAction::ToggleHudStyle));
-        assert!(compact_row.contains("Q:1"));
-    }
-
-    #[test]
-    fn button_row_ready_badge_requires_idle_and_empty_queue() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.last_latency_ms = Some(250);
-
-        let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true);
-        assert!(idle_row.contains("Ready"));
-        assert!(idle_row.contains("250ms"));
-
-        state.queue_depth = 1;
-        let (queued_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true);
-        assert!(!queued_row.contains("Ready"));
-        assert!(queued_row.contains("Q:1"));
-    }
-
-    #[test]
-    fn legacy_button_row_compact_mode_drops_hud_and_theme_entries() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 2;
-        state.last_latency_ms = Some(420);
-
-        let full = format_button_row_legacy(&state, &colors, 240);
-        let narrow_width = display_width(&full).saturating_sub(1);
-        let compact = format_button_row_legacy(&state, &colors, narrow_width);
-
-        assert!(display_width(&compact) <= narrow_width);
-        assert!(!compact.contains("hud"));
-        assert!(!compact.contains("theme"));
-        assert!(compact.contains("help"));
-    }
-
-    #[test]
-    fn shortcuts_row_legacy_matches_positioned_renderer_when_untruncated() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 1;
-        state.last_latency_ms = Some(345);
-        state.latency_display = LatencyDisplayMode::Label;
-
-        let inner_width = 200;
-        let (positioned, buttons) = format_shortcuts_row_with_positions(
-            &state,
-            &colors,
-            &colors.borders,
-            inner_width,
-            None,
-        );
-        let legacy = format_shortcuts_row_legacy(&state, &colors, &colors.borders, inner_width);
-
-        assert_eq!(positioned, legacy);
-        assert_eq!(display_width(&positioned), inner_width + 2);
-        assert!(!buttons.is_empty());
-        assert!(buttons.iter().all(|button| button.row == 2));
-    }
-
-    #[test]
-    fn full_hud_button_positions_match_expected_geometry() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let (_, positions) = format_button_row_with_positions(&state, &colors, 300, 2, true, false);
-        let expected = [
-            (ButtonAction::VoiceTrigger, 3, 7),
-            (ButtonAction::ToggleAutoVoice, 11, 15),
-            (ButtonAction::ToggleSendMode, 19, 24),
-            (ButtonAction::SettingsToggle, 28, 32),
-            (ButtonAction::ToggleHudStyle, 36, 40),
-            (ButtonAction::HelpToggle, 44, 49),
-            (ButtonAction::ThemePicker, 53, 59),
-        ];
-
-        assert_eq!(positions.len(), expected.len());
-        for (pos, (action, start, end)) in positions.iter().zip(expected) {
-            assert_eq!(pos.action, action);
-            assert_eq!(pos.start_x, start);
-            assert_eq!(pos.end_x, end);
-            assert_eq!(pos.row, 2);
-        }
-    }
-
-    #[test]
-    fn compact_hud_button_positions_match_expected_geometry() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let (_, positions) = format_button_row_with_positions(&state, &colors, 20, 2, true, false);
-        let expected = [
-            (ButtonAction::VoiceTrigger, 3, 7),
-            (ButtonAction::ToggleAutoVoice, 9, 13),
-            (ButtonAction::ToggleSendMode, 15, 20),
-            (ButtonAction::SettingsToggle, 22, 26),
-            (ButtonAction::HelpToggle, 28, 33),
-            (ButtonAction::ThemePicker, 35, 41),
-        ];
-
-        assert_eq!(positions.len(), expected.len());
-        for (pos, (action, start, end)) in positions.iter().zip(expected) {
-            assert_eq!(pos.action, action);
-            assert_eq!(pos.start_x, start);
-            assert_eq!(pos.end_x, end);
-            assert_eq!(pos.row, 2);
-        }
-    }
-
-    #[test]
-    fn get_button_positions_full_hud_respects_breakpoint_boundary() {
-        let mut state = StatusLineState::new();
-        state.hud_style = HudStyle::Full;
-
-        let below = get_button_positions(&state, Theme::None, breakpoints::COMPACT - 1);
-        let at = get_button_positions(&state, Theme::None, breakpoints::COMPACT);
-
-        assert!(below.is_empty());
-        assert!(!at.is_empty());
-    }
-
-    #[test]
-    fn minimal_status_text_shows_processing_message_when_idle() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-        state.message = "Processing...".to_string();
-
-        let line = minimal_strip_text(&state, &colors);
-        assert!(line.contains("Processing..."));
-    }
-
-    #[test]
-    fn hidden_launcher_boundary_width_shows_button_at_exact_threshold() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let open_button = format_button(&colors, "open", colors.info, false);
-        let width = display_width(&open_button) + 2;
-
-        let (_, button) = format_hidden_launcher_with_button(&state, &colors, width);
-        assert!(button.is_some());
-    }
-
-    #[test]
-    fn focused_buttons_use_info_brackets() {
-        let colors = Theme::Coral.colors();
-
-        let mut hidden_state = StatusLineState::new();
-        hidden_state.hud_button_focus = Some(ButtonAction::ToggleHudStyle);
-        let (hidden_line, hidden_button) =
-            format_hidden_launcher_with_button(&hidden_state, &colors, 80);
-        assert!(hidden_button.is_some());
-        assert!(hidden_line.contains(&format!("{}[", colors.info)));
-
-        let mut minimal_state = StatusLineState::new();
-        minimal_state.hud_button_focus = Some(ButtonAction::HudBack);
-        let (minimal_line, minimal_button) =
-            format_minimal_strip_with_button(&minimal_state, &colors, 80);
-        assert!(minimal_button.is_some());
-        assert!(minimal_line.contains(&format!("{}[", colors.info)));
-    }
-
-    #[test]
-    fn shortcut_pill_does_not_reset_immediately_after_open_bracket() {
-        let colors = Theme::Coral.colors();
-        let pill = format_button(&colors, "rec", colors.recording, false);
-        assert!(
-            !pill.contains("[\u{1b}[0m"),
-            "pill should keep active color context through bracket and label"
-        );
-    }
-
-    #[test]
-    fn minimal_waveform_handles_padding_and_boundaries() {
-        let none = Theme::None.colors();
-        assert_eq!(minimal_waveform(&[-30.0], 3, &none), "▁▁▄");
-        assert_eq!(minimal_waveform(&[-30.0, -30.0, -30.0], 3, &none), "▄▄▄");
-
-        let colors = Theme::Coral.colors();
-        let waveform = minimal_waveform(&[-25.0, -10.0], 2, &colors);
-        let expected = format!(
-            "{}▅{}{}▆{}",
-            colors.warning, colors.reset, colors.error, colors.reset
-        );
-        assert_eq!(waveform, expected);
-    }
-
-    #[test]
-    fn minimal_pulse_dots_respect_activity_and_color_thresholds() {
-        let none = Theme::None.colors();
-        assert_eq!(minimal_pulse_dots(-60.0, &none), "[·····]");
-        assert_eq!(minimal_pulse_dots(-48.0, &none), "[•····]");
-        assert_eq!(minimal_pulse_dots(-30.0, &none), "[•••··]");
-        assert_eq!(minimal_pulse_dots(0.0, &none), "[•••••]");
-
-        let colors = Theme::Coral.colors();
-        let warning = minimal_pulse_dots(-25.0, &colors);
-        assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
-        assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
-
-        let error = minimal_pulse_dots(-5.0, &colors);
-        assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
-    }
-
-    #[test]
-    fn latency_threshold_colors_are_correct_in_full_and_legacy_rows() {
-        let colors = Theme::Coral.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Idle;
-
-        state.last_latency_ms = Some(300);
-        let (row_300, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        assert!(row_300.contains(&format!("{}300ms{}", colors.warning, colors.reset)));
-
-        state.last_latency_ms = Some(500);
-        let (row_500, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        assert!(row_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
-
-        state.last_latency_ms = Some(300);
-        let legacy_300 = format_button_row_legacy(&state, &colors, 200);
-        assert!(legacy_300.contains(&format!("{}300ms{}", colors.warning, colors.reset)));
-
-        state.last_latency_ms = Some(500);
-        let legacy_500 = format_button_row_legacy(&state, &colors, 200);
-        assert!(legacy_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
-    }
-
-    #[test]
-    fn wrappers_and_legacy_helpers_emit_structured_shortcut_text() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-
-        let shortcuts = format_shortcuts_row(&state, &colors, &colors.borders, 120);
-        assert!(!shortcuts.is_empty());
-        assert!(shortcuts.contains("rec"));
-
-        let shortcut = format_shortcut_colored(&colors, "u", "help", colors.info);
-        assert!(shortcut.contains("u"));
-        assert!(shortcut.contains("help"));
-        assert!(shortcut.contains("["));
-    }
-
-    #[test]
-    fn minimal_status_text_non_idle_empty_message_is_none() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.recording_state = RecordingState::Processing;
-
-        assert!(minimal_status_text(&state, &colors).is_none());
-    }
-
-    #[test]
-    fn minimal_right_panel_dots_without_meter_defaults_to_silent_level() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.hud_right_panel = HudRightPanel::Dots;
-        state.hud_right_panel_recording_only = false;
-        state.recording_state = RecordingState::Idle;
-        state.meter_db = None;
-
-        let panel = minimal_right_panel(&state, &colors).expect("dots panel");
-        assert_eq!(panel, "[·····]");
-    }
-
-    #[test]
-    fn heartbeat_animation_truth_table() {
-        assert!(should_animate_heartbeat(false, false));
-        assert!(should_animate_heartbeat(false, true));
-        assert!(!should_animate_heartbeat(true, false));
-        assert!(should_animate_heartbeat(true, true));
-    }
-
-    #[test]
-    fn minimal_strip_shows_button_at_exact_width_threshold() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let back_button = format_button(&colors, "back", colors.border, false);
-        let button_width = display_width(&back_button);
-        let width = button_width + 2;
-
-        let (_, button) = format_minimal_strip_with_button(&state, &colors, width);
-        assert!(button.is_some());
-    }
-
-    #[test]
-    fn minimal_strip_hides_button_just_below_width_threshold() {
-        let colors = Theme::None.colors();
-        let state = StatusLineState::new();
-        let back_button = format_button(&colors, "back", colors.border, false);
-        let button_width = display_width(&back_button);
-        let width = button_width + 1;
-
-        let (_, button) = format_minimal_strip_with_button(&state, &colors, width);
-        assert!(button.is_none());
-    }
-
-    #[test]
-    fn full_row_focus_marks_exactly_one_button_bracket() {
-        let colors = Theme::Coral.colors();
-        let mut state = StatusLineState::new();
-        state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
-        let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        let focused_bracket = format!("{}[", colors.info);
-        assert_eq!(count_substring(&row, &focused_bracket), 1);
-    }
-
-    #[test]
-    fn compact_row_focus_marks_exactly_one_button_bracket() {
-        let colors = Theme::Coral.colors();
-        let mut state = StatusLineState::new();
-        state.hud_button_focus = Some(ButtonAction::HelpToggle);
-        let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        // Force compact path while still leaving room for the full compact row.
-        let compact_width = display_width(&full_row).saturating_sub(1);
-        let (row, positions) =
-            format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
-        assert_eq!(positions.len(), 6);
-        let focused_bracket = format!("{}[", colors.info);
-        assert_eq!(count_substring(&row, &focused_bracket), 1);
-    }
-
-    #[test]
-    fn queue_badge_zero_is_not_rendered_in_any_row_mode() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 0;
-
-        let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        assert!(!full.contains("Q:0"));
-
-        let (compact, _) = format_button_row_with_positions(&state, &colors, 20, 2, true, false);
-        assert!(!compact.contains("Q:0"));
-
-        let legacy_full = format_button_row_legacy(&state, &colors, 200);
-        assert!(!legacy_full.contains("Q:0"));
-
-        let legacy_compact = format_button_row_legacy(&state, &colors, breakpoints::COMPACT);
-        assert!(!legacy_compact.contains("Q:0"));
-    }
-
-    #[test]
-    fn compact_row_queue_zero_not_rendered_when_untruncated() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 0;
-
-        let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        let compact_width = display_width(&full_row).saturating_sub(1);
-        let (compact_row, compact_positions) =
-            format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
-        assert_eq!(compact_positions.len(), 6);
-        assert!(!compact_row.contains("Q:0"));
-    }
-
-    #[test]
-    fn queue_badge_positive_renders_in_full_and_legacy_rows() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 1;
-
-        let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-        assert!(full.contains("Q:1"));
-
-        let legacy = format_button_row_legacy(&state, &colors, 200);
-        assert!(legacy.contains("Q:1"));
-    }
-
-    #[test]
-    fn legacy_compact_row_queue_positive_renders_when_untruncated() {
-        let colors = Theme::None.colors();
-        let mut state = StatusLineState::new();
-        state.queue_depth = 1;
-
-        let full_row = format_button_row_legacy(&state, &colors, 200);
-        let compact_width = display_width(&full_row).saturating_sub(1);
-        let compact_row = format_button_row_legacy(&state, &colors, compact_width);
-        assert!(compact_row.contains("Q:1"));
-    }
-
-    #[test]
-    fn format_button_includes_non_empty_highlight_color() {
-        let colors = Theme::Coral.colors();
-
-        let highlighted = format_button(&colors, "send", colors.success, false);
-        let plain = format_button(&colors, "send", "", false);
-
-        assert!(highlighted.contains(colors.success));
-        assert!(!plain.contains(colors.success));
-    }
-}
+mod tests;
