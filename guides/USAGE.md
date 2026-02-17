@@ -200,6 +200,14 @@ voiceterm --input-device "MacBook Pro Microphone"
 voiceterm --doctor
 ```
 
+### Validate release-candidate behavior
+
+For pre-release builds, run `Testing_Guide.md` in order. Prioritize:
+
+- Section `3`: backend worker lifecycle (normal exit, abrupt kill, multi-session isolation)
+- Section `3A`: process churn + CPU leak checks
+- Section `4A`: high-load settings responsiveness and meter sanity
+
 ### Tune auto-voice timing
 
 ```bash

@@ -216,6 +216,21 @@ VOICETERM_CWD="$(pwd)" /path/to/voiceterm/scripts/start.sh
 
 `scripts/start.sh` handles model download and setup when needed.
 
+## Integration/Test Branch Installs
+
+If you need to validate a pre-release integration build before final tagging:
+
+```bash
+git clone --branch <branch-name> https://github.com/jguida941/voiceterm.git
+cd voiceterm
+./scripts/install.sh
+voiceterm --version
+```
+
+After install, run the release runbook checks in `Testing_Guide.md`, especially
+sections `3`, `3A`, and `4A` for process teardown, CPU leak detection, and
+high-load UI responsiveness.
+
 ## Using with your own projects
 
 VoiceTerm works with any codebase. Run from your project directory or set

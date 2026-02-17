@@ -51,6 +51,10 @@ voiceterm --logs                        # Enable debug logging
 have a CLI flag.
 `Voice pipeline` is also a runtime Settings value (no dedicated CLI flag), and
 status text remains pipeline-neutral.
+High-load HUD responsiveness and meter visualization behavior are also runtime
+Settings/HUD concerns (no dedicated CLI flags); see
+[`Testing_Guide.md`](../Testing_Guide.md) sections `3`, `3A`, and `4A` for
+release validation commands.
 
 Built-in voice navigation commands are runtime phrase actions (not CLI flags):
 `scroll up`, `scroll down`, `show last error`, `copy last error`, and

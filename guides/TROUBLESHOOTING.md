@@ -20,6 +20,8 @@ Docs map:
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
 | No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
 | Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
+| Settings/HUD lags while backend is busy | Run high-load responsiveness checks | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
+| Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
 | HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
@@ -233,6 +235,9 @@ If you still observe leftovers:
    - launch command
    - relevant `${TMPDIR}/voiceterm_tui.log` lines
 
+For full manual release validation, run `Testing_Guide.md` sections `3` and
+`3A` (normal exit, abrupt kill, multi-session isolation, and churn checks).
+
 ### Auto-voice not triggering
 
 Auto-voice waits for prompt readiness before listening again.
@@ -305,6 +310,49 @@ and `input events` lines.
    overrides and disable that binding.
 3. Use `VOICETERM_DEBUG_INPUT=1 voiceterm --logs` and inspect
    `${TMPDIR}/voiceterm_tui.log` for `Ctrl+G` input events.
+
+### Settings or HUD lags during heavy backend output
+
+If arrow keys/settings updates feel delayed while backend output is streaming:
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Run the high-load checks in `Testing_Guide.md` section `4A`:
+
+   ```bash
+   yes "voiceterm-load-line" | head -n 50000
+   ```
+
+3. While output is active, open Settings (`Ctrl+O`) and hold arrow navigation
+   for several seconds.
+4. If lag persists, collect logs with `voiceterm --logs` and include:
+   - terminal/IDE name + version
+   - backend (`--codex` or `--claude`)
+   - whether recording was active
+
+### Meter looks too loud for normal speech
+
+If meter bars/dots frequently appear at warning/error levels during normal
+speech:
+
+1. Run calibration once:
+
+   ```bash
+   voiceterm --mic-meter
+   ```
+
+2. Check threshold in Settings (`Ctrl+O`) and adjust sensitivity with `Ctrl+]`
+   or `Ctrl+\\` as needed.
+3. Validate expected behavior from `Testing_Guide.md` section `4A`:
+   - silence near floor
+   - normal speech mostly green
+   - loud transients may briefly hit yellow/red
+4. If behavior is still clearly incorrect, capture a short screen recording and
+   include logs from `${TMPDIR}/voiceterm_tui.log`.
 
 ### HUD duplicates in JetBrains terminals
 
