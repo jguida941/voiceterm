@@ -23,8 +23,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Tooling (MP-189)
 
-- Add maintainer lint-hardening lane (`devctl check --profile maintainer-lint`) and corresponding CI workflow (`lint_hardening.yml`) enforcing `redundant_clone`, `redundant_closure_for_method_calls`, `cast_possible_wrap`, `must_use_candidate`, and `missing_errors_doc` clippy families.
-- Burn down `redundant_clone`, `redundant_closure_for_method_calls`, and `cast_possible_wrap` findings across runtime/core modules; complete `must_use_candidate`/`missing_errors_doc` sweep across backend/audio/config/codex/ipc/legacy/pty/STT modules.
+- Add maintainer lint-hardening lane (`devctl check --profile maintainer-lint`) and corresponding CI workflow (`lint_hardening.yml`) enforcing `redundant_clone`, `redundant_closure_for_method_calls`, `cast_possible_wrap`, and `dead_code` clippy families.
+- Burn down `redundant_clone`, `redundant_closure_for_method_calls`, and `cast_possible_wrap` findings across runtime/core modules; complete a one-time `must_use_candidate`/`missing_errors_doc` sweep across backend/audio/config/codex/ipc/legacy/pty/STT modules.
 
 ### Tests
 
