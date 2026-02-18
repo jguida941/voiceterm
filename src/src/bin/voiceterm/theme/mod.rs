@@ -345,6 +345,35 @@ mod tests {
     }
 
     #[test]
+    fn theme_from_name_supports_tokyo_and_gruv_aliases() {
+        assert_eq!(Theme::from_name("tokyonight"), Some(Theme::TokyoNight));
+        assert_eq!(Theme::from_name("tokyo-night"), Some(Theme::TokyoNight));
+        assert_eq!(Theme::from_name("tokyo"), Some(Theme::TokyoNight));
+        assert_eq!(Theme::from_name("gruvbox"), Some(Theme::Gruvbox));
+        assert_eq!(Theme::from_name("gruv"), Some(Theme::Gruvbox));
+    }
+
+    #[test]
+    fn theme_available_reports_full_theme_list() {
+        assert_eq!(
+            Theme::available(),
+            &[
+                "chatgpt",
+                "claude",
+                "codex",
+                "coral",
+                "catppuccin",
+                "dracula",
+                "gruvbox",
+                "nord",
+                "tokyonight",
+                "ansi",
+                "none",
+            ]
+        );
+    }
+
+    #[test]
     fn theme_is_truecolor() {
         assert!(!Theme::Coral.is_truecolor());
         assert!(Theme::Claude.is_truecolor());

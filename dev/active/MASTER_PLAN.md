@@ -278,6 +278,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [ ] MP-015 Improve mutation score with targeted high-value tests (promoted from Backlog).
   - [ ] Build a fresh shard-by-shard survivor baseline on `master` and rank hotspots by missed mutants.
   - [x] Add targeted mutation-killer coverage for `theme_ops::cycle_theme` ordering/wrap semantics so default-return/empty-list/position-selection mutants are caught deterministically.
+  - [x] Add targeted mutation-killer coverage for `Theme::from_name` alias arms (`tokyonight`/`tokyo-night`/`tokyo`, `gruvbox`/`gruv`) and `Theme::available()` list parity so empty/placeholder return mutants are caught.
   - [ ] Add targeted tests for top survivors in current hotspots (`src/bin/voiceterm/config/*`, `src/bin/voiceterm/hud/*`, `src/bin/voiceterm/input/mouse.rs`) and any new top offenders.
   - [ ] Ensure shard jobs always publish outcomes artifacts even when mutants survive.
   - [ ] Re-run mutation workflow until aggregate score holds at or above `0.80` on `master` for two consecutive runs (manual + scheduled).
