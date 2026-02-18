@@ -138,11 +138,56 @@ mod tests {
     use super::*;
 
     #[test]
+    fn is_sgr_mouse_sequence_validates_prefix_length_and_suffix() {
+        // Exact boundary length (6 bytes) should still be accepted.
+        assert!(is_sgr_mouse_sequence(b"\x1b[<1;M"));
+        assert!(is_sgr_mouse_sequence(b"\x1b[<1;m"));
+
+        // Any single prefix-byte mismatch should reject.
+        assert!(!is_sgr_mouse_sequence(b"X[<1;M"));
+        assert!(!is_sgr_mouse_sequence(b"\x1bX<1;M"));
+        assert!(!is_sgr_mouse_sequence(b"\x1b[X1;M"));
+
+        // Invalid terminator and undersized payload should reject.
+        assert!(!is_sgr_mouse_sequence(b"\x1b[<1;X"));
+        assert!(!is_sgr_mouse_sequence(b"\x1b[<M"));
+    }
+
+    #[test]
+    fn is_urxvt_mouse_sequence_validates_prefix_length_and_suffix() {
+        // Exact boundary length (8 bytes) should still be accepted.
+        assert!(is_urxvt_mouse_sequence(b"\x1b[1;1;1M"));
+        assert!(is_urxvt_mouse_sequence(b"\x1b[1;1;1m"));
+
+        // URXVT must not accept SGR prefix marker '<'.
+        assert!(!is_urxvt_mouse_sequence(b"\x1b[<1;1M"));
+
+        // Any single prefix-byte mismatch should reject.
+        assert!(!is_urxvt_mouse_sequence(b"X[1;1;1M"));
+        assert!(!is_urxvt_mouse_sequence(b"\x1bX1;1;1M"));
+
+        // Invalid terminator and undersized payload should reject.
+        assert!(!is_urxvt_mouse_sequence(b"\x1b[1;1;1X"));
+        assert!(!is_urxvt_mouse_sequence(b"\x1b[1;1M"));
+    }
+
+    #[test]
     fn parse_sgr_mouse_left_click() {
         let press = parse_sgr_mouse(b"\x1b[<0;10;5M");
         assert_eq!(press, Some((MouseEventKind::Press, 10, 5)));
         let release = parse_sgr_mouse(b"\x1b[<0;10;5m");
         assert_eq!(release, Some((MouseEventKind::Release, 10, 5)));
+
+        // Len > 10 still valid and should parse.
+        let long = parse_sgr_mouse(b"\x1b[<0;10;50M");
+        assert_eq!(long, Some((MouseEventKind::Press, 10, 50)));
+    }
+
+    #[test]
+    fn parse_sgr_mouse_rejects_invalid_prefix_bytes() {
+        assert_eq!(parse_sgr_mouse(b"X[<0;10;5M"), None);
+        assert_eq!(parse_sgr_mouse(b"\x1bX<0;10;5M"), None);
+        assert_eq!(parse_sgr_mouse(b"\x1b[X0;10;5M"), None);
     }
 
     #[test]
@@ -162,9 +207,23 @@ mod tests {
     }
 
     #[test]
+    fn parse_x10_mouse_rejects_invalid_len_or_prefix() {
+        assert_eq!(parse_x10_mouse(&[0x1b, b'[', b'M', 32, 42]), None);
+        assert_eq!(parse_x10_mouse(&[0x1b, b'[', b'X', 32, 42, 37]), None);
+    }
+
+    #[test]
     fn parse_mouse_event_accepts_all_supported_protocols() {
         assert!(parse_mouse_event(b"\x1b[<0;10;5M").is_some());
         assert!(parse_mouse_event(b"\x1b[32;10;5M").is_some());
         assert!(parse_mouse_event(&[0x1b, b'[', b'M', 32, 40, 35]).is_some());
+    }
+
+    #[test]
+    fn is_mouse_sequence_accepts_each_supported_protocol() {
+        assert!(is_mouse_sequence(b"\x1b[<0;10;5M"));
+        assert!(is_mouse_sequence(b"\x1b[32;10;5M"));
+        assert!(is_mouse_sequence(&[0x1b, b'[', b'M', 32, 40, 35]));
+        assert!(!is_mouse_sequence(b"\x1b[?2004h"));
     }
 }
