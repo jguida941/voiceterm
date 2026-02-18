@@ -23,6 +23,7 @@ thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
     static EARLY_STOP_CALLS: Cell<usize> = const { Cell::new(0) };
+    static DRAIN_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
 struct TrySendHookGuard;
@@ -86,6 +87,21 @@ fn install_request_early_stop_hook(hook: RequestEarlyStopHook) -> EarlyStopHookG
     set_request_early_stop_hook(Some(hook));
     EARLY_STOP_CALLS.with(|calls| calls.set(0));
     EarlyStopHookGuard
+}
+
+struct DrainHookGuard;
+
+impl Drop for DrainHookGuard {
+    fn drop(&mut self) {
+        set_drain_voice_messages_hook(None);
+        DRAIN_CALLS.with(|calls| calls.set(0));
+    }
+}
+
+fn install_drain_hook(hook: DrainVoiceMessagesHook) -> DrainHookGuard {
+    set_drain_voice_messages_hook(Some(hook));
+    DRAIN_CALLS.with(|calls| calls.set(0));
+    DrainHookGuard
 }
 
 fn hook_would_block(_: &[u8]) -> io::Result<usize> {
@@ -178,6 +194,12 @@ fn hook_start_capture_err(
 fn hook_request_early_stop_true(_: &mut crate::voice_control::VoiceManager) -> bool {
     EARLY_STOP_CALLS.with(|calls| calls.set(calls.get() + 1));
     true
+}
+
+fn hook_drain_count(
+    _: &mut crate::voice_control::VoiceDrainContext<'_, voiceterm::pty_session::PtyOverlaySession>,
+) {
+    DRAIN_CALLS.with(|calls| calls.set(calls.get() + 1));
 }
 
 fn build_harness(
@@ -582,6 +604,193 @@ fn run_periodic_tasks_clears_theme_digits_outside_picker_mode() {
 fn take_sigwinch_flag_uses_installed_hook_value() {
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
     assert!(!take_sigwinch_flag());
+}
+
+#[test]
+fn drain_voice_messages_once_invokes_installed_hook() {
+    let _drain = install_drain_hook(hook_drain_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    drain_voice_messages_once(&mut state, &mut timers, &mut deps, Instant::now());
+
+    DRAIN_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn sync_overlay_winsize_updates_cached_terminal_dimensions() {
+    let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.terminal_rows = 0;
+    state.terminal_cols = 0;
+
+    sync_overlay_winsize(&mut state, &mut deps);
+
+    assert!(state.terminal_rows > 0);
+    assert!(state.terminal_cols > 0);
+}
+
+#[test]
+fn refresh_button_registry_if_mouse_only_updates_when_enabled() {
+    let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.button_registry.clear();
+    state.status_state.mouse_enabled = false;
+
+    refresh_button_registry_if_mouse(&state, &deps);
+    assert!(deps.button_registry.all_buttons().is_empty());
+
+    state.status_state.mouse_enabled = true;
+    refresh_button_registry_if_mouse(&state, &deps);
+    assert!(!deps.button_registry.all_buttons().is_empty());
+}
+
+#[test]
+fn render_help_overlay_for_state_sends_show_overlay_message() {
+    let (state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    render_help_overlay_for_state(&state, &deps);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("help overlay message")
+    {
+        WriterMessage::ShowOverlay { height, .. } => assert_eq!(height, help_overlay_height()),
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn render_theme_picker_overlay_for_state_sends_show_overlay_message() {
+    let (state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    render_theme_picker_overlay_for_state(&state, &deps);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("theme picker overlay message")
+    {
+        WriterMessage::ShowOverlay { height, .. } => assert_eq!(height, theme_picker_height()),
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn render_settings_overlay_for_state_sends_show_overlay_message() {
+    let (state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    render_settings_overlay_for_state(&state, &deps);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("settings overlay message")
+    {
+        WriterMessage::ShowOverlay { height, .. } => assert_eq!(height, settings_overlay_height()),
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn reset_theme_picker_selection_resets_index_and_digits() {
+    let (mut state, mut timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.theme = Theme::Codex;
+    state.theme_picker_selected = theme_index_from_theme(Theme::Claude);
+    state.theme_picker_digits = "12".to_string();
+    timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_millis(300));
+
+    reset_theme_picker_selection(&mut state, &mut timers);
+
+    let expected_theme = style_pack_theme_lock().unwrap_or(state.theme);
+    assert_eq!(
+        state.theme_picker_selected,
+        theme_index_from_theme(expected_theme)
+    );
+    assert!(state.theme_picker_digits.is_empty());
+    assert!(timers.theme_picker_digit_deadline.is_none());
+}
+
+#[test]
+fn apply_settings_item_action_theme_zero_direction_matches_positive_step() {
+    let (mut zero_state, mut zero_timers, mut zero_deps, _zero_writer_rx, _zero_input_tx) =
+        build_harness("cat", &[], 8);
+    let (mut plus_state, mut plus_timers, mut plus_deps, _plus_writer_rx, _plus_input_tx) =
+        build_harness("cat", &[], 8);
+    zero_state.status_state.hud_style = HudStyle::Full;
+    plus_state.status_state.hud_style = HudStyle::Full;
+
+    let zero_overlay = zero_state.overlay_mode;
+    {
+        let mut zero_ctx = settings_action_context(
+            &mut zero_state,
+            &mut zero_timers,
+            &mut zero_deps,
+            zero_overlay,
+        );
+        assert!(apply_settings_item_action(
+            SettingsItem::HudStyle,
+            0,
+            &mut zero_ctx
+        ));
+    }
+
+    let plus_overlay = plus_state.overlay_mode;
+    {
+        let mut plus_ctx = settings_action_context(
+            &mut plus_state,
+            &mut plus_timers,
+            &mut plus_deps,
+            plus_overlay,
+        );
+        assert!(apply_settings_item_action(
+            SettingsItem::HudStyle,
+            1,
+            &mut plus_ctx
+        ));
+    }
+
+    assert_eq!(
+        zero_state.status_state.hud_style,
+        plus_state.status_state.hud_style
+    );
+}
+
+#[test]
+fn apply_settings_item_action_theme_negative_direction_differs_from_positive_step() {
+    let (mut minus_state, mut minus_timers, mut minus_deps, _minus_writer_rx, _minus_input_tx) =
+        build_harness("cat", &[], 8);
+    let (mut plus_state, mut plus_timers, mut plus_deps, _plus_writer_rx, _plus_input_tx) =
+        build_harness("cat", &[], 8);
+    minus_state.status_state.hud_style = HudStyle::Full;
+    plus_state.status_state.hud_style = HudStyle::Full;
+
+    let minus_overlay = minus_state.overlay_mode;
+    {
+        let mut minus_ctx = settings_action_context(
+            &mut minus_state,
+            &mut minus_timers,
+            &mut minus_deps,
+            minus_overlay,
+        );
+        assert!(apply_settings_item_action(
+            SettingsItem::HudStyle,
+            -1,
+            &mut minus_ctx
+        ));
+    }
+
+    let plus_overlay = plus_state.overlay_mode;
+    {
+        let mut plus_ctx = settings_action_context(
+            &mut plus_state,
+            &mut plus_timers,
+            &mut plus_deps,
+            plus_overlay,
+        );
+        assert!(apply_settings_item_action(
+            SettingsItem::HudStyle,
+            1,
+            &mut plus_ctx
+        ));
+    }
+
+    assert_ne!(
+        minus_state.status_state.hud_style,
+        plus_state.status_state.hud_style
+    );
 }
 
 #[test]

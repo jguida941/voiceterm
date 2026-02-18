@@ -92,12 +92,16 @@ type StartCaptureHook = fn(
 #[cfg(test)]
 type RequestEarlyStopHook = fn(&mut crate::voice_control::VoiceManager) -> bool;
 #[cfg(test)]
+type DrainVoiceMessagesHook =
+    for<'a> fn(&mut VoiceDrainContext<'a, voiceterm::pty_session::PtyOverlaySession>);
+#[cfg(test)]
 thread_local! {
     static TRY_SEND_HOOK: Cell<Option<TrySendHook>> = const { Cell::new(None) };
     static TAKE_SIGWINCH_HOOK: Cell<Option<TakeSigwinchHook>> = const { Cell::new(None) };
     static TERMINAL_SIZE_HOOK: Cell<Option<TerminalSizeHook>> = const { Cell::new(None) };
     static START_CAPTURE_HOOK: Cell<Option<StartCaptureHook>> = const { Cell::new(None) };
     static REQUEST_EARLY_STOP_HOOK: Cell<Option<RequestEarlyStopHook>> = const { Cell::new(None) };
+    static DRAIN_VOICE_MESSAGES_HOOK: Cell<Option<DrainVoiceMessagesHook>> = const { Cell::new(None) };
 }
 
 #[cfg(test)]
@@ -123,6 +127,11 @@ fn set_start_capture_hook(hook: Option<StartCaptureHook>) {
 #[cfg(test)]
 fn set_request_early_stop_hook(hook: Option<RequestEarlyStopHook>) {
     REQUEST_EARLY_STOP_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_drain_voice_messages_hook(hook: Option<DrainVoiceMessagesHook>) {
+    DRAIN_VOICE_MESSAGES_HOOK.with(|slot| slot.set(hook));
 }
 
 fn try_send_pty_bytes(
@@ -229,6 +238,13 @@ fn drain_voice_messages_once(
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
     };
+    #[cfg(test)]
+    {
+        if let Some(hook) = DRAIN_VOICE_MESSAGES_HOOK.with(|slot| slot.get()) {
+            hook(&mut ctx);
+            return;
+        }
+    }
     drain_voice_messages(&mut ctx);
 }
 
@@ -352,7 +368,7 @@ fn apply_settings_item_action(
             if direction == 0 {
                 false
             } else {
-                let delta = if direction < 0 { -0.05 } else { 0.05 };
+                let delta = if direction.is_negative() { -0.05 } else { 0.05 };
                 settings_ctx.adjust_wake_word_sensitivity(delta);
                 true
             }
@@ -373,7 +389,7 @@ fn apply_settings_item_action(
             if direction == 0 {
                 false
             } else {
-                let delta_db = if direction < 0 { -5.0 } else { 5.0 };
+                let delta_db = if direction.is_negative() { -5.0 } else { 5.0 };
                 settings_ctx.adjust_sensitivity(delta_db);
                 true
             }
