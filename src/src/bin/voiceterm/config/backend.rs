@@ -48,16 +48,9 @@ impl OverlayConfig {
 
         let registry = BackendRegistry::new();
         if let Some(backend) = registry.get(&primary_label) {
-            let mut command_parts = backend.command();
-            let default_cmd = command_parts
-                .first()
-                .cloned()
-                .unwrap_or_else(|| primary.clone());
-            let mut args: Vec<String> = if command_parts.len() > 1 {
-                command_parts.drain(1..).collect()
-            } else {
-                Vec::new()
-            };
+            let mut command_parts = backend.command().into_iter();
+            let default_cmd = command_parts.next().unwrap_or_else(|| primary.clone());
+            let mut args: Vec<String> = command_parts.collect();
             args.extend(extra_args);
             let command = if is_path_like(&primary) {
                 primary
