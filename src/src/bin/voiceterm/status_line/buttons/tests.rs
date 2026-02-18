@@ -773,6 +773,11 @@ fn minimal_waveform_handles_padding_and_boundaries() {
         colors.warning, colors.reset, colors.error, colors.reset
     );
     assert_eq!(waveform, expected);
+
+    let mut ascii = Theme::None.colors();
+    ascii.glyph_set = crate::theme::GlyphSet::Ascii;
+    assert_eq!(minimal_waveform(&[-30.0], 3, &ascii), "..=");
+    assert_eq!(minimal_waveform(&[-30.0, -30.0, -30.0], 3, &ascii), "===");
 }
 
 #[test]
@@ -790,6 +795,11 @@ fn minimal_pulse_dots_respect_activity_and_color_thresholds() {
 
     let error = minimal_pulse_dots(-5.0, &colors);
     assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
+
+    let mut ascii = Theme::None.colors();
+    ascii.glyph_set = crate::theme::GlyphSet::Ascii;
+    assert_eq!(minimal_pulse_dots(-60.0, &ascii), "[.....]");
+    assert_eq!(minimal_pulse_dots(-30.0, &ascii), "[***..]");
 }
 
 #[test]

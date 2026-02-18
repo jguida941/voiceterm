@@ -1,6 +1,6 @@
 //! Built-in theme palettes so color choices remain centralized and testable.
 
-use super::{ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
+use super::{GlyphSet, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 
 /// Coral theme - warm red/coral accents (default)
 /// Uses transparent backgrounds for best compatibility across terminals
@@ -23,6 +23,7 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
     indicator_idle: "○",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Claude theme - warm neutrals (Anthropic-inspired palette)
@@ -46,6 +47,7 @@ pub const THEME_CLAUDE: ThemeColors = ThemeColors {
     indicator_idle: "◌",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Codex theme - cool blue neutrals (OpenAI-style, neutral)
@@ -69,6 +71,7 @@ pub const THEME_CODEX: ThemeColors = ThemeColors {
     indicator_idle: "·",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// ChatGPT theme - emerald green (OpenAI ChatGPT brand)
@@ -93,6 +96,7 @@ pub const THEME_CHATGPT: ThemeColors = ThemeColors {
     indicator_idle: "○",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Catppuccin Mocha theme - pastel colors
@@ -117,6 +121,7 @@ pub const THEME_CATPPUCCIN: ThemeColors = ThemeColors {
     indicator_idle: "◇",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Dracula theme - high contrast
@@ -141,6 +146,7 @@ pub const THEME_DRACULA: ThemeColors = ThemeColors {
     indicator_idle: "○",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Nord theme - arctic blue-gray
@@ -164,6 +170,7 @@ pub const THEME_NORD: ThemeColors = ThemeColors {
     indicator_idle: "◇",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Tokyo Night theme - elegant purple/blue dark theme
@@ -187,6 +194,7 @@ pub const THEME_TOKYONIGHT: ThemeColors = ThemeColors {
     indicator_idle: "·",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// Gruvbox theme - warm retro earthy colors
@@ -210,6 +218,7 @@ pub const THEME_GRUVBOX: ThemeColors = ThemeColors {
     indicator_idle: "□",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// ANSI 16-color theme - works on all color terminals
@@ -234,6 +243,7 @@ pub const THEME_ANSI: ThemeColors = ThemeColors {
     indicator_idle: "-",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };
 
 /// No colors - plain text output
@@ -256,4 +266,5 @@ pub const THEME_NONE: ThemeColors = ThemeColors {
     indicator_idle: "-",
     indicator_processing: "◐",
     indicator_responding: "↺",
+    glyph_set: GlyphSet::Unicode,
 };

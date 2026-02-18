@@ -7,8 +7,8 @@ use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{
-    filled_indicator, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE,
-    BORDER_ROUNDED, BORDER_SINGLE,
+    filled_indicator, waveform_bars, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
+    BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 use super::animation::{
@@ -307,9 +307,10 @@ fn dim_waveform_placeholder(width: usize, colors: &ThemeColors) -> String {
     // Keep idle ribbon placeholders theme-colored so the right panel still matches
     // the active palette instead of fading to neutral gray.
     let mut result = String::with_capacity(width + colors.success.len() + colors.reset.len());
+    let bars = waveform_bars(colors.glyph_set);
     result.push_str(colors.success);
     for _ in 0..width {
-        result.push('▁');
+        result.push(bars[0]);
     }
     result.push_str(colors.reset);
     result
@@ -861,6 +862,7 @@ fn format_compact(
         last_latency_ms: state.last_latency_ms,
         latency_history_ms: state.latency_history_ms.clone(),
         backend_name: String::new(),
+        glyph_set: colors.glyph_set,
     };
     let modules = registry.render_all(&hud_state, module_budget, " · ");
     let left = if modules.is_empty() {

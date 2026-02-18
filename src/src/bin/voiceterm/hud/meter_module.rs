@@ -3,10 +3,8 @@
 //! Shows the current audio level with a visual waveform: "-40dB ▁▂▃▅▆"
 
 use super::{display_width, HudModule, HudState};
+use crate::theme::waveform_bars;
 use std::time::Duration;
-
-/// Waveform characters for visualization.
-const WAVEFORM_CHARS: &[char] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
 /// Audio meter module showing current audio level.
 pub struct MeterModule {
@@ -29,14 +27,14 @@ impl MeterModule {
     }
 
     /// Convert a dB level to a waveform character.
-    fn db_to_char(db: f32) -> char {
+    fn db_to_char(db: f32, bars: &[char; 8]) -> char {
         // Map -60dB to 0dB to waveform characters
         let normalized = ((db + 60.0) / 60.0).clamp(0.0, 1.0);
-        let idx = (normalized * (WAVEFORM_CHARS.len() - 1) as f32) as usize;
-        WAVEFORM_CHARS[idx]
+        let idx = (normalized * (bars.len() - 1) as f32) as usize;
+        bars[idx]
     }
 
-    fn render_sparkline(levels: &[f32], bar_count: usize) -> String {
+    fn render_sparkline(levels: &[f32], bar_count: usize, bars: &[char; 8]) -> String {
         if levels.is_empty() || bar_count == 0 {
             return String::new();
         }
@@ -44,10 +42,10 @@ impl MeterModule {
         let start = levels.len().saturating_sub(bar_count);
         let slice = &levels[start..];
         if slice.len() < bar_count {
-            out.push_str(&"▁".repeat(bar_count - slice.len()));
+            out.push_str(&bars[0].to_string().repeat(bar_count - slice.len()));
         }
         for level in slice {
-            out.push(Self::db_to_char(*level));
+            out.push(Self::db_to_char(*level, bars));
         }
         out
     }
@@ -76,13 +74,14 @@ impl HudModule for MeterModule {
 
         let db = state.audio_level_db;
         let db_str = format!("{:>3.0}dB", db);
+        let bars = waveform_bars(state.glyph_set);
 
         // Render a richer sparkline from recent samples when available.
         let waveform = if state.audio_levels.is_empty() {
-            let waveform_char = Self::db_to_char(db);
+            let waveform_char = Self::db_to_char(db, bars);
             std::iter::repeat_n(waveform_char, self.bar_count).collect()
         } else {
-            Self::render_sparkline(&state.audio_levels, self.bar_count)
+            Self::render_sparkline(&state.audio_levels, self.bar_count, bars)
         };
 
         let full = format!("{} {}", db_str, waveform);
@@ -157,7 +156,9 @@ mod tests {
         let output = module.render(&state, 20);
         assert!(output.contains("-30dB") || output.contains("30dB"));
         // Should have waveform chars
-        let has_waveform = WAVEFORM_CHARS.iter().any(|&c| output.contains(c));
+        let has_waveform = waveform_bars(state.glyph_set)
+            .iter()
+            .any(|&c| output.contains(c));
         assert!(has_waveform);
     }
 
@@ -171,7 +172,8 @@ mod tests {
         };
         let output = module.render(&state, 20);
         // Loud signal should show higher bars
-        assert!(output.contains('█') || output.contains('▇') || output.contains('▆'));
+        let bars = waveform_bars(state.glyph_set);
+        assert!(output.contains(bars[7]) || output.contains(bars[6]) || output.contains(bars[5]));
     }
 
     #[test]
@@ -184,7 +186,8 @@ mod tests {
         };
         let output = module.render(&state, 20);
         // Quiet signal should show lower bars
-        assert!(output.contains('▁') || output.contains('▂'));
+        let bars = waveform_bars(state.glyph_set);
+        assert!(output.contains(bars[0]) || output.contains(bars[1]));
     }
 
     #[test]
@@ -216,11 +219,17 @@ mod tests {
     #[test]
     fn db_to_char_range() {
         // Test the full range
-        assert_eq!(MeterModule::db_to_char(-60.0), '▁');
-        assert_eq!(MeterModule::db_to_char(0.0), '█');
+        assert_eq!(
+            MeterModule::db_to_char(-60.0, waveform_bars(crate::theme::GlyphSet::Unicode)),
+            '▁'
+        );
+        assert_eq!(
+            MeterModule::db_to_char(0.0, waveform_bars(crate::theme::GlyphSet::Unicode)),
+            '█'
+        );
         // Middle value
-        let mid = MeterModule::db_to_char(-30.0);
-        assert!(WAVEFORM_CHARS.contains(&mid));
+        let mid = MeterModule::db_to_char(-30.0, waveform_bars(crate::theme::GlyphSet::Unicode));
+        assert!(waveform_bars(crate::theme::GlyphSet::Unicode).contains(&mid));
     }
 
     #[test]
@@ -233,10 +242,8 @@ mod tests {
         };
         let output = module.render(&state, 30);
         // Count waveform chars (excluding dB label)
-        let waveform_count = output
-            .chars()
-            .filter(|c| WAVEFORM_CHARS.contains(c))
-            .count();
+        let bars = waveform_bars(state.glyph_set);
+        let waveform_count = output.chars().filter(|c| bars.contains(c)).count();
         assert_eq!(waveform_count, 10);
     }
 
@@ -250,11 +257,25 @@ mod tests {
             ..Default::default()
         };
         let output = module.render(&state, 40);
-        let waveform: String = output
-            .chars()
-            .filter(|c| WAVEFORM_CHARS.contains(c))
-            .collect();
+        let bars = waveform_bars(state.glyph_set);
+        let waveform: String = output.chars().filter(|c| bars.contains(c)).collect();
         let distinct = waveform.chars().collect::<std::collections::BTreeSet<_>>();
         assert!(distinct.len() > 1);
+    }
+
+    #[test]
+    fn meter_module_respects_ascii_glyph_set() {
+        let module = MeterModule::new();
+        let state = HudState {
+            is_recording: true,
+            glyph_set: crate::theme::GlyphSet::Ascii,
+            audio_level_db: -22.0,
+            audio_levels: vec![-58.0, -47.0, -36.0, -24.0, -16.0, -8.0],
+            ..Default::default()
+        };
+        let output = module.render(&state, 40);
+        let ascii_bars = waveform_bars(crate::theme::GlyphSet::Ascii);
+        assert!(ascii_bars.iter().any(|&c| output.contains(c)));
+        assert!(!output.contains('▁'));
     }
 }

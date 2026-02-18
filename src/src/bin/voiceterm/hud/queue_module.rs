@@ -3,6 +3,7 @@
 //! Shows the number of pending transcripts in queue: "Q: 2"
 
 use super::{display_width, HudModule, HudState};
+use crate::theme::hud_queue_icon;
 
 /// Queue depth module showing pending transcript count.
 pub struct QueueModule;
@@ -35,12 +36,13 @@ impl HudModule for QueueModule {
             return String::new();
         }
 
-        let full = format!("Q: {}", state.queue_depth);
+        let icon = hud_queue_icon(state.glyph_set);
+        let full = format!("{icon}: {}", state.queue_depth);
         if display_width(&full) <= max_width {
             full
         } else if max_width >= 2 {
             // Ultra compact
-            format!("Q{}", state.queue_depth)
+            format!("{icon}{}", state.queue_depth)
         } else {
             String::new()
         }
@@ -99,7 +101,7 @@ mod tests {
             ..Default::default()
         };
         let output = module.render(&state, 10);
-        assert!(output.contains("Q"));
+        assert!(output.contains('▤'));
         assert!(output.contains("2"));
     }
 
@@ -135,7 +137,7 @@ mod tests {
         };
         // Just enough for compact
         let output = module.render(&state, 2);
-        assert!(output.contains("Q"));
+        assert!(output.contains('▤'));
         assert!(output.contains("3"));
     }
 
@@ -147,6 +149,18 @@ mod tests {
             ..Default::default()
         };
         let output = module.render(&state, 10);
-        assert_eq!(output, "Q: 5");
+        assert_eq!(output, "▤: 5");
+    }
+
+    #[test]
+    fn queue_module_respects_ascii_glyph_set() {
+        let module = QueueModule::new();
+        let state = HudState {
+            queue_depth: 4,
+            glyph_set: crate::theme::GlyphSet::Ascii,
+            ..Default::default()
+        };
+        let output = module.render(&state, 10);
+        assert_eq!(output, "Q: 4");
     }
 }

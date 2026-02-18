@@ -13,6 +13,7 @@ pub use meter_module::MeterModule;
 pub use mode_module::ModeModule;
 pub use queue_module::QueueModule;
 
+use crate::theme::GlyphSet;
 use std::time::Duration;
 use unicode_width::UnicodeWidthStr;
 
@@ -68,6 +69,8 @@ pub struct HudState {
     /// Name of the STT backend (reserved for model/status module).
     #[allow(dead_code)]
     pub backend_name: String,
+    /// Glyph family for icon/progress rendering.
+    pub glyph_set: GlyphSet,
 }
 
 /// Trait for HUD modules that render status information.

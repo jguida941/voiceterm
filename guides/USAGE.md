@@ -277,9 +277,12 @@ Tips:
   (for example `{"version":2,"profile":"ops","base_theme":"dracula"}`); invalid
   payloads fall back to the selected built-in theme.
 - Supported preview overrides in `overrides`: `border_style` (`single`, `rounded`,
-  `double`, `heavy`, `none`) and `indicators` (`ascii`, `dot`, `diamond`).
+  `double`, `heavy`, `none`), `indicators` (`ascii`, `dot`, `diamond`), and
+  `glyphs` (`unicode`, `ascii`).
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
   plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
+  `glyphs` affects HUD queue/latency/meter iconography, waveform sparkline bars,
+  and progress bar/block/bounce glyph families.
   Default processing spinner animation remains unless an override replaces the
   processing indicator symbol; that same indicator choice is reused for
   processing status text/spinner surfaces outside the HUD as well.

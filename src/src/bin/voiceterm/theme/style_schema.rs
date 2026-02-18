@@ -18,6 +18,7 @@ pub(super) struct StyleSchemaPack {
     pub(super) base_theme: Theme,
     pub(super) border_style_override: Option<BorderStyleOverride>,
     pub(super) indicator_set_override: Option<IndicatorSetOverride>,
+    pub(super) glyph_set_override: Option<GlyphSetOverride>,
 }
 
 impl StyleSchemaPack {
@@ -29,6 +30,7 @@ impl StyleSchemaPack {
             base_theme: theme,
             border_style_override: None,
             indicator_set_override: None,
+            glyph_set_override: None,
         }
     }
 }
@@ -51,6 +53,14 @@ pub(super) enum IndicatorSetOverride {
     Ascii,
     Dot,
     Diamond,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum GlyphSetOverride {
+    Theme,
+    Unicode,
+    Ascii,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,6 +111,8 @@ struct StyleSchemaOverrides {
     border_style: Option<BorderStyleOverride>,
     #[serde(default)]
     indicators: Option<IndicatorSetOverride>,
+    #[serde(default)]
+    glyphs: Option<GlyphSetOverride>,
 }
 
 fn default_profile() -> String {
@@ -127,6 +139,13 @@ fn normalize_indicator_override(
     }
 }
 
+fn normalize_glyph_override(value: Option<GlyphSetOverride>) -> Option<GlyphSetOverride> {
+    match value {
+        Some(GlyphSetOverride::Theme) | None => None,
+        other => other,
+    }
+}
+
 pub(super) fn parse_style_schema(payload: &str) -> Result<StyleSchemaPack, StyleSchemaError> {
     let envelope: StyleSchemaEnvelope = serde_json::from_str(payload)
         .map_err(|err| StyleSchemaError::InvalidJson(err.to_string()))?;
@@ -143,6 +162,7 @@ pub(super) fn parse_style_schema(payload: &str) -> Result<StyleSchemaPack, Style
                 base_theme,
                 border_style_override: None,
                 indicator_set_override: None,
+                glyph_set_override: None,
             })
         }
         CURRENT_STYLE_SCHEMA_VERSION => {
@@ -160,6 +180,7 @@ pub(super) fn parse_style_schema(payload: &str) -> Result<StyleSchemaPack, Style
                 base_theme,
                 border_style_override: normalize_border_override(current.overrides.border_style),
                 indicator_set_override: normalize_indicator_override(current.overrides.indicators),
+                glyph_set_override: normalize_glyph_override(current.overrides.glyphs),
             })
         }
         other => Err(StyleSchemaError::UnsupportedVersion(other)),
@@ -188,6 +209,7 @@ mod tests {
         assert_eq!(parsed.base_theme, Theme::Codex);
         assert_eq!(parsed.border_style_override, None);
         assert_eq!(parsed.indicator_set_override, None);
+        assert_eq!(parsed.glyph_set_override, None);
     }
 
     #[test]
@@ -200,6 +222,7 @@ mod tests {
         assert_eq!(parsed.base_theme, Theme::Claude);
         assert_eq!(parsed.border_style_override, None);
         assert_eq!(parsed.indicator_set_override, None);
+        assert_eq!(parsed.glyph_set_override, None);
     }
 
     #[test]
@@ -244,7 +267,7 @@ mod tests {
             "version":2,
             "profile":"ops",
             "base_theme":"codex",
-            "overrides":{"border_style":"rounded","indicators":"ascii"}
+            "overrides":{"border_style":"rounded","indicators":"ascii","glyphs":"ascii"}
         }"#;
         let parsed = parse_style_schema(payload).expect("v2 payload should parse");
 
@@ -256,6 +279,7 @@ mod tests {
             parsed.indicator_set_override,
             Some(IndicatorSetOverride::Ascii)
         );
+        assert_eq!(parsed.glyph_set_override, Some(GlyphSetOverride::Ascii));
     }
 
     #[test]
@@ -264,11 +288,12 @@ mod tests {
             "version":2,
             "profile":"ops",
             "base_theme":"codex",
-            "overrides":{"border_style":"theme","indicators":"theme"}
+            "overrides":{"border_style":"theme","indicators":"theme","glyphs":"theme"}
         }"#;
         let parsed = parse_style_schema(payload).expect("v2 payload should parse");
 
         assert_eq!(parsed.border_style_override, None);
         assert_eq!(parsed.indicator_set_override, None);
+        assert_eq!(parsed.glyph_set_override, None);
     }
 }

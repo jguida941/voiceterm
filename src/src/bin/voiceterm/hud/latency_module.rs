@@ -3,6 +3,7 @@
 //! Shows the last transcription latency: "◷ 1.2s"
 
 use super::{display_width, HudModule, HudState};
+use crate::theme::{hud_latency_icon, waveform_bars};
 
 /// Latency indicator module showing last transcription time.
 pub struct LatencyModule;
@@ -13,28 +14,31 @@ impl LatencyModule {
         Self
     }
 
-    fn latency_char(ms: u32) -> char {
-        match ms {
-            0..=150 => '▁',
-            151..=300 => '▂',
-            301..=500 => '▄',
-            501..=800 => '▆',
-            _ => '█',
-        }
+    fn latency_char(ms: u32, state: &HudState) -> char {
+        let bars = waveform_bars(state.glyph_set);
+        let idx = match ms {
+            0..=150 => 0,
+            151..=300 => 1,
+            301..=500 => 3,
+            501..=800 => 5,
+            _ => 7,
+        };
+        bars[idx]
     }
 
-    fn render_sparkline(history: &[u32], width: usize) -> String {
+    fn render_sparkline(history: &[u32], width: usize, state: &HudState) -> String {
         if history.is_empty() || width == 0 {
             return String::new();
         }
+        let bars = waveform_bars(state.glyph_set);
         let mut out = String::with_capacity(width);
         let start = history.len().saturating_sub(width);
         let slice = &history[start..];
         if slice.len() < width {
-            out.push_str(&"▁".repeat(width - slice.len()));
+            out.push_str(&bars[0].to_string().repeat(width - slice.len()));
         }
         for sample in slice {
-            out.push(Self::latency_char(*sample));
+            out.push(Self::latency_char(*sample, state));
         }
         out
     }
@@ -59,27 +63,28 @@ impl HudModule for LatencyModule {
         match state.last_latency_ms {
             Some(ms) => {
                 let secs = ms as f32 / 1000.0;
+                let icon = hud_latency_icon(state.glyph_set);
                 let trend = if state.latency_history_ms.is_empty() {
-                    Self::latency_char(ms).to_string()
+                    Self::latency_char(ms, state).to_string()
                 } else {
-                    Self::render_sparkline(&state.latency_history_ms, 4)
+                    Self::render_sparkline(&state.latency_history_ms, 4, state)
                 };
                 let full = if secs >= 10.0 {
-                    format!("◷ {:.0}s {trend}", secs)
+                    format!("{icon} {:.0}s {trend}", secs)
                 } else {
-                    format!("◷ {:.1}s {trend}", secs)
+                    format!("{icon} {:.1}s {trend}", secs)
                 };
 
                 if display_width(&full) <= max_width {
                     full
                 } else if max_width >= 7 {
                     // Compact format with decimal precision + single trend marker.
-                    format!("◷{:.1}s{}", secs, Self::latency_char(ms))
+                    format!("{icon}{:.1}s{}", secs, Self::latency_char(ms, state))
                 } else if max_width >= 6 {
                     // Ultra compact format without decimal + trend marker.
-                    format!("◷{:.0}s{}", secs, Self::latency_char(ms))
+                    format!("{icon}{:.0}s{}", secs, Self::latency_char(ms, state))
                 } else if max_width >= 4 {
-                    format!("◷{:.0}s", secs)
+                    format!("{icon}{:.0}s", secs)
                 } else {
                     String::new()
                 }
@@ -206,5 +211,19 @@ mod tests {
         };
         let output = module.render(&state, 16);
         assert!(output.contains('▁') || output.contains('▂') || output.contains('▄'));
+    }
+
+    #[test]
+    fn latency_module_respects_ascii_glyph_set() {
+        let module = LatencyModule::new();
+        let state = HudState {
+            glyph_set: crate::theme::GlyphSet::Ascii,
+            last_latency_ms: Some(1200),
+            latency_history_ms: vec![120, 220, 450, 820],
+            ..Default::default()
+        };
+        let output = module.render(&state, 16);
+        assert!(output.contains('T'));
+        assert!(output.contains('.') || output.contains(':') || output.contains('-'));
     }
 }

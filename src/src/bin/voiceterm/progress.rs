@@ -4,7 +4,10 @@
 
 #![allow(dead_code)]
 
-use crate::theme::{processing_spinner_symbol, Theme, ThemeColors, PROCESSING_SPINNER_BRAILLE};
+use crate::theme::{
+    processing_spinner_symbol, progress_glyph_profile, Theme, ThemeColors,
+    PROCESSING_SPINNER_BRAILLE,
+};
 
 /// Progress bar style.
 #[derive(Debug, Clone, Copy, Default)]
@@ -78,21 +81,17 @@ impl Progress {
     }
 }
 
-/// Bar characters.
-const BAR_FILLED: char = '█';
-const BAR_EMPTY: char = '░';
-const BAR_PARTIAL: &[char] = &['░', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
-
 /// Format a progress bar.
 pub fn format_progress_bar(progress: &Progress, config: &ProgressConfig, theme: Theme) -> String {
     let colors = theme.colors();
     let ratio = progress.progress.clamp(0.0, 1.0);
+    let glyphs = progress_glyph_profile(colors.glyph_set);
 
     // Build the bar
     let bar = match config.style {
-        ProgressStyle::Bar => format_bar_standard(ratio, config.width, &colors),
-        ProgressStyle::Compact => format_bar_compact(ratio, config.width, &colors),
-        ProgressStyle::Blocks => format_bar_blocks(ratio, config.width, &colors),
+        ProgressStyle::Bar => format_bar_standard(ratio, config.width, &colors, glyphs),
+        ProgressStyle::Compact => format_bar_compact(ratio, config.width, &colors, glyphs),
+        ProgressStyle::Blocks => format_bar_blocks(ratio, config.width, &colors, glyphs),
     };
 
     // Build suffix parts
@@ -120,46 +119,61 @@ pub fn format_progress_bar(progress: &Progress, config: &ProgressConfig, theme: 
     format!("{}{}", bar, suffix)
 }
 
-fn format_bar_standard(ratio: f32, width: usize, colors: &ThemeColors) -> String {
+fn format_bar_standard(
+    ratio: f32,
+    width: usize,
+    colors: &ThemeColors,
+    glyphs: crate::theme::ProgressGlyphProfile,
+) -> String {
     let filled = (ratio * width as f32) as usize;
     let empty = width - filled;
 
     format!(
         "[{}{}{}{}]",
         colors.success,
-        BAR_FILLED.to_string().repeat(filled),
-        BAR_EMPTY.to_string().repeat(empty),
+        glyphs.bar_filled.to_string().repeat(filled),
+        glyphs.bar_empty.to_string().repeat(empty),
         colors.reset
     )
 }
 
-fn format_bar_compact(ratio: f32, width: usize, colors: &ThemeColors) -> String {
+fn format_bar_compact(
+    ratio: f32,
+    width: usize,
+    colors: &ThemeColors,
+    glyphs: crate::theme::ProgressGlyphProfile,
+) -> String {
     let filled = (ratio * width as f32) as usize;
-    let partial_idx = ((ratio * width as f32).fract() * (BAR_PARTIAL.len() - 1) as f32) as usize;
+    let partial_idx = ((ratio * width as f32).fract() * (glyphs.partial.len() - 1) as f32) as usize;
     let empty = width.saturating_sub(filled + 1);
 
     let mut bar = String::new();
     bar.push_str(colors.success);
-    bar.push_str(&BAR_FILLED.to_string().repeat(filled));
+    bar.push_str(&glyphs.bar_filled.to_string().repeat(filled));
 
     if filled < width {
-        bar.push(BAR_PARTIAL[partial_idx]);
-        bar.push_str(&BAR_EMPTY.to_string().repeat(empty));
+        bar.push(glyphs.partial[partial_idx]);
+        bar.push_str(&glyphs.bar_empty.to_string().repeat(empty));
     }
 
     bar.push_str(colors.reset);
     bar
 }
 
-fn format_bar_blocks(ratio: f32, width: usize, colors: &ThemeColors) -> String {
+fn format_bar_blocks(
+    ratio: f32,
+    width: usize,
+    colors: &ThemeColors,
+    glyphs: crate::theme::ProgressGlyphProfile,
+) -> String {
     let filled = (ratio * width as f32) as usize;
     let empty = width - filled;
 
     format!(
         "{}{}{}{}",
         colors.info,
-        "▓".repeat(filled),
-        "░".repeat(empty),
+        glyphs.blocks_filled.to_string().repeat(filled),
+        glyphs.blocks_empty.to_string().repeat(empty),
         colors.reset
     )
 }
@@ -197,6 +211,7 @@ pub fn format_spinner(frame: usize, message: &str, theme: Theme) -> String {
 /// Bouncing bar for indeterminate progress.
 pub fn format_bouncing_bar(frame: usize, width: usize, theme: Theme) -> String {
     let colors = theme.colors();
+    let glyphs = progress_glyph_profile(colors.glyph_set);
     let bar_width = width.min(4);
     let travel = width.saturating_sub(bar_width);
 
@@ -213,7 +228,7 @@ pub fn format_bouncing_bar(frame: usize, width: usize, theme: Theme) -> String {
     bar.push('[');
     bar.push_str(&" ".repeat(pos));
     bar.push_str(colors.info);
-    bar.push_str(&"=".repeat(bar_width));
+    bar.push_str(&glyphs.bouncing_fill.to_string().repeat(bar_width));
     bar.push_str(colors.reset);
     bar.push_str(&" ".repeat(travel - pos));
     bar.push(']');
@@ -313,26 +328,29 @@ mod tests {
 
     #[test]
     fn format_bar_standard_exact_output() {
-        let bar = format_bar_standard(0.5, 10, &Theme::None.colors());
+        let colors = Theme::None.colors();
+        let bar = format_bar_standard(0.5, 10, &colors, progress_glyph_profile(colors.glyph_set));
         assert_eq!(bar, "[█████░░░░░]");
     }
 
     #[test]
     fn format_bar_compact_fractional_and_full_width_cases() {
         let colors = Theme::None.colors();
-        let fractional = format_bar_compact(0.26, 10, &colors);
+        let fractional =
+            format_bar_compact(0.26, 10, &colors, progress_glyph_profile(colors.glyph_set));
         assert_eq!(fractional, "██▌░░░░░░░");
 
-        let full = format_bar_compact(1.0, 10, &colors);
+        let full = format_bar_compact(1.0, 10, &colors, progress_glyph_profile(colors.glyph_set));
         assert_eq!(full, "██████████");
 
-        let zero = format_bar_compact(0.0, 10, &colors);
+        let zero = format_bar_compact(0.0, 10, &colors, progress_glyph_profile(colors.glyph_set));
         assert_eq!(zero, "░░░░░░░░░░");
     }
 
     #[test]
     fn format_bar_blocks_exact_output() {
-        let blocks = format_bar_blocks(0.4, 10, &Theme::None.colors());
+        let colors = Theme::None.colors();
+        let blocks = format_bar_blocks(0.4, 10, &colors, progress_glyph_profile(colors.glyph_set));
         assert_eq!(blocks, "▓▓▓▓░░░░░░");
     }
 
@@ -365,5 +383,15 @@ mod tests {
         assert!(!SPINNER_BRAILLE.is_empty());
         assert!(!SPINNER_DOTS.is_empty());
         assert!(!SPINNER_LINE.is_empty());
+    }
+
+    #[test]
+    fn progress_bars_respect_ascii_glyph_profile() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        let glyphs = progress_glyph_profile(colors.glyph_set);
+
+        assert_eq!(format_bar_standard(0.5, 6, &colors, glyphs), "[===---]");
+        assert_eq!(format_bar_blocks(0.5, 6, &colors, glyphs), "###...");
     }
 }

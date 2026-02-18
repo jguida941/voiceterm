@@ -1,5 +1,15 @@
 //! Theme color tokens so rendering code references semantic colors, not raw escapes.
 
+/// Glyph family selection for icon/progress rendering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GlyphSet {
+    /// Unicode-rich glyph rendering.
+    #[default]
+    Unicode,
+    /// ASCII-safe glyph rendering.
+    Ascii,
+}
+
 /// ANSI color codes for a theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeColors {
@@ -34,4 +44,6 @@ pub struct ThemeColors {
     pub indicator_idle: &'static str,
     pub indicator_processing: &'static str,
     pub indicator_responding: &'static str,
+    /// Icon/progress glyph profile.
+    pub glyph_set: GlyphSet,
 }

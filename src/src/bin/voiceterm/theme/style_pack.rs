@@ -5,12 +5,12 @@
 
 use super::{
     style_schema::{
-        parse_style_schema_with_fallback, BorderStyleOverride, IndicatorSetOverride,
-        StyleSchemaPack, CURRENT_STYLE_SCHEMA_VERSION,
+        parse_style_schema_with_fallback, BorderStyleOverride, GlyphSetOverride,
+        IndicatorSetOverride, StyleSchemaPack, CURRENT_STYLE_SCHEMA_VERSION,
     },
-    Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
-    THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX, THEME_CORAL,
-    THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
+    GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
+    BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,
+    THEME_CORAL, THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
 };
 
 pub(crate) const STYLE_PACK_RUNTIME_VERSION: u16 = CURRENT_STYLE_SCHEMA_VERSION;
@@ -22,6 +22,7 @@ pub(crate) struct StylePack {
     pub(crate) base_theme: Theme,
     pub(crate) border_style_override: Option<BorderStyleOverride>,
     pub(crate) indicator_set_override: Option<IndicatorSetOverride>,
+    pub(crate) glyph_set_override: Option<GlyphSetOverride>,
 }
 
 impl StylePack {
@@ -32,6 +33,7 @@ impl StylePack {
             base_theme: theme,
             border_style_override: None,
             indicator_set_override: None,
+            glyph_set_override: None,
         }
     }
 
@@ -43,12 +45,14 @@ impl StylePack {
             base_theme,
             border_style_override,
             indicator_set_override,
+            glyph_set_override,
         } = pack;
         Self {
             schema_version: version,
             base_theme,
             border_style_override,
             indicator_set_override,
+            glyph_set_override,
         }
     }
 
@@ -60,6 +64,7 @@ impl StylePack {
             base_theme: theme,
             border_style_override: None,
             indicator_set_override: None,
+            glyph_set_override: None,
         }
     }
 }
@@ -91,6 +96,7 @@ pub(crate) fn resolve_style_pack_colors(pack: StylePack) -> ThemeColors {
     let mut colors = base_theme_colors(pack.base_theme);
     apply_border_style_override(&mut colors, pack.border_style_override);
     apply_indicator_set_override(&mut colors, pack.indicator_set_override);
+    apply_glyph_set_override(&mut colors, pack.glyph_set_override);
     colors
 }
 
@@ -154,6 +160,17 @@ fn apply_indicator_set_override(
     colors.indicator_responding = responding;
 }
 
+fn apply_glyph_set_override(colors: &mut ThemeColors, override_value: Option<GlyphSetOverride>) {
+    let Some(override_value) = override_value else {
+        return;
+    };
+    colors.glyph_set = match override_value {
+        GlyphSetOverride::Theme => colors.glyph_set,
+        GlyphSetOverride::Unicode => GlyphSet::Unicode,
+        GlyphSetOverride::Ascii => GlyphSet::Ascii,
+    };
+}
+
 #[must_use]
 pub(crate) fn resolve_theme_colors(theme: Theme) -> ThemeColors {
     let payload = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
@@ -171,6 +188,7 @@ mod tests {
         assert_eq!(pack.base_theme, Theme::Codex);
         assert_eq!(pack.border_style_override, None);
         assert_eq!(pack.indicator_set_override, None);
+        assert_eq!(pack.glyph_set_override, None);
     }
 
     #[test]
@@ -254,5 +272,17 @@ mod tests {
         assert_eq!(colors.indicator_idle, "-");
         assert_eq!(colors.indicator_processing, "~");
         assert_eq!(colors.indicator_responding, ">");
+    }
+
+    #[test]
+    fn resolve_theme_colors_with_payload_applies_glyph_override() {
+        let payload = r#"{
+            "version":2,
+            "profile":"ops",
+            "base_theme":"codex",
+            "overrides":{"glyphs":"ascii"}
+        }"#;
+        let colors = resolve_theme_colors_with_payload(Theme::Codex, Some(payload));
+        assert_eq!(colors.glyph_set, GlyphSet::Ascii);
     }
 }

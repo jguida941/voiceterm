@@ -12,7 +12,7 @@ mod style_schema;
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
 pub use borders::{BORDER_DOTTED, BORDER_NONE};
-pub use colors::ThemeColors;
+pub use colors::{GlyphSet, ThemeColors};
 pub use palettes::{
     THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX, THEME_CORAL,
     THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
@@ -23,6 +23,29 @@ use self::{detect::is_warp_terminal, style_pack::resolve_theme_colors};
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.
 pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =
     &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Waveform bars for HUD sparkline rendering.
+pub(crate) const WAVEFORM_BARS_UNICODE: &[char; 8] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+/// ASCII-safe waveform bars for fallback terminals.
+pub(crate) const WAVEFORM_BARS_ASCII: &[char; 8] = &['.', ':', '-', '=', '+', '*', '#', '@'];
+
+/// Progress bar partial fill characters (empty -> full).
+pub(crate) const PROGRESS_PARTIAL_UNICODE: &[char; 9] =
+    &['░', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+/// ASCII-safe partial fill characters.
+pub(crate) const PROGRESS_PARTIAL_ASCII: &[char; 9] =
+    &['-', '.', ':', '-', '=', '+', '*', '#', '#'];
+
+/// Resolved glyph profile for progress rendering surfaces.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ProgressGlyphProfile {
+    pub(crate) bar_filled: char,
+    pub(crate) bar_empty: char,
+    pub(crate) blocks_filled: char,
+    pub(crate) blocks_empty: char,
+    pub(crate) partial: &'static [char; 9],
+    pub(crate) bouncing_fill: char,
+}
 
 /// Available color themes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -164,6 +187,56 @@ pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &
     colors.indicator_processing
 }
 
+/// Resolve HUD queue label glyph by selected icon pack.
+#[must_use]
+pub(crate) fn hud_queue_icon(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "▤",
+        GlyphSet::Ascii => "Q",
+    }
+}
+
+/// Resolve HUD latency label glyph by selected icon pack.
+#[must_use]
+pub(crate) fn hud_latency_icon(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "◷",
+        GlyphSet::Ascii => "T",
+    }
+}
+
+/// Resolve sparkline waveform glyph set for meter/latency bars.
+#[must_use]
+pub(crate) fn waveform_bars(glyph_set: GlyphSet) -> &'static [char; 8] {
+    match glyph_set {
+        GlyphSet::Unicode => WAVEFORM_BARS_UNICODE,
+        GlyphSet::Ascii => WAVEFORM_BARS_ASCII,
+    }
+}
+
+/// Resolve progress-glyph family for bars/spinners.
+#[must_use]
+pub(crate) fn progress_glyph_profile(glyph_set: GlyphSet) -> ProgressGlyphProfile {
+    match glyph_set {
+        GlyphSet::Unicode => ProgressGlyphProfile {
+            bar_filled: '█',
+            bar_empty: '░',
+            blocks_filled: '▓',
+            blocks_empty: '░',
+            partial: PROGRESS_PARTIAL_UNICODE,
+            bouncing_fill: '=',
+        },
+        GlyphSet::Ascii => ProgressGlyphProfile {
+            bar_filled: '=',
+            bar_empty: '-',
+            blocks_filled: '#',
+            blocks_empty: '.',
+            partial: PROGRESS_PARTIAL_ASCII,
+            bouncing_fill: '=',
+        },
+    }
+}
+
 impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -298,6 +371,24 @@ mod tests {
         let mut colors = Theme::Codex.colors();
         colors.indicator_processing = "~";
         assert_eq!(processing_spinner_symbol(&colors, 5), "~");
+    }
+
+    #[test]
+    fn hud_icons_follow_glyph_set() {
+        assert_eq!(hud_queue_icon(GlyphSet::Unicode), "▤");
+        assert_eq!(hud_queue_icon(GlyphSet::Ascii), "Q");
+        assert_eq!(hud_latency_icon(GlyphSet::Unicode), "◷");
+        assert_eq!(hud_latency_icon(GlyphSet::Ascii), "T");
+    }
+
+    #[test]
+    fn waveform_and_progress_profiles_follow_glyph_set() {
+        let unicode = progress_glyph_profile(GlyphSet::Unicode);
+        let ascii = progress_glyph_profile(GlyphSet::Ascii);
+        assert_eq!(waveform_bars(GlyphSet::Unicode)[0], '▁');
+        assert_eq!(waveform_bars(GlyphSet::Ascii)[0], '.');
+        assert_eq!(unicode.bar_filled, '█');
+        assert_eq!(ascii.bar_filled, '=');
     }
 
     #[test]

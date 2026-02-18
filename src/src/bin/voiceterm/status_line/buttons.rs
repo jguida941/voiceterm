@@ -3,7 +3,7 @@
 use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_style::StatusType;
-use crate::theme::{filled_indicator, BorderSet, Theme, ThemeColors};
+use crate::theme::{filled_indicator, waveform_bars, BorderSet, GlyphSet, Theme, ThemeColors};
 
 use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_on};
 use super::layout::breakpoints;
@@ -261,13 +261,18 @@ fn recording_indicator_color(colors: &ThemeColors) -> &str {
 }
 
 fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> String {
-    const GLYPHS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let glyphs = waveform_bars(colors.glyph_set);
     if width == 0 {
         return String::new();
     }
     if levels.is_empty() {
         // Match full HUD behavior: keep idle placeholder in theme accent.
-        return format!("{}{}{}", colors.success, "▁".repeat(width), colors.reset);
+        return format!(
+            "{}{}{}",
+            colors.success,
+            glyphs[0].to_string().repeat(width),
+            colors.reset
+        );
     }
 
     let mut out = String::with_capacity(width * 8);
@@ -275,15 +280,15 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
     let slice = &levels[start..];
     if slice.len() < width {
         out.push_str(colors.dim);
-        out.push_str(&"▁".repeat(width - slice.len()));
+        out.push_str(&glyphs[0].to_string().repeat(width - slice.len()));
         out.push_str(colors.reset);
     }
     for db in slice {
         let normalized = ((*db + 60.0) / 60.0).clamp(0.0, 1.0);
-        let idx = (normalized * (GLYPHS.len() as f32 - 1.0)) as usize;
+        let idx = (normalized * (glyphs.len() as f32 - 1.0)) as usize;
         let color = meter_level_color(*db, colors);
         out.push_str(color);
-        out.push(GLYPHS[idx]);
+        out.push(glyphs[idx]);
         out.push_str(colors.reset);
     }
     out
@@ -292,6 +297,10 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
 fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
     let active = (normalized * 5.0).round() as usize;
+    let (active_glyph, idle_glyph) = match colors.glyph_set {
+        GlyphSet::Unicode => ('•', '·'),
+        GlyphSet::Ascii => ('*', '.'),
+    };
     let color = meter_level_color(level_db, colors);
     let mut result = String::with_capacity(64);
     result.push_str(colors.dim);
@@ -300,11 +309,11 @@ fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     for idx in 0..5 {
         if idx < active {
             result.push_str(color);
-            result.push('•');
+            result.push(active_glyph);
             result.push_str(colors.reset);
         } else {
             result.push_str(colors.dim);
-            result.push('·');
+            result.push(idle_glyph);
             result.push_str(colors.reset);
         }
     }
