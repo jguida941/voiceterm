@@ -302,10 +302,12 @@ mod tests {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let prev_style_pack = std::env::var("VOICETERM_STYLE_PACK_JSON").ok();
+        let prev_style_pack_opt_in = std::env::var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV").ok();
         std::env::set_var(
             "VOICETERM_STYLE_PACK_JSON",
             r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
         );
+        std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", "1");
 
         let mut config = OverlayConfig::parse_from(["test"]);
         let (writer_tx, _writer_rx) = bounded(4);
@@ -332,6 +334,10 @@ mod tests {
         match prev_style_pack {
             Some(v) => std::env::set_var("VOICETERM_STYLE_PACK_JSON", v),
             None => std::env::remove_var("VOICETERM_STYLE_PACK_JSON"),
+        }
+        match prev_style_pack_opt_in {
+            Some(v) => std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", v),
+            None => std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV"),
         }
     }
 }

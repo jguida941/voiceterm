@@ -15,6 +15,8 @@ use super::{
 
 pub(crate) const STYLE_PACK_RUNTIME_VERSION: u16 = CURRENT_STYLE_SCHEMA_VERSION;
 const STYLE_PACK_SCHEMA_ENV: &str = "VOICETERM_STYLE_PACK_JSON";
+#[cfg(test)]
+const STYLE_PACK_TEST_ENV_OPT_IN: &str = "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StylePack {
@@ -122,6 +124,20 @@ fn resolve_theme_colors_with_payload(theme: Theme, payload: Option<&str>) -> The
     resolve_style_pack_colors(style_pack_from_json_payload(theme, payload))
 }
 
+#[must_use]
+fn runtime_style_pack_payload() -> Option<String> {
+    #[cfg(test)]
+    if std::env::var_os(STYLE_PACK_TEST_ENV_OPT_IN).is_none() {
+        // Keep unit tests deterministic even when a developer exported
+        // VOICETERM_STYLE_PACK_JSON in their interactive shell.
+        return None;
+    }
+
+    std::env::var(STYLE_PACK_SCHEMA_ENV)
+        .ok()
+        .filter(|payload| !payload.trim().is_empty())
+}
+
 fn apply_border_style_override(
     colors: &mut ThemeColors,
     override_value: Option<BorderStyleOverride>,
@@ -180,7 +196,7 @@ fn apply_glyph_set_override(colors: &mut ThemeColors, override_value: Option<Gly
 
 #[must_use]
 pub(crate) fn resolve_theme_colors(theme: Theme) -> ThemeColors {
-    let payload = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let payload = runtime_style_pack_payload();
     resolve_theme_colors_with_payload(theme, payload.as_deref())
 }
 
@@ -190,13 +206,16 @@ pub(crate) fn resolve_theme_colors(theme: Theme) -> ThemeColors {
 /// cycling should be treated as read-only until the payload is unset.
 #[must_use]
 pub(crate) fn locked_style_pack_theme() -> Option<Theme> {
-    let payload = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let payload = runtime_style_pack_payload();
     style_pack_theme_override_from_payload(payload.as_deref())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
     fn style_pack_built_in_uses_current_schema_version() {
@@ -316,5 +335,61 @@ mod tests {
     fn style_pack_theme_override_from_payload_ignores_invalid_payload() {
         let payload = r#"{"version":"bad","base_theme":"dracula"}"#;
         assert_eq!(style_pack_theme_override_from_payload(Some(payload)), None);
+    }
+
+    #[test]
+    fn resolve_theme_colors_ignores_style_pack_env_without_test_opt_in() {
+        let _guard = ENV_GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev_style_pack = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+        let prev_opt_in = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+        std::env::set_var(
+            STYLE_PACK_SCHEMA_ENV,
+            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+        );
+        std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN);
+
+        assert_eq!(resolve_theme_colors(Theme::Coral), THEME_CORAL);
+        assert_eq!(locked_style_pack_theme(), None);
+
+        match prev_style_pack {
+            Some(value) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, value),
+            None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+        }
+        match prev_opt_in {
+            Some(value) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, value),
+            None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+        }
+    }
+
+    #[test]
+    fn resolve_theme_colors_reads_style_pack_env_when_test_opted_in() {
+        let _guard = ENV_GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev_style_pack = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+        let prev_opt_in = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+        std::env::set_var(
+            STYLE_PACK_SCHEMA_ENV,
+            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+        );
+        std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+        assert_eq!(resolve_theme_colors(Theme::Coral), THEME_CODEX);
+        assert_eq!(locked_style_pack_theme(), Some(Theme::Codex));
+
+        match prev_style_pack {
+            Some(value) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, value),
+            None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+        }
+        match prev_opt_in {
+            Some(value) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, value),
+            None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+        }
     }
 }
