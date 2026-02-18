@@ -16,6 +16,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Route non-HUD processing/progress spinner rendering through theme/style-pack indicator resolution (status animation, periodic processing status text, and `progress::format_spinner`) so these surfaces no longer depend on hardcoded frame tables outside Theme Studio ownership.
 - Add style-pack `glyphs` override routing (`unicode`/`ascii`) across runtime icon and meter surfaces: HUD queue/latency/meter modules, minimal/full status waveform placeholders, minimal pulse-dots, and progress bar/block/bounce glyph rendering now resolve from the active theme glyph profile instead of hardcoded Unicode constants.
 - Extend glyph-profile routing into audio meter formatting (`audio_meter/format.rs`) so calibration/mic-meter bars, peak markers, threshold pointers, and waveform rendering also honor `glyphs` style-pack overrides.
+- Extend glyph-profile routing into overlay chrome for help/settings/theme-picker surfaces so footer separators/close markers, selected-row markers, and settings slider track/knob symbols all honor `glyphs` overrides; footer close hit-testing now follows the active unicode/ascii footer text.
 - Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
 
 ### Documentation

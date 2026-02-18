@@ -3,7 +3,7 @@
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
-use crate::theme::{Theme, ThemeColors};
+use crate::theme::{overlay_close_symbol, overlay_separator, Theme, ThemeColors};
 
 /// Keyboard shortcut definition.
 pub struct Shortcut {
@@ -100,7 +100,12 @@ const DOCS_URL: &str = "https://github.com/jguida941/voiceterm/blob/master/READM
 const TROUBLESHOOTING_URL: &str =
     "https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md";
 
-pub const HELP_OVERLAY_FOOTER: &str = "[×] close · ^O settings";
+#[must_use]
+pub fn help_overlay_footer(colors: &ThemeColors) -> String {
+    let close = overlay_close_symbol(colors.glyph_set);
+    let sep = overlay_separator(colors.glyph_set);
+    format!("[{close}] close {sep} ^O settings")
+}
 
 pub fn help_overlay_width_for_terminal(width: usize) -> usize {
     width.clamp(30, 50)
@@ -154,10 +159,11 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
         content_width,
     ));
     lines.push(frame_separator(&colors, borders, content_width));
+    let footer = help_overlay_footer(&colors);
     lines.push(centered_title_line(
         &colors,
         borders,
-        HELP_OVERLAY_FOOTER,
+        &footer,
         content_width,
     ));
     lines.push(frame_bottom(&colors, borders, content_width));
@@ -357,5 +363,12 @@ mod tests {
         let help = format_help_overlay(Theme::None, 60);
         assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/README.md\x1b\\[README]\x1b]8;;\x1b\\"));
         assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md\x1b\\[Guide]\x1b]8;;\x1b\\"));
+    }
+
+    #[test]
+    fn help_overlay_footer_respects_ascii_glyph_set() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        assert_eq!(help_overlay_footer(&colors), "[x] close | ^O settings");
     }
 }

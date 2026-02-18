@@ -621,19 +621,19 @@ fn handle_overlay_mouse_click(
         OverlayMode::Help => (
             help_overlay_width_for_terminal(cols),
             help_overlay_inner_width_for_terminal(cols),
-            HELP_OVERLAY_FOOTER,
+            help_overlay_footer(&state.theme.colors()),
         ),
         OverlayMode::ThemePicker => (
             theme_picker_total_width_for_terminal(cols),
             theme_picker_inner_width_for_terminal(cols),
-            THEME_PICKER_FOOTER,
+            theme_picker_footer(&state.theme.colors()),
         ),
         OverlayMode::Settings => (
             settings_overlay_width_for_terminal(cols),
             settings_overlay_inner_width_for_terminal(cols),
-            SETTINGS_OVERLAY_FOOTER,
+            settings_overlay_footer(&state.theme.colors()),
         ),
-        OverlayMode::None => (0, 0, ""),
+        OverlayMode::None => (0, 0, String::new()),
     };
 
     if overlay_width == 0 {
@@ -657,13 +657,9 @@ fn handle_overlay_mouse_click(
 
     let footer_row = overlay_height.saturating_sub(1);
     if overlay_row == footer_row {
-        let title_len = crate::overlay_frame::display_width(footer_title);
+        let title_len = crate::overlay_frame::display_width(&footer_title);
         let left_pad = inner_width.saturating_sub(title_len) / 2;
-        let close_prefix = footer_title
-            .split('·')
-            .next()
-            .unwrap_or(footer_title)
-            .trim_end();
+        let close_prefix = footer_close_prefix(&footer_title);
         let close_len = crate::overlay_frame::display_width(close_prefix);
         let close_start = 2usize.saturating_add(left_pad);
         let close_end = close_start.saturating_add(close_len.saturating_sub(1));
@@ -729,6 +725,11 @@ fn handle_overlay_mouse_click(
             render_settings_overlay_for_state(state, deps);
         }
     }
+}
+
+fn footer_close_prefix(footer_title: &str) -> &str {
+    let dot_split = footer_title.split('·').next().unwrap_or(footer_title);
+    dot_split.split('|').next().unwrap_or(dot_split).trim_end()
 }
 
 const SETTINGS_SLIDER_LABEL_WIDTH: usize = 15;

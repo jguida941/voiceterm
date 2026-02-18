@@ -5,11 +5,11 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::status_line::Pipeline;
-use crate::theme::ThemeColors;
+use crate::theme::{overlay_row_marker, overlay_slider_knob, overlay_slider_track, ThemeColors};
 
 use super::items::{
-    settings_overlay_width_for_terminal, SettingsItem, SettingsView, SETTINGS_ITEMS,
-    SETTINGS_OVERLAY_FOOTER,
+    settings_overlay_footer, settings_overlay_width_for_terminal, SettingsItem, SettingsView,
+    SETTINGS_ITEMS,
 };
 
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
@@ -44,10 +44,11 @@ pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String 
     ));
     lines.push(frame_separator(&colors, borders, content_width));
     // Footer with clickable close button
+    let footer = settings_overlay_footer(&colors);
     lines.push(centered_title_line(
         &colors,
         borders,
-        SETTINGS_OVERLAY_FOOTER,
+        &footer,
         content_width,
     ));
     lines.push(frame_bottom(&colors, borders, content_width));
@@ -63,7 +64,11 @@ fn format_settings_row(
     width: usize,
 ) -> String {
     const LABEL_WIDTH: usize = 15;
-    let marker = if selected { "▸" } else { " " };
+    let marker = if selected {
+        overlay_row_marker(colors.glyph_set)
+    } else {
+        " "
+    };
     let read_only = matches!(item, SettingsItem::Backend | SettingsItem::Pipeline);
 
     let row_text = match item {
@@ -80,7 +85,7 @@ fn format_settings_row(
             width = LABEL_WIDTH
         ),
         SettingsItem::WakeSensitivity => {
-            let slider = format_normalized_slider(view.wake_word_sensitivity, 14);
+            let slider = format_normalized_slider(view.wake_word_sensitivity, 14, colors);
             format!(
                 "{marker} {:<width$} {slider} {:>3.0}% (0-100%)",
                 "Wake sensitivity",
@@ -107,7 +112,7 @@ fn format_settings_row(
             width = LABEL_WIDTH
         ),
         SettingsItem::Sensitivity => {
-            let slider = format_slider(view.sensitivity_db, 14);
+            let slider = format_slider(view.sensitivity_db, 14, colors);
             format!(
                 "{marker} {:<width$} {slider} {:>4.0} dB (-80..-10)",
                 "Sensitivity",
@@ -238,7 +243,7 @@ fn button_label(label: &str) -> String {
     format!("[ {label} ]")
 }
 
-fn format_slider(value_db: f32, width: usize) -> String {
+fn format_slider(value_db: f32, width: usize, colors: &ThemeColors) -> String {
     let min_db = -80.0;
     let max_db = -10.0;
     let clamped = value_db.clamp(min_db, max_db);
@@ -249,25 +254,29 @@ fn format_slider(value_db: f32, width: usize) -> String {
     };
     let pos = ((width.saturating_sub(1)) as f32 * ratio).round() as usize;
     let mut bar = String::with_capacity(width);
+    let knob = overlay_slider_knob(colors.glyph_set);
+    let track = overlay_slider_track(colors.glyph_set);
     for idx in 0..width {
         if idx == pos {
-            bar.push('●');
+            bar.push(knob);
         } else {
-            bar.push('─');
+            bar.push(track);
         }
     }
     bar
 }
 
-fn format_normalized_slider(value: f32, width: usize) -> String {
+fn format_normalized_slider(value: f32, width: usize, colors: &ThemeColors) -> String {
     let clamped = value.clamp(0.0, 1.0);
     let pos = ((width.saturating_sub(1)) as f32 * clamped).round() as usize;
     let mut bar = String::with_capacity(width);
+    let knob = overlay_slider_knob(colors.glyph_set);
+    let track = overlay_slider_track(colors.glyph_set);
     for idx in 0..width {
         if idx == pos {
-            bar.push('●');
+            bar.push(knob);
         } else {
-            bar.push('─');
+            bar.push(track);
         }
     }
     bar
@@ -451,5 +460,29 @@ mod tests {
         let rendered = format_settings_overlay(&view, 90);
         assert!(rendered.contains("Backend"));
         assert!(rendered.contains("(read-only)"));
+    }
+
+    #[test]
+    fn settings_overlay_footer_respects_ascii_glyph_set() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        assert_eq!(
+            settings_overlay_footer(&colors),
+            "[x] close | up/down move | Enter select | Click/Tap select"
+        );
+    }
+
+    #[test]
+    fn sliders_use_ascii_glyphs_when_ascii_profile_selected() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        let db_slider = format_slider(-35.0, 8, &colors);
+        let norm_slider = format_normalized_slider(0.55, 8, &colors);
+        assert!(db_slider.contains('o'));
+        assert!(db_slider.contains('-'));
+        assert!(!db_slider.contains('●'));
+        assert!(norm_slider.contains('o'));
+        assert!(norm_slider.contains('-'));
+        assert!(!norm_slider.contains('●'));
     }
 }

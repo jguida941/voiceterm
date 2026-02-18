@@ -341,12 +341,16 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
     let inner_width = settings_overlay_inner_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
 
-    let title_len = crate::overlay_frame::display_width(SETTINGS_OVERLAY_FOOTER);
+    let footer_title = settings_overlay_footer(&state.theme.colors());
+    let title_len = crate::overlay_frame::display_width(&footer_title);
     let left_pad = inner_width.saturating_sub(title_len) / 2;
-    let close_prefix = SETTINGS_OVERLAY_FOOTER
+    let close_prefix = footer_title
         .split('·')
         .next()
-        .unwrap_or(SETTINGS_OVERLAY_FOOTER)
+        .unwrap_or(&footer_title)
+        .split('|')
+        .next()
+        .unwrap_or(&footer_title)
         .trim_end();
     let close_len = crate::overlay_frame::display_width(close_prefix);
     let close_start = 2usize.saturating_add(left_pad);

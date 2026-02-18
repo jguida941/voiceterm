@@ -6,7 +6,10 @@
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
-use crate::theme::{filled_indicator, Theme, ThemeColors};
+use crate::theme::{
+    filled_indicator, overlay_close_symbol, overlay_move_hint, overlay_separator, Theme,
+    ThemeColors,
+};
 
 /// Theme options with labels and descriptions.
 pub const THEME_OPTIONS: &[(Theme, &str, &str)] = &[
@@ -23,8 +26,15 @@ pub const THEME_OPTIONS: &[(Theme, &str, &str)] = &[
     (Theme::None, "none", "No color styling"),
 ];
 
-pub const THEME_PICKER_FOOTER: &str = "[×] close · ↑/↓ move · Enter select";
 pub const THEME_PICKER_OPTION_START_ROW: usize = 4;
+
+#[must_use]
+pub fn theme_picker_footer(colors: &ThemeColors) -> String {
+    let close = overlay_close_symbol(colors.glyph_set);
+    let sep = overlay_separator(colors.glyph_set);
+    let move_hint = overlay_move_hint(colors.glyph_set);
+    format!("[{close}] close {sep} {move_hint} move {sep} Enter select")
+}
 
 pub fn theme_picker_inner_width_for_terminal(width: usize) -> usize {
     width.clamp(40, 60)
@@ -79,12 +89,8 @@ pub fn format_theme_picker(current_theme: Theme, selected_idx: usize, width: usi
     lines.push(frame_separator(&colors, borders, total_width));
 
     // Footer with clickable close button
-    lines.push(centered_title_line(
-        &colors,
-        borders,
-        THEME_PICKER_FOOTER,
-        total_width,
-    ));
+    let footer = theme_picker_footer(&colors);
+    lines.push(centered_title_line(&colors, borders, &footer, total_width));
 
     lines.push(frame_bottom(&colors, borders, total_width));
 
@@ -249,5 +255,15 @@ mod tests {
                 snapshot_lines.join("\n")
             );
         }
+    }
+
+    #[test]
+    fn theme_picker_footer_respects_ascii_glyph_set() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        assert_eq!(
+            theme_picker_footer(&colors),
+            "[x] close | up/down move | Enter select"
+        );
     }
 }

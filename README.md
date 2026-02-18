@@ -204,6 +204,9 @@ In Full HUD mode, the right-panel visualizer (`Ribbon`, `Dots`, `Heartbeat`)
 is shown on the main status row (top-right lane).
 On `xterm-256color` terminals, VoiceTerm now keeps your selected theme
 instead of forcing ANSI fallback (ANSI fallback remains for ANSI16 terminals).
+Advanced style-pack previews can also switch glyph families (`unicode`/`ascii`)
+for HUD meters/icons and overlay chrome symbols (footer close marker, slider
+track/knob) via `VOICETERM_STYLE_PACK_JSON`; see `guides/USAGE.md`.
 See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
 
 ## Controls

@@ -282,13 +282,15 @@ Tips:
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
   plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
   `glyphs` affects HUD queue/latency/meter iconography, waveform sparkline bars,
-  mic-meter calibration bars/waveforms, and progress bar/block/bounce glyph families.
+  mic-meter calibration bars/waveforms, progress bar/block/bounce glyph families,
+  and overlay chrome symbols (help/settings/theme-picker footer close/separator
+  markers, settings selected-row marker, and settings slider track/knob glyphs).
   Default processing spinner animation remains unless an override replaces the
   processing indicator symbol; that same indicator choice is reused for
   processing status text/spinner surfaces outside the HUD as well.
 - Settings migration note: existing `Theme`/HUD settings controls are unchanged;
   no user config migration is required for this runtime resolver foundation.
-- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` to dismiss an overlay.
+- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
 
 ### HUD styles
 

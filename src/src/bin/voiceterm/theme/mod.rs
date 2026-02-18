@@ -237,6 +237,60 @@ pub(crate) fn progress_glyph_profile(glyph_set: GlyphSet) -> ProgressGlyphProfil
     }
 }
 
+/// Resolve overlay separator glyph (between footer controls).
+#[must_use]
+pub(crate) fn overlay_separator(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "·",
+        GlyphSet::Ascii => "|",
+    }
+}
+
+/// Resolve overlay close button glyph.
+#[must_use]
+pub(crate) fn overlay_close_symbol(glyph_set: GlyphSet) -> char {
+    match glyph_set {
+        GlyphSet::Unicode => '×',
+        GlyphSet::Ascii => 'x',
+    }
+}
+
+/// Resolve overlay move-hint glyph cluster.
+#[must_use]
+pub(crate) fn overlay_move_hint(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "↑/↓",
+        GlyphSet::Ascii => "up/down",
+    }
+}
+
+/// Resolve selection marker glyph used by overlay menu rows.
+#[must_use]
+pub(crate) fn overlay_row_marker(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "▸",
+        GlyphSet::Ascii => ">",
+    }
+}
+
+/// Resolve slider track glyph used by settings rows.
+#[must_use]
+pub(crate) fn overlay_slider_track(glyph_set: GlyphSet) -> char {
+    match glyph_set {
+        GlyphSet::Unicode => '─',
+        GlyphSet::Ascii => '-',
+    }
+}
+
+/// Resolve slider knob glyph used by settings rows.
+#[must_use]
+pub(crate) fn overlay_slider_knob(glyph_set: GlyphSet) -> char {
+    match glyph_set {
+        GlyphSet::Unicode => '●',
+        GlyphSet::Ascii => 'o',
+    }
+}
+
 impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -389,6 +443,22 @@ mod tests {
         assert_eq!(waveform_bars(GlyphSet::Ascii)[0], '.');
         assert_eq!(unicode.bar_filled, '█');
         assert_eq!(ascii.bar_filled, '=');
+    }
+
+    #[test]
+    fn overlay_chrome_glyphs_follow_glyph_set() {
+        assert_eq!(overlay_separator(GlyphSet::Unicode), "·");
+        assert_eq!(overlay_separator(GlyphSet::Ascii), "|");
+        assert_eq!(overlay_close_symbol(GlyphSet::Unicode), '×');
+        assert_eq!(overlay_close_symbol(GlyphSet::Ascii), 'x');
+        assert_eq!(overlay_move_hint(GlyphSet::Unicode), "↑/↓");
+        assert_eq!(overlay_move_hint(GlyphSet::Ascii), "up/down");
+        assert_eq!(overlay_row_marker(GlyphSet::Unicode), "▸");
+        assert_eq!(overlay_row_marker(GlyphSet::Ascii), ">");
+        assert_eq!(overlay_slider_track(GlyphSet::Unicode), '─');
+        assert_eq!(overlay_slider_track(GlyphSet::Ascii), '-');
+        assert_eq!(overlay_slider_knob(GlyphSet::Unicode), '●');
+        assert_eq!(overlay_slider_knob(GlyphSet::Ascii), 'o');
     }
 
     #[test]

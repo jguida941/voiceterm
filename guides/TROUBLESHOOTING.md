@@ -558,11 +558,14 @@ runtime visual overrides.
 1. Validate payload shape:
 
    ```bash
-   VOICETERM_STYLE_PACK_JSON='{"version":2,"profile":"ops","base_theme":"dracula","overrides":{"border_style":"rounded","indicators":"ascii"}}' voiceterm --version
+   VOICETERM_STYLE_PACK_JSON='{"version":2,"profile":"ops","base_theme":"dracula","overrides":{"border_style":"rounded","indicators":"ascii","glyphs":"ascii"}}' voiceterm --version
    ```
 
    The `indicators` override is reflected in status-lane state glyphs (idle,
-   auto/manual/recording, and processing/responding lanes).
+   auto/manual/recording, and processing/responding lanes). The `glyphs`
+   override is reflected in HUD meter/icon families plus overlay chrome symbols
+   (for example footer `[x] close` text and ASCII slider track/knob glyphs in
+   Settings).
 
 2. If payload is invalid/unsupported, VoiceTerm falls back to the selected
    built-in theme (startup should remain stable).

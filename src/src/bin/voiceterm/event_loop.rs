@@ -23,8 +23,8 @@ use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, VoiceSendMode};
 use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
 use crate::help::{
-    help_overlay_height, help_overlay_inner_width_for_terminal, help_overlay_width_for_terminal,
-    HELP_OVERLAY_FOOTER,
+    help_overlay_footer, help_overlay_height, help_overlay_inner_width_for_terminal,
+    help_overlay_width_for_terminal,
 };
 use crate::input::InputEvent;
 use crate::overlays::{
@@ -32,9 +32,8 @@ use crate::overlays::{
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
-    settings_overlay_height, settings_overlay_inner_width_for_terminal,
+    settings_overlay_footer, settings_overlay_height, settings_overlay_inner_width_for_terminal,
     settings_overlay_width_for_terminal, SettingsItem, SETTINGS_ITEMS, SETTINGS_OPTION_START_ROW,
-    SETTINGS_OVERLAY_FOOTER,
 };
 use crate::settings_handlers::{
     SettingsActionContext, SettingsHudContext, SettingsStatusContext, SettingsVoiceContext,
@@ -46,9 +45,8 @@ use crate::theme_ops::{
     theme_picker_parse_index,
 };
 use crate::theme_picker::{
-    theme_picker_height, theme_picker_inner_width_for_terminal,
-    theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_FOOTER,
-    THEME_PICKER_OPTION_START_ROW,
+    theme_picker_footer, theme_picker_height, theme_picker_inner_width_for_terminal,
+    theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_OPTION_START_ROW,
 };
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::voice_control::{
