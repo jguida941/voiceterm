@@ -1,15 +1,9 @@
-//! ASCII meter formatting so live audio levels are readable in terminal HUDs.
+//! Audio meter formatting so live levels are readable across glyph profiles.
 
-use crate::theme::{Theme, ThemeColors};
+use crate::theme::{progress_glyph_profile, waveform_bars, GlyphSet, Theme, ThemeColors};
 
 use super::{AudioLevel, MeterConfig};
 
-/// Characters for the meter bar.
-const BAR_FULL: char = '█';
-#[allow(dead_code)]
-const BAR_HALF: char = '▌';
-const BAR_EMPTY: char = '░';
-const PEAK_MARKER: char = '│';
 // Keep warning/error transitions visually reactive for normal speech dynamics.
 const LEVEL_WARNING_DB: f32 = -30.0;
 const LEVEL_ERROR_DB: f32 = -18.0;
@@ -18,7 +12,20 @@ const LEVEL_ERROR_DB: f32 = -18.0;
 #[must_use]
 pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme) -> String {
     let colors = theme.colors();
+    format_level_meter_with_colors(level, config, &colors)
+}
+
+fn format_level_meter_with_colors(
+    level: AudioLevel,
+    config: &MeterConfig,
+    colors: &ThemeColors,
+) -> String {
     let range = config.max_db - config.min_db;
+    let glyphs = progress_glyph_profile(colors.glyph_set);
+    let peak_marker = match colors.glyph_set {
+        GlyphSet::Unicode => '│',
+        GlyphSet::Ascii => '|',
+    };
 
     // Calculate bar position (0.0 to 1.0)
     let rms_pos = ((level.rms_db - config.min_db) / range).clamp(0.0, 1.0);
@@ -27,7 +34,7 @@ pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme)
     // Convert to character positions
     let rms_chars = (rms_pos * config.width as f32) as usize;
     let peak_char = (peak_pos * config.width as f32) as usize;
-    let fill_color = level_color(level.rms_db, &colors);
+    let fill_color = level_color(level.rms_db, colors);
 
     let mut bar = String::new();
 
@@ -35,16 +42,16 @@ pub fn format_level_meter(level: AudioLevel, config: &MeterConfig, theme: Theme)
         if i < rms_chars {
             // Filled portion - color reflects current level severity.
             bar.push_str(fill_color);
-            bar.push(BAR_FULL);
+            bar.push(glyphs.bar_filled);
             bar.push_str(colors.reset);
         } else if config.show_peak && i == peak_char && peak_char > rms_chars {
             // Peak marker
             bar.push_str(colors.warning);
-            bar.push(PEAK_MARKER);
+            bar.push(peak_marker);
             bar.push_str(colors.reset);
         } else {
             // Empty portion
-            bar.push(BAR_EMPTY);
+            bar.push(glyphs.bar_empty);
         }
     }
 
@@ -71,7 +78,7 @@ pub fn format_level_compact(level: AudioLevel, theme: Theme) -> String {
         width: 15,
         ..Default::default()
     };
-    let bar = format_level_meter(level, &config, theme);
+    let bar = format_level_meter_with_colors(level, &config, &colors);
     format!(
         "{} {}{:>5.0}dB{}",
         bar, colors.info, level.rms_db, colors.reset
@@ -117,7 +124,14 @@ pub fn format_mic_meter_display(
     let threshold_char = (threshold_pos * config.width as f32) as usize;
     let mut threshold_line = " ".repeat(9); // "Ambient  " width
     threshold_line.push_str(&" ".repeat(threshold_char));
-    threshold_line.push_str(&format!("{}▲{}", colors.info, colors.reset));
+    let threshold_marker = match colors.glyph_set {
+        GlyphSet::Unicode => '▲',
+        GlyphSet::Ascii => '^',
+    };
+    threshold_line.push_str(&format!(
+        "{}{threshold_marker}{}",
+        colors.info, colors.reset
+    ));
     lines.push(threshold_line);
 
     lines.push(format!(
@@ -141,16 +155,17 @@ pub fn format_mic_meter_display(
     lines.join("\n")
 }
 
-/// Waveform characters for real-time display.
-#[allow(dead_code)]
-const WAVEFORM_CHARS: &[char] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-
 /// Format a mini waveform from recent audio levels.
 /// Uses iterator chains to avoid Vec allocations in the hot path.
 #[allow(dead_code)]
 #[must_use]
 pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
     let colors = theme.colors();
+    format_waveform_with_colors(levels, width, &colors)
+}
+
+fn format_waveform_with_colors(levels: &[f32], width: usize, colors: &ThemeColors) -> String {
+    let bars = waveform_bars(colors.glyph_set);
 
     if levels.is_empty() {
         return " ".repeat(width);
@@ -169,10 +184,10 @@ pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
     for level in samples_iter {
         // Convert dB to waveform character (assuming -60 to 0 range)
         let normalized = ((level + 60.0) / 60.0).clamp(0.0, 1.0);
-        let char_idx = (normalized * (WAVEFORM_CHARS.len() - 1) as f32) as usize;
-        let ch = WAVEFORM_CHARS[char_idx];
+        let char_idx = (normalized * (bars.len() - 1) as f32) as usize;
+        let ch = bars[char_idx];
 
-        let color = level_color(level, &colors);
+        let color = level_color(level, colors);
 
         result.push_str(color);
         result.push(ch);
@@ -199,8 +214,8 @@ mod tests {
         };
         let meter = format_level_meter(level, &config, Theme::None);
         // Should be all empty bars
-        assert!(meter.contains(BAR_EMPTY));
-        assert!(!meter.contains(BAR_FULL));
+        assert!(meter.contains('░'));
+        assert!(!meter.contains('█'));
     }
 
     #[test]
@@ -216,7 +231,7 @@ mod tests {
         };
         let meter = format_level_meter(level, &config, Theme::None);
         // Should have filled bars
-        assert!(meter.contains(BAR_FULL));
+        assert!(meter.contains('█'));
     }
 
     #[test]
@@ -240,7 +255,9 @@ mod tests {
         let levels = vec![-40.0, -30.0, -20.0, -10.0];
         let waveform = format_waveform(&levels, 4, Theme::None);
         // Should contain waveform characters
-        let has_waveform = WAVEFORM_CHARS.iter().any(|&c| waveform.contains(c));
+        let has_waveform = waveform_bars(GlyphSet::Unicode)
+            .iter()
+            .any(|&c| waveform.contains(c));
         assert!(has_waveform);
     }
 
@@ -262,5 +279,36 @@ mod tests {
         assert!(output.contains("Microphone Calibration"));
         assert!(output.contains("Ambient"));
         assert!(output.contains("-35"));
+    }
+
+    #[test]
+    fn format_waveform_supports_ascii_glyph_profile() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = GlyphSet::Ascii;
+        let waveform = format_waveform_with_colors(&[-40.0, -30.0, -20.0, -10.0], 4, &colors);
+        let has_ascii_waveform = waveform_bars(GlyphSet::Ascii)
+            .iter()
+            .any(|&c| waveform.contains(c));
+        assert!(has_ascii_waveform);
+        assert!(!waveform.contains('▁'));
+    }
+
+    #[test]
+    fn format_level_meter_supports_ascii_glyph_profile() {
+        let level = AudioLevel {
+            rms_db: -40.0,
+            peak_db: -6.0,
+        };
+        let config = MeterConfig {
+            width: 8,
+            show_peak: true,
+            ..Default::default()
+        };
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = GlyphSet::Ascii;
+        let meter = format_level_meter_with_colors(level, &config, &colors);
+        assert!(meter.contains('='));
+        assert!(meter.contains('-'));
+        assert!(meter.contains('|'));
     }
 }

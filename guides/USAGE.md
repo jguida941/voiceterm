@@ -282,7 +282,7 @@ Tips:
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
   plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
   `glyphs` affects HUD queue/latency/meter iconography, waveform sparkline bars,
-  and progress bar/block/bounce glyph families.
+  mic-meter calibration bars/waveforms, and progress bar/block/bounce glyph families.
   Default processing spinner animation remains unless an override replaces the
   processing indicator symbol; that same indicator choice is reused for
   processing status text/spinner surfaces outside the HUD as well.
