@@ -40,3 +40,20 @@ pub(super) fn is_path_like(command: &str) -> bool {
     let path = Path::new(trimmed);
     path.is_absolute() || trimmed.contains(std::path::MAIN_SEPARATOR)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_path_like_accepts_absolute_and_relative_paths() {
+        assert!(is_path_like("/usr/local/bin/tool"));
+        assert!(is_path_like("./bin/tool"));
+    }
+
+    #[test]
+    fn is_path_like_rejects_plain_binary_names_and_empty_values() {
+        assert!(!is_path_like("codex"));
+        assert!(!is_path_like("   "));
+    }
+}
