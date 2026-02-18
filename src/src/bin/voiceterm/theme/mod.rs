@@ -6,6 +6,8 @@ mod borders;
 mod colors;
 mod detect;
 mod palettes;
+mod style_pack;
+mod style_schema;
 
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
@@ -16,7 +18,7 @@ pub use palettes::{
     THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
 };
 
-use self::detect::is_warp_terminal;
+use self::{detect::is_warp_terminal, style_pack::resolve_theme_colors};
 
 /// Available color themes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -67,19 +69,7 @@ impl Theme {
 
     /// Get the color palette for this theme.
     pub fn colors(&self) -> ThemeColors {
-        let mut colors = match self {
-            Self::Coral => THEME_CORAL,
-            Self::Claude => THEME_CLAUDE,
-            Self::Codex => THEME_CODEX,
-            Self::ChatGpt => THEME_CHATGPT,
-            Self::Catppuccin => THEME_CATPPUCCIN,
-            Self::Dracula => THEME_DRACULA,
-            Self::Nord => THEME_NORD,
-            Self::TokyoNight => THEME_TOKYONIGHT,
-            Self::Gruvbox => THEME_GRUVBOX,
-            Self::Ansi => THEME_ANSI,
-            Self::None => THEME_NONE,
-        };
+        let mut colors = resolve_theme_colors(*self);
         if is_warp_terminal() {
             colors.bg_primary = "";
             colors.bg_secondary = "";
@@ -177,6 +167,10 @@ impl std::fmt::Display for Theme {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
 
     #[test]
     fn theme_from_name_parses_valid() {
@@ -272,5 +266,87 @@ mod tests {
         assert_eq!(filled_indicator("◇"), "◆");
         assert_eq!(filled_indicator("◎"), "◉");
         assert_eq!(filled_indicator("▶"), "▶");
+    }
+
+    #[test]
+    fn runtime_sources_do_not_bypass_theme_resolver_with_palette_constants() {
+        const STYLE_CONSTANTS: &[&str] = &[
+            "THEME_CORAL",
+            "THEME_CLAUDE",
+            "THEME_CODEX",
+            "THEME_CHATGPT",
+            "THEME_CATPPUCCIN",
+            "THEME_DRACULA",
+            "THEME_NORD",
+            "THEME_TOKYONIGHT",
+            "THEME_GRUVBOX",
+            "THEME_ANSI",
+            "THEME_NONE",
+            "BORDER_SINGLE",
+            "BORDER_ROUNDED",
+            "BORDER_DOUBLE",
+            "BORDER_HEAVY",
+            "BORDER_NONE",
+        ];
+        const ALLOWED_FILES: &[&str] = &[
+            "src/bin/voiceterm/theme/mod.rs",
+            "src/bin/voiceterm/theme/borders.rs",
+            "src/bin/voiceterm/theme/palettes.rs",
+            "src/bin/voiceterm/theme/style_pack.rs",
+            "src/bin/voiceterm/status_line/format.rs",
+        ];
+
+        let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bin/voiceterm");
+        let mut violations = Vec::new();
+
+        for path in collect_rust_files(&source_root) {
+            let relative = normalize_relative_path(&path);
+            if ALLOWED_FILES.contains(&relative.as_str()) {
+                continue;
+            }
+            let source = fs::read_to_string(&path)
+                .unwrap_or_else(|err| panic!("failed to read {relative}: {err}"));
+            let offenders: Vec<&str> = STYLE_CONSTANTS
+                .iter()
+                .copied()
+                .filter(|name| source.contains(name))
+                .collect();
+            if !offenders.is_empty() {
+                violations.push(format!("{relative}: {}", offenders.join(", ")));
+            }
+        }
+
+        assert!(
+            violations.is_empty(),
+            "style constants must stay behind theme resolver or explicit style-ownership surfaces:\n{}",
+            violations.join("\n")
+        );
+    }
+
+    fn collect_rust_files(root: &Path) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        let entries = fs::read_dir(root)
+            .unwrap_or_else(|err| panic!("failed to scan {}: {err}", root.display()));
+        for entry in entries {
+            let entry = entry.unwrap_or_else(|err| {
+                panic!("failed to read dir entry in {}: {err}", root.display())
+            });
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(collect_rust_files(&path));
+            } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+        files.sort_unstable();
+        files
+    }
+
+    fn normalize_relative_path(path: &Path) -> String {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        path.strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/")
     }
 }

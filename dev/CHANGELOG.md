@@ -7,6 +7,20 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Code Quality
+
+- Standardize status-line width/truncation on Unicode display width in remaining writer/status-style paths, including printable-Unicode-safe status sanitization and wide-glyph truncation coverage.
+- Consolidate transcript-preview text formatting into a shared `voice_control/transcript_preview.rs` helper so navigation and drain delivery paths cannot drift.
+- Extend Theme Upgrade Phase 1 runtime wiring: style resolver now loads/migrates schema payloads through `theme/style_schema.rs` before palette resolution, with deterministic fallback to built-in base-theme palettes for invalid/unsupported packs.
+- Extend Theme Studio style-pack runtime coverage beyond base palettes: schema payload overrides now support border glyph-set routing and indicator glyph-family routing (`ascii`, `dot`, `diamond`) through the resolver path, including compact/full/minimal/hidden processing/responding indicator lanes while preserving default processing spinner animation unless an override changes it.
+- Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
+
+### Documentation
+
+- Fix README version badge source to use latest semver tag metadata (instead of release-only metadata) so the badge does not render `INVALID` when release API data is delayed/missing.
+- Standardize README CI/mutation badge styling to black/gray endpoint badges and add automated CI badge rendering so pass stays dark while failures render red.
+- Replace a release-note style controls dump in `README.md` with concise references to `guides/USAGE.md`, `dev/CHANGELOG.md`, and `dev/DEVELOPMENT.md` so the README stays focused on stable onboarding content.
+
 ## [1.0.83] - 2026-02-17
 
 ### UX

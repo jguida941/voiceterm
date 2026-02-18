@@ -218,32 +218,3 @@ pub(super) fn clear_last_latency(status_state: &mut StatusLineState) {
     status_state.last_latency_rtf_x1000 = None;
     status_state.last_latency_updated_at = None;
 }
-
-pub(super) fn format_transcript_preview(text: &str, max_len: usize) -> String {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    let mut collapsed = String::new();
-    let mut last_space = false;
-    for ch in trimmed.chars() {
-        if ch.is_whitespace() || ch.is_ascii_control() {
-            if !last_space {
-                collapsed.push(' ');
-                last_space = true;
-            }
-        } else {
-            collapsed.push(ch);
-            last_space = false;
-        }
-    }
-    let cleaned = collapsed.trim();
-    let max_len = max_len.max(4);
-    if cleaned.chars().count() > max_len {
-        let keep = max_len.saturating_sub(3);
-        let prefix: String = cleaned.chars().take(keep).collect();
-        format!("{prefix}...")
-    } else {
-        cleaned.to_string()
-    }
-}

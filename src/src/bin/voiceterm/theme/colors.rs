@@ -32,4 +32,6 @@ pub struct ThemeColors {
     pub indicator_auto: &'static str,
     pub indicator_manual: &'static str,
     pub indicator_idle: &'static str,
+    pub indicator_processing: &'static str,
+    pub indicator_responding: &'static str,
 }

@@ -79,6 +79,15 @@ fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
     }
 }
 
+#[inline]
+fn processing_mode_indicator(colors: &ThemeColors) -> &str {
+    if colors.indicator_processing == "◐" {
+        get_processing_spinner()
+    } else {
+        colors.indicator_processing
+    }
+}
+
 fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
     // Use animated indicators for recording and processing states
     // Minimal mode: theme-colored indicators for all states
@@ -90,12 +99,17 @@ fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
             colors.recording,
         ),
         RecordingState::Processing => (
-            get_processing_spinner(),
+            processing_mode_indicator(colors),
             "processing",
             colors.processing,
             colors.processing,
         ),
-        RecordingState::Responding => ("↺", "responding", colors.info, colors.info),
+        RecordingState::Responding => (
+            colors.indicator_responding,
+            "responding",
+            colors.info,
+            colors.info,
+        ),
         RecordingState::Idle => match state.voice_mode {
             VoiceMode::Auto => (colors.indicator_auto, "AUTO", colors.info, colors.info),
             VoiceMode::Manual => (colors.indicator_manual, "PTT", colors.border, colors.border),

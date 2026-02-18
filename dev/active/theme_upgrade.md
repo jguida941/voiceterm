@@ -698,77 +698,13 @@ CI policy additions:
 
 ## Theme Studio Definition of Done (Authoritative Checklist)
 
-This is the release authority for Theme Studio execution. A Theme Studio MP item
-cannot be marked complete unless all mapped gates below pass with recorded
-evidence in the implementing PR.
+Authoritative gate definitions, MP-to-gate mapping, ownership matrix, and
+mandatory Theme Studio verification bundle now live in
+`dev/active/MASTER_PLAN.md` (Phase 2C) so execution and gate evidence are kept
+in one active tracker.
 
-### Gate Definitions (Pass/Fail)
-
-| Gate | Pass Criteria | Fail Criteria | Required Evidence |
-|---|---|---|---|
-| `TS-G01 Ownership` | Theme Studio vs Settings ownership matrix is implemented and documented. | Any deep visual edit path remains in Settings post-migration. | Settings menu tests + docs diff. |
-| `TS-G02 Schema` | `StylePack` schema/version/migration tests pass for valid + invalid inputs. | Parsing/migration panic, silent drop, or invalid pack applies without fallback. | Unit tests for parse/validate/migrate + fallback tests. |
-| `TS-G03 Resolver` | All render paths resolve styles through registry/resolver APIs. | Hardcoded style constants bypass resolver on supported surfaces. | Coverage + static policy gate outputs. |
-| `TS-G04 Component IDs` | Every renderable component/state has stable style IDs and defaults. | Unregistered component/state renders in runtime. | Component registry parity tests + snapshots. |
-| `TS-G05 Studio Controls` | Every persisted style field is editable in Studio. | Any persisted field has no Studio control mapping. | Studio mapping parity test results. |
-| `TS-G06 Snapshot Matrix` | Snapshot suites pass for widths, states, profiles, and key surfaces. | Layout overlap/wrap/clipping regressions vs expected fixtures. | Snapshot artifacts for narrow/medium/wide + state variants. |
-| `TS-G07 Interaction UX` | Keyboard-only and mouse-enhanced flows both work with correct focus/hitboxes. | Broken focus order, unreachable controls, or hitbox mismatch. | Interaction integration tests + manual QA checklist output. |
-| `TS-G08 Edit Safety` | Apply/save/import/export/undo/redo/rollback flows are deterministic. | User edits can be lost/corrupted or cannot be reverted safely. | End-to-end workflow tests across restart boundaries. |
-| `TS-G09 Capability Fallback` | Terminal capability detection + fallback chains behave as specified. | Unsupported capability path crashes or renders unreadable output. | Compatibility matrix tests (truecolor/ansi, graphics/no-graphics). |
-| `TS-G10 Runtime Budget` | Render/update paths remain within bounded allocation/tick budgets. | Unbounded buffers, allocation spikes, or frame-thrash in hot paths. | Perf/memory checks + regression benchmarks. |
-| `TS-G11 Docs/Operator` | Architecture, usage, troubleshooting, and changelog are updated together. | User-visible behavior changes without aligned docs. | `docs-check` + updated docs references. |
-| `TS-G12 Release Readiness` | Full Theme Studio GA validation bundle is green. | Any mandatory gate is missing evidence or failing. | CI report bundle + signoff checklist. |
-| `TS-G13 Inspector` | Any rendered element can reveal style path and jump to Studio control. | Inspector cannot locate style ID/path for a rendered element. | Inspector integration tests + state preview tests. |
-| `TS-G14 Rule Engine` | Conditional style rules are deterministic and conflict-resolved. | Rule priority conflicts or nondeterministic style outcomes. | Rule engine unit/property tests + scenario snapshots. |
-| `TS-G15 Ecosystem Packs` | Third-party widget packs are allowlisted, version-compatible, and parity-mapped. | Dependency added without compatibility matrix or style/studio parity mapping. | Compatibility matrix + parity tests + allowlist audit. |
-
-### MP-to-Gate Mapping (Completion Contract)
-
-| MP | Required Gates |
-|---|---|
-| `MP-148` | `TS-G01`, `TS-G11` |
-| `MP-149` | `TS-G02`, `TS-G06`, `TS-G09` |
-| `MP-150` | `TS-G02`, `TS-G03` |
-| `MP-151` | `TS-G11` |
-| `MP-161` | `TS-G03`, `TS-G06`, `TS-G07` |
-| `MP-162` | `TS-G03`, `TS-G05` |
-| `MP-163` | `TS-G03` |
-| `MP-172` | `TS-G04`, `TS-G06` |
-| `MP-174` | `TS-G03`, `TS-G05`, `TS-G06` |
-| `MP-175` | `TS-G09`, `TS-G15` |
-| `MP-176` | `TS-G09`, `TS-G06` |
-| `MP-179` | `TS-G15` |
-| `MP-180` | `TS-G15`, `TS-G05`, `TS-G06` |
-| `MP-182` | `TS-G14`, `TS-G05`, `TS-G06` |
-| `MP-164` | `TS-G07` |
-| `MP-165` | `TS-G01`, `TS-G07` |
-| `MP-166` | `TS-G05`, `TS-G08`, `TS-G07` |
-| `MP-167` | `TS-G06`, `TS-G09`, `TS-G10`, `TS-G11`, `TS-G12` |
-| `MP-173` | `TS-G03`, `TS-G05`, `TS-G15` |
-| `MP-177` | `TS-G15`, `TS-G05` |
-| `MP-178` | `TS-G13`, `TS-G07` |
-| `MP-181` | `TS-G07`, `TS-G10` |
-
-### Mandatory Verification Bundle (Per Theme Studio PR)
-
-Run and attach results for:
-
-- `python3 dev/scripts/devctl.py check --profile ci`
-- `python3 dev/scripts/devctl.py docs-check --user-facing`
-- `python3 dev/scripts/devctl.py hygiene`
-- `cd src && cargo test --bin voiceterm`
-
-PR template requirement:
-
-- for Theme Studio scope, use `.github/PULL_REQUEST_TEMPLATE/theme_studio.md`
-  so `TS-G01`..`TS-G15` evidence is captured in every PR
-
-Attach additional artifacts where applicable:
-
-- snapshot diffs for touched surfaces and states
-- terminal capability matrix test output
-- interaction QA checklist (keyboard-only + mouse)
-- rollback/import-export workflow proof
+Use this document for product architecture/spec details and keep execution state
+updates in `MASTER_PLAN`.
 
 ## Risks and Mitigations
 

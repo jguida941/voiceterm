@@ -12,6 +12,7 @@ use crate::status_line::{RecordingState, StatusLineState};
 use crate::transcript::{send_transcript, TranscriptSession};
 use crate::writer::{set_status, WriterMessage};
 
+use super::transcript_preview::format_transcript_preview;
 use super::STATUS_TOAST_SECS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -269,35 +270,6 @@ pub(super) fn execute_voice_navigation_action<S: TranscriptSession>(
                 }
             }
         }
-    }
-}
-
-fn format_transcript_preview(text: &str, max_len: usize) -> String {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    let mut collapsed = String::new();
-    let mut last_space = false;
-    for ch in trimmed.chars() {
-        if ch.is_whitespace() || ch.is_ascii_control() {
-            if !last_space {
-                collapsed.push(' ');
-                last_space = true;
-            }
-        } else {
-            collapsed.push(ch);
-            last_space = false;
-        }
-    }
-    let cleaned = collapsed.trim();
-    let max_len = max_len.max(4);
-    if cleaned.chars().count() > max_len {
-        let keep = max_len.saturating_sub(3);
-        let prefix: String = cleaned.chars().take(keep).collect();
-        format!("{prefix}...")
-    } else {
-        cleaned.to_string()
     }
 }
 

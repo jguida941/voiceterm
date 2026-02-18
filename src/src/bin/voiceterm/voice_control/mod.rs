@@ -4,6 +4,7 @@ mod drain;
 mod manager;
 mod navigation;
 mod pipeline;
+mod transcript_preview;
 
 const STATUS_TOAST_SECS: u64 = 2;
 const PREVIEW_CLEAR_MS: u64 = 3000;

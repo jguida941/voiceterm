@@ -180,6 +180,68 @@ mod tests {
         f()
     }
 
+    fn detect_with_env(
+        colorterm: Option<&str>,
+        term: Option<&str>,
+        term_program: Option<&str>,
+        terminal_emulator: Option<&str>,
+        no_color: Option<&str>,
+    ) -> ColorMode {
+        with_env_lock(|| {
+            let prev_colorterm = std::env::var("COLORTERM").ok();
+            let prev_term = std::env::var("TERM").ok();
+            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
+            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
+            let prev_no_color = std::env::var("NO_COLOR").ok();
+
+            match colorterm {
+                Some(v) => std::env::set_var("COLORTERM", v),
+                None => std::env::remove_var("COLORTERM"),
+            }
+            match term {
+                Some(v) => std::env::set_var("TERM", v),
+                None => std::env::remove_var("TERM"),
+            }
+            match term_program {
+                Some(v) => std::env::set_var("TERM_PROGRAM", v),
+                None => std::env::remove_var("TERM_PROGRAM"),
+            }
+            match terminal_emulator {
+                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
+                None => std::env::remove_var("TERMINAL_EMULATOR"),
+            }
+            match no_color {
+                Some(v) => std::env::set_var("NO_COLOR", v),
+                None => std::env::remove_var("NO_COLOR"),
+            }
+
+            let detected = ColorMode::detect();
+
+            match prev_colorterm {
+                Some(v) => std::env::set_var("COLORTERM", v),
+                None => std::env::remove_var("COLORTERM"),
+            }
+            match prev_term {
+                Some(v) => std::env::set_var("TERM", v),
+                None => std::env::remove_var("TERM"),
+            }
+            match prev_term_program {
+                Some(v) => std::env::set_var("TERM_PROGRAM", v),
+                None => std::env::remove_var("TERM_PROGRAM"),
+            }
+            match prev_terminal_emulator {
+                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
+                None => std::env::remove_var("TERMINAL_EMULATOR"),
+            }
+            match prev_no_color {
+                Some(v) => std::env::set_var("NO_COLOR", v),
+                None => std::env::remove_var("NO_COLOR"),
+            }
+
+            detected
+        })
+    }
+
     #[test]
     fn color_mode_supports_color() {
         assert!(ColorMode::TrueColor.supports_color());
@@ -706,5 +768,71 @@ mod tests {
                 None => std::env::remove_var("NO_COLOR"),
             }
         });
+    }
+
+    #[test]
+    fn detect_terminal_capability_matrix_cases() {
+        let cases = [
+            (
+                "no-color override",
+                None,
+                Some("xterm-256color"),
+                None,
+                None,
+                Some("1"),
+                ColorMode::None,
+            ),
+            (
+                "explicit truecolor",
+                Some("truecolor"),
+                Some("xterm-256color"),
+                None,
+                None,
+                None,
+                ColorMode::TrueColor,
+            ),
+            (
+                "cursor/term_program truecolor inference",
+                None,
+                Some("xterm-256color"),
+                Some("cursor"),
+                None,
+                None,
+                ColorMode::TrueColor,
+            ),
+            (
+                "256-color term",
+                None,
+                Some("xterm-256color"),
+                Some("acme-term"),
+                None,
+                None,
+                ColorMode::Color256,
+            ),
+            (
+                "ansi fallback",
+                None,
+                Some("xterm"),
+                None,
+                None,
+                None,
+                ColorMode::Ansi16,
+            ),
+            (
+                "dumb terminal",
+                None,
+                Some("dumb"),
+                None,
+                None,
+                None,
+                ColorMode::None,
+            ),
+        ];
+
+        for (name, colorterm, term, term_program, terminal_emulator, no_color, expected) in cases {
+            let detected =
+                detect_with_env(colorterm, term, term_program, terminal_emulator, no_color);
+            assert_eq!(detected, expected, "matrix case failed: {name}");
+        }
     }
 }

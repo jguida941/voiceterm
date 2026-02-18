@@ -8,8 +8,7 @@ python3 dev/scripts/devctl.py ...
 
 Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
-For current execution scope, use `dev/active/MASTER_PLAN.md` and
-`dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
+For current execution scope, use `dev/active/MASTER_PLAN.md`.
 
 ## Canonical Commands
 
@@ -50,6 +49,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper. |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
+| `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
 | `dev/scripts/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
 

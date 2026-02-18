@@ -7,13 +7,14 @@
   <img src="https://img.shields.io/badge/Whisper-Voice_Input-8B5CF6?style=for-the-badge&logo=audacity&logoColor=white" alt="Whisper">
   <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
-  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=for-the-badge&label=VoiceTerm&color=2EA043&labelColor=0D1117" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=for-the-badge&label=release&color=000000&labelColor=555555" alt="VoiceTerm Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-000000?style=for-the-badge&labelColor=555555" alt="MIT License"></a>
+  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Built%20With-Ratatui-000000?style=for-the-badge&labelColor=555555&logo=ratatui&logoColor=white" alt="Built With Ratatui"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jguida941/voiceterm/rust_ci.yml?branch=master&style=for-the-badge&label=CI&logo=github" alt="CI"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=for-the-badge&logo=github" alt="Mutation Score"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=for-the-badge&labelColor=555555&logo=github&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=for-the-badge&labelColor=555555&logo=github&logoColor=white" alt="Mutation Score"></a>
 </p>
 
 Voice input for AI CLIs. Talk instead of type.

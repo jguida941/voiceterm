@@ -1,14 +1,13 @@
 # Rust Code Review Research Pack
 
 Date: 2026-02-17  
-Status: Active companion for code-quality and architecture review work  
-Linked plan: `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`
+Status: Archived research companion for code-quality and architecture review work
 
 This file is the source pack for Rust review work in this repo:
 
 1. inspect implementation paths in this codebase
 2. cross-check assumptions with primary Rust/crate documentation
-3. write findings back into active execution trackers
+3. write findings back into active execution tracking
 
 ## 0) Workspace Rust Surface Map
 
@@ -100,8 +99,8 @@ Use this sequence for each subsystem:
 3. Check relevant official Rust docs and crate docs from sections 1-4.
 4. Validate assumptions against tests and runtime call paths.
 5. Record findings with severity and file/line references.
-6. Convert accepted findings into actionable items in
-   `dev/active/CODE_QUALITY_EXECUTION_PLAN.md` and/or `dev/active/MASTER_PLAN.md`.
+6. Convert accepted findings into actionable `MP-*` items in
+   `dev/active/MASTER_PLAN.md`.
 7. Land fixes with tests and run required verification gates.
 
 ## 7) Finding Template
@@ -121,12 +120,9 @@ Use this format for consistency:
 
 ## 8) Plan Integration Rules
 
-- For structural/runtime refactors: add `CQ-*` tasks to
-  `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
-- For broader product/UX/roadmap work: add `MP-*` tasks to
-  `dev/active/MASTER_PLAN.md`.
-- Keep this file as the active research source while code-quality closure is in
-  progress.
+- For structural/runtime refactors and broader product/UX work, add `MP-*`
+  tasks to `dev/active/MASTER_PLAN.md`.
+- Keep this file as archived historical reference only.
 
 ## 9) Initial Audit Intake (2026-02-17)
 
@@ -141,7 +137,7 @@ Use this format for consistency:
   renderer paths have moved to Unicode-aware width helpers.
 - Recommended fix: switch truncation + width policy to shared Unicode-aware
   display-width helpers and add coverage for wide glyph strings.
-- Tracking: `MP-215`
+- Tracking: `MP-215` (completed 2026-02-17; Unicode-aware status width/truncation now applied in writer/status-style runtime paths).
 
 ### Finding: Status-style helper has stale char-count width behavior
 
@@ -153,7 +149,7 @@ Use this format for consistency:
 - Evidence: helper is not part of the normalized display-width utility path.
 - Recommended fix: either migrate to Unicode-aware width or remove this helper
   if it remains unused.
-- Tracking: `MP-215`
+- Tracking: `MP-215` (completed 2026-02-17; stale char-count helper path aligned with Unicode display width behavior).
 
 ### Finding: Duplicate transcript preview formatter in two runtime modules
 
@@ -165,14 +161,14 @@ Use this format for consistency:
 - Evidence: same collapse/truncate implementation also appears in
   `src/src/bin/voiceterm/voice_control/drain/message_processing.rs:238`.
 - Recommended fix: extract one shared helper with a focused test table.
-- Tracking: `MP-216`
+- Tracking: `MP-216` (completed 2026-02-17; shared formatter extracted to `voice_control/transcript_preview.rs` and duplicated implementations removed).
 
 ## 10) Closure and Handoff (Code Quality -> Theme Upgrade)
 
 When all remaining code-quality follow-on findings are either fixed or deferred
 with explicit rationale:
 
-1. mark closure in `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`
-2. move the completed execution record to `dev/archive/` per archive policy
+1. mark closure in `dev/active/MASTER_PLAN.md`
+2. move completed execution records to `dev/archive/` per archive policy
 3. continue visual/theming execution through `dev/active/MASTER_PLAN.md`
    Phase 2C/2D/2E (`MP-148` onward)

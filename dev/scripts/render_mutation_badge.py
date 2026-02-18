@@ -70,10 +70,8 @@ def resolve_paths(patterns: List[str]) -> List[Path]:
 
 def color_for_score(score: float) -> str:
     """Map mutation score to badge color."""
-    if score >= 0.90:
-        return "brightgreen"
     if score >= 0.80:
-        return "orange"
+        return "black"
     return "red"
 
 

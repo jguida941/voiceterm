@@ -4,16 +4,17 @@
 
 - This file is the single active plan for strategy, execution, and release tracking.
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
+- `dev/active/theme_upgrade.md` is the Theme Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-02-17)
 
-- Last tagged release: `v1.0.82` (2026-02-17)
-- Current release target: `v1.0.83`
+- Last tagged release: `v1.0.83` (2026-02-17)
+- Current release target: `v1.0.84`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: post-v1.0.82 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
-- In-flight: v1.0.82 shipped to GitHub Releases/Homebrew/PyPI with full CI pass; v1.0.83 release candidate packages hidden-launcher mouse redraw parity.
+- Strategic focus: post-v1.0.83 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
+- In-flight: v1.0.83 shipped to GitHub Releases/Homebrew with full CI pass; PyPI publish verification remains pending.
 
 ## Strategic Direction
 
@@ -105,21 +106,89 @@
 
 ## Phase 2C - Theme System Upgrade (Architecture + Guardrails)
 
-Theme Studio execution gate: MP-148..MP-182 are governed by the
-`Theme Studio Definition of Done (Authoritative Checklist)` in
-`dev/active/theme_upgrade.md`; a Theme Studio MP may move to `[x]` only with
-documented pass evidence for its mapped gates.
+Theme Studio execution gate: MP-148..MP-182 are governed by the checklist in
+this section. A Theme Studio MP may move to `[x]` only with documented pass
+evidence for its mapped gates.
 
-- [ ] MP-148 Activate `dev/active/theme_upgrade.md` as an executable phased track in this plan, and lock the IA boundary: dedicated `Theme Studio` mode (not `Settings -> Studio`) plus Settings-vs-Studio ownership matrix.
-- [ ] MP-149 Implement Theme Upgrade Phase 0 safety rails (golden render snapshots, terminal compatibility matrix coverage, and style-schema migration harness) before any user-visible editor expansion.
-- [ ] MP-150 Implement Theme Upgrade Phase 1 style engine foundation (`StylePack` schema + resolver + runtime), preserving current built-in theme behavior and startup defaults.
-- [ ] MP-151 Ship docs/architecture updates for the new theme system (`dev/ARCHITECTURE.md`, `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, `dev/CHANGELOG.md`) in lockstep with implementation, including operator guidance, settings-migration guidance, and fallback behavior.
+Theme/modularization integration rule: when refactors or fixes touch visual
+runtime modules (`theme/*`, `theme_ops.rs`, `theme_picker.rs`, `status_line/*`,
+`hud/*`, `writer/*`, `help.rs`, `banner.rs`, `progress.rs`), update or add the
+corresponding `MP-148+` item here in `MASTER_PLAN` and attach mapped
+`TS-G*` gate evidence from this section.
+
+Settings-vs-Studio ownership matrix:
+
+| Surface | Owner |
+|---|---|
+| Theme tokens/palettes, borders, glyph/icon packs, layout/motion behavior, visual state scenes, notification visuals, command-palette/autocomplete visuals | Theme Studio |
+| Auto-voice/send-mode/macros, sensitivity/latency display mode, mouse mode, backend/pipeline, close/quit operations | Settings |
+| Quick theme cycle and picker shortcuts | Shared entrypoint; deep editing still routes to Theme Studio |
+
+Theme Studio Definition of Done (authoritative checklist):
+
+| Gate | Pass Criteria | Fail Criteria | Required Evidence |
+|---|---|---|---|
+| `TS-G01 Ownership` | Theme Studio vs Settings ownership matrix is implemented and documented. | Any deep visual edit path remains in Settings post-migration. | Settings menu tests + docs diff. |
+| `TS-G02 Schema` | `StylePack` schema/version/migration tests pass for valid + invalid inputs. | Parsing/migration panic, silent drop, or invalid pack applies without fallback. | Unit tests for parse/validate/migrate + fallback tests. |
+| `TS-G03 Resolver` | All render paths resolve styles through registry/resolver APIs. | Hardcoded style constants bypass resolver on supported surfaces. | Coverage + static policy gate outputs. |
+| `TS-G04 Component IDs` | Every renderable component/state has stable style IDs and defaults. | Unregistered component/state renders in runtime. | Component registry parity tests + snapshots. |
+| `TS-G05 Studio Controls` | Every persisted style field is editable in Studio. | Any persisted field has no Studio control mapping. | Studio mapping parity test results. |
+| `TS-G06 Snapshot Matrix` | Snapshot suites pass for widths, states, profiles, and key surfaces. | Layout overlap/wrap/clipping regressions vs expected fixtures. | Snapshot artifacts for narrow/medium/wide + state variants. |
+| `TS-G07 Interaction UX` | Keyboard-only and mouse-enhanced flows both work with correct focus/hitboxes. | Broken focus order, unreachable controls, or hitbox mismatch. | Interaction integration tests + manual QA checklist output. |
+| `TS-G08 Edit Safety` | Apply/save/import/export/undo/redo/rollback flows are deterministic. | User edits can be lost/corrupted or cannot be reverted safely. | End-to-end workflow tests across restart boundaries. |
+| `TS-G09 Capability Fallback` | Terminal capability detection + fallback chains behave as specified. | Unsupported capability path crashes or renders unreadable output. | Compatibility matrix tests (truecolor/ansi, graphics/no-graphics). |
+| `TS-G10 Runtime Budget` | Render/update paths remain within bounded allocation/tick budgets. | Unbounded buffers, allocation spikes, or frame-thrash in hot paths. | Perf/memory checks + regression benchmarks. |
+| `TS-G11 Docs/Operator` | Architecture, usage, troubleshooting, and changelog are updated together. | User-visible behavior changes without aligned docs. | `docs-check` + updated docs references. |
+| `TS-G12 Release Readiness` | Full Theme Studio GA validation bundle is green. | Any mandatory gate is missing evidence or failing. | CI report bundle + signoff checklist. |
+| `TS-G13 Inspector` | Any rendered element can reveal style path and jump to Studio control. | Inspector cannot locate style ID/path for a rendered element. | Inspector integration tests + state preview tests. |
+| `TS-G14 Rule Engine` | Conditional style rules are deterministic and conflict-resolved. | Rule priority conflicts or nondeterministic style outcomes. | Rule engine unit/property tests + scenario snapshots. |
+| `TS-G15 Ecosystem Packs` | Third-party widget packs are allowlisted, version-compatible, and parity-mapped. | Dependency added without compatibility matrix or style/studio parity mapping. | Compatibility matrix + parity tests + allowlist audit. |
+
+Theme Studio MP-to-gate mapping:
+
+| MP | Required Gates |
+|---|---|
+| `MP-148` | `TS-G01`, `TS-G11` |
+| `MP-149` | `TS-G02`, `TS-G06`, `TS-G09` |
+| `MP-150` | `TS-G02`, `TS-G03` |
+| `MP-151` | `TS-G11` |
+| `MP-161` | `TS-G03`, `TS-G06`, `TS-G07` |
+| `MP-162` | `TS-G03`, `TS-G05` |
+| `MP-163` | `TS-G03` |
+| `MP-172` | `TS-G04`, `TS-G06` |
+| `MP-174` | `TS-G03`, `TS-G05`, `TS-G06` |
+| `MP-175` | `TS-G09`, `TS-G15` |
+| `MP-176` | `TS-G09`, `TS-G06` |
+| `MP-179` | `TS-G15` |
+| `MP-180` | `TS-G15`, `TS-G05`, `TS-G06` |
+| `MP-182` | `TS-G14`, `TS-G05`, `TS-G06` |
+| `MP-164` | `TS-G07` |
+| `MP-165` | `TS-G01`, `TS-G07` |
+| `MP-166` | `TS-G05`, `TS-G08`, `TS-G07` |
+| `MP-167` | `TS-G06`, `TS-G09`, `TS-G10`, `TS-G11`, `TS-G12` |
+| `MP-173` | `TS-G03`, `TS-G05`, `TS-G15` |
+| `MP-177` | `TS-G15`, `TS-G05` |
+| `MP-178` | `TS-G13`, `TS-G07` |
+| `MP-181` | `TS-G07`, `TS-G10` |
+
+Theme Studio mandatory verification bundle (per PR):
+
+- `python3 dev/scripts/devctl.py check --profile ci`
+- `python3 dev/scripts/devctl.py docs-check --user-facing`
+- `python3 dev/scripts/devctl.py hygiene`
+- `cd src && cargo test --bin voiceterm`
+- use `.github/PULL_REQUEST_TEMPLATE/theme_studio.md` for `TS-G01`..`TS-G15` evidence capture.
+
+- [x] MP-148 Activate the Theme Studio phased track in `MASTER_PLAN` and lock the IA boundary: dedicated `Theme Studio` mode (not `Settings -> Studio`) plus Settings-vs-Studio ownership matrix (landed gate catalog + MP-to-gate map + ownership matrix directly in Phase 2C so visual modularization/fix work now maps to one canonical tracker).
+- [x] MP-149 Implement Theme Upgrade Phase 0 safety rails (golden render snapshots, terminal compatibility matrix coverage, and style-schema migration harness) before any user-visible editor expansion (landed style-schema migration harness in `theme/style_schema.rs`, terminal capability matrix tests in `color_mode`, and golden snapshot-matrix coverage for startup banner, theme picker, and status banner render outputs).
+- [x] MP-150 Implement Theme Upgrade Phase 1 style engine foundation (`StylePack` schema + resolver + runtime), preserving current built-in theme behavior and startup defaults (landed runtime resolver scaffold `theme/style_pack.rs`, routed `Theme::colors()` through resolver with palette-parity regression tests, enabled runtime schema parsing/migration (`theme/style_schema.rs`) for pack payload ingestion, and hardened schema-version mismatch/invalid-payload fallback to preserve base-theme palettes instead of dropping to `none`).
+- [x] MP-151 Ship docs/architecture updates for the new theme system (`dev/ARCHITECTURE.md`, `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, `dev/CHANGELOG.md`) in lockstep with implementation, including operator guidance, settings-migration guidance, and fallback behavior (landed runtime resolver path docs, schema payload operator guidance, explicit settings-migration notes, and invalid-pack fallback behavior across architecture/usage/troubleshooting/changelog docs).
 
 ## Phase 2D - Visual Surface Expansion (Theme Studio Prerequisite)
 
 - [ ] MP-161 Execute a visual-first runtime pass before deep Studio editing: complete MP-102 and promote MP-103, MP-106, MP-107, MP-108, and MP-109 from Backlog into active execution order with non-regression gates.
-- [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship.
-- [ ] MP-163 Add explicit coverage tests/gates that fail if new visual runtime surfaces bypass theme resolver paths with hardcoded style constants.
+- [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship (in progress: schema/resolver now supports runtime visual overrides for border glyph sets and indicator glyph families via style-pack payloads, including compact/full/minimal/hidden processing/responding indicator lanes in status rendering while preserving default processing spinner animation unless explicitly overridden).
+- [x] MP-163 Add explicit coverage tests/gates that fail if new visual runtime surfaces bypass theme resolver paths with hardcoded style constants (landed `theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`, a source-policy gate that scans runtime Rust modules and fails when `THEME_*` palette or `BORDER_*` border constants are referenced outside theme resolver/style-ownership allowlist files).
 - [ ] MP-172 Add a styleable component registry and state-matrix contract for all renderable control surfaces (buttons, tabs, lists, tables, trees, scrollbars, modal/popup/tooltip, input/caret/selection) with schema + resolver + snapshot coverage.
 - [ ] MP-174 Migrate existing non-HUD visual surfaces into `StylePack` routing (startup splash/banner, help/settings/theme-picker chrome, calibration/mic-meter visuals, progress bars/spinners, icon/glyph sets) so no current visual path is left outside Theme Studio ownership.
 - [ ] MP-175 Add a framework capability matrix + parity gate for shipped framework versions (Ratatui widget/symbol families and Crossterm color/input/render capabilities, including synchronized updates + keyboard enhancement flags), and track upgrade deltas before enabling new Studio controls.
@@ -171,7 +240,7 @@ documented pass evidence for its mapped gates.
 
 ## Phase 3C - Codebase Best-Practice Consolidation (Active Audit Track)
 
-- [x] MP-184 Publish active execution plan for full-repo Rust best-practice cleanup and keep task-level progress in `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`.
+- [x] MP-184 Publish a dedicated execution record for full-repo Rust best-practice cleanup and keep task-level progress scoped to that audit track.
 - [x] MP-185 Decompose settings action handling for lower coupling and clearer ownership (`settings_handlers` runtime/test separation, enum-cycle consolidation, constructor removal, status-helper extraction, and `SettingsActionContext` sub-context split landed; adjacent `ButtonActionContext::new` constructor removal also landed for consistent context wiring).
 - [x] MP-186 Consolidate status-line rendering/button logic (`status_line/buttons.rs` and `status_line/format.rs`) to remove duplicated style/layout decisions and isolate legacy compatibility paths (landed: shared button highlight + queue/ready/latency badge helpers; legacy row helpers are `#[cfg(test)]`-gated with shared framing/separator helpers and reduced dead-code surface; tests split into `status_line/buttons/tests.rs` and `status_line/format/tests.rs`).
 - [x] MP-187 Consolidate PTY lifecycle internals into canonical spawn/shutdown helpers and harden session-guard identity/cleanup throttling to reduce stale-process risk without blocking concurrent sessions (landed shared PTY lifecycle helpers in `pty_session/pty.rs`, plus session-lease start-time identity validation and atomic cleanup cadence throttling in `pty_session/session_guard.rs`; additional detached-orphan sweep fallback now reaps stale backend CLIs with `PPID=1` when they are not lease-owned and no longer share a TTY with a live shell, with deterministic unit coverage for elapsed-time parsing and candidate filtering).
@@ -191,15 +260,16 @@ documented pass evidence for its mapped gates.
 - [x] MP-210 Keep splash unchanged, but move discoverability/help affordances into runtime HUD/overlay surfaces (hidden HUD idle hint now includes `? help` + `^O settings`; help overlay adds clickable Docs/Troubleshooting OSC-8 links).
 - [x] MP-211 Replace flat clap default `--help` output with a themed, grouped renderer backed by clap command metadata (manual `-h`/`--help` interception, sectioned categories, single-accent hacker-style scan path with dim borders + bracketed headers, theme/no-color parity, and coverage guard so new flags cannot silently skip grouping).
 - [x] MP-212 Remove stale pre-release/backlog doc references, align `VoiceTerm.app` Info.plist version with `src/Cargo.toml`, and sync new `voiceterm` modules in changelog/developer structure docs.
-- [x] MP-213 Add a Rust code-review research pack (`dev/active/code_review.md`) and wire it into the code-quality execution plan with an explicit closure/archive handoff path into Theme Upgrade phases (`MP-148+`).
+- [x] MP-213 Add a Rust code-review research pack and wire it into the code-quality execution track with an explicit closure/archive handoff path into Theme Upgrade phases (`MP-148+`).
 - [x] MP-218 Fix overlay mouse hit-testing for non-left-aligned coordinate spaces so settings/theme/help row clicks and slider adjustments still apply when terminals report centered-panel `x` coordinates.
 - [x] MP-219 Clarify settings overlay footer control hints (`[×] close · ↑/↓ move · Enter select · Click/Tap select`) and add regression coverage so footer close click hit-testing stays intact after copy updates.
 - [x] MP-220 Fix settings slider click direction handling so pointer input on `Sensitivity`/`Wake sensitivity` tracks can move left/right by click position, with regression tests for backward slider clicks.
 - [x] MP-221 Fix hidden-launcher mouse click redraw parity so `[hide]` and collapsed `[open]` clicks immediately repaint launcher state (matching arrow-key `Enter` behavior), with regression tests for both click paths.
 - [x] MP-222 Resolve post-release `lint_hardening` CI failures by removing redundant-closure clippy violations in `custom_help.rs` and restoring maintainer-lint lane parity on `master`.
-- [ ] MP-214 Close out the active code-quality track by triaging remaining `code_review.md` findings, archiving `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`, and continuing execution from Theme Upgrade (`MP-148+`).
-- [ ] MP-215 Standardize runtime status-line width/truncation on Unicode-aware display width in remaining char-count paths (`src/src/bin/voiceterm/writer/render.rs` and `src/src/bin/voiceterm/status_style.rs`) with regression coverage for wide glyphs.
-- [ ] MP-216 Consolidate duplicate transcript-preview formatting logic shared by `src/src/bin/voiceterm/voice_control/navigation.rs` and `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` into a single helper with shared tests.
+- [x] MP-223 Unify README CI/mutation badge theming to black/gray endpoint styling and enforce red failure states via renderer scripts (`render_ci_badge.py`, `render_mutation_badge.py`) plus CI workflow auto-publish on `master`.
+- [x] MP-214 Close out the active code-quality track by triaging remaining findings, archiving audit records, and continuing execution from Theme Upgrade (`MP-148+`).
+- [x] MP-215 Standardize runtime status-line width/truncation on Unicode-aware display width in remaining char-count paths (`src/src/bin/voiceterm/writer/render.rs` and `src/src/bin/voiceterm/status_style.rs`) with regression coverage for wide glyphs (landed Unicode-aware width/truncation in writer sanitize/render/status-style paths, preserved printable Unicode status text, and added regression tests for wide-glyph truncation and width accounting).
+- [x] MP-216 Consolidate duplicate transcript-preview formatting logic shared by `src/src/bin/voiceterm/voice_control/navigation.rs` and `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` into a single helper with shared tests (landed shared `voice_control/transcript_preview.rs` formatter and removed duplicated implementations from navigation/drain paths with focused unit coverage).
 - [x] MP-217 Enable settings-overlay row mouse actions so row clicks select and apply setting toggles/cycles (including click paths for `Close` and `Quit`) instead of requiring keyboard-only action keys.
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
@@ -268,8 +338,8 @@ documented pass evidence for its mapped gates.
 ## References
 
 - Execution + release tracking: `dev/active/MASTER_PLAN.md`
+- Theme Studio architecture + gate checklist: `dev/active/theme_upgrade.md`
 - Market, competitor, and UX evidence: `dev/active/overlay.md`
-- Code-quality execution plan: `dev/active/CODE_QUALITY_EXECUTION_PLAN.md`
 - SDLC policy: `AGENTS.md`
 - Architecture: `dev/ARCHITECTURE.md`
 - Changelog: `dev/CHANGELOG.md`

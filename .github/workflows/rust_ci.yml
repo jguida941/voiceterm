@@ -1,5 +1,8 @@
 name: Rust TUI CI
 
+permissions:
+  contents: write
+
 on:
   push:
     paths:
@@ -47,3 +50,20 @@ jobs:
 
       - name: cargo test
         run: cargo test --workspace --all-features -- --nocapture
+
+      - name: Render CI badge
+        if: always()
+        run: python3 ../dev/scripts/render_ci_badge.py --status "${{ job.status }}" --output ../.github/badges/ci-status.json
+
+      - name: Commit CI badge update
+        if: always() && github.ref == 'refs/heads/master'
+        run: |
+          if git diff --quiet -- ../.github/badges/ci-status.json; then
+            echo "No CI badge change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ../.github/badges/ci-status.json
+          git commit -m "chore: update CI badge"
+          git push

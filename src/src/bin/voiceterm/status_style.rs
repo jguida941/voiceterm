@@ -4,6 +4,7 @@
 //! in the overlay status line.
 
 use crate::theme::{Theme, ThemeColors};
+use unicode_width::UnicodeWidthChar;
 
 /// Status message categories for visual styling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,9 +105,17 @@ impl StatusType {
         format!(
             "{}{}{} ",
             self.color(&colors),
-            self.indicator(),
+            self.themed_indicator(&colors),
             colors.reset
         )
+    }
+
+    fn themed_indicator(&self, colors: &ThemeColors) -> String {
+        match self {
+            Self::Recording => format!("{} REC", colors.indicator_rec),
+            Self::Processing => colors.indicator_processing.to_string(),
+            _ => self.indicator().to_string(),
+        }
     }
 
     /// Get the display width of the prefix (for truncation calculations).
@@ -137,7 +146,11 @@ pub fn format_status_with_theme(text: &str, theme: Theme) -> String {
 #[allow(dead_code)]
 pub fn status_display_width(text: &str) -> usize {
     let status_type = StatusType::from_message(text);
-    status_type.prefix_display_width() + text.chars().count()
+    let text_width = text
+        .chars()
+        .map(|ch| UnicodeWidthChar::width(ch).unwrap_or(0))
+        .sum::<usize>();
+    status_type.prefix_display_width() + text_width
 }
 
 #[cfg(test)]
@@ -227,6 +240,12 @@ mod tests {
     }
 
     #[test]
+    fn status_display_width_uses_unicode_display_width() {
+        assert_eq!(status_display_width("ok"), 4);
+        assert_eq!(status_display_width("界"), 4);
+    }
+
+    #[test]
     fn format_status_with_theme_catppuccin() {
         let formatted = format_status_with_theme("Processing...", Theme::Catppuccin);
         assert!(formatted.contains("◐"));
@@ -242,6 +261,13 @@ mod tests {
         assert!(formatted.contains("Processing..."));
         // No color theme should not have escape codes
         assert!(!formatted.contains("\x1b["));
+    }
+
+    #[test]
+    fn format_status_with_theme_uses_theme_recording_indicator() {
+        let formatted = format_status_with_theme("Listening Manual Mode", Theme::Codex);
+        assert!(formatted.contains("◆ REC"));
+        assert!(!formatted.contains("● REC"));
     }
 
     #[test]

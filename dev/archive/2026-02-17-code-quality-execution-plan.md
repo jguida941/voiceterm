@@ -3,13 +3,13 @@
 Date: 2026-02-17  
 Status: Completed for v1.0.80 release (follow-on lint expansion tracked in `MASTER_PLAN`)  
 Parent tracker: `dev/active/MASTER_PLAN.md` (`MP-184`..`MP-189`)
-Research companion: `dev/active/code_review.md` (official docs + crate docs + review loop)
+Research companion: Rust code-review research pack (archived record)
 
 `dev/active/MASTER_PLAN.md` remains the canonical plan. This document is the
 execution detail for the code-quality audit workstream.
 
-Use `dev/active/code_review.md` for current Rust/doc references and repeatable
-review intake format before adding any new `CQ-*` follow-on tasks.
+This archive captures the completed execution record for the code-quality audit
+workstream and remains immutable after closure.
 
 ## Objective
 
@@ -183,4 +183,4 @@ operational closure and handoff:
 3. Continue active implementation sequencing in `dev/active/MASTER_PLAN.md`,
    prioritizing Theme Upgrade phases (`MP-148` onward).
 
-Current tracked closure items: `MP-214`, `MP-215`, and `MP-216`.
+Current tracked closure items: `MP-214` (with `MP-215` and `MP-216` completed).

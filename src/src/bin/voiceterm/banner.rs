@@ -323,12 +323,31 @@ mod tests {
     }
 
     #[test]
+    fn format_startup_banner_none_theme_matches_golden_snapshot() {
+        let config = BannerConfig::default();
+        let banner = format_startup_banner(&config, Theme::None);
+        let expected = format!(
+            "VoiceTerm v{VERSION} │ codex │ Rust │ theme: coral │ auto-voice: off │ -35dB\n\
+Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ctrl+Q quit\n"
+        );
+        assert_eq!(banner, expected);
+    }
+
+    #[test]
     fn format_minimal_banner_contains_shortcuts() {
         let banner = format_minimal_banner(Theme::Coral);
         assert!(banner.contains("Ctrl+R"));
         assert!(banner.contains("? help"));
         assert!(banner.contains("Ctrl+O"));
         assert!(banner.contains("Ctrl+Q"));
+    }
+
+    #[test]
+    fn format_minimal_banner_none_theme_matches_golden_snapshot() {
+        let banner = format_minimal_banner(Theme::None);
+        let expected =
+            format!("VoiceTerm v{VERSION} │ Ctrl+R rec │ ? help │ Ctrl+O settings │ Ctrl+Q quit\n");
+        assert_eq!(banner, expected);
     }
 
     #[test]

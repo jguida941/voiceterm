@@ -5,7 +5,7 @@ use crate::status_line::StatusBanner;
 use crate::status_style::StatusType;
 use crate::theme::Theme;
 
-use super::sanitize::{sanitize_status, truncate_status};
+use super::sanitize::{sanitize_status, status_text_display_width, truncate_status};
 use super::state::OverlayPanel;
 
 const SAVE_CURSOR_COMBINED: &[u8] = b"\x1b[s\x1b7";
@@ -157,7 +157,7 @@ pub(super) fn write_status_line(
     }
     let sanitized = sanitize_status(text);
     let status_type = StatusType::from_message(&sanitized);
-    let display_width = status_type.prefix_display_width() + sanitized.chars().count();
+    let display_width = status_type.prefix_display_width() + status_text_display_width(&sanitized);
     let prefix = status_type.prefix_with_theme(theme);
     let formatted = if display_width <= cols as usize {
         format!("{prefix}{sanitized}")
@@ -340,7 +340,8 @@ mod tests {
         let output = String::from_utf8_lossy(&buf);
         // Recording status should have red prefix
         assert!(output.contains("\u{1b}[91m")); // Red
-        assert!(output.contains("● REC"));
+        let expected_recording_prefix = format!("{} REC", theme.colors().indicator_rec);
+        assert!(output.contains(&expected_recording_prefix));
 
         buf.clear();
         write_status_line(&mut buf, "Processing...", 2, 80, theme).unwrap();
@@ -368,6 +369,14 @@ mod tests {
         // Success status should still have green prefix even if text is truncated.
         assert!(output.contains("\u{1b}[92m")); // Green
         assert!(output.contains("✓"));
+    }
+
+    #[test]
+    fn write_status_line_truncates_unicode_by_display_width() {
+        let mut buf = Vec::new();
+        write_status_line(&mut buf, "界界界", 2, 5, Theme::None).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert_eq!(output.matches('界').count(), 1);
     }
 
     #[test]

@@ -123,6 +123,15 @@ fn recording_indicator_color(colors: &ThemeColors) -> &str {
 }
 
 #[inline]
+fn processing_mode_indicator(colors: &ThemeColors) -> &str {
+    if colors.indicator_processing == "◐" {
+        get_processing_spinner()
+    } else {
+        colors.indicator_processing
+    }
+}
+
+#[inline]
 fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
     if color.is_empty() {
         text.to_string()
@@ -144,8 +153,8 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
             let indicator = recording_mode_indicator(state.voice_mode, colors);
             format!("{indicator} rec")
         }
-        RecordingState::Processing => "◌ ...".to_string(),
-        RecordingState::Responding => "↺ rsp".to_string(),
+        RecordingState::Processing => format!("{} ...", processing_mode_indicator(colors)),
+        RecordingState::Responding => format!("{} rsp", colors.indicator_responding),
         RecordingState::Idle => return String::new(),
     };
 
@@ -615,7 +624,7 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
         }
         RecordingState::Processing => {
             content.push_str(&with_color(
-                get_processing_spinner(),
+                processing_mode_indicator(colors),
                 colors.processing,
                 colors,
             ));
@@ -623,7 +632,11 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
             content.push_str(&with_color(&mode_label, colors.processing, colors));
         }
         RecordingState::Responding => {
-            content.push_str(&with_color("↺", colors.info, colors));
+            content.push_str(&with_color(
+                colors.indicator_responding,
+                colors.info,
+                colors,
+            ));
             content.push(' ');
             content.push_str(&with_color(&mode_label, colors.info, colors));
         }
@@ -763,12 +776,12 @@ fn compact_mode_parts<'a>(
             color: recording_indicator_color(colors),
         },
         RecordingState::Processing => CompactModeParts {
-            indicator: "◐",
+            indicator: processing_mode_indicator(colors),
             label: "",
             color: colors.processing,
         },
         RecordingState::Responding => CompactModeParts {
-            indicator: "↺",
+            indicator: colors.indicator_responding,
             label: "",
             color: colors.info,
         },
@@ -969,12 +982,13 @@ fn format_left_section(state: &StatusLineState, colors: &ThemeColors) -> String 
             format!("{indicator} {label} │ {sensitivity}{duration_part}")
         }
         RecordingState::Processing => {
-            let indicator = with_color(get_processing_spinner(), colors.processing, colors);
+            let indicator =
+                with_color(processing_mode_indicator(colors), colors.processing, colors);
             let label = with_color(&mode_label, colors.processing, colors);
             format!("{indicator} {label} │ {sensitivity}{duration_part}")
         }
         RecordingState::Responding => {
-            let indicator = with_color("↺", colors.info, colors);
+            let indicator = with_color(colors.indicator_responding, colors.info, colors);
             let label = with_color(&mode_label, colors.info, colors);
             format!("{indicator} {label} │ {sensitivity}{duration_part}")
         }

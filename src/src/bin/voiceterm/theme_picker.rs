@@ -156,6 +156,15 @@ pub fn theme_picker_height() -> usize {
 mod tests {
     use super::*;
 
+    fn fnv1a64(input: &str) -> u64 {
+        let mut hash: u64 = 0xcbf29ce484222325;
+        for byte in input.as_bytes() {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        hash
+    }
+
     #[test]
     fn theme_picker_contains_options() {
         let output = format_theme_picker(Theme::Coral, 0, 60);
@@ -193,5 +202,52 @@ mod tests {
         assert!(!output.contains("◉"));
         assert!(!output.contains("⏺"));
         assert!(output.contains("11. none"));
+    }
+
+    #[test]
+    fn theme_picker_snapshot_matrix_is_stable() {
+        let cases = [
+            (
+                "none_w40_sel0",
+                Theme::None,
+                0usize,
+                40usize,
+                0x1789_6796_2829_cf6e,
+            ),
+            (
+                "none_w60_sel10",
+                Theme::None,
+                10usize,
+                60usize,
+                0xb7db_fe92_fcec_9020,
+            ),
+            (
+                "codex_w60_sel2",
+                Theme::Codex,
+                2usize,
+                60usize,
+                0x0c3a_0d6b_ed78_dbfa,
+            ),
+        ];
+
+        let mut snapshot_lines = Vec::new();
+        let mut mismatches = Vec::new();
+
+        for (name, theme, selected_idx, width, expected) in cases {
+            let rendered = format_theme_picker(theme, selected_idx, width);
+            let actual = fnv1a64(&rendered);
+            snapshot_lines.push(format!("{name}={actual:#018x}"));
+            if actual != expected {
+                mismatches.push(name);
+            }
+        }
+
+        if !mismatches.is_empty() {
+            panic!(
+                "theme-picker snapshot mismatch: {}\n{}",
+                mismatches.join(", "),
+                snapshot_lines.join("\n")
+            );
+        }
     }
 }

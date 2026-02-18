@@ -6,7 +6,7 @@ Root shortcut pointer: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 ## Start Here
 
 1. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - current execution plan, scope, and release targets.
-2. [`dev/active/CODE_QUALITY_EXECUTION_PLAN.md`](active/CODE_QUALITY_EXECUTION_PLAN.md) - active code-quality audit execution detail for the current master plan track.
+2. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio architecture/spec and `TS-G*` gate checklist used by `MP-148+`.
 3. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - historical design/process journey with commit evidence.
 4. [`dev/history/README.md`](history/README.md) - index for historical engineering records.
 5. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - current runtime architecture and operational workflows.

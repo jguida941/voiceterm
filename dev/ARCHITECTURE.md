@@ -428,6 +428,9 @@ intervals to avoid corrupting the backend's screen.
 - Full HUD rendering uses a conservative writer path (compatible with the `v1.0.53` draw model) and clears stale HUD/overlay rows on resize before redraw to prevent ghost frames in IDE terminals.
 - Startup splash is automatically skipped in JetBrains IDE terminals (PyCharm/IntelliJ/CLion/WebStorm) to avoid alternate-screen handoff artifacts.
 - **Theme selection** uses `--theme` with automatic fallback based on terminal color capability and `NO_COLOR`.
+- Theme palette resolution is centralized through the runtime style resolver (`theme/style_pack.rs`) so all built-in themes flow through one style-pack path.
+- Optional style-pack payload override (`VOICETERM_STYLE_PACK_JSON`) is schema-validated/migrated by `theme/style_schema.rs`; invalid/unsupported payloads fall back to built-in base-theme palettes, while valid payload overrides can reroute border glyph sets and status-lane indicator families (including processing/responding lanes).
+- Settings migration guidance: Theme Studio foundation changes do not alter existing Settings theme/HUD controls or persisted settings keys yet.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
@@ -464,6 +467,8 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/icons.rs` - status line icons/glyphs
 - `src/src/bin/voiceterm/color_mode.rs` - color mode detection + overrides
 - `src/src/bin/voiceterm/theme/` - color palettes and theme selection
+- `src/src/bin/voiceterm/theme/style_pack.rs` - runtime style-pack resolution + fallback policy
+- `src/src/bin/voiceterm/theme/style_schema.rs` - versioned style-pack schema parse/migration helpers
 - `src/src/bin/voiceterm/theme_ops.rs` - theme picker selection + theme cycling helpers
 - `src/src/bin/voiceterm/theme_picker.rs` - interactive theme picker overlay
 - `src/src/bin/voiceterm/help.rs` - shortcut help overlay rendering

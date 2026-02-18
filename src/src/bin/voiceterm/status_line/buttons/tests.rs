@@ -164,6 +164,18 @@ fn minimal_strip_text_includes_panel_when_enabled() {
 }
 
 #[test]
+fn minimal_strip_processing_uses_theme_override_indicator() {
+    let mut colors = Theme::None.colors();
+    colors.indicator_processing = "~";
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Processing;
+
+    let line = minimal_strip_text(&state, &colors);
+    assert!(line.contains("~"));
+    assert!(!line.contains("◐"));
+}
+
+#[test]
 fn minimal_strip_recording_always_shows_db_lane() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();

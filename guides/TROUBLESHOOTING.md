@@ -24,6 +24,7 @@ Use the quick-fix table first, then jump to the detailed section.
 | Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
 | Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
 | Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
+| Style-pack preview payload has no effect | Validate JSON schema payload + fallback behavior | [Style-pack preview payload not applying](#style-pack-preview-payload-not-applying) |
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
 
 ## Contents
@@ -357,6 +358,23 @@ like an error.
    `copy last error` fails.
 4. If clipboard helpers are unavailable, copy manually from terminal output.
 
+### Status line clips oddly with CJK or emoji text
+
+Status-line width/truncation now uses display-width semantics, so wide glyphs
+should clip cleanly without shifting HUD alignment.
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. If clipping still looks wrong, run with logs and share terminal/IDE details:
+
+   ```bash
+   voiceterm --logs
+   ```
+
 ## Terminal and IDE Issues
 
 ### IDE terminal controls not working (JetBrains/Cursor)
@@ -529,6 +547,30 @@ Some IDE profiles do not expose truecolor env vars.
 
    ```bash
    COLORTERM=truecolor voiceterm --theme catppuccin
+   ```
+
+### Style-pack preview payload not applying
+
+If `VOICETERM_STYLE_PACK_JSON` is set, VoiceTerm loads that payload through the
+style-schema parser and applies the resolved `base_theme` plus any supported
+runtime visual overrides.
+
+1. Validate payload shape:
+
+   ```bash
+   VOICETERM_STYLE_PACK_JSON='{"version":2,"profile":"ops","base_theme":"dracula","overrides":{"border_style":"rounded","indicators":"ascii"}}' voiceterm --version
+   ```
+
+   The `indicators` override is reflected in status-lane state glyphs (idle,
+   auto/manual/recording, and processing/responding lanes).
+
+2. If payload is invalid/unsupported, VoiceTerm falls back to the selected
+   built-in theme (startup should remain stable).
+3. Clear the override to confirm fallback path:
+
+   ```bash
+   unset VOICETERM_STYLE_PACK_JSON
+   voiceterm --theme codex
    ```
 
 ## Install and Update Issues

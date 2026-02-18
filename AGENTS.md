@@ -18,7 +18,7 @@ terminal experience without replacing it.
 - `dev/history/ENGINEERING_EVOLUTION.md` (historical design/process evolution with commit evidence)
 - `dev/README.md` (developer index and entrypoint)
 - `dev/active/MASTER_PLAN.md` (single canonical strategy + execution plan)
-- `dev/active/CODE_QUALITY_EXECUTION_PLAN.md` (active code-quality audit execution detail linked from MASTER_PLAN)
+- `dev/active/theme_upgrade.md` (Theme Studio architecture spec + gate checklist; execution still tracked in MASTER_PLAN)
 - `dev/active/overlay.md` (market research reference, not execution plan)
 - `dev/deferred/` (paused plans not in active execution)
 - `dev/archive/2026-02-02-release-audit-completed.md` (completed code audit)
@@ -39,6 +39,7 @@ terminal experience without replacing it.
 ## Before you start
 
 - Read `dev/active/MASTER_PLAN.md` for current strategy, phase, and release scope.
+- For Theme Studio/visual-surface work, use `dev/active/theme_upgrade.md` as the gate checklist and mirror execution tasks in `dev/active/MASTER_PLAN.md` (`MP-148+`).
 - Use `dev/active/overlay.md` only for market/competitor reference context.
 - Check git status and avoid unrelated changes.
 - Confirm scope and whether a release/version bump is needed.

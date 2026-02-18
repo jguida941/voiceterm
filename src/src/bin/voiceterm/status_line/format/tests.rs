@@ -59,6 +59,15 @@ fn strip_ansi(input: &str) -> String {
     out
 }
 
+fn fnv1a64(input: &str) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 #[test]
 fn recording_indicator_color_pulses_with_theme_palette() {
     for theme in [
@@ -73,6 +82,23 @@ fn recording_indicator_color_pulses_with_theme_palette() {
         let pulse = recording_indicator_color(&colors);
         assert!(pulse == colors.recording || pulse == colors.dim);
     }
+}
+
+#[test]
+fn processing_mode_indicator_uses_spinner_for_default_theme_symbol() {
+    let colors = Theme::Codex.colors();
+    let indicator = processing_mode_indicator(&colors);
+    assert!(matches!(
+        indicator,
+        "⠋" | "⠙" | "⠹" | "⠸" | "⠼" | "⠴" | "⠦" | "⠧" | "⠇" | "⠏"
+    ));
+}
+
+#[test]
+fn processing_mode_indicator_uses_theme_override_symbol() {
+    let mut colors = Theme::Codex.colors();
+    colors.indicator_processing = "~";
+    assert_eq!(processing_mode_indicator(&colors), "~");
 }
 
 fn internal_separator_columns(row: &str) -> Vec<usize> {
@@ -862,4 +888,75 @@ fn compact_registry_adapts_to_queue_state() {
     let registry = compact_hud_registry(&state, 16);
     let ids: Vec<&str> = registry.iter().map(|module| module.id()).collect();
     assert_eq!(ids.first().copied(), Some("queue"));
+}
+
+#[test]
+fn status_banner_snapshot_matrix_is_stable() {
+    let mut full_idle = StatusLineState::new();
+    full_idle.hud_style = HudStyle::Full;
+    full_idle.voice_mode = VoiceMode::Auto;
+    full_idle.auto_voice_enabled = true;
+    full_idle.send_mode = crate::config::VoiceSendMode::Auto;
+    full_idle.recording_state = RecordingState::Idle;
+    full_idle.message = "Ready".to_string();
+    full_idle.queue_depth = 1;
+    full_idle.last_latency_ms = Some(128);
+
+    let mut full_narrow = full_idle.clone();
+    full_narrow.voice_mode = VoiceMode::Manual;
+    full_narrow.auto_voice_enabled = false;
+
+    let mut minimal_idle = StatusLineState::new();
+    minimal_idle.hud_style = HudStyle::Minimal;
+    minimal_idle.voice_mode = VoiceMode::Auto;
+    minimal_idle.recording_state = RecordingState::Idle;
+    minimal_idle.message = "Ready".to_string();
+
+    let mut hidden_idle = StatusLineState::new();
+    hidden_idle.hud_style = HudStyle::Hidden;
+    hidden_idle.recording_state = RecordingState::Idle;
+    hidden_idle.hidden_launcher_collapsed = true;
+
+    let cases = [
+        ("full_idle_w120", full_idle, 120usize, 0xe788_22c9_d08f_dbb3),
+        (
+            "full_manual_w52",
+            full_narrow,
+            52usize,
+            0x838b_ab3b_1b61_9a9d,
+        ),
+        (
+            "minimal_idle_w80",
+            minimal_idle,
+            80usize,
+            0xd1e2_9893_0018_0914,
+        ),
+        (
+            "hidden_collapsed_w60",
+            hidden_idle,
+            60usize,
+            0x092d_a778_322c_7825,
+        ),
+    ];
+
+    let mut snapshot_lines = Vec::new();
+    let mut mismatches = Vec::new();
+
+    for (name, state, width, expected) in cases {
+        let banner = format_status_banner(&state, Theme::None, width);
+        let rendered = banner.lines.join("\n");
+        let actual = fnv1a64(&rendered);
+        snapshot_lines.push(format!("{name}={actual:#018x}"));
+        if actual != expected {
+            mismatches.push(name);
+        }
+    }
+
+    if !mismatches.is_empty() {
+        panic!(
+            "status-banner snapshot mismatch: {}\n{}",
+            mismatches.join(", "),
+            snapshot_lines.join("\n")
+        );
+    }
 }

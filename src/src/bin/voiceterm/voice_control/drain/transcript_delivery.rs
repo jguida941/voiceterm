@@ -53,7 +53,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         VoiceCaptureSource::Native => crate::status_line::Pipeline::Rust,
         VoiceCaptureSource::Python => crate::status_line::Pipeline::Python,
     };
-    let preview = super::message_processing::format_transcript_preview(
+    let preview = super::super::transcript_preview::format_transcript_preview(
         &ctx.text,
         super::super::TRANSCRIPT_PREVIEW_MAX,
     );
