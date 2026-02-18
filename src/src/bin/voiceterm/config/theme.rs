@@ -7,7 +7,7 @@ use crate::theme::Theme;
 impl OverlayConfig {
     /// Get the resolved theme, respecting --no-color/NO_COLOR and backend defaults.
     pub(crate) fn theme_for_backend(&self, backend_label: &str) -> Theme {
-        if self.no_color || std::env::var("NO_COLOR").is_ok() {
+        if self.no_color {
             return Theme::None;
         }
         let requested = self
@@ -196,6 +196,38 @@ mod tests {
                 Some(v) => std::env::set_var(key, v),
                 None => std::env::remove_var(key),
             }
+        }
+    }
+
+    #[test]
+    fn theme_for_backend_honors_no_color_env_even_when_flag_is_unset() {
+        let _guard = ENV_GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev_colorterm = std::env::var("COLORTERM").ok();
+        let prev_term = std::env::var("TERM").ok();
+        let prev_no_color = std::env::var("NO_COLOR").ok();
+
+        std::env::set_var("COLORTERM", "truecolor");
+        std::env::set_var("TERM", "xterm-256color");
+        std::env::set_var("NO_COLOR", "1");
+
+        let config = OverlayConfig::parse_from(["test", "--theme", "dracula"]);
+        assert!(!config.no_color, "--no-color flag is intentionally unset");
+        assert_eq!(config.theme_for_backend("codex"), Theme::None);
+
+        match prev_colorterm {
+            Some(value) => std::env::set_var("COLORTERM", value),
+            None => std::env::remove_var("COLORTERM"),
+        }
+        match prev_term {
+            Some(value) => std::env::set_var("TERM", value),
+            None => std::env::remove_var("TERM"),
+        }
+        match prev_no_color {
+            Some(value) => std::env::set_var("NO_COLOR", value),
+            None => std::env::remove_var("NO_COLOR"),
         }
     }
 }
