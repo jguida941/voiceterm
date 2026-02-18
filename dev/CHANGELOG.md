@@ -25,6 +25,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Fix README version badge source to use latest semver tag metadata (instead of release-only metadata) so the badge does not render `INVALID` when release API data is delayed/missing.
 - Standardize README badge styling to compact flat black/gray chips (including CI/mutation endpoint badges), with automated CI/mutation rendering so pass stays dark while failures render red, and align primary badge order to `Rust`, `macOS`, `Linux`, `Whisper`.
 - Replace a release-note style controls dump in `README.md` with concise references to `guides/USAGE.md`, `dev/CHANGELOG.md`, and `dev/DEVELOPMENT.md` so the README stays focused on stable onboarding content.
+- Replace the verbose README Settings Menu details with direct links to `guides/USAGE.md` sections (`Settings Menu`, `Themes`, `HUD styles`) to keep README onboarding-focused.
+- Reorder README sections so `Voice Macros` appears before `Engineering History` for better feature-first navigation.
+- Restructure the README `Controls` section into grouped link lists (`keybindings`, `CLI flags`, `related docs`) to match the rest of the docs navigation style.
 
 ## [1.0.83] - 2026-02-17
 

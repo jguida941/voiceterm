@@ -196,43 +196,31 @@ Use `Ctrl+Y` to open the picker (or `Ctrl+G` to quick-cycle themes), then use
 
 ![Settings](img/settings.png)
 
-Mouse control is enabled by default, and Settings (`Ctrl+O`) covers the main
-runtime toggles: send mode, auto-voice, macros, HUD style/border, right-panel
-telemetry, latency display, and wake-word controls (wake toggle,
-sensitivity, cooldown; default OFF).
-In Full HUD mode, the right-panel visualizer (`Ribbon`, `Dots`, `Heartbeat`)
-is shown on the main status row (top-right lane).
-On `xterm-256color` terminals, VoiceTerm now keeps your selected theme
-instead of forcing ANSI fallback (ANSI fallback remains for ANSI16 terminals).
-Advanced style-pack previews can also switch glyph families (`unicode`/`ascii`)
-for HUD meters/icons and overlay chrome symbols (footer close marker, slider
-track/knob) via `VOICETERM_STYLE_PACK_JSON`; see `guides/USAGE.md`.
-When a valid style-pack payload sets `base_theme`, runtime theme switching is
-locked to that base theme until the env var is unset.
-See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
+Mouse control is enabled by default. Open Settings with `Ctrl+O`.
+For full behavior and configuration details, use:
+
+- [Settings Menu](guides/USAGE.md#settings-menu)
+- [Themes](guides/USAGE.md#themes) (including `VOICETERM_STYLE_PACK_JSON` and `base_theme` lock behavior)
+- [HUD styles](guides/USAGE.md#hud-styles) (including right-panel visualizer behavior)
 
 ## Controls
 
-For complete keybindings and behavior details, see:
+For keybindings and runtime behavior, see:
 
 - [Core Controls](guides/USAGE.md#core-controls)
 - [Settings Menu](guides/USAGE.md#settings-menu)
 - [Voice Modes](guides/USAGE.md#voice-modes)
 
-CLI option reference uses a themed, grouped layout via
-`voiceterm --help` (or `voiceterm -h`).
+For CLI flags and command-line options:
 
-Detailed control behavior and voice command coverage live in
-[guides/USAGE.md](guides/USAGE.md). For release-by-release behavior deltas, see
-[dev/CHANGELOG.md](dev/CHANGELOG.md). For pre-release validation process and
-manual QA, use [dev/DEVELOPMENT.md](dev/DEVELOPMENT.md).
+- `voiceterm --help` (or `voiceterm -h`)
+- [CLI Flags](guides/CLI_FLAGS.md)
 
-## Engineering History
+Related docs:
 
-Want the design and process timeline?
-
-- [Engineering Evolution and SDLC Timeline](dev/history/ENGINEERING_EVOLUTION.md)
-- [Developer Index](dev/README.md)
+- [Usage Guide](guides/USAGE.md)
+- [Changelog](dev/CHANGELOG.md)
+- [Development](dev/DEVELOPMENT.md)
 
 ## Voice Macros
 
@@ -278,6 +266,13 @@ format, templates, and matching rules.
 
 This repository includes a starter macro pack at `.voiceterm/macros.yaml` with
 expanded git/GitHub voice workflows plus codex-voice check/release commands.
+
+## Engineering History
+
+Want the design and process timeline?
+
+- [Engineering Evolution and SDLC Timeline](dev/history/ENGINEERING_EVOLUTION.md)
+- [Developer Index](dev/README.md)
 
 ## Documentation
 
