@@ -109,6 +109,19 @@ mod tests {
     }
 
     #[test]
+    fn take_sigwinch_returns_true_once_and_clears_flag() {
+        SIGWINCH_RECEIVED.store(true, Ordering::SeqCst);
+        assert!(take_sigwinch());
+        assert!(!take_sigwinch());
+    }
+
+    #[test]
+    fn take_sigwinch_returns_false_when_unset() {
+        SIGWINCH_RECEIVED.store(false, Ordering::SeqCst);
+        assert!(!take_sigwinch());
+    }
+
+    #[test]
     fn install_sigwinch_handler_installs_handler() {
         SIGWINCH_RECEIVED.store(false, Ordering::SeqCst);
         install_sigwinch_handler().expect("install sigwinch handler");

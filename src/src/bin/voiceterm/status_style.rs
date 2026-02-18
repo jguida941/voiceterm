@@ -246,6 +246,21 @@ mod tests {
     }
 
     #[test]
+    fn status_display_width_scales_with_text_length() {
+        // Info prefix width is 2; this catches arithmetic mutants that multiply
+        // instead of adding widths.
+        assert_eq!(status_display_width("abc"), 5);
+        assert_eq!(status_display_width(""), 2);
+    }
+
+    #[test]
+    fn status_display_width_uses_recording_prefix_width() {
+        // Recording prefix width is 6 ("● REC ").
+        assert_eq!(status_display_width("Listening"), 15);
+        assert_eq!(status_display_width("already running"), 21);
+    }
+
+    #[test]
     fn format_status_with_theme_catppuccin() {
         let formatted = format_status_with_theme("Processing...", Theme::Catppuccin);
         assert!(formatted.contains("◐"));
