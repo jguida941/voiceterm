@@ -18,7 +18,10 @@ pub use palettes::{
     THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
 };
 
-use self::{detect::is_warp_terminal, style_pack::resolve_theme_colors};
+use self::{
+    detect::is_warp_terminal,
+    style_pack::{locked_style_pack_theme, resolve_theme_colors},
+};
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.
 pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =
@@ -145,6 +148,12 @@ impl Theme {
             *self
         }
     }
+}
+
+/// Return the active style-pack base-theme lock, if present.
+#[must_use]
+pub(crate) fn style_pack_theme_lock() -> Option<Theme> {
+    locked_style_pack_theme()
 }
 
 /// Convert a theme's base mode indicator into its filled recording variant.

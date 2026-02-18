@@ -40,6 +40,7 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
 use crate::terminal::{apply_pty_winsize, resolved_cols, take_sigwinch, update_pty_winsize};
+use crate::theme::style_pack_theme_lock;
 use crate::theme_ops::{
     apply_theme_picker_index, theme_index_from_theme, theme_picker_has_longer_match,
     theme_picker_parse_index,
@@ -261,11 +262,17 @@ fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
 
 fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.terminal_cols);
+    let locked_theme = style_pack_theme_lock();
+    let display_theme = locked_theme.unwrap_or(state.theme);
+    let selected_idx = locked_theme
+        .map(theme_index_from_theme)
+        .unwrap_or(state.theme_picker_selected);
     show_theme_picker_overlay(
         &deps.writer_tx,
-        state.theme,
-        state.theme_picker_selected,
+        display_theme,
+        selected_idx,
         cols,
+        locked_theme,
     );
 }
 
@@ -288,7 +295,8 @@ fn reset_theme_picker_digits(state: &mut EventLoopState, timers: &mut EventLoopT
 }
 
 fn reset_theme_picker_selection(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
-    state.theme_picker_selected = theme_index_from_theme(state.theme);
+    let selection_theme = style_pack_theme_lock().unwrap_or(state.theme);
+    state.theme_picker_selected = theme_index_from_theme(selection_theme);
     reset_theme_picker_digits(state, timers);
 }
 

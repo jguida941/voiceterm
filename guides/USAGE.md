@@ -288,6 +288,10 @@ Tips:
   Default processing spinner animation remains unless an override replaces the
   processing indicator symbol; that same indicator choice is reused for
   processing status text/spinner surfaces outside the HUD as well.
+- If `VOICETERM_STYLE_PACK_JSON` is valid and sets `base_theme`, runtime theme
+  switching is locked to that base theme until the env var is unset. Theme picker
+  rows are rendered as read-only/dimmed, and quick-cycle/settings attempts show
+  an explicit lock status message.
 - Settings migration note: existing `Theme`/HUD settings controls are unchanged;
   no user config migration is required for this runtime resolver foundation.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.

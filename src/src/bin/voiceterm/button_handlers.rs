@@ -18,7 +18,7 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{get_button_positions, status_banner_height, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
-use crate::theme::Theme;
+use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
@@ -200,11 +200,17 @@ impl<'a> ButtonActionContext<'a> {
         *self.overlay_mode = OverlayMode::ThemePicker;
         self.sync_overlay_winsize();
         let cols = resolved_cols(*self.terminal_cols);
+        let locked_theme = style_pack_theme_lock();
+        let display_theme = locked_theme.unwrap_or(*self.theme);
+        let selected_idx = locked_theme
+            .map(theme_index_from_theme)
+            .unwrap_or_else(|| theme_index_from_theme(*self.theme));
         show_theme_picker_overlay(
             self.writer_tx,
-            *self.theme,
-            theme_index_from_theme(*self.theme),
+            display_theme,
+            selected_idx,
             cols,
+            locked_theme,
         );
     }
 

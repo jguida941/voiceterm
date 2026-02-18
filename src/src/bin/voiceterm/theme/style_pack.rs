@@ -5,8 +5,8 @@
 
 use super::{
     style_schema::{
-        parse_style_schema_with_fallback, BorderStyleOverride, GlyphSetOverride,
-        IndicatorSetOverride, StyleSchemaPack, CURRENT_STYLE_SCHEMA_VERSION,
+        parse_style_schema, parse_style_schema_with_fallback, BorderStyleOverride,
+        GlyphSetOverride, IndicatorSetOverride, StyleSchemaPack, CURRENT_STYLE_SCHEMA_VERSION,
     },
     GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
     BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,
@@ -111,6 +111,13 @@ fn style_pack_from_json_payload(theme: Theme, payload: Option<&str>) -> StylePac
 }
 
 #[must_use]
+fn style_pack_theme_override_from_payload(payload: Option<&str>) -> Option<Theme> {
+    let payload = payload?;
+    let parsed = parse_style_schema(payload).ok()?;
+    Some(parsed.base_theme)
+}
+
+#[must_use]
 fn resolve_theme_colors_with_payload(theme: Theme, payload: Option<&str>) -> ThemeColors {
     resolve_style_pack_colors(style_pack_from_json_payload(theme, payload))
 }
@@ -175,6 +182,16 @@ fn apply_glyph_set_override(colors: &mut ThemeColors, override_value: Option<Gly
 pub(crate) fn resolve_theme_colors(theme: Theme) -> ThemeColors {
     let payload = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
     resolve_theme_colors_with_payload(theme, payload.as_deref())
+}
+
+/// Return locked base theme when runtime style-pack payload is valid.
+///
+/// When present, Theme Studio payload owns the base palette and runtime theme
+/// cycling should be treated as read-only until the payload is unset.
+#[must_use]
+pub(crate) fn locked_style_pack_theme() -> Option<Theme> {
+    let payload = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    style_pack_theme_override_from_payload(payload.as_deref())
 }
 
 #[cfg(test)]
@@ -284,5 +301,20 @@ mod tests {
         }"#;
         let colors = resolve_theme_colors_with_payload(Theme::Codex, Some(payload));
         assert_eq!(colors.glyph_set, GlyphSet::Ascii);
+    }
+
+    #[test]
+    fn style_pack_theme_override_from_payload_reads_valid_base_theme() {
+        let payload = r#"{"version":2,"profile":"ops","base_theme":"dracula"}"#;
+        assert_eq!(
+            style_pack_theme_override_from_payload(Some(payload)),
+            Some(Theme::Dracula)
+        );
+    }
+
+    #[test]
+    fn style_pack_theme_override_from_payload_ignores_invalid_payload() {
+        let payload = r#"{"version":"bad","base_theme":"dracula"}"#;
+        assert_eq!(style_pack_theme_override_from_payload(Some(payload)), None);
     }
 }

@@ -10,7 +10,7 @@ use crate::config::OverlayConfig;
 use crate::overlays::OverlayMode;
 use crate::status_line::StatusLineState;
 use crate::terminal::update_pty_winsize;
-use crate::theme::Theme;
+use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::THEME_OPTIONS;
 use crate::writer::{set_status, WriterMessage};
 
@@ -45,6 +45,20 @@ pub(crate) fn apply_theme_selection(
     current_status: &mut Option<String>,
     status_state: &mut StatusLineState,
 ) -> Theme {
+    if let Some(locked_theme) = style_pack_theme_lock() {
+        let _ = writer_tx.send(WriterMessage::SetTheme(locked_theme));
+        let status = format!("Theme locked by VOICETERM_STYLE_PACK_JSON ({locked_theme})");
+        set_status(
+            writer_tx,
+            status_clear_deadline,
+            current_status,
+            status_state,
+            &status,
+            Some(Duration::from_secs(2)),
+        );
+        return locked_theme;
+    }
+
     config.theme_name = Some(requested.to_string());
     let (resolved, note) = resolve_theme_choice(config, requested);
     let _ = writer_tx.send(WriterMessage::SetTheme(resolved));
@@ -116,6 +130,9 @@ pub(crate) fn apply_theme_picker_index(
         current_status,
         status_state,
     );
+    if style_pack_theme_lock().is_some() {
+        return false;
+    }
     *overlay_mode = OverlayMode::None;
     let _ = writer_tx.send(WriterMessage::ClearOverlay);
     update_pty_winsize(
@@ -150,6 +167,7 @@ fn resolve_theme_choice(config: &OverlayConfig, requested: Theme) -> (Theme, Opt
 mod tests {
     use super::*;
     use clap::Parser;
+    use crossbeam_channel::bounded;
     use std::sync::{Mutex, OnceLock};
 
     static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
@@ -274,6 +292,46 @@ mod tests {
         match prev_terminal_emulator {
             Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
             None => std::env::remove_var("TERMINAL_EMULATOR"),
+        }
+    }
+
+    #[test]
+    fn apply_theme_selection_reports_style_pack_lock() {
+        let _guard = ENV_GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev_style_pack = std::env::var("VOICETERM_STYLE_PACK_JSON").ok();
+        std::env::set_var(
+            "VOICETERM_STYLE_PACK_JSON",
+            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+        );
+
+        let mut config = OverlayConfig::parse_from(["test"]);
+        let (writer_tx, _writer_rx) = bounded(4);
+        let mut status_clear_deadline = None;
+        let mut current_status = None;
+        let mut status_state = StatusLineState::new();
+
+        let resolved = apply_theme_selection(
+            &mut config,
+            Theme::Dracula,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert_eq!(resolved, Theme::Codex);
+        assert_eq!(config.theme_name, None);
+        assert_eq!(
+            current_status.as_deref(),
+            Some("Theme locked by VOICETERM_STYLE_PACK_JSON (codex)")
+        );
+
+        match prev_style_pack {
+            Some(v) => std::env::set_var("VOICETERM_STYLE_PACK_JSON", v),
+            None => std::env::remove_var("VOICETERM_STYLE_PACK_JSON"),
         }
     }
 }

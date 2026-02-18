@@ -8,7 +8,7 @@ use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsMenuState, SettingsView,
 };
 use crate::status_line::StatusLineState;
-use crate::theme::Theme;
+use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
 use crate::writer::{try_send_message, WriterMessage};
 
@@ -29,6 +29,8 @@ pub(crate) fn show_settings_overlay(
     status_state: &StatusLineState,
     backend_label: &str,
 ) {
+    let locked_theme = style_pack_theme_lock();
+    let effective_theme = locked_theme.unwrap_or(theme);
     let view = SettingsView {
         selected: settings_menu.selected,
         auto_voice_enabled: status_state.auto_voice_enabled,
@@ -38,7 +40,8 @@ pub(crate) fn show_settings_overlay(
         send_mode: config.voice_send_mode,
         macros_enabled: status_state.macros_enabled,
         sensitivity_db: status_state.sensitivity_db,
-        theme,
+        theme: effective_theme,
+        theme_locked: locked_theme.is_some(),
         hud_style: status_state.hud_style,
         hud_border_style: config.hud_border_style,
         hud_right_panel: config.hud_right_panel,
@@ -58,8 +61,9 @@ pub(crate) fn show_theme_picker_overlay(
     theme: Theme,
     selected_idx: usize,
     cols: u16,
+    locked_theme: Option<Theme>,
 ) {
-    let content = format_theme_picker(theme, selected_idx, cols as usize);
+    let content = format_theme_picker(theme, selected_idx, cols as usize, locked_theme);
     let height = theme_picker_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
@@ -107,7 +111,7 @@ mod tests {
     #[test]
     fn show_theme_picker_overlay_sends_overlay() {
         let (writer_tx, writer_rx) = bounded(4);
-        show_theme_picker_overlay(&writer_tx, Theme::Coral, 0, 80);
+        show_theme_picker_overlay(&writer_tx, Theme::Coral, 0, 80, None);
         match writer_rx
             .recv_timeout(std::time::Duration::from_millis(200))
             .expect("overlay message")

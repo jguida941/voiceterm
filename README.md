@@ -207,6 +207,8 @@ instead of forcing ANSI fallback (ANSI fallback remains for ANSI16 terminals).
 Advanced style-pack previews can also switch glyph families (`unicode`/`ascii`)
 for HUD meters/icons and overlay chrome symbols (footer close marker, slider
 track/knob) via `VOICETERM_STYLE_PACK_JSON`; see `guides/USAGE.md`.
+When a valid style-pack payload sets `base_theme`, runtime theme switching is
+locked to that base theme until the env var is unset.
 See the [Usage Guide](guides/USAGE.md) for full behavior and configuration details.
 
 ## Controls

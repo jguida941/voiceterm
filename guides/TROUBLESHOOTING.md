@@ -569,7 +569,11 @@ runtime visual overrides.
 
 2. If payload is invalid/unsupported, VoiceTerm falls back to the selected
    built-in theme (startup should remain stable).
-3. Clear the override to confirm fallback path:
+3. If payload is valid and includes `base_theme`, Theme Picker/quick-cycle
+   switching is intentionally locked to that base theme during the session.
+   You'll see a lock status message and dimmed picker rows for non-current
+   themes.
+4. Clear the override to confirm fallback path:
 
    ```bash
    unset VOICETERM_STYLE_PACK_JSON

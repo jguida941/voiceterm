@@ -40,7 +40,7 @@ pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String 
     lines.push(format_description_row(
         &colors,
         content_width,
-        setting_description(selected_item),
+        setting_description(selected_item, view.theme_locked),
     ));
     lines.push(frame_separator(&colors, borders, content_width));
     // Footer with clickable close button
@@ -69,7 +69,10 @@ fn format_settings_row(
     } else {
         " "
     };
-    let read_only = matches!(item, SettingsItem::Backend | SettingsItem::Pipeline);
+    let read_only = matches!(
+        item,
+        SettingsItem::Backend | SettingsItem::Pipeline | SettingsItem::Theme
+    ) && (item != SettingsItem::Theme || view.theme_locked);
 
     let row_text = match item {
         SettingsItem::AutoVoice => format!(
@@ -120,12 +123,19 @@ fn format_settings_row(
                 width = LABEL_WIDTH
             )
         }
-        SettingsItem::Theme => format!(
-            "{marker} {:<width$} {}",
-            "Theme",
-            button_label(&view.theme.to_string()),
-            width = LABEL_WIDTH
-        ),
+        SettingsItem::Theme => {
+            let theme_label = if view.theme_locked {
+                format!("{} (locked)", view.theme)
+            } else {
+                view.theme.to_string()
+            };
+            format!(
+                "{marker} {:<width$} {}",
+                "Theme",
+                button_label(&theme_label),
+                width = LABEL_WIDTH
+            )
+        }
         SettingsItem::HudStyle => format!(
             "{marker} {:<width$} {}",
             "HUD style",
@@ -339,7 +349,7 @@ fn format_description_row(colors: &ThemeColors, width: usize, description: &str)
     )
 }
 
-fn setting_description(item: SettingsItem) -> &'static str {
+fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
     match item {
         SettingsItem::AutoVoice => "Enable continuous listening and auto-rearm behavior.",
         SettingsItem::WakeWord => "Toggle always-listening wake detector.",
@@ -348,7 +358,13 @@ fn setting_description(item: SettingsItem) -> &'static str {
         SettingsItem::SendMode => "Auto sends transcript immediately; Edit stages text first.",
         SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
         SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",
-        SettingsItem::Theme => "Open theme picker to choose visual palette.",
+        SettingsItem::Theme => {
+            if theme_locked {
+                "Theme selection is locked by VOICETERM_STYLE_PACK_JSON."
+            } else {
+                "Open theme picker to choose visual palette."
+            }
+        }
         SettingsItem::HudStyle => "Switch between Full, Minimal, and Hidden HUD.",
         SettingsItem::HudBorders => "Choose HUD border style and framing.",
         SettingsItem::HudPanel => "Select right-panel telemetry widget mode.",
@@ -390,6 +406,7 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
+            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -420,6 +437,7 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
+            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -448,6 +466,7 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
+            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -484,5 +503,36 @@ mod tests {
         assert!(norm_slider.contains('o'));
         assert!(norm_slider.contains('-'));
         assert!(!norm_slider.contains('●'));
+    }
+
+    #[test]
+    fn settings_overlay_marks_theme_as_locked_when_style_pack_is_active() {
+        let theme_index = SETTINGS_ITEMS
+            .iter()
+            .position(|item| *item == SettingsItem::Theme)
+            .expect("theme item exists");
+        let view = SettingsView {
+            selected: theme_index,
+            auto_voice_enabled: false,
+            wake_word_enabled: false,
+            wake_word_sensitivity: 0.55,
+            wake_word_cooldown_ms: 2000,
+            send_mode: VoiceSendMode::Auto,
+            macros_enabled: true,
+            sensitivity_db: -35.0,
+            theme: Theme::Codex,
+            theme_locked: true,
+            hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
+            hud_right_panel: HudRightPanel::Off,
+            hud_right_panel_recording_only: false,
+            latency_display: LatencyDisplayMode::Short,
+            mouse_enabled: true,
+            backend_label: "codex",
+            pipeline: Pipeline::Rust,
+        };
+        let rendered = format_settings_overlay(&view, 90);
+        assert!(rendered.contains("[ codex (locked) ]"));
+        assert!(rendered.contains("Theme selection is locked by VOICETERM_STYLE_PACK_JSON."));
     }
 }

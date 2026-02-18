@@ -82,6 +82,7 @@ pub struct SettingsView<'a> {
     pub macros_enabled: bool,
     pub sensitivity_db: f32,
     pub theme: Theme,
+    pub theme_locked: bool,
     pub hud_style: HudStyle,
     pub hud_border_style: HudBorderStyle,
     pub hud_right_panel: HudRightPanel,

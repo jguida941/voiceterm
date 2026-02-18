@@ -17,6 +17,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add style-pack `glyphs` override routing (`unicode`/`ascii`) across runtime icon and meter surfaces: HUD queue/latency/meter modules, minimal/full status waveform placeholders, minimal pulse-dots, and progress bar/block/bounce glyph rendering now resolve from the active theme glyph profile instead of hardcoded Unicode constants.
 - Extend glyph-profile routing into audio meter formatting (`audio_meter/format.rs`) so calibration/mic-meter bars, peak markers, threshold pointers, and waveform rendering also honor `glyphs` style-pack overrides.
 - Extend glyph-profile routing into overlay chrome for help/settings/theme-picker surfaces so footer separators/close markers, selected-row markers, and settings slider track/knob symbols all honor `glyphs` overrides; footer close hit-testing now follows the active unicode/ascii footer text.
+- Harden style-pack lock UX for theme switching: when `VOICETERM_STYLE_PACK_JSON` provides a valid `base_theme`, quick-cycle/settings/theme-picker selection paths now report an explicit lock status instead of pretending to apply a switch, Theme Picker options render as locked/dimmed, and Settings marks Theme as locked/read-only.
 - Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
 
 ### Documentation

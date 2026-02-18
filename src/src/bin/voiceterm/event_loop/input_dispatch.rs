@@ -519,6 +519,10 @@ fn handle_overlay_input_event(
             if bytes == [0x1b] {
                 close_overlay(state, deps, false);
                 reset_theme_picker_digits(state, timers);
+            } else if let Some(locked_theme) = style_pack_theme_lock() {
+                state.theme_picker_selected = theme_index_from_theme(locked_theme);
+                reset_theme_picker_digits(state, timers);
+                render_theme_picker_overlay_for_state(state, deps);
             } else if let Some(keys) = parse_arrow_keys_only(&bytes) {
                 let mut moved = false;
                 let total = THEME_OPTIONS.len();
@@ -626,7 +630,7 @@ fn handle_overlay_mouse_click(
         OverlayMode::ThemePicker => (
             theme_picker_total_width_for_terminal(cols),
             theme_picker_inner_width_for_terminal(cols),
-            theme_picker_footer(&state.theme.colors()),
+            theme_picker_footer(&state.theme.colors(), style_pack_theme_lock()),
         ),
         OverlayMode::Settings => (
             settings_overlay_width_for_terminal(cols),
@@ -861,5 +865,10 @@ fn apply_theme_picker_selection(
     ) {
         state.theme_picker_selected = theme_index_from_theme(state.theme);
         refresh_button_registry_if_mouse(state, deps);
+    } else if state.overlay_mode == OverlayMode::ThemePicker {
+        if let Some(locked_theme) = style_pack_theme_lock() {
+            state.theme_picker_selected = theme_index_from_theme(locked_theme);
+        }
+        render_theme_picker_overlay_for_state(state, deps);
     }
 }

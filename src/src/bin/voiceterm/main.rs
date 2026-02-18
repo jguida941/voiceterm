@@ -80,6 +80,7 @@ use crate::status_line::{
     Pipeline, StatusLineState, VoiceMode, WakeWordHudState, METER_HISTORY_MAX,
 };
 use crate::terminal::{apply_pty_winsize, install_sigwinch_handler};
+use crate::theme::style_pack_theme_lock;
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::voice_macros::VoiceMacros;
@@ -185,7 +186,7 @@ fn main() -> Result<()> {
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let backend = config.resolve_backend();
     let backend_label = backend.label.clone();
-    let theme = config.theme_for_backend(&backend_label);
+    let theme = style_pack_theme_lock().unwrap_or_else(|| config.theme_for_backend(&backend_label));
     if config.app.doctor {
         let mut report = base_doctor_report(&config.app, "voiceterm");
         report.section("Overlay");
