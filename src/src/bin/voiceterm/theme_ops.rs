@@ -173,6 +173,18 @@ mod tests {
     static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
+    fn cycle_theme_moves_relative_to_current_option_order() {
+        assert_eq!(cycle_theme(Theme::Coral, 1), Theme::Catppuccin);
+        assert_eq!(cycle_theme(Theme::Coral, -1), Theme::Codex);
+    }
+
+    #[test]
+    fn cycle_theme_wraps_at_ends_of_theme_list() {
+        assert_eq!(cycle_theme(Theme::ChatGpt, -1), Theme::None);
+        assert_eq!(cycle_theme(Theme::None, 1), Theme::ChatGpt);
+    }
+
+    #[test]
     fn resolve_theme_choice_keeps_theme_on_256color() {
         let _guard = ENV_GUARD
             .get_or_init(|| Mutex::new(()))
