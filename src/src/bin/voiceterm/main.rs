@@ -158,7 +158,10 @@ fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
 
 fn join_thread_with_timeout(name: &str, handle: thread::JoinHandle<()>, timeout: Duration) {
     let deadline = Instant::now() + timeout;
-    while !handle.is_finished() && Instant::now() < deadline {
+    loop {
+        if handle.is_finished() || Instant::now() >= deadline {
+            break;
+        }
         thread::sleep(Duration::from_millis(THREAD_JOIN_POLL_MS));
     }
 
@@ -286,7 +289,9 @@ fn main() -> Result<()> {
     let no_startup_banner = env::var("VOICETERM_NO_STARTUP_BANNER").is_ok();
     let skip_banner = should_skip_banner(no_startup_banner);
 
-    if !skip_banner {
+    if skip_banner {
+        // No splash in skip mode.
+    } else {
         show_startup_splash(&banner_config, theme)?;
     }
 
@@ -511,9 +516,57 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
+        let _guard = lock.lock().expect("env lock poisoned");
+        f()
+    }
+
+    fn with_jetbrains_env<T>(overrides: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
+        with_env_lock(|| {
+            const KEYS: &[&str] = &[
+                "PYCHARM_HOSTED",
+                "JETBRAINS_IDE",
+                "IDEA_INITIAL_DIRECTORY",
+                "IDEA_INITIAL_PROJECT",
+                "CLION_IDE",
+                "WEBSTORM_IDE",
+                "TERM_PROGRAM",
+                "TERMINAL_EMULATOR",
+            ];
+            let prev: Vec<(String, Option<String>)> = KEYS
+                .iter()
+                .map(|key| ((*key).to_string(), env::var(key).ok()))
+                .collect();
+            for key in KEYS {
+                env::remove_var(key);
+            }
+            for (key, value) in overrides {
+                match value {
+                    Some(v) => env::set_var(key, v),
+                    None => env::remove_var(key),
+                }
+            }
+
+            let out = f();
+
+            for (key, value) in prev {
+                match value {
+                    Some(v) => env::set_var(key, v),
+                    None => env::remove_var(key),
+                }
+            }
+            out
+        })
+    }
 
     #[test]
     fn jetbrains_hint_detection_matches_known_values() {
+        assert!(contains_jetbrains_hint("JetBrains Gateway"));
         assert!(contains_jetbrains_hint("JetBrains-JediTerm"));
         assert!(contains_jetbrains_hint("PyCharm"));
         assert!(contains_jetbrains_hint("IntelliJ"));
@@ -533,5 +586,75 @@ mod tests {
             "higher explicit intervals should be preserved"
         );
         assert_eq!(apply_jetbrains_meter_floor(80, false), 80);
+    }
+
+    #[test]
+    fn is_jetbrains_terminal_detects_and_rejects_expected_env_values() {
+        with_jetbrains_env(&[], || {
+            assert!(!is_jetbrains_terminal());
+        });
+
+        with_jetbrains_env(&[("PYCHARM_HOSTED", Some("1"))], || {
+            assert!(is_jetbrains_terminal());
+        });
+
+        with_jetbrains_env(&[("TERM_PROGRAM", Some("JetBrains-JediTerm"))], || {
+            assert!(is_jetbrains_terminal());
+        });
+
+        with_jetbrains_env(&[("PYCHARM_HOSTED", Some(""))], || {
+            assert!(
+                !is_jetbrains_terminal(),
+                "empty hint values should not be treated as JetBrains terminals"
+            );
+        });
+    }
+
+    #[test]
+    fn resolved_meter_update_ms_respects_jetbrains_detection_and_registry_baseline() {
+        let empty_registry = HudRegistry::new();
+
+        with_jetbrains_env(&[], || {
+            assert_eq!(resolved_meter_update_ms(&empty_registry), METER_UPDATE_MS);
+        });
+
+        with_jetbrains_env(&[("JETBRAINS_IDE", Some("1"))], || {
+            assert_eq!(
+                resolved_meter_update_ms(&empty_registry),
+                JETBRAINS_METER_UPDATE_MS
+            );
+        });
+    }
+
+    #[test]
+    fn join_thread_with_timeout_waits_for_worker_to_finish_within_budget() {
+        let done = Arc::new(AtomicBool::new(false));
+        let done_ref = Arc::clone(&done);
+        let handle = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            done_ref.store(true, Ordering::SeqCst);
+        });
+
+        join_thread_with_timeout("test-worker", handle, Duration::from_millis(250));
+        assert!(done.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn join_thread_with_timeout_returns_quickly_when_thread_already_finished() {
+        let handle = std::thread::spawn(|| {});
+        std::thread::sleep(Duration::from_millis(10));
+
+        let start = Instant::now();
+        join_thread_with_timeout(
+            "already-finished-worker",
+            handle,
+            Duration::from_millis(300),
+        );
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "already-finished threads should not wait for full timeout"
+        );
     }
 }
