@@ -1,5 +1,6 @@
 //! Status-line animation frames so recording/processing states feel alive.
 
+use crate::theme::{processing_spinner_symbol, ThemeColors};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
@@ -7,8 +8,6 @@ const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
 #[allow(dead_code)]
 const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
-/// Processing spinner frames (braille dots for smooth animation).
-const PROCESSING_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 // Recording blink tuned to readable cadence:
 // - 0.8 Hz (1250 ms period) keeps attention without looking jittery.
 // - 70% ON / 30% OFF follows ISO 9241-303 guidance for readability during blinking.
@@ -28,9 +27,9 @@ fn get_animation_frame(frame_count: usize, cycle_ms: u64) -> usize {
 
 /// Get the processing spinner character.
 #[inline]
-pub(super) fn get_processing_spinner() -> &'static str {
-    let frame = get_animation_frame(PROCESSING_SPINNER_FRAMES.len(), 100);
-    PROCESSING_SPINNER_FRAMES[frame]
+pub(super) fn get_processing_spinner(colors: &ThemeColors) -> &'static str {
+    let frame = get_animation_frame(10, 100);
+    processing_spinner_symbol(colors, frame)
 }
 
 #[inline]
@@ -86,11 +85,23 @@ pub(super) fn transition_marker(progress: f32) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::Theme;
 
     #[test]
     fn processing_spinner_in_range() {
-        let indicator = get_processing_spinner();
-        assert!(PROCESSING_SPINNER_FRAMES.contains(&indicator));
+        let colors = Theme::Codex.colors();
+        let indicator = get_processing_spinner(&colors);
+        assert!(matches!(
+            indicator,
+            "⠋" | "⠙" | "⠹" | "⠸" | "⠼" | "⠴" | "⠦" | "⠧" | "⠇" | "⠏"
+        ));
+    }
+
+    #[test]
+    fn processing_spinner_respects_theme_override_symbol() {
+        let mut colors = Theme::Codex.colors();
+        colors.indicator_processing = "~";
+        assert_eq!(get_processing_spinner(&colors), "~");
     }
 
     #[test]

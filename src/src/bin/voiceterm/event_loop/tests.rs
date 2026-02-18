@@ -844,7 +844,7 @@ fn run_periodic_tasks_spinner_uses_modulo_for_frame_selection() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
     let start_index = 5;
-    let expected = progress::SPINNER_BRAILLE[start_index % progress::SPINNER_BRAILLE.len()];
+    let expected = crate::theme::processing_spinner_symbol(&state.theme.colors(), start_index);
     state.status_state.recording_state = RecordingState::Processing;
     state.processing_spinner_index = start_index;
     timers.last_processing_tick = now - Duration::from_secs(1);

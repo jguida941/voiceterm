@@ -20,6 +20,10 @@ pub use palettes::{
 
 use self::{detect::is_warp_terminal, style_pack::resolve_theme_colors};
 
+/// Default processing spinner frames used by Theme Studio-resolved surfaces.
+pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =
+    &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
 /// Available color themes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Theme {
@@ -146,6 +150,20 @@ pub fn filled_indicator(symbol: &'static str) -> &'static str {
     }
 }
 
+/// Resolve processing indicator glyph for a frame, honoring theme/style-pack overrides.
+///
+/// If the active theme keeps the default processing indicator (`◐`), use the
+/// animated braille spinner family. If a style-pack override changed the
+/// processing indicator glyph, preserve that exact glyph and disable animation.
+#[must_use]
+pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &'static str {
+    if colors.indicator_processing == "◐" {
+        let idx = frame % PROCESSING_SPINNER_BRAILLE.len();
+        return PROCESSING_SPINNER_BRAILLE[idx];
+    }
+    colors.indicator_processing
+}
+
 impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -266,6 +284,20 @@ mod tests {
         assert_eq!(filled_indicator("◇"), "◆");
         assert_eq!(filled_indicator("◎"), "◉");
         assert_eq!(filled_indicator("▶"), "▶");
+    }
+
+    #[test]
+    fn processing_spinner_symbol_uses_braille_for_default_processing_indicator() {
+        let colors = Theme::Codex.colors();
+        let indicator = processing_spinner_symbol(&colors, 3);
+        assert_eq!(indicator, PROCESSING_SPINNER_BRAILLE[3]);
+    }
+
+    #[test]
+    fn processing_spinner_symbol_preserves_theme_override_indicator() {
+        let mut colors = Theme::Codex.colors();
+        colors.indicator_processing = "~";
+        assert_eq!(processing_spinner_symbol(&colors, 5), "~");
     }
 
     #[test]

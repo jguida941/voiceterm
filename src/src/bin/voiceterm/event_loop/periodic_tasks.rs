@@ -136,8 +136,9 @@ pub(super) fn run_periodic_tasks(
         && now.duration_since(timers.last_processing_tick)
             >= Duration::from_millis(PROCESSING_SPINNER_TICK_MS)
     {
-        let spinner = progress::SPINNER_BRAILLE
-            [state.processing_spinner_index % progress::SPINNER_BRAILLE.len()];
+        let colors = state.theme.colors();
+        let spinner =
+            crate::theme::processing_spinner_symbol(&colors, state.processing_spinner_index);
         state.status_state.message = format!("Processing {spinner}");
         state.processing_spinner_index = state.processing_spinner_index.wrapping_add(1);
         timers.last_processing_tick = now;

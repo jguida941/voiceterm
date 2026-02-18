@@ -4,7 +4,7 @@
 
 #![allow(dead_code)]
 
-use crate::theme::{Theme, ThemeColors};
+use crate::theme::{processing_spinner_symbol, Theme, ThemeColors, PROCESSING_SPINNER_BRAILLE};
 
 /// Progress bar style.
 #[derive(Debug, Clone, Copy, Default)]
@@ -179,14 +179,14 @@ fn format_duration(secs: f32) -> String {
 }
 
 /// Indeterminate progress spinner frames.
-pub const SPINNER_BRAILLE: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+pub const SPINNER_BRAILLE: &[&str] = PROCESSING_SPINNER_BRAILLE;
 pub const SPINNER_DOTS: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 pub const SPINNER_LINE: &[&str] = &["-", "\\", "|", "/"];
 
 /// Format an indeterminate spinner.
 pub fn format_spinner(frame: usize, message: &str, theme: Theme) -> String {
     let colors = theme.colors();
-    let spinner = SPINNER_BRAILLE[frame % SPINNER_BRAILLE.len()];
+    let spinner = processing_spinner_symbol(&colors, frame);
 
     format!(
         "{}{}{} {}",

@@ -13,6 +13,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Consolidate transcript-preview text formatting into a shared `voice_control/transcript_preview.rs` helper so navigation and drain delivery paths cannot drift.
 - Extend Theme Upgrade Phase 1 runtime wiring: style resolver now loads/migrates schema payloads through `theme/style_schema.rs` before palette resolution, with deterministic fallback to built-in base-theme palettes for invalid/unsupported packs.
 - Extend Theme Studio style-pack runtime coverage beyond base palettes: schema payload overrides now support border glyph-set routing and indicator glyph-family routing (`ascii`, `dot`, `diamond`) through the resolver path, including compact/full/minimal/hidden processing/responding indicator lanes while preserving default processing spinner animation unless an override changes it.
+- Route non-HUD processing/progress spinner rendering through theme/style-pack indicator resolution (status animation, periodic processing status text, and `progress::format_spinner`) so these surfaces no longer depend on hardcoded frame tables outside Theme Studio ownership.
 - Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
 
 ### Documentation

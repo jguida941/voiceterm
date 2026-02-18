@@ -81,11 +81,7 @@ fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
 
 #[inline]
 fn processing_mode_indicator(colors: &ThemeColors) -> &str {
-    if colors.indicator_processing == "◐" {
-        get_processing_spinner()
-    } else {
-        colors.indicator_processing
-    }
+    get_processing_spinner(colors)
 }
 
 fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {

@@ -30,7 +30,6 @@ use crate::input::InputEvent;
 use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
 };
-use crate::progress;
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
     settings_overlay_height, settings_overlay_inner_width_for_terminal,

@@ -124,11 +124,7 @@ fn recording_indicator_color(colors: &ThemeColors) -> &str {
 
 #[inline]
 fn processing_mode_indicator(colors: &ThemeColors) -> &str {
-    if colors.indicator_processing == "◐" {
-        get_processing_spinner()
-    } else {
-        colors.indicator_processing
-    }
+    get_processing_spinner(colors)
 }
 
 #[inline]

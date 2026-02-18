@@ -281,7 +281,8 @@ Tips:
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
   plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
   Default processing spinner animation remains unless an override replaces the
-  processing indicator symbol.
+  processing indicator symbol; that same indicator choice is reused for
+  processing status text/spinner surfaces outside the HUD as well.
 - Settings migration note: existing `Theme`/HUD settings controls are unchanged;
   no user config migration is required for this runtime resolver foundation.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` to dismiss an overlay.
