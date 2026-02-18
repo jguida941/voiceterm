@@ -18,7 +18,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 
 - Fix README version badge source to use latest semver tag metadata (instead of release-only metadata) so the badge does not render `INVALID` when release API data is delayed/missing.
-- Standardize README badge styling to compact flat black/gray chips (including CI/mutation endpoint badges), with automated CI/mutation rendering so pass stays dark while failures render red.
+- Standardize README badge styling to compact flat black/gray chips (including CI/mutation endpoint badges), with automated CI/mutation rendering so pass stays dark while failures render red, and align primary badge order to `Rust`, `macOS`, `Linux`, `Whisper`.
 - Replace a release-note style controls dump in `README.md` with concise references to `guides/USAGE.md`, `dev/CHANGELOG.md`, and `dev/DEVELOPMENT.md` so the README stays focused on stable onboarding content.
 
 ## [1.0.83] - 2026-02-17
