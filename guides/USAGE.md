@@ -7,8 +7,11 @@ Primary support: Codex and Claude Code.
 
 Docs map:
 
-- User guides index: [README.md](README.md)
-- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
+- [Guides Index](README.md)
+- [Quick Start](../QUICK_START.md)
+- [Install](INSTALL.md)
+- [CLI Flags](CLI_FLAGS.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
 
 ![VoiceTerm](../img/logo.svg)
 
@@ -27,6 +30,15 @@ Docs map:
 - [Status Line Reference](#status-line-reference)
 - [Launch Recipes](#launch-recipes)
 - [See Also](#see-also)
+
+## Recommended Reading Paths
+
+| Goal | Read in this order |
+|---|---|
+| First run | [Start in 60 Seconds](#start-in-60-seconds) -> [Core Controls](#core-controls) -> [Settings Menu](#settings-menu) |
+| Daily use | [Voice Modes](#voice-modes) -> [Common Tasks](#common-tasks) -> [Status Line Reference](#status-line-reference) |
+| Custom workflows | [Customization](#customization) -> [Project Voice Macros](#project-voice-macros) -> [Launch Recipes](#launch-recipes) |
+| Debug behavior | [Status Line Reference](#status-line-reference) -> [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 
 ## Start in 60 Seconds
 
@@ -94,31 +106,45 @@ Flow:
 
 ## Core Controls
 
+### Capture and send
+
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
 | `Ctrl+E` | In `insert` mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, show `Nothing to send` |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
+| `Enter` | In `insert` mode: send staged prompt text |
+| `Ctrl+]` | Increase threshold (less sensitive mic) |
+| `Ctrl+\` | Decrease threshold (more sensitive mic) |
+| `Ctrl+/` | Alias for threshold down |
+
+### HUD and overlays
+
+| Key | Action |
+|-----|--------|
 | `Ctrl+G` | Quick cycle theme |
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+O` | Open settings |
 | `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
-| `Ctrl+]` | Increase threshold (less sensitive mic) |
-| `Ctrl+\` | Decrease threshold (more sensitive mic) |
-| `Ctrl+/` | Alias for threshold down |
 | `?` | Open shortcut help overlay |
-| `Enter` | In `insert` mode: send staged prompt text |
+
+### Session control
+
+| Key | Action |
+|-----|--------|
 | `Ctrl+C` | Forward interrupt to backend CLI |
 | `Ctrl+Q` | Quit VoiceTerm |
 
-When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still works
-with Left/Right + Enter.
-If help/settings/theme overlays are open, unmatched input closes the overlay and
-replays the key/action into normal input handling.
-Help overlay also includes clickable Docs/Troubleshooting links (OSC-8 capable
-terminals).
+Mouse and overlay behavior:
+
+- When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still
+  works with Left/Right + Enter.
+- If help/settings/theme overlays are open, unmatched input closes the overlay
+  and replays the key/action into normal input handling.
+- Help overlay includes clickable Docs/Troubleshooting links (OSC-8 capable
+  terminals).
 
 ## Settings Menu
 
@@ -219,16 +245,24 @@ once when ready to submit, or use `Ctrl+E` while recording to stop early and sub
 
 ## Common Tasks
 
+| Task | Fastest path |
+|---|---|
+| Adjust mic sensitivity | `Ctrl+]`, `Ctrl+\`, `Ctrl+/`, or `voiceterm --mic-meter` |
+| Select an input device | `voiceterm --list-input-devices` |
+| Run diagnostics | `voiceterm --doctor` |
+| Tune auto-voice timing | `--auto-voice-idle-ms`, `--transcript-idle-ms` |
+| Configure startup splash | `VOICETERM_STARTUP_SPLASH_MS`, `VOICETERM_NO_STARTUP_BANNER` |
+| Configure sounds | `--sounds`, `--sound-on-complete`, `--sound-on-error` |
+| Validate an RC build | [Release checks in `dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md) |
+
 ### Adjust microphone sensitivity
 
 - `Ctrl+]`: less sensitive (higher threshold)
 - `Ctrl+\` or `Ctrl+/`: more sensitive (lower threshold)
-
-Range:
-
-- Hotkeys: `-80 dB` to `-10 dB`
-- CLI flag: `-120 dB` to `0 dB`
-- Default: `-55 dB`
+- Range:
+  - Hotkeys: `-80 dB` to `-10 dB`
+  - CLI flag: `-120 dB` to `0 dB`
+  - Default: `-55 dB`
 
 Calibration helper:
 
@@ -248,15 +282,6 @@ voiceterm --input-device "MacBook Pro Microphone"
 ```bash
 voiceterm --doctor
 ```
-
-### Validate release-candidate behavior
-
-For pre-release builds, run the release verification commands in
-`dev/DEVELOPMENT.md` and prioritize:
-
-- backend worker lifecycle checks (normal exit, abrupt kill, multi-session isolation)
-- process churn + CPU leak checks
-- high-load settings responsiveness and meter sanity
 
 ### Tune auto-voice timing
 
@@ -280,6 +305,19 @@ voiceterm --sounds
 voiceterm --sound-on-complete
 voiceterm --sound-on-error
 ```
+
+<details>
+<summary><strong>Release-candidate validation (maintainers)</strong></summary>
+
+For pre-release builds, run the release verification commands in
+[`dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md) and prioritize:
+
+- backend worker lifecycle checks (normal exit, abrupt kill, multi-session
+  isolation)
+- process churn + CPU leak checks
+- high-load settings responsiveness and meter sanity
+
+</details>
 
 ## Customization
 
@@ -486,25 +524,14 @@ Pipeline selection is available in Settings (`Ctrl+O`) under `Voice pipeline`.
 
 ## Launch Recipes
 
-```bash
-# Claude backend
-voiceterm --claude
-
-# Hands-free mode with immediate send
-voiceterm --auto-voice --voice-send-mode auto
-
-# Hands-free mode with manual review/send
-voiceterm --auto-voice --voice-send-mode insert
-
-# Specific microphone
-voiceterm --input-device "USB Microphone"
-
-# Higher threshold (less sensitive)
-voiceterm --voice-vad-threshold-db -35
-
-# Force transcription language
-voiceterm --lang en
-```
+| Goal | Command |
+|---|---|
+| Claude backend | `voiceterm --claude` |
+| Hands-free + immediate send | `voiceterm --auto-voice --voice-send-mode auto` |
+| Hands-free + manual review/send | `voiceterm --auto-voice --voice-send-mode insert` |
+| Specific microphone | `voiceterm --input-device "USB Microphone"` |
+| Less sensitive mic | `voiceterm --voice-vad-threshold-db -35` |
+| Force transcription language | `voiceterm --lang en` |
 
 ## See Also
 
