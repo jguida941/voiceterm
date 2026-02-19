@@ -281,6 +281,27 @@ mod tests {
         assert_eq!(transcript, "I'm ready");
     }
 
+    #[test]
+    fn boundary_spacing_respects_whitespace_and_punctuation_rules() {
+        assert!(!should_insert_boundary_space('a', ' '));
+        assert!(!should_insert_boundary_space(' ', 'a'));
+        assert!(!should_insert_boundary_space('a', '!'));
+        assert!(!should_insert_boundary_space('a', '?'));
+        assert!(!should_insert_boundary_space('/', 'a'));
+        assert!(!should_insert_boundary_space('-', 'a'));
+        assert!(!should_insert_boundary_space('(', 'a'));
+        assert!(should_insert_boundary_space('a', 'b'));
+    }
+
+    #[test]
+    fn append_whisper_segment_trims_and_skips_empty_segments() {
+        let mut transcript = String::from("hello");
+        append_whisper_segment(&mut transcript, "   ");
+        append_whisper_segment(&mut transcript, "  world  ");
+        append_whisper_segment(&mut transcript, ".");
+        assert_eq!(transcript, "hello world.");
+    }
+
     #[cfg(unix)]
     fn stderr_test_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();

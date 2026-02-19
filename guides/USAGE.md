@@ -150,6 +150,8 @@ Three controls define runtime behavior:
 ### Practical notes
 
 - In `insert` mode, Enter is submit-only for staged text.
+- If HUD button focus is on `ToggleAutoVoice`, pressing `Enter` still submits PTY
+  input and clears button focus (it does not toggle auto mode).
 - `Ctrl+R` stops recording without sending.
 - `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it is a no-op.
 - Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.

@@ -23,6 +23,8 @@ thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
     static EARLY_STOP_CALLS: Cell<usize> = const { Cell::new(0) };
+    static CANCEL_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
+    static WAKE_CAPTURE_LOG_CALLS: Cell<usize> = const { Cell::new(0) };
     static DRAIN_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -87,6 +89,36 @@ fn install_request_early_stop_hook(hook: RequestEarlyStopHook) -> EarlyStopHookG
     set_request_early_stop_hook(Some(hook));
     EARLY_STOP_CALLS.with(|calls| calls.set(0));
     EarlyStopHookGuard
+}
+
+struct CancelCaptureHookGuard;
+
+impl Drop for CancelCaptureHookGuard {
+    fn drop(&mut self) {
+        set_cancel_capture_hook(None);
+        CANCEL_CAPTURE_CALLS.with(|calls| calls.set(0));
+    }
+}
+
+fn install_cancel_capture_hook(hook: CancelCaptureHook) -> CancelCaptureHookGuard {
+    set_cancel_capture_hook(Some(hook));
+    CANCEL_CAPTURE_CALLS.with(|calls| calls.set(0));
+    CancelCaptureHookGuard
+}
+
+struct WakeCaptureLogHookGuard;
+
+impl Drop for WakeCaptureLogHookGuard {
+    fn drop(&mut self) {
+        set_wake_capture_log_hook(None);
+        WAKE_CAPTURE_LOG_CALLS.with(|calls| calls.set(0));
+    }
+}
+
+fn install_wake_capture_log_hook(hook: WakeCaptureLogHook) -> WakeCaptureLogHookGuard {
+    set_wake_capture_log_hook(Some(hook));
+    WAKE_CAPTURE_LOG_CALLS.with(|calls| calls.set(0));
+    WakeCaptureLogHookGuard
 }
 
 struct DrainHookGuard;
@@ -194,6 +226,20 @@ fn hook_start_capture_err(
 fn hook_request_early_stop_true(_: &mut crate::voice_control::VoiceManager) -> bool {
     EARLY_STOP_CALLS.with(|calls| calls.set(calls.get() + 1));
     true
+}
+
+fn hook_cancel_capture_true(_: &mut crate::voice_control::VoiceManager) -> bool {
+    CANCEL_CAPTURE_CALLS.with(|calls| calls.set(calls.get() + 1));
+    true
+}
+
+fn hook_cancel_capture_false(_: &mut crate::voice_control::VoiceManager) -> bool {
+    CANCEL_CAPTURE_CALLS.with(|calls| calls.set(calls.get() + 1));
+    false
+}
+
+fn hook_wake_capture_log_count() {
+    WAKE_CAPTURE_LOG_CALLS.with(|calls| calls.set(calls.get() + 1));
 }
 
 fn hook_drain_count(
@@ -383,6 +429,25 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
         u16::try_from(x).expect("footer close x fits in u16"),
         footer_y,
     )
+}
+
+fn theme_picker_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(theme_picker_height() as u16)
+        .saturating_add(1);
+    overlay_top_y
+        .saturating_add(THEME_PICKER_OPTION_START_ROW as u16)
+        .saturating_add(u16::try_from(option_index).expect("option index fits in u16"))
+        .saturating_sub(1)
+}
+
+fn centered_theme_picker_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = theme_picker_total_width_for_terminal(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
+    u16::try_from(x).expect("overlay x fits in u16")
 }
 
 fn hud_button_click_coords(
@@ -685,6 +750,82 @@ fn render_settings_overlay_for_state_sends_show_overlay_message() {
 }
 
 #[test]
+fn close_overlay_sets_none_and_sends_clear_overlay() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    while writer_rx.try_recv().is_ok() {}
+
+    close_overlay(&mut state, &mut deps, false);
+
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("clear overlay message")
+    {
+        WriterMessage::ClearOverlay => {}
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn open_help_overlay_sets_mode_and_renders_overlay() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    while writer_rx.try_recv().is_ok() {}
+
+    open_help_overlay(&mut state, &mut deps);
+
+    assert_eq!(state.overlay_mode, OverlayMode::Help);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("help overlay render")
+    {
+        WriterMessage::ShowOverlay { .. } => {}
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn open_settings_overlay_sets_mode_and_renders_overlay() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    while writer_rx.try_recv().is_ok() {}
+
+    open_settings_overlay(&mut state, &mut deps);
+
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("settings overlay render")
+    {
+        WriterMessage::ShowOverlay { .. } => {}
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn open_theme_picker_overlay_sets_mode_resets_picker_and_renders_overlay() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    state.theme_picker_digits = "12".to_string();
+    timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_secs(1));
+    while writer_rx.try_recv().is_ok() {}
+
+    open_theme_picker_overlay(&mut state, &mut timers, &mut deps);
+
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert!(state.theme_picker_digits.is_empty());
+    assert!(timers.theme_picker_digit_deadline.is_none());
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("theme picker overlay render")
+    {
+        WriterMessage::ShowOverlay { .. } => {}
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
 fn reset_theme_picker_selection_resets_index_and_digits() {
     let (mut state, mut timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.theme = Theme::Codex;
@@ -823,6 +964,39 @@ fn wake_word_detection_starts_capture_via_shared_trigger_path() {
 }
 
 #[test]
+fn wake_word_detection_logs_wake_capture_marker() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let _wake_log = install_wake_capture_log_hook(hook_wake_capture_log_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    WAKE_CAPTURE_LOG_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn manual_voice_trigger_does_not_log_wake_capture_marker() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let _wake_log = install_wake_capture_log_hook(hook_wake_capture_log_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+
+    assert!(running);
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    WAKE_CAPTURE_LOG_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
 fn wake_word_detection_is_ignored_while_recording() {
     let _capture = install_start_capture_hook(hook_start_capture_count);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
@@ -832,6 +1006,72 @@ fn wake_word_detection_is_ignored_while_recording() {
     input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn manual_voice_trigger_while_recording_uses_cancel_capture_path() {
+    let _cancel = install_cancel_capture_hook(hook_cancel_capture_true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.recording_state = RecordingState::Recording;
+    state.current_status = None;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    assert_eq!(state.current_status.as_deref(), Some("Capture stopped"));
+    CANCEL_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn manual_voice_trigger_cancel_failure_keeps_recording() {
+    let _cancel = install_cancel_capture_hook(hook_cancel_capture_false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.recording_state = RecordingState::Recording;
+    state.current_status = None;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Recording,
+        "failed cancel should keep recording state"
+    );
+    assert!(state.current_status.is_none());
+    CANCEL_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn wake_word_detection_while_recording_does_not_use_cancel_capture_path() {
+    let _cancel = install_cancel_capture_hook(hook_cancel_capture_true);
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.status_state.recording_state = RecordingState::Recording;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Recording
+    );
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    CANCEL_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
@@ -1027,6 +1267,26 @@ fn run_periodic_tasks_sets_floor_db_after_sustained_floor_level_when_unset() {
 }
 
 #[test]
+fn run_periodic_tasks_non_floor_level_clears_floor_tracking_state() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+    let non_floor_level = METER_DB_FLOOR + METER_FLOOR_EPSILON_DB + 1.0;
+    state.status_state.recording_state = RecordingState::Recording;
+    state.meter_floor_started_at =
+        Some(now - Duration::from_millis(METER_NO_SIGNAL_PLACEHOLDER_MS + 1));
+    timers.last_meter_update = now - Duration::from_millis(500);
+    deps.live_meter.set_db(non_floor_level);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(state.status_state.meter_db, Some(non_floor_level));
+    assert!(
+        state.meter_floor_started_at.is_none(),
+        "non-floor levels should clear floor tracking"
+    );
+}
+
+#[test]
 fn run_periodic_tasks_does_not_advance_spinner_when_not_processing() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
@@ -1161,6 +1421,71 @@ fn run_periodic_tasks_wake_badge_pulse_waits_for_interval() {
 }
 
 #[test]
+fn run_periodic_tasks_wake_badge_pulse_ticks_at_exact_interval_boundary() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.overlay_mode = OverlayMode::None;
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.wake_word_state = WakeWordHudState::Listening;
+    timers.last_wake_hud_tick = now - Duration::from_millis(420);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(timers.last_wake_hud_tick, now);
+    assert!(
+        writer_rx.try_recv().is_ok(),
+        "expected wake badge redraw at exact pulse interval boundary"
+    );
+}
+
+#[test]
+fn run_periodic_tasks_wake_badge_skips_when_hud_not_full() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.overlay_mode = OverlayMode::None;
+    state.status_state.hud_style = HudStyle::Minimal;
+    state.status_state.wake_word_state = WakeWordHudState::Listening;
+    timers.last_wake_hud_tick = now - Duration::from_secs(1);
+    let prior_tick = timers.last_wake_hud_tick;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(timers.last_wake_hud_tick, prior_tick);
+    assert!(
+        writer_rx.try_recv().is_err(),
+        "no wake-badge redraw expected for non-full HUD styles"
+    );
+}
+
+#[test]
+fn run_periodic_tasks_wake_badge_skips_when_overlay_is_open() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.overlay_mode = OverlayMode::Settings;
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.wake_word_state = WakeWordHudState::Listening;
+    timers.last_wake_hud_tick = now - Duration::from_secs(1);
+    let prior_tick = timers.last_wake_hud_tick;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(timers.last_wake_hud_tick, prior_tick);
+    assert!(
+        writer_rx.try_recv().is_err(),
+        "no wake-badge redraw expected while an overlay is open"
+    );
+}
+
+#[test]
 fn run_periodic_tasks_clears_preview_and_status_at_deadline() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
@@ -1219,6 +1544,44 @@ fn run_periodic_tasks_keeps_fresh_latency_badge() {
         state.status_state.last_latency_updated_at,
         Some(now - Duration::from_secs(2))
     );
+}
+
+#[test]
+fn run_periodic_tasks_expires_stale_latency_badge_at_exact_boundary() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.status_state.recording_state = RecordingState::Idle;
+    state.status_state.last_latency_ms = Some(444);
+    state.status_state.last_latency_speech_ms = Some(1337);
+    state.status_state.last_latency_rtf_x1000 = Some(333);
+    state.status_state.last_latency_updated_at = Some(now - Duration::from_secs(8));
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert!(state.status_state.last_latency_ms.is_none());
+    assert!(state.status_state.last_latency_speech_ms.is_none());
+    assert!(state.status_state.last_latency_rtf_x1000.is_none());
+    assert!(state.status_state.last_latency_updated_at.is_none());
+}
+
+#[test]
+fn run_periodic_tasks_updates_wake_word_hud_state_when_config_changes() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    let now = Instant::now();
+    state.config.wake_word = true;
+    state.status_state.wake_word_state = WakeWordHudState::Off;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+
+    assert_eq!(
+        state.status_state.wake_word_state,
+        WakeWordHudState::Listening
+    );
+    assert_eq!(timers.last_wake_hud_tick, now);
 }
 
 #[test]
@@ -1415,6 +1778,32 @@ fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
 }
 
 #[test]
+fn toggle_hud_style_in_help_overlay_does_not_render_settings_overlay() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+    state.overlay_mode = OverlayMode::Help;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ToggleHudStyle,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Help);
+    let rendered_settings_overlay = writer_rx
+        .try_iter()
+        .any(|msg| matches!(msg, WriterMessage::ShowOverlay { height, .. } if height == settings_overlay_height()));
+    assert!(
+        !rendered_settings_overlay,
+        "help overlay toggle should not render settings overlay"
+    );
+}
+
+#[test]
 fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::ThemePicker;
@@ -1433,6 +1822,111 @@ fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     run_event_loop(&mut state, &mut timers, &mut deps);
     assert_eq!(state.overlay_mode, OverlayMode::None);
     assert_ne!(state.theme, Theme::Codex);
+}
+
+#[test]
+fn theme_picker_enter_with_invalid_selection_keeps_overlay_open_and_rerenders() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_picker_selected = THEME_OPTIONS.len() + 10;
+    let original_theme = state.theme;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme, original_theme);
+    assert!(state.theme_picker_digits.is_empty());
+    let rendered = writer_rx
+        .try_iter()
+        .any(|message| matches!(message, WriterMessage::ShowOverlay { .. }));
+    assert!(
+        rendered,
+        "invalid index should re-render theme picker overlay"
+    );
+}
+
+#[test]
+fn handle_output_chunk_empty_data_keeps_responding_state_and_suppress_flag() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.suppress_startup_escape_input = true;
+    state.status_state.recording_state = RecordingState::Responding;
+    let mut running = true;
+
+    handle_output_chunk(&mut state, &mut timers, &mut deps, Vec::new(), &mut running);
+
+    assert!(running);
+    assert!(state.suppress_startup_escape_input);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Responding
+    );
+}
+
+#[test]
+fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.suppress_startup_escape_input = true;
+    state.status_state.recording_state = RecordingState::Idle;
+    let mut running = true;
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"ok".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(!state.suppress_startup_escape_input);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    let messages: Vec<_> = writer_rx.try_iter().collect();
+    assert_eq!(
+        messages.len(),
+        1,
+        "idle non-empty output should not emit an extra status redraw"
+    );
+    match &messages[0] {
+        WriterMessage::PtyOutput(bytes) => assert_eq!(bytes, b"ok"),
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn handle_output_chunk_non_empty_responding_transitions_to_idle() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.status_state.recording_state = RecordingState::Responding;
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"done".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    let has_output = writer_rx
+        .try_iter()
+        .any(|message| matches!(message, WriterMessage::PtyOutput(_)));
+    assert!(has_output, "PTY output should always be forwarded");
 }
 
 #[test]
@@ -1655,6 +2149,445 @@ fn settings_overlay_mouse_click_footer_close_prefix_closes_overlay() {
 }
 
 #[test]
+fn settings_overlay_enter_backend_row_keeps_overlay_open() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Backend)
+        .expect("backend index");
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+}
+
+#[test]
+fn settings_overlay_enter_backend_row_does_not_redraw() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Backend)
+        .expect("backend index");
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    let rendered = writer_rx
+        .try_iter()
+        .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
+    assert!(
+        !rendered,
+        "read-only backend selection should not redraw settings overlay"
+    );
+}
+
+#[test]
+fn settings_overlay_enter_actionable_row_redraws_overlay() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::HudStyle)
+        .expect("hud style index");
+    state.status_state.hud_style = HudStyle::Full;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    let rendered = writer_rx
+        .try_iter()
+        .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
+    assert!(rendered, "actionable row should redraw settings overlay");
+}
+
+#[test]
+fn settings_overlay_enter_close_row_closes_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Close)
+        .expect("close index");
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+}
+
+#[test]
+fn settings_overlay_enter_quit_row_stops_event_loop() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Quit)
+        .expect("quit index");
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(!running);
+}
+
+#[test]
+fn settings_overlay_escape_bytes_close_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(vec![0x1b]),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+}
+
+#[test]
+fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
+    let (mut left_state, mut left_timers, mut left_deps, left_writer_rx, _left_input_tx) =
+        build_harness("cat", &[], 8);
+    left_state.overlay_mode = OverlayMode::Settings;
+    left_state.status_state.hud_style = HudStyle::Full;
+    left_state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::HudStyle)
+        .expect("hud style index");
+    while left_writer_rx.try_recv().is_ok() {}
+
+    let mut running = true;
+    handle_input_event(
+        &mut left_state,
+        &mut left_timers,
+        &mut left_deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let left_style = left_state.status_state.hud_style;
+    let left_redraw = left_writer_rx
+        .try_iter()
+        .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
+    assert!(left_redraw, "left-arrow setting changes should redraw");
+
+    let (mut right_state, mut right_timers, mut right_deps, right_writer_rx, _right_input_tx) =
+        build_harness("cat", &[], 8);
+    right_state.overlay_mode = OverlayMode::Settings;
+    right_state.status_state.hud_style = HudStyle::Full;
+    right_state.settings_menu.selected = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::HudStyle)
+        .expect("hud style index");
+    while right_writer_rx.try_recv().is_ok() {}
+
+    let mut running = true;
+    handle_input_event(
+        &mut right_state,
+        &mut right_timers,
+        &mut right_deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let right_style = right_state.status_state.hud_style;
+    let right_redraw = right_writer_rx
+        .try_iter()
+        .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
+    assert!(right_redraw, "right-arrow setting changes should redraw");
+    assert_ne!(left_style, right_style);
+}
+
+#[test]
+fn theme_picker_escape_bytes_close_and_clear_digits() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_picker_digits = "12".to_string();
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(vec![0x1b]),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert!(state.theme_picker_digits.is_empty());
+}
+
+#[test]
+fn theme_picker_arrow_left_and_right_move_selection_in_opposite_directions() {
+    let total = THEME_OPTIONS.len();
+    assert!(total >= 3, "theme picker should expose multiple options");
+
+    let (mut left_state, mut left_timers, mut left_deps, _left_writer_rx, _left_input_tx) =
+        build_harness("cat", &[], 8);
+    left_state.overlay_mode = OverlayMode::ThemePicker;
+    left_state.theme_picker_selected = 1;
+    let mut running = true;
+    handle_input_event(
+        &mut left_state,
+        &mut left_timers,
+        &mut left_deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let left_selected = left_state.theme_picker_selected;
+
+    let (mut right_state, mut right_timers, mut right_deps, _right_writer_rx, _right_input_tx) =
+        build_harness("cat", &[], 8);
+    right_state.overlay_mode = OverlayMode::ThemePicker;
+    right_state.theme_picker_selected = 1;
+    let mut running = true;
+    handle_input_event(
+        &mut right_state,
+        &mut right_timers,
+        &mut right_deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let right_selected = right_state.theme_picker_selected;
+
+    assert_ne!(left_selected, right_selected);
+    assert_eq!(left_selected, 0);
+    assert_eq!(right_selected, 2);
+}
+
+#[test]
+fn theme_picker_numeric_input_keeps_three_digits_and_clears_after_fourth() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemePicker;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"123".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.theme_picker_digits, "123");
+
+    let before = Instant::now();
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"4".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    assert!(state.theme_picker_digits.is_empty());
+    let deadline = timers
+        .theme_picker_digit_deadline
+        .expect("digit deadline should still be refreshed");
+    assert!(
+        deadline >= before,
+        "digit timeout should not be scheduled in the past"
+    );
+}
+
+#[test]
+fn theme_picker_single_digit_waits_when_longer_match_exists() {
+    if THEME_OPTIONS.len() < 10 {
+        return;
+    }
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_picker_selected = 5;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"1".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_picker_selected, 5);
+    assert_eq!(state.theme_picker_digits, "1");
+}
+
+#[test]
+fn overlay_mouse_click_outside_vertical_bounds_is_ignored() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = 0;
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(settings_overlay_height() as u16)
+        .saturating_add(1);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: 3,
+            y: overlay_top_y.saturating_sub(1),
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.settings_menu.selected, 0);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+}
+
+#[test]
+fn overlay_mouse_click_outside_horizontal_bounds_is_ignored() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = 0;
+    let row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    let click_x = state.terminal_cols;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x: click_x, y: row },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.settings_menu.selected, 0);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+}
+
+#[test]
+fn theme_picker_mouse_click_on_border_columns_does_not_select_option() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_picker_selected = 2;
+    let row = theme_picker_overlay_row_y(&state, 0);
+    let left_border_x = centered_theme_picker_rel_x_to_screen_x(&state, 1);
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = theme_picker_total_width_for_terminal(cols);
+    let right_border_x = centered_theme_picker_rel_x_to_screen_x(&state, overlay_width);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: left_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.theme_picker_selected, 2);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: right_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.theme_picker_selected, 2);
+}
+
+#[test]
+fn settings_mouse_click_on_border_columns_does_not_select_option() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = 0;
+    let row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    let left_border_x = centered_settings_overlay_rel_x_to_screen_x(&state, 1);
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let right_border_x = centered_settings_overlay_rel_x_to_screen_x(&state, overlay_width);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: left_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.settings_menu.selected, 0);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: right_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.settings_menu.selected, 0);
+}
+
+#[test]
 fn run_event_loop_does_not_run_periodic_before_first_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::None;
@@ -1682,6 +2615,269 @@ fn handle_input_event_bytes_marks_insert_mode_pending_send() {
 
     assert!(running);
     assert!(state.status_state.insert_pending_send);
+}
+
+#[test]
+fn collapse_hidden_launcher_is_noop_outside_hidden_hud_style() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.hidden_launcher_collapsed = false;
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::CollapseHiddenLauncher,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.hud_style, HudStyle::Full);
+    assert!(!state.status_state.hidden_launcher_collapsed);
+    assert!(
+        writer_rx.try_recv().is_err(),
+        "non-hidden collapse should not emit a redraw"
+    );
+}
+
+#[test]
+fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
+    {
+        let _hook = install_try_send_hook(hook_count_writes);
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.suppress_startup_escape_input = true;
+        let mut running = true;
+        handle_input_event(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            InputEvent::Bytes(b"\x1b[A".to_vec()),
+            &mut running,
+        );
+        assert!(running);
+        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    }
+
+    {
+        let _hook = install_try_send_hook(hook_count_writes);
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.suppress_startup_escape_input = false;
+        let mut running = true;
+        handle_input_event(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            InputEvent::Bytes(b"\x1b[A".to_vec()),
+            &mut running,
+        );
+        assert!(running);
+        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    }
+}
+
+#[test]
+fn arrow_left_and_right_focus_different_buttons_from_none() {
+    let (mut left_state, mut left_timers, mut left_deps, _left_writer_rx, _left_input_tx) =
+        build_harness("cat", &[], 8);
+    left_state.status_state.hud_button_focus = None;
+    let mut running = true;
+    handle_input_event(
+        &mut left_state,
+        &mut left_timers,
+        &mut left_deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let left_focus = left_state.status_state.hud_button_focus;
+    assert!(left_focus.is_some(), "left arrow should set focus");
+
+    let (mut right_state, mut right_timers, mut right_deps, _right_writer_rx, _right_input_tx) =
+        build_harness("cat", &[], 8);
+    right_state.status_state.hud_button_focus = None;
+    let mut running = true;
+    handle_input_event(
+        &mut right_state,
+        &mut right_timers,
+        &mut right_deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    let right_focus = right_state.status_state.hud_button_focus;
+    assert!(right_focus.is_some(), "right arrow should set focus");
+    assert_ne!(left_focus, right_focus);
+}
+
+#[test]
+fn up_arrow_does_not_move_focus_and_is_forwarded_to_pty() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn insert_mode_empty_bytes_do_not_mark_pending_send() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = false;
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(Vec::new()),
+        &mut running,
+    );
+    assert!(running);
+    assert!(!state.status_state.insert_pending_send);
+}
+
+#[test]
+fn send_staged_text_processing_insert_mode_consumes_without_status_or_write() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.recording_state = RecordingState::Processing;
+    state.status_state.insert_pending_send = false;
+    state.current_status = None;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::SendStagedText,
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.current_status.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn send_staged_text_outside_insert_mode_stops_on_pty_error() {
+    let _hook = install_try_send_hook(hook_broken_pipe);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Auto;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Auto;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::SendStagedText,
+        &mut running,
+    );
+    assert!(!running);
+}
+
+#[test]
+fn decrease_sensitivity_event_moves_threshold_down() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.sensitivity_db = -50.0;
+    state.config.app.voice_vad_threshold_db = -50.0;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DecreaseSensitivity,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.sensitivity_db, -60.0);
+}
+
+#[test]
+fn enter_key_non_theme_focus_keeps_theme_picker_digits() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
+    state.theme_picker_digits = "12".to_string();
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.theme_picker_digits, "12");
+}
+
+#[test]
+fn enter_key_with_auto_focus_submits_terminal_input_without_toggling_auto_mode() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.auto_voice_enabled = false;
+    state.status_state.auto_voice_enabled = false;
+    state.status_state.voice_mode = VoiceMode::Manual;
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleAutoVoice);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(!state.auto_voice_enabled);
+    assert!(!state.status_state.auto_voice_enabled);
+    assert_eq!(state.status_state.voice_mode, VoiceMode::Manual);
+    assert!(state.status_state.hud_button_focus.is_none());
+    assert!(timers.last_enter_at.is_some());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn mouse_click_non_theme_button_keeps_theme_picker_digits() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    update_button_registry(
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
+    );
+    let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::ToggleSendMode);
+    state.theme_picker_digits = "12".to_string();
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.theme_picker_digits, "12");
 }
 
 #[test]

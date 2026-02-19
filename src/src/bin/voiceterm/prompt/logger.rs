@@ -229,4 +229,35 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         assert!(contents.contains("hello"));
     }
+
+    #[test]
+    fn prompt_log_max_bytes_constant_is_5mb() {
+        assert_eq!(PROMPT_LOG_MAX_BYTES, 5_u64 * 1024 * 1024);
+    }
+
+    #[test]
+    fn rotate_if_needed_keeps_file_when_next_line_fits_limit() {
+        let path = temp_log_path("prompt_rotate_fit");
+        let mut writer = PromptLogWriter::new(path.clone()).expect("writer");
+        writer.bytes_written = PROMPT_LOG_MAX_BYTES - 2;
+
+        writer.rotate_if_needed(2);
+
+        assert_eq!(writer.bytes_written, PROMPT_LOG_MAX_BYTES - 2);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn rotate_if_needed_truncates_when_next_line_exceeds_limit() {
+        let path = temp_log_path("prompt_rotate_truncate");
+        let mut writer = PromptLogWriter::new(path.clone()).expect("writer");
+        writer.bytes_written = PROMPT_LOG_MAX_BYTES - 1;
+
+        writer.rotate_if_needed(2);
+
+        assert_eq!(writer.bytes_written, 0);
+        let len = std::fs::metadata(&path).expect("metadata").len();
+        assert_eq!(len, 0);
+        let _ = std::fs::remove_file(&path);
+    }
 }

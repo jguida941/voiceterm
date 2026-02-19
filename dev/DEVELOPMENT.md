@@ -149,6 +149,9 @@ python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.j
 cd src && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
 python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
 
+# Historical CI shard artifacts are useful for hotspot triage only.
+# Final release gating must use a fresh full-shard aggregate for the current SHA.
+
 # Mutation tests (offline/sandboxed; use a writable cache)
 rsync -a ~/.cargo/ /tmp/cargo-home/
 cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json

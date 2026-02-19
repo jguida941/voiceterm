@@ -27,7 +27,6 @@ use super::text::{display_width, truncate_display};
 const MAIN_ROW_DURATION_PLACEHOLDER: &str = "--.-s";
 const MAIN_ROW_DURATION_TEXT_WIDTH: usize = MAIN_ROW_DURATION_PLACEHOLDER.len();
 const MAIN_ROW_DURATION_TEXT_WIDTH_AUTO: usize = MAIN_ROW_DURATION_TEXT_WIDTH + 1;
-const MAIN_ROW_WAVEFORM_MIN_WIDTH: usize = 3;
 const MAIN_ROW_RIGHT_GUTTER: usize = 1;
 const MAIN_ROW_METER_TEXT_WIDTH: usize = 5;
 const RIGHT_PANEL_MAX_WAVEFORM_WIDTH: usize = 20;
@@ -511,11 +510,7 @@ fn format_right_panel(
         HudRightPanel::Ribbon => {
             let reserved = 2; // brackets
             let available = panel_width.saturating_sub(reserved);
-            let wave_width = if available < MAIN_ROW_WAVEFORM_MIN_WIDTH {
-                available
-            } else {
-                available.min(RIGHT_PANEL_MAX_WAVEFORM_WIDTH)
-            };
+            let wave_width = available.min(RIGHT_PANEL_MAX_WAVEFORM_WIDTH);
             let waveform = if show_live {
                 format_waveform(&state.meter_levels, wave_width, theme)
             } else {
@@ -581,17 +576,29 @@ fn meter_level_color(level_db: f32, colors: &ThemeColors) -> &str {
     }
 }
 
-fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let recording_active = state.recording_state == RecordingState::Recording;
-    let animate = !state.hud_right_panel_recording_only || recording_active;
-    let (glyph, is_peak) = heartbeat_glyph(animate);
+#[inline]
+fn should_animate_heartbeat(recording_only: bool, recording_active: bool) -> bool {
+    !recording_only || recording_active
+}
 
-    let mut content = String::with_capacity(16);
-    let color = if animate && is_peak {
+#[inline]
+fn heartbeat_color(animate: bool, is_peak: bool, colors: &ThemeColors) -> &str {
+    if animate && is_peak {
         colors.info
     } else {
         colors.dim
-    };
+    }
+}
+
+fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> String {
+    let animate = should_animate_heartbeat(
+        state.hud_right_panel_recording_only,
+        state.recording_state == RecordingState::Recording,
+    );
+    let (glyph, is_peak) = heartbeat_glyph(animate);
+
+    let mut content = String::with_capacity(16);
+    let color = heartbeat_color(animate, is_peak, colors);
     content.push_str(color);
     content.push(glyph);
     content.push_str(colors.reset);
@@ -642,16 +649,6 @@ fn format_mode_indicator(state: &StatusLineState, colors: &ThemeColors) -> Strin
             content.push_str(&with_color(idle_indicator, idle_color, colors));
             content.push(' ');
             content.push_str(&with_color(&mode_label, idle_color, colors));
-        }
-    }
-
-    if state.recording_state == RecordingState::Idle && state.transition_progress > 0.0 {
-        let marker = transition_marker(state.transition_progress);
-        if !marker.is_empty() {
-            content.push(' ');
-            content.push_str(colors.info);
-            content.push_str(marker);
-            content.push_str(colors.reset);
         }
     }
 
@@ -706,13 +703,7 @@ pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -
         format_left_compact(state, &colors)
     };
 
-    let right = if width >= breakpoints::FULL {
-        format_shortcuts(&colors)
-    } else if width >= breakpoints::MEDIUM {
-        format_shortcuts_compact(&colors)
-    } else {
-        String::new()
-    };
+    let right = format_right_shortcuts(&colors, width);
 
     let center = format_message(state, &colors, theme, width);
 
@@ -753,6 +744,17 @@ pub fn format_status_line(state: &StatusLineState, theme: Theme, width: usize) -
         let available = width.saturating_sub(left_width + 1);
         let truncated_center = truncate_display(&center, available);
         format!("{} {}", left, truncated_center)
+    }
+}
+
+#[inline]
+fn format_right_shortcuts(colors: &ThemeColors, width: usize) -> String {
+    if width >= breakpoints::FULL {
+        format_shortcuts(colors)
+    } else if width >= breakpoints::MEDIUM {
+        format_shortcuts_compact(colors)
+    } else {
+        String::new()
     }
 }
 

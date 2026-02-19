@@ -47,7 +47,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/release.sh` | Legacy adapter | Routes to `devctl release`. |
 | `dev/scripts/publish-pypi.sh` | Legacy adapter | Routes to `devctl pypi`; internal mode used by devctl. |
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
-| `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper. |
+| `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output. |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
@@ -59,6 +59,10 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes
+
+Historical shard artifacts from previous CI runs are useful for hotspot triage,
+but release gating should always use a full aggregated score generated from the
+current commit's shard outcomes.
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
 - `hygiene`: archive/ADR/scripts governance checks
 - `release`: tag + notes flow (legacy release behavior)

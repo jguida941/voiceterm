@@ -481,6 +481,74 @@ mod tests {
     }
 
     #[test]
+    fn hud_module_default_priority_is_100() {
+        struct DefaultPriorityModule;
+
+        impl HudModule for DefaultPriorityModule {
+            fn id(&self) -> &'static str {
+                "default"
+            }
+
+            fn render(&self, _state: &HudState, _max_width: usize) -> String {
+                "DEFAULT".to_string()
+            }
+
+            fn min_width(&self) -> usize {
+                7
+            }
+        }
+
+        let module = DefaultPriorityModule;
+        assert_eq!(module.priority(), 100);
+    }
+
+    #[test]
+    fn render_all_prefers_default_priority_over_low_priority_module() {
+        struct DefaultPriorityModule;
+
+        impl HudModule for DefaultPriorityModule {
+            fn id(&self) -> &'static str {
+                "default"
+            }
+
+            fn render(&self, _state: &HudState, _max_width: usize) -> String {
+                "DEFAULT".to_string()
+            }
+
+            fn min_width(&self) -> usize {
+                7
+            }
+        }
+
+        struct LowPriorityModule;
+
+        impl HudModule for LowPriorityModule {
+            fn id(&self) -> &'static str {
+                "low"
+            }
+
+            fn render(&self, _state: &HudState, _max_width: usize) -> String {
+                "LOW".to_string()
+            }
+
+            fn min_width(&self) -> usize {
+                3
+            }
+
+            fn priority(&self) -> u8 {
+                10
+            }
+        }
+
+        let mut registry = HudRegistry::new();
+        registry.register(Box::new(LowPriorityModule));
+        registry.register(Box::new(DefaultPriorityModule));
+
+        let output = registry.render_all(&HudState::default(), 7, " ");
+        assert_eq!(output, "DEFAULT");
+    }
+
+    #[test]
     fn min_tick_interval_uses_smallest_non_none_value() {
         let mut registry = HudRegistry::new();
         registry.register(Box::new(TestModule {

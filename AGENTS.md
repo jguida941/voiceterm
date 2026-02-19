@@ -139,6 +139,7 @@ After each push, run this loop before ending the session:
 - Mutation-hardening work:
   - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80`
   - optional: `python3 dev/scripts/devctl.py mutants --module overlay`
+  - Historical shard artifacts (from prior CI runs) are valid for hotspot triage only; release gating must use a full aggregate computed from shard outcomes generated for the current commit SHA.
 - Docs/governance-only changes:
   - `python3 dev/scripts/devctl.py docs-check --user-facing`
   - `python3 dev/scripts/devctl.py hygiene`

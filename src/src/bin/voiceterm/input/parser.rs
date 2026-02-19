@@ -140,7 +140,7 @@ impl InputParser {
                 return true;
             }
 
-            if buffer.len() >= 2 && buffer[1] == b'[' {
+            if buffer.get(1) == Some(&b'[') {
                 // X10 mouse protocol: ESC [ M Cb Cx Cy (fixed 6-byte sequence).
                 // Keep buffering after the early 'M' byte until full length arrives.
                 if is_x10_mouse_prefix(buffer) {
@@ -206,10 +206,6 @@ impl InputParser {
                 return true;
             }
 
-            if buffer.len() > MAX_CSI_LEN {
-                self.pending.extend_from_slice(buffer);
-                self.esc_buffer = None;
-            }
             return true;
         }
 
@@ -252,8 +248,8 @@ fn is_csi_u_numeric(buffer: &[u8]) -> bool {
 /// Parse a CSI-u keyboard event (e.g., ESC [ 114 ; 5 u for Ctrl+R).
 #[inline]
 fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
-    // Minimum valid: ESC [ <digit> u = 4 bytes
-    if buffer.len() < 4
+    // Smallest supported mapped key is '?' => ESC [ 63 ; 5 u (7 bytes).
+    if buffer.len() < 7
         || buffer[0] != 0x1b
         || buffer[1] != b'['
         || buffer[buffer.len() - 1] != b'u'
@@ -322,7 +318,9 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         parser.consume_bytes(
-            &[0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f],
+            &[
+                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15,
+            ],
             &mut out,
         );
         parser.flush_pending(&mut out);
@@ -339,6 +337,7 @@ mod tests {
                 InputEvent::DecreaseSensitivity,
                 InputEvent::QuickThemeCycle,
                 InputEvent::SettingsToggle,
+                InputEvent::ToggleHudStyle,
             ]
         );
     }
@@ -448,6 +447,115 @@ mod tests {
         parser.consume_bytes(b"A", &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[1A".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_non_csi_escape_sequences() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(&[0x1b, b'X'], &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(vec![0x1b, b'X'])]);
+    }
+
+    #[test]
+    fn input_parser_csi_buffer_waits_until_overflow_boundary() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        let mut at_boundary = vec![0x1b, b'['];
+        at_boundary.extend(std::iter::repeat_n(b'1', 30));
+        parser.consume_bytes(&at_boundary, &mut out);
+        parser.flush_pending(&mut out);
+        assert!(
+            out.is_empty(),
+            "sequence at MAX_CSI_LEN should still be buffered"
+        );
+
+        parser.consume_bytes(b"2", &mut out);
+        parser.flush_pending(&mut out);
+        let mut expected = at_boundary;
+        expected.push(b'2');
+        assert_eq!(out, vec![InputEvent::Bytes(expected)]);
+    }
+
+    #[test]
+    fn input_parser_drops_sgr_prefixed_csi_overflow() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        let mut at_boundary = vec![0x1b, b'[', b'<'];
+        at_boundary.extend(std::iter::repeat_n(b'1', 29));
+        parser.consume_bytes(&at_boundary, &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+
+        parser.consume_bytes(b"1", &mut out);
+        parser.flush_pending(&mut out);
+        assert!(
+            out.is_empty(),
+            "overflowed SGR-prefixed CSI noise should be dropped"
+        );
+    }
+
+    #[test]
+    fn input_parser_drops_malformed_x10_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Cb=31 underflows when decoded (must be >=32), so this should be dropped.
+        parser.consume_bytes(&[0x1b, b'[', b'M', 31, 42, 37], &mut out);
+        parser.flush_pending(&mut out);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn is_csi_u_numeric_validates_prefix_suffix_and_minimum_length() {
+        assert!(!is_csi_u_numeric(b"\x1b["));
+        assert!(!is_csi_u_numeric(b"\x1b[1"));
+        assert!(is_csi_u_numeric(b"\x1b[1u"));
+        assert!(!is_csi_u_numeric(b"\x1bX1u"));
+        assert!(!is_csi_u_numeric(b"\x1b[1x"));
+        assert!(!is_csi_u_numeric(b"\x1b[1Au"));
+    }
+
+    #[test]
+    fn parse_csi_u_event_requires_ctrl_modifier_and_valid_header() {
+        assert_eq!(parse_csi_u_event(b"\x1b["), None);
+        assert_eq!(parse_csi_u_event(b"X[114;5u"), None);
+        assert_eq!(parse_csi_u_event(b"\x1bX114;5u"), None);
+        assert_eq!(parse_csi_u_event(b"\x1b[114;5x"), None);
+        assert_eq!(parse_csi_u_event(b"\x1b[114;1u"), None);
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[114;5u"),
+            Some(InputEvent::VoiceTrigger)
+        );
+    }
+
+    #[test]
+    fn parse_csi_u_event_maps_extended_shortcuts() {
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[118;5u"),
+            Some(InputEvent::ToggleAutoVoice)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[116;5u"),
+            Some(InputEvent::ToggleSendMode)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[121;5u"),
+            Some(InputEvent::ThemePicker)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[117;5u"),
+            Some(InputEvent::ToggleHudStyle)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[111;5u"),
+            Some(InputEvent::SettingsToggle)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[63;5u"),
+            Some(InputEvent::HelpToggle)
+        );
+        assert_eq!(parse_csi_u_event(b"\x1b[113;5u"), Some(InputEvent::Exit));
     }
 
     #[test]

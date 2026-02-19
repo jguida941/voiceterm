@@ -75,6 +75,12 @@ mod tests {
     }
 
     #[test]
+    fn queue_module_priority_is_stable() {
+        let module = QueueModule::new();
+        assert_eq!(module.priority(), 240);
+    }
+
+    #[test]
     fn queue_module_tick_interval() {
         let module = QueueModule::new();
         // Queue is event-driven, no tick

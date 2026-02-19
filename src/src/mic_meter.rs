@@ -144,12 +144,30 @@ pub fn run_mic_meter(config: &AppConfig) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::AppConfig;
+    use clap::Parser;
 
     #[test]
     fn rms_db_returns_zero_for_unity_signal() {
         let samples = vec![1.0_f32; 100];
         let rms = rms_db(&samples);
         assert!((rms - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn rms_db_empty_returns_floor() {
+        assert_eq!(rms_db(&[]), RECOMMENDED_FLOOR_DB);
+    }
+
+    #[test]
+    fn rms_db_matches_half_scale_signal() {
+        let samples = vec![0.5_f32; 32];
+        let rms = rms_db(&samples);
+        let expected = 20.0 * 0.5_f32.log10();
+        assert!(
+            (rms - expected).abs() < 0.01,
+            "rms={rms}, expected={expected}"
+        );
     }
 
     #[test]
@@ -165,5 +183,88 @@ mod tests {
         let (threshold, warning) = recommend_threshold(-40.0, -36.0);
         assert!(threshold > -40.0);
         assert!(warning.is_some());
+    }
+
+    #[test]
+    fn recommend_threshold_non_louder_path_warns_and_clamps() {
+        let (mid_range, mid_warning) = recommend_threshold(-30.0, -31.0);
+        assert!((mid_range - -29.0).abs() < 0.01);
+        assert!(mid_warning.is_some());
+
+        let (floor_clamped, floor_warning) = recommend_threshold(-120.0, -130.0);
+        assert_eq!(floor_clamped, RECOMMENDED_FLOOR_DB);
+        assert!(floor_warning.is_some());
+
+        let (ceiling_clamped, ceiling_warning) = recommend_threshold(5.0, 4.0);
+        assert_eq!(ceiling_clamped, RECOMMENDED_CEILING_DB);
+        assert!(ceiling_warning.is_some());
+    }
+
+    #[test]
+    fn recommend_threshold_guard_branches_and_warning_edges() {
+        let (hi_margin, hi_warning) = recommend_threshold(-50.0, -38.0);
+        assert!((hi_margin - -44.0).abs() < f32::EPSILON);
+        assert!(hi_warning.is_none());
+
+        let (mid_margin, mid_warning) = recommend_threshold(-50.0, -44.0);
+        assert!((mid_margin - -47.0).abs() < f32::EPSILON);
+        assert!(mid_warning.is_none());
+
+        let (low_margin, low_warning) = recommend_threshold(-50.0, -45.0);
+        assert!((low_margin - -48.5).abs() < 0.01);
+        assert!(low_warning.is_some());
+    }
+
+    #[test]
+    fn recommend_threshold_uses_midpoint_when_guard_crosses_speech_headroom() {
+        let (threshold, warning) = recommend_threshold(-20.0, -18.0);
+        assert!((threshold - -19.0).abs() < 0.01);
+        assert!(warning.is_some());
+    }
+
+    #[test]
+    fn recommend_threshold_keeps_guard_value_when_exactly_on_headroom_boundary() {
+        let (threshold, warning) = recommend_threshold(-20.0, -17.5);
+        assert!((threshold - -18.5).abs() < 0.01);
+        assert!(warning.is_some());
+    }
+
+    #[test]
+    fn recommend_threshold_clamps_hot_inputs_to_ceiling() {
+        let (threshold, warning) = recommend_threshold(-5.0, 10.0);
+        assert_eq!(threshold, RECOMMENDED_CEILING_DB);
+        assert!(warning.is_none());
+    }
+
+    #[test]
+    fn validate_sample_ms_accepts_inclusive_bounds() {
+        assert!(validate_sample_ms("ambient", MIN_MIC_METER_SAMPLE_MS).is_ok());
+        assert!(validate_sample_ms("speech", MAX_MIC_METER_SAMPLE_MS).is_ok());
+    }
+
+    #[test]
+    fn validate_sample_ms_rejects_out_of_range_values() {
+        let below = validate_sample_ms("ambient", MIN_MIC_METER_SAMPLE_MS.saturating_sub(1))
+            .expect_err("below minimum should fail");
+        assert!(below.to_string().contains("--mic-meter-ambient-ms"));
+
+        let above = validate_sample_ms("speech", MAX_MIC_METER_SAMPLE_MS + 1)
+            .expect_err("above maximum should fail");
+        assert!(above.to_string().contains("--mic-meter-speech-ms"));
+    }
+
+    #[test]
+    fn run_mic_meter_fails_early_when_durations_are_invalid() {
+        let mut config = AppConfig::parse_from(["voiceterm"]);
+        config.mic_meter_ambient_ms = MIN_MIC_METER_SAMPLE_MS.saturating_sub(1);
+        let ambient_err =
+            run_mic_meter(&config).expect_err("invalid ambient duration should fail before I/O");
+        assert!(ambient_err.to_string().contains("--mic-meter-ambient-ms"));
+
+        config.mic_meter_ambient_ms = MIN_MIC_METER_SAMPLE_MS;
+        config.mic_meter_speech_ms = MAX_MIC_METER_SAMPLE_MS + 1;
+        let speech_err =
+            run_mic_meter(&config).expect_err("invalid speech duration should fail before I/O");
+        assert!(speech_err.to_string().contains("--mic-meter-speech-ms"));
     }
 }

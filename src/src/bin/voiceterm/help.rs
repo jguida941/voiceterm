@@ -300,6 +300,12 @@ mod tests {
     }
 
     #[test]
+    fn format_help_overlay_line_count_matches_documented_height() {
+        let help = format_help_overlay(Theme::Coral, 60);
+        assert_eq!(help.lines().count(), help_overlay_height());
+    }
+
+    #[test]
     fn format_help_overlay_has_borders() {
         let help = format_help_overlay(Theme::Coral, 60);
         assert!(help.contains("┌"));
@@ -363,6 +369,22 @@ mod tests {
         let help = format_help_overlay(Theme::None, 60);
         assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/README.md\x1b\\[README]\x1b]8;;\x1b\\"));
         assert!(help.contains("\x1b]8;;https://github.com/jguida941/voiceterm/blob/master/guides/TROUBLESHOOTING.md\x1b\\[Guide]\x1b]8;;\x1b\\"));
+    }
+
+    #[test]
+    fn format_resource_link_line_uses_osc8_when_visible_width_exactly_fits() {
+        let colors = Theme::None.colors();
+        let line = format_resource_link_line(&colors, "D", "R", DOCS_URL, 9);
+        assert!(line.contains("\x1b]8;;"));
+        assert!(line.contains("[R]"));
+    }
+
+    #[test]
+    fn format_resource_link_line_omits_osc8_when_visible_width_overflows() {
+        let colors = Theme::None.colors();
+        let line = format_resource_link_line(&colors, "D", "R", DOCS_URL, 8);
+        assert!(!line.contains("\x1b]8;;"));
+        assert!(line.contains(" D: "));
     }
 
     #[test]

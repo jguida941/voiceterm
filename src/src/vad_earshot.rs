@@ -62,3 +62,103 @@ impl VadEngine for EarshotVad {
         "earshot_vad"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audio::{VadDecision, VadEngine};
+    use crate::config::{VadEngineKind, VoicePipelineConfig};
+
+    fn base_cfg() -> VoicePipelineConfig {
+        VoicePipelineConfig {
+            sample_rate: 16_000,
+            max_capture_ms: 10_000,
+            silence_tail_ms: 500,
+            min_speech_ms_before_stt_start: 200,
+            lookback_ms: 500,
+            buffer_ms: 10_000,
+            channel_capacity: 64,
+            stt_timeout_ms: 2_500,
+            vad_threshold_db: -40.0,
+            vad_frame_ms: 20,
+            vad_smoothing_frames: 3,
+            python_fallback_allowed: true,
+            vad_engine: VadEngineKind::Earshot,
+        }
+    }
+
+    #[test]
+    fn from_config_clamps_frame_window_and_applies_minimum_sample_floor() {
+        let mut cfg = base_cfg();
+        cfg.sample_rate = 8_000;
+        cfg.vad_frame_ms = 10;
+        let vad = EarshotVad::from_config(&cfg);
+        assert_eq!(vad.frame_samples, 160);
+
+        cfg.sample_rate = 48_000;
+        cfg.vad_frame_ms = 40;
+        let vad = EarshotVad::from_config(&cfg);
+        assert_eq!(vad.frame_samples, 1_440);
+    }
+
+    #[test]
+    fn process_frame_empty_input_is_uncertain() {
+        let cfg = base_cfg();
+        let mut vad = EarshotVad::from_config(&cfg);
+        assert_eq!(vad.process_frame(&[]), VadDecision::Uncertain);
+        assert!(vad.scratch.is_empty());
+    }
+
+    #[test]
+    fn process_frame_clamps_samples_and_zero_pads_short_frames() {
+        let cfg = base_cfg();
+        let mut vad = EarshotVad::from_config(&cfg);
+        let decision = vad.process_frame(&[-2.0, -1.0, 0.0, 1.0, 2.0]);
+        assert!(matches!(
+            decision,
+            VadDecision::Speech | VadDecision::Silence | VadDecision::Uncertain
+        ));
+        assert_eq!(vad.scratch.len(), vad.frame_samples);
+        assert_eq!(vad.scratch[0], -32_768);
+        assert_eq!(vad.scratch[1], -32_768);
+        assert_eq!(vad.scratch[2], 0);
+        assert_eq!(vad.scratch[3], 32_767);
+        assert_eq!(vad.scratch[4], 32_767);
+        assert!(vad.scratch[5..].iter().all(|&s| s == 0));
+    }
+
+    #[test]
+    fn process_frame_truncates_long_frames_to_configured_window() {
+        let cfg = base_cfg();
+        let mut vad = EarshotVad::from_config(&cfg);
+        let long_frame = vec![0.5_f32; vad.frame_samples + 23];
+        let _ = vad.process_frame(&long_frame);
+        assert_eq!(vad.scratch.len(), vad.frame_samples);
+        assert!(vad.scratch.iter().all(|&s| s == 16_384));
+    }
+
+    #[test]
+    fn reset_restores_detector_state_to_match_fresh_instance() {
+        let cfg = base_cfg();
+        let mut warmed = EarshotVad::from_config(&cfg);
+        let mut fresh = EarshotVad::from_config(&cfg);
+
+        let loud = vec![1.0_f32; warmed.frame_samples];
+        let silent = vec![0.0_f32; warmed.frame_samples];
+        for _ in 0..5 {
+            let _ = warmed.process_frame(&loud);
+        }
+        warmed.reset();
+
+        let after_reset = warmed.process_frame(&silent);
+        let from_fresh = fresh.process_frame(&silent);
+        assert_eq!(after_reset, from_fresh);
+    }
+
+    #[test]
+    fn name_reports_stable_identifier() {
+        let cfg = base_cfg();
+        let vad = EarshotVad::from_config(&cfg);
+        assert_eq!(vad.name(), "earshot_vad");
+    }
+}

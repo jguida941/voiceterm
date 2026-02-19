@@ -138,6 +138,37 @@ fn minimal_right_panel_respects_recording_only() {
 }
 
 #[test]
+fn minimal_right_panel_dots_gates_animation_on_recording_only_flag() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_right_panel = HudRightPanel::Dots;
+    state.hud_right_panel_recording_only = true;
+    state.meter_db = Some(-6.0);
+
+    state.recording_state = RecordingState::Idle;
+    let idle_panel = minimal_right_panel(&state, &colors).expect("idle panel");
+    assert_eq!(idle_panel, minimal_pulse_dots(-60.0, &colors));
+
+    state.recording_state = RecordingState::Recording;
+    let recording_panel = minimal_right_panel(&state, &colors).expect("recording panel");
+    assert_eq!(recording_panel, minimal_pulse_dots(-6.0, &colors));
+    assert_ne!(idle_panel, recording_panel);
+}
+
+#[test]
+fn minimal_right_panel_dots_animate_when_not_recording_only() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_right_panel = HudRightPanel::Dots;
+    state.hud_right_panel_recording_only = false;
+    state.recording_state = RecordingState::Idle;
+    state.meter_db = Some(-9.0);
+
+    let panel = minimal_right_panel(&state, &colors).expect("panel");
+    assert_eq!(panel, minimal_pulse_dots(-9.0, &colors));
+}
+
+#[test]
 fn minimal_right_panel_ribbon_shows_waveform() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
@@ -149,6 +180,16 @@ fn minimal_right_panel_ribbon_shows_waveform() {
         .extend_from_slice(&[-55.0, -42.0, -30.0, -18.0]);
     let panel = minimal_right_panel(&state, &colors).expect("panel");
     assert!(panel.contains("▁") || panel.contains("▂") || panel.contains("▃"));
+}
+
+#[test]
+fn meter_level_color_uses_exclusive_boundaries() {
+    let colors = Theme::Coral.colors();
+
+    assert_eq!(meter_level_color(-31.0, &colors), colors.success);
+    assert_eq!(meter_level_color(-30.0, &colors), colors.warning);
+    assert_eq!(meter_level_color(-19.0, &colors), colors.warning);
+    assert_eq!(meter_level_color(-18.0, &colors), colors.error);
 }
 
 #[test]
@@ -454,6 +495,42 @@ fn shortcuts_row_trailing_panel_hugs_right_border() {
     let panel_end_col = display_width(&row[..=panel_end_idx]);
     let right_border_col = display_width(&row[..right_border_idx]);
     assert_eq!(panel_end_col, right_border_col);
+}
+
+#[test]
+fn shortcuts_row_trailing_panel_requires_separator_space() {
+    let colors = Theme::None.colors();
+    let state = StatusLineState::new();
+    let panel = "[abc]";
+    let panel_width = display_width(panel);
+
+    let baseline_inner_width = 200usize;
+    let row_width = baseline_inner_width.saturating_sub(1);
+    let (shortcuts_str, _) =
+        format_button_row_with_positions(&state, &colors, row_width, 2, true, false);
+    let shortcuts = truncate_display(&format!(" {}", shortcuts_str), baseline_inner_width);
+    let shortcuts_width = display_width(&shortcuts);
+
+    let exact_fit_width = shortcuts_width + 1 + panel_width;
+    let insufficient_width = shortcuts_width + panel_width;
+
+    let (fits, _) = format_shortcuts_row_with_positions(
+        &state,
+        &colors,
+        &colors.borders,
+        exact_fit_width,
+        Some(panel),
+    );
+    assert!(fits.contains(panel));
+
+    let (insufficient, _) = format_shortcuts_row_with_positions(
+        &state,
+        &colors,
+        &colors.borders,
+        insufficient_width,
+        Some(panel),
+    );
+    assert!(!insufficient.contains(panel));
 }
 
 #[test]
@@ -846,6 +923,26 @@ fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
     state.last_latency_rtf_x1000 = Some(900);
     let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(row_error.contains(&format!("{}180ms{}", colors.error, colors.reset)));
+}
+
+#[test]
+fn rtf_latency_severity_thresholds_are_exclusive() {
+    assert_eq!(
+        rtf_latency_severity(LATENCY_RTF_WARNING_X1000 - 1),
+        LatencySeverity::Success
+    );
+    assert_eq!(
+        rtf_latency_severity(LATENCY_RTF_WARNING_X1000),
+        LatencySeverity::Warning
+    );
+    assert_eq!(
+        rtf_latency_severity(LATENCY_RTF_ERROR_X1000 - 1),
+        LatencySeverity::Warning
+    );
+    assert_eq!(
+        rtf_latency_severity(LATENCY_RTF_ERROR_X1000),
+        LatencySeverity::Error
+    );
 }
 
 #[test]

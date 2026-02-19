@@ -15,6 +15,7 @@
 <p align="center">
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&labelColor=555555&logo=github&logoColor=white" alt="CI"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&labelColor=555555&logo=github&logoColor=white" alt="Mutation Score"></a>
+  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=555555&color=000000&logo=codecov&logoColor=white" alt="Coverage"></a>
 </p>
 
 Voice input for AI CLIs. Talk instead of type.

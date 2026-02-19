@@ -30,6 +30,11 @@ fn format_debug_bytes(bytes: &[u8]) -> String {
     out
 }
 
+#[inline]
+fn should_log_event_debug(debug_input: bool, events: &[InputEvent]) -> bool {
+    debug_input && !events.is_empty()
+}
+
 pub(crate) fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut stdin = io::stdin();
@@ -55,7 +60,7 @@ pub(crate) fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<(
             let mut events = Vec::new();
             parser.consume_bytes(&buf[..n], &mut events);
             parser.flush_pending(&mut events);
-            if debug_input && !events.is_empty() {
+            if should_log_event_debug(debug_input, &events) {
                 log_debug(&format!("input events: {events:?}"));
             }
             for event in events {
@@ -75,4 +80,47 @@ pub(crate) fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<(
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn input_debug_enabled_reflects_env_presence() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::remove_var(INPUT_DEBUG_ENV);
+        assert!(!input_debug_enabled());
+        std::env::set_var(INPUT_DEBUG_ENV, "1");
+        assert!(input_debug_enabled());
+        std::env::remove_var(INPUT_DEBUG_ENV);
+    }
+
+    #[test]
+    fn format_debug_bytes_formats_hex_pairs_with_spaces() {
+        assert_eq!(format_debug_bytes(&[0x1b, 0x41, 0x7f]), "1b 41 7f");
+        assert_eq!(format_debug_bytes(&[]), "");
+    }
+
+    #[test]
+    fn format_debug_bytes_truncates_and_appends_ellipsis_when_over_limit() {
+        let bytes = vec![0xab; INPUT_DEBUG_MAX_BYTES + 1];
+        let rendered = format_debug_bytes(&bytes);
+        assert!(rendered.ends_with(" ..."));
+        let body = rendered.trim_end_matches(" ...");
+        assert_eq!(body.split(' ').count(), INPUT_DEBUG_MAX_BYTES);
+    }
+
+    #[test]
+    fn should_log_event_debug_requires_debug_and_non_empty_events() {
+        assert!(!should_log_event_debug(false, &[InputEvent::Exit]));
+        assert!(!should_log_event_debug(true, &[]));
+        assert!(should_log_event_debug(true, &[InputEvent::Exit]));
+    }
 }

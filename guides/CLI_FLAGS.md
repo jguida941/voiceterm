@@ -71,6 +71,8 @@ Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
 staged insert-mode text immediately and with no staged text requests early-stop
 submit only while recording (otherwise consumed as a no-op), and `Enter` is
 submit-only for staged text.
+If HUD focus is currently on the Auto-voice button, `Enter` still submits PTY
+input and does not toggle auto mode.
 Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
 fragments) are dropped instead of being forwarded to the wrapped CLI input stream.
 

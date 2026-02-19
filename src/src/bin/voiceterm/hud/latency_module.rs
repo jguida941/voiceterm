@@ -34,8 +34,9 @@ impl LatencyModule {
         let mut out = String::with_capacity(width);
         let start = history.len().saturating_sub(width);
         let slice = &history[start..];
-        if slice.len() < width {
-            out.push_str(&bars[0].to_string().repeat(width - slice.len()));
+        let padding = width.saturating_sub(slice.len());
+        if padding != 0 {
+            out.push_str(&bars[0].to_string().repeat(padding));
         }
         for sample in slice {
             out.push(Self::latency_char(*sample, state));
@@ -120,6 +121,12 @@ mod tests {
     }
 
     #[test]
+    fn latency_module_priority_is_stable() {
+        let module = LatencyModule::new();
+        assert_eq!(module.priority(), 220);
+    }
+
+    #[test]
     fn latency_module_tick_interval() {
         let module = LatencyModule::new();
         // Latency is event-driven, no tick
@@ -188,6 +195,36 @@ mod tests {
     }
 
     #[test]
+    fn latency_module_render_at_min_width_shows_compact_value() {
+        let module = LatencyModule::new();
+        let state = HudState {
+            last_latency_ms: Some(2500),
+            latency_history_ms: vec![200, 350, 500, 2500],
+            ..Default::default()
+        };
+        let output = module.render(&state, 4);
+        assert!(!output.is_empty());
+        assert!(output.contains("s"));
+        assert!(display_width(&output) <= 4);
+    }
+
+    #[test]
+    fn latency_module_render_width_six_includes_trend_marker() {
+        let module = LatencyModule::new();
+        let state = HudState {
+            last_latency_ms: Some(2500),
+            latency_history_ms: vec![200, 350, 500, 2500],
+            ..Default::default()
+        };
+        let output = module.render(&state, 6);
+        let expected_trend = LatencyModule::latency_char(2500, &state);
+        assert!(!output.is_empty());
+        assert!(output.contains("s"));
+        assert_eq!(output.chars().last(), Some(expected_trend));
+        assert!(display_width(&output) <= 6);
+    }
+
+    #[test]
     fn latency_module_render_compact() {
         let module = LatencyModule::new();
         let state = HudState {
@@ -225,5 +262,42 @@ mod tests {
         let output = module.render(&state, 16);
         assert!(output.contains('T'));
         assert!(output.contains('.') || output.contains(':') || output.contains('-'));
+    }
+
+    #[test]
+    fn latency_char_threshold_buckets_map_to_expected_bars() {
+        let state = HudState::default();
+        let bars = waveform_bars(state.glyph_set);
+
+        assert_eq!(LatencyModule::latency_char(150, &state), bars[0]);
+        assert_eq!(LatencyModule::latency_char(151, &state), bars[1]);
+        assert_eq!(LatencyModule::latency_char(300, &state), bars[1]);
+        assert_eq!(LatencyModule::latency_char(301, &state), bars[3]);
+        assert_eq!(LatencyModule::latency_char(500, &state), bars[3]);
+        assert_eq!(LatencyModule::latency_char(501, &state), bars[5]);
+        assert_eq!(LatencyModule::latency_char(800, &state), bars[5]);
+        assert_eq!(LatencyModule::latency_char(801, &state), bars[7]);
+    }
+
+    #[test]
+    fn render_sparkline_returns_empty_for_empty_history_or_zero_width() {
+        let state = HudState::default();
+        assert!(LatencyModule::render_sparkline(&[], 4, &state).is_empty());
+        assert!(LatencyModule::render_sparkline(&[120, 220], 0, &state).is_empty());
+    }
+
+    #[test]
+    fn render_sparkline_left_pads_short_history_with_floor_bar() {
+        let state = HudState::default();
+        let bars = waveform_bars(state.glyph_set);
+        let rendered = LatencyModule::render_sparkline(&[220, 700], 4, &state);
+        let expected = format!(
+            "{}{}{}{}",
+            bars[0],
+            bars[0],
+            LatencyModule::latency_char(220, &state),
+            LatencyModule::latency_char(700, &state)
+        );
+        assert_eq!(rendered, expected);
     }
 }

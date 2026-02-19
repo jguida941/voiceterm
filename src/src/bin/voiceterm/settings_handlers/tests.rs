@@ -615,6 +615,11 @@ fn toggle_auto_voice_updates_state_and_status() {
     }
     assert!(saw_enabled, "expected Auto-voice enabled status");
 
+    status_state.transcript_preview = Some("stale".to_string());
+    preview_clear_deadline = Some(Instant::now() + Duration::from_secs(5));
+    let meter_before_disable = Instant::now() - Duration::from_secs(10);
+    last_meter_update = meter_before_disable;
+
     {
         let mut ctx = make_context(
             &mut config,
@@ -641,6 +646,8 @@ fn toggle_auto_voice_updates_state_and_status() {
     assert!(status_state.meter_db.is_none());
     assert!(status_state.meter_levels.is_empty());
     assert!(status_state.transcript_preview.is_none());
+    assert!(preview_clear_deadline.is_none());
+    assert!(last_meter_update > meter_before_disable);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("status message")
@@ -786,6 +793,7 @@ fn adjust_wake_word_sensitivity_clamps_and_reports() {
     {
         WriterMessage::EnhancedStatus(state) => {
             assert!(state.message.contains("100%"));
+            assert!(state.message.contains("more sensitive"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }
@@ -817,6 +825,7 @@ fn adjust_wake_word_sensitivity_clamps_and_reports() {
     {
         WriterMessage::EnhancedStatus(state) => {
             assert!(state.message.contains("0%"));
+            assert!(state.message.contains("less sensitive"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }

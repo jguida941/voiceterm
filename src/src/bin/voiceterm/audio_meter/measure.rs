@@ -36,3 +36,40 @@ pub(super) fn measure(recorder: &Recorder, duration: Duration) -> Result<AudioLe
         peak_db: peak_db(&samples),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rms_db_empty_returns_floor() {
+        assert_eq!(rms_db(&[]), RECOMMENDED_FLOOR_DB);
+    }
+
+    #[test]
+    fn rms_db_matches_known_amplitude() {
+        let samples = vec![0.5_f32; 64];
+        let rms = rms_db(&samples);
+        let expected = 20.0 * 0.5_f32.log10();
+        assert!(
+            (rms - expected).abs() < 0.01,
+            "rms={rms}, expected={expected}"
+        );
+    }
+
+    #[test]
+    fn peak_db_empty_returns_floor() {
+        assert_eq!(peak_db(&[]), RECOMMENDED_FLOOR_DB);
+    }
+
+    #[test]
+    fn peak_db_tracks_absolute_max_amplitude() {
+        let samples = vec![-0.25_f32, 0.75_f32, -0.5_f32];
+        let peak = peak_db(&samples);
+        let expected = 20.0 * 0.75_f32.log10();
+        assert!(
+            (peak - expected).abs() < 0.01,
+            "peak={peak}, expected={expected}"
+        );
+    }
+}

@@ -293,4 +293,36 @@ mod tests {
         let short = OverlayConfig::parse_from(["test-app", "-h"]);
         assert!(short.help);
     }
+
+    #[test]
+    fn hud_style_display_labels_are_stable() {
+        assert_eq!(HudStyle::Full.to_string(), "Full");
+        assert_eq!(HudStyle::Minimal.to_string(), "Minimal");
+        assert_eq!(HudStyle::Hidden.to_string(), "Hidden");
+    }
+
+    #[test]
+    fn hud_right_panel_display_labels_are_stable() {
+        assert_eq!(HudRightPanel::Ribbon.to_string(), "Ribbon");
+        assert_eq!(HudRightPanel::Dots.to_string(), "Dots");
+        assert_eq!(HudRightPanel::Heartbeat.to_string(), "Heartbeat");
+        assert_eq!(HudRightPanel::Off.to_string(), "Off");
+    }
+
+    #[test]
+    fn hud_border_style_display_labels_are_stable() {
+        assert_eq!(HudBorderStyle::Theme.to_string(), "Theme");
+        assert_eq!(HudBorderStyle::Single.to_string(), "Single");
+        assert_eq!(HudBorderStyle::Rounded.to_string(), "Rounded");
+        assert_eq!(HudBorderStyle::Double.to_string(), "Double");
+        assert_eq!(HudBorderStyle::Heavy.to_string(), "Heavy");
+        assert_eq!(HudBorderStyle::None.to_string(), "None");
+    }
+
+    #[test]
+    fn latency_display_mode_labels_are_stable() {
+        assert_eq!(LatencyDisplayMode::Off.to_string(), "Off");
+        assert_eq!(LatencyDisplayMode::Short.to_string(), "Nms");
+        assert_eq!(LatencyDisplayMode::Label.to_string(), "Latency: Nms");
+    }
 }

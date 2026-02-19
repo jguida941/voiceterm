@@ -608,6 +608,13 @@ mod tests {
     }
 
     #[test]
+    fn wrap_words_long_token_does_not_append_trailing_empty_line() {
+        let lines = wrap_words("abcdefghijklmnop", 5);
+        assert_eq!(lines, vec!["abcde", "fghij", "klmno", "p"]);
+        assert!(!lines.last().is_some_and(String::is_empty));
+    }
+
+    #[test]
     fn all_long_flags_are_grouped_or_other() {
         let unknown = collect_help_args()
             .into_iter()

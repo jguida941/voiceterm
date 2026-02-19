@@ -92,6 +92,10 @@ type StartCaptureHook = fn(
 #[cfg(test)]
 type RequestEarlyStopHook = fn(&mut crate::voice_control::VoiceManager) -> bool;
 #[cfg(test)]
+type CancelCaptureHook = fn(&mut crate::voice_control::VoiceManager) -> bool;
+#[cfg(test)]
+type WakeCaptureLogHook = fn();
+#[cfg(test)]
 type DrainVoiceMessagesHook =
     for<'a> fn(&mut VoiceDrainContext<'a, voiceterm::pty_session::PtyOverlaySession>);
 #[cfg(test)]
@@ -101,6 +105,8 @@ thread_local! {
     static TERMINAL_SIZE_HOOK: Cell<Option<TerminalSizeHook>> = const { Cell::new(None) };
     static START_CAPTURE_HOOK: Cell<Option<StartCaptureHook>> = const { Cell::new(None) };
     static REQUEST_EARLY_STOP_HOOK: Cell<Option<RequestEarlyStopHook>> = const { Cell::new(None) };
+    static CANCEL_CAPTURE_HOOK: Cell<Option<CancelCaptureHook>> = const { Cell::new(None) };
+    static WAKE_CAPTURE_LOG_HOOK: Cell<Option<WakeCaptureLogHook>> = const { Cell::new(None) };
     static DRAIN_VOICE_MESSAGES_HOOK: Cell<Option<DrainVoiceMessagesHook>> = const { Cell::new(None) };
 }
 
@@ -127,6 +133,16 @@ fn set_start_capture_hook(hook: Option<StartCaptureHook>) {
 #[cfg(test)]
 fn set_request_early_stop_hook(hook: Option<RequestEarlyStopHook>) {
     REQUEST_EARLY_STOP_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_cancel_capture_hook(hook: Option<CancelCaptureHook>) {
+    CANCEL_CAPTURE_HOOK.with(|slot| slot.set(hook));
+}
+
+#[cfg(test)]
+fn set_wake_capture_log_hook(hook: Option<WakeCaptureLogHook>) {
+    WAKE_CAPTURE_LOG_HOOK.with(|slot| slot.set(hook));
 }
 
 #[cfg(test)]
@@ -206,6 +222,27 @@ fn request_early_stop_with_hook(voice_manager: &mut crate::voice_control::VoiceM
         }
     }
     voice_manager.request_early_stop()
+}
+
+fn cancel_capture_with_hook(voice_manager: &mut crate::voice_control::VoiceManager) -> bool {
+    #[cfg(test)]
+    {
+        if let Some(hook) = CANCEL_CAPTURE_HOOK.with(|slot| slot.get()) {
+            return hook(voice_manager);
+        }
+    }
+    voice_manager.cancel_capture()
+}
+
+fn log_wake_capture_started() {
+    #[cfg(test)]
+    {
+        if let Some(hook) = WAKE_CAPTURE_LOG_HOOK.with(|slot| slot.get()) {
+            hook();
+            return;
+        }
+    }
+    log_debug("wake-word detection triggered capture");
 }
 
 fn drain_voice_messages_once(

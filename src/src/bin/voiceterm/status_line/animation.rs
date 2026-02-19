@@ -52,6 +52,11 @@ pub(super) fn recording_pulse_on() -> bool {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
+    recording_pulse_on_at(now_ms)
+}
+
+#[inline]
+fn recording_pulse_on_at(now_ms: u64) -> bool {
     (now_ms % RECORDING_PULSE_PERIOD_MS) < RECORDING_PULSE_ON_MS
 }
 
@@ -127,5 +132,29 @@ mod tests {
         assert_eq!(transition_marker(0.5), "•");
         assert_eq!(transition_marker(0.1), "");
         assert_eq!(transition_marker(0.0), "");
+    }
+
+    #[test]
+    fn recording_pulse_on_respects_on_off_windows_and_wrap() {
+        assert!(recording_pulse_on_at(0));
+        assert!(recording_pulse_on_at(RECORDING_PULSE_ON_MS - 1));
+        assert!(!recording_pulse_on_at(RECORDING_PULSE_ON_MS));
+        assert!(!recording_pulse_on_at(RECORDING_PULSE_PERIOD_MS - 1));
+        assert!(recording_pulse_on_at(RECORDING_PULSE_PERIOD_MS));
+        assert!(!recording_pulse_on_at(1_000));
+    }
+
+    #[test]
+    fn transition_marker_thresholds_are_exclusive() {
+        assert_eq!(transition_marker(0.66), "•");
+        assert_eq!(transition_marker(0.33), "");
+    }
+
+    #[test]
+    fn transition_progress_half_duration_matches_easing_curve() {
+        let now = Instant::now();
+        let half = now + Duration::from_millis(180);
+        let progress = state_transition_progress(Some(now), half);
+        assert!((progress - 0.125).abs() < 0.02, "progress={progress}");
     }
 }

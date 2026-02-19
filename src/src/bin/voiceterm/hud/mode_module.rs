@@ -89,6 +89,12 @@ mod tests {
     }
 
     #[test]
+    fn mode_module_priority_is_stable() {
+        let module = ModeModule::new();
+        assert_eq!(module.priority(), 90);
+    }
+
+    #[test]
     fn mode_module_render_auto() {
         let module = ModeModule::new();
         let state = HudState {

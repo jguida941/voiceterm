@@ -6,10 +6,10 @@ Interactive script for running mutation tests on specific modules.
 Outputs results in AI-readable format (JSON/markdown).
 
 Usage:
-    python3 dev/scripts/mutants.py              # Interactive mode
-    python3 dev/scripts/mutants.py --all        # Run all modules
+    python3 dev/scripts/mutants.py                 # Interactive mode
+    python3 dev/scripts/mutants.py --all           # Run all modules
     python3 dev/scripts/mutants.py --module audio  # Specific module
-    python3 dev/scripts/mutants.py --list       # List available modules
+    python3 dev/scripts/mutants.py --list          # List available modules
     python3 dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
 """
 

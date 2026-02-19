@@ -298,4 +298,56 @@ mod tests {
         assert!(!window_by_columns(sample, 0, 12).is_empty());
         assert_eq!(window_by_columns(sample, 50, 10), "");
     }
+
+    #[test]
+    fn test_safe_slice_zero_len_and_safe_suffix_zero_chars() {
+        assert_eq!(safe_slice("abcdef", 2, 0), "");
+        assert_eq!(safe_suffix("abcdef", 0), "");
+    }
+
+    #[test]
+    fn test_window_by_columns_zero_width_is_empty() {
+        assert_eq!(window_by_columns("abcdef", 0, 0), "");
+        assert_eq!(window_by_columns("你好世界", 0, 0), "");
+    }
+
+    #[test]
+    fn test_window_by_columns_boundary_equalities_do_not_trip_safety_guard() {
+        // Width 1 cannot fit a full-width CJK glyph; valid result is an empty slice.
+        // This exercises the start_byte == end_byte boundary.
+        assert_eq!(window_by_columns("你", 0, 1), "");
+
+        // Oversized viewport should clamp to the full string where end_byte == len.
+        assert_eq!(window_by_columns("abcdef", 0, 99), "abcdef");
+    }
+
+    #[test]
+    fn test_safe_split_at_boundary_validation() {
+        let s = "éx";
+        assert_eq!(safe_split_at(s, 1), None);
+        assert_eq!(safe_split_at(s, 2), Some(("é", "x")));
+        assert_eq!(safe_split_at(s, s.len()), Some(("éx", "")));
+        assert_eq!(safe_split_at(s, s.len() + 1), None);
+    }
+
+    #[test]
+    fn test_safe_byte_slice_adjusts_inward_to_utf8_boundaries() {
+        let s = "Aé中Z";
+        assert_eq!(safe_byte_slice(s, 2, 5), "");
+        assert_eq!(safe_byte_slice(s, 2, 6), "中");
+        assert_eq!(safe_byte_slice(s, 1, s.len()), "é中Z");
+        assert_eq!(safe_byte_slice(s, s.len(), s.len() + 3), "");
+        assert_eq!(safe_byte_slice(s, 0, 2), "A");
+    }
+
+    #[test]
+    fn test_char_count_and_char_at_cover_multibyte_indices() {
+        let s = "aé中";
+        assert_eq!(char_count(s), 3);
+        assert_eq!(char_count(""), 0);
+        assert_eq!(char_at(s, 0), Some('a'));
+        assert_eq!(char_at(s, 1), Some('é'));
+        assert_eq!(char_at(s, 2), Some('中'));
+        assert_eq!(char_at(s, 3), None);
+    }
 }

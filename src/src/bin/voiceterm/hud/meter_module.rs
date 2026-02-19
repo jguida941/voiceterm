@@ -41,8 +41,9 @@ impl MeterModule {
         let mut out = String::with_capacity(bar_count);
         let start = levels.len().saturating_sub(bar_count);
         let slice = &levels[start..];
-        if slice.len() < bar_count {
-            out.push_str(&bars[0].to_string().repeat(bar_count - slice.len()));
+        let padding = bar_count.saturating_sub(slice.len());
+        if padding != 0 {
+            out.push_str(&bars[0].to_string().repeat(padding));
         }
         for level in slice {
             out.push(Self::db_to_char(*level, bars));
@@ -124,6 +125,12 @@ mod tests {
     fn meter_module_min_width() {
         let module = MeterModule::new();
         assert_eq!(module.min_width(), 5);
+    }
+
+    #[test]
+    fn meter_module_priority_is_stable() {
+        let module = MeterModule::new();
+        assert_eq!(module.priority(), 70);
     }
 
     #[test]
@@ -277,5 +284,32 @@ mod tests {
         let ascii_bars = waveform_bars(crate::theme::GlyphSet::Ascii);
         assert!(ascii_bars.iter().any(|&c| output.contains(c)));
         assert!(!output.contains('▁'));
+    }
+
+    #[test]
+    fn render_sparkline_returns_empty_for_empty_levels_or_zero_bar_count() {
+        let bars = waveform_bars(crate::theme::GlyphSet::Unicode);
+        assert!(MeterModule::render_sparkline(&[], 4, bars).is_empty());
+        assert!(MeterModule::render_sparkline(&[-20.0], 0, bars).is_empty());
+    }
+
+    #[test]
+    fn render_sparkline_left_pads_short_history_to_target_width() {
+        let bars = waveform_bars(crate::theme::GlyphSet::Unicode);
+        let rendered = MeterModule::render_sparkline(&[-35.0, -20.0], 6, bars);
+        assert_eq!(rendered.chars().count(), 6);
+        assert_eq!(
+            rendered.chars().take(4).collect::<String>(),
+            bars[0].to_string().repeat(4)
+        );
+    }
+
+    #[test]
+    fn render_sparkline_exact_history_width_adds_no_padding() {
+        let bars = waveform_bars(crate::theme::GlyphSet::Unicode);
+        let levels = [-20.0, -18.0, -16.0, -14.0, -12.0, -10.0];
+        let rendered = MeterModule::render_sparkline(&levels, 6, bars);
+        assert_eq!(rendered.chars().count(), 6);
+        assert_ne!(rendered.chars().next(), Some(bars[0]));
     }
 }

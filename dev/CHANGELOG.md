@@ -29,6 +29,22 @@ Note: Some historical entries reference internal documents that are not publishe
 - Reorder README sections so `Voice Macros` appears before `Engineering History` for better feature-first navigation.
 - Restructure the README `Controls` section into grouped link lists (`keybindings`, `CLI flags`, `related docs`) to match the rest of the docs navigation style.
 
+## [1.0.84] - 2026-02-19
+
+### UX
+
+- Fix Enter-key behavior when HUD focus is on the Auto-voice toggle: pressing `Enter` now submits PTY input instead of flipping auto mode.
+
+### Code Quality
+
+- Add regression coverage for Enter-key handling when stale HUD button focus is on `ToggleAutoVoice`, plus focused mutation-hardening coverage in overlay input dispatch hotspots.
+- Resolve a strict clippy lint (`needless_lifetimes`) in status-line heartbeat formatting so CI lint gates remain green.
+
+### Documentation
+
+- Add a Codecov coverage badge to the README badge row.
+- Refresh user/developer docs for the v1.0.84 release-prep pass and mutation-shard triage workflow guidance.
+
 ## [1.0.83] - 2026-02-17
 
 ### UX

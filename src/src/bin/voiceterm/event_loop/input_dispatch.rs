@@ -12,7 +12,15 @@ pub(super) fn handle_input_event(
     let mut pending_event = Some(evt);
     while let Some(current_event) = pending_event.take() {
         if state.overlay_mode != OverlayMode::None {
-            pending_event = handle_overlay_input_event(state, timers, deps, current_event, running);
+            let overlay_before = state.overlay_mode;
+            let replay = handle_overlay_input_event(state, timers, deps, current_event, running);
+            pending_event = if replay.is_some() && state.overlay_mode == overlay_before {
+                // Prevent replay loops if an overlay handler returns an event
+                // without actually transitioning out of overlay mode.
+                None
+            } else {
+                replay
+            };
             continue;
         }
 
@@ -171,13 +179,26 @@ pub(super) fn handle_input_event(
             InputEvent::EnterKey => {
                 if let Some(action) = state.status_state.hud_button_focus {
                     state.status_state.hud_button_focus = None;
-                    if action == ButtonAction::ThemePicker {
-                        reset_theme_picker_selection(state, timers);
+                    if action != ButtonAction::ToggleAutoVoice {
+                        if action == ButtonAction::ThemePicker {
+                            reset_theme_picker_selection(state, timers);
+                        }
+                        {
+                            let mut button_ctx = button_action_context(state, timers, deps);
+                            button_ctx.handle_action(action);
+                        }
+                        send_enhanced_status_with_buttons(
+                            &deps.writer_tx,
+                            &deps.button_registry,
+                            &state.status_state,
+                            state.overlay_mode,
+                            state.terminal_cols,
+                            state.theme,
+                        );
+                        return;
                     }
-                    {
-                        let mut button_ctx = button_action_context(state, timers, deps);
-                        button_ctx.handle_action(action);
-                    }
+                    // Enter should submit terminal input even if a stale HUD focus highlight
+                    // is sitting on the auto-voice button.
                     send_enhanced_status_with_buttons(
                         &deps.writer_tx,
                         &deps.button_registry,
@@ -186,7 +207,6 @@ pub(super) fn handle_input_event(
                         state.terminal_cols,
                         state.theme,
                     );
-                    return;
                 }
                 if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
                     *running = false;
@@ -289,7 +309,7 @@ fn start_capture_for_trigger(
         return;
     }
     if origin == VoiceTriggerOrigin::WakeWord {
-        log_debug("wake-word detection triggered capture");
+        log_wake_capture_started();
     }
     timers.recording_started_at = Some(Instant::now());
     state.force_send_on_next_transcript = false;
@@ -340,7 +360,7 @@ fn stop_active_capture(
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) -> bool {
-    if !deps.voice_manager.cancel_capture() {
+    if !cancel_capture_with_hook(&mut deps.voice_manager) {
         return false;
     }
     state.force_send_on_next_transcript = false;
@@ -870,5 +890,111 @@ fn apply_theme_picker_selection(
             state.theme_picker_selected = theme_index_from_theme(locked_theme);
         }
         render_theme_picker_overlay_for_state(state, deps);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        footer_close_prefix, should_replay_after_overlay_close, slider_direction_from_click,
+        slider_knob_index_for_range, SETTINGS_SLIDER_START_REL_X, SETTINGS_VAD_MAX_DB,
+    };
+    use crate::input::InputEvent;
+
+    #[test]
+    fn footer_close_prefix_extracts_close_label_before_dot_and_pipe() {
+        let footer = "[x] close | up/down move | Enter select · Click/Tap select";
+        assert_eq!(footer_close_prefix(footer), "[x] close");
+    }
+
+    #[test]
+    fn footer_close_prefix_falls_back_when_separators_are_missing() {
+        assert_eq!(footer_close_prefix("close only"), "close only");
+    }
+
+    #[test]
+    fn should_replay_after_overlay_close_filters_exit_and_mouse_events() {
+        assert!(!should_replay_after_overlay_close(&InputEvent::Exit));
+        assert!(!should_replay_after_overlay_close(
+            &InputEvent::MouseClick { x: 1, y: 1 }
+        ));
+        assert!(should_replay_after_overlay_close(&InputEvent::EnterKey));
+    }
+
+    #[test]
+    fn slider_constants_match_expected_overlay_geometry() {
+        assert_eq!(SETTINGS_SLIDER_START_REL_X, 20);
+        assert_eq!(SETTINGS_VAD_MAX_DB, -10.0);
+    }
+
+    #[test]
+    fn slider_direction_handles_empty_and_out_of_range_clicks() {
+        assert_eq!(slider_direction_from_click(3, 3, 0, 0), None);
+        assert_eq!(slider_direction_from_click(2, 3, 5, 0), None);
+        assert_eq!(slider_direction_from_click(8, 3, 5, 0), None);
+    }
+
+    #[test]
+    fn slider_direction_maps_left_right_and_knob_hit() {
+        let slider_start = 3;
+        let slider_width = 5;
+        let knob_index = 2;
+
+        assert_eq!(
+            slider_direction_from_click(4, slider_start, slider_width, knob_index),
+            Some(-1)
+        );
+        assert_eq!(
+            slider_direction_from_click(5, slider_start, slider_width, knob_index),
+            Some(0)
+        );
+        assert_eq!(
+            slider_direction_from_click(6, slider_start, slider_width, knob_index),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn slider_knob_index_uses_zero_when_width_is_one_or_less() {
+        assert_eq!(slider_knob_index_for_range(10.0, 0.0, 100.0, 0), 0);
+        assert_eq!(slider_knob_index_for_range(10.0, 0.0, 100.0, 1), 0);
+    }
+
+    #[test]
+    fn slider_knob_index_uses_epsilon_guard_for_near_zero_span() {
+        let min = 0.0;
+        let almost_equal = f32::EPSILON * 0.5;
+        let exactly_epsilon = f32::EPSILON;
+        let width = 11;
+
+        assert_eq!(
+            slider_knob_index_for_range(almost_equal, min, almost_equal, width),
+            0
+        );
+        assert_eq!(
+            slider_knob_index_for_range(exactly_epsilon, min, exactly_epsilon, width),
+            width - 1
+        );
+    }
+
+    #[test]
+    fn slider_knob_index_scales_linearly_across_range() {
+        let width = 11;
+        assert_eq!(slider_knob_index_for_range(-1.0, -1.0, 1.0, width), 0);
+        assert_eq!(slider_knob_index_for_range(0.0, -1.0, 1.0, width), 5);
+        assert_eq!(
+            slider_knob_index_for_range(1.0, -1.0, 1.0, width),
+            width - 1
+        );
+    }
+
+    #[test]
+    fn slider_knob_index_clamps_outside_range() {
+        let width = 11;
+        assert_eq!(slider_knob_index_for_range(-10.0, 0.0, 100.0, width), 0);
+        assert_eq!(
+            slider_knob_index_for_range(1000.0, 0.0, 100.0, width),
+            width - 1
+        );
     }
 }

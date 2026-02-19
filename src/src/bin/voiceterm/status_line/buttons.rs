@@ -452,6 +452,9 @@ pub(super) fn format_hidden_launcher_with_buttons(
         let mut button_positions = Vec::with_capacity(button_defs.len());
         let mut cursor = button_start;
         for (idx, (action, rendered)) in button_defs.iter().enumerate() {
+            if idx > 0 {
+                cursor += 1;
+            }
             let button_width = display_width(rendered);
             button_positions.push(ButtonPosition {
                 start_x: cursor as u16,
@@ -460,9 +463,6 @@ pub(super) fn format_hidden_launcher_with_buttons(
                 action: *action,
             });
             cursor += button_width;
-            if idx + 1 < button_defs.len() {
-                cursor += 1;
-            }
         }
         return (line, button_positions);
     }

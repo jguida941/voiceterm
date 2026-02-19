@@ -854,6 +854,285 @@ fn format_status_line_shows_transition_marker_when_active() {
 }
 
 #[test]
+fn borderless_row_preserves_requested_width() {
+    assert_eq!(borderless_row(0), "");
+    assert_eq!(borderless_row(5), "     ");
+    assert_eq!(display_width(&borderless_row(5)), 5);
+}
+
+#[test]
+fn format_hidden_strip_shows_duration_only_while_recording() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.recording_duration = Some(9.4);
+
+    state.recording_state = RecordingState::Processing;
+    let processing = format_hidden_strip(&state, &colors, 80);
+    assert!(!processing.contains("9s"));
+
+    state.recording_state = RecordingState::Recording;
+    let recording = format_hidden_strip(&state, &colors, 80);
+    assert!(recording.contains("9s"));
+}
+
+#[test]
+fn format_status_banner_full_hud_fallback_uses_compact_breakpoint() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+
+    let below = format_status_banner(
+        &state,
+        Theme::None,
+        crate::status_line::layout::breakpoints::COMPACT - 1,
+    );
+    let at = format_status_banner(
+        &state,
+        Theme::None,
+        crate::status_line::layout::breakpoints::COMPACT,
+    );
+
+    assert_eq!(below.height, 1);
+    assert_eq!(at.height, 4);
+}
+
+#[test]
+fn format_duration_section_thresholds_and_state_styles_are_stable() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.recording_state = RecordingState::Recording;
+
+    state.recording_duration = Some(99.9);
+    assert!(strip_ansi(&format_duration_section(&state, &colors)).contains("99.9s"));
+
+    state.recording_duration = Some(100.0);
+    let rounded = strip_ansi(&format_duration_section(&state, &colors));
+    assert!(rounded.contains("100s"));
+    assert!(!rounded.contains("100.0s"));
+
+    state.recording_duration = Some(10_000.0);
+    assert!(strip_ansi(&format_duration_section(&state, &colors)).contains("9999s"));
+
+    state.recording_duration = Some(12.3);
+    state.recording_state = RecordingState::Idle;
+    let idle = format_duration_section(&state, &colors);
+    assert!(idle.contains(colors.dim));
+
+    state.recording_state = RecordingState::Recording;
+    let recording = format_duration_section(&state, &colors);
+    assert!(!recording.contains(colors.dim));
+}
+
+#[test]
+fn active_state_fallback_message_matches_recording_state() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+
+    state.recording_state = RecordingState::Recording;
+    assert!(active_state_fallback_message(&state, &colors).contains("Recording"));
+
+    state.recording_state = RecordingState::Processing;
+    assert!(active_state_fallback_message(&state, &colors).contains("Processing"));
+
+    state.recording_state = RecordingState::Responding;
+    assert!(active_state_fallback_message(&state, &colors).contains("Responding"));
+
+    state.recording_state = RecordingState::Idle;
+    assert!(active_state_fallback_message(&state, &colors).is_empty());
+}
+
+#[test]
+fn format_right_panel_respects_recording_only_animation_gate() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_right_panel = HudRightPanel::Ribbon;
+    state.hud_right_panel_recording_only = true;
+    state.recording_state = RecordingState::Idle;
+    state
+        .meter_levels
+        .extend_from_slice(&[-12.0, -10.0, -8.0, -6.0, -4.0, -2.0]);
+
+    let idle_panel = format_right_panel(&state, &colors, Theme::None, 12);
+    let mut static_state = state.clone();
+    static_state.meter_levels.clear();
+    let static_panel = format_right_panel(&static_state, &colors, Theme::None, 12);
+    assert_eq!(idle_panel, static_panel);
+
+    state.recording_state = RecordingState::Recording;
+    let recording_panel = format_right_panel(&state, &colors, Theme::None, 12);
+    assert_ne!(recording_panel, static_panel);
+}
+
+#[test]
+fn format_right_panel_enforces_minimum_content_width() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_right_panel = HudRightPanel::Dots;
+    state.meter_db = Some(-12.0);
+
+    assert_eq!(format_right_panel(&state, &colors, Theme::None, 3), "   ");
+    assert_eq!(format_right_panel(&state, &colors, Theme::None, 4), "    ");
+    assert_ne!(
+        format_right_panel(&state, &colors, Theme::None, 5),
+        " ".repeat(5)
+    );
+}
+
+#[test]
+fn format_pulse_dots_boundaries_are_stable() {
+    let none = Theme::None.colors();
+    assert_eq!(format_pulse_dots(-60.0, &none), "[·····]");
+    assert_eq!(format_pulse_dots(-48.0, &none), "[•····]");
+    assert_eq!(format_pulse_dots(-30.0, &none), "[•••··]");
+    assert_eq!(format_pulse_dots(0.0, &none), "[•••••]");
+
+    let colors = Theme::Coral.colors();
+    let warning = format_pulse_dots(-25.0, &colors);
+    assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
+    assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
+
+    let error = format_pulse_dots(-5.0, &colors);
+    assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
+}
+
+#[test]
+fn format_meter_level_color_boundaries_are_exclusive() {
+    let colors = Theme::Coral.colors();
+
+    assert_eq!(meter_level_color(-31.0, &colors), colors.success);
+    assert_eq!(meter_level_color(-30.0, &colors), colors.warning);
+    assert_eq!(meter_level_color(-19.0, &colors), colors.warning);
+    assert_eq!(meter_level_color(-18.0, &colors), colors.error);
+}
+
+#[test]
+fn heartbeat_helpers_cover_truth_table() {
+    assert!(should_animate_heartbeat(false, false));
+    assert!(should_animate_heartbeat(false, true));
+    assert!(!should_animate_heartbeat(true, false));
+    assert!(should_animate_heartbeat(true, true));
+}
+
+#[test]
+fn heartbeat_color_requires_animation_and_peak() {
+    let colors = Theme::Coral.colors();
+    assert_eq!(heartbeat_color(false, false, &colors), colors.dim);
+    assert_eq!(heartbeat_color(false, true, &colors), colors.dim);
+    assert_eq!(heartbeat_color(true, false, &colors), colors.dim);
+    assert_eq!(heartbeat_color(true, true, &colors), colors.info);
+}
+
+#[test]
+fn format_heartbeat_panel_stays_dim_when_animation_is_disabled() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.hud_right_panel_recording_only = true;
+    state.recording_state = RecordingState::Idle;
+
+    let panel = format_heartbeat_panel(&state, &colors);
+    assert!(panel.contains("·"));
+    assert!(panel.contains(colors.dim));
+}
+
+#[test]
+fn format_mode_indicator_is_stable_across_transition_progress() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Manual;
+    state.recording_state = RecordingState::Idle;
+
+    state.transition_progress = 0.0;
+    let base = format_mode_indicator(&state, &colors);
+    state.transition_progress = 0.9;
+    let with_progress = format_mode_indicator(&state, &colors);
+
+    assert_eq!(base, with_progress);
+}
+
+#[test]
+fn format_transition_suffix_only_renders_for_idle_positive_progress() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Manual;
+    state.recording_state = RecordingState::Recording;
+    state.transition_progress = 0.9;
+    assert!(format_transition_suffix(&state, &colors).is_empty());
+
+    state.recording_state = RecordingState::Idle;
+    state.transition_progress = 0.0;
+    assert!(format_transition_suffix(&state, &colors).is_empty());
+
+    state.transition_progress = 0.9;
+    assert!(!format_transition_suffix(&state, &colors).is_empty());
+}
+
+#[test]
+fn format_status_line_branch_boundaries_use_expected_renderers() {
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Manual;
+    state.message = "Boundary check".to_string();
+    let theme = Theme::Coral;
+    let colors = theme.colors();
+
+    let minimal_width = crate::status_line::layout::breakpoints::MINIMAL - 1;
+    let compact_width = crate::status_line::layout::breakpoints::COMPACT - 1;
+
+    assert_eq!(
+        format_status_line(&state, theme, minimal_width),
+        format_minimal(&state, &colors, minimal_width)
+    );
+    assert_eq!(
+        format_status_line(&state, theme, compact_width),
+        format_compact(&state, &colors, theme, compact_width)
+    );
+}
+
+#[test]
+fn format_status_line_exact_fit_layout_is_stable() {
+    let mut state = StatusLineState::new();
+    state.voice_mode = VoiceMode::Manual;
+    state.recording_state = RecordingState::Idle;
+    state.message = "Ready".to_string();
+
+    let theme = Theme::Coral;
+    let colors = theme.colors();
+    let probe_width = 200usize;
+    let left = format_left_section(&state, &colors);
+    let center = format_message(&state, &colors, theme, probe_width);
+    let right = format_shortcuts(&colors);
+    let exact_width = display_width(&left) + display_width(&center) + display_width(&right) + 2;
+    let expected = format!("{left} {center}{right}");
+
+    let exact = format_status_line(&state, theme, exact_width);
+    assert_eq!(exact, expected);
+
+    let tighter = format_status_line(&state, theme, exact_width - 1);
+    assert_ne!(tighter, expected);
+    assert!(display_width(&tighter) <= exact_width - 1);
+}
+
+#[test]
+fn format_status_line_shortcut_lane_switches_at_breakpoints() {
+    let colors = Theme::None.colors();
+
+    assert_eq!(
+        format_right_shortcuts(&colors, crate::status_line::layout::breakpoints::FULL),
+        format_shortcuts(&colors)
+    );
+    assert_eq!(
+        format_right_shortcuts(&colors, crate::status_line::layout::breakpoints::FULL - 1),
+        format_shortcuts_compact(&colors)
+    );
+    assert_eq!(
+        format_right_shortcuts(&colors, crate::status_line::layout::breakpoints::MEDIUM),
+        format_shortcuts_compact(&colors)
+    );
+    assert_eq!(
+        format_right_shortcuts(&colors, crate::status_line::layout::breakpoints::MEDIUM - 1),
+        ""
+    );
+}
+
+#[test]
 fn full_hud_rows_never_exceed_terminal_width_across_common_sizes() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
