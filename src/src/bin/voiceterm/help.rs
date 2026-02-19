@@ -72,7 +72,11 @@ const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+O",
-        description: "Settings menu (use arrows)",
+        description: "Settings (persisted to config.toml)",
+    },
+    Shortcut {
+        key: "Ctrl+H",
+        description: "Transcript history (search/replay)",
     },
     Shortcut {
         key: "Enter",

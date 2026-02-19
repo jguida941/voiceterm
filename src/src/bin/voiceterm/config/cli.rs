@@ -16,6 +16,16 @@ pub(crate) enum VoiceSendMode {
     Insert,
 }
 
+impl std::fmt::Display for VoiceSendMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            VoiceSendMode::Auto => "Auto",
+            VoiceSendMode::Insert => "Insert",
+        };
+        write!(f, "{label}")
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub(crate) enum HudRightPanel {
     #[default]
@@ -299,6 +309,12 @@ mod tests {
         assert_eq!(HudStyle::Full.to_string(), "Full");
         assert_eq!(HudStyle::Minimal.to_string(), "Minimal");
         assert_eq!(HudStyle::Hidden.to_string(), "Hidden");
+    }
+
+    #[test]
+    fn voice_send_mode_display_labels_are_stable() {
+        assert_eq!(VoiceSendMode::Auto.to_string(), "Auto");
+        assert_eq!(VoiceSendMode::Insert.to_string(), "Insert");
     }
 
     #[test]

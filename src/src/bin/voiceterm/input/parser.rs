@@ -84,6 +84,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::ToggleHudStyle);
                 }
+                0x08 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::TranscriptHistoryToggle);
+                }
                 b'?' => {
                     self.flush_pending(out);
                     out.push(InputEvent::HelpToggle);
@@ -277,6 +281,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
         'g' => Some(InputEvent::QuickThemeCycle),
         'o' => Some(InputEvent::SettingsToggle),
         'u' => Some(InputEvent::ToggleHudStyle),
+        'h' => Some(InputEvent::TranscriptHistoryToggle),
         '?' => Some(InputEvent::HelpToggle),
         'q' => Some(InputEvent::Exit),
         _ => None,
@@ -319,7 +324,7 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(
             &[
-                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15,
+                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08,
             ],
             &mut out,
         );
@@ -338,6 +343,7 @@ mod tests {
                 InputEvent::QuickThemeCycle,
                 InputEvent::SettingsToggle,
                 InputEvent::ToggleHudStyle,
+                InputEvent::TranscriptHistoryToggle,
             ]
         );
     }

@@ -11,12 +11,13 @@ use crate::buttons::ButtonRegistry;
 use crate::config::OverlayConfig;
 use crate::input::InputEvent;
 use crate::overlays::OverlayMode;
-use crate::prompt::PromptTracker;
+use crate::prompt::{ClaudePromptDetector, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
 use crate::status_line::StatusLineState;
 use crate::theme::Theme;
 use crate::transcript::PendingTranscript;
+use crate::transcript_history::{TranscriptHistory, TranscriptHistoryState};
 use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
 use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
@@ -47,6 +48,9 @@ pub(crate) struct EventLoopState {
     pub(crate) pending_pty_input_bytes: usize,
     pub(crate) suppress_startup_escape_input: bool,
     pub(crate) force_send_on_next_transcript: bool,
+    pub(crate) transcript_history: TranscriptHistory,
+    pub(crate) transcript_history_state: TranscriptHistoryState,
+    pub(crate) claude_prompt_detector: ClaudePromptDetector,
 }
 
 pub(crate) struct EventLoopTimers {

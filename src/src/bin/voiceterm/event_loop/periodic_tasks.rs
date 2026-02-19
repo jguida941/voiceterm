@@ -32,6 +32,9 @@ pub(super) fn run_periodic_tasks(
                     OverlayMode::Help => render_help_overlay_for_state(state, deps),
                     OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
                     OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
+                    OverlayMode::TranscriptHistory => {
+                        render_transcript_history_overlay_for_state(state, deps)
+                    }
                     OverlayMode::None => {}
                 }
             }

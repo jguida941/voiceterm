@@ -317,6 +317,9 @@ fn build_harness(
         pending_pty_input_bytes: 0,
         suppress_startup_escape_input: false,
         force_send_on_next_transcript: false,
+        transcript_history: crate::transcript_history::TranscriptHistory::new(),
+        transcript_history_state: crate::transcript_history::TranscriptHistoryState::new(),
+        claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
     };
 
     let now = Instant::now();

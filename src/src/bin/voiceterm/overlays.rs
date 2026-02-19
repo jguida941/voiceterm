@@ -10,6 +10,10 @@ use crate::settings::{
 use crate::status_line::StatusLineState;
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
+use crate::transcript_history::{
+    format_transcript_history_overlay, transcript_history_overlay_height, TranscriptHistory,
+    TranscriptHistoryState,
+};
 use crate::writer::{try_send_message, WriterMessage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +22,7 @@ pub(crate) enum OverlayMode {
     Help,
     ThemePicker,
     Settings,
+    TranscriptHistory,
 }
 
 pub(crate) fn show_settings_overlay(
@@ -71,6 +76,18 @@ pub(crate) fn show_theme_picker_overlay(
 pub(crate) fn show_help_overlay(writer_tx: &Sender<WriterMessage>, theme: Theme, cols: u16) {
     let content = format_help_overlay(theme, cols as usize);
     let height = help_overlay_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_transcript_history_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    history: &TranscriptHistory,
+    history_state: &TranscriptHistoryState,
+    theme: Theme,
+    cols: u16,
+) {
+    let content = format_transcript_history_overlay(history, history_state, theme, cols as usize);
+    let height = transcript_history_overlay_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
