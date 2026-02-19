@@ -446,6 +446,9 @@ fn handle_overlay_input_event(
                 OverlayMode::TranscriptHistory => {
                     render_transcript_history_overlay_for_state(state, deps);
                 }
+                OverlayMode::ToastHistory => {
+                    render_toast_history_overlay_for_state(state, deps);
+                }
                 OverlayMode::None => {}
             }
             None
@@ -711,6 +714,26 @@ fn handle_overlay_input_event(
             }
             None
         }
+        // --- Toast History overlay ---
+        (OverlayMode::ToastHistory, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            }
+            // Arrow keys and other input are ignored in toast history (read-only).
+            None
+        }
+        (OverlayMode::ToastHistory, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ToastHistory, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ToastHistory, InputEvent::ThemePicker) => {
+            open_theme_picker_overlay(state, timers, deps);
+            None
+        }
         (_, replay_evt) => {
             close_overlay(state, deps, true);
             if should_replay_after_overlay_close(&replay_evt) {
@@ -765,6 +788,7 @@ fn handle_overlay_mouse_click(
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
+        OverlayMode::ToastHistory => crate::toast::toast_history_overlay_height(&state.toast_center),
         OverlayMode::None => 0,
     };
     if overlay_height == 0 || state.terminal_rows == 0 {
@@ -801,6 +825,19 @@ fn handle_overlay_mouse_click(
             crate::transcript_history::transcript_history_overlay_inner_width(cols),
             crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
         ),
+        OverlayMode::ToastHistory => {
+            // Toast history overlay uses full-width panel with standard close footer.
+            let toast_width = cols.min(60);
+            let toast_inner = toast_width.saturating_sub(4);
+            let colors = state.theme.colors();
+            let sep = crate::theme::overlay_separator(colors.glyph_set);
+            let close_sym = crate::theme::overlay_close_symbol(colors.glyph_set);
+            let footer = format!(
+                "[{close_sym}] close {sep} {} total",
+                state.toast_center.history_count()
+            );
+            (toast_width, toast_inner, footer)
+        }
         OverlayMode::None => (0, 0, String::new()),
     };
 

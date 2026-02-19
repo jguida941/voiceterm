@@ -77,6 +77,9 @@ pub(crate) fn reserved_rows_for_mode(
         OverlayMode::TranscriptHistory => {
             crate::transcript_history::transcript_history_overlay_height()
         }
+        // Toast history uses a fixed default height estimate since the actual
+        // height depends on runtime state; 10 rows is a safe conservative value.
+        OverlayMode::ToastHistory => 10,
     }
 }
 

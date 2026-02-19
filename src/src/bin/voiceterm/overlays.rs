@@ -10,6 +10,7 @@ use crate::settings::{
 use crate::status_line::StatusLineState;
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
+use crate::toast::{format_toast_history_overlay, toast_history_overlay_height, ToastCenter};
 use crate::transcript_history::{
     format_transcript_history_overlay, transcript_history_overlay_height, TranscriptHistory,
     TranscriptHistoryState,
@@ -23,6 +24,7 @@ pub(crate) enum OverlayMode {
     ThemePicker,
     Settings,
     TranscriptHistory,
+    ToastHistory,
 }
 
 pub(crate) fn show_settings_overlay(
@@ -76,6 +78,17 @@ pub(crate) fn show_theme_picker_overlay(
 pub(crate) fn show_help_overlay(writer_tx: &Sender<WriterMessage>, theme: Theme, cols: u16) {
     let content = format_help_overlay(theme, cols as usize);
     let height = help_overlay_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_toast_history_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    toast_center: &ToastCenter,
+    theme: Theme,
+    cols: u16,
+) {
+    let content = format_toast_history_overlay(toast_center, theme, cols as usize);
+    let height = toast_history_overlay_height(toast_center);
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 

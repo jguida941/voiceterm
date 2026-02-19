@@ -4,8 +4,6 @@
 //! Toasts auto-dismiss after a configurable duration and are categorized by
 //! severity. A bounded history ring is kept for later review.
 
-#![allow(dead_code)]
-
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 

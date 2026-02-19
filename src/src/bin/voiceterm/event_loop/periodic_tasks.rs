@@ -4,6 +4,7 @@ use super::*;
 
 const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
 const WAKE_HUD_PULSE_TICK_MS: u64 = 420;
+const TOAST_TICK_INTERVAL_MS: u64 = 250;
 
 pub(super) fn run_periodic_tasks(
     state: &mut EventLoopState,
@@ -42,6 +43,9 @@ pub(super) fn run_periodic_tasks(
                     OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
                     OverlayMode::TranscriptHistory => {
                         render_transcript_history_overlay_for_state(state, deps)
+                    }
+                    OverlayMode::ToastHistory => {
+                        render_toast_history_overlay_for_state(state, deps)
                     }
                     OverlayMode::None => {}
                 }
@@ -238,6 +242,23 @@ pub(super) fn run_periodic_tasks(
                 &mut state.status_state,
                 &mut timers.preview_clear_deadline,
                 &mut timers.last_meter_update,
+            );
+        }
+    }
+
+    // Tick toast center to dismiss expired notifications.
+    if now.duration_since(timers.last_toast_tick)
+        >= Duration::from_millis(TOAST_TICK_INTERVAL_MS)
+    {
+        timers.last_toast_tick = now;
+        if state.toast_center.tick() {
+            send_enhanced_status_with_buttons(
+                &deps.writer_tx,
+                &deps.button_registry,
+                &state.status_state,
+                state.overlay_mode,
+                state.terminal_cols,
+                state.theme,
             );
         }
     }

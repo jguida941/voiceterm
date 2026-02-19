@@ -324,6 +324,7 @@ fn build_harness(
         transcript_history_state: crate::transcript_history::TranscriptHistoryState::new(),
         session_memory_logger: None,
         claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
+        toast_center: crate::toast::ToastCenter::new(),
     };
 
     let now = Instant::now();
@@ -339,6 +340,7 @@ fn build_harness(
         last_heartbeat_tick: now,
         last_meter_update: now,
         last_wake_hud_tick: now,
+        last_toast_tick: now,
     };
 
     let deps = EventLoopDeps {

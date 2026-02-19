@@ -29,7 +29,7 @@ use crate::help::{
 use crate::input::InputEvent;
 use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
-    show_transcript_history_overlay, OverlayMode,
+    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
@@ -61,7 +61,7 @@ use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
-    open_transcript_history_overlay,
+    open_toast_history_overlay, open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -368,6 +368,16 @@ fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &Ev
         &deps.writer_tx,
         &state.transcript_history,
         &state.transcript_history_state,
+        state.theme,
+        cols,
+    );
+}
+
+fn render_toast_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_toast_history_overlay(
+        &deps.writer_tx,
+        &state.toast_center,
         state.theme,
         cols,
     );

@@ -451,6 +451,7 @@ fn main() -> Result<()> {
         claude_prompt_detector: ClaudePromptDetector::new(
             backend_label.to_ascii_lowercase().contains("claude"),
         ),
+        toast_center: crate::toast::ToastCenter::new(),
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,
@@ -464,6 +465,7 @@ fn main() -> Result<()> {
         last_heartbeat_tick: Instant::now(),
         last_meter_update: Instant::now(),
         last_wake_hud_tick: Instant::now(),
+        last_toast_tick: Instant::now(),
     };
     let mut deps = EventLoopDeps {
         session,
