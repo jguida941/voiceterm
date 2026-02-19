@@ -1,4 +1,5 @@
 # Troubleshooting
+<!-- markdownlint-disable MD033 -->
 
 Single troubleshooting reference for VoiceTerm.
 Use the contents first, then the quick-fix table for common day-to-day issues.
@@ -37,6 +38,9 @@ Use the contents first, then the quick-fix table for common day-to-day issues.
 | `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
 
 ## Status Messages
+
+<details>
+<summary>Expand Status Messages</summary>
 
 ### No speech detected
 
@@ -190,7 +194,12 @@ the HUD parser, not forwarded to the backend.
 3. If needed as a temporary workaround, set `Settings -> Mouse` to `OFF`
 4. Report terminal/IDE + version if raw fragments still appear on latest build
 
+</details>
+
 ## Audio Setup
+
+<details>
+<summary>Expand Audio Setup</summary>
 
 ### Check microphone permissions
 
@@ -220,7 +229,12 @@ voiceterm --input-device "MacBook Pro Microphone"
 
 Restart VoiceTerm after plugging in a new input device.
 
+</details>
+
 ## Mic Sensitivity
+
+<details>
+<summary>Expand Mic Sensitivity</summary>
 
 ### Too sensitive (background noise triggers capture)
 
@@ -249,7 +263,12 @@ voiceterm --mic-meter
 Hotkey range: `-80 dB` to `-10 dB`, default `-55 dB`.
 CLI flag range: `-120 dB` to `0 dB`.
 
+</details>
+
 ## Backend Issues
+
+<details>
+<summary>Expand Backend Issues</summary>
 
 ### Codex or Claude not responding
 
@@ -423,7 +442,12 @@ should clip cleanly without shifting HUD alignment.
    voiceterm --logs
    ```
 
+</details>
+
 ## Terminal and IDE Issues
+
+<details>
+<summary>Expand Terminal and IDE Issues</summary>
 
 ### IDE terminal controls not working (JetBrains/Cursor)
 
@@ -628,7 +652,12 @@ runtime visual overrides.
    voiceterm --theme codex
    ```
 
+</details>
+
 ## Install and Update Issues
+
+<details>
+<summary>Expand Install and Update Issues</summary>
 
 ### Homebrew link conflict
 
@@ -696,7 +725,12 @@ Verify Homebrew binary directly:
 $(brew --prefix)/opt/voiceterm/libexec/src/target/release/voiceterm --version
 ```
 
+</details>
+
 ## Enabling Logs
+
+<details>
+<summary>Expand Enabling Logs</summary>
 
 ```bash
 voiceterm --logs
@@ -719,7 +753,12 @@ Log paths:
 - Debug log: `${TMPDIR}/voiceterm_tui.log` (macOS) or `/tmp/voiceterm_tui.log` (Linux)
 - Trace log: `${TMPDIR}/voiceterm_trace.jsonl` or `/tmp/voiceterm_trace.jsonl`
 
+</details>
+
 ## FAQ
+
+<details>
+<summary>Expand FAQ</summary>
 
 ### What languages does Whisper support?
 
@@ -751,7 +790,12 @@ voiceterm --claude
 
 No. Whisper runs locally.
 
+</details>
+
 ## Getting Help
+
+<details>
+<summary>Expand Getting Help</summary>
 
 When reporting an issue, include:
 
@@ -760,7 +804,12 @@ When reporting an issue, include:
 3. Terminal/IDE name and version
 4. Relevant log excerpt from `${TMPDIR}/voiceterm_tui.log`
 
+</details>
+
 ## See Also
+
+<details>
+<summary>Expand See Also</summary>
 
 | Topic | Link |
 |-------|------|
@@ -768,3 +817,6 @@ When reporting an issue, include:
 | Usage guide | [USAGE.md](USAGE.md) |
 | CLI flags | [CLI_FLAGS.md](CLI_FLAGS.md) |
 | Whisper guide | [WHISPER.md](WHISPER.md) |
+
+</details>
+<!-- markdownlint-enable MD033 -->

@@ -20,19 +20,18 @@
 
 ## Workflow ownership and routing
 
-- `AGENTS.md` is the canonical execution router for both humans and AI agents.
-- `dev/DEVELOPMENT.md` is the command-syntax and QA reference.
-- `dev/scripts/README.md` is the tool inventory and release-control-plane reference.
-- `dev/active/INDEX.md` is the active-doc discovery registry (what exists + when to read it).
-- `dev/active/MASTER_PLAN.md` is the single active execution tracker.
-- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current cycle orchestration and reviewer gate protocol for parallel area execution.
+- `AGENTS.md` tells you which workflow to use.
+- `dev/DEVELOPMENT.md` gives the exact commands and verification steps.
+- `dev/scripts/README.md` lists tooling and release commands.
+- `dev/active/INDEX.md` tells you which active docs exist and when to read them.
+- `dev/active/MASTER_PLAN.md` is the source of truth for current work.
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` explains parallel worktree flow for this cycle.
 
-Use `AGENTS.md` first to classify the task and select the correct playbook, then
-use this document for concrete command syntax and deeper verification guidance.
+Use `AGENTS.md` first, then come back here for the concrete command sequence.
 
 ## End-to-end lifecycle flow
 
-Use this chart for the full developer loop from session start through release.
+Use this chart for the full loop from start -> implement -> verify -> release.
 
 ```mermaid
 flowchart TD
@@ -69,8 +68,8 @@ flowchart TD
 
 ## What checks protect us
 
-Quick rule: before you push, run the checks that match the type of change you
-made. CI runs the same families of checks again.
+Before you push, run the checks that match your change type.
+CI will run the same check families again.
 
 | If you changed... | Run this locally | CI checks it in... |
 |---|---|---|
@@ -92,7 +91,7 @@ Use this path:
 1. If this is normal feature/fix/docs work:
    - branch from `develop` (`feature/<topic>` or `fix/<topic>`)
    - run the right bundle (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`)
-   - fix failures, then commit and push that short-lived branch
+   - fix failures, then commit and push
    - merge to `develop` only after review and green checks
    - run post-push audit (`bundle.post-push`)
 2. If this is release/tag/publish work:
@@ -127,8 +126,7 @@ flowchart TD
   N --> O[Run post-push audit]
 ```
 
-`AGENTS.md` remains the canonical source for exact bundle contents and branch
-policy.
+`AGENTS.md` stays the source of truth for exact bundle contents and branch policy.
 
 ## Project structure
 

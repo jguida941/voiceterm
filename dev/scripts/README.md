@@ -15,6 +15,12 @@ For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
 
+Documentation style rule:
+
+- Write docs in plain language first.
+- Keep steps short and concrete.
+- Prefer "what to run and why" over policy-heavy wording.
+
 ## Canonical Commands
 
 ```bash

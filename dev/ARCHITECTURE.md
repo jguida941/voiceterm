@@ -1,8 +1,8 @@
 # VoiceTerm (Rust Overlay) Architecture
 
-This document describes the Rust-only overlay mode. It runs the selected backend CLI
-(Codex or Claude Code) in a PTY and adds voice capture + a minimal status
-overlay without touching the native UI.
+This document explains how the Rust overlay works today.
+VoiceTerm runs the selected backend CLI (Codex or Claude) inside a PTY and adds
+voice capture plus a small status overlay without replacing the backend UI.
 
 ## Contents
 

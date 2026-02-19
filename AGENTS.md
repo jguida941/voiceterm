@@ -358,6 +358,12 @@ Always evaluate:
 - `dev/scripts/README.md`
 - `dev/history/ENGINEERING_EVOLUTION.md` (required for tooling/process/CI shifts)
 
+Plain-language rule for docs updates:
+
+- For user/developer docs (`README.md`, `QUICK_START.md`, `guides/*`, `dev/*`), prefer plain language over policy-heavy wording.
+- Use short, direct sentences and concrete commands.
+- Keep technical accuracy, but avoid unnecessary jargon.
+
 Update flow:
 
 1. Link/adjust MP item in `dev/active/MASTER_PLAN.md`.

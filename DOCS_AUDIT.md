@@ -11,10 +11,11 @@
 The documentation is strong and already includes substantial governance automation.  
 The biggest remaining improvements are:
 
-1. Add user-facing flowcharts in a few key guides.
-2. Reduce duplication across onboarding docs (`README.md`, `QUICK_START.md`, guides).
-3. Make contributor flow easier to scan in `.github/CONTRIBUTING.md`.
-4. Resolve orphan/stale docs (`.github/GUIDE.md`, `dev/BACKLOG.md`) with an explicit decision.
+1. Rewrite high-traffic `dev/` docs in plain language (less policy jargon, shorter sentences, clearer steps).
+2. Add user-facing flowcharts in a few key guides where they help decisions.
+3. Reduce duplication across onboarding docs (`README.md`, `QUICK_START.md`, guides).
+4. Make contributor flow easier to scan in `.github/CONTRIBUTING.md`.
+5. Resolve orphan/stale docs (`.github/GUIDE.md`, `dev/BACKLOG.md`) with an explicit decision.
 
 ---
 
@@ -61,6 +62,7 @@ The biggest remaining improvements are:
 
 | Area | Current issue | Recommended fix |
 |---|---|---|
+| `dev/` doc language | Many sections read as policy-heavy/governance-heavy and are hard to scan quickly | Do a plain-language pass on `dev/README.md`, `dev/DEVELOPMENT.md`, and key `dev/` landing sections while preserving technical accuracy |
 | User journey visuals | No lifecycle/diagnostic flowcharts in `guides/USAGE.md` and `guides/TROUBLESHOOTING.md` | Add concise Mermaid diagrams for voice lifecycle and troubleshooting decision tree |
 | Install choice clarity | README install choices are readable but still text-heavy | Add install decision flowchart in `README.md` |
 | Contributor quick path | `.github/CONTRIBUTING.md` is concise but not visual | Add one contributor flowchart (`branch -> change type -> checks -> PR`) |
@@ -105,7 +107,20 @@ Status values:
 
 ## Updated Execution Plan (Start Now)
 
-### Phase 1 (highest impact, low risk)
+### Phase 0 (highest impact, do first)
+
+1. Plain-language pass for `dev/README.md`:
+   - replace policy-heavy wording with direct "what this file is for" language.
+   - keep links/authority unchanged.
+2. Plain-language pass for `dev/DEVELOPMENT.md`:
+   - simplify section intros and command explanations.
+   - keep command content and safety expectations unchanged.
+3. Plain-language pass for `dev/ARCHITECTURE.md` intro and workflow text:
+   - keep diagrams and technical facts.
+   - simplify narrative around them.
+4. Add a style rule for `dev/` docs: "write for a user or dev who is new to this repo."
+
+### Phase 1 (high impact, low risk)
 
 1. Add `README.md` install decision flowchart.
 2. Add `guides/USAGE.md` voice input lifecycle flowchart.

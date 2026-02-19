@@ -1,29 +1,30 @@
 # Developer Index
 
-Use this page as the entrypoint for all developer documentation.
+Use this page first when working in the repo.
+It tells you where to look next based on what you are trying to do.
 Root shortcut pointer: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
 ## Start Here
 
-1. [`dev/active/INDEX.md`](active/INDEX.md) - registry for all active planning docs and read order.
-2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - current execution plan, scope, and release targets.
-3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio architecture/spec and `TS-G*` gate checklist used by `MP-148+`.
-4. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio architecture/spec and `MS-G*` gate checklist used by `MP-230+`.
-5. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) - current parallel area orchestration and reviewer gate protocol.
-6. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - historical design/process journey with commit evidence.
-7. [`dev/history/README.md`](history/README.md) - index for historical engineering records.
-8. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - current runtime architecture and operational workflows.
-9. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/devctl workflow.
-10. [`dev/adr/README.md`](adr/README.md) - ADR index and decision statuses.
-11. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible deltas.
+1. [`dev/active/INDEX.md`](active/INDEX.md) - list of active planning docs and the order to read them.
+2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - what is currently in scope and what ships next.
+3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio spec and test gates (`TS-G*`, `MP-148+`).
+4. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio spec and test gates (`MS-G*`, `MP-230+`).
+5. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) - how parallel worktrees are run this cycle.
+6. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - why major design/process choices were made.
+7. [`dev/history/README.md`](history/README.md) - index for historical records.
+8. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - how the runtime is put together today.
+9. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/release commands and day-to-day workflow.
+10. [`dev/adr/README.md`](adr/README.md) - architecture decision records and status.
+11. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible changes.
 
 ## Three Core Docs (Developer Lens)
 
 | Doc | Question it answers | Update trigger |
 |---|---|---|
-| `dev/ARCHITECTURE.md` | What does the system look like now? | Runtime/data flow, architecture, lifecycle, CI/release mechanics change |
-| `dev/DEVELOPMENT.md` | How do I build, test, and ship safely? | Build workflow, checks, toolchain, contribution flow change |
-| `dev/history/ENGINEERING_EVOLUTION.md` | Why did the design/process become this way? | Major inflection points, reversals, or governance shifts |
+| `dev/ARCHITECTURE.md` | How does the system work right now? | Runtime/data flow, architecture, lifecycle, CI/release mechanics change |
+| `dev/DEVELOPMENT.md` | What exact commands should I run to build/test/release? | Build workflow, checks, toolchain, contribution flow change |
+| `dev/history/ENGINEERING_EVOLUTION.md` | Why do we do it this way? | Major inflection points, reversals, or process shifts |
 
 User docs entrypoint:
 
@@ -33,24 +34,24 @@ User docs entrypoint:
 
 | Location | Primary audience | Purpose |
 |---|---|---|
-| `README.md` + `QUICK_START.md` | Users | Top-level onboarding and fast start path. |
-| `guides/` | Users | Canonical usage/install/flags/troubleshooting docs. |
+| `README.md` + `QUICK_START.md` | Users | Top-level onboarding and fast start. |
+| `guides/` | Users | Usage, install, flags, troubleshooting. |
 | `scripts/README.md` | Users | Install/start/setup script reference. |
-| `dev/` | Developers | Architecture, workflow, governance, release, ADRs. |
-| `dev/history/` | Developers | Evidence-linked evolution and historical context. |
-| `dev/scripts/README.md` | Developers | Automation and release tooling reference. |
-| `dev/archive/` | Developers | Historical completed plans/audits (immutable). |
+| `dev/` | Developers | Architecture, workflow, release process, ADRs. |
+| `dev/history/` | Developers | History with linked evidence. |
+| `dev/scripts/README.md` | Developers | Automation and release tooling. |
+| `dev/archive/` | Developers | Completed plans/audits (do not edit). |
 
 ## Folder Guide
 
 | Path | Purpose |
 |---|---|
-| `dev/active/` | Active strategy and execution files (authoritative work-in-progress). |
+| `dev/active/` | Current plans and active execution files. |
 | `dev/deferred/` | Paused plans not currently in execution. |
-| `dev/archive/` | Historical completed plans/audits (immutable record). |
-| `dev/history/` | Narrative history and engineering evolution timeline. |
-| `dev/adr/` | Architecture decisions with status lifecycle. |
-| `dev/scripts/` | Developer automation, tooling docs, and workflow helpers. |
+| `dev/archive/` | Completed plans/audits (history only). |
+| `dev/history/` | Engineering history and timeline. |
+| `dev/adr/` | Architecture decisions and status. |
+| `dev/scripts/` | Developer automation and helper docs. |
 
 ## Fast Workflow Commands
 
@@ -65,7 +66,7 @@ python3 dev/scripts/devctl.py status --ci --format md
 
 Why these guardrails exist:
 
-- `docs-check`: prevents user-facing/tooling behavior changes from shipping without aligned docs.
-- `hygiene`: prevents process/governance drift (ADR index, archive naming, scripts inventory).
-- `check_cli_flags_parity.py`: prevents clap flag/schema drift from `guides/CLI_FLAGS.md`.
-- `check_screenshot_integrity.py`: prevents broken markdown image references and surfaces stale UI captures for refresh planning.
+- `docs-check`: stops behavior changes from shipping without matching docs.
+- `hygiene`: catches doc/process drift (ADR index, archive naming, scripts list).
+- `check_cli_flags_parity.py`: keeps CLI docs in sync with clap flags.
+- `check_screenshot_integrity.py`: catches missing image links and stale screenshots.
