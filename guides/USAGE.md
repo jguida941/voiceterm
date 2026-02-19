@@ -15,22 +15,6 @@ Docs map:
 
 ![VoiceTerm](../img/logo.svg)
 
-## Contents
-
-- [Start in 60 Seconds](#start-in-60-seconds)
-- [Backend Support](#backend-support)
-- [How Voice Input Works](#how-voice-input-works)
-- [Core Controls](#core-controls)
-- [Settings Menu](#settings-menu)
-- [Transcript History](#transcript-history)
-- [Voice Modes](#voice-modes)
-- [Common Tasks](#common-tasks)
-- [Customization](#customization)
-- [Project Voice Macros](#project-voice-macros)
-- [Status Line Reference](#status-line-reference)
-- [Launch Recipes](#launch-recipes)
-- [See Also](#see-also)
-
 ## Recommended Reading Paths
 
 | Goal | Read in this order |
@@ -306,6 +290,9 @@ voiceterm --sound-on-complete
 voiceterm --sound-on-error
 ```
 
+Maintainer shortcut:
+[Release checks in `dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md)
+
 <details>
 <summary><strong>Release-candidate validation (maintainers)</strong></summary>
 
@@ -348,6 +335,10 @@ Tips:
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
 - On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
+
+Theme shortcuts:
+[Theme/display flags](CLI_FLAGS.md#themes--display) |
+[Style-pack env vars](CLI_FLAGS.md#environment-variables)
 
 <details>
 <summary><strong>Advanced theme preview details</strong></summary>
@@ -441,6 +432,10 @@ Setup:
 ./scripts/macros.sh install --pack power-git --overwrite
 ./scripts/macros.sh install --pack full-dev --overwrite
 ```
+
+Macro shortcuts:
+[Macro script reference](../scripts/README.md#macrossh) |
+[Flags/env reference](CLI_FLAGS.md)
 
 <details>
 <summary><strong>More macro details (starter packs, wizard extras, file format)</strong></summary>
