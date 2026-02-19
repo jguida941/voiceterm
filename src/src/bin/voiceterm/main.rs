@@ -39,6 +39,7 @@ mod status_style;
 mod terminal;
 mod theme;
 mod theme_ops;
+mod toast;
 mod theme_picker;
 mod transcript;
 mod voice_control;
