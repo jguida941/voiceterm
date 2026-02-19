@@ -53,6 +53,15 @@ fn get_button_positions_full_has_buttons() {
 }
 
 #[test]
+fn get_button_positions_empty_when_claude_prompt_is_suppressed() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.claude_prompt_suppressed = true;
+    let positions = get_button_positions(&state, Theme::None, 120);
+    assert!(positions.is_empty());
+}
+
+#[test]
 fn get_button_positions_minimal_has_back_button() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Minimal;

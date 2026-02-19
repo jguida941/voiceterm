@@ -11,6 +11,13 @@ pub(super) fn run_periodic_tasks(
     deps: &mut EventLoopDeps,
     now: Instant,
 ) {
+    if state.status_state.claude_prompt_suppressed
+        && !state.claude_prompt_detector.should_suppress_hud()
+    {
+        // Timeout-based clear path, even when no new PTY output arrives.
+        set_claude_prompt_suppression(state, deps, false);
+    }
+
     if take_sigwinch_flag() {
         if let Ok((cols, rows)) = read_terminal_size() {
             // JetBrains terminals can emit SIGWINCH without a geometry delta.
@@ -25,6 +32,7 @@ pub(super) fn run_periodic_tasks(
                     cols,
                     state.overlay_mode,
                     state.status_state.hud_style,
+                    state.status_state.claude_prompt_suppressed,
                 );
                 let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
                 refresh_button_registry_if_mouse(state, deps);

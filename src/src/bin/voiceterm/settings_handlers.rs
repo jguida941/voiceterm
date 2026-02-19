@@ -246,6 +246,7 @@ impl SettingsActionContext<'_> {
                 self.hud.terminal_cols,
                 self.hud.overlay_mode,
                 self.status.status_state.hud_style,
+                self.status.status_state.claude_prompt_suppressed,
             );
         }
     }

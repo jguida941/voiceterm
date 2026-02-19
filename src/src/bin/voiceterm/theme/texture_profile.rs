@@ -249,10 +249,7 @@ pub(crate) fn detect_max_texture_tier(terminal: &TerminalId) -> TextureTier {
 /// If `requested` is supported (at or below `max`), return it. Otherwise,
 /// walk the fallback chain until a supported tier is found.
 #[must_use]
-pub(crate) fn resolve_texture_tier(
-    max: TextureTier,
-    requested: TextureTier,
-) -> TextureTier {
+pub(crate) fn resolve_texture_tier(max: TextureTier, requested: TextureTier) -> TextureTier {
     // Lower ordinal = richer capability. If requested is at or below max, use it.
     if requested >= max {
         return requested;

@@ -40,8 +40,8 @@ mod status_style;
 mod terminal;
 mod theme;
 mod theme_ops;
-mod toast;
 mod theme_picker;
+mod toast;
 mod transcript;
 mod transcript_history;
 mod voice_control;
@@ -343,6 +343,7 @@ fn main() -> Result<()> {
             cols,
             OverlayMode::None,
             initial_hud_style,
+            false,
         );
         let _ = writer_tx.send(WriterMessage::Resize { rows, cols });
     }
@@ -370,6 +371,7 @@ fn main() -> Result<()> {
     status_state.send_mode = config.voice_send_mode;
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = false;
+    persistent_config::apply_user_config_to_status_state(&user_config, &mut status_state);
     status_state.hud_right_panel = config.hud_right_panel;
     status_state.hud_border_style = config.hud_border_style;
     status_state.hud_right_panel_recording_only = config.hud_right_panel_recording_only;

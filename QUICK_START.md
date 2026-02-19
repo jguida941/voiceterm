@@ -80,6 +80,7 @@ voiceterm --claude
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+G` - quick cycle theme
 - `Ctrl+Y` - open theme picker
+- `Ctrl+H` - open transcript history (search and replay)
 - `Ctrl+O` - open settings menu (use ↑↓←→ + Enter)
 - `Ctrl+U` - cycle HUD style (full/minimal/hidden)
 - `Ctrl+]` - increase mic threshold by 5 dB (less sensitive)
@@ -111,6 +112,10 @@ In collapsed mode, the first `open` restores the hidden launcher, and the next
 `open` switches HUD style.
 Help overlay includes clickable Docs/Troubleshooting links (OSC-8 capable
 terminals).
+Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI
+flags always override persisted values for that launch.
+When Claude interactive approval/permission prompts are detected, VoiceTerm
+temporarily suppresses the HUD so prompt rows remain readable.
 On first run, VoiceTerm shows a persistent `Getting started` hint
 (`Ctrl+R` / `?` / `Ctrl+O`) until your first successful transcript capture.
 

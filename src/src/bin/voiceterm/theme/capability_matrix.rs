@@ -416,7 +416,11 @@ mod tests {
         let snap = current_capability_snapshot();
         assert_eq!(snap.ratatui_widgets.len(), RatatuiWidget::all().len());
         for w in RatatuiWidget::all() {
-            assert!(snap.ratatui_widgets.contains(w), "missing widget: {}", w.name());
+            assert!(
+                snap.ratatui_widgets.contains(w),
+                "missing widget: {}",
+                w.name()
+            );
         }
     }
 
@@ -425,7 +429,11 @@ mod tests {
         let snap = current_capability_snapshot();
         assert_eq!(snap.ratatui_symbols.len(), RatatuiSymbolFamily::all().len());
         for s in RatatuiSymbolFamily::all() {
-            assert!(snap.ratatui_symbols.contains(s), "missing symbol: {}", s.name());
+            assert!(
+                snap.ratatui_symbols.contains(s),
+                "missing symbol: {}",
+                s.name()
+            );
         }
     }
 
@@ -475,10 +483,7 @@ mod tests {
     #[test]
     fn parity_gate_fails_when_gaps_exist() {
         let result = check_parity();
-        assert!(
-            !result.passed,
-            "parity gate should fail with known gaps"
-        );
+        assert!(!result.passed, "parity gate should fail with known gaps");
     }
 
     #[test]

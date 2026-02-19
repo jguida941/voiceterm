@@ -149,7 +149,10 @@ All CLI output passes through unchanged.
 | **Project voice macros** | Expand trigger phrases from `.voiceterm/macros.yaml` before typing |
 | **Macros toggle** | Runtime ON/OFF control for macro expansion from Settings |
 | **Built-in voice navigation** | Spoken actions for scroll up/down, show/copy last error, and explain last error |
+| **Transcript history** | `Ctrl+H` opens searchable transcript history and supports replay into the active CLI |
 | **Adaptive HUD telemetry** | Compact meter/latency trend chips that adapt to recording, busy, and idle states |
+| **Persistent settings** | Runtime settings persist to `~/.config/voiceterm/config.toml` (CLI flags still take precedence) |
+| **Claude prompt safety** | HUD auto-suppresses during Claude approval/permission prompts to avoid occluding prompt rows |
 | **Backends** | Primary support for Codex and Claude Code |
 | **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
 

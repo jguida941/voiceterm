@@ -38,29 +38,13 @@ pub(super) fn handle_output_chunk(
     state.prompt_tracker.feed_output(&data);
     // Feed PTY output to Claude prompt detector for HUD occlusion prevention.
     if state.claude_prompt_detector.feed_output(&data) {
-        // A new interactive prompt was just detected; suppress HUD to avoid occluding it.
-        state.status_state.claude_prompt_suppressed = true;
-        send_enhanced_status_with_buttons(
-            &deps.writer_tx,
-            &deps.button_registry,
-            &state.status_state,
-            state.overlay_mode,
-            state.terminal_cols,
-            state.theme,
-        );
+        // A new interactive prompt was just detected; suppress HUD and free row budget.
+        set_claude_prompt_suppression(state, deps, true);
     } else if state.status_state.claude_prompt_suppressed
         && !state.claude_prompt_detector.should_suppress_hud()
     {
-        // Suppression expired (timeout); restore HUD.
-        state.status_state.claude_prompt_suppressed = false;
-        send_enhanced_status_with_buttons(
-            &deps.writer_tx,
-            &deps.button_registry,
-            &state.status_state,
-            state.overlay_mode,
-            state.terminal_cols,
-            state.theme,
-        );
+        // Suppression expired (timeout); restore HUD and normal row reservation.
+        set_claude_prompt_suppression(state, deps, false);
     }
     {
         let mut io = TranscriptIo {

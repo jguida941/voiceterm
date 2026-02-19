@@ -291,6 +291,16 @@ pub(crate) fn apply_user_config_to_overlay(
     }
 }
 
+/// Apply non-CLI runtime state from persistent config.
+pub(crate) fn apply_user_config_to_status_state(
+    user_config: &UserConfig,
+    status_state: &mut crate::status_line::StatusLineState,
+) {
+    if let Some(v) = user_config.macros_enabled {
+        status_state.macros_enabled = v;
+    }
+}
+
 /// Snapshot the current runtime state into a `UserConfig` for persistence.
 pub(crate) fn snapshot_from_runtime(
     config: &crate::config::OverlayConfig,
@@ -347,34 +357,69 @@ pub(crate) struct CliExplicitFlags {
     pub(crate) latency_display: bool,
 }
 
-/// Detect which CLI flags differ from defaults, indicating explicit user input.
-pub(crate) fn detect_explicit_flags(config: &crate::config::OverlayConfig) -> CliExplicitFlags {
+fn cli_flag_present(args: &[String], long_name: &str) -> bool {
+    let exact = format!("--{long_name}");
+    let with_value = format!("{exact}=");
+    args.iter()
+        .any(|arg| arg == &exact || arg.starts_with(&with_value))
+}
+
+fn detect_explicit_flags_with_args(
+    config: &crate::config::OverlayConfig,
+    args: &[String],
+) -> CliExplicitFlags {
     use crate::config::{
         HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode,
     };
+    let theme_flag = cli_flag_present(args, "theme");
+    let hud_style_flag =
+        cli_flag_present(args, "hud-style") || cli_flag_present(args, "minimal-hud");
+    let hud_border_style_flag = cli_flag_present(args, "hud-border-style");
+    let hud_right_panel_flag = cli_flag_present(args, "hud-right-panel");
+    let hud_right_panel_recording_only_flag =
+        cli_flag_present(args, "hud-right-panel-recording-only");
+    let auto_voice_flag = cli_flag_present(args, "auto-voice");
+    let voice_send_mode_flag = cli_flag_present(args, "voice-send-mode");
+    let sensitivity_flag = cli_flag_present(args, "voice-vad-threshold-db");
+    let wake_word_flag = cli_flag_present(args, "wake-word");
+    let wake_word_sensitivity_flag = cli_flag_present(args, "wake-word-sensitivity");
+    let wake_word_cooldown_flag = cli_flag_present(args, "wake-word-cooldown-ms");
+    let latency_display_flag = cli_flag_present(args, "latency-display");
+
     CliExplicitFlags {
-        theme: config.theme_name.is_some(),
-        hud_style: config.hud_style != HudStyle::Full || config.minimal_hud,
-        hud_border_style: config.hud_border_style != HudBorderStyle::Theme,
-        hud_right_panel: config.hud_right_panel != HudRightPanel::Ribbon,
-        hud_right_panel_recording_only: !config.hud_right_panel_recording_only,
-        auto_voice: config.auto_voice,
-        voice_send_mode: config.voice_send_mode != VoiceSendMode::Auto,
-        sensitivity_db: (config.app.voice_vad_threshold_db - (-35.0)).abs() > 0.01,
-        wake_word: config.wake_word,
-        wake_word_sensitivity: (config.wake_word_sensitivity
-            - crate::config::DEFAULT_WAKE_WORD_SENSITIVITY)
-            .abs()
-            > 0.001,
-        wake_word_cooldown_ms: config.wake_word_cooldown_ms
-            != crate::config::DEFAULT_WAKE_WORD_COOLDOWN_MS,
-        latency_display: config.latency_display != LatencyDisplayMode::Short,
+        // CLI presence wins over fallback heuristics so explicit default values
+        // (for example `--voice-send-mode auto`) still take precedence.
+        theme: theme_flag || config.theme_name.is_some(),
+        hud_style: hud_style_flag || config.hud_style != HudStyle::Full || config.minimal_hud,
+        hud_border_style: hud_border_style_flag || config.hud_border_style != HudBorderStyle::Theme,
+        hud_right_panel: hud_right_panel_flag || config.hud_right_panel != HudRightPanel::Ribbon,
+        hud_right_panel_recording_only: hud_right_panel_recording_only_flag
+            || !config.hud_right_panel_recording_only,
+        auto_voice: auto_voice_flag || config.auto_voice,
+        voice_send_mode: voice_send_mode_flag || config.voice_send_mode != VoiceSendMode::Auto,
+        sensitivity_db: sensitivity_flag
+            || (config.app.voice_vad_threshold_db - (-35.0)).abs() > 0.01,
+        wake_word: wake_word_flag || config.wake_word,
+        wake_word_sensitivity: wake_word_sensitivity_flag
+            || (config.wake_word_sensitivity - crate::config::DEFAULT_WAKE_WORD_SENSITIVITY).abs()
+                > 0.001,
+        wake_word_cooldown_ms: wake_word_cooldown_flag
+            || config.wake_word_cooldown_ms != crate::config::DEFAULT_WAKE_WORD_COOLDOWN_MS,
+        latency_display: latency_display_flag
+            || config.latency_display != LatencyDisplayMode::Short,
     }
+}
+
+/// Detect which CLI flags were explicitly provided.
+pub(crate) fn detect_explicit_flags(config: &crate::config::OverlayConfig) -> CliExplicitFlags {
+    let args: Vec<String> = env::args().skip(1).collect();
+    detect_explicit_flags_with_args(config, &args)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
 
     #[test]
     fn parse_empty_config() {
@@ -539,5 +584,42 @@ macros_enabled = true
         let (key, value) = parse_toml_value("  key  =  \"value\"  ").unwrap();
         assert_eq!(key, "key");
         assert_eq!(value, "value");
+    }
+
+    #[test]
+    fn detect_explicit_flags_marks_default_value_flags_as_explicit() {
+        let cfg = crate::config::OverlayConfig::parse_from([
+            "voiceterm",
+            "--voice-send-mode",
+            "auto",
+            "--latency-display",
+            "short",
+            "--hud-style",
+            "full",
+        ]);
+        let args = vec![
+            "--voice-send-mode".to_string(),
+            "auto".to_string(),
+            "--latency-display".to_string(),
+            "short".to_string(),
+            "--hud-style".to_string(),
+            "full".to_string(),
+        ];
+        let explicit = detect_explicit_flags_with_args(&cfg, &args);
+        assert!(explicit.voice_send_mode);
+        assert!(explicit.latency_display);
+        assert!(explicit.hud_style);
+    }
+
+    #[test]
+    fn apply_user_config_to_status_state_restores_macros_flag() {
+        let mut status = crate::status_line::StatusLineState::new();
+        status.macros_enabled = false;
+        let cfg = UserConfig {
+            macros_enabled: Some(true),
+            ..Default::default()
+        };
+        apply_user_config_to_status_state(&cfg, &mut status);
+        assert!(status.macros_enabled);
     }
 }

@@ -12,7 +12,9 @@ use crate::config::OverlayConfig;
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
-use crate::status_line::{Pipeline, StatusLineState, VoiceMode, WakeWordHudState};
+use crate::status_line::{
+    status_banner_height, Pipeline, StatusLineState, VoiceMode, WakeWordHudState,
+};
 use crate::theme::Theme;
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
@@ -3141,4 +3143,54 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_send() {
     assert!(!state.force_send_on_next_transcript);
     assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
     HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn set_claude_prompt_suppression_updates_pty_row_budget() {
+    let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Full;
+    state.terminal_rows = 24;
+    state.terminal_cols = 80;
+
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+    let (suppressed_rows, _) = deps.session.test_winsize();
+    assert_eq!(suppressed_rows, 24);
+
+    set_claude_prompt_suppression(&mut state, &mut deps, false);
+    assert!(!state.status_state.claude_prompt_suppressed);
+    let (restored_rows, _) = deps.session.test_winsize();
+    let expected_rows = 24u16
+        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
+        .max(1);
+    assert_eq!(restored_rows, expected_rows);
+}
+
+#[test]
+fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.terminal_rows = 24;
+    state.terminal_cols = 80;
+
+    // Activate suppression and row-budget expansion.
+    let detected = state
+        .claude_prompt_detector
+        .feed_output(b"Do you want to proceed? (y/n)\n");
+    assert!(detected);
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    let (suppressed_rows, _) = deps.session.test_winsize();
+    assert_eq!(suppressed_rows, 24);
+
+    // Detector resolved via user input path, but no fresh output chunk arrives.
+    state.claude_prompt_detector.on_user_input();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+
+    assert!(!state.status_state.claude_prompt_suppressed);
+    let (restored_rows, _) = deps.session.test_winsize();
+    let expected_rows = 24u16
+        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
+        .max(1);
+    assert_eq!(restored_rows, expected_rows);
 }

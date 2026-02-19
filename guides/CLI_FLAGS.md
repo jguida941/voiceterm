@@ -71,6 +71,9 @@ Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
 staged insert-mode text immediately and with no staged text requests early-stop
 submit only while recording (otherwise consumed as a no-op), and `Enter` is
 submit-only for staged text.
+`Ctrl+H` opens transcript history (search + replay).
+Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI
+flags win over persisted values for the current run.
 Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
 fragments) are dropped instead of being forwarded to the wrapped CLI input stream.
 
@@ -258,6 +261,7 @@ without interactive approval prompts.
 | `VOICETERM_NO_STARTUP_BANNER` | Skip the startup splash screen | unset |
 | `VOICETERM_STARTUP_SPLASH_MS` | Splash dwell time in milliseconds (0 = immediate, max 30000) | 1500 |
 | `VOICETERM_PROMPT_REGEX` | Override prompt detection | unset |
+| `VOICETERM_CONFIG_DIR` | Override persistent config directory (`config.toml`) | unset |
 | `VOICETERM_PROMPT_LOG` | Prompt detection log path | unset |
 | `VOICETERM_LOGS` | Enable logging (same as `--logs`) | unset |
 | `VOICETERM_NO_LOGS` | Disable logging | unset |

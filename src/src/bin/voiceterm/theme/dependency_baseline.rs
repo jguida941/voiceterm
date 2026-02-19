@@ -283,10 +283,7 @@ pub(crate) fn check_pack_compatibility<'a>(crate_names: &'a [&'a str]) -> Vec<&'
 ///
 /// This is a static assertion helper for CI/test use.
 #[must_use]
-pub(crate) fn validate_pin_against_cargo(
-    pin: &DependencyPin,
-    cargo_version: &str,
-) -> bool {
+pub(crate) fn validate_pin_against_cargo(pin: &DependencyPin, cargo_version: &str) -> bool {
     cargo_version.starts_with(pin.pinned_version)
 }
 
@@ -480,12 +477,7 @@ mod tests {
 
     #[test]
     fn tui_widgets_family_entries_are_compatible() {
-        let tui_widgets_crates = [
-            "tui-popup",
-            "tui-scrollview",
-            "tui-big-text",
-            "tui-prompts",
-        ];
+        let tui_widgets_crates = ["tui-popup", "tui-scrollview", "tui-big-text", "tui-prompts"];
         for crate_name in &tui_widgets_crates {
             let entry = check_crate_compatibility(crate_name)
                 .unwrap_or_else(|| panic!("{crate_name} should be in compatibility matrix"));

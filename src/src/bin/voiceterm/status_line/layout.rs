@@ -2,6 +2,8 @@
 
 use crate::config::HudStyle;
 
+use super::state::StatusLineState;
+
 /// Terminal width breakpoints for responsive layout.
 pub(super) mod breakpoints {
     /// Full layout with all sections
@@ -30,6 +32,16 @@ pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
     }
 }
 
+/// Return the active status-banner row count for the current runtime state.
+#[must_use]
+pub fn status_banner_height_for_state(width: usize, state: &StatusLineState) -> usize {
+    if state.claude_prompt_suppressed {
+        0
+    } else {
+        status_banner_height(width, state.hud_style)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -48,5 +60,14 @@ mod tests {
         // Hidden mode: always 1 row (launcher when idle)
         assert_eq!(status_banner_height(80, HudStyle::Hidden), 1);
         assert_eq!(status_banner_height(30, HudStyle::Hidden), 1);
+    }
+
+    #[test]
+    fn status_banner_height_for_state_honors_prompt_suppression() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        assert_eq!(status_banner_height_for_state(120, &state), 4);
+        state.claude_prompt_suppressed = true;
+        assert_eq!(status_banner_height_for_state(120, &state), 0);
     }
 }

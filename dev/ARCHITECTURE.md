@@ -431,7 +431,10 @@ intervals to avoid corrupting the backend's screen.
 - Theme palette resolution is centralized through the runtime style resolver (`theme/style_pack.rs`) so all built-in themes flow through one style-pack path.
 - Optional style-pack payload override (`VOICETERM_STYLE_PACK_JSON`) is schema-validated/migrated by `theme/style_schema.rs`; invalid/unsupported payloads fall back to built-in base-theme palettes, while valid payload overrides can reroute border glyph sets and status-lane indicator families (including processing/responding lanes).
 - Settings migration guidance: Theme Studio foundation changes do not alter existing Settings theme/HUD controls or persisted settings keys yet.
+- Runtime settings persistence is backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (overrideable via `VOICETERM_CONFIG_DIR`); explicit CLI flags remain authoritative for each launch.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
+- **Transcript history overlay** is toggled with `Ctrl+H`, supports type-to-filter search, and can replay selected transcripts into the active PTY input stream.
+- **Claude prompt safety** is enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
 
@@ -469,11 +472,20 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/theme/` - color palettes and theme selection
 - `src/src/bin/voiceterm/theme/style_pack.rs` - runtime style-pack resolution + fallback policy
 - `src/src/bin/voiceterm/theme/style_schema.rs` - versioned style-pack schema parse/migration helpers
+- `src/src/bin/voiceterm/theme/capability_matrix.rs` - framework capability matrix + parity helpers
+- `src/src/bin/voiceterm/theme/texture_profile.rs` - terminal texture tier detection + fallback policy
+- `src/src/bin/voiceterm/theme/dependency_baseline.rs` - ecosystem dependency pin/compat baseline
+- `src/src/bin/voiceterm/theme/widget_pack.rs` - curated widget-pack registry + maturity gates
+- `src/src/bin/voiceterm/theme/rule_profile.rs` - conditional style-rule profile engine + deterministic merge
 - `src/src/bin/voiceterm/theme_ops.rs` - theme picker selection + theme cycling helpers
 - `src/src/bin/voiceterm/theme_picker.rs` - interactive theme picker overlay
 - `src/src/bin/voiceterm/help.rs` - shortcut help overlay rendering
 - `src/src/bin/voiceterm/overlays.rs` - overlay rendering helpers
+- `src/src/bin/voiceterm/transcript_history.rs` - transcript history model + searchable overlay renderer
+- `src/src/bin/voiceterm/persistent_config.rs` - persistent runtime settings load/apply/save flow
+- `src/src/bin/voiceterm/toast.rs` - toast center model + history overlay formatter
 - `src/src/bin/voiceterm/prompt/` - prompt detection + logging modules
+- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs` - Claude interactive prompt detection + HUD suppression policy
 - `src/src/bin/voiceterm/prompt/tracker.rs` - prompt tracking + idle detection
 - `src/src/bin/voiceterm/prompt/regex.rs` - prompt regex resolution
 - `src/src/bin/voiceterm/prompt/logger.rs` - prompt log writer + rotation

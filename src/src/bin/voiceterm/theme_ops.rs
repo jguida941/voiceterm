@@ -141,6 +141,7 @@ pub(crate) fn apply_theme_picker_index(
         terminal_cols,
         *overlay_mode,
         status_state.hud_style,
+        status_state.claude_prompt_suppressed,
     );
     true
 }

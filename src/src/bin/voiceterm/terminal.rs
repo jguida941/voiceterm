@@ -57,9 +57,20 @@ pub(crate) fn resolved_rows(cached: u16) -> u16 {
     }
 }
 
-pub(crate) fn reserved_rows_for_mode(mode: OverlayMode, cols: u16, hud_style: HudStyle) -> usize {
+pub(crate) fn reserved_rows_for_mode(
+    mode: OverlayMode,
+    cols: u16,
+    hud_style: HudStyle,
+    claude_prompt_suppressed: bool,
+) -> usize {
     match mode {
-        OverlayMode::None => status_banner_height(cols as usize, hud_style),
+        OverlayMode::None => {
+            if claude_prompt_suppressed {
+                0
+            } else {
+                status_banner_height(cols as usize, hud_style)
+            }
+        }
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
@@ -75,11 +86,12 @@ pub(crate) fn apply_pty_winsize(
     cols: u16,
     mode: OverlayMode,
     hud_style: HudStyle,
+    claude_prompt_suppressed: bool,
 ) {
     if rows == 0 || cols == 0 {
         return;
     }
-    let reserved = reserved_rows_for_mode(mode, cols, hud_style) as u16;
+    let reserved = reserved_rows_for_mode(mode, cols, hud_style, claude_prompt_suppressed) as u16;
     let pty_rows = rows.saturating_sub(reserved).max(1);
     let _ = session.set_winsize(pty_rows, cols);
 }
@@ -90,12 +102,20 @@ pub(crate) fn update_pty_winsize(
     terminal_cols: &mut u16,
     mode: OverlayMode,
     hud_style: HudStyle,
+    claude_prompt_suppressed: bool,
 ) {
     let rows = resolved_rows(*terminal_rows);
     let cols = resolved_cols(*terminal_cols);
     *terminal_rows = rows;
     *terminal_cols = cols;
-    apply_pty_winsize(session, rows, cols, mode, hud_style);
+    apply_pty_winsize(
+        session,
+        rows,
+        cols,
+        mode,
+        hud_style,
+        claude_prompt_suppressed,
+    );
 }
 
 #[cfg(test)]
@@ -151,20 +171,28 @@ mod tests {
     fn reserved_rows_for_mode_matches_helpers() {
         let cols = 80;
         assert_eq!(
-            reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full),
+            reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false),
             status_banner_height(cols as usize, HudStyle::Full)
         );
         assert_eq!(
-            reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full),
+            reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full, false),
             help_overlay_height()
         );
         assert_eq!(
-            reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full),
+            reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full, false),
             theme_picker_height()
         );
         assert_eq!(
-            reserved_rows_for_mode(OverlayMode::Settings, cols, HudStyle::Full),
+            reserved_rows_for_mode(OverlayMode::Settings, cols, HudStyle::Full, false),
             settings_overlay_height()
+        );
+    }
+
+    #[test]
+    fn reserved_rows_for_mode_drops_banner_rows_when_prompt_suppressed() {
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::None, 120, HudStyle::Full, true),
+            0
         );
     }
 
@@ -175,15 +203,30 @@ mod tests {
             PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
         let rows = 30;
         let cols = 100;
-        apply_pty_winsize(&mut session, rows, cols, OverlayMode::None, HudStyle::Full);
-        let reserved = reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full) as u16;
+        apply_pty_winsize(
+            &mut session,
+            rows,
+            cols,
+            OverlayMode::None,
+            HudStyle::Full,
+            false,
+        );
+        let reserved =
+            reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false) as u16;
         let expected_rows = rows.saturating_sub(reserved).max(1);
         let (set_rows, set_cols) = session.test_winsize();
         assert_eq!(set_cols, cols);
         assert_eq!(set_rows, expected_rows);
 
         let before = session.test_winsize();
-        apply_pty_winsize(&mut session, 0, cols, OverlayMode::None, HudStyle::Full);
+        apply_pty_winsize(
+            &mut session,
+            0,
+            cols,
+            OverlayMode::None,
+            HudStyle::Full,
+            false,
+        );
         assert_eq!(session.test_winsize(), before);
     }
 
@@ -200,6 +243,7 @@ mod tests {
             &mut cols,
             OverlayMode::None,
             HudStyle::Full,
+            false,
         );
         assert!(rows > 0);
         assert!(cols > 0);

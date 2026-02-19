@@ -234,9 +234,7 @@ fn normalize_glyph_override(value: Option<GlyphSetOverride>) -> Option<GlyphSetO
     }
 }
 
-fn normalize_toast_position(
-    value: Option<ToastPositionOverride>,
-) -> Option<ToastPositionOverride> {
+fn normalize_toast_position(value: Option<ToastPositionOverride>) -> Option<ToastPositionOverride> {
     match value {
         Some(ToastPositionOverride::Theme) | None => None,
         other => other,
@@ -250,9 +248,7 @@ fn normalize_startup_style(value: Option<StartupStyleOverride>) -> Option<Startu
     }
 }
 
-fn normalize_progress_style(
-    value: Option<ProgressStyleOverride>,
-) -> Option<ProgressStyleOverride> {
+fn normalize_progress_style(value: Option<ProgressStyleOverride>) -> Option<ProgressStyleOverride> {
     match value {
         Some(ProgressStyleOverride::Theme) | None => None,
         other => other,

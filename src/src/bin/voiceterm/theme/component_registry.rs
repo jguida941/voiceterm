@@ -179,8 +179,16 @@ impl ComponentRegistry {
         // Buttons
         register(ComponentId::ButtonHud, "HUD button", control_states);
         register(ComponentId::ButtonOverlay, "Overlay button", control_states);
-        register(ComponentId::ButtonSettings, "Settings button", control_states);
-        register(ComponentId::ButtonThemePicker, "Theme picker button", control_states);
+        register(
+            ComponentId::ButtonSettings,
+            "Settings button",
+            control_states,
+        );
+        register(
+            ComponentId::ButtonThemePicker,
+            "Theme picker button",
+            control_states,
+        );
 
         // Tabs
         register(ComponentId::TabStudio, "Studio tab", control_states);
@@ -189,11 +197,19 @@ impl ComponentRegistry {
         // Lists
         register(ComponentId::ListSettings, "Settings list", control_states);
         register(ComponentId::ListHelp, "Help list", control_states);
-        register(ComponentId::ListThemePicker, "Theme picker list", control_states);
+        register(
+            ComponentId::ListThemePicker,
+            "Theme picker list",
+            control_states,
+        );
         register(ComponentId::ListHistory, "History list", control_states);
 
         // Tables
-        register(ComponentId::TableShortcuts, "Shortcuts table", control_states);
+        register(
+            ComponentId::TableShortcuts,
+            "Shortcuts table",
+            control_states,
+        );
 
         // Trees
         register(ComponentId::TreeLayout, "Layout tree", control_states);
@@ -202,7 +218,11 @@ impl ComponentRegistry {
         register(
             ComponentId::ScrollbarOverlay,
             "Overlay scrollbar",
-            &[ComponentState::Default, ComponentState::Hover, ComponentState::Disabled],
+            &[
+                ComponentState::Default,
+                ComponentState::Hover,
+                ComponentState::Disabled,
+            ],
         );
 
         // Modals / popups / tooltips
@@ -280,7 +300,11 @@ impl ComponentRegistry {
         // Progress
         let progress_states = &[ComponentState::Default, ComponentState::Processing];
         register(ComponentId::ProgressBar, "Progress bar", progress_states);
-        register(ComponentId::ProgressSpinner, "Progress spinner", progress_states);
+        register(
+            ComponentId::ProgressSpinner,
+            "Progress spinner",
+            progress_states,
+        );
         register(ComponentId::ProgressBounce, "Bounce bar", progress_states);
 
         // Startup / banner
@@ -303,7 +327,11 @@ impl ComponentRegistry {
         // Help / settings chrome
         register(ComponentId::HelpSection, "Help section", control_states);
         register(ComponentId::SettingsRow, "Settings row", control_states);
-        register(ComponentId::ThemePickerRow, "Theme picker row", control_states);
+        register(
+            ComponentId::ThemePickerRow,
+            "Theme picker row",
+            control_states,
+        );
 
         // Audio meter / calibration
         register(
@@ -365,7 +393,11 @@ impl ComponentRegistry {
         register(
             ComponentId::AutocompleteRow,
             "Autocomplete row",
-            &[ComponentState::Default, ComponentState::Selected, ComponentState::Hover],
+            &[
+                ComponentState::Default,
+                ComponentState::Selected,
+                ComponentState::Hover,
+            ],
         );
 
         // Dashboard
@@ -539,9 +571,7 @@ mod tests {
         ];
         for state in voice_states {
             assert!(
-                registry
-                    .get(ComponentId::HudStatusLine, state)
-                    .is_some(),
+                registry.get(ComponentId::HudStatusLine, state).is_some(),
                 "HudStatusLine should have state {state:?}"
             );
         }

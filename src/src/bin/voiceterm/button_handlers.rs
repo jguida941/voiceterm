@@ -16,7 +16,7 @@ use crate::settings::SettingsMenuState;
 use crate::settings_handlers::{
     SettingsActionContext, SettingsHudContext, SettingsStatusContext, SettingsVoiceContext,
 };
-use crate::status_line::{get_button_positions, status_banner_height, StatusLineState};
+use crate::status_line::{get_button_positions, status_banner_height_for_state, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_ops::theme_index_from_theme;
@@ -171,6 +171,7 @@ impl<'a> ButtonActionContext<'a> {
             self.terminal_cols,
             *self.overlay_mode,
             self.status_state.hud_style,
+            self.status_state.claude_prompt_suppressed,
         );
     }
 
@@ -255,7 +256,7 @@ pub(crate) fn update_button_registry(
         registry.set_hud_offset(0);
         return;
     }
-    let banner_height = status_banner_height(terminal_cols as usize, status_state.hud_style);
+    let banner_height = status_banner_height_for_state(terminal_cols as usize, status_state);
     registry.set_hud_offset(banner_height as u16);
     let positions = get_button_positions(status_state, theme, terminal_cols as usize);
     for pos in positions {

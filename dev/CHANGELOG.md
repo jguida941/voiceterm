@@ -7,10 +7,21 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### UX
+
+- Add transcript history overlay (`Ctrl+H`) with type-to-filter search and replay into the active CLI input.
+- Add persistent runtime settings storage at `~/.config/voiceterm/config.toml` for core HUD/voice preferences while preserving CLI-flag precedence per launch.
+
+### Runtime Hardening
+
+- Harden Claude interactive prompt safety: when approval/permission prompts are detected, HUD rows are fully suppressed (no reserved PTY rows) and automatically restored on user input or timeout.
+- Fix prompt-suppression lifecycle so timeout-based HUD restore also runs on periodic ticks (not only on new PTY output).
+
 ### Code Quality
 
 - Standardize status-line width/truncation on Unicode display width in remaining writer/status-style paths, including printable-Unicode-safe status sanitization and wide-glyph truncation coverage.
 - Consolidate transcript-preview text formatting into a shared `voice_control/transcript_preview.rs` helper so navigation and drain delivery paths cannot drift.
+- Fix persistent-config explicit-flag detection so explicitly passed default values (for example `--voice-send-mode auto`) are treated as explicit and not overridden by persisted config.
 - Extend Theme Upgrade Phase 1 runtime wiring: style resolver now loads/migrates schema payloads through `theme/style_schema.rs` before palette resolution, with deterministic fallback to built-in base-theme palettes for invalid/unsupported packs.
 - Extend Theme Studio style-pack runtime coverage beyond base palettes: schema payload overrides now support border glyph-set routing and indicator glyph-family routing (`ascii`, `dot`, `diamond`) through the resolver path, including compact/full/minimal/hidden processing/responding indicator lanes while preserving default processing spinner animation unless an override changes it.
 - Route non-HUD processing/progress spinner rendering through theme/style-pack indicator resolution (status animation, periodic processing status text, and `progress::format_spinner`) so these surfaces no longer depend on hardcoded frame tables outside Theme Studio ownership.

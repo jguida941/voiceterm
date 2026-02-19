@@ -213,10 +213,7 @@ pub(crate) const WIDGET_PACK_REGISTRY: &[WidgetPackEntry] = &[
         maturity: PackMaturity::Candidate,
         style_scope: StyleIdScope {
             prefix: "pack.tui-big-text",
-            ids: &[
-                "pack.tui-big-text.text",
-                "pack.tui-big-text.text.accent",
-            ],
+            ids: &["pack.tui-big-text.text", "pack.tui-big-text.text.accent"],
         },
         parity_requirements: &[
             ParityRequirement::StyleIdRegistration,
@@ -315,11 +312,7 @@ pub(crate) fn check_graduation(crate_name: &str) -> GraduationCheckResult {
     // In a full implementation, we would check actual test results here.
     // For now, report all parity requirements as structurally unmet
     // (they need CI evidence to pass).
-    let unmet: Vec<&'static str> = pack
-        .parity_requirements
-        .iter()
-        .map(|r| r.label())
-        .collect();
+    let unmet: Vec<&'static str> = pack.parity_requirements.iter().map(|r| r.label()).collect();
 
     GraduationCheckResult {
         crate_name: pack.crate_name,
@@ -423,10 +416,7 @@ mod tests {
     #[test]
     fn pilot_packs_exist_in_registry() {
         let pilots = packs_at_maturity(PackMaturity::Pilot);
-        assert!(
-            !pilots.is_empty(),
-            "should have at least one pilot pack"
-        );
+        assert!(!pilots.is_empty(), "should have at least one pilot pack");
         for pack in &pilots {
             assert!(pack.maturity >= PackMaturity::Pilot);
         }
@@ -482,7 +472,9 @@ mod tests {
     fn graduation_check_rejects_unknown_packs() {
         let result = check_graduation("nonexistent");
         assert!(!result.can_graduate);
-        assert!(result.unmet_requirements.contains(&"pack not found in registry"));
+        assert!(result
+            .unmet_requirements
+            .contains(&"pack not found in registry"));
     }
 
     #[test]

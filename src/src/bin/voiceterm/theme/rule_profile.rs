@@ -17,9 +17,7 @@ use serde::Deserialize;
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub(crate) enum RuleCondition {
     /// Voice pipeline state matches.
-    VoiceState {
-        state: VoiceStateCondition,
-    },
+    VoiceState { state: VoiceStateCondition },
     /// Numeric metric is within a threshold band.
     Threshold {
         metric: ThresholdMetric,
@@ -29,26 +27,15 @@ pub(crate) enum RuleCondition {
         max: Option<f64>,
     },
     /// Active backend matches.
-    Backend {
-        backend: String,
-    },
+    Backend { backend: String },
     /// Terminal capability is present or absent.
-    Capability {
-        capability: String,
-        present: bool,
-    },
+    Capability { capability: String, present: bool },
     /// Color mode matches.
-    ColorMode {
-        mode: String,
-    },
+    ColorMode { mode: String },
     /// Boolean AND of sub-conditions (all must match).
-    All {
-        conditions: Vec<RuleCondition>,
-    },
+    All { conditions: Vec<RuleCondition> },
     /// Boolean OR of sub-conditions (at least one must match).
-    Any {
-        conditions: Vec<RuleCondition>,
-    },
+    Any { conditions: Vec<RuleCondition> },
 }
 
 /// Voice pipeline states for condition matching.
@@ -284,8 +271,8 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
                 ThresholdMetric::TerminalWidth => ctx.terminal_width as f64,
                 ThresholdMetric::TerminalHeight => ctx.terminal_height as f64,
             };
-            let above_min = min.map_or(true, |m| value >= m);
-            let below_max = max.map_or(true, |m| value <= m);
+            let above_min = min.is_none_or(|m| value >= m);
+            let below_max = max.is_none_or(|m| value <= m);
             above_min && below_max
         }
         RuleCondition::Backend { backend } => ctx.backend == *backend,
@@ -297,12 +284,8 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
             has == *present
         }
         RuleCondition::ColorMode { mode } => ctx.color_mode == *mode,
-        RuleCondition::All { conditions } => {
-            conditions.iter().all(|c| evaluate_condition(c, ctx))
-        }
-        RuleCondition::Any { conditions } => {
-            conditions.iter().any(|c| evaluate_condition(c, ctx))
-        }
+        RuleCondition::All { conditions } => conditions.iter().all(|c| evaluate_condition(c, ctx)),
+        RuleCondition::Any { conditions } => conditions.iter().any(|c| evaluate_condition(c, ctx)),
     }
 }
 
@@ -322,10 +305,7 @@ pub(crate) struct ResolvedOverrides {
 /// style ID, the first matching rule wins for each property key
 /// (deterministic priority semantics).
 #[must_use]
-pub(crate) fn evaluate_rules(
-    profile: &RuleProfile,
-    ctx: &RuleEvalContext,
-) -> ResolvedOverrides {
+pub(crate) fn evaluate_rules(profile: &RuleProfile, ctx: &RuleEvalContext) -> ResolvedOverrides {
     let active = profile.active_rules();
     let mut resolved: Vec<(String, Vec<OverrideEntry>)> = Vec::new();
 
@@ -366,10 +346,7 @@ pub(crate) fn evaluate_rules(
 ///
 /// Returns which rules would match and what overrides would result.
 #[must_use]
-pub(crate) fn preview_rules(
-    profile: &RuleProfile,
-    ctx: &RuleEvalContext,
-) -> Vec<RulePreviewEntry> {
+pub(crate) fn preview_rules(profile: &RuleProfile, ctx: &RuleEvalContext) -> Vec<RulePreviewEntry> {
     profile
         .active_rules()
         .into_iter()
@@ -756,18 +733,14 @@ mod tests {
     #[test]
     fn evaluate_empty_all_is_true() {
         let ctx = sample_context();
-        let cond = RuleCondition::All {
-            conditions: vec![],
-        };
+        let cond = RuleCondition::All { conditions: vec![] };
         assert!(evaluate_condition(&cond, &ctx));
     }
 
     #[test]
     fn evaluate_empty_any_is_false() {
         let ctx = sample_context();
-        let cond = RuleCondition::Any {
-            conditions: vec![],
-        };
+        let cond = RuleCondition::Any { conditions: vec![] };
         assert!(!evaluate_condition(&cond, &ctx));
     }
 

@@ -11,6 +11,7 @@ Use the quick-fix table first, then jump to the detailed section.
 | Voice not recording | Check microphone permissions | [Voice capture failed (see log)](#voice-capture-failed-see-log) |
 | Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
 | Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
+| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded) |
 | Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
 | No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
@@ -268,6 +269,30 @@ If Claude tool actions run without approval prompts, check whether
    environments (for example sandboxed or disposable workspaces).
 3. Avoid using skip-permissions mode with untrusted repositories or with
    credentials/secrets available in your shell environment.
+
+### Claude prompt rows are occluded
+
+VoiceTerm now suppresses HUD rows when Claude interactive approval/permission
+prompts are detected, so prompt text/actions stay visible.
+
+If prompts still look clipped or overlapped:
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Retry in a larger terminal row count first (wrapped absolute command paths
+   can consume multiple rows quickly).
+3. Re-run with logs and capture a screenshot:
+
+   ```bash
+   voiceterm --logs --claude
+   ```
+
+4. Include terminal name/version + screenshot + relevant
+   `${TMPDIR}/voiceterm_tui.log` lines when reporting the issue.
 
 ### Many codex or claude processes remain after quitting
 

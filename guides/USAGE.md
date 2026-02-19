@@ -19,6 +19,7 @@ Docs map:
 - [How Voice Input Works](#how-voice-input-works)
 - [Core Controls](#core-controls)
 - [Settings Menu](#settings-menu)
+- [Transcript History](#transcript-history)
 - [Voice Modes](#voice-modes)
 - [Common Tasks](#common-tasks)
 - [Customization](#customization)
@@ -86,6 +87,7 @@ Flow:
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
+| `Ctrl+H` | Open transcript history (search + replay) |
 | `Ctrl+O` | Open settings |
 | `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
@@ -129,6 +131,21 @@ Common settings:
 - Right panel mode and recording-only animation
 - Mouse support
 - `Backend` / `Pipeline` rows are read-only session diagnostics
+
+Settings persistence:
+
+- Runtime settings are saved to `~/.config/voiceterm/config.toml`.
+- CLI flags always override persisted values for the current launch.
+
+## Transcript History
+
+Open with `Ctrl+H`.
+
+- Type to filter transcript history entries (newest first).
+- `Up`/`Down` moves selection.
+- `Backspace` removes one search character.
+- `Enter` replays the selected transcript into the active CLI input.
+- `Esc` closes the overlay.
 
 ## Voice Modes
 

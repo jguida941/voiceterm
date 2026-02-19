@@ -115,7 +115,7 @@ but default to `OFF` unless explicitly enabled.
 You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
 `Ctrl+E` (insert mode: send staged text now; recording with no staged text
 finalizes+submits; idle with no staged text is no-op), `Ctrl+G` (quick theme
-cycle), and `Ctrl+Y` (theme picker).
+cycle), `Ctrl+Y` (theme picker), and `Ctrl+H` (transcript history overlay).
 In insert mode, `Enter` remains submit-only for staged text.
 In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
 rendered on the main status row (top-right lane).
@@ -128,6 +128,8 @@ no-speech/error captures, and auto-clears stale idle values after a short
 window.
 Hidden HUD launcher text, `[open]`, and recording indicator are intentionally
 muted gray to keep hidden mode unobtrusive.
+Settings changes persist to `~/.config/voiceterm/config.toml` unless you
+override the config directory with `VOICETERM_CONFIG_DIR`.
 If you ever see raw mouse fragments like `[<0;35;25M`, update to the latest
 build; malformed/fragmented mouse-report escapes are now dropped before they
 reach the wrapped CLI input stream.

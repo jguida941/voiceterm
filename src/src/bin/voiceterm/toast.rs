@@ -266,11 +266,7 @@ impl Default for ToastCenter {
 
 /// Format a single toast line for inline HUD display.
 #[must_use]
-pub(crate) fn format_toast_inline(
-    toast: &Toast,
-    colors: &ThemeColors,
-    max_width: usize,
-) -> String {
+pub(crate) fn format_toast_inline(toast: &Toast, colors: &ThemeColors, max_width: usize) -> String {
     let icon = toast.severity.icon(colors.glyph_set);
     let severity_color = toast.severity.color(colors);
     let prefix = format!("[{}]", toast.severity.label());
@@ -327,7 +323,9 @@ pub(crate) fn format_toast_history_overlay(
             borders.vertical,
         ));
         // Add reset after vertical
-        lines.last_mut().map(|l| l.push_str(colors.reset));
+        if let Some(last) = lines.last_mut() {
+            last.push_str(colors.reset);
+        }
     } else {
         // Show most recent entries (up to 10 visible in overlay).
         let visible_count = center.history.len().min(10);
@@ -454,11 +452,7 @@ mod tests {
     #[test]
     fn toast_center_tick_dismisses_expired() {
         let mut center = ToastCenter::new();
-        center.push_with_duration(
-            ToastSeverity::Info,
-            "ephemeral",
-            Duration::from_millis(0),
-        );
+        center.push_with_duration(ToastSeverity::Info, "ephemeral", Duration::from_millis(0));
         assert_eq!(center.active_count(), 1);
 
         // Tick should dismiss the zero-duration toast.
@@ -594,11 +588,7 @@ mod tests {
     #[test]
     fn push_with_duration_creates_toast_with_custom_dismiss() {
         let mut center = ToastCenter::new();
-        center.push_with_duration(
-            ToastSeverity::Warning,
-            "custom",
-            Duration::from_secs(60),
-        );
+        center.push_with_duration(ToastSeverity::Warning, "custom", Duration::from_secs(60));
         assert_eq!(center.active_count(), 1);
         let toast = &center.active_toasts()[0];
         assert_eq!(toast.severity, ToastSeverity::Warning);

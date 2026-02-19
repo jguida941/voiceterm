@@ -114,7 +114,7 @@ pub(super) fn handle_input_event(
                 // Clear Claude prompt suppression when user sends any input to PTY.
                 if state.status_state.claude_prompt_suppressed && !bytes.is_empty() {
                     state.claude_prompt_detector.on_user_input();
-                    state.status_state.claude_prompt_suppressed = false;
+                    set_claude_prompt_suppression(state, deps, false);
                 }
                 let mark_insert_pending =
                     state.config.voice_send_mode == VoiceSendMode::Insert && !bytes.is_empty();
@@ -190,7 +190,7 @@ pub(super) fn handle_input_event(
                 // User responded to a potential Claude prompt; clear HUD suppression.
                 if state.status_state.claude_prompt_suppressed {
                     state.claude_prompt_detector.on_user_input();
-                    state.status_state.claude_prompt_suppressed = false;
+                    set_claude_prompt_suppression(state, deps, false);
                 }
                 if let Some(action) = state.status_state.hud_button_focus {
                     state.status_state.hud_button_focus = None;

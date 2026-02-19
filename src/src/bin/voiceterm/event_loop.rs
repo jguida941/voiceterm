@@ -296,6 +296,34 @@ fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
         &mut state.terminal_cols,
         state.overlay_mode,
         state.status_state.hud_style,
+        state.status_state.claude_prompt_suppressed,
+    );
+}
+
+fn set_claude_prompt_suppression(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    suppressed: bool,
+) {
+    if state.status_state.claude_prompt_suppressed == suppressed {
+        return;
+    }
+    state.status_state.claude_prompt_suppressed = suppressed;
+    apply_pty_winsize(
+        &mut deps.session,
+        state.terminal_rows,
+        state.terminal_cols,
+        state.overlay_mode,
+        state.status_state.hud_style,
+        state.status_state.claude_prompt_suppressed,
+    );
+    send_enhanced_status_with_buttons(
+        &deps.writer_tx,
+        &deps.button_registry,
+        &state.status_state,
+        state.overlay_mode,
+        state.terminal_cols,
+        state.theme,
     );
 }
 
