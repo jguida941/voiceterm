@@ -72,25 +72,21 @@ To target Claude instead of Codex:
 voiceterm --claude
 ```
 
-## 4) Essential controls
+## 4) Core controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
 - `Ctrl+E` - in insert mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, shows `Nothing to send`
-- `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
-- `Ctrl+G` - quick cycle theme
-- `Ctrl+Y` - open theme picker
+- `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
+- `Ctrl+O` - open settings menu
 - `Ctrl+H` - open transcript history (search and replay)
-- `Ctrl+O` - open settings menu (use ↑↓←→ + Enter)
-- `Ctrl+U` - cycle HUD style (full/minimal/hidden)
-- `Ctrl+]` - increase mic threshold by 5 dB (less sensitive)
-- `Ctrl+\` - decrease mic threshold by 5 dB (more sensitive; `Ctrl+/` also works)
-- `?` - show shortcut help
 - `Ctrl+Q` - exit overlay
-- `Ctrl+C` - forwarded to the CLI
-- `Enter` - forwarded to wrapped CLI input (`insert` mode: submit staged prompt text)
 
-Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
+Full controls reference:
+
+- [guides/USAGE.md#core-controls](guides/USAGE.md#core-controls)
+- [guides/USAGE.md#settings-menu](guides/USAGE.md#settings-menu)
+- [guides/USAGE.md#voice-modes](guides/USAGE.md#voice-modes)
 
 Behavior highlights:
 

@@ -6,6 +6,8 @@ Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
 Docs map:
 
 - User guides index: [README.md](README.md)
+- Quick start: [../QUICK_START.md](../QUICK_START.md)
+- Install chooser summary: [../README.md#install-and-start](../README.md#install-and-start)
 - Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
 
 ## Platform Support

@@ -3,6 +3,24 @@
 Single troubleshooting reference for VoiceTerm.
 Use the quick-fix table first, then jump to the detailed section.
 
+## Triage Flow
+
+```mermaid
+flowchart TD
+    A["Issue in VoiceTerm"] --> B{"Install/update issue?"}
+    B -->|Yes| C["Open Install and Update Issues"]
+    B -->|No| D{"Audio or transcript issue?"}
+    D -->|Yes| E["Check Audio Setup + Mic Sensitivity"]
+    D -->|No| F{"Backend/session issue?"}
+    F -->|Yes| G["Check Backend Issues"]
+    F -->|No| H["Check Terminal and IDE Issues"]
+    C --> I["Enable logs if unresolved"]
+    E --> I
+    G --> I
+    H --> I
+    I --> J["Share logs + environment details"]
+```
+
 ## Quick Fixes
 
 | Problem | First action | Section |
@@ -30,6 +48,7 @@ Use the quick-fix table first, then jump to the detailed section.
 
 ## Contents
 
+- [Triage Flow](#triage-flow)
 - [Status Messages](#status-messages)
 - [Audio Setup](#audio-setup)
 - [Mic Sensitivity](#mic-sensitivity)

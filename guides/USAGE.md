@@ -66,6 +66,20 @@ voiceterm --login --claude
 VoiceTerm only handles voice capture and text injection. It does not replace your
 backend CLI.
 
+```mermaid
+flowchart TD
+    A["Start capture (Ctrl+R / auto-voice / wake word)"] --> B["Record microphone audio"]
+    B --> C["Whisper STT (local)"]
+    C --> D{"Macros enabled?"}
+    D -->|Yes| E["Apply .voiceterm/macros.yaml rules"]
+    D -->|No| F["Keep raw transcript"]
+    E --> G["Inject text into PTY input"]
+    F --> G
+    G --> H{"Send mode"}
+    H -->|auto| I["Submit (Enter)"]
+    H -->|insert| J["Wait for Enter or Ctrl+E"]
+```
+
 Flow:
 
 1. Record: VoiceTerm listens while you speak.

@@ -3,6 +3,12 @@
 All flags for the `voiceterm` command. Run `voiceterm --help` for the live
 themed, grouped output.
 
+Docs map:
+
+- Quick start path: [../QUICK_START.md](../QUICK_START.md)
+- Voice lifecycle and controls: [USAGE.md](USAGE.md)
+- Whisper model guidance: [WHISPER.md](WHISPER.md)
+
 ## Contents
 
 - [Quick Reference](#quick-reference)
@@ -145,6 +151,8 @@ voiceterm --login --claude      # Login to Claude CLI
 | `--voice-stt-timeout-ms <MS>` | Timeout before triggering fallback | 60000 |
 | `--python-cmd <PATH>` | Python interpreter for fallback scripts | python3 |
 | `--pipeline-script <PATH>` | Python fallback pipeline script (bundled in the install by default) | built-in |
+
+For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.md).
 
 ---
 

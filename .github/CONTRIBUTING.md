@@ -9,13 +9,28 @@ Thanks for taking the time to contribute.
 - Update `dev/CHANGELOG.md` for user-facing changes.
 - Run verification before shipping (see `dev/DEVELOPMENT.md` for the full checklist).
 
+## Contributor workflow
+
+```mermaid
+flowchart TD
+    A["Pick issue or scope"] --> B["Branch from develop (feature/* or fix/*)"]
+    B --> C["Implement + add/update tests"]
+    C --> D["Run required checks"]
+    D --> E{"User-facing behavior changed?"}
+    E -->|Yes| F["Update docs + dev/CHANGELOG.md"]
+    E -->|No| G["Open PR to develop"]
+    F --> G
+    G --> H["Review, fix feedback, merge"]
+```
+
 ## Development setup
 
 - Install prerequisites in `guides/INSTALL.md`.
-- Build the overlay:
-  ```bash
-  cd src && cargo build --release --bin voiceterm
-  ```
+- Build the overlay.
+
+```bash
+cd src && cargo build --release --bin voiceterm
+```
 
 ## Code style
 
