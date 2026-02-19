@@ -28,6 +28,7 @@ mod input;
 mod onboarding;
 mod overlay_frame;
 mod overlays;
+mod persistent_config;
 mod progress;
 mod prompt;
 mod session_stats;
@@ -41,6 +42,7 @@ mod theme;
 mod theme_ops;
 mod theme_picker;
 mod transcript;
+mod transcript_history;
 mod voice_control;
 mod voice_macros;
 mod wake_word;
@@ -73,7 +75,9 @@ use crate::event_loop::run_event_loop;
 use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
 use crate::hud::HudRegistry;
 use crate::input::spawn_input_thread;
-use crate::prompt::{resolve_prompt_log, resolve_prompt_regex, PromptLogger, PromptTracker};
+use crate::prompt::{
+    resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
+};
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::SettingsMenuState;
 use crate::status_line::{
@@ -185,6 +189,12 @@ fn main() -> Result<()> {
         custom_help::print_themed_help(theme);
         return Ok(());
     }
+
+    // Load persistent user config and merge with CLI flags (CLI always wins).
+    let cli_explicit = persistent_config::detect_explicit_flags(&config);
+    let user_config = persistent_config::load_user_config();
+    persistent_config::apply_user_config_to_overlay(&user_config, &mut config, &cli_explicit);
+
     let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let backend = config.resolve_backend();
@@ -396,6 +406,11 @@ fn main() -> Result<()> {
         pending_pty_input_bytes: 0,
         suppress_startup_escape_input: true,
         force_send_on_next_transcript: false,
+        transcript_history: transcript_history::TranscriptHistory::new(),
+        transcript_history_state: transcript_history::TranscriptHistoryState::new(),
+        claude_prompt_detector: ClaudePromptDetector::new(
+            backend_label.to_ascii_lowercase().contains("claude"),
+        ),
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,

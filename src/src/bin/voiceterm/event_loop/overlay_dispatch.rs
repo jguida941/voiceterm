@@ -37,3 +37,15 @@ pub(super) fn open_theme_picker_overlay(
     reset_theme_picker_selection(state, timers);
     render_theme_picker_overlay_for_state(state, deps);
 }
+
+pub(super) fn open_transcript_history_overlay(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+) {
+    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state
+        .transcript_history_state
+        .refresh_filter(&state.transcript_history);
+    sync_overlay_winsize(state, deps);
+    render_transcript_history_overlay_for_state(state, deps);
+}

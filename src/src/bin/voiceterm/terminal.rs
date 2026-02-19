@@ -63,6 +63,9 @@ pub(crate) fn reserved_rows_for_mode(mode: OverlayMode, cols: u16, hud_style: Hu
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
+        OverlayMode::TranscriptHistory => {
+            crate::transcript_history::transcript_history_overlay_height()
+        }
     }
 }
 

@@ -177,6 +177,14 @@ fn format_hidden_strip(state: &StatusLineState, colors: &ThemeColors, width: usi
 /// Minimal mode: Theme-colored strip with indicator + status (e.g., "● PTT · Ready")
 /// Hidden mode: Branded launcher with `open`/`hide` controls when idle; dim indicator when recording (e.g., "● rec 5s")
 pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize) -> StatusBanner {
+    // When a Claude interactive prompt is detected, suppress the HUD to prevent
+    // occluding approval/permission prompts (MP-226). Render an empty single-line
+    // placeholder so the PTY gets the full terminal height for the prompt.
+    if state.claude_prompt_suppressed {
+        let blank = " ".repeat(width);
+        return StatusBanner::new(vec![blank]);
+    }
+
     let colors = theme.colors();
     let borders = resolve_hud_border_set(state, &colors.borders);
     let borderless =

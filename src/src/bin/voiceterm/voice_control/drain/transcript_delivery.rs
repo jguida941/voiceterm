@@ -27,6 +27,7 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) force_send_on_next_transcript: &'a mut bool,
     pub(super) auto_voice_enabled: bool,
     pub(super) sound_on_complete: bool,
+    pub(super) transcript_history: &'a mut crate::transcript_history::TranscriptHistory,
 }
 
 pub(super) fn handle_transcript_message<S: TranscriptSession>(
@@ -71,6 +72,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         .map(|metrics| metrics.speech_ms as f32 / 1000.0)
         .unwrap_or(0.0);
     ctx.session_stats.record_transcript(duration_secs);
+    ctx.transcript_history.push(ctx.text.clone());
     crate::onboarding::mark_first_capture_complete();
 
     let (text, mut transcript_mode, macro_note) = super::message_processing::apply_macro_mode(

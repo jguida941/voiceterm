@@ -28,7 +28,8 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
+    show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
+    show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
@@ -50,6 +51,7 @@ use crate::theme_picker::{
     theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_OPTION_START_ROW,
 };
 use crate::transcript::{try_flush_pending, TranscriptIo};
+use crate::transcript_history::transcript_history_overlay_height;
 use crate::voice_control::{
     clear_capture_metrics, drain_voice_messages, reset_capture_visuals, start_voice_capture,
     VoiceDrainContext,
@@ -59,6 +61,7 @@ use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
+    open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -274,6 +277,7 @@ fn drain_voice_messages_once(
         auto_voice_enabled: state.auto_voice_enabled,
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
+        transcript_history: &mut state.transcript_history,
     };
     #[cfg(test)]
     {
@@ -326,6 +330,17 @@ fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         selected_idx,
         cols,
         locked_theme,
+    );
+}
+
+fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_transcript_history_overlay(
+        &deps.writer_tx,
+        &state.transcript_history,
+        &state.transcript_history_state,
+        state.theme,
+        cols,
     );
 }
 

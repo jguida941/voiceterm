@@ -14,6 +14,7 @@ use crate::prompt::PromptTracker;
 use crate::session_stats::SessionStats;
 use crate::status_line::{RecordingState, StatusLineState};
 use crate::transcript::{PendingTranscript, TranscriptSession};
+use crate::transcript_history::TranscriptHistory;
 use crate::voice_macros::VoiceMacros;
 use crate::writer::WriterMessage;
 
@@ -62,6 +63,7 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub auto_voice_enabled: bool,
     pub sound_on_complete: bool,
     pub sound_on_error: bool,
+    pub transcript_history: &'a mut TranscriptHistory,
 }
 
 pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainContext<'_, S>) {
@@ -87,6 +89,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let auto_voice_enabled = ctx.auto_voice_enabled;
     let sound_on_complete = ctx.sound_on_complete;
     let sound_on_error = ctx.sound_on_error;
+    let transcript_history = &mut *ctx.transcript_history;
 
     let Some(message) = voice_manager.poll_message() else {
         return;
@@ -126,6 +129,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 force_send_on_next_transcript,
                 auto_voice_enabled,
                 sound_on_complete,
+                transcript_history,
             };
             handle_transcript_message(&mut transcript_ctx);
         }

@@ -196,6 +196,9 @@ pub struct StatusLineState {
     /// Ephemeral transition progress (0.0-1.0) for state-change animations.
     /// This is populated by the writer thread at render time.
     pub transition_progress: f32,
+    /// Whether HUD should be suppressed because a Claude interactive prompt is active.
+    /// Set by the `ClaudePromptDetector` to prevent HUD from occluding approval prompts.
+    pub claude_prompt_suppressed: bool,
 }
 
 impl StatusLineState {
@@ -251,6 +254,7 @@ mod tests {
         assert!(!state.hidden_launcher_collapsed);
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
+        assert!(!state.claude_prompt_suppressed);
     }
 
     #[test]

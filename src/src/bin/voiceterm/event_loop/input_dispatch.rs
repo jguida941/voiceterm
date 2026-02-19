@@ -1,6 +1,7 @@
 //! Input event handling extracted from the core event loop.
 
 use super::*;
+use crate::transcript_history::transcript_history_visible_rows;
 
 pub(super) fn handle_input_event(
     state: &mut EventLoopState,
@@ -44,6 +45,10 @@ pub(super) fn handle_input_event(
             InputEvent::SettingsToggle => {
                 state.status_state.hud_button_focus = None;
                 open_settings_overlay(state, deps);
+            }
+            InputEvent::TranscriptHistoryToggle => {
+                state.status_state.hud_button_focus = None;
+                open_transcript_history_overlay(state, deps);
             }
             InputEvent::ToggleHudStyle => {
                 let overlay_mode = state.overlay_mode;
@@ -106,6 +111,11 @@ pub(super) fn handle_input_event(
                 }
 
                 state.status_state.hud_button_focus = None;
+                // Clear Claude prompt suppression when user sends any input to PTY.
+                if state.status_state.claude_prompt_suppressed && !bytes.is_empty() {
+                    state.claude_prompt_detector.on_user_input();
+                    state.status_state.claude_prompt_suppressed = false;
+                }
                 let mark_insert_pending =
                     state.config.voice_send_mode == VoiceSendMode::Insert && !bytes.is_empty();
                 if !write_or_queue_pty_input(state, deps, bytes) {
@@ -177,6 +187,11 @@ pub(super) fn handle_input_event(
                 });
             }
             InputEvent::EnterKey => {
+                // User responded to a potential Claude prompt; clear HUD suppression.
+                if state.status_state.claude_prompt_suppressed {
+                    state.claude_prompt_detector.on_user_input();
+                    state.status_state.claude_prompt_suppressed = false;
+                }
                 if let Some(action) = state.status_state.hud_button_focus {
                     state.status_state.hud_button_focus = None;
                     if action != ButtonAction::ToggleAutoVoice {
@@ -419,6 +434,9 @@ fn handle_overlay_input_event(
                 OverlayMode::Help => {
                     render_help_overlay_for_state(state, deps);
                 }
+                OverlayMode::TranscriptHistory => {
+                    render_transcript_history_overlay_for_state(state, deps);
+                }
                 OverlayMode::None => {}
             }
             None
@@ -595,6 +613,84 @@ fn handle_overlay_input_event(
             }
             None
         }
+        // --- Transcript History overlay ---
+        (OverlayMode::TranscriptHistory, InputEvent::TranscriptHistoryToggle) => {
+            close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::TranscriptHistory, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::TranscriptHistory, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::TranscriptHistory, InputEvent::ThemePicker) => {
+            open_theme_picker_overlay(state, timers, deps);
+            None
+        }
+        (OverlayMode::TranscriptHistory, InputEvent::EnterKey) => {
+            // Replay the selected transcript
+            if let Some(entry_idx) = state.transcript_history_state.selected_entry_index() {
+                if let Some(entry) = state.transcript_history.get(entry_idx) {
+                    let text = entry.text.clone();
+                    close_overlay(state, deps, true);
+                    if !write_or_queue_pty_input(state, deps, text.into_bytes()) {
+                        *running = false;
+                    }
+                }
+            }
+            None
+        }
+        (OverlayMode::TranscriptHistory, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            } else if bytes == [0x7f] {
+                // Backspace/Delete: remove last search char
+                state
+                    .transcript_history_state
+                    .pop_search_char(&state.transcript_history);
+                render_transcript_history_overlay_for_state(state, deps);
+            } else {
+                let mut should_redraw = false;
+                let arrow_keys = parse_arrow_keys(&bytes);
+                if !arrow_keys.is_empty() {
+                    let visible = transcript_history_visible_rows();
+                    for key in arrow_keys {
+                        match key {
+                            ArrowKey::Up => {
+                                state.transcript_history_state.move_up();
+                                should_redraw = true;
+                            }
+                            ArrowKey::Down => {
+                                state.transcript_history_state.move_down();
+                                should_redraw = true;
+                            }
+                            ArrowKey::Left | ArrowKey::Right => {}
+                        }
+                    }
+                    if should_redraw {
+                        state.transcript_history_state.clamp_scroll(visible);
+                        render_transcript_history_overlay_for_state(state, deps);
+                    }
+                } else {
+                    // Type-to-search: append printable characters to the search query
+                    for &b in &bytes {
+                        if b.is_ascii_graphic() || b == b' ' {
+                            state
+                                .transcript_history_state
+                                .push_search_char(b as char, &state.transcript_history);
+                            should_redraw = true;
+                        }
+                    }
+                    if should_redraw {
+                        render_transcript_history_overlay_for_state(state, deps);
+                    }
+                }
+            }
+            None
+        }
         (_, replay_evt) => {
             close_overlay(state, deps, true);
             if should_replay_after_overlay_close(&replay_evt) {
@@ -607,7 +703,10 @@ fn handle_overlay_input_event(
 }
 
 fn should_replay_after_overlay_close(evt: &InputEvent) -> bool {
-    !matches!(evt, InputEvent::Exit | InputEvent::MouseClick { .. })
+    !matches!(
+        evt,
+        InputEvent::Exit | InputEvent::MouseClick { .. } | InputEvent::TranscriptHistoryToggle
+    )
 }
 
 fn handle_overlay_mouse_click(
@@ -626,6 +725,7 @@ fn handle_overlay_mouse_click(
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
+        OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
         OverlayMode::None => 0,
     };
     if overlay_height == 0 || state.terminal_rows == 0 {
@@ -656,6 +756,11 @@ fn handle_overlay_mouse_click(
             settings_overlay_width_for_terminal(cols),
             settings_overlay_inner_width_for_terminal(cols),
             settings_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::TranscriptHistory => (
+            crate::transcript_history::transcript_history_overlay_width(cols),
+            crate::transcript_history::transcript_history_overlay_inner_width(cols),
+            crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
         ),
         OverlayMode::None => (0, 0, String::new()),
     };
@@ -703,6 +808,25 @@ fn handle_overlay_mouse_click(
         {
             let idx = overlay_row.saturating_sub(options_start);
             apply_theme_picker_selection(state, timers, deps, idx);
+        }
+        return;
+    }
+
+    if state.overlay_mode == OverlayMode::TranscriptHistory {
+        let entry_start = crate::transcript_history::TRANSCRIPT_HISTORY_ENTRY_START_ROW;
+        let visible = transcript_history_visible_rows();
+        let entry_end = entry_start.saturating_add(visible.saturating_sub(1));
+        if overlay_row >= entry_start
+            && overlay_row <= entry_end
+            && rel_x > 1
+            && rel_x < overlay_width
+        {
+            let display_idx = overlay_row.saturating_sub(entry_start);
+            let abs_idx = state.transcript_history_state.scroll_offset + display_idx;
+            if abs_idx < state.transcript_history_state.filtered_indices.len() {
+                state.transcript_history_state.selected = abs_idx;
+                render_transcript_history_overlay_for_state(state, deps);
+            }
         }
         return;
     }
@@ -847,6 +971,17 @@ fn run_settings_action(
 ) {
     let mut settings_ctx = settings_action_context(state, timers, deps, overlay_mode);
     apply(&mut settings_ctx);
+    // Persist changed settings to ~/.config/voiceterm/config.toml
+    save_persistent_config(state);
+}
+
+fn save_persistent_config(state: &EventLoopState) {
+    let snapshot = crate::persistent_config::snapshot_from_runtime(
+        &state.config,
+        &state.status_state,
+        state.theme,
+    );
+    crate::persistent_config::save_user_config(&snapshot);
 }
 
 fn run_settings_item_action(
@@ -885,6 +1020,7 @@ fn apply_theme_picker_selection(
     ) {
         state.theme_picker_selected = theme_index_from_theme(state.theme);
         refresh_button_registry_if_mouse(state, deps);
+        save_persistent_config(state);
     } else if state.overlay_mode == OverlayMode::ThemePicker {
         if let Some(locked_theme) = style_pack_theme_lock() {
             state.theme_picker_selected = theme_index_from_theme(locked_theme);
