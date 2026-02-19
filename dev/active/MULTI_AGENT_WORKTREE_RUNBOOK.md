@@ -32,19 +32,23 @@ Out of scope in this cycle:
 - Phase 4 items (`MP-092`..`MP-095`)
 - Backlog-only items not explicitly promoted
 
-## 3) Ordered Next Steps (Execute In This Order)
+## 3) Execution Plan (Dependency-Safe Parallel Mode)
 
 1. Branch alignment (sync `develop` to current `master`).
 2. Create worktrees and area branches from `develop`.
-3. Execute `AREA-A` and stop for review.
-4. Execute `AREA-B` and stop for review.
-5. Execute `AREA-C` and stop for review.
-6. Execute `AREA-D` and stop for review.
-7. Execute `AREA-E` and stop for review.
-8. Final integration pass on `develop` (all checks + docs policy + hygiene + CI status).
-9. Promote `develop` -> `master` only when green.
+3. Launch `AREA-A`, `AREA-B`, and `AREA-E` in parallel (Wave 1).
+4. Launch `AREA-C` only after `AREA-A` is `REVIEW-OK` and merged to `develop`.
+5. Launch `AREA-D` only after both `AREA-B` and `AREA-C` are `REVIEW-OK` and merged to `develop`.
+6. Final integration pass on `develop` (all checks + docs policy + hygiene + CI status).
+7. Promote `develop` -> `master` only when green.
 
-No skipping. No parallel advancement across major areas without reviewer token.
+Parallel advancement is allowed only for areas explicitly authorized by reviewer token and without dependency conflicts.
+
+### 3.1 Dependency Graph
+
+- `AREA-A` -> `AREA-C` -> `AREA-D`
+- `AREA-B` -> `AREA-D`
+- `AREA-E` has no upstream dependency gate, but `MP-088` must remain last within `AREA-E`.
 
 ## 4) Branch And Worktree Setup
 
@@ -202,9 +206,10 @@ git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-<x> fetch origin
 git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-<x> rebase origin/develop
 ```
 
-After each area merge to `develop`, all not-yet-merged worktrees must rebase:
+After each area merge to `develop`, all active not-yet-merged worktrees must rebase:
 
 ```bash
+git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-a fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-a rebase origin/develop
 git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-b fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-b rebase origin/develop
 git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-c fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-c rebase origin/develop
 git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-d fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-area-d rebase origin/develop
@@ -237,19 +242,17 @@ Rules:
 
 ## 10) Merge Sequence
 
-Use this merge order:
+Use dependency-safe merge waves:
 
-1. `AREA-A`
-2. `AREA-B`
-3. `AREA-C`
-4. `AREA-D`
-5. `AREA-E`
+1. Wave 1 (any order as they become `REVIEW-OK`): `AREA-A`, `AREA-B`, `AREA-E`
+2. Wave 2: `AREA-C` (only after `AREA-A` merged)
+3. Wave 3: `AREA-D` (only after `AREA-B` and `AREA-C` merged)
 
 Rationale:
 
-- Runtime/style foundations before capability matrix gates.
-- Capability gates before Studio UX and GA parity.
-- Deferred non-theme config item (`MP-088`) remains last.
+- Preserve foundational dependency edges while keeping independent lanes concurrent.
+- Keep throughput high without allowing downstream areas to diverge from required upstream changes.
+- Deferred non-theme config item (`MP-088`) remains last within `AREA-E`.
 
 ## 11) Agent Prompt Template (Copy/Paste)
 
@@ -264,7 +267,7 @@ Hard constraints:
 5) Run required verification commands before review.
 6) Update the runbook ledger after each push.
 7) When done, STOP and output exactly: READY FOR REVIEW AREA-<X>
-8) Do not start another area until reviewer returns REVIEW-OK AREA-<X>.
+8) Start only areas explicitly launched by reviewer and respect dependency gates in Section 3.
 ```
 
 ## 12) Shared Ledger (Append-Only)
@@ -273,7 +276,7 @@ All agents append rows here; reviewer appends decisions.
 
 | UTC | Actor | Area | Worktree | Branch | Commit | MP scope | Verification summary | Status | Reviewer token | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 2026-02-19T00:00:00Z | reviewer | setup | `n/a` | `n/a` | `n/a` | orchestration | runbook created | ready | pending | launch AREA-A |
+| 2026-02-19T00:00:00Z | reviewer | setup | `n/a` | `n/a` | `n/a` | orchestration | runbook created | ready | pending | launch AREA-A, AREA-B, AREA-E |
 | 2026-02-19T16:15:00Z | agent | MP-015 | `n/a` | `master` | `8ac097e6a0fd75f0f5be3e42fd252d86ceb7c137` (stash) | MP-015 event_loop mutation hardening | parked in stash@{0}; do not pop during area cycle | blocked | n/a | resume after area sequence or on dedicated MP-015 branch |
 
 Status values:
