@@ -731,12 +731,12 @@ Reference:
 
 ### Which AI CLI backends work?
 
-Canonical backend support matrix lives in:
+Canonical backend support matrix lives in:  
 [USAGE.md -> Backend Support](USAGE.md#backend-support)
 
 ### Which Whisper model should I use?
 
-Start with `base` for speed, `small` for balance, `medium` for higher accuracy.
+Start with `base` for speed, `small` for balance, `medium` for higher accuracy.  
 See [WHISPER.md](WHISPER.md) for full guidance.
 
 ### Can I use VoiceTerm without Codex?
