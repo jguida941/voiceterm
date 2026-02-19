@@ -117,8 +117,6 @@ You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
 finalizes+submits; idle with no staged text is no-op), `Ctrl+G` (quick theme
 cycle), and `Ctrl+Y` (theme picker).
 In insert mode, `Enter` remains submit-only for staged text.
-If HUD focus is on the Auto-voice button, `Enter` still submits terminal input
-instead of toggling auto mode.
 In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
 rendered on the main status row (top-right lane).
 On `xterm-256color` terminals, selected themes are preserved; ANSI fallback is

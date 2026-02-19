@@ -94,8 +94,6 @@ Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 Send mode note: "auto" types your words and presses Enter. "Insert" types your words
 but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY) and
 does not call Codex/Claude directly.
-If a stale HUD focus highlight is sitting on the Auto-voice button, pressing
-`Enter` still submits terminal input and does not flip auto mode.
 In insert mode, pressing `Ctrl+E` while idle with no staged text now shows
 `Nothing to send` (instead of silently doing nothing).
 When help/settings/theme overlays are open, unmatched input now closes the

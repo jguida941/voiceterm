@@ -12,7 +12,6 @@ Use the quick-fix table first, then jump to the detailed section.
 | Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
 | Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
 | Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
-| Enter key unexpectedly flips auto mode | Update to latest and verify HUD focus behavior | [Enter key flips auto mode unexpectedly](#enter-key-flips-auto-mode-unexpectedly) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
 | No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
 | Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
@@ -82,17 +81,6 @@ Transcription is taking longer than expected.
    `Ctrl+E` sends staged text immediately; with no staged text it only
    finalizes+submits during active recording (idle with no staged text is a
    no-op). `Enter` is submit-only for staged text.
-
-### Enter key flips auto mode unexpectedly
-
-`Enter` should submit staged terminal input, even if a HUD focus highlight is
-currently on the Auto-voice button.
-
-1. Confirm version: `voiceterm --version`
-2. Update to the latest build if needed.
-3. Re-test by turning auto mode off, moving HUD focus to the Auto button, then
-   pressing `Enter`.
-4. Expected result: terminal submit occurs, auto mode remains unchanged.
 
 ### Latency badge seems wrong in auto mode
 
