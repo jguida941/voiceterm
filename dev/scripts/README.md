@@ -10,6 +10,8 @@ Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For active-doc discovery, use `dev/active/INDEX.md`.
 For current execution scope, use `dev/active/MASTER_PLAN.md`.
+For a plain-language "what checks to run and where to push" guide, see
+`dev/DEVELOPMENT.md` sections `What checks protect us` and `When to push where`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
 

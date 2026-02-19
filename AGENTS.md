@@ -22,6 +22,7 @@ same execution path with minimal ambiguity.
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
+| Where is the plain-language push/check guide? | `dev/DEVELOPMENT.md` (`What checks protect us`, `When to push where`) |
 | What process is mandatory? | `AGENTS.md` |
 | What architecture/lifecycle is current? | `dev/ARCHITECTURE.md` |
 | Where is process history tracked? | `dev/history/ENGINEERING_EVOLUTION.md` |

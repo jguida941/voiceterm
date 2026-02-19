@@ -3,6 +3,8 @@
 ## Contents
 
 - [Workflow ownership and routing](#workflow-ownership-and-routing)
+- [What checks protect us](#what-checks-protect-us)
+- [When to push where](#when-to-push-where)
 - [Project structure](#project-structure)
 - [Building](#building)
 - [Testing](#testing)
@@ -26,6 +28,69 @@
 
 Use `AGENTS.md` first to classify the task and select the correct playbook, then
 use this document for concrete command syntax and deeper verification guidance.
+
+## What checks protect us
+
+Quick rule: before you push, run the checks that match the type of change you
+made. CI runs the same families of checks again.
+
+| If you changed... | Run this locally | CI checks it in... |
+|---|---|---|
+| Rust runtime behavior, UI behavior, or flags | `python3 dev/scripts/devctl.py check --profile ci` | `.github/workflows/rust_ci.yml` |
+| Perf, latency, wake-word, parser boundaries, long-running workers, or security-sensitive code | `python3 dev/scripts/devctl.py check --profile prepush` plus risk-specific tests listed in `AGENTS.md` | `perf_smoke.yml`, `latency_guard.yml`, `wake_word_guard.yml`, `memory_guard.yml`, `parser_fuzz_guard.yml`, `security_guard.yml` |
+| User docs (`README`, `guides/*`, `QUICK_START`) | `python3 dev/scripts/devctl.py docs-check --user-facing` | conditional strict user-doc gate in `.github/workflows/tooling_control_plane.yml` |
+| Tooling/process/CI docs or scripts | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `.github/workflows/tooling_control_plane.yml` |
+| Agent/process contracts | `python3 dev/scripts/check_agents_contract.py` | `.github/workflows/tooling_control_plane.yml` |
+| Active plan/index/spec sync | `python3 dev/scripts/check_active_plan_sync.py` | `.github/workflows/tooling_control_plane.yml` |
+| Release version fields | `python3 dev/scripts/check_release_version_parity.py` | `.github/workflows/tooling_control_plane.yml` |
+| CLI docs vs clap schema | `python3 dev/scripts/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
+| Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
+| Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `.github/workflows/tooling_control_plane.yml` |
+
+## When to push where
+
+Use this plain-language path:
+
+1. If this is normal feature/fix/docs work:
+   - branch from `develop` (`feature/<topic>` or `fix/<topic>`)
+   - run the right bundle (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`)
+   - fix failures, then commit and push that short-lived branch
+   - merge to `develop` only after review and green checks
+   - run post-push audit (`bundle.post-push`)
+2. If this is release/tag/publish work:
+   - work on `master` release flow only
+   - run `bundle.release`
+   - fix failures, rerun until green
+   - tag/publish from `master`
+   - run post-push audit and CI status checks
+3. Never push feature work directly to `master`.
+
+Visual version:
+
+```mermaid
+flowchart TD
+  A[Start] --> B{Release/tag publish work?}
+  B -->|No| C[Feature/fix/docs flow]
+  B -->|Yes| D[Release flow]
+
+  C --> E[Branch from develop]
+  E --> F[Run runtime/docs/tooling bundle]
+  F --> G{Checks pass?}
+  G -->|No| H[Fix and rerun]
+  H --> F
+  G -->|Yes| I[Push branch and merge to develop after review]
+  I --> J[Run post-push audit]
+
+  D --> K[Run bundle.release on master]
+  K --> L{Checks pass?}
+  L -->|No| M[Fix and rerun]
+  M --> K
+  L -->|Yes| N[Tag and publish from master]
+  N --> O[Run post-push audit]
+```
+
+`AGENTS.md` remains the canonical source for exact bundle contents and branch
+policy.
 
 ## Project structure
 
