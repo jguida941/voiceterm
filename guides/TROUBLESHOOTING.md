@@ -1,54 +1,10 @@
 # Troubleshooting
 
 Single troubleshooting reference for VoiceTerm.
-Use the quick-fix table first, then jump to the detailed section.
-
-## Triage Flow
-
-```mermaid
-flowchart TD
-    A["Issue in VoiceTerm"] --> B{"Install/update issue?"}
-    B -->|Yes| C["Open Install and Update Issues"]
-    B -->|No| D{"Audio or transcript issue?"}
-    D -->|Yes| E["Check Audio Setup + Mic Sensitivity"]
-    D -->|No| F{"Backend/session issue?"}
-    F -->|Yes| G["Check Backend Issues"]
-    F -->|No| H["Check Terminal and IDE Issues"]
-    C --> I["Enable logs if unresolved"]
-    E --> I
-    G --> I
-    H --> I
-    I --> J["Share logs + environment details"]
-```
-
-## Quick Fixes
-
-| Problem | First action | Section |
-|---------|--------------|---------|
-| No speech detected | Lower mic threshold (`Ctrl+\\`) | [No speech detected](#no-speech-detected) |
-| Voice not recording | Check microphone permissions | [Voice capture failed (see log)](#voice-capture-failed-see-log) |
-| Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
-| Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
-| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded) |
-| Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
-| Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
-| No error captured yet | Run one backend command first | [No error captured yet / to copy / to explain](#no-error-captured-yet--to-copy--to-explain) |
-| Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
-| Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
-| Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
-| HUD duplicates/flickers in JetBrains | Verify version and collect logs | [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals) |
-| JetBrains cursor briefly flashes pipe/block cursor over HUD | Verify version and collect logs | [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals) |
-| Raw `[<...` text appears in terminal input | Update to latest and verify mouse-sequence handling | [Raw mouse escape text appears in terminal](#raw-mouse-escape-text-appears-in-terminal) |
-| Latency badge appears during no-speech auto cycles | Re-run with logs and compare latest transcript timing | [Latency badge seems wrong in auto mode](#latency-badge-seems-wrong-in-auto-mode) |
-| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
-| Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
-| Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
-| Style-pack preview payload has no effect | Validate JSON schema payload + fallback behavior | [Style-pack preview payload not applying](#style-pack-preview-payload-not-applying) |
-| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
+Use the contents first, then the quick-fix table for common day-to-day issues.
 
 ## Contents
 
-- [Triage Flow](#triage-flow)
 - [Status Messages](#status-messages)
 - [Audio Setup](#audio-setup)
 - [Mic Sensitivity](#mic-sensitivity)
@@ -59,6 +15,26 @@ flowchart TD
 - [FAQ](#faq)
 - [Getting Help](#getting-help)
 - [See Also](#see-also)
+
+## Quick Fixes
+
+| Problem | First action | Section |
+|---------|--------------|---------|
+| No speech detected | Lower mic threshold (`Ctrl+\\`) | [No speech detected](#no-speech-detected) |
+| Voice not recording | Check microphone permissions | [Voice capture failed (see log)](#voice-capture-failed-see-log) |
+| Voice macro not expanding | Validate macros file + toggle state | [Voice macro not expanding](#voice-macro-not-expanding) |
+| Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
+| Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
+| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded) |
+| Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
+| Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
+| Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
+| Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
+| Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
+| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
+| Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
+| Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
+| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
 
 ## Status Messages
 

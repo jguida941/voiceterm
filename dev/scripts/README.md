@@ -79,7 +79,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
-- `hygiene`: archive/ADR/scripts governance checks
+- `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
 - `ship`: full release/distribution orchestrator with step toggles

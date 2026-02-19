@@ -1,10 +1,12 @@
 """devctl hygiene command implementation."""
 
 import json
+import os
 import re
+import subprocess
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
@@ -14,6 +16,10 @@ ARCHIVE_NAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$")
 ADR_INDEX_LINK_RE = re.compile(r"\[(\d{4})\]\(([^)]+)\)")
 ADR_INDEX_ROW_RE = re.compile(r"\|\s*\[(\d{4})\]\([^)]+\)\s*\|[^|]*\|\s*([A-Za-z]+)\s*\|")
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
+ORPHAN_TEST_MIN_AGE_SECONDS = 60
+PROCESS_LINE_MAX_LEN = 180
+PROCESS_REPORT_LIMIT = 8
 
 
 def _extract_field(text: str, field: str) -> str:
@@ -198,12 +204,148 @@ def _audit_scripts() -> Dict:
     }
 
 
+def _parse_etime_seconds(raw: str) -> Optional[int]:
+    trimmed = raw.strip()
+    if not trimmed:
+        return None
+
+    days = 0
+    rest = trimmed
+    if "-" in trimmed:
+        day_part, rest = trimmed.split("-", 1)
+        if not day_part.isdigit():
+            return None
+        days = int(day_part)
+
+    chunks = rest.split(":")
+    if len(chunks) == 2:
+        mm, ss = chunks
+        if not (mm.isdigit() and ss.isdigit()):
+            return None
+        seconds = int(mm) * 60 + int(ss)
+    elif len(chunks) == 3:
+        hh, mm, ss = chunks
+        if not (hh.isdigit() and mm.isdigit() and ss.isdigit()):
+            return None
+        seconds = int(hh) * 3600 + int(mm) * 60 + int(ss)
+    else:
+        return None
+    return days * 86400 + seconds
+
+
+def _truncate_command(command: str) -> str:
+    if len(command) <= PROCESS_LINE_MAX_LEN:
+        return command
+    return command[: PROCESS_LINE_MAX_LEN - 3] + "..."
+
+
+def _format_process_rows(rows: List[Dict]) -> str:
+    return "; ".join(
+        f"pid={row['pid']} ppid={row['ppid']} etime={row['etime']} cmd={_truncate_command(row['command'])}"
+        for row in rows[:PROCESS_REPORT_LIMIT]
+    )
+
+
+def _scan_voiceterm_test_processes() -> Tuple[List[Dict], List[str]]:
+    warnings: List[str] = []
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,ppid=,etime=,command="],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        warnings.append(f"Process sweep skipped: unable to execute ps ({exc})")
+        return [], warnings
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() if result.stderr else "unknown ps error"
+        warnings.append(f"Process sweep skipped: ps returned {result.returncode} ({stderr})")
+        return [], warnings
+
+    this_pid = os.getpid()
+    rows: List[Dict] = []
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        parts = stripped.split(None, 3)
+        if len(parts) != 4:
+            continue
+        pid_raw, ppid_raw, etime, command = parts
+        if not (pid_raw.isdigit() and ppid_raw.isdigit()):
+            continue
+        if "ps -axo pid=,ppid=,etime=,command=" in command:
+            continue
+        if not VOICETERM_TEST_BIN_RE.search(command):
+            continue
+        pid = int(pid_raw)
+        if pid == this_pid:
+            continue
+        elapsed_seconds = _parse_etime_seconds(etime)
+        rows.append(
+            {
+                "pid": pid,
+                "ppid": int(ppid_raw),
+                "etime": etime,
+                "elapsed_seconds": elapsed_seconds if elapsed_seconds is not None else -1,
+                "command": command,
+            }
+        )
+
+    rows.sort(key=lambda row: row["elapsed_seconds"], reverse=True)
+    return rows, warnings
+
+
+def _audit_runtime_processes() -> Dict:
+    test_processes, scan_warnings = _scan_voiceterm_test_processes()
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    ci_env = os.environ.get("CI", "").strip().lower()
+    ci_mode = ci_env in {"1", "true", "yes"}
+    for warning in scan_warnings:
+        if ci_mode:
+            errors.append(f"Runtime process sweep unavailable in CI: {warning}")
+        else:
+            warnings.append(warning)
+
+    orphaned = [
+        row
+        for row in test_processes
+        if row["ppid"] == 1 and row["elapsed_seconds"] >= ORPHAN_TEST_MIN_AGE_SECONDS
+    ]
+    active = [row for row in test_processes if row not in orphaned]
+
+    if orphaned:
+        errors.append(
+            "Orphaned voiceterm test binaries detected (detached PPID=1). "
+            "Stop leaked runners before continuing: "
+            f"{_format_process_rows(orphaned)}"
+        )
+    if active:
+        warnings.append(
+            "Active voiceterm test binaries detected during hygiene run: "
+            f"{_format_process_rows(active)}"
+        )
+
+    return {
+        "total_detected": len(test_processes),
+        "orphaned": orphaned,
+        "active": active,
+        "errors": errors,
+        "warnings": warnings,
+    }
+
+
 def run(args) -> int:
     """Audit archive/ADR/scripts hygiene and report drift."""
     archive = _audit_archive()
     adr = _audit_adrs()
     scripts = _audit_scripts()
-    sections = [archive, adr, scripts]
+    runtime_processes = _audit_runtime_processes()
+    sections = [archive, adr, scripts, runtime_processes]
 
     error_count = sum(len(section["errors"]) for section in sections)
     warning_count = sum(len(section["warnings"]) for section in sections)
@@ -218,6 +360,7 @@ def run(args) -> int:
         "archive": archive,
         "adr": adr,
         "scripts": scripts,
+        "runtime_processes": runtime_processes,
     }
 
     if args.format == "json":
@@ -242,6 +385,11 @@ def run(args) -> int:
         lines.append(f"- top-level scripts: {len(scripts['top_level_scripts'])}")
         lines.extend(f"- error: {message}" for message in scripts["errors"])
         lines.extend(f"- warning: {message}" for message in scripts["warnings"])
+        lines.append("")
+        lines.append("## Runtime Processes")
+        lines.append(f"- voiceterm test binaries detected: {runtime_processes['total_detected']}")
+        lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
+        lines.extend(f"- warning: {message}" for message in runtime_processes["warnings"])
         output = "\n".join(lines)
 
     write_output(output, args.output)

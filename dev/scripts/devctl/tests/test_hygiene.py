@@ -3,6 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from dev.scripts.devctl.commands import hygiene
 
@@ -64,6 +65,62 @@ class HygieneAuditTests(unittest.TestCase):
 
             self.assertTrue(report["errors"])
             self.assertIn("new_tool.sh", report["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.os.getpid", return_value=99999)
+    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run")
+    def test_runtime_process_audit_flags_orphaned_voiceterm_test_binary(
+        self, run_mock: mock.Mock, _getpid_mock: mock.Mock
+    ) -> None:
+        run_mock.return_value = mock.Mock(
+            returncode=0,
+            stdout="1234 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n",
+            stderr="",
+        )
+
+        report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertTrue(report["errors"])
+        self.assertIn("Orphaned voiceterm test binaries detected", report["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.os.getpid", return_value=99999)
+    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run")
+    def test_runtime_process_audit_warns_for_active_test_binary(
+        self, run_mock: mock.Mock, _getpid_mock: mock.Mock
+    ) -> None:
+        run_mock.return_value = mock.Mock(
+            returncode=0,
+            stdout="2222 777 00:10 /tmp/project/target/debug/deps/voiceterm-deadbeef\n",
+            stderr="",
+        )
+
+        report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertFalse(report["errors"])
+        self.assertTrue(report["warnings"])
+        self.assertIn("Active voiceterm test binaries detected", report["warnings"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run", side_effect=OSError("blocked"))
+    def test_runtime_process_audit_warns_when_ps_unavailable(self, _run_mock: mock.Mock) -> None:
+        with mock.patch.dict("os.environ", {"CI": ""}, clear=False):
+            report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 0)
+        self.assertFalse(report["errors"])
+        self.assertTrue(report["warnings"])
+        self.assertIn("Process sweep skipped", report["warnings"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run", side_effect=OSError("blocked"))
+    def test_runtime_process_audit_errors_when_ps_unavailable_in_ci(
+        self, _run_mock: mock.Mock
+    ) -> None:
+        with mock.patch.dict("os.environ", {"CI": "true"}, clear=False):
+            report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 0)
+        self.assertTrue(report["errors"])
+        self.assertIn("Runtime process sweep unavailable in CI", report["errors"][0])
 
 
 if __name__ == "__main__":

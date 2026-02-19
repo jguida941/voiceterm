@@ -387,7 +387,7 @@ Core commands:
 
 - `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`)
 - `docs-check`
-- `hygiene`
+- `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
 - `mutation-score`
 - `mutants`
 - `release`

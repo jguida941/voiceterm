@@ -335,7 +335,7 @@ python3 dev/scripts/devctl.py docs-check --strict-tooling
 # Post-commit docs check over a commit range (works on clean trees)
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 
-# Governance hygiene audit (archive + ADR + scripts docs)
+# Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
 python3 dev/scripts/devctl.py hygiene
 
 # AGENTS + active-plan contract + release parity guards
@@ -404,7 +404,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene`
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned `target/debug/deps/voiceterm-*` test binaries.
 - `python3 dev/scripts/check_agents_contract.py`
 - `python3 dev/scripts/check_active_plan_sync.py`
 - `python3 dev/scripts/check_release_version_parity.py`
