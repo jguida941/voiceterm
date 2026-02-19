@@ -3,11 +3,21 @@
 //! Provides predefined color palettes that can be selected via CLI flags.
 
 mod borders;
+#[allow(dead_code)]
+pub(crate) mod capability_matrix;
 mod colors;
+#[allow(dead_code)]
+pub(crate) mod dependency_baseline;
 mod detect;
 mod palettes;
+#[allow(dead_code)]
+pub(crate) mod rule_profile;
 mod style_pack;
 mod style_schema;
+#[allow(dead_code)]
+pub(crate) mod texture_profile;
+#[allow(dead_code)]
+pub(crate) mod widget_pack;
 
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
