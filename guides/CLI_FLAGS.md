@@ -58,6 +58,9 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 | `--wake-word-cooldown-ms <MS>` | Cooldown between wake triggers (500-10000) | 2000 |
 | `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
+<details>
+<summary><strong>Runtime behavior notes (not CLI flags)</strong></summary>
+
 `Macros` is currently a runtime Settings toggle (`Ctrl+O`) and does not yet
 have a CLI flag.
 `Voice pipeline` is also a runtime Settings value (no dedicated CLI flag), and
@@ -87,6 +90,8 @@ Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI
 flags win over persisted values for the current run.
 Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
 fragments) are dropped instead of being forwarded to the wrapped CLI input stream.
+
+</details>
 
 ---
 
@@ -191,6 +196,9 @@ For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.m
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
 
+<details>
+<summary><strong>HUD behavior and theme runtime notes</strong></summary>
+
 **HUD styles:**
 
 - `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
@@ -220,6 +228,8 @@ Rendering internals and terminal-specific behavior are documented in
 appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
 On `xterm-256color` terminals, VoiceTerm preserves selected themes; ANSI
 fallback is only applied on ANSI16 terminals.
+
+</details>
 
 ---
 

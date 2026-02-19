@@ -69,6 +69,9 @@ voiceterm --whisper-model-path /path/to/ggml-medium.en.bin
 
 Whisper supports many languages. VoiceTerm defaults to English but works with any supported language.
 
+<details>
+<summary><strong>Language setup details</strong></summary>
+
 ### Setting Your Language
 
 ```bash
@@ -112,6 +115,8 @@ curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin 
 
 Full language list:
 [Whisper supported languages](https://github.com/openai/whisper#available-models-and-languages)
+
+</details>
 
 ## Model Download
 
@@ -158,6 +163,9 @@ export VOICETERM_MODEL_DIR=/path/to/models
 3. **Reduce background noise** - Adjust mic sensitivity with `Ctrl+]` / `Ctrl+\`
 4. **Set the correct language** - Don't rely on auto-detect
 
+<details>
+<summary><strong>Troubleshooting and advanced tuning</strong></summary>
+
 ### Troubleshooting
 
 **Transcription is slow:**
@@ -186,6 +194,8 @@ Whisper options (native pipeline):
 Fallback control:
 
 - `--no-python-fallback`: fail instead of using the Python pipeline
+
+</details>
 
 ## See Also
 

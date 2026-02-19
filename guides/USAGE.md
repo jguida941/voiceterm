@@ -310,6 +310,10 @@ Tips:
 - Default theme depends on backend (`codex`, `claude`, or `coral`)
 - On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
+
+<details>
+<summary><strong>Advanced theme preview details</strong></summary>
+
 - Advanced style-pack preview: set `VOICETERM_STYLE_PACK_JSON` to a schema payload
   (for example `{"version":2,"profile":"ops","base_theme":"dracula"}`); invalid
   payloads fall back to the selected built-in theme.
@@ -332,6 +336,8 @@ Tips:
 - Settings migration note: existing `Theme`/HUD settings controls are unchanged;
   no user config migration is required for this runtime resolver foundation.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
+
+</details>
 
 ### HUD styles
 
@@ -398,6 +404,9 @@ Setup:
 ./scripts/macros.sh install --pack full-dev --overwrite
 ```
 
+<details>
+<summary><strong>More macro details (starter packs, wizard extras, file format)</strong></summary>
+
 Starter packs:
 
 - `safe-core`: low-risk git/GitHub inspection commands
@@ -430,6 +439,8 @@ Rules:
 - Expansion runs only when `Settings -> Macros` is `ON`.
 - This repo ships a starter pack at `.voiceterm/macros.yaml` with expanded
   git/GitHub workflows plus codex-voice check/release commands.
+
+</details>
 
 ## Status Line Reference
 

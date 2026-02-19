@@ -38,6 +38,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Documentation
 
+- Add collapsible advanced-detail sections in `README.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, and `guides/WHISPER.md` so core setup/usage info stays visible while deeper reference content stays easy to expand.
 - Rewrite the `README.md` Features section in plain language with a core-features-first layout, then group secondary capabilities under a shorter `Everyday tools` list.
 - Fix README version badge source to use latest semver tag metadata (instead of release-only metadata) so the badge does not render `INVALID` when release API data is delayed/missing.
 - Standardize README badge styling to compact flat black/gray chips (including CI/mutation endpoint badges), with automated CI/mutation rendering so pass stays dark while failures render red, and align primary badge order to `Rust`, `macOS`, `Linux`, `Whisper`.

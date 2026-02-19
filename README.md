@@ -266,6 +266,9 @@ Quick setup:
 ./scripts/macros.sh install --pack safe-core
 ```
 
+<details>
+<summary><strong>More macro details (packs, examples, and rules)</strong></summary>
+
 Packs:
 
 - `safe-core`: low-risk git/GitHub inspection commands
@@ -289,6 +292,8 @@ When it runs:
 
 See [Project Voice Macros](guides/USAGE.md#project-voice-macros) for the file
 format, templates, and matching rules.
+
+</details>
 
 This repository includes a starter macro pack at `.voiceterm/macros.yaml` with
 expanded git/GitHub voice workflows plus codex-voice check/release commands.
