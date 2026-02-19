@@ -37,6 +37,7 @@ pub(crate) struct SettingsStatusContext<'a> {
 
 pub(crate) struct SettingsVoiceContext<'a> {
     pub(crate) auto_voice_enabled: &'a mut bool,
+    pub(crate) auto_voice_paused_by_user: Option<&'a mut bool>,
     pub(crate) voice_manager: &'a mut VoiceManager,
     pub(crate) last_auto_trigger_at: &'a mut Option<Instant>,
     pub(crate) recording_started_at: &'a mut Option<Instant>,
@@ -80,6 +81,9 @@ impl SettingsActionContext<'_> {
 
     pub(crate) fn toggle_auto_voice(&mut self) {
         *self.voice.auto_voice_enabled = !*self.voice.auto_voice_enabled;
+        if let Some(paused_by_user) = self.voice.auto_voice_paused_by_user.as_mut() {
+            **paused_by_user = false;
+        }
         self.status.status_state.auto_voice_enabled = *self.voice.auto_voice_enabled;
         self.status.status_state.voice_mode = if *self.voice.auto_voice_enabled {
             VoiceMode::Auto

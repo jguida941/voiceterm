@@ -107,6 +107,14 @@ pub struct AppConfig {
     #[arg(long)]
     pub log_timings: bool,
 
+    /// Capture newline-delimited user/backend conversation lines to a markdown memory log.
+    #[arg(long = "session-memory", default_value_t = false)]
+    pub session_memory: bool,
+
+    /// Path for the markdown session-memory log file.
+    #[arg(long = "session-memory-path", env = "VOICETERM_SESSION_MEMORY_PATH")]
+    pub session_memory_path: Option<PathBuf>,
+
     /// Allow Claude CLI to run without permission prompts (IPC mode)
     #[arg(long = "claude-skip-permissions", default_value_t = false)]
     pub claude_skip_permissions: bool,

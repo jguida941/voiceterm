@@ -43,6 +43,7 @@ pub(super) fn open_transcript_history_overlay(
     deps: &mut EventLoopDeps,
 ) {
     state.overlay_mode = OverlayMode::TranscriptHistory;
+    state.transcript_history.flush_pending_stream_lines();
     state
         .transcript_history_state
         .refresh_filter(&state.transcript_history);

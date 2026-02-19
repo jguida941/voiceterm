@@ -48,6 +48,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Expand user-guide/runtime parity for transcript history and control semantics (`Ctrl+E` idle feedback, transcript-history mouse selection/close behavior), and document `VOICETERM_ONBOARDING_STATE` plus `VOICETERM_STYLE_PACK_JSON` in the CLI env-var reference.
 - Add a maintainer screenshot-refresh capture matrix in `dev/DEVELOPMENT.md` so UI image updates are tracked per surface instead of ad-hoc.
 - Harden docs governance control-plane checks: add CLI flag parity + screenshot integrity guard scripts, enforce `ENGINEERING_EVOLUTION.md` updates for tooling/process/CI shifts via `docs-check --strict-tooling`, and add CI/root-artifact guardrails in `tooling_control_plane.yml`.
+- Refresh core user-doc parity for transcript-history/session-memory behavior across `README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, and `guides/TROUBLESHOOTING.md`.
 
 ## [1.0.84] - 2026-02-19
 

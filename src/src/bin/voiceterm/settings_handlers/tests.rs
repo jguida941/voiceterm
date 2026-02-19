@@ -37,6 +37,7 @@ fn make_context<'a>(
         },
         voice: SettingsVoiceContext {
             auto_voice_enabled,
+            auto_voice_paused_by_user: None,
             voice_manager,
             last_auto_trigger_at,
             recording_started_at,

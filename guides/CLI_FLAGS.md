@@ -75,6 +75,8 @@ submit only while recording; if idle with no staged text it shows
 submit staged text).
 `Ctrl+H` opens history (search + replay for replayable rows), including `mic`,
 `you`, and `ai` entries.
+History search input ignores terminal control/focus escape noise, and replay is
+blocked for output-only `ai` rows.
 Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI
 flags win over persisted values for the current run.
 Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`

@@ -142,6 +142,18 @@ If artifacts persist:
 4. Include terminal/IDE details and relevant `${TMPDIR}/voiceterm_tui.log`
    lines when reporting.
 
+### Session memory file is missing
+
+The markdown session-memory log is opt-in.
+
+1. Start VoiceTerm with `--session-memory`.
+2. If needed, set an explicit path: `--session-memory-path <PATH>`.
+3. Speak once (or send one backend/output line), then close VoiceTerm to flush
+   pending lines.
+4. Confirm the file exists (default: `<cwd>/.voiceterm/session-memory.md`).
+5. If still missing, rerun with logs (`voiceterm --logs`) and check
+   `${TMPDIR}/voiceterm_tui.log` for session-memory initialization errors.
+
 ### Voice macro not expanding
 
 Macros load from `<project>/.voiceterm/macros.yaml` and apply only when

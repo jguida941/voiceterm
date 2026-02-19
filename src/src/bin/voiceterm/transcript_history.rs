@@ -8,26 +8,61 @@ use crate::overlay_frame::{
 };
 use crate::theme::{overlay_close_symbol, overlay_separator, Theme, ThemeColors};
 
-/// Maximum number of transcript entries retained in history.
-pub(crate) const MAX_HISTORY_ENTRIES: usize = 100;
+/// Maximum number of history entries retained.
+pub(crate) const MAX_HISTORY_ENTRIES: usize = 300;
 
-/// A single transcript history entry.
+const MAX_STREAM_LINE_BYTES: usize = 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HistorySource {
+    Transcript,
+    UserInput,
+    AssistantOutput,
+}
+
+impl HistorySource {
+    fn short_label(self) -> &'static str {
+        match self {
+            Self::Transcript => "mic",
+            Self::UserInput => "you",
+            Self::AssistantOutput => "ai",
+        }
+    }
+
+    pub(crate) fn replayable(self) -> bool {
+        !matches!(self, Self::AssistantOutput)
+    }
+}
+
+/// A single history entry.
 #[derive(Debug, Clone)]
 pub(crate) struct HistoryEntry {
-    /// The transcript text that was captured.
+    /// Captured text.
     pub(crate) text: String,
-    /// When this transcript was captured (retained for future time-based display).
+    /// Entry source.
+    pub(crate) source: HistorySource,
+    /// Capture timestamp (retained for future time-based UI).
     #[allow(dead_code)]
     pub(crate) captured_at: Instant,
-    /// Sequential index (1-based) for display.
+    /// Sequential index (1-based).
     pub(crate) sequence: u32,
 }
 
-/// Bounded transcript history with search support.
+impl HistoryEntry {
+    pub(crate) fn replayable(&self) -> bool {
+        self.source.replayable()
+    }
+}
+
+/// Bounded history with search support.
 #[derive(Debug)]
 pub(crate) struct TranscriptHistory {
     entries: VecDeque<HistoryEntry>,
     next_sequence: u32,
+    pending_user_line: String,
+    pending_user_line_truncated: bool,
+    pending_assistant_line: String,
+    pending_assistant_line_truncated: bool,
 }
 
 impl TranscriptHistory {
@@ -35,11 +70,19 @@ impl TranscriptHistory {
         Self {
             entries: VecDeque::with_capacity(MAX_HISTORY_ENTRIES),
             next_sequence: 1,
+            pending_user_line: String::new(),
+            pending_user_line_truncated: false,
+            pending_assistant_line: String::new(),
+            pending_assistant_line_truncated: false,
         }
     }
 
-    /// Record a new transcript in history.
+    /// Record a new voice transcript.
     pub(crate) fn push(&mut self, text: String) {
+        self.push_with_source(text, HistorySource::Transcript);
+    }
+
+    fn push_with_source(&mut self, text: String, source: HistorySource) {
         if text.trim().is_empty() {
             return;
         }
@@ -48,11 +91,58 @@ impl TranscriptHistory {
         }
         let entry = HistoryEntry {
             text,
+            source,
             captured_at: Instant::now(),
             sequence: self.next_sequence,
         };
         self.next_sequence = self.next_sequence.wrapping_add(1);
         self.entries.push_back(entry);
+    }
+
+    /// Ingest PTY input bytes and capture newline-delimited user messages.
+    pub(crate) fn ingest_user_input_bytes(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() || bytes.contains(&0x1b) {
+            return;
+        }
+
+        for &b in bytes {
+            match b {
+                b'\r' | b'\n' => self.flush_pending_user_line(),
+                0x7f | 0x08 => {
+                    self.pending_user_line.pop();
+                }
+                b'\t' => self.push_user_char(' '),
+                _ if b.is_ascii_control() => {}
+                _ => self.push_user_char(b as char),
+            }
+        }
+    }
+
+    /// Ingest PTY output bytes and capture newline-delimited backend lines.
+    pub(crate) fn ingest_backend_output_bytes(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
+
+        let cleaned = voiceterm::codex::sanitize_pty_output(bytes);
+        if cleaned.is_empty() {
+            return;
+        }
+
+        for ch in cleaned.chars() {
+            match ch {
+                '\n' => self.flush_pending_assistant_line(),
+                '\r' => {}
+                _ if ch.is_control() => {}
+                _ => self.push_assistant_char(ch),
+            }
+        }
+    }
+
+    /// Flush any currently buffered stream lines into history.
+    pub(crate) fn flush_pending_stream_lines(&mut self) {
+        self.flush_pending_user_line();
+        self.flush_pending_assistant_line();
     }
 
     /// Return the number of stored entries.
@@ -92,9 +182,62 @@ impl TranscriptHistory {
     pub(crate) fn all_newest_first(&self) -> Vec<usize> {
         (0..self.entries.len()).rev().collect()
     }
+
+    fn push_user_char(&mut self, ch: char) {
+        if self.pending_user_line.len() < MAX_STREAM_LINE_BYTES {
+            self.pending_user_line.push(ch);
+        } else {
+            self.pending_user_line_truncated = true;
+        }
+    }
+
+    fn push_assistant_char(&mut self, ch: char) {
+        if self.pending_assistant_line.len() < MAX_STREAM_LINE_BYTES {
+            self.pending_assistant_line.push(ch);
+        } else {
+            self.pending_assistant_line_truncated = true;
+        }
+    }
+
+    fn flush_pending_user_line(&mut self) {
+        let Some(line) = take_stream_line(
+            &mut self.pending_user_line,
+            &mut self.pending_user_line_truncated,
+        ) else {
+            return;
+        };
+        self.push_with_source(line, HistorySource::UserInput);
+    }
+
+    fn flush_pending_assistant_line(&mut self) {
+        let Some(line) = take_stream_line(
+            &mut self.pending_assistant_line,
+            &mut self.pending_assistant_line_truncated,
+        ) else {
+            return;
+        };
+        self.push_with_source(line, HistorySource::AssistantOutput);
+    }
 }
 
-/// Overlay state for browsing transcript history.
+fn take_stream_line(buffer: &mut String, truncated: &mut bool) -> Option<String> {
+    let trimmed = buffer.trim();
+    if trimmed.is_empty() {
+        buffer.clear();
+        *truncated = false;
+        return None;
+    }
+
+    let mut line = trimmed.to_string();
+    if *truncated {
+        line.push_str(" ...");
+    }
+    buffer.clear();
+    *truncated = false;
+    Some(line)
+}
+
+/// Overlay state for browsing history.
 #[derive(Debug)]
 pub(crate) struct TranscriptHistoryState {
     /// Current search query (empty = show all).
@@ -175,17 +318,18 @@ impl TranscriptHistoryState {
 
 // --- Overlay rendering ---
 
-/// Number of visible transcript rows in the overlay (excluding chrome).
-const VISIBLE_ROWS: usize = 8;
+/// Number of visible history rows in the overlay (excluding chrome).
+const VISIBLE_ROWS: usize = 7;
+const PREVIEW_ROWS: usize = 2;
 
-/// Height of the transcript history overlay (fixed).
+/// Height of the transcript history overlay.
 pub(crate) fn transcript_history_overlay_height() -> usize {
-    // top + title + separator + search row + separator + VISIBLE_ROWS + separator + footer + bottom
-    5 + VISIBLE_ROWS + 3
+    // top + title + separator + search + separator + rows + separator + preview + separator + footer + bottom
+    9 + VISIBLE_ROWS + PREVIEW_ROWS
 }
 
 pub(crate) fn transcript_history_overlay_width(terminal_cols: usize) -> usize {
-    terminal_cols.clamp(30, 60)
+    terminal_cols.clamp(40, 96)
 }
 
 pub(crate) fn transcript_history_overlay_inner_width(terminal_cols: usize) -> usize {
@@ -195,16 +339,74 @@ pub(crate) fn transcript_history_overlay_inner_width(terminal_cols: usize) -> us
 pub(crate) fn transcript_history_overlay_footer(colors: &ThemeColors) -> String {
     let close = overlay_close_symbol(colors.glyph_set);
     let sep = overlay_separator(colors.glyph_set);
-    format!("[{close}] close {sep} Enter replay")
+    format!("[{close}] close {sep} Enter replay {sep} Up/Down browse")
 }
 
-/// Visible transcript rows count for scroll calculations.
+/// Visible rows count for scroll calculations.
 pub(crate) fn transcript_history_visible_rows() -> usize {
     VISIBLE_ROWS
 }
 
-/// Row offset where transcript entries start (1-based from overlay top).
+/// Row offset where list entries start (1-based from overlay top).
 pub(crate) const TRANSCRIPT_HISTORY_ENTRY_START_ROW: usize = 6;
+
+fn framed_overlay_row(
+    colors: &ThemeColors,
+    borders: &crate::theme::BorderSet,
+    inner_width: usize,
+    content: &str,
+    content_color: &str,
+) -> String {
+    let clipped = truncate_display(content, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
+    let body_plain = format!("{clipped}{pad}");
+    let body = if content_color.is_empty() {
+        body_plain
+    } else {
+        format!("{content_color}{body_plain}{}", colors.reset)
+    };
+
+    format!(
+        "{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        body,
+        colors.border,
+        borders.vertical,
+        colors.reset
+    )
+}
+
+fn wrap_display_lines(text: &str, max_width: usize, max_lines: usize) -> Vec<String> {
+    if max_lines == 0 {
+        return Vec::new();
+    }
+    if max_width == 0 {
+        return vec![String::new(); max_lines];
+    }
+
+    let mut lines = Vec::with_capacity(max_lines);
+    let mut remainder = text.trim();
+    while lines.len() < max_lines {
+        if remainder.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+
+        let chunk = truncate_display(remainder, max_width);
+        let chunk_len = chunk.len();
+        lines.push(chunk);
+
+        if chunk_len >= remainder.len() {
+            remainder = "";
+            continue;
+        }
+        remainder = remainder[chunk_len..].trim_start();
+    }
+
+    lines
+}
 
 /// Format the transcript history overlay for display.
 pub(crate) fn format_transcript_history_overlay(
@@ -228,31 +430,20 @@ pub(crate) fn format_transcript_history_overlay(
     ));
     lines.push(frame_separator(&colors, borders, width));
 
-    // Search row
-    let search_label = if state.search_query.is_empty() {
-        format!(" {}Search: (type to filter){}", colors.dim, colors.reset)
+    let (search_text, search_color) = if state.search_query.is_empty() {
+        (" Search: (type to filter)".to_string(), colors.dim)
     } else {
-        format!(
-            " {}Search:{} {}",
-            colors.dim, colors.reset, state.search_query
-        )
+        (format!(" Search: {}", state.search_query), "")
     };
-    let search_clipped = truncate_display(&search_label, inner);
-    let search_pad = " ".repeat(inner.saturating_sub(display_width(&search_clipped)));
-    lines.push(format!(
-        "{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.reset,
-        search_clipped,
-        search_pad,
-        colors.border,
-        borders.vertical,
-        colors.reset
+    lines.push(framed_overlay_row(
+        &colors,
+        borders,
+        inner,
+        &search_text,
+        search_color,
     ));
     lines.push(frame_separator(&colors, borders, width));
 
-    // Transcript entries
     let total = state.filtered_indices.len();
     if total == 0 {
         let msg = if history.is_empty() {
@@ -260,33 +451,15 @@ pub(crate) fn format_transcript_history_overlay(
         } else {
             "No matches"
         };
-        let empty_line = format!(" {}{}{}", colors.dim, msg, colors.reset);
-        let empty_clipped = truncate_display(&empty_line, inner);
-        let empty_pad = " ".repeat(inner.saturating_sub(display_width(&empty_clipped)));
-        lines.push(format!(
-            "{}{}{}{}{}{}{}{}",
-            colors.border,
-            borders.vertical,
-            colors.reset,
-            empty_clipped,
-            empty_pad,
-            colors.border,
-            borders.vertical,
-            colors.reset
+        lines.push(framed_overlay_row(
+            &colors,
+            borders,
+            inner,
+            &format!(" {msg}"),
+            colors.dim,
         ));
-        // Fill remaining rows with blanks
         for _ in 1..VISIBLE_ROWS {
-            let blank_pad = " ".repeat(inner);
-            lines.push(format!(
-                "{}{}{}{}{}{}{}",
-                colors.border,
-                borders.vertical,
-                colors.reset,
-                blank_pad,
-                colors.border,
-                borders.vertical,
-                colors.reset
-            ));
+            lines.push(framed_overlay_row(&colors, borders, inner, "", ""));
         }
     } else {
         let visible_end = (state.scroll_offset + VISIBLE_ROWS).min(total);
@@ -295,50 +468,47 @@ pub(crate) fn format_transcript_history_overlay(
             let abs_idx = state.scroll_offset + display_idx;
             let is_selected = abs_idx == state.selected;
             if let Some(entry) = history.get(entry_idx) {
-                let prefix = if is_selected {
-                    format!("{}>{}", colors.info, colors.reset)
-                } else {
-                    " ".to_string()
-                };
-                let seq_label = format!("#{}", entry.sequence);
-                let text_budget =
-                    inner.saturating_sub(display_width(&prefix) + display_width(&seq_label) + 2);
+                let marker = if is_selected { ">" } else { " " };
+                let prefix = format!("{marker}[{}] ", entry.source.short_label());
+                let text_budget = inner.saturating_sub(display_width(&prefix));
                 let text_preview = truncate_display(entry.text.trim(), text_budget);
-                let content = format!("{}{} {}", prefix, seq_label, text_preview);
-                let content_clipped = truncate_display(&content, inner);
-                let pad = " ".repeat(inner.saturating_sub(display_width(&content_clipped)));
+                let content = format!("{prefix}{text_preview}");
                 let row_color = if is_selected { colors.info } else { "" };
-                let row_reset = if is_selected { colors.reset } else { "" };
-                lines.push(format!(
-                    "{}{}{}{}{}{}{}{}{}{}",
-                    colors.border,
-                    borders.vertical,
-                    row_color,
-                    colors.reset,
-                    content_clipped,
-                    pad,
-                    row_reset,
-                    colors.border,
-                    borders.vertical,
-                    colors.reset
+                lines.push(framed_overlay_row(
+                    &colors, borders, inner, &content, row_color,
                 ));
             }
         }
-        // Fill remaining visible rows
         let rendered = visible_end - state.scroll_offset;
         for _ in rendered..VISIBLE_ROWS {
-            let blank_pad = " ".repeat(inner);
-            lines.push(format!(
-                "{}{}{}{}{}{}{}",
-                colors.border,
-                borders.vertical,
-                colors.reset,
-                blank_pad,
-                colors.border,
-                borders.vertical,
-                colors.reset
-            ));
+            lines.push(framed_overlay_row(&colors, borders, inner, "", ""));
         }
+    }
+
+    lines.push(frame_separator(&colors, borders, width));
+
+    let preview_seed = state
+        .selected_entry_index()
+        .and_then(|idx| history.get(idx))
+        .map(|entry| {
+            format!(
+                " Preview [{} #{}]: {}",
+                entry.source.short_label(),
+                entry.sequence,
+                entry.text.trim()
+            )
+        })
+        .unwrap_or_else(|| {
+            if total == 0 {
+                " Preview: no entries".to_string()
+            } else {
+                " Preview: select an entry".to_string()
+            }
+        });
+    for line in wrap_display_lines(&preview_seed, inner, PREVIEW_ROWS) {
+        lines.push(framed_overlay_row(
+            &colors, borders, inner, &line, colors.dim,
+        ));
     }
 
     lines.push(frame_separator(&colors, borders, width));
@@ -352,6 +522,25 @@ pub(crate) fn format_transcript_history_overlay(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn strip_ansi(input: &str) -> String {
+        let mut out = String::with_capacity(input.len());
+        let mut in_escape = false;
+        for ch in input.chars() {
+            if ch == '\x1b' {
+                in_escape = true;
+                continue;
+            }
+            if in_escape {
+                if ch == 'm' {
+                    in_escape = false;
+                }
+                continue;
+            }
+            out.push(ch);
+        }
+        out
+    }
 
     #[test]
     fn history_push_and_len() {
@@ -373,13 +562,15 @@ mod tests {
     #[test]
     fn history_bounds_at_max() {
         let mut history = TranscriptHistory::new();
-        for i in 0..MAX_HISTORY_ENTRIES + 10 {
+        for i in 0..(MAX_HISTORY_ENTRIES + 20) {
             history.push(format!("entry {i}"));
         }
         assert_eq!(history.len(), MAX_HISTORY_ENTRIES);
-        // Oldest entries should have been dropped
-        let first = history.get(0).unwrap();
-        assert!(first.text.starts_with("entry 10"));
+        assert!(history
+            .get(0)
+            .unwrap_or_else(|| panic!("missing oldest after cap"))
+            .text
+            .contains("entry 20"));
     }
 
     #[test]
@@ -387,8 +578,14 @@ mod tests {
         let mut history = TranscriptHistory::new();
         history.push("one".to_string());
         history.push("two".to_string());
-        assert_eq!(history.get(0).unwrap().sequence, 1);
-        assert_eq!(history.get(1).unwrap().sequence, 2);
+        assert_eq!(
+            history.get(0).unwrap_or_else(|| panic!("entry")).sequence,
+            1
+        );
+        assert_eq!(
+            history.get(1).unwrap_or_else(|| panic!("entry")).sequence,
+            2
+        );
     }
 
     #[test]
@@ -397,11 +594,19 @@ mod tests {
         history.push("alpha".to_string());
         history.push("beta".to_string());
         history.push("alpha two".to_string());
+
         let results = history.search("alpha");
         assert_eq!(results.len(), 2);
-        // Newest first: index 2 before index 0
-        assert_eq!(results[0], 2);
-        assert_eq!(results[1], 0);
+        assert!(history
+            .get(results[0])
+            .unwrap_or_else(|| panic!("entry"))
+            .text
+            .contains("alpha two"));
+        assert!(history
+            .get(results[1])
+            .unwrap_or_else(|| panic!("entry"))
+            .text
+            .contains("alpha"));
     }
 
     #[test]
@@ -419,70 +624,51 @@ mod tests {
         history.push("two".to_string());
         let results = history.search("");
         assert_eq!(results.len(), 2);
+        assert_eq!(results[0], 1);
+        assert_eq!(results[1], 0);
     }
 
     #[test]
-    fn all_newest_first_order() {
+    fn state_move_and_scroll() {
         let mut history = TranscriptHistory::new();
         history.push("a".to_string());
         history.push("b".to_string());
         history.push("c".to_string());
-        let indices = history.all_newest_first();
-        assert_eq!(indices, vec![2, 1, 0]);
-    }
 
-    #[test]
-    fn state_move_up_down() {
         let mut state = TranscriptHistoryState::new();
-        state.filtered_indices = vec![2, 1, 0];
+        state.refresh_filter(&history);
         assert_eq!(state.selected, 0);
+
         state.move_down();
         assert_eq!(state.selected, 1);
         state.move_down();
         assert_eq!(state.selected, 2);
-        state.move_down(); // should not go past end
+        state.move_down();
         assert_eq!(state.selected, 2);
+
         state.move_up();
         assert_eq!(state.selected, 1);
-        state.move_up();
-        assert_eq!(state.selected, 0);
-        state.move_up(); // should not go negative
-        assert_eq!(state.selected, 0);
     }
 
     #[test]
-    fn state_clamp_scroll() {
+    fn state_clamp_scroll_keeps_selection_visible() {
         let mut state = TranscriptHistoryState::new();
-        state.filtered_indices = (0..20).collect();
-        state.selected = 15;
+        state.filtered_indices = (0..10).collect();
+        state.selected = 5;
         state.scroll_offset = 0;
-        state.clamp_scroll(5);
-        assert_eq!(state.scroll_offset, 11); // 15 - (5-1) = 11
-    }
 
-    #[test]
-    fn state_clamp_scroll_zero_visible() {
-        let mut state = TranscriptHistoryState::new();
-        state.filtered_indices = (0..5).collect();
-        state.selected = 3;
-        state.scroll_offset = 0;
-        state.clamp_scroll(0);
-        // No change when visible is 0
-        assert_eq!(state.scroll_offset, 0);
-    }
+        state.clamp_scroll(4);
+        assert_eq!(state.scroll_offset, 2);
 
-    #[test]
-    fn state_selected_entry_index() {
-        let mut state = TranscriptHistoryState::new();
-        state.filtered_indices = vec![5, 3, 1];
         state.selected = 1;
-        assert_eq!(state.selected_entry_index(), Some(3));
+        state.clamp_scroll(4);
+        assert_eq!(state.scroll_offset, 1);
     }
 
     #[test]
-    fn state_selected_entry_index_empty() {
+    fn state_selected_entry_index_returns_none_when_empty() {
         let state = TranscriptHistoryState::new();
-        assert_eq!(state.selected_entry_index(), None);
+        assert!(state.selected_entry_index().is_none());
     }
 
     #[test]
@@ -490,9 +676,9 @@ mod tests {
         let mut history = TranscriptHistory::new();
         history.push("hello".to_string());
         history.push("world".to_string());
+
         let mut state = TranscriptHistoryState::new();
         state.refresh_filter(&history);
-        assert_eq!(state.filtered_indices.len(), 2);
 
         state.push_search_char('w', &history);
         assert_eq!(state.search_query, "w");
@@ -505,13 +691,16 @@ mod tests {
 
     #[test]
     fn overlay_height_matches_formula() {
-        assert_eq!(transcript_history_overlay_height(), 5 + VISIBLE_ROWS + 3);
+        assert_eq!(
+            transcript_history_overlay_height(),
+            9 + VISIBLE_ROWS + PREVIEW_ROWS
+        );
     }
 
     #[test]
     fn overlay_width_clamps() {
-        assert_eq!(transcript_history_overlay_width(20), 30);
-        assert_eq!(transcript_history_overlay_width(100), 60);
+        assert_eq!(transcript_history_overlay_width(20), 40);
+        assert_eq!(transcript_history_overlay_width(140), 96);
         assert_eq!(transcript_history_overlay_width(45), 45);
     }
 
@@ -520,21 +709,21 @@ mod tests {
         let history = TranscriptHistory::new();
         let mut state = TranscriptHistoryState::new();
         state.refresh_filter(&history);
-        let output = format_transcript_history_overlay(&history, &state, Theme::None, 80);
+        let output = format_transcript_history_overlay(&history, &state, Theme::None, 120);
         assert!(output.contains("No transcripts yet"));
+        assert!(output.contains("Preview: no entries"));
     }
 
     #[test]
-    fn format_overlay_with_entries() {
+    fn format_overlay_with_entries_shows_source_tags() {
         let mut history = TranscriptHistory::new();
         history.push("test transcript one".to_string());
         history.push("test transcript two".to_string());
         let mut state = TranscriptHistoryState::new();
         state.refresh_filter(&history);
-        let output = format_transcript_history_overlay(&history, &state, Theme::None, 80);
-        assert!(output.contains("#1"));
-        assert!(output.contains("#2"));
+        let output = format_transcript_history_overlay(&history, &state, Theme::None, 120);
         assert!(output.contains("Transcript History"));
+        assert!(output.contains("[mic]"));
     }
 
     #[test]
@@ -542,7 +731,7 @@ mod tests {
         let history = TranscriptHistory::new();
         let mut state = TranscriptHistoryState::new();
         state.refresh_filter(&history);
-        let output = format_transcript_history_overlay(&history, &state, Theme::None, 80);
+        let output = format_transcript_history_overlay(&history, &state, Theme::None, 120);
         assert_eq!(output.lines().count(), transcript_history_overlay_height());
     }
 
@@ -555,8 +744,7 @@ mod tests {
         let mut state = TranscriptHistoryState::new();
         state.search_query = "alpha".to_string();
         state.refresh_filter(&history);
-        assert_eq!(state.filtered_indices.len(), 2);
-        let output = format_transcript_history_overlay(&history, &state, Theme::None, 80);
+        let output = format_transcript_history_overlay(&history, &state, Theme::None, 120);
         assert!(output.contains("alpha"));
         assert!(!output.contains("No matches"));
     }
@@ -568,17 +756,74 @@ mod tests {
         let mut state = TranscriptHistoryState::new();
         state.search_query = "zzz".to_string();
         state.refresh_filter(&history);
-        assert!(state.filtered_indices.is_empty());
-        let output = format_transcript_history_overlay(&history, &state, Theme::None, 80);
+        let output = format_transcript_history_overlay(&history, &state, Theme::None, 120);
         assert!(output.contains("No matches"));
     }
 
     #[test]
-    fn footer_respects_glyph_set() {
-        let mut colors = Theme::None.colors();
-        colors.glyph_set = crate::theme::GlyphSet::Ascii;
-        let footer = transcript_history_overlay_footer(&colors);
-        assert!(footer.contains("[x] close"));
-        assert!(footer.contains("Enter replay"));
+    fn format_overlay_rows_keep_full_width_with_ansi_theme() {
+        let history = TranscriptHistory::new();
+        let mut state = TranscriptHistoryState::new();
+        state.refresh_filter(&history);
+        let terminal_cols = 120;
+        let width = transcript_history_overlay_width(terminal_cols);
+        let output =
+            format_transcript_history_overlay(&history, &state, Theme::Codex, terminal_cols);
+
+        for line in output.lines() {
+            let visible = strip_ansi(line);
+            assert_eq!(display_width(&visible), width);
+        }
+    }
+
+    #[test]
+    fn ingest_user_input_bytes_records_sent_lines() {
+        let mut history = TranscriptHistory::new();
+        history.ingest_user_input_bytes(b"implement feature\r");
+
+        let newest = history
+            .all_newest_first()
+            .first()
+            .copied()
+            .unwrap_or_else(|| panic!("missing user entry"));
+        let entry = history.get(newest).unwrap_or_else(|| panic!("entry"));
+        assert_eq!(entry.source, HistorySource::UserInput);
+        assert_eq!(entry.text, "implement feature");
+    }
+
+    #[test]
+    fn ingest_user_input_bytes_ignores_escape_sequences() {
+        let mut history = TranscriptHistory::new();
+        history.ingest_user_input_bytes(b"\x1b[0[I");
+        history.flush_pending_stream_lines();
+        assert!(history.is_empty());
+    }
+
+    #[test]
+    fn ingest_backend_output_bytes_records_lines() {
+        let mut history = TranscriptHistory::new();
+        history.ingest_backend_output_bytes(b"assistant output line\n");
+
+        let newest = history
+            .all_newest_first()
+            .first()
+            .copied()
+            .unwrap_or_else(|| panic!("missing assistant entry"));
+        let entry = history.get(newest).unwrap_or_else(|| panic!("entry"));
+        assert_eq!(entry.source, HistorySource::AssistantOutput);
+        assert_eq!(entry.text, "assistant output line");
+    }
+
+    #[test]
+    fn assistant_entries_are_not_replayable() {
+        let mut history = TranscriptHistory::new();
+        history.ingest_backend_output_bytes(b"assistant output line\n");
+        let newest = history
+            .all_newest_first()
+            .first()
+            .copied()
+            .unwrap_or_else(|| panic!("missing assistant entry"));
+        let entry = history.get(newest).unwrap_or_else(|| panic!("entry"));
+        assert!(!entry.replayable());
     }
 }

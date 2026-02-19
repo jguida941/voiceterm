@@ -298,6 +298,7 @@ fn build_harness(
         config,
         status_state,
         auto_voice_enabled,
+        auto_voice_paused_by_user: false,
         theme,
         overlay_mode: OverlayMode::None,
         settings_menu: SettingsMenuState::new(),
@@ -321,6 +322,7 @@ fn build_harness(
         force_send_on_next_transcript: false,
         transcript_history: crate::transcript_history::TranscriptHistory::new(),
         transcript_history_state: crate::transcript_history::TranscriptHistoryState::new(),
+        session_memory_logger: None,
         claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
     };
 
@@ -1014,6 +1016,18 @@ fn wake_word_detection_is_ignored_while_recording() {
 }
 
 #[test]
+fn wake_word_detection_is_ignored_when_auto_voice_is_paused_by_user() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.auto_voice_paused_by_user = true;
+
+    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
 fn manual_voice_trigger_while_recording_uses_cancel_capture_path() {
     let _cancel = install_cancel_capture_hook(hook_cancel_capture_true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
@@ -1033,6 +1047,45 @@ fn manual_voice_trigger_while_recording_uses_cancel_capture_path() {
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     assert_eq!(state.current_status.as_deref(), Some("Capture stopped"));
     CANCEL_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+}
+
+#[test]
+fn manual_voice_trigger_in_auto_mode_pauses_then_resumes_with_explicit_restart() {
+    let _cancel = install_cancel_capture_hook(hook_cancel_capture_true);
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.auto_voice_enabled = true;
+    state.status_state.auto_voice_enabled = true;
+    state.status_state.voice_mode = VoiceMode::Auto;
+    state.status_state.recording_state = RecordingState::Recording;
+    deps.auto_idle_timeout = Duration::ZERO;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+    assert!(running);
+    assert!(state.auto_voice_paused_by_user);
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+    assert!(running);
+    assert!(!state.auto_voice_paused_by_user);
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
 }
 
 #[test]
@@ -1603,6 +1656,20 @@ fn run_periodic_tasks_does_not_start_auto_voice_when_disabled() {
 }
 
 #[test]
+fn run_periodic_tasks_does_not_start_auto_voice_when_paused_by_user() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.auto_voice_enabled = true;
+    state.auto_voice_paused_by_user = true;
+    deps.auto_idle_timeout = Duration::ZERO;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    assert!(timers.last_auto_trigger_at.is_none());
+}
+
+#[test]
 fn run_periodic_tasks_does_not_start_auto_voice_when_trigger_not_ready() {
     let _capture = install_start_capture_hook(hook_start_capture_count);
     let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
@@ -1780,6 +1847,58 @@ fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
     assert!(running);
     assert_eq!(state.overlay_mode, OverlayMode::None);
     assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
+}
+
+#[test]
+fn transcript_history_overlay_ignores_escape_noise_in_search() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state.transcript_history.push("alpha".to_string());
+    state
+        .transcript_history_state
+        .refresh_filter(&state.transcript_history);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[0[I".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.transcript_history_state.search_query, "");
+}
+
+#[test]
+fn transcript_history_overlay_enter_on_assistant_entry_does_not_replay() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state
+        .transcript_history
+        .ingest_backend_output_bytes(b"assistant output\n");
+    state
+        .transcript_history_state
+        .refresh_filter(&state.transcript_history);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::TranscriptHistory);
+    assert_eq!(
+        state.current_status.as_deref(),
+        Some("Selected entry is output-only (not replayable)")
+    );
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
@@ -3154,12 +3273,12 @@ fn set_claude_prompt_suppression_updates_pty_row_budget() {
 
     set_claude_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
-    let (suppressed_rows, _) = deps.session.test_winsize();
+    let (suppressed_rows, _) = deps.session.current_winsize();
     assert_eq!(suppressed_rows, 24);
 
     set_claude_prompt_suppression(&mut state, &mut deps, false);
     assert!(!state.status_state.claude_prompt_suppressed);
-    let (restored_rows, _) = deps.session.test_winsize();
+    let (restored_rows, _) = deps.session.current_winsize();
     let expected_rows = 24u16
         .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
         .max(1);
@@ -3180,7 +3299,7 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
         .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
     set_claude_prompt_suppression(&mut state, &mut deps, true);
-    let (suppressed_rows, _) = deps.session.test_winsize();
+    let (suppressed_rows, _) = deps.session.current_winsize();
     assert_eq!(suppressed_rows, 24);
 
     // Detector resolved via user input path, but no fresh output chunk arrives.
@@ -3188,7 +3307,7 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
     run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
 
     assert!(!state.status_state.claude_prompt_suppressed);
-    let (restored_rows, _) = deps.session.test_winsize();
+    let (restored_rows, _) = deps.session.current_winsize();
     let expected_rows = 24u16
         .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
         .max(1);

@@ -29,6 +29,7 @@ pub(crate) struct ButtonActionContext<'a> {
     pub(crate) config: &'a mut OverlayConfig,
     pub(crate) status_state: &'a mut StatusLineState,
     pub(crate) auto_voice_enabled: &'a mut bool,
+    pub(crate) auto_voice_paused_by_user: &'a mut bool,
     pub(crate) voice_manager: &'a mut VoiceManager,
     pub(crate) session: &'a mut PtyOverlaySession,
     pub(crate) writer_tx: &'a Sender<WriterMessage>,
@@ -57,6 +58,9 @@ impl<'a> ButtonActionContext<'a> {
                     == crate::status_line::RecordingState::Recording
                 {
                     if self.voice_manager.cancel_capture() {
+                        if *self.auto_voice_enabled {
+                            *self.auto_voice_paused_by_user = true;
+                        }
                         self.status_state.recording_state =
                             crate::status_line::RecordingState::Idle;
                         crate::voice_control::clear_capture_metrics(self.status_state);
@@ -94,6 +98,7 @@ impl<'a> ButtonActionContext<'a> {
                         );
                         log_debug(&format!("voice capture failed: {err:#}"));
                     } else {
+                        *self.auto_voice_paused_by_user = false;
                         *self.recording_started_at = Some(Instant::now());
                         reset_capture_visuals(
                             self.status_state,
@@ -228,6 +233,7 @@ impl<'a> ButtonActionContext<'a> {
             },
             voice: SettingsVoiceContext {
                 auto_voice_enabled: &mut *self.auto_voice_enabled,
+                auto_voice_paused_by_user: Some(&mut *self.auto_voice_paused_by_user),
                 voice_manager: &mut *self.voice_manager,
                 last_auto_trigger_at: &mut *self.last_auto_trigger_at,
                 recording_started_at: &mut *self.recording_started_at,

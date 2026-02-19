@@ -266,7 +266,10 @@ pub(super) fn handle_wake_word_detection(
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
-    if !state.config.wake_word || state.overlay_mode != OverlayMode::None {
+    if !state.config.wake_word
+        || state.overlay_mode != OverlayMode::None
+        || state.auto_voice_paused_by_user
+    {
         return;
     }
     handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::WakeWord);
@@ -326,6 +329,9 @@ fn start_capture_for_trigger(
     if origin == VoiceTriggerOrigin::WakeWord {
         log_wake_capture_started();
     }
+    if origin == VoiceTriggerOrigin::ManualHotkey {
+        state.auto_voice_paused_by_user = false;
+    }
     timers.recording_started_at = Some(Instant::now());
     state.force_send_on_next_transcript = false;
     reset_capture_visuals(
@@ -377,6 +383,9 @@ fn stop_active_capture(
 ) -> bool {
     if !cancel_capture_with_hook(&mut deps.voice_manager) {
         return false;
+    }
+    if state.auto_voice_enabled {
+        state.auto_voice_paused_by_user = true;
     }
     state.force_send_on_next_transcript = false;
     state.status_state.recording_state = RecordingState::Idle;
@@ -634,6 +643,17 @@ fn handle_overlay_input_event(
             // Replay the selected transcript
             if let Some(entry_idx) = state.transcript_history_state.selected_entry_index() {
                 if let Some(entry) = state.transcript_history.get(entry_idx) {
+                    if !entry.replayable() {
+                        set_status(
+                            &deps.writer_tx,
+                            &mut timers.status_clear_deadline,
+                            &mut state.current_status,
+                            &mut state.status_state,
+                            "Selected entry is output-only (not replayable)",
+                            Some(Duration::from_secs(2)),
+                        );
+                        return None;
+                    }
                     let text = entry.text.clone();
                     close_overlay(state, deps, true);
                     if !write_or_queue_pty_input(state, deps, text.into_bytes()) {
@@ -675,12 +695,12 @@ fn handle_overlay_input_event(
                         render_transcript_history_overlay_for_state(state, deps);
                     }
                 } else {
-                    // Type-to-search: append printable characters to the search query
-                    for &b in &bytes {
-                        if b.is_ascii_graphic() || b == b' ' {
+                    // Type-to-search: append printable user text, ignoring escape/control noise.
+                    if let Some(fragment) = transcript_history_search_fragment(&bytes) {
+                        for ch in fragment.chars() {
                             state
                                 .transcript_history_state
-                                .push_search_char(b as char, &state.transcript_history);
+                                .push_search_char(ch, &state.transcript_history);
                             should_redraw = true;
                         }
                     }
@@ -707,6 +727,25 @@ fn should_replay_after_overlay_close(evt: &InputEvent) -> bool {
         evt,
         InputEvent::Exit | InputEvent::MouseClick { .. } | InputEvent::TranscriptHistoryToggle
     )
+}
+
+fn transcript_history_search_fragment(bytes: &[u8]) -> Option<String> {
+    if bytes.is_empty() || bytes.contains(&0x1b) {
+        return None;
+    }
+
+    let mut out = String::new();
+    for ch in String::from_utf8_lossy(bytes).chars() {
+        if ch.is_control() {
+            continue;
+        }
+        out.push(ch);
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
 }
 
 fn handle_overlay_mouse_click(

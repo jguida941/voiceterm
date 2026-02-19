@@ -96,6 +96,7 @@ Behavior highlights:
 
 - Send mode: `auto` types and submits; `insert` types and waits for `Enter`.
 - Overlays (`help` / `settings` / `theme` / `history`): unmatched input closes the overlay and replays the action.
+- History overlay rows are source-labeled (`mic`, `you`, `ai`); only `mic` and `you` rows are replayable.
 - Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI flags override persisted values for that run.
 - Hidden HUD keeps idle controls subtle: `? help`, `^O settings`, `[open] [hide]`.
 - Claude approval/permission prompts temporarily suppress HUD rows to keep prompt actions visible.
@@ -132,6 +133,7 @@ voiceterm --voice-max-capture-ms 60000 --voice-buffer-ms 60000
 voiceterm --transcript-idle-ms 250
 voiceterm --prompt-regex '^codex> $'
 voiceterm --wake-word --wake-word-sensitivity 0.65 --wake-word-cooldown-ms 3000
+voiceterm --session-memory --session-memory-path ./.voiceterm/session-memory.md
 ```
 
 Wake-word remains OFF by default; use the flag above or Settings (`Ctrl+O`) to

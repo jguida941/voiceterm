@@ -12,6 +12,7 @@ use crate::config::OverlayConfig;
 use crate::input::InputEvent;
 use crate::overlays::OverlayMode;
 use crate::prompt::{ClaudePromptDetector, PromptTracker};
+use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
 use crate::status_line::StatusLineState;
@@ -27,6 +28,7 @@ pub(crate) struct EventLoopState {
     pub(crate) config: OverlayConfig,
     pub(crate) status_state: StatusLineState,
     pub(crate) auto_voice_enabled: bool,
+    pub(crate) auto_voice_paused_by_user: bool,
     pub(crate) theme: Theme,
     pub(crate) overlay_mode: OverlayMode,
     pub(crate) settings_menu: SettingsMenuState,
@@ -50,6 +52,7 @@ pub(crate) struct EventLoopState {
     pub(crate) force_send_on_next_transcript: bool,
     pub(crate) transcript_history: TranscriptHistory,
     pub(crate) transcript_history_state: TranscriptHistoryState,
+    pub(crate) session_memory_logger: Option<SessionMemoryLogger>,
     pub(crate) claude_prompt_detector: ClaudePromptDetector,
 }
 

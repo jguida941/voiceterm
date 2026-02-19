@@ -144,12 +144,14 @@ Open with `Ctrl+H`.
 - Type to filter transcript history entries (newest first).
 - `Up`/`Down` moves selection.
 - `Backspace` removes one search character.
+- Search input ignores terminal control/focus escape noise.
 - `Enter` replays selected replayable entries (`mic` and `you`) into active CLI input.
 - `ai` rows are output-only and are not replayable.
 - Mouse: click a row to select it; click footer `[×] close` (or `[x]` in ASCII glyph mode) to close.
 - The overlay shows 7 rows at a time, plus a 2-line preview pane for the selected row.
 - `Esc` closes the overlay.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
+- Override the memory-log path with `--session-memory-path <PATH>` when needed.
 
 ## Voice Modes
 

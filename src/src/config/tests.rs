@@ -11,7 +11,7 @@ use clap::Parser;
 use std::fs;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env, path::Path};
+use std::{env, path::Path, path::PathBuf};
 
 fn base_voice_config() -> AppConfig {
     let mut cfg = AppConfig::parse_from(["test-app"]);
@@ -139,6 +139,25 @@ fn vad_engine_labels_are_stable() {
 fn accepts_valid_defaults() {
     let mut cfg = AppConfig::parse_from(["test-app"]);
     assert!(cfg.validate().is_ok());
+}
+
+#[test]
+fn session_memory_flags_parse_as_expected() {
+    let cfg = AppConfig::parse_from(["test-app"]);
+    assert!(!cfg.session_memory);
+    assert!(cfg.session_memory_path.is_none());
+
+    let cfg = AppConfig::parse_from([
+        "test-app",
+        "--session-memory",
+        "--session-memory-path",
+        "/tmp/session-memory.md",
+    ]);
+    assert!(cfg.session_memory);
+    assert_eq!(
+        cfg.session_memory_path,
+        Some(PathBuf::from("/tmp/session-memory.md"))
+    );
 }
 
 #[test]

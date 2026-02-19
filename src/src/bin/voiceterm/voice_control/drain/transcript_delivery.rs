@@ -26,6 +26,7 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) last_auto_trigger_at: &'a mut Option<Instant>,
     pub(super) force_send_on_next_transcript: &'a mut bool,
     pub(super) auto_voice_enabled: bool,
+    pub(super) auto_voice_paused_by_user: bool,
     pub(super) sound_on_complete: bool,
     pub(super) transcript_history: &'a mut crate::transcript_history::TranscriptHistory,
 }
@@ -45,7 +46,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         ctx.now,
         ctx.transcript_idle_timeout,
     );
-    if ctx.auto_voice_enabled {
+    if ctx.auto_voice_enabled && !ctx.auto_voice_paused_by_user {
         ctx.prompt_tracker.note_activity(ctx.now);
     }
     ctx.status_state.recording_state = RecordingState::Idle;

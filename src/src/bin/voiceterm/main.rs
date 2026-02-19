@@ -31,6 +31,7 @@ mod overlays;
 mod persistent_config;
 mod progress;
 mod prompt;
+mod session_memory;
 mod session_stats;
 mod settings;
 mod settings_handlers;
@@ -58,7 +59,7 @@ use crossterm::terminal::size as terminal_size;
 use std::collections::VecDeque;
 use std::env;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 use voiceterm::pty_session::PtyOverlaySession;
@@ -79,6 +80,7 @@ use crate::input::spawn_input_thread;
 use crate::prompt::{
     resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
 };
+use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::SettingsMenuState;
 use crate::status_line::{
@@ -151,6 +153,12 @@ fn apply_jetbrains_meter_floor(base_ms: u64, is_jetbrains: bool) -> u64 {
     } else {
         base_ms
     }
+}
+
+fn default_session_memory_path(working_dir: &str) -> PathBuf {
+    PathBuf::from(working_dir)
+        .join(".voiceterm")
+        .join("session-memory.md")
 }
 
 fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
@@ -275,6 +283,13 @@ fn main() -> Result<()> {
         ));
     }
 
+    let session_memory_path = config
+        .app
+        .session_memory_path
+        .clone()
+        .unwrap_or_else(|| default_session_memory_path(&working_dir));
+    let session_memory_enabled = config.app.session_memory;
+
     // Backend command and args already resolved
 
     let prompt_log_path = if config.app.no_logs {
@@ -384,10 +399,31 @@ fn main() -> Result<()> {
     status_state.pipeline = Pipeline::Rust;
     status_state.mouse_enabled = true; // Mouse enabled by default for clickable buttons
     let _ = writer_tx.send(WriterMessage::EnableMouse);
+    let session_memory_logger = if session_memory_enabled {
+        match SessionMemoryLogger::new(&session_memory_path, &backend_label, &working_dir) {
+            Ok(logger) => {
+                log_debug(&format!(
+                    "session memory enabled at {}",
+                    logger.path().display()
+                ));
+                Some(logger)
+            }
+            Err(err) => {
+                log_debug(&format!(
+                    "failed to initialize session memory log {}: {err}",
+                    session_memory_path.display()
+                ));
+                None
+            }
+        }
+    } else {
+        None
+    };
     let mut state = EventLoopState {
         config,
         status_state,
         auto_voice_enabled,
+        auto_voice_paused_by_user: false,
         theme,
         overlay_mode: OverlayMode::None,
         settings_menu: SettingsMenuState::new(),
@@ -411,6 +447,7 @@ fn main() -> Result<()> {
         force_send_on_next_transcript: false,
         transcript_history: transcript_history::TranscriptHistory::new(),
         transcript_history_state: transcript_history::TranscriptHistoryState::new(),
+        session_memory_logger,
         claude_prompt_detector: ClaudePromptDetector::new(
             backend_label.to_ascii_lowercase().contains("claude"),
         ),
@@ -507,6 +544,10 @@ fn main() -> Result<()> {
     );
 
     run_event_loop(&mut state, &mut timers, &mut deps);
+    state.transcript_history.flush_pending_stream_lines();
+    if let Some(logger) = state.session_memory_logger.as_mut() {
+        logger.flush_pending();
+    }
 
     let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
     let _ = deps.writer_tx.send(WriterMessage::Shutdown);

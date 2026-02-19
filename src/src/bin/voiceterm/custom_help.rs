@@ -112,6 +112,8 @@ const GROUPS: &[GroupSpec] = &[
             "no-logs",
             "log-content",
             "log-timings",
+            "session-memory",
+            "session-memory-path",
             "prompt-regex",
             "prompt-log",
         ],
@@ -211,6 +213,7 @@ pub(crate) fn render_themed_help(theme: Theme) -> String {
     let borders = &colors.borders;
     let section_color = help_section_color(&colors);
     let flag_color = help_flag_color(&colors);
+    let description_color = help_description_color(&colors);
     let usage_color = help_usage_color(&colors);
     let width = resolved_help_width();
     let inner_width = width.saturating_sub(2);
@@ -256,7 +259,8 @@ pub(crate) fn render_themed_help(theme: Theme) -> String {
             &format!(" [{}]", section.title),
             section_color,
         ));
-        for entry in &section.entries {
+        lines.push(blank_content_line(&colors, borders, width));
+        for (entry_idx, entry) in section.entries.iter().enumerate() {
             let label = entry.label();
             lines.extend(format_flag_lines(
                 &colors,
@@ -265,7 +269,10 @@ pub(crate) fn render_themed_help(theme: Theme) -> String {
                 &label,
                 &entry.help,
                 flag_col,
-                flag_color,
+                FlagLineColors {
+                    flag: flag_color,
+                    description: description_color,
+                },
             ));
             for detail in entry.details() {
                 lines.push(format_content_line(
@@ -275,6 +282,9 @@ pub(crate) fn render_themed_help(theme: Theme) -> String {
                     &format!("   {detail}"),
                     colors.dim,
                 ));
+            }
+            if entry_idx + 1 < section.entries.len() {
+                lines.push(blank_content_line(&colors, borders, width));
             }
         }
         if idx + 1 < sections.len() {
@@ -329,6 +339,15 @@ fn format_content_line(
     )
 }
 
+fn blank_content_line(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
+    format_content_line(colors, borders, width, "", "")
+}
+
+struct FlagLineColors<'a> {
+    flag: &'a str,
+    description: &'a str,
+}
+
 fn format_flag_lines(
     colors: &ThemeColors,
     borders: &BorderSet,
@@ -336,7 +355,7 @@ fn format_flag_lines(
     label: &str,
     description: &str,
     label_col: usize,
-    flag_color: &str,
+    line_colors: FlagLineColors<'_>,
 ) -> Vec<String> {
     let inner_width = width.saturating_sub(2);
     let label = truncate_display(&format!("{FLAG_LABEL_PREFIX}{label}"), label_col);
@@ -347,17 +366,25 @@ fn format_flag_lines(
 
     for (idx, chunk) in wrapped_desc.iter().enumerate() {
         let desc_pad = " ".repeat(desc_col.saturating_sub(display_width(chunk)));
+        let description_body = if line_colors.description.is_empty() {
+            format!("{chunk}{desc_pad}")
+        } else {
+            format!(
+                "{}{chunk}{}{desc_pad}",
+                line_colors.description, colors.reset
+            )
+        };
         let body = if idx == 0 {
-            if flag_color.is_empty() {
-                format!(" {label}{label_pad} {chunk}{desc_pad}")
+            if line_colors.flag.is_empty() {
+                format!(" {label}{label_pad} {description_body}")
             } else {
                 format!(
-                    " {}{}{}{} {}{}",
-                    flag_color, label, colors.reset, label_pad, chunk, desc_pad
+                    " {}{}{}{} {}",
+                    line_colors.flag, label, colors.reset, label_pad, description_body
                 )
             }
         } else {
-            format!(" {} {}{}", " ".repeat(label_col), chunk, desc_pad)
+            format!(" {} {}", " ".repeat(label_col), description_body)
         };
 
         out.push(format!(
@@ -377,6 +404,12 @@ fn format_flag_lines(
 }
 
 fn help_section_color(colors: &ThemeColors) -> &str {
+    if !colors.success.is_empty() {
+        return colors.success;
+    }
+    if !colors.processing.is_empty() {
+        return colors.processing;
+    }
     if !colors.warning.is_empty() {
         return colors.warning;
     }
@@ -394,6 +427,19 @@ fn help_flag_color(colors: &ThemeColors) -> &str {
         return colors.recording;
     }
     colors.info
+}
+
+fn help_description_color(colors: &ThemeColors) -> &str {
+    if !colors.info.is_empty() {
+        return colors.info;
+    }
+    if !colors.processing.is_empty() {
+        return colors.processing;
+    }
+    if !colors.reset.is_empty() {
+        return colors.reset;
+    }
+    ""
 }
 
 fn help_usage_color(colors: &ThemeColors) -> &str {
@@ -582,8 +628,17 @@ mod tests {
     fn grouped_help_codex_has_dual_tone_accents() {
         let colors = Theme::Codex.colors();
         let rendered = render_themed_help(Theme::Codex);
-        assert!(rendered.contains(&format!("{} [Diagnostics]{}", colors.warning, colors.reset)));
+        assert!(rendered.contains(&format!("{} [Diagnostics]{}", colors.success, colors.reset)));
         assert!(rendered.contains(&format!("{}> --backend", colors.warning)));
+    }
+
+    #[test]
+    fn grouped_help_codex_uses_distinct_description_color() {
+        let colors = Theme::Codex.colors();
+        let rendered = render_themed_help(Theme::Codex);
+        assert!(rendered.contains(&format!("{}Backend CLI to run", colors.info)));
+        assert!(!colors.info.is_empty());
+        assert_ne!(colors.info, colors.warning);
     }
 
     #[test]

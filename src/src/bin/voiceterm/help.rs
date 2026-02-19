@@ -76,7 +76,7 @@ const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+H",
-        description: "Transcript history (search/replay)",
+        description: "History (transcripts + chat lines)",
     },
     Shortcut {
         key: "Enter",

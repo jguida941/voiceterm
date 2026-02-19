@@ -61,6 +61,7 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub last_auto_trigger_at: &'a mut Option<Instant>,
     pub force_send_on_next_transcript: &'a mut bool,
     pub auto_voice_enabled: bool,
+    pub auto_voice_paused_by_user: bool,
     pub sound_on_complete: bool,
     pub sound_on_error: bool,
     pub transcript_history: &'a mut TranscriptHistory,
@@ -87,6 +88,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let last_auto_trigger_at = &mut *ctx.last_auto_trigger_at;
     let force_send_on_next_transcript = &mut *ctx.force_send_on_next_transcript;
     let auto_voice_enabled = ctx.auto_voice_enabled;
+    let auto_voice_paused_by_user = ctx.auto_voice_paused_by_user;
     let sound_on_complete = ctx.sound_on_complete;
     let sound_on_error = ctx.sound_on_error;
     let transcript_history = &mut *ctx.transcript_history;
@@ -128,6 +130,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 last_auto_trigger_at,
                 force_send_on_next_transcript,
                 auto_voice_enabled,
+                auto_voice_paused_by_user,
                 sound_on_complete,
                 transcript_history,
             };
@@ -162,7 +165,11 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 last_meter_update,
                 now,
             };
-            maybe_rearm_auto_after_empty(&mut rearm_ctx, auto_voice_enabled);
+            maybe_rearm_auto_after_empty(
+                &mut rearm_ctx,
+                auto_voice_enabled,
+                auto_voice_paused_by_user,
+            );
         }
         other => {
             *force_send_on_next_transcript = false;
@@ -186,6 +193,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     finalize_drain_state(
         prompt_tracker,
         auto_voice_enabled,
+        auto_voice_paused_by_user,
         rearm_auto,
         now,
         status_state,

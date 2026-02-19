@@ -10,6 +10,8 @@ Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For current execution scope, use `dev/active/MASTER_PLAN.md`.
 
+For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
+
 ## Canonical Commands
 
 ```bash
@@ -22,6 +24,8 @@ python3 dev/scripts/devctl.py check --profile release
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -55,6 +59,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output. |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
+| `dev/scripts/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
+| `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
@@ -67,10 +73,6 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes
-
-Historical shard artifacts from previous CI runs are useful for hotspot triage,
-but release gating should always use a full aggregated score generated from the
-current commit's shard outcomes.
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
 - `hygiene`: archive/ADR/scripts governance checks
 - `release`: tag + notes flow (legacy release behavior)
@@ -80,6 +82,10 @@ current commit's shard outcomes.
 - `pypi`: PyPI build/check/upload flow
 - `status` and `report`: machine-readable project status outputs
 - `list`: command/profile inventory
+
+Historical shard artifacts from previous CI runs are useful for hotspot triage,
+but release gating should always use a full aggregated score generated from the
+current commit's shard outcomes.
 
 ## Markdown Lint Config
 
@@ -91,7 +97,9 @@ Markdown lint policy files live under `dev/config/`:
 ## Release Workflow (Recommended)
 
 ```bash
-# 1) prepare version/changelog and commit
+# 1) align release versions across Cargo/PyPI/macOS app plist + changelog
+python3 dev/scripts/check_release_version_parity.py
+
 # 2) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
 

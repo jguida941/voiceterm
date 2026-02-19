@@ -211,6 +211,10 @@ For full behavior and configuration details, use:
 
 Use `Ctrl+H` to open transcript history, type to filter, and press `Enter` to
 replay into the active CLI input. Mouse click selection is also supported.
+History rows are labeled by source (`mic`, `you`, `ai`); only `mic` and `you`
+rows are replayable, and `ai` rows are output-only.
+Use `--session-memory` (optionally `--session-memory-path`) for a persistent
+markdown session log alongside the in-app history overlay.
 Detailed behavior: [Transcript History](guides/USAGE.md#transcript-history).
 
 ### Help Overlay

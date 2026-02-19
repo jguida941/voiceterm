@@ -275,6 +275,7 @@ fn drain_voice_messages_once(
         last_auto_trigger_at: &mut timers.last_auto_trigger_at,
         force_send_on_next_transcript: &mut state.force_send_on_next_transcript,
         auto_voice_enabled: state.auto_voice_enabled,
+        auto_voice_paused_by_user: state.auto_voice_paused_by_user,
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
         transcript_history: &mut state.transcript_history,
@@ -414,6 +415,7 @@ fn settings_action_context<'a>(
         },
         voice: SettingsVoiceContext {
             auto_voice_enabled: &mut state.auto_voice_enabled,
+            auto_voice_paused_by_user: Some(&mut state.auto_voice_paused_by_user),
             voice_manager: &mut deps.voice_manager,
             last_auto_trigger_at: &mut timers.last_auto_trigger_at,
             recording_started_at: &mut timers.recording_started_at,
@@ -520,6 +522,7 @@ fn button_action_context<'a>(
         config: &mut state.config,
         status_state: &mut state.status_state,
         auto_voice_enabled: &mut state.auto_voice_enabled,
+        auto_voice_paused_by_user: &mut state.auto_voice_paused_by_user,
         voice_manager: &mut deps.voice_manager,
         session: &mut deps.session,
         writer_tx: &deps.writer_tx,
@@ -602,6 +605,10 @@ fn write_or_queue_pty_input(
 ) -> bool {
     if bytes.is_empty() {
         return true;
+    }
+    state.transcript_history.ingest_user_input_bytes(&bytes);
+    if let Some(logger) = state.session_memory_logger.as_mut() {
+        logger.record_user_input_bytes(&bytes);
     }
     if state.pending_pty_input.is_empty() {
         match try_send_pty_bytes(&mut deps.session, &bytes) {

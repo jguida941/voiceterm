@@ -388,12 +388,10 @@ impl PtyOverlaySession {
     pub fn is_alive(&self) -> bool {
         child_process_is_alive(self.child_pid)
     }
-}
 
-#[cfg(any(test, feature = "mutants"))]
-impl PtyOverlaySession {
+    /// Query the current PTY window size (rows, cols).
     #[must_use]
-    pub fn test_winsize(&self) -> (u16, u16) {
+    pub fn current_winsize(&self) -> (u16, u16) {
         super::osc::current_terminal_size(self.master_fd)
     }
 }

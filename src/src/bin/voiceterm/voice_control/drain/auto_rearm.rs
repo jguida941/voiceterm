@@ -5,11 +5,12 @@ use voiceterm::log_debug;
 
 pub(super) fn should_rearm_after_transcript(
     auto_voice_enabled: bool,
+    auto_voice_paused_by_user: bool,
     transcript_mode: VoiceSendMode,
     pending_transcript_count: usize,
     voice_manager_idle: bool,
 ) -> bool {
-    if !auto_voice_enabled || !voice_manager_idle {
+    if !auto_voice_enabled || auto_voice_paused_by_user || !voice_manager_idle {
         return false;
     }
     match transcript_mode {
@@ -22,8 +23,12 @@ pub(super) fn should_rearm_after_transcript(
     }
 }
 
-pub(super) fn should_rearm_after_empty(auto_voice_enabled: bool, voice_manager_idle: bool) -> bool {
-    auto_voice_enabled && voice_manager_idle
+pub(super) fn should_rearm_after_empty(
+    auto_voice_enabled: bool,
+    auto_voice_paused_by_user: bool,
+    voice_manager_idle: bool,
+) -> bool {
+    auto_voice_enabled && !auto_voice_paused_by_user && voice_manager_idle
 }
 
 pub(super) struct AutoRearmContext<'a> {
@@ -66,6 +71,7 @@ pub(super) fn maybe_rearm_auto_after_transcript<S: TranscriptSession>(
 ) {
     if !should_rearm_after_transcript(
         ctx.auto_voice_enabled,
+        ctx.auto_voice_paused_by_user,
         transcript_mode,
         ctx.pending_transcripts.len(),
         ctx.voice_manager.is_idle(),
@@ -91,8 +97,13 @@ pub(super) fn maybe_rearm_auto_after_transcript<S: TranscriptSession>(
 pub(super) fn maybe_rearm_auto_after_empty(
     ctx: &mut AutoRearmContext<'_>,
     auto_voice_enabled: bool,
+    auto_voice_paused_by_user: bool,
 ) {
-    if !should_rearm_after_empty(auto_voice_enabled, ctx.voice_manager.is_idle()) {
+    if !should_rearm_after_empty(
+        auto_voice_enabled,
+        auto_voice_paused_by_user,
+        ctx.voice_manager.is_idle(),
+    ) {
         return;
     }
     try_rearm_auto_capture(ctx);
@@ -101,12 +112,13 @@ pub(super) fn maybe_rearm_auto_after_empty(
 pub(super) fn finalize_drain_state(
     prompt_tracker: &mut PromptTracker,
     auto_voice_enabled: bool,
+    auto_voice_paused_by_user: bool,
     rearm_auto: bool,
     now: Instant,
     status_state: &StatusLineState,
     recording_started_at: &mut Option<Instant>,
 ) {
-    if auto_voice_enabled && rearm_auto {
+    if auto_voice_enabled && !auto_voice_paused_by_user && rearm_auto {
         prompt_tracker.note_activity(now);
     }
     if status_state.recording_state != RecordingState::Recording {
@@ -122,12 +134,14 @@ mod tests {
     fn should_rearm_after_transcript_insert_requires_empty_queue() {
         assert!(should_rearm_after_transcript(
             true,
+            false,
             VoiceSendMode::Insert,
             0,
             true
         ));
         assert!(!should_rearm_after_transcript(
             true,
+            false,
             VoiceSendMode::Insert,
             1,
             true
@@ -138,12 +152,14 @@ mod tests {
     fn should_rearm_after_transcript_auto_allows_queue_headroom() {
         assert!(should_rearm_after_transcript(
             true,
+            false,
             VoiceSendMode::Auto,
             crate::transcript::MAX_PENDING_TRANSCRIPTS - 1,
             true
         ));
         assert!(!should_rearm_after_transcript(
             true,
+            false,
             VoiceSendMode::Auto,
             crate::transcript::MAX_PENDING_TRANSCRIPTS,
             true
@@ -154,22 +170,32 @@ mod tests {
     fn should_rearm_after_transcript_requires_auto_voice_and_idle_manager() {
         assert!(!should_rearm_after_transcript(
             false,
+            false,
             VoiceSendMode::Auto,
             0,
             true
         ));
         assert!(!should_rearm_after_transcript(
             true,
+            false,
             VoiceSendMode::Auto,
             0,
             false
+        ));
+        assert!(!should_rearm_after_transcript(
+            true,
+            true,
+            VoiceSendMode::Auto,
+            0,
+            true
         ));
     }
 
     #[test]
     fn should_rearm_after_empty_requires_auto_voice_and_idle_manager() {
-        assert!(should_rearm_after_empty(true, true));
-        assert!(!should_rearm_after_empty(false, true));
-        assert!(!should_rearm_after_empty(true, false));
+        assert!(should_rearm_after_empty(true, false, true));
+        assert!(!should_rearm_after_empty(false, false, true));
+        assert!(!should_rearm_after_empty(true, false, false));
+        assert!(!should_rearm_after_empty(true, true, true));
     }
 }

@@ -157,6 +157,12 @@ jobs:
       - name: Run governance hygiene gate
         run: python3 dev/scripts/devctl.py hygiene --format md
 
+      - name: Run AGENTS contract guard
+        run: python3 dev/scripts/check_agents_contract.py
+
+      - name: Run release version parity guard
+        run: python3 dev/scripts/check_release_version_parity.py
+
       - name: Run CLI flags parity guard
         run: python3 dev/scripts/check_cli_flags_parity.py
 

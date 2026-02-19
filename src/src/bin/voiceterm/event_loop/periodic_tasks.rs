@@ -212,6 +212,7 @@ pub(super) fn run_periodic_tasks(
     maybe_expire_stale_latency(state, deps, now);
 
     if state.auto_voice_enabled
+        && !state.auto_voice_paused_by_user
         && deps.voice_manager.is_idle()
         && should_auto_trigger(
             &state.prompt_tracker,

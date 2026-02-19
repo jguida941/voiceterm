@@ -214,11 +214,11 @@ mod tests {
         let reserved =
             reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false) as u16;
         let expected_rows = rows.saturating_sub(reserved).max(1);
-        let (set_rows, set_cols) = session.test_winsize();
+        let (set_rows, set_cols) = session.current_winsize();
         assert_eq!(set_cols, cols);
         assert_eq!(set_rows, expected_rows);
 
-        let before = session.test_winsize();
+        let before = session.current_winsize();
         apply_pty_winsize(
             &mut session,
             0,
@@ -227,7 +227,7 @@ mod tests {
             HudStyle::Full,
             false,
         );
-        assert_eq!(session.test_winsize(), before);
+        assert_eq!(session.current_winsize(), before);
     }
 
     #[cfg(unix)]

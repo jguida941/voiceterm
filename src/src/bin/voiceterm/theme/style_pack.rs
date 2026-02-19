@@ -265,7 +265,10 @@ mod tests {
         ];
 
         for theme in themes {
-            assert_eq!(resolve_theme_colors(theme), base_theme_colors(theme));
+            assert_eq!(
+                resolve_theme_colors_with_payload(theme, None),
+                base_theme_colors(theme)
+            );
         }
     }
 

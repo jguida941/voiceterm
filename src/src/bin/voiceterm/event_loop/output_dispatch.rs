@@ -23,6 +23,10 @@ pub(super) fn handle_output_chunk(
     let now = Instant::now();
     if !data.is_empty() {
         state.suppress_startup_escape_input = false;
+        state.transcript_history.ingest_backend_output_bytes(&data);
+        if let Some(logger) = state.session_memory_logger.as_mut() {
+            logger.record_backend_output_bytes(&data);
+        }
         if state.status_state.recording_state == RecordingState::Responding {
             state.status_state.recording_state = RecordingState::Idle;
             send_enhanced_status_with_buttons(
