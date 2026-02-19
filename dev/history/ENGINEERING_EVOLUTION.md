@@ -2,9 +2,9 @@
 
 <!-- markdownlint-disable MD024 -->
 
-**Status:** Draft v4 (historical design and process record)<br>
-**Audience:** users and developers<br>
-**Last Updated:** 2026-02-19<br>
+**Status:** Draft v4 (historical design and process record)  
+**Audience:** users and developers  
+**Last Updated:** 2026-02-19
 
 ## At a Glance
 
@@ -153,6 +153,22 @@ Inference: These screenshots improve readability for users. They show current UI
 3. Verify you are not reintroducing a previously reverted pattern.
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
 5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
+
+### Recent Governance Update (2026-02-19)
+
+Fact: The active planning model was expanded to include a hardened Memory Studio
+track with explicit isolation, compaction validation, and acceleration
+non-inferiority gates.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (Memory scope extended through `MP-253`)
+- `dev/active/memory_studio.md` (added `MS-G14 Isolation`, `MS-G15 Compaction`,
+  `MS-G16 Acceleration`, execution-isolation profiles, compaction A/B
+  evaluation protocol, and Apple Silicon acceleration benchmarking policy)
+
+Inference: Governance focus shifted from "add memory features" to
+"prove safety and measurable quality gains before default-on behavior."
 
 ### Replay the Evidence Quickly
 
@@ -487,7 +503,7 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 
 - Rust hardening audit tracking consolidated into `MASTER_PLAN` and archive reference. Evidence: `fc68982`, `4194dd4`.
 - Release-notes automation shipped via script + devctl wrapper + release handoff. Evidence: `4194dd4`.
-- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for both release version parity (`dev/scripts/check_release_version_parity.py`) and AGENTS contract integrity (`dev/scripts/check_agents_contract.py`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/check_release_version_parity.py`, `dev/scripts/check_agents_contract.py`, `dev/active/MASTER_PLAN.md` (MP-245).
+- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/check_release_version_parity.py`, `dev/scripts/check_agents_contract.py`, `dev/scripts/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
 - Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.

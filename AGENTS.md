@@ -17,6 +17,7 @@ same execution path with minimal ambiguity.
 | Question | Canonical source |
 |---|---|
 | What are we executing now? | `dev/active/MASTER_PLAN.md` |
+| What active docs exist and what role does each play? | `dev/active/INDEX.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
@@ -40,10 +41,10 @@ them scoped to that subtree.
 
 Run this sequence for every task. Do not skip steps.
 
-1. Run session bootstrap checks (`bundle.bootstrap`).
+1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
 2. Decide scope (`develop` work or `master` release work).
 3. Classify task using the task router table.
-4. Load only the required context pack.
+4. Load only the required context pack listed for your task class.
 5. Link or confirm MP scope in `dev/active/MASTER_PLAN.md` before edits.
 6. Implement changes and tests.
 7. Run the bundle required by your task class.
@@ -93,6 +94,25 @@ When `git status --short` is not clean:
    valid for current branch/repo state.
 4. Note unrelated pre-existing changes in handoff when they affect confidence.
 
+## Active-plan onboarding (adding files under `dev/active/`)
+
+When adding any new markdown file under `dev/active/`, this sequence is required:
+
+1. Add an entry in `dev/active/INDEX.md` with:
+   - path
+   - role (`tracker` | `spec` | `runbook` | `reference`)
+   - execution authority
+   - MP scope
+   - when agents should read it
+2. If the file carries execution state, reflect that scope in
+   `dev/active/MASTER_PLAN.md` (the only tracker authority).
+3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
+   if navigation/ownership changed.
+4. Run `python3 dev/scripts/check_active_plan_sync.py`.
+5. Run `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+6. Run `python3 dev/scripts/devctl.py hygiene`.
+7. Commit file + index + governance docs in one change.
+
 ## Task router (pick one class)
 
 | User story | Task class | Required bundle |
@@ -133,6 +153,7 @@ When `git status --short` is not clean:
 ### Tooling/process pack
 
 - `AGENTS.md`
+- `dev/active/INDEX.md`
 - `dev/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `dev/history/ENGINEERING_EVOLUTION.md`
@@ -156,6 +177,7 @@ git status --short
 git branch --show-current
 git remote -v
 git log --oneline --decorate -n 10
+sed -n '1,220p' dev/active/INDEX.md
 python3 dev/scripts/devctl.py list
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -166,6 +188,7 @@ find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -177,6 +200,7 @@ find . -maxdepth 1 -type f -name '--*'
 ```bash
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -189,6 +213,7 @@ find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
@@ -204,6 +229,7 @@ python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
@@ -219,6 +245,7 @@ git log --oneline --decorate -n 10
 python3 dev/scripts/devctl.py status --ci --require-ci --format md
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 find . -maxdepth 1 -type f -name '--*'
@@ -315,6 +342,7 @@ python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --
 Always evaluate:
 
 - `dev/CHANGELOG.md` (required for user-facing behavior changes)
+- `dev/active/INDEX.md`
 - `dev/active/MASTER_PLAN.md`
 - `README.md`
 - `QUICK_START.md`
@@ -343,6 +371,7 @@ python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 ```
@@ -370,6 +399,7 @@ Core commands:
 Supporting scripts:
 
 - `dev/scripts/check_agents_contract.py`
+- `dev/scripts/check_active_plan_sync.py`
 - `dev/scripts/check_cli_flags_parity.py`
 - `dev/scripts/check_release_version_parity.py`
 - `dev/scripts/check_screenshot_integrity.py`

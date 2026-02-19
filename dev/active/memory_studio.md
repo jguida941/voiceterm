@@ -1,7 +1,7 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19  
-Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-248)  
+Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-253)  
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
@@ -305,6 +305,42 @@ Each retrieval request can produce:
 - support emergency global action disable switch
 - escalate policy tier for risky command chains (for example repo mutation + network + shell exec)
 
+### Execution Isolation Profiles (Required for Action Paths)
+
+Automation and action execution must run under explicit isolation mode, selectable
+by policy and user setting:
+
+- `host_read_only` (default baseline)
+  - read-only command set only
+  - no mutation commands
+  - retrieval and indexing only
+- `container_strict` (recommended for autonomous/semi-autonomous action paths)
+  - rootless container runtime
+  - project mount read-only by default
+  - explicit write mount only for approved workspace outputs
+  - network disabled by default
+  - seccomp/AppArmor/SELinux profile applied
+  - cgroup cpu/memory/pid limits
+- `host_confirmed` (expert/manual mode)
+  - broader command surface
+  - explicit per-action approval required
+  - full audit + replay trail retained
+
+Non-negotiable guardrails:
+
+- never expose host docker socket inside execution containers
+- never allow hidden shell expansion from model text without policy parsing
+- action runner uses argument arrays, not shell-concatenated command strings
+- memory DB writes go through audited append/index APIs only (no ad hoc SQL writes)
+
+### SQLite + Memory Store Safety Posture
+
+- WAL mode + checkpoint policy for crash resilience
+- bounded write queues and backpressure
+- parameterized SQL everywhere (no raw string interpolation)
+- read-only DB handles for retrieval paths
+- migration/version checks before runtime writes
+
 ### Memory Control Modes (User Trust + Safety)
 
 - `off`: no memory capture, no memory retrieval
@@ -333,6 +369,105 @@ Each retrieval request can produce:
 - golden query fixtures with expected ranked evidence IDs
 - deterministic context-pack snapshots
 - chaos tests for partial-write recovery and index rebuild
+
+## Memory Compaction Research + Experiment Track
+
+Goal: prove that compaction improves real agent outcomes, not just token count.
+
+### Compaction strategies to evaluate
+
+- `extractive`: retain top evidence spans/cards only (no rewriting)
+- `abstractive_with_citations`: summarize, but every claim must cite source IDs
+- `hierarchical`: short summary + expandable evidence blocks
+- `hybrid`: extractive head + abstractive tail with citation validation
+
+### Evaluation protocol (required before default-on)
+
+Offline A/B matrix:
+
+- A: no memory
+- B: raw retrieval (no compaction)
+- C: compacted retrieval (candidate strategy)
+
+Primary metrics:
+
+- task success rate
+- citation-valid claim rate
+- unsupported-claim rate (target trending to zero)
+- token usage reduction
+- end-to-end latency impact
+
+Secondary metrics:
+
+- human approval rate of generated packs
+- replay consistency across repeated runs
+- failure-mode taxonomy (what compaction dropped incorrectly)
+
+### Bench and replay sources
+
+- internal task-replay fixtures from VoiceTerm sessions
+- long-context retrieval stress suites (for example LongBench/RULER style tasks)
+- long-conversation memory scenarios (for example LoCoMo-style tasks)
+
+### Compaction release gate
+
+Compaction can move from experimental to default only if:
+
+- task success is non-inferior or better vs raw retrieval
+- unsupported-claim rate does not regress
+- citation-valid claim rate remains above policy threshold
+- latency/token budgets improve against baseline
+
+## Hardware Acceleration Track (Apple Silicon, Future)
+
+Goal: increase memory/retrieval/compaction throughput on Apple Silicon without
+regressing answer quality, citation fidelity, or safety behavior.
+
+### Candidate acceleration paths
+
+- CPU SIMD via Accelerate/vDSP for:
+  - token/byte scanning
+  - dedupe similarity primitives
+  - ranking feature precompute
+- GPU acceleration via Metal/MPS for:
+  - embedding/rerank kernels
+  - optional local summarization pipelines
+- ANE-oriented path via Core ML compute-unit routing for local model inference
+  where compatible models are available.
+
+### Performance-first but quality-locked policy
+
+Acceleration is optimization, not a quality bypass:
+
+- no acceleration path can become default unless non-inferior on quality metrics
+- deterministic retrieval/citation contracts stay identical across backends
+- fall back to stable CPU reference path on runtime mismatch/errors
+
+### Benchmark methodology (required)
+
+1. Microbenchmarks
+   - parser/normalizer throughput (MB/s)
+   - retrieval ranking throughput (queries/s)
+   - compaction/summarization throughput (tokens/s)
+   - energy profile and memory footprint
+2. End-to-end benchmarks
+   - full context-pack generation latency p50/p95/p99
+   - replay-task success rate over fixed fixtures
+   - citation-valid claim rate and unsupported-claim rate
+3. Backend comparison matrix
+   - CPU reference
+   - CPU + SIMD
+   - GPU/ANE path (where supported)
+4. Statistical protocol
+   - repeated runs with fixed seeds and warm/cold cache separation
+   - report confidence intervals for latency and task metrics
+
+### Initial non-inferiority targets (draft)
+
+- task success delta >= -1.0% vs CPU reference
+- citation-valid claim rate delta >= -0.5%
+- unsupported-claim rate delta <= +0.5%
+- p95 latency improvement >= 20% or throughput improvement >= 1.5x
 
 ## Rust Implementation Architecture (Modular + Clean)
 
@@ -635,6 +770,18 @@ Iteration 1 acceptance:
 - `AGENTS.md` patch suggestions with preview + approval gate
 - optional external chat-export import adapters and normalization
 
+### M8 Isolation + Compaction Validation
+
+- container/host isolation profiles for action execution
+- compaction A/B harness and benchmark suite
+- policy thresholds for promotion from experimental to default
+
+### M9 Acceleration + Quality-Lock
+
+- Apple Silicon acceleration prototypes (SIMD/GPU/ANE-capable paths)
+- backend comparison harness with quality non-inferiority checks
+- guarded rollout flags with automatic fallback to CPU reference path
+
 ## Memory Studio Gates
 
 | Gate | Pass Criteria | Fail Criteria | Evidence |
@@ -652,6 +799,9 @@ Iteration 1 acceptance:
 | `MS-G11 Interop` | MCP read-only memory resources/tools are deterministic and policy-safe | Client-specific drift or unsafe default exposure | MCP integration tests + policy snapshots |
 | `MS-G12 Automation` | Repetition-mined suggestions meet quality/safety thresholds and require explicit approval | Noisy/unsafe suggestions auto-applied or weakly evidenced | suggestion precision metrics + approval-flow tests |
 | `MS-G13 Import Privacy` | External transcript imports are opt-in, provenance-tagged, and redaction-validated | Silent import, missing provenance, or unsafe storage of sensitive content | import fixtures + redaction tests + policy checks |
+| `MS-G14 Isolation` | Action execution respects selected isolation profile and policy boundaries | Commands escape profile boundaries or bypass policy checks | isolation integration tests + escape-attempt fixtures |
+| `MS-G15 Compaction` | Compaction improves or preserves task quality while reducing context cost | Accuracy regresses or citations break under compaction | A/B benchmark reports + threshold checks |
+| `MS-G16 Acceleration` | Hardware-accelerated paths improve throughput/latency without quality regressions | Speedups reduce task success/citation fidelity or bypass safety contracts | benchmark matrix + non-inferiority report + fallback tests |
 
 ## Interop Contract (Codex + Claude + Future)
 
@@ -692,6 +842,12 @@ cd src && cargo test action_center::
 6. Should automation suggestions target `AGENTS.md` only, or also generate optional `CLAUDE.md`/macro-pack snippets?
 7. What minimum support/confidence thresholds gate script candidate surfacing?
 8. Should imported external chats participate in automation mining by default, or stay retrieval-only until approved?
+9. Should `container_strict` become mandatory for any non-read-only autonomous action mode?
+10. What non-inferiority threshold defines compaction "safe to enable by default"?
+11. Which compaction strategy is default candidate first: extractive, abstractive-with-citations, or hybrid?
+12. Which acceleration backend ships first on macOS (`Accelerate` vs `Metal` vs `Core ML`)?
+13. Do we require acceleration to stay deterministic with CPU reference at evidence ordering level?
+14. What minimum hardware matrix is required before enabling acceleration outside opt-in mode?
 
 ## Research References (2026-02-19)
 
@@ -713,11 +869,16 @@ Product docs:
 Memory/retrieval research:
 
 - Retrieval-Augmented Generation (RAG): https://arxiv.org/abs/2005.11401
+- LLM Prompt Compression (LLMLingua): https://aclanthology.org/2023.emnlp-main.825/
+- Long-context Prompt Compression (LongLLMLingua): https://aclanthology.org/2024.acl-long.91/
 - ReAct (reason + act): https://arxiv.org/abs/2210.03629
 - Reflexion (self-correction memory loop): https://arxiv.org/abs/2303.11366
 - MemGPT (virtual context management): https://arxiv.org/abs/2310.08560
 - RAPTOR (hierarchical retrieval): https://arxiv.org/abs/2401.18059
 - Lost in the Middle (long-context ordering effect): https://arxiv.org/abs/2307.03172
+- LongBench (long-context benchmark): https://arxiv.org/abs/2308.14508
+- RULER (what real context windows retain): https://arxiv.org/abs/2404.06654
+- LoCoMo (long-form conversational memory benchmark): https://arxiv.org/abs/2402.17753
 - Generative Agents (memory, reflection, planning): https://arxiv.org/abs/2304.03442
 - PrefixSpan (sequential pattern mining baseline for repeated workflow detection): https://dl.acm.org/doi/10.1145/335191.335372
 
@@ -726,7 +887,14 @@ Graph + indexing + safety:
 - GraphRAG project: https://github.com/microsoft/graphrag
 - GraphRAG research write-up: https://www.microsoft.com/en-us/research/blog/graphrag-new-tool-for-complex-data-discovery-now-on-github/
 - SQLite FTS5 docs: https://sqlite.org/fts5.html
+- SQLite WAL mode: https://sqlite.org/wal.html
+- SQLite isolation details: https://sqlite.org/isolation.html
 - MCP security best practices: https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices
 - Anthropic developer mode (tool safety warning context): https://docs.anthropic.com/en/docs/claude-code/features/developer-mode
 - Process Mining Manifesto (event-log mining governance baseline): https://link.springer.com/article/10.1007/s13740-011-0004-7
 - Event-log foundations for process mining (case/activity/time model): https://link.springer.com/chapter/10.1007/978-3-662-49851-4_2
+- NIST Application Container Security Guide (SP 800-190): https://doi.org/10.6028/NIST.SP.800-190
+- OWASP Docker Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html
+- Apple Accelerate framework docs: https://developer.apple.com/documentation/accelerate
+- Apple Metal Performance Shaders docs: https://developer.apple.com/documentation/metalperformanceshaders
+- Apple Core ML docs: https://developer.apple.com/documentation/coreml

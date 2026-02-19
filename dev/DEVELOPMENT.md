@@ -20,6 +20,7 @@
 - `AGENTS.md` is the canonical execution router for both humans and AI agents.
 - `dev/DEVELOPMENT.md` is the command-syntax and QA reference.
 - `dev/scripts/README.md` is the tool inventory and release-control-plane reference.
+- `dev/active/INDEX.md` is the active-doc discovery registry (what exists + when to read it).
 - `dev/active/MASTER_PLAN.md` is the single active execution tracker.
 
 Use `AGENTS.md` first to classify the task and select the correct playbook, then
@@ -233,8 +234,9 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 # Governance hygiene audit (archive + ADR + scripts docs)
 python3 dev/scripts/devctl.py hygiene
 
-# AGENTS contract + release parity guards
+# AGENTS + active-plan contract + release parity guards
 python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 
 # CLI schema/docs parity check (clap long flags vs guides/CLI_FLAGS.md)
@@ -300,6 +302,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
 - `python3 dev/scripts/devctl.py hygiene`
 - `python3 dev/scripts/check_agents_contract.py`
+- `python3 dev/scripts/check_active_plan_sync.py`
 - `python3 dev/scripts/check_release_version_parity.py`
 - `python3 dev/scripts/check_cli_flags_parity.py`
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
@@ -363,6 +366,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
+- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, and active-doc cross-link/range sync.
 - `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 
@@ -395,7 +399,7 @@ GitHub Actions run on every push and PR:
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
 
 **Before pushing, run locally (recommended):**
 
@@ -410,6 +414,7 @@ make prepush
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/check_agents_contract.py
+python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120

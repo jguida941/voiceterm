@@ -10,6 +10,7 @@ on:
       - "README.md"
       - "QUICK_START.md"
       - "DEV_INDEX.md"
+      - "dev/active/**"
       - "guides/*.md"
       - "dev/README.md"
       - "scripts/README.md"
@@ -33,6 +34,7 @@ on:
       - "README.md"
       - "QUICK_START.md"
       - "DEV_INDEX.md"
+      - "dev/active/**"
       - "guides/*.md"
       - "dev/README.md"
       - "scripts/README.md"
@@ -159,6 +161,9 @@ jobs:
 
       - name: Run AGENTS contract guard
         run: python3 dev/scripts/check_agents_contract.py
+
+      - name: Run active-plan sync guard
+        run: python3 dev/scripts/check_active_plan_sync.py
 
       - name: Run release version parity guard
         run: python3 dev/scripts/check_release_version_parity.py

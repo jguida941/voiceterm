@@ -5,15 +5,16 @@ Root shortcut pointer: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
 ## Start Here
 
-1. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - current execution plan, scope, and release targets.
-2. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio architecture/spec and `TS-G*` gate checklist used by `MP-148+`.
-3. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio architecture/spec and `MS-G*` gate checklist used by `MP-230+`.
-4. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - historical design/process journey with commit evidence.
-5. [`dev/history/README.md`](history/README.md) - index for historical engineering records.
-6. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - current runtime architecture and operational workflows.
-7. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/devctl workflow.
-8. [`dev/adr/README.md`](adr/README.md) - ADR index and decision statuses.
-9. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible deltas.
+1. [`dev/active/INDEX.md`](active/INDEX.md) - registry for all active planning docs and read order.
+2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - current execution plan, scope, and release targets.
+3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio architecture/spec and `TS-G*` gate checklist used by `MP-148+`.
+4. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio architecture/spec and `MS-G*` gate checklist used by `MP-230+`.
+5. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - historical design/process journey with commit evidence.
+6. [`dev/history/README.md`](history/README.md) - index for historical engineering records.
+7. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - current runtime architecture and operational workflows.
+8. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/devctl workflow.
+9. [`dev/adr/README.md`](adr/README.md) - ADR index and decision statuses.
+10. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible deltas.
 
 ## Three Core Docs (Developer Lens)
 

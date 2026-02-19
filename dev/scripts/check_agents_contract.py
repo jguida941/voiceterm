@@ -17,6 +17,7 @@ REQUIRED_H2 = [
     "Source-of-truth map",
     "Instruction scope and precedence",
     "Mandatory 12-step SOP (always)",
+    "Active-plan onboarding (adding files under `dev/active/`)",
     "Task router (pick one class)",
     "Context packs (load only what class needs)",
     "Command bundles (source of truth)",
@@ -37,6 +38,8 @@ REQUIRED_BUNDLES = [
 ]
 
 REQUIRED_MARKERS = [
+    "dev/active/INDEX.md",
+    "python3 dev/scripts/check_active_plan_sync.py",
     "python3 dev/scripts/check_release_version_parity.py",
     "python3 dev/scripts/devctl.py docs-check --strict-tooling",
     "python3 dev/scripts/devctl.py status --ci --require-ci --format md",
