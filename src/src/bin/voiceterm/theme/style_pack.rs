@@ -6,7 +6,9 @@
 use super::{
     style_schema::{
         parse_style_schema, parse_style_schema_with_fallback, BorderStyleOverride,
-        GlyphSetOverride, IndicatorSetOverride, StyleSchemaPack, CURRENT_STYLE_SCHEMA_VERSION,
+        GlyphSetOverride, IndicatorSetOverride, ProgressStyleOverride, StartupStyleOverride,
+        StyleSchemaPack, ToastPositionOverride, VoiceSceneStyleOverride,
+        CURRENT_STYLE_SCHEMA_VERSION,
     },
     GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
     BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,
@@ -18,6 +20,15 @@ const STYLE_PACK_SCHEMA_ENV: &str = "VOICETERM_STYLE_PACK_JSON";
 #[cfg(test)]
 const STYLE_PACK_TEST_ENV_OPT_IN: &str = "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV";
 
+/// Resolved surface-level style overrides exposed to runtime rendering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct ResolvedSurfaceOverrides {
+    pub(crate) toast_position: Option<ToastPositionOverride>,
+    pub(crate) startup_style: Option<StartupStyleOverride>,
+    pub(crate) progress_style: Option<ProgressStyleOverride>,
+    pub(crate) voice_scene_style: Option<VoiceSceneStyleOverride>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StylePack {
     pub(crate) schema_version: u16,
@@ -25,6 +36,7 @@ pub(crate) struct StylePack {
     pub(crate) border_style_override: Option<BorderStyleOverride>,
     pub(crate) indicator_set_override: Option<IndicatorSetOverride>,
     pub(crate) glyph_set_override: Option<GlyphSetOverride>,
+    pub(crate) surface_overrides: ResolvedSurfaceOverrides,
 }
 
 impl StylePack {
@@ -36,6 +48,7 @@ impl StylePack {
             border_style_override: None,
             indicator_set_override: None,
             glyph_set_override: None,
+            surface_overrides: ResolvedSurfaceOverrides::default(),
         }
     }
 
@@ -48,6 +61,7 @@ impl StylePack {
             border_style_override,
             indicator_set_override,
             glyph_set_override,
+            surface_overrides,
         } = pack;
         Self {
             schema_version: version,
@@ -55,6 +69,12 @@ impl StylePack {
             border_style_override,
             indicator_set_override,
             glyph_set_override,
+            surface_overrides: ResolvedSurfaceOverrides {
+                toast_position: surface_overrides.toast_position,
+                startup_style: surface_overrides.startup_style,
+                progress_style: surface_overrides.progress_style,
+                voice_scene_style: surface_overrides.voice_scene_style,
+            },
         }
     }
 
@@ -67,6 +87,7 @@ impl StylePack {
             border_style_override: None,
             indicator_set_override: None,
             glyph_set_override: None,
+            surface_overrides: ResolvedSurfaceOverrides::default(),
         }
     }
 }
@@ -250,7 +271,7 @@ mod tests {
 
     #[test]
     fn resolve_theme_colors_with_payload_uses_schema_base_theme() {
-        let payload = r#"{"version":2,"profile":"ops","base_theme":"dracula"}"#;
+        let payload = r#"{"version":3,"profile":"ops","base_theme":"dracula"}"#;
         assert_eq!(
             resolve_theme_colors_with_payload(Theme::Codex, Some(payload)),
             THEME_DRACULA
@@ -284,7 +305,7 @@ mod tests {
     #[test]
     fn resolve_theme_colors_with_payload_applies_border_style_override() {
         let payload = r#"{
-            "version":2,
+            "version":3,
             "profile":"ops",
             "base_theme":"codex",
             "overrides":{"border_style":"none"}
@@ -296,7 +317,7 @@ mod tests {
     #[test]
     fn resolve_theme_colors_with_payload_applies_indicator_override() {
         let payload = r#"{
-            "version":2,
+            "version":3,
             "profile":"ops",
             "base_theme":"codex",
             "overrides":{"indicators":"ascii"}
@@ -313,7 +334,7 @@ mod tests {
     #[test]
     fn resolve_theme_colors_with_payload_applies_glyph_override() {
         let payload = r#"{
-            "version":2,
+            "version":3,
             "profile":"ops",
             "base_theme":"codex",
             "overrides":{"glyphs":"ascii"}
@@ -324,7 +345,7 @@ mod tests {
 
     #[test]
     fn style_pack_theme_override_from_payload_reads_valid_base_theme() {
-        let payload = r#"{"version":2,"profile":"ops","base_theme":"dracula"}"#;
+        let payload = r#"{"version":3,"profile":"ops","base_theme":"dracula"}"#;
         assert_eq!(
             style_pack_theme_override_from_payload(Some(payload)),
             Some(Theme::Dracula)
@@ -348,7 +369,7 @@ mod tests {
 
         std::env::set_var(
             STYLE_PACK_SCHEMA_ENV,
-            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+            r#"{"version":3,"profile":"ops","base_theme":"codex"}"#,
         );
         std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN);
 
@@ -376,7 +397,7 @@ mod tests {
 
         std::env::set_var(
             STYLE_PACK_SCHEMA_ENV,
-            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+            r#"{"version":3,"profile":"ops","base_theme":"codex"}"#,
         );
         std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
 

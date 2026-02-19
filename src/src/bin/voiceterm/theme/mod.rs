@@ -4,6 +4,7 @@
 
 mod borders;
 mod colors;
+pub(crate) mod component_registry;
 mod detect;
 mod palettes;
 mod style_pack;
