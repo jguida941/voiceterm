@@ -3,12 +3,11 @@
 This doc covers install options and model setup.
 Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
 
-Docs map:
-
-- User guides index: [README.md](README.md)
-- Quick start: [../QUICK_START.md](../QUICK_START.md)
-- Install chooser summary: [../README.md#install-and-start](../README.md#install-and-start)
-- Engineering history: [../dev/history/ENGINEERING_EVOLUTION.md](../dev/history/ENGINEERING_EVOLUTION.md)
+Related docs:
+[Quick Start](../QUICK_START.md) |
+[Usage](USAGE.md) |
+[Troubleshooting](TROUBLESHOOTING.md) |
+[CLI Flags](CLI_FLAGS.md)
 
 ## Platform Support
 
@@ -68,6 +67,9 @@ voiceterm --login --claude
 
 ## Option A: Homebrew (recommended)
 
+<details open>
+<summary><strong>Show Homebrew steps</strong></summary>
+
 Install Homebrew (if needed):
 
 ```bash
@@ -126,7 +128,12 @@ Detailed runtime behavior is documented in [USAGE.md](USAGE.md). Runtime issues
 and terminal-specific edge cases are documented in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
+</details>
+
 ## Option B: PyPI
+
+<details>
+<summary><strong>Show PyPI steps</strong></summary>
 
 Install with pipx (recommended for isolated CLI tools):
 
@@ -159,7 +166,12 @@ PyPI launcher note:
 - If you already have a native binary installed, set:
   `VOICETERM_NATIVE_BIN=/absolute/path/to/voiceterm`.
 
+</details>
+
 ## Option C: Install from source
+
+<details>
+<summary><strong>Show source install steps</strong></summary>
 
 Recommended if you want a local build or plan to hack on VoiceTerm.
 
@@ -210,7 +222,12 @@ system/Homebrew installs. In `~/.local/bin` or the repo `bin/` directory it
 will overwrite. Remove the conflicting binary or set `VOICETERM_INSTALL_DIR`
 to override.
 
+</details>
+
 ## Option D: macOS App (folder picker)
+
+<details>
+<summary><strong>Show macOS app steps</strong></summary>
 
 1. Double-click **app/macos/VoiceTerm.app**.
 2. Pick your project folder.
@@ -218,7 +235,12 @@ to override.
 
 ![Folder Picker](../img/folder-picker.png)
 
+</details>
+
 ## Option E: Manual run (no install)
+
+<details>
+<summary><strong>Show manual run steps</strong></summary>
 
 Run from any project folder:
 
@@ -227,6 +249,8 @@ VOICETERM_CWD="$(pwd)" /path/to/voiceterm/scripts/start.sh
 ```
 
 `scripts/start.sh` handles model download and setup when needed.
+
+</details>
 
 ## Integration/Test Branch Installs
 
