@@ -139,22 +139,28 @@ All CLI output passes through unchanged.
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Local STT** | Whisper runs on your machine - no cloud calls |
-| **~250ms latency** | Fast transcription through whisper.cpp |
-| **PTY passthrough** | CLI UI stays unchanged |
-| **Auto-voice** | Hands-free mode - no typing needed |
-| **Transcript queue** | Speak while CLI is busy, types when ready |
-| **Project voice macros** | Expand trigger phrases from `.voiceterm/macros.yaml` before typing |
-| **Macros toggle** | Runtime ON/OFF control for macro expansion from Settings |
-| **Built-in voice navigation** | Spoken actions for scroll up/down, show/copy last error, and explain last error |
-| **Transcript history** | `Ctrl+H` opens searchable transcript history and supports replay into the active CLI |
-| **Adaptive HUD telemetry** | Compact meter/latency trend chips that adapt to recording, busy, and idle states |
-| **Persistent settings** | Runtime settings persist to `~/.config/voiceterm/config.toml` (CLI flags still take precedence) |
-| **Claude prompt safety** | HUD auto-suppresses during Claude approval/permission prompts to avoid occluding prompt rows |
-| **Backends** | Primary support for Codex and Claude Code |
-| **Themes** | 11 built-in themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, Gruvbox |
+### Main features
+
+| Feature | What it does |
+|---------|---------------|
+| **Local STT** | Whisper runs on your machine (no cloud calls) |
+| **Fast voice-to-text** | `whisper.cpp` turns speech into text quickly |
+| **PTY passthrough** | Your CLI layout and behavior stay the same |
+| **Auto-voice** | You can talk hands-free instead of typing |
+| **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
+| **Codex + Claude support** | Primary support for Codex and Claude Code |
+
+### Everyday tools
+
+- **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
+- **Voice navigation**: spoken `scroll`, `show last error`, `copy last error`, and `explain last error`
+- **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
+- **Saved settings**: keeps runtime settings in `~/.config/voiceterm/config.toml` (CLI flags still override per run)
+- **Claude prompt safety**: hides the HUD during Claude approval/permission prompts so prompt lines stay readable
+- **HUD telemetry**: mic/latency chips for recording, busy, and idle states
+- **Built-in themes**: 11 themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, and Gruvbox
+
+For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
 
 ## Voice Recording
 
