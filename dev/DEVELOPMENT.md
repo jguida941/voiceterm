@@ -3,6 +3,7 @@
 ## Contents
 
 - [Workflow ownership and routing](#workflow-ownership-and-routing)
+- [End-to-end lifecycle flow](#end-to-end-lifecycle-flow)
 - [What checks protect us](#what-checks-protect-us)
 - [When to push where](#when-to-push-where)
 - [Project structure](#project-structure)
@@ -29,6 +30,43 @@
 Use `AGENTS.md` first to classify the task and select the correct playbook, then
 use this document for concrete command syntax and deeper verification guidance.
 
+## End-to-end lifecycle flow
+
+Use this chart for the full developer loop from session start through release.
+
+```mermaid
+flowchart TD
+  A[Start session] --> B[Run bootstrap checks and read active docs]
+  B --> C[Classify task in AGENTS router]
+  C --> D{Release work?}
+
+  D -->|No| E[Create feature/fix branch from develop]
+  E --> F[Load context pack and link MP scope]
+  F --> G[Implement code, tests, docs]
+  G --> H[Run required bundle for task class]
+  H --> I{Risk-sensitive paths touched?}
+  I -->|Yes| J[Run risk matrix add-on tests]
+  I -->|No| K[Self-review and docs governance pass]
+  J --> K
+  K --> L{All checks pass?}
+  L -->|No| M[Fix issues and rerun checks]
+  M --> H
+  L -->|Yes| N[Commit and push branch]
+  N --> O[Review and merge to develop]
+  O --> P[Run post-push audit and CI status check]
+  P --> Q[Done]
+
+  D -->|Yes| R[Switch to master release flow]
+  R --> S[Verify version parity and changelog]
+  S --> T[Run release bundle]
+  T --> U{All checks pass?}
+  U -->|No| V[Fix issues and rerun release checks]
+  V --> T
+  U -->|Yes| W[Tag and publish release]
+  W --> X[Run post-push audit and CI status check]
+  X --> Q
+```
+
 ## What checks protect us
 
 Quick rule: before you push, run the checks that match the type of change you
@@ -49,7 +87,7 @@ made. CI runs the same families of checks again.
 
 ## When to push where
 
-Use this plain-language path:
+Use this path:
 
 1. If this is normal feature/fix/docs work:
    - branch from `develop` (`feature/<topic>` or `fix/<topic>`)

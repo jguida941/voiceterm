@@ -18,7 +18,7 @@
 - Release branch: `master`
 - Strategic focus: post-v1.0.83 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
 - In-flight: v1.0.84 release prep (docs/version alignment + mutation hotspot triage) and MP-015 shard hardening continuation.
-- Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes plain-language check/push routing sections while `AGENTS.md` remains the canonical policy router.
+- Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
 
 ## Strategic Direction
 
