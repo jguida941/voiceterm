@@ -51,21 +51,6 @@ npm install -g @openai/codex
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-Install path chooser:
-
-```mermaid
-flowchart TD
-    A["Choose VoiceTerm install path"] --> B{"What do you need?"}
-    B -->|Fastest setup| C["Homebrew (recommended)"]
-    B -->|Python workflow| D["PyPI (pipx / pip)"]
-    B -->|Source development| E["From source"]
-    B -->|GUI launcher on macOS| F["macOS App"]
-    C --> G["Run voiceterm"]
-    D --> G
-    E --> G
-    F --> G
-```
-
 Then choose one VoiceTerm setup path:
 
 <details open>
