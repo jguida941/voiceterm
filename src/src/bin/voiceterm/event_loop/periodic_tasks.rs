@@ -43,6 +43,9 @@ pub(super) fn run_periodic_tasks(
                     OverlayMode::TranscriptHistory => {
                         render_transcript_history_overlay_for_state(state, deps)
                     }
+                    OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
+                        // Placeholder: re-render on resize when dedicated overlays ship.
+                    }
                     OverlayMode::None => {}
                 }
             }

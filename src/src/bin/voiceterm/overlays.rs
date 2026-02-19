@@ -23,6 +23,8 @@ pub(crate) enum OverlayMode {
     ThemePicker,
     Settings,
     TranscriptHistory,
+    MemoryBrowser,
+    ActionCenter,
 }
 
 pub(crate) fn show_settings_overlay(

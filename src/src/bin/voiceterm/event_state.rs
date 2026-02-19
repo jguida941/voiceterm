@@ -10,6 +10,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::buttons::ButtonRegistry;
 use crate::config::OverlayConfig;
 use crate::input::InputEvent;
+use crate::memory::{ActionCenterState, MemoryIngestor};
 use crate::overlays::OverlayMode;
 use crate::prompt::{ClaudePromptDetector, PromptTracker};
 use crate::session_memory::SessionMemoryLogger;
@@ -54,6 +55,8 @@ pub(crate) struct EventLoopState {
     pub(crate) transcript_history_state: TranscriptHistoryState,
     pub(crate) session_memory_logger: Option<SessionMemoryLogger>,
     pub(crate) claude_prompt_detector: ClaudePromptDetector,
+    pub(crate) memory_ingestor: Option<MemoryIngestor>,
+    pub(crate) action_center_state: ActionCenterState,
 }
 
 pub(crate) struct EventLoopTimers {

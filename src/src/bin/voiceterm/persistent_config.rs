@@ -29,6 +29,7 @@ pub(crate) struct UserConfig {
     pub(crate) wake_word_cooldown_ms: Option<u64>,
     pub(crate) latency_display: Option<String>,
     pub(crate) macros_enabled: Option<bool>,
+    pub(crate) memory_mode: Option<String>,
 }
 
 /// Resolve the config directory path.
@@ -104,6 +105,7 @@ fn parse_user_config(contents: &str) -> UserConfig {
             "wake_word_cooldown_ms" => config.wake_word_cooldown_ms = value.parse().ok(),
             "latency_display" => config.latency_display = Some(value.to_string()),
             "macros_enabled" => config.macros_enabled = parse_bool(value),
+            "memory_mode" => config.memory_mode = Some(value.to_string()),
             _ => {} // Ignore unknown keys for forward compatibility
         }
     }
@@ -155,6 +157,9 @@ fn serialize_user_config(config: &UserConfig) -> String {
     }
     if let Some(v) = config.macros_enabled {
         lines.push(format!("macros_enabled = {v}"));
+    }
+    if let Some(ref v) = config.memory_mode {
+        lines.push(format!("memory_mode = \"{v}\""));
     }
 
     lines.push(String::new());
@@ -336,6 +341,7 @@ pub(crate) fn snapshot_from_runtime(
                 .to_ascii_lowercase(),
         ),
         macros_enabled: Some(status_state.macros_enabled),
+        memory_mode: None, // Persisted separately when memory mode changes.
     }
 }
 
@@ -484,6 +490,7 @@ macros_enabled = true
             wake_word_cooldown_ms: Some(2000),
             latency_display: Some("short".to_string()),
             macros_enabled: Some(false),
+            memory_mode: Some("assist".to_string()),
         };
         let serialized = serialize_user_config(&config);
         let reparsed = parse_user_config(&serialized);
