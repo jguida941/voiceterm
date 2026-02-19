@@ -18,6 +18,7 @@ same execution path with minimal ambiguity.
 |---|---|
 | What are we executing now? | `dev/active/MASTER_PLAN.md` |
 | What active docs exist and what role does each play? | `dev/active/INDEX.md` |
+| How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
@@ -154,6 +155,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 
 - `AGENTS.md`
 - `dev/active/INDEX.md`
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
 - `dev/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `dev/history/ENGINEERING_EVOLUTION.md`

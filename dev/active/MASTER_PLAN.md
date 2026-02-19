@@ -3,9 +3,11 @@
 ## Canonical Plan Rule
 
 - This file is the single active plan for strategy, execution, and release tracking.
+- `dev/active/INDEX.md` is the canonical active-doc registry and read-order map for agents.
 - `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
 - `dev/active/theme_upgrade.md` is the Theme Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
 - `dev/active/memory_studio.md` is the Memory + Action Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-02-19)
@@ -287,7 +289,7 @@ Theme Studio mandatory verification bundle (per PR):
 
 ## Phase 3D - Memory + Action Studio (Planning Track)
 
-Memory Studio execution gate: MP-230..MP-253 are governed by
+Memory Studio execution gate: MP-230..MP-255 are governed by
 `dev/active/memory_studio.md`. A Memory MP may move to `[x]` only with
 documented `MS-G*` pass evidence.
 
@@ -313,6 +315,8 @@ documented `MS-G*` pass evidence.
 - [ ] MP-251 Gate compaction default-on rollout behind non-inferiority/evidence thresholds and publish operator guidance for safe enablement strategy (`MS-G07`, `MS-G08`, `MS-G15`).
 - [ ] MP-252 Prototype Apple Silicon acceleration paths (SIMD/Metal/Core ML where applicable) for memory retrieval/compaction workloads and publish backend benchmark matrix vs CPU reference (`MS-G03`, `MS-G16`).
 - [ ] MP-253 Gate acceleration rollout behind non-inferiority quality checks, deterministic-evidence parity checks, and runtime fallback guarantees (`MS-G08`, `MS-G16`).
+- [ ] MP-254 Evaluate ZGraph-inspired symbolic compaction for memory units/context packs (pattern aliases for repeated paths/commands/errors), with reversible transforms and deterministic citation-equivalence checks (`MS-G03`, `MS-G15`, `MS-G17`).
+- [ ] MP-255 Gate any symbolic compaction rollout behind non-inferiority quality thresholds, round-trip parity fixtures, and explicit default-off operator guidance until `MS-G17` passes (`MS-G07`, `MS-G08`, `MS-G17`).
 
 ## Phase 3A - Mutation Hardening (Current Execution Focus)
 

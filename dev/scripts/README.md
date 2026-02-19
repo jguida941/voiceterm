@@ -62,7 +62,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output. |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
 | `dev/scripts/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
-| `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, and cross-doc links/range sync. |
+| `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, cross-doc links, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. |
 | `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |

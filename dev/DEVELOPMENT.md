@@ -22,6 +22,7 @@
 - `dev/scripts/README.md` is the tool inventory and release-control-plane reference.
 - `dev/active/INDEX.md` is the active-doc discovery registry (what exists + when to read it).
 - `dev/active/MASTER_PLAN.md` is the single active execution tracker.
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current cycle orchestration and reviewer gate protocol for parallel area execution.
 
 Use `AGENTS.md` first to classify the task and select the correct playbook, then
 use this document for concrete command syntax and deeper verification guidance.
@@ -366,7 +367,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
-- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, and active-doc cross-link/range sync.
+- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
 - `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 

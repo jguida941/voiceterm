@@ -1,7 +1,7 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
-Date: 2026-02-19  
-Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-253)  
+Date: 2026-02-19
+Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
@@ -56,6 +56,8 @@ structured memory substrate that is both human-auditable and machine-queryable.
 5. Safe execution model for write/destructive commands
 6. Explicit provenance on all recalled context
 7. Validation-before-injection for durable repo claims
+8. Immutable event history + curated active retrieval index (selective promotion/demotion)
+9. Query-intent-aware retrieval planning, not one fixed retrieval path
 
 ## Research-Backed Upgrades (Plan Delta)
 
@@ -72,6 +74,8 @@ structured memory substrate that is both human-auditable and machine-queryable.
    Why: Storing only chat text is weaker than storing executed actions + observable outcomes.
 6. Safety-first tooling policy aligned with MCP best practices  
    Why: Tool execution without strong policy/approval boundaries increases prompt-injection risk.
+7. Symbolic compaction candidates for repeated memory structures (ZGraph-inspired, evidence-locked)
+   Why: Short symbolic aliases can reduce token and scan cost, but only if transforms are reversible and citation-equivalent.
 
 ## Information Model (AI-Usable Formats)
 
@@ -81,6 +85,31 @@ structured memory substrate that is both human-auditable and machine-queryable.
 - Semantic memory: topic/entity/task summaries and links
 - Procedural memory: reusable workflows/templates/rules
 - Execution memory: command runs, exit codes, test/lint outcomes, artifacts
+
+### Memory Units (Compression + Consolidation Layer, Required)
+
+Memory Units sit between raw events and Memory Cards:
+
+- events: immutable, high-volume, fully auditable history
+- units: compressed, queryable work segments with preserved citations
+- cards: validated durable truths used for deterministic prompt injection
+
+Required unit types:
+
+- `task_segment`: one task over time
+- `debug_episode`: failure -> investigation -> fix -> verification
+- `release_segment`: release prep/publish evidence chain
+- `procedure_run`: one repeatable workflow execution
+
+Each unit must include:
+
+- `summary` (short, citation-backed)
+- `entities[]` (files, symbols, commands, errors)
+- `outcomes` (tests/status, pass/fail, notable deltas)
+- `evidence[]` (event IDs + artifact refs)
+- `validation_grade` (`validated_strong` | `validated_weak` | `stale` | `contradicted`)
+- `retrieval_state` (`eligible` | `quarantined` | `deprecated`)
+- `lineage` (parent/child links for drill-down back to raw events)
 
 ### Memory Cards (Derived Truth Layer, Required)
 
@@ -101,8 +130,11 @@ Each card must include:
 - `claim` (short, testable statement)
 - `scope` (`project_id`, optional `branch`, optional `path`)
 - `evidence[]` (event IDs, file refs, command/result refs)
-- `validation` (`status`, `last_checked_at`, `validator`)
+- `validation` (`status`, `grade`, `last_checked_at`, `validator`)
 - `ttl_policy` (`decay_days`, optional `max_age_days`)
+- `retrieval_state` (`eligible` | `quarantined` | `deprecated`)
+- optional `quarantine_reason`
+- optional `contradiction_refs[]` (newer evidence that conflicts)
 - `owner` + `edit_history`
 
 Example:
@@ -128,14 +160,25 @@ Example:
   ],
   "validation": {
     "status": "pass",
+    "grade": "validated_strong",
     "last_checked_at": "2026-02-19T21:08:00Z",
     "validator": "memory.validate_card"
   },
+  "retrieval_state": "eligible",
   "ttl_policy": {
     "decay_days": 28
   }
 }
 ```
+
+### Validation Grades (Required)
+
+- `validated_strong`: citations match current branch + recent execution evidence
+- `validated_weak`: citations match but no recent execution evidence
+- `stale`: citation drift or expired validation window
+- `contradicted`: newer evidence conflicts with claim
+
+Deterministic pack mode must fail closed on `stale` and `contradicted` unless explicitly overridden.
 
 ### Canonical Event Envelope
 
@@ -162,6 +205,7 @@ All memory ingestion must normalize to one event schema:
   ],
   "importance": 0.72,
   "confidence": 0.95,
+  "retrieval_state": "eligible",
   "hash": "sha256:..."
 }
 ```
@@ -172,8 +216,8 @@ All memory ingestion must normalize to one event schema:
    Immutable, line-delimited JSON for replay/audit.
 2. Query index: `.voiceterm/memory/index.sqlite`  
    Fast lookup for topic/task/time/source queries.
-3. Optional semantic index: `.voiceterm/memory/vectors.*`  
-   Pluggable vector store for embedding search.
+3. Optional semantic index in SQLite (`sqlite-vec` or `sqlite-vss`)
+   Local embedding search without requiring external infra.
 4. Human export: `.voiceterm/session-memory.md`  
    Readable session summary/export, not primary truth.
 
@@ -205,9 +249,41 @@ All memory ingestion must normalize to one event schema:
 - `memory_cards`
 - `card_evidence`
 - `card_validations`
+- `memory_units`
+- `unit_events`
+- `unit_entities`
 - `compiled_summaries`
 
+### Selective Addition + Deletion Policy (Required)
+
+Event history stays immutable. Retrieval eligibility is actively managed.
+
+- all events are written to immutable JSONL + indexed metadata
+- only high-signal events/units/cards are `retrieval_state=eligible`
+- low-confidence or drifted items move to `quarantined` with reason tracking
+- superseded items move to `deprecated` but remain auditable
+- active index GC compacts/drops low-signal stale rows from fast indexes while retaining JSONL audit history
+- deterministic pack mode excludes `quarantined` and `deprecated` items by default
+
 ## Retrieval Contract (Accuracy + Efficiency)
+
+### Query Intent Planner (Required)
+
+Every query is first classified to choose retrieval shape:
+
+- `recall_exact_command`
+- `find_decision_or_rule`
+- `debug_failure`
+- `understand_architecture`
+- `continue_task`
+
+Strategy matrix:
+
+- lexical-heavy (FTS5/BM25) for exact commands/flags/file paths/IDs
+- semantic-heavy for fuzzy concept recall
+- graph-bridge boosted retrieval for multi-hop links across tasks/files/errors
+- procedural-first when user asks for workflow/how-to guidance
+- execution-first when debugging needs latest test/exit evidence
 
 ### Query Types
 
@@ -223,6 +299,7 @@ All memory ingestion must normalize to one event schema:
 
 Rules:
 
+- intent classification selects per-intent weight profile and filter policy
 - always return source/provenance metadata with each hit
 - dedupe near-identical events by `hash` + text similarity window
 - cap retrieval to bounded token budget before pack generation
@@ -230,11 +307,12 @@ Rules:
 
 ### Retrieval Pipeline (v1)
 
-1. Fast prefilter: project/session/time/source constraints
-2. Lexical candidate pass: SQLite FTS5/BM25 on exact tokens (files, flags, IDs, commands)
-3. Semantic rerank: embedding similarity (local-first backend)
-4. Graph/task boost: linked task/artifact/entity relationship signals
-5. Final dedupe + diversity pass: avoid repetitive near-duplicate context rows
+1. Intent planner: classify query and select retrieval strategy profile
+2. Fast prefilter: project/session/time/source constraints
+3. Lexical candidate pass: SQLite FTS5/BM25 on exact tokens (files, flags, IDs, commands)
+4. Semantic rerank: embedding similarity (local-first backend)
+5. Graph/task boost: linked task/artifact/entity relationship signals
+6. Final dedupe + diversity pass: avoid repetitive near-duplicate context rows
 
 ### Context Packing Rules (Lost-in-the-Middle Aware)
 
@@ -242,6 +320,16 @@ Rules:
 - include short "critical facts" block before detailed evidence
 - enforce max tokens per section to avoid one noisy source dominating pack
 - emit citations/provenance for every summary claim
+
+### Distraction Guard (Required)
+
+Pack builder must run a deterministic anti-noise pass:
+
+- drop near-duplicates after rerank
+- enforce diversity across source classes (chat, terminal, git, files, docs, cards, units)
+- cap any single source class token share
+- require at least one `validated_strong` evidence item for claim-heavy packs
+- downrank stale/unvalidated evidence unless user explicitly opts in
 
 ### Context Pack Output
 
@@ -255,6 +343,7 @@ Each retrieval request can produce:
 - `query`
 - `generated_at`
 - `pack_type` (`boot` | `task`)
+- `retrieval_plan` (intent + strategy profile + filters)
 - `summary`
 - `active_tasks`
 - `recent_decisions`
@@ -262,9 +351,29 @@ Each retrieval request can produce:
 - `open_questions`
 - `token_budget` (`target`, `used`, `trimmed`)
 - `validation_report` (`checked`, `failed`, `stale`)
+- `validation_grades` (counts by `validated_strong`/`validated_weak`/`stale`/`contradicted`)
+- `contradiction_flags[]` (cards/units/events with conflicting evidence)
 - `source_mix` (counts by source type: chat/terminal/git/files/docs)
 - `evidence[]` (event references with scores)
 - `inclusion_reason[]` (why each top item was selected)
+
+### Contradiction Detection (Required)
+
+When new evidence conflicts with existing cards/units:
+
+- emit contradiction flags in retrieval and context-pack outputs
+- mark conflicted cards/units as `contradicted` validation grade
+- require review before contradicted items can return to `eligible`
+
+### Memory Compiler Outputs (Primary Product Surface)
+
+Always-on compiler outputs for agent workflows:
+
+1. `boot_pack`: tiny safe startup context (repo identity, core commands, operating rules)
+2. `task_pack(query)`: evidence-rich working set for the current request
+3. `handoff_pack`: what changed, what failed, what to do next with citations
+
+These outputs are the default context contract for Codex/Claude adapters and MCP tools.
 
 ## Overlay Surfaces (Memory + Actions)
 
@@ -417,6 +526,48 @@ Compaction can move from experimental to default only if:
 - unsupported-claim rate does not regress
 - citation-valid claim rate remains above policy threshold
 - latency/token budgets improve against baseline
+
+### ZGraph-Inspired Symbolic Compaction (Concept Audit Track)
+
+Goal: evaluate whether symbolic pattern encoding can improve retrieval/packing
+efficiency for memory artifacts without harming correctness.
+
+What transfers from the concept:
+
+- pattern-first representation for repeated structures
+- alias dictionary for repeated high-entropy strings (paths, commands, errors)
+- explicit lineage links so compressed forms can be expanded deterministically
+
+What does not transfer:
+
+- unsupported speedup/compression claims without controlled baselines
+- lossy or citation-dropping summaries represented as "compression"
+- any optimization that cannot prove branch-validated evidence parity
+
+Candidate memory-domain symbolic forms:
+
+- `SYM_PATH_*`: canonicalized file/symbol aliases
+- `SYM_CMD_*`: normalized command-shape aliases
+- `SYM_ERR_*`: recurring error-signature aliases
+- `SYM_FLOW_*`: repeated workflow sequence aliases
+
+Constraints (non-negotiable):
+
+- canonical event log stays immutable and uncompressed
+- symbolic layer applies only to derived units/context packs
+- every symbolic token must round-trip to original evidence references
+- deterministic mode must fail closed if expansion parity check fails
+
+Experiment protocol:
+
+1. Build reversible alias dictionaries during pack generation only.
+2. Emit packs with explicit `symbol_table` + expanded evidence references.
+3. Compare raw vs symbolic packs on:
+   - task success / claim correctness
+   - citation-valid claim rate
+   - unsupported-claim rate
+   - token count and p95 generation latency
+4. Reject symbolic strategy if any quality metric regresses beyond non-inferiority bounds.
 
 ## Hardware Acceleration Track (Apple Silicon, Future)
 
@@ -709,7 +860,12 @@ In-scope:
 5. export command:
    - `--memory-export-context-pack <query>`
 6. first compiler output:
-   - `session_handoff.{json,md}` from canonical events + devctl/git artifacts
+   - `boot_pack.{json,md}` and `session_handoff.{json,md}` from canonical events + devctl/git artifacts
+7. retrieval lifecycle controls:
+   - `retrieval_state` and `quarantine_reason` fields on units/cards
+   - validation grades (`validated_strong`/`validated_weak`/`stale`/`contradicted`)
+8. active-index GC scaffold:
+   - explicit policy for dropping/deprioritizing low-signal stale retrieval rows while retaining immutable JSONL history
 
 Out-of-scope for Iteration 1:
 
@@ -728,15 +884,19 @@ Iteration 1 acceptance:
 ### M1 Retrieval Engine
 
 - lexical + semantic retrieval APIs
-- ranking + provenance
+- query-intent planner + strategy matrix
+- ranking + provenance + contradiction flags
+- distraction guard in pack selection
 - deterministic context pack generator
-- memory-card CRUD + evidence linking + validation status checks
+- memory-unit compiler + indexing (`task_segment`, `debug_episode`, `procedure_run`)
+- memory-card CRUD + evidence linking + validation grade checks
 
 ### M2 Memory Overlay UX
 
 - memory browser with filters/expand/scroll
 - session review/handoff export
 - card inspection/edit flow (claim, evidence, validation, TTL)
+- read-only MCP memory tools enabled for boot/task/search/validation-report flows
 
 ### M3 Action Center
 
@@ -761,8 +921,8 @@ Iteration 1 acceptance:
 
 - backend adapters for Codex/Claude context-pack injection formats
 - optional export/import for project memory snapshots
-- read-only MCP server for memory resources + context-pack tools
-- staged action-tool MCP exposure after safety gates are green
+- read-only MCP remains default while action tools stay gated behind explicit safety evidence
+- staged action-tool MCP exposure after safety + isolation gates are green
 
 ### M7 Automation Intelligence
 
@@ -782,26 +942,34 @@ Iteration 1 acceptance:
 - backend comparison harness with quality non-inferiority checks
 - guarded rollout flags with automatic fallback to CPU reference path
 
+### M10 Symbolic Compression (Concept-to-Product)
+
+- reversible symbolic compaction prototype for Memory Units/context packs
+- dictionary governance (scope, TTL, invalidation, contradiction handling)
+- branch-aware citation-equivalence checker for symbolic packs
+- default-off rollout with non-inferiority + reversibility evidence gates
+
 ## Memory Studio Gates
 
 | Gate | Pass Criteria | Fail Criteria | Evidence |
 |---|---|---|---|
 | `MS-G01 Schema` | Events validate against canonical schema | Ad hoc/partial event formats in runtime | schema tests + fixtures |
 | `MS-G02 Storage` | JSONL + SQLite stay in sync under load | Missing/duplicate events | ingest + recovery tests |
-| `MS-G03 Retrieval` | Query APIs return relevant, provenance-tagged results | Opaque, untraceable context | ranking tests + golden packs |
-| `MS-G04 Boundedness` | Retention and size limits enforced | Unbounded growth | stress tests + budget checks |
+| `MS-G03 Retrieval` | Query APIs use intent-aware strategy planning and return relevant, provenance-tagged results | One-shape retrieval that returns opaque or untraceable context | ranking tests + retrieval-plan fixtures + golden packs |
+| `MS-G04 Boundedness` | Retention, size limits, and active-index GC policies are enforced | Unbounded growth or stale/noisy active index | stress tests + budget checks + GC policy fixtures |
 | `MS-G05 Safety` | Policy tiers gate risky actions | Write/destructive actions run without guard | execution-policy tests |
 | `MS-G06 UX` | Memory browser and action center keyboard/mouse usable | Unnavigable/ambiguous controls | overlay integration tests |
 | `MS-G07 Docs` | Architecture/usage/troubleshooting updated together | behavior ships without docs parity | docs-check output |
 | `MS-G08 Release` | CI profile + memory-specific tests green | Any mandatory lane missing/failing | CI evidence bundle |
-| `MS-G09 Validation` | Card/context claims are citation-backed and branch-validated before injection | Stale/unverified claims included silently | card-validation tests + pack validation report |
+| `MS-G09 Validation` | Card/context claims are citation-backed, branch-validated, grade-labeled, and contradiction-checked before injection | Stale/contradicted/unverified claims included silently | card-validation tests + validation-grade fixtures + pack validation report |
 | `MS-G10 Tooling` | `devctl`/git/release-note outputs ingest cleanly into canonical memory events/artifacts | Tool outputs dropped or non-deterministically parsed | ingestion fixtures + compiler golden files |
-| `MS-G11 Interop` | MCP read-only memory resources/tools are deterministic and policy-safe | Client-specific drift or unsafe default exposure | MCP integration tests + policy snapshots |
+| `MS-G11 Interop` | MCP read-only memory resources/tools (`boot_pack`, `task_pack`, `search`, `validation_report`) are deterministic and policy-safe by default | Client-specific drift, missing provenance contract, or unsafe default exposure | MCP integration tests + policy snapshots |
 | `MS-G12 Automation` | Repetition-mined suggestions meet quality/safety thresholds and require explicit approval | Noisy/unsafe suggestions auto-applied or weakly evidenced | suggestion precision metrics + approval-flow tests |
 | `MS-G13 Import Privacy` | External transcript imports are opt-in, provenance-tagged, and redaction-validated | Silent import, missing provenance, or unsafe storage of sensitive content | import fixtures + redaction tests + policy checks |
 | `MS-G14 Isolation` | Action execution respects selected isolation profile and policy boundaries | Commands escape profile boundaries or bypass policy checks | isolation integration tests + escape-attempt fixtures |
 | `MS-G15 Compaction` | Compaction improves or preserves task quality while reducing context cost | Accuracy regresses or citations break under compaction | A/B benchmark reports + threshold checks |
 | `MS-G16 Acceleration` | Hardware-accelerated paths improve throughput/latency without quality regressions | Speedups reduce task success/citation fidelity or bypass safety contracts | benchmark matrix + non-inferiority report + fallback tests |
+| `MS-G17 Symbolic` | Symbolic compaction is reversible, citation-equivalent, and non-inferior vs raw packs | Aliasing drops distinctions, breaks evidence parity, or regresses quality | round-trip fixtures + citation-equivalence tests + non-inferiority report |
 
 ## Interop Contract (Codex + Claude + Future)
 
@@ -838,7 +1006,7 @@ cd src && cargo test action_center::
 2. Card TTL defaults by type (`decision` vs `task_state` vs `gotcha`)?
 3. Card update policy: manual approval only or optional auto-propose with explicit accept/reject?
 4. Should action templates be project-local (`.voiceterm/actions.yaml`) and signed/hashed?
-5. MCP rollout shape: read-only memory in first cut, action tools in second cut?
+5. MCP rollout shape after read-only default: which action tools unlock first and under what isolation evidence?
 6. Should automation suggestions target `AGENTS.md` only, or also generate optional `CLAUDE.md`/macro-pack snippets?
 7. What minimum support/confidence thresholds gate script candidate surfacing?
 8. Should imported external chats participate in automation mining by default, or stay retrieval-only until approved?
@@ -848,6 +1016,11 @@ cd src && cargo test action_center::
 12. Which acceleration backend ships first on macOS (`Accelerate` vs `Metal` vs `Core ML`)?
 13. Do we require acceleration to stay deterministic with CPU reference at evidence ordering level?
 14. What minimum hardware matrix is required before enabling acceleration outside opt-in mode?
+15. What deterministic segmentation rules define Memory Unit boundaries (`task_ref`, time-gap, phase transitions)?
+16. What contradiction-resolution policy is required before returning conflicted cards to `eligible`?
+17. What active-index GC thresholds keep retrieval quality high without dropping necessary minority signals?
+18. What symbolic dictionary scope should be default (`session`, `project`, or `task_pack` only)?
+19. Should symbolic compaction stay export-only first, or be allowed in live prompt injection once `MS-G17` is green?
 
 ## Research References (2026-02-19)
 
@@ -865,6 +1038,9 @@ Product docs:
 - Warp Workflows (reusable command automation UX): https://docs.warp.dev/features/workflows
 - OpenAI Codex product overview: https://openai.com/codex/
 - OpenAI Introducing Codex (multi-agent workflow context): https://openai.com/index/introducing-codex/
+- ZGraph concept source (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/README.md`
+- ZGraph notation whitepaper draft (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/ZGraph Notation- A Student-Invented Framework for Adjacency Data Compression and Graph Analysis.txt`
+- ZGraph scientific analysis notes (local): `/Users/jguida941/Zygraph_Visualizer/ZGraph-Notation/ZGraphVisualizer/ZGRAPH_SCIENTIFIC_ANALYSIS_WHITEPAPER.md`
 
 Memory/retrieval research:
 
@@ -889,6 +1065,8 @@ Graph + indexing + safety:
 - SQLite FTS5 docs: https://sqlite.org/fts5.html
 - SQLite WAL mode: https://sqlite.org/wal.html
 - SQLite isolation details: https://sqlite.org/isolation.html
+- sqlite-vec (SQLite vector extension): https://github.com/asg017/sqlite-vec
+- sqlite-vss (SQLite vector search extension): https://github.com/asg017/sqlite-vss
 - MCP security best practices: https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices
 - Anthropic developer mode (tool safety warning context): https://docs.anthropic.com/en/docs/claude-code/features/developer-mode
 - Process Mining Manifesto (event-log mining governance baseline): https://link.springer.com/article/10.1007/s13740-011-0004-7

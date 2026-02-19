@@ -162,6 +162,8 @@ def _build_report() -> dict:
     spec_missing_mirror_markers: list[str] = []
     spec_missing_ranges: list[str] = []
     spec_range_drift: list[str] = []
+    index_scope_missing: list[str] = []
+    index_scope_drift: list[str] = []
     mirror_marker = "execution mirrored in `dev/active/MASTER_PLAN.md`"
 
     for relative in SPEC_RANGE_PATHS:
@@ -171,13 +173,30 @@ def _build_report() -> dict:
         spec_text = spec_path.read_text(encoding="utf-8")
         if mirror_marker not in spec_text:
             spec_missing_mirror_markers.append(relative)
-        range_ids = _expand_mp_ranges(spec_text)
-        if not range_ids:
+        spec_range_ids = _expand_mp_ranges(spec_text)
+        if not spec_range_ids:
             spec_missing_ranges.append(relative)
             continue
-        missing_from_master = sorted(mp_id for mp_id in range_ids if mp_id not in master_plan_text)
+        missing_from_master = sorted(mp_id for mp_id in spec_range_ids if mp_id not in master_plan_text)
         if missing_from_master:
             spec_range_drift.append(f"{relative} -> missing in MASTER_PLAN: {', '.join(missing_from_master)}")
+
+        index_row = registry_by_path.get(relative)
+        if not index_row:
+            continue
+        index_scope_ids = _expand_mp_ranges(index_row.get("mp_scope", ""))
+        if not index_scope_ids:
+            index_scope_missing.append(relative)
+            continue
+        if index_scope_ids != spec_range_ids:
+            spec_only = sorted(spec_range_ids - index_scope_ids)
+            index_only = sorted(index_scope_ids - spec_range_ids)
+            details = []
+            if spec_only:
+                details.append("missing_in_index=" + ",".join(spec_only))
+            if index_only:
+                details.append("index_extra=" + ",".join(index_only))
+            index_scope_drift.append(f"{relative} ({'; '.join(details)})")
 
     missing_discovery_refs: list[str] = []
     for ref in REQUIRED_DISCOVERY_REFERENCES:
@@ -223,6 +242,10 @@ def _build_report() -> dict:
         warnings.append("Spec docs missing MP range declarations: " + ", ".join(spec_missing_ranges))
     if spec_range_drift:
         errors.append("Spec MP ranges not found in MASTER_PLAN: " + " | ".join(spec_range_drift))
+    if index_scope_missing:
+        errors.append("INDEX rows missing MP ranges for spec docs: " + ", ".join(index_scope_missing))
+    if index_scope_drift:
+        errors.append("INDEX MP scope drift vs spec docs: " + " | ".join(index_scope_drift))
     if missing_discovery_refs:
         errors.append("Missing active-index discovery references: " + ", ".join(missing_discovery_refs))
     if agent_marker_gaps:
@@ -285,4 +308,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
