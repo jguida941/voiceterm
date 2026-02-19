@@ -237,6 +237,13 @@ When workflow mechanics change (dev loop, CI lanes, release flow), update this s
 5. For wake-word runtime/matching changes, run `bash dev/scripts/tests/wake_word_guard.sh`.
 6. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
 7. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
+8. Run docs-integrity guards:
+   - `python3 dev/scripts/check_cli_flags_parity.py` (clap schema <-> `guides/CLI_FLAGS.md` parity)
+   - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` (doc image-reference integrity + stale-age visibility)
+9. Confirm no accidental root `--*` artifact files before push (`find . -maxdepth 1 -type f -name '--*'`).
+
+For tooling/process/CI governance changes, `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+also requires updating `dev/history/ENGINEERING_EVOLUTION.md` in the same change.
 
 Primary command entrypoint: `dev/scripts/devctl.py`.
 
@@ -255,15 +262,18 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` (redundant clones/closures, risky wrap casts, dead-code drift) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane (`docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
 
 ### 3) Release Workflow (Master Branch)
 
 1. Finalize release metadata (`src/Cargo.toml`, `dev/CHANGELOG.md`).
 2. Verify release scope (at least CI-profile checks; `devctl check --profile release` when wake/soak/mutation gates are required).
-3. Promote/push from `master`, tag (`vX.Y.Z`), publish GitHub release.
-4. Publish PyPI package via `./dev/scripts/publish-pypi.sh --upload`.
-5. Update Homebrew tap via `./dev/scripts/update-homebrew.sh <version>`.
-6. Sync release snapshot in `dev/active/MASTER_PLAN.md`.
+3. Create and push release tag/notes via `python3 dev/scripts/devctl.py release --version X.Y.Z`.
+4. Publish GitHub release using generated notes (`gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md`).
+5. Publish PyPI package via `python3 dev/scripts/devctl.py pypi --upload`.
+6. Verify published PyPI version (`https://pypi.org/pypi/voiceterm/X.Y.Z/json`).
+7. Update Homebrew tap via `python3 dev/scripts/devctl.py homebrew --version X.Y.Z`.
+8. Sync release snapshot in `dev/active/MASTER_PLAN.md`.
 
 ### 4) Security Posture and Risk Controls
 
@@ -433,7 +443,8 @@ intervals to avoid corrupting the backend's screen.
 - Settings migration guidance: Theme Studio foundation changes do not alter existing Settings theme/HUD controls or persisted settings keys yet.
 - Runtime settings persistence is backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (overrideable via `VOICETERM_CONFIG_DIR`); explicit CLI flags remain authoritative for each launch.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
-- **Transcript history overlay** is toggled with `Ctrl+H`, supports type-to-filter search, and can replay selected transcripts into the active PTY input stream.
+- **Transcript history overlay** is toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
+- Optional **session memory logging** (`--session-memory`) writes newline-delimited `user`/`assistant` records to markdown for project-local conversation archives.
 - **Claude prompt safety** is enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
@@ -482,6 +493,7 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/help.rs` - shortcut help overlay rendering
 - `src/src/bin/voiceterm/overlays.rs` - overlay rendering helpers
 - `src/src/bin/voiceterm/transcript_history.rs` - transcript history model + searchable overlay renderer
+- `src/src/bin/voiceterm/session_memory.rs` - opt-in markdown conversation memory logger
 - `src/src/bin/voiceterm/persistent_config.rs` - persistent runtime settings load/apply/save flow
 - `src/src/bin/voiceterm/toast.rs` - toast center model + history overlay formatter
 - `src/src/bin/voiceterm/prompt/` - prompt detection + logging modules
@@ -602,6 +614,8 @@ Project-local config:
 | `--no-logs` | Disable logging (overrides `--logs`) |
 | `--log-content` | Allow content snippets in logs |
 | `--log-timings` | Enable verbose timing logs |
+| `--session-memory` | Enable markdown session-memory logging |
+| `--session-memory-path` | Override markdown session-memory log path |
 | `--claude-skip-permissions` | Skip Claude IPC permission prompts |
 | `--whisper-cmd` | Whisper CLI path (python fallback) |
 | `--whisper-model` | Whisper model name |
@@ -641,6 +655,7 @@ Project-local config:
 | `VOICETERM_NO_LOGS` | Disable logging |
 | `VOICETERM_LOG_CONTENT` | Allow content in logs |
 | `VOICETERM_TRACE_LOG` | Structured trace log path |
+| `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` |
 | `CLAUDE_CMD` | Override Claude CLI path |
 | `VOICETERM_PROVIDER` | IPC default provider |
 | `NO_COLOR` | Standard color disable flag |

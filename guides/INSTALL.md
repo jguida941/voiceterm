@@ -112,27 +112,16 @@ After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
 confirm your expected defaults (for example `Send mode`, `Macros`, and
 `Latency display`) are available. Wake-word controls are also present there,
 but default to `OFF` unless explicitly enabled.
-You can also sanity-check runtime controls with `Ctrl+R` (record toggle),
-`Ctrl+E` (insert mode: send staged text now; recording with no staged text
-finalizes+submits; idle with no staged text is no-op), `Ctrl+G` (quick theme
-cycle), `Ctrl+Y` (theme picker), and `Ctrl+H` (transcript history overlay).
-In insert mode, `Enter` remains submit-only for staged text.
-In Full HUD mode, right-panel telemetry (`ribbon`, `dots`, `heartbeat`) is
-rendered on the main status row (top-right lane).
-On `xterm-256color` terminals, selected themes are preserved; ANSI fallback is
-used only on ANSI16 terminals.
-Status wording is pipeline-neutral (`Listening Manual Mode`,
-`No speech detected`); use Settings (`Ctrl+O`) to verify `Voice pipeline`.
-Latency badge now reflects direct STT delay (`stt_ms`) only, hides on
-no-speech/error captures, and auto-clears stale idle values after a short
-window.
-Hidden HUD launcher text, `[open]`, and recording indicator are intentionally
-muted gray to keep hidden mode unobtrusive.
-Settings changes persist to `~/.config/voiceterm/config.toml` unless you
-override the config directory with `VOICETERM_CONFIG_DIR`.
-If you ever see raw mouse fragments like `[<0;35;25M`, update to the latest
-build; malformed/fragmented mouse-report escapes are now dropped before they
-reach the wrapped CLI input stream.
+Quick post-upgrade smoke check:
+
+- `Ctrl+R` record toggle
+- `Ctrl+E` insert-mode send/finalize behavior
+- `Ctrl+H` transcript history overlay
+- `Ctrl+O` settings overlay opens and persists changes
+
+Detailed runtime behavior is documented in [USAGE.md](USAGE.md). Runtime issues
+and terminal-specific edge cases are documented in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Option B: PyPI
 

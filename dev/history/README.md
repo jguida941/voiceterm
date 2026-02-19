@@ -7,6 +7,7 @@ This folder contains long-form historical engineering records.
 - [`ENGINEERING_EVOLUTION.md`](ENGINEERING_EVOLUTION.md)
   - Historical timeline of product, architecture, and SDLC evolution.
   - Evidence-linked to commits, ADRs, tags, and repository paths.
+  - Required update target for tooling/process/CI governance changes (`devctl docs-check --strict-tooling` policy).
 
 ## Relationship to Other Dev Docs
 

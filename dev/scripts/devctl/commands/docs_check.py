@@ -36,6 +36,18 @@ TOOLING_REQUIRED_DOCS = [
     "dev/scripts/README.md",
     "dev/active/MASTER_PLAN.md",
 ]
+EVOLUTION_DOC = "dev/history/ENGINEERING_EVOLUTION.md"
+EVOLUTION_CHANGE_PREFIXES = (
+    "dev/scripts/",
+    ".github/workflows/",
+)
+EVOLUTION_CHANGE_EXACT = {
+    "AGENTS.md",
+    "dev/ARCHITECTURE.md",
+    "dev/DEVELOPMENT.md",
+    "dev/scripts/README.md",
+    "dev/active/MASTER_PLAN.md",
+}
 
 DEPRECATED_REFERENCE_TARGETS = [
     "AGENTS.md",
@@ -72,6 +84,12 @@ def _is_tooling_change(path: str) -> bool:
     if path in TOOLING_CHANGE_EXACT:
         return True
     return path.startswith(TOOLING_CHANGE_PREFIXES)
+
+
+def _requires_evolution_update(path: str) -> bool:
+    if path in EVOLUTION_CHANGE_EXACT:
+        return True
+    return path.startswith(EVOLUTION_CHANGE_PREFIXES)
 
 
 def _scan_deprecated_references() -> list[dict]:
@@ -125,6 +143,8 @@ def run(args) -> int:
     tooling_changes_detected = sorted(path for path in changed if _is_tooling_change(path))
     updated_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc in changed]
     missing_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc not in changed]
+    evolution_relevant_changes = sorted(path for path in changed if _requires_evolution_update(path))
+    evolution_updated = EVOLUTION_DOC in changed
 
     tooling_policy_ok = True
     if tooling_changes_detected:
@@ -133,10 +153,14 @@ def run(args) -> int:
         else:
             tooling_policy_ok = bool(updated_tooling_docs)
 
+    evolution_policy_ok = True
+    if strict_tooling and evolution_relevant_changes:
+        evolution_policy_ok = evolution_updated
+
     deprecated_violations = _scan_deprecated_references()
     deprecated_ok = not deprecated_violations
 
-    ok = user_facing_ok and tooling_policy_ok and deprecated_ok
+    ok = user_facing_ok and tooling_policy_ok and evolution_policy_ok and deprecated_ok
 
     report = {
         "command": "docs-check",
@@ -153,6 +177,10 @@ def run(args) -> int:
         "updated_tooling_docs": updated_tooling_docs,
         "missing_tooling_docs": missing_tooling_docs,
         "tooling_policy_ok": tooling_policy_ok,
+        "evolution_doc": EVOLUTION_DOC,
+        "evolution_relevant_changes": evolution_relevant_changes,
+        "evolution_updated": evolution_updated,
+        "evolution_policy_ok": evolution_policy_ok,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
         "ok": ok,
@@ -177,12 +205,19 @@ def run(args) -> int:
             "- updated_tooling_docs: "
             + (", ".join(updated_tooling_docs) if updated_tooling_docs else "none")
         )
+        lines.append(
+            "- evolution_relevant_changes: "
+            + (", ".join(evolution_relevant_changes) if evolution_relevant_changes else "none")
+        )
+        lines.append(f"- evolution_updated: {evolution_updated}")
         if tooling_changes_detected:
             lines.append(
                 "- missing_tooling_docs: "
                 + (", ".join(missing_tooling_docs) if missing_tooling_docs else "none")
             )
             lines.append(f"- tooling_policy_ok: {tooling_policy_ok}")
+        if strict_tooling and evolution_relevant_changes:
+            lines.append(f"- evolution_policy_ok: {evolution_policy_ok}")
         lines.append(f"- deprecated_reference_ok: {deprecated_ok}")
         if deprecated_violations:
             lines.append("")

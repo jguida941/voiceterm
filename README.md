@@ -207,6 +207,18 @@ For full behavior and configuration details, use:
 - [Themes](guides/USAGE.md#themes) (including `VOICETERM_STYLE_PACK_JSON` and `base_theme` lock behavior)
 - [HUD styles](guides/USAGE.md#hud-styles) (including right-panel visualizer behavior)
 
+### Transcript History
+
+Use `Ctrl+H` to open transcript history, type to filter, and press `Enter` to
+replay into the active CLI input. Mouse click selection is also supported.
+Detailed behavior: [Transcript History](guides/USAGE.md#transcript-history).
+
+### Help Overlay
+
+Press `?` to open grouped shortcuts (`Recording`, `Mode`, `Appearance`,
+`Sensitivity`, `Navigation`) with clickable Docs/Troubleshooting links on
+OSC-8 terminals. Details: [Core Controls](guides/USAGE.md#core-controls).
+
 ## Controls
 
 For keybindings and runtime behavior, see:

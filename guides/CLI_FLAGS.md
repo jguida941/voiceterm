@@ -34,6 +34,7 @@ voiceterm --theme dracula               # Change theme
 voiceterm --voice-vad-threshold-db -50  # Adjust mic sensitivity
 voiceterm --mic-meter                   # Calibrate mic threshold
 voiceterm --logs                        # Enable debug logging
+voiceterm --session-memory              # Write user/backend chat memory to markdown
 ```
 
 ---
@@ -69,9 +70,11 @@ If a macro and built-in phrase overlap, the macro runs first; use explicit
 `voice scroll up`/`voice scroll down` to force built-in navigation phrases.
 Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
 staged insert-mode text immediately and with no staged text requests early-stop
-submit only while recording (otherwise consumed as a no-op), and `Enter` is
-submit-only for staged text.
-`Ctrl+H` opens transcript history (search + replay).
+submit only while recording; if idle with no staged text it shows
+`Nothing to send`. `Enter` is forwarded to wrapped CLI input (`insert` mode:
+submit staged text).
+`Ctrl+H` opens history (search + replay for replayable rows), including `mic`,
+`you`, and `ai` entries.
 Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI
 flags win over persisted values for the current run.
 Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
@@ -218,9 +221,14 @@ fallback is only applied on ANSI16 terminals.
 | `--no-logs` | Force disable logging | off |
 | `--log-content` | Include transcript snippets in logs | off |
 | `--log-timings` | Verbose timing information | off |
+| `--session-memory` | Enable markdown session-memory logging (`user` + `assistant` lines) | off |
+| `--session-memory-path <PATH>` | Override markdown session-memory log path | `<cwd>/.voiceterm/session-memory.md` |
 
 **Log location:** `$TMPDIR/voiceterm_tui.log` (macOS) or
 `/tmp/voiceterm_tui.log` (Linux)
+
+**Session-memory location:** `<cwd>/.voiceterm/session-memory.md` by default,
+or `--session-memory-path`.
 
 **Trace log (JSON):** `$TMPDIR/voiceterm_trace.jsonl` (macOS) or
 `/tmp/voiceterm_trace.jsonl` (Linux). Override with `VOICETERM_TRACE_LOG`.
@@ -262,12 +270,15 @@ without interactive approval prompts.
 | `VOICETERM_STARTUP_SPLASH_MS` | Splash dwell time in milliseconds (0 = immediate, max 30000) | 1500 |
 | `VOICETERM_PROMPT_REGEX` | Override prompt detection | unset |
 | `VOICETERM_CONFIG_DIR` | Override persistent config directory (`config.toml`) | unset |
+| `VOICETERM_ONBOARDING_STATE` | Override first-run onboarding state file path | unset |
 | `VOICETERM_PROMPT_LOG` | Prompt detection log path | unset |
+| `VOICETERM_STYLE_PACK_JSON` | Runtime Theme Studio preview payload (`base_theme` lock + supported overrides) | unset |
 | `VOICETERM_LOGS` | Enable logging (same as `--logs`) | unset |
 | `VOICETERM_NO_LOGS` | Disable logging | unset |
 | `VOICETERM_LOG_CONTENT` | Allow content in logs | unset |
 | `VOICETERM_TRACE_LOG` | Structured trace log path | unset |
 | `VOICETERM_DEBUG_INPUT` | Log raw input bytes/events (for terminal compatibility debugging) | unset |
+| `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` | unset |
 | `CLAUDE_CMD` | Override Claude CLI path | unset |
 | `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`) | unset |
 | `NO_COLOR` | Disable colors (standard) | unset |

@@ -80,8 +80,9 @@ Transcription is taking longer than expected.
 3. Try a smaller model (`--whisper-model base`).
 4. In insert mode, use `Ctrl+R` to stop active recording without sending.
    `Ctrl+E` sends staged text immediately; with no staged text it only
-   finalizes+submits during active recording (idle with no staged text is a
-   no-op). `Enter` is submit-only for staged text.
+   finalizes+submits during active recording (idle with no staged text shows
+   `Nothing to send`). `Enter` is forwarded to wrapped CLI input (`insert`
+   mode: submit staged text).
 
 ### Latency badge seems wrong in auto mode
 
@@ -125,6 +126,21 @@ If artifacts persist:
 1. Run with logs: `voiceterm --logs`
 2. Capture the exact emitted token from `${TMPDIR}/voiceterm_tui.log`
 3. Report the phrase so the non-speech filter list can be extended
+
+### Transcript history has no entries
+
+`Ctrl+H` only shows completed transcript captures.
+
+1. Run one successful capture first (`Ctrl+R`, speak, wait for transcript).
+2. Reopen transcript history (`Ctrl+H`) and verify entries appear newest-first.
+3. If entries still do not appear, run with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+4. Include terminal/IDE details and relevant `${TMPDIR}/voiceterm_tui.log`
+   lines when reporting.
 
 ### Voice macro not expanding
 

@@ -75,7 +75,7 @@ voiceterm --claude
 ## 4) Essential controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
-- `Ctrl+E` - in insert mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, no-op
+- `Ctrl+E` - in insert mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, shows `Nothing to send`
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+G` - quick cycle theme
@@ -88,51 +88,24 @@ voiceterm --claude
 - `?` - show shortcut help
 - `Ctrl+Q` - exit overlay
 - `Ctrl+C` - forwarded to the CLI
-- `Enter` - send staged prompt text in insert mode
+- `Enter` - forwarded to wrapped CLI input (`insert` mode: submit staged prompt text)
 
 Full behavior notes and screenshots are in [guides/USAGE.md](guides/USAGE.md).
 
-Send mode note: "auto" types your words and presses Enter. "Insert" types your words
-but lets you press `Enter` yourself. VoiceTerm only writes to the terminal (PTY) and
-does not call Codex/Claude directly.
-In insert mode, pressing `Ctrl+E` while idle with no staged text now shows
-`Nothing to send` (instead of silently doing nothing).
-When help/settings/theme overlays are open, unmatched input now closes the
-overlay and replays the action instead of dropping it.
-Status text is pipeline-neutral (`Listening Manual Mode`, `No speech detected`);
-use Settings (`Ctrl+O`) to view the current `Voice pipeline`.
-Latency badge reflects direct STT delay (`stt_ms`) only, hides for
-no-speech/error captures, and auto-clears stale idle values after a short
-window.
-Hidden HUD launcher text/buttons and recording indicator are intentionally
-muted gray so hidden mode stays unobtrusive. Idle hidden mode shows
-`? help`, `^O settings`, and `[open] [hide]`; selecting `hide` collapses the
-launcher to only `[open]`.
-In collapsed mode, the first `open` restores the hidden launcher, and the next
-`open` switches HUD style.
-Help overlay includes clickable Docs/Troubleshooting links (OSC-8 capable
-terminals).
-Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI
-flags always override persisted values for that launch.
-When Claude interactive approval/permission prompts are detected, VoiceTerm
-temporarily suppresses the HUD so prompt rows remain readable.
-On first run, VoiceTerm shows a persistent `Getting started` hint
-(`Ctrl+R` / `?` / `Ctrl+O`) until your first successful transcript capture.
+Behavior highlights:
 
-Built-in voice navigation phrases include `scroll up`, `scroll down`,
-`show last error`, `copy last error`, and `explain last error`.
-If you also use matching macros, macros run first. Use `voice scroll up` /
-`voice scroll down` to force built-in navigation phrases.
+- Send mode: `auto` types and submits; `insert` types and waits for `Enter`.
+- Overlays (`help` / `settings` / `theme` / `history`): unmatched input closes the overlay and replays the action.
+- Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI flags override persisted values for that run.
+- Hidden HUD keeps idle controls subtle: `? help`, `^O settings`, `[open] [hide]`.
+- Claude approval/permission prompts temporarily suppress HUD rows to keep prompt actions visible.
 
-More detailed topics:
+Deep-dive guides:
 
 - Macros: [guides/USAGE.md#project-voice-macros](guides/USAGE.md#project-voice-macros)
 - HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
 - Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
-- Full HUD note: right-panel visualizer (`ribbon`, `dots`, `heartbeat`)
-  appears on the main status row (top-right lane).
-- Theme note: on `xterm-256color`, selected themes are preserved; ANSI fallback
-  applies only on ANSI16 terminals.
+- Runtime troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 
 Optional macro setup (project-local):
 
@@ -143,18 +116,7 @@ Optional macro setup (project-local):
 If you install from source, `./scripts/install.sh` now prompts to run the macro
 wizard at the end of install.
 
-- Pre-release test builds from a branch:
-
-```bash
-git clone --branch <branch-name> https://github.com/jguida941/voiceterm.git
-cd voiceterm
-./scripts/install.sh
-```
-
-After installing a test branch build, run the release verification commands in
-`dev/DEVELOPMENT.md` (`Testing` and `Manual QA checklist`) before promoting to
-a tagged release.
-
+- Pre-release/test branch install flow: [guides/INSTALL.md#integrationtest-branch-installs](guides/INSTALL.md#integrationtest-branch-installs)
 - Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 
 ## 5) Common flags

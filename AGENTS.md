@@ -36,12 +36,24 @@ terminal experience without replacing it.
 - `guides/README.md` (user guides index)
 - `README.md` and `QUICK_START.md` (user-facing docs)
 
+## Source of truth map
+
+| Question | Canonical source | Why this owner |
+|---|---|---|
+| What are we executing now? | `dev/active/MASTER_PLAN.md` | Single active strategy/execution tracker. |
+| What is current user behavior? | `guides/USAGE.md` + `guides/CLI_FLAGS.md` | Runtime controls/flags live here; onboarding docs stay concise. |
+| What flags are truly supported? | `src/src/bin/voiceterm/config/cli.rs` + `src/src/config/mod.rs` | Clap schema is runtime truth; docs must mirror it. |
+| What process/checks are mandatory? | `AGENTS.md` | Canonical SDLC/release/governance policy. |
+| How do maintainers run checks/releases? | `dev/DEVELOPMENT.md` + `dev/scripts/README.md` | Operational workflow + command control plane details. |
+| Which screenshots should exist/be refreshed? | `dev/DEVELOPMENT.md` (`Screenshot refresh capture matrix`) | Prevent ad-hoc/partial UI image updates. |
+
 ## Before you start
 
 - Read `dev/active/MASTER_PLAN.md` for current strategy, phase, and release scope.
 - For Theme Studio/visual-surface work, use `dev/active/theme_upgrade.md` as the gate checklist and mirror execution tasks in `dev/active/MASTER_PLAN.md` (`MP-148+`).
 - Use `dev/active/overlay.md` only for market/competitor reference context.
 - Check git status and avoid unrelated changes.
+- Check for accidental root artifact files before editing (`find . -maxdepth 1 -type f -name '--*'`).
 - Confirm scope and whether a release/version bump is needed.
 
 ## Branching model (required)
@@ -61,7 +73,7 @@ terminal experience without replacing it.
 - Run verification before shipping. Minimum is a local build of `voiceterm`.
 - After substantive feature work, always include the exact local compile and run commands in chat using absolute paths (for example: `cd /Users/jguida941/testing_upgrade/codex-voice/src && cargo build --release --bin voiceterm` and `cd /Users/jguida941/testing_upgrade/codex-voice/src && cargo run --release --bin voiceterm -- --help`).
 - Keep UX tables/controls lists in sync with actual behavior.
-- If UI output or flags change, update any screenshots or tables that mention them.
+- If UI output or flags change, update any screenshots or tables that mention them (use `dev/DEVELOPMENT.md` -> `Screenshot refresh capture matrix` to keep coverage consistent).
 
 ## Feature delivery workflow (required)
 
@@ -83,6 +95,8 @@ Use this exact loop so the agent can self-audit continuously:
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_cli_flags_parity.py
+python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/devctl.py status --ci --format md
 ```
 
@@ -112,6 +126,10 @@ After each push, run this loop before ending the session:
    - For post-commit clean trees, use commit-range mode:
      `python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop`
 5. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) and fix any hard failures.
+6. Run docs integrity guards and fix drift:
+   - `python3 dev/scripts/check_cli_flags_parity.py`
+   - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
+7. Ensure no accidental root `--*` artifact files are present (`find . -maxdepth 1 -type f -name '--*'`).
 
 ## Testing matrix by change type (required)
 
@@ -143,6 +161,8 @@ After each push, run this loop before ending the session:
 - Docs/governance-only changes:
   - `python3 dev/scripts/devctl.py docs-check --user-facing`
   - `python3 dev/scripts/devctl.py hygiene`
+  - `python3 dev/scripts/check_cli_flags_parity.py`
+  - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
 - Macro/wizard onboarding changes:
   - `./scripts/macros.sh list`
   - `./scripts/macros.sh install --pack safe-core --project-dir . --overwrite`
@@ -233,6 +253,12 @@ python3 dev/scripts/devctl.py docs-check --strict-tooling
 # Markdown style/readability checks for key docs
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 
+# CLI flag docs parity guard
+python3 dev/scripts/check_cli_flags_parity.py
+
+# Screenshot reference + stale-age guard
+python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+
 # Mutation score only
 python3 dev/scripts/devctl.py mutation-score --threshold 0.80
 
@@ -258,7 +284,7 @@ Legacy shell scripts under `dev/scripts/*.sh` are transitional adapters. For mai
 - `parser_fuzz_guard.yml`: property-fuzz coverage for PTY parser/ANSI-OSC boundary handling.
 - `docs_lint.yml`: markdownlint checks for published user/developer docs.
 - `lint_hardening.yml`: focused maintainer lint-hardening lane (`devctl check --profile maintainer-lint`) for high-value clippy risks (redundant clones/closures, risky wrap casts, dead-code drift).
-- `tooling_control_plane.yml`: devctl unit tests, shell adapter integrity, and docs-policy/deprecated-command guard for maintainer tooling surfaces.
+- `tooling_control_plane.yml`: devctl unit tests, shell adapter integrity, and docs-governance policy gate (`docs-check --strict-tooling`, conditional `docs-check --user-facing --strict`, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, root artifact guard).
 
 ## CI expansion policy
 
@@ -298,6 +324,7 @@ When making changes, check which docs need updates:
 |-----|-------------|
 | `dev/ARCHITECTURE.md` | Module structure, data flow, design changes, **or any workflow/lifecycle/CI/release mechanics added/changed/removed** |
 | `dev/DEVELOPMENT.md` | Build process, testing, or contribution workflow changes |
+| `dev/history/ENGINEERING_EVOLUTION.md` | Process/tooling/CI governance model evolves and should be historically traceable |
 | `dev/adr/` | Significant design decisions (see ADRs below) |
 
 **Do not skip docs.** Missing doc updates cause drift and user confusion.
@@ -309,9 +336,10 @@ When making changes, check which docs need updates:
 3. Review user-facing docs: `README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`,
    `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`.
    - Use `python3 dev/scripts/devctl.py docs-check --user-facing` to validate doc coverage.
-4. Update developer docs if needed: `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`.
+4. Update developer docs if needed: `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`, `dev/history/ENGINEERING_EVOLUTION.md`.
    - `dev/ARCHITECTURE.md` is mandatory when architecture/workflow mechanics changed.
-5. If UI output or flags change, update any screenshots/tables that mention them.
+   - For tooling/process/CI policy shifts, update `dev/history/ENGINEERING_EVOLUTION.md` in the same change.
+5. If UI output or flags change, update any screenshots/tables that mention them, following `dev/DEVELOPMENT.md` (`Screenshot refresh capture matrix`).
 6. If a change introduces a new architectural decision, add an ADR in `dev/adr/` and update
    the ADR index.
 
@@ -322,7 +350,7 @@ On every push, review docs and explicitly decide "updated" or "no change needed"
 - Core: `dev/CHANGELOG.md`, `dev/active/MASTER_PLAN.md`
 - User docs: `README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`,
   `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`
-- Dev docs: `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
+- Dev docs: `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`
 
 Enforcement commands:
 
@@ -331,6 +359,18 @@ Enforcement commands:
   `python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop`
 - Use strict mode for broad UX/flag changes:
   `python3 dev/scripts/devctl.py docs-check --user-facing --strict`
+- For tooling/process/CI changes, run strict tooling mode (`ENGINEERING_EVOLUTION.md` required by policy):
+  `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+- Validate clap/docs flag parity:
+  `python3 dev/scripts/check_cli_flags_parity.py`
+- Validate screenshot references and stale-age report:
+  `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
+
+## Handoff paper trail protocol
+
+- For substantive sessions, publish a concise handoff summary using the template in `dev/DEVELOPMENT.md` (`Handoff paper trail template`).
+- Capture exact verification commands run, docs decisions (`updated` or `no change needed`), screenshot decisions, and follow-up MP IDs.
+- Keep this in the session/PR narrative; do not create ad-hoc standalone handoff files unless explicitly requested.
 
 ## ADRs (architecture decisions)
 
@@ -444,6 +484,8 @@ This script:
 - [ ] `dev/active/MASTER_PLAN.md` updated and completed work moved to `dev/archive/`
 - [ ] New issues discovered added to `dev/active/MASTER_PLAN.md`
 - [ ] Follow-ups captured as new master plan items
+- [ ] Handoff summary recorded using `dev/DEVELOPMENT.md` template
+- [ ] No accidental root `--*` artifact files remain
 - [ ] Git status is clean or changes are committed/stashed
 
 ## Key files reference
@@ -464,5 +506,5 @@ This script:
 ## Notes
 
 - `dev/archive/2026-01-29-claudeaudit-completed.md` contains the production readiness checklist.
-- If UI output or flags change, update any screenshots or tables that mention them.
+- If UI output or flags change, update any screenshots or tables that mention them (use `dev/DEVELOPMENT.md` -> `Screenshot refresh capture matrix`).
 - Always prefer editing existing files over creating new ones.

@@ -7,9 +7,12 @@
 - [Testing](#testing)
 - [Manual QA checklist](#manual-qa-checklist)
 - [Contribution workflow](#contribution-workflow)
+- [Handoff paper trail template](#handoff-paper-trail-template)
 - [Pre-refactor docs readiness checklist](#pre-refactor-docs-readiness-checklist)
+- [Screenshot refresh capture matrix](#screenshot-refresh-capture-matrix)
 - [Code style](#code-style)
 - [Testing philosophy](#testing-philosophy)
+- [CI/CD Workflow](#cicd-workflow)
 
 ## Project structure
 
@@ -43,6 +46,8 @@ voiceterm/
 │       ├── publish-pypi.sh    # Legacy adapter -> devctl pypi
 │       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew
 │       ├── check_mutation_score.py # Mutation score helper
+│       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
+│       ├── check_screenshot_integrity.py # image reference + stale-age guard
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
 ├── Makefile             # Developer tasks
@@ -215,6 +220,12 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 # Governance hygiene audit (archive + ADR + scripts docs)
 python3 dev/scripts/devctl.py hygiene
 
+# CLI schema/docs parity check (clap long flags vs guides/CLI_FLAGS.md)
+python3 dev/scripts/check_cli_flags_parity.py
+
+# Screenshot reference integrity + stale-age report
+python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
 python3 dev/scripts/devctl.py pypi --upload
@@ -256,6 +267,50 @@ Legacy shell scripts in `dev/scripts/*.sh` are compatibility adapters and should
 - Keep UX tables/controls lists and docs in sync with behavior.
 - Update `dev/CHANGELOG.md` for user-facing changes and note verification steps in PRs.
 
+## Handoff paper trail template
+
+For substantive sessions, include this in the PR description or handoff summary:
+
+```md
+## Session Handoff
+
+- Scope:
+- Code/doc paths touched:
+
+### Verification
+
+- `python3 dev/scripts/devctl.py check --profile ci`
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+- `python3 dev/scripts/devctl.py hygiene`
+- `python3 dev/scripts/check_cli_flags_parity.py`
+- `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
+
+### Documentation decisions
+
+- `README.md`: updated | no change needed (reason)
+- `QUICK_START.md`: updated | no change needed (reason)
+- `guides/USAGE.md`: updated | no change needed (reason)
+- `guides/CLI_FLAGS.md`: updated | no change needed (reason)
+- `guides/INSTALL.md`: updated | no change needed (reason)
+- `guides/TROUBLESHOOTING.md`: updated | no change needed (reason)
+- `dev/ARCHITECTURE.md`: updated | no change needed (reason)
+- `dev/DEVELOPMENT.md`: updated | no change needed (reason)
+- `dev/scripts/README.md`: updated | no change needed (reason)
+- `dev/history/ENGINEERING_EVOLUTION.md`: updated | no change needed (reason)
+
+### Screenshots
+
+- Refreshed: (list `img/...` files)
+- Deferred with reason:
+
+### Follow-ups
+
+- MP items:
+- Risks/unknowns:
+```
+
+Root artifact prevention: run `find . -maxdepth 1 -type f -name '--*'` and remove accidental files before push.
+
 ## Pre-refactor docs readiness checklist
 
 Use this checklist before larger UI/behavior refactors to avoid documentation drift:
@@ -267,6 +322,28 @@ Use this checklist before larger UI/behavior refactors to avoid documentation dr
 - [ ] `guides/INSTALL.md` updated (dependencies, setup steps, PATH notes).
 - [ ] `guides/TROUBLESHOOTING.md` updated (new known issues/fixes).
 - [ ] `img/` screenshots refreshed if UI output/controls changed.
+
+## Screenshot refresh capture matrix
+
+Use this matrix whenever UI/overlay behavior changes so screenshot updates are
+targeted instead of ad-hoc.
+
+| Surface | Image path | Refresh trigger |
+|---|---|---|
+| Recording flow | `img/recording.png` | Record/processing/responding lane visuals or controls row changes |
+| Settings overlay | `img/settings.png` | Settings rows, footer hints, slider visuals, read-only/lock labels |
+| Theme picker | `img/theme-picker.png` | Theme list visuals, lock/dim behavior, picker footer text |
+| Hidden HUD | `img/hidden-hud.png` | Hidden launcher text/buttons, collapsed/open behavior, muted styling |
+| Transcript history overlay | `img/transcript-history.png` | Search row, selection/replay behavior, footer controls |
+| Help overlay | `img/help-overlay.png` | Shortcut grouping, footer controls, docs/troubleshooting links |
+| Claude prompt-safe state | `img/claude-prompt-suppression.png` | HUD suppression/resume behavior around Claude approval prompts |
+
+Docs governance guardrails:
+
+- `python3 dev/scripts/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
+- `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
+- `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 
 ## Code style
 
@@ -297,7 +374,7 @@ GitHub Actions run on every push and PR:
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs/deprecated-command policy guard |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
 
 **Before pushing, run locally (recommended):**
 
@@ -311,6 +388,9 @@ make prepush
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/devctl.py docs-check --strict-tooling
+python3 dev/scripts/check_cli_flags_parity.py
+python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)
 cargo install cargo-audit --locked

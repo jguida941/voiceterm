@@ -7,20 +7,48 @@ on:
       - develop
     paths:
       - "dev/scripts/**"
+      - "README.md"
+      - "QUICK_START.md"
+      - "DEV_INDEX.md"
+      - "guides/*.md"
+      - "dev/README.md"
+      - "scripts/README.md"
+      - "pypi/README.md"
+      - "app/README.md"
+      - "img/**"
+      - "src/src/bin/voiceterm/config/cli.rs"
+      - "src/src/config/mod.rs"
+      - "dev/config/markdownlint.yaml"
+      - "dev/config/markdownlint.ignore"
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
+      - ".github/workflows/docs_lint.yml"
       - ".github/workflows/tooling_control_plane.yml"
   pull_request:
     paths:
       - "dev/scripts/**"
+      - "README.md"
+      - "QUICK_START.md"
+      - "DEV_INDEX.md"
+      - "guides/*.md"
+      - "dev/README.md"
+      - "scripts/README.md"
+      - "pypi/README.md"
+      - "app/README.md"
+      - "img/**"
+      - "src/src/bin/voiceterm/config/cli.rs"
+      - "src/src/config/mod.rs"
+      - "dev/config/markdownlint.yaml"
+      - "dev/config/markdownlint.ignore"
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
+      - ".github/workflows/docs_lint.yml"
       - ".github/workflows/tooling_control_plane.yml"
 
 jobs:
@@ -60,7 +88,7 @@ jobs:
           bash -n scripts/*.sh
 
   docs-policy:
-    name: docs policy + deprecated guard
+    name: docs policy + governance guard
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -73,7 +101,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run docs-check policy gate
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.45.0
+
+      - name: Resolve commit range and changed files
+        id: range
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             SINCE="${{ github.event.pull_request.base.sha }}"
@@ -85,4 +122,65 @@ jobs:
           if [[ -z "${SINCE}" || "${SINCE}" == "0000000000000000000000000000000000000000" ]]; then
             SINCE="HEAD~1"
           fi
-          python3 dev/scripts/devctl.py docs-check --since-ref "${SINCE}" --head-ref "${HEAD}" --strict-tooling --format md
+          if ! git rev-parse --verify "${SINCE}" >/dev/null 2>&1; then
+            SINCE="HEAD"
+          fi
+          if ! git rev-parse --verify "${HEAD}" >/dev/null 2>&1; then
+            HEAD="HEAD"
+          fi
+          echo "since=${SINCE}" >> "${GITHUB_OUTPUT}"
+          echo "head=${HEAD}" >> "${GITHUB_OUTPUT}"
+          git diff --name-only "${SINCE}" "${HEAD}" > /tmp/docs-policy-changed-files.txt
+          echo "Changed files:"
+          cat /tmp/docs-policy-changed-files.txt
+
+      - name: Run docs-check strict-tooling gate
+        run: |
+          python3 dev/scripts/devctl.py docs-check \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}" \
+            --strict-tooling --format md
+
+      - name: Run docs-check user-facing strict gate (conditional)
+        run: |
+          USER_DOC_CHANGE_COUNT="$(grep -Ec '^(README\.md|QUICK_START\.md|guides/USAGE\.md|guides/CLI_FLAGS\.md|guides/INSTALL\.md|guides/TROUBLESHOOTING\.md)$' /tmp/docs-policy-changed-files.txt || true)"
+          if grep -Eq '^(src/src/bin/voiceterm/config/cli\.rs|src/src/config/mod\.rs)$' /tmp/docs-policy-changed-files.txt || [[ "${USER_DOC_CHANGE_COUNT}" -ge 3 ]]; then
+            echo "Running strict user-facing docs-check gate."
+            python3 dev/scripts/devctl.py docs-check \
+              --since-ref "${{ steps.range.outputs.since }}" \
+              --head-ref "${{ steps.range.outputs.head }}" \
+              --user-facing --strict --format md
+          else
+            echo "Skipping strict user-facing docs-check gate (no broad user-facing/CLI schema signal)."
+          fi
+
+      - name: Run governance hygiene gate
+        run: python3 dev/scripts/devctl.py hygiene --format md
+
+      - name: Run CLI flags parity guard
+        run: python3 dev/scripts/check_cli_flags_parity.py
+
+      - name: Run screenshot integrity guard
+        run: python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+
+      - name: Guard root-level accidental CLI artifact files
+        run: |
+          ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
+          if [[ -n "${ARTIFACTS}" ]]; then
+            echo "Unexpected root-level CLI artifact files detected:"
+            echo "${ARTIFACTS}"
+            echo "Remove these files before merging."
+            exit 1
+          fi
+
+      - name: Lint key docs
+        run: |
+          markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
+            README.md \
+            QUICK_START.md \
+            DEV_INDEX.md \
+            guides/*.md \
+            dev/README.md \
+            scripts/README.md \
+            pypi/README.md \
+            app/README.md

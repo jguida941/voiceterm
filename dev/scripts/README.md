@@ -22,7 +22,13 @@ python3 dev/scripts/devctl.py check --profile release
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/check_cli_flags_parity.py
+python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
+find . -maxdepth 1 -type f -name '--*'
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts.
+# For UI behavior changes, refresh screenshot coverage in the same pass:
+# see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
 # Release notes from git diff range
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
@@ -49,6 +55,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output. |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
+| `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
+| `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
 | `dev/scripts/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |

@@ -87,7 +87,7 @@ Flow:
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Ctrl+G` | Quick cycle theme |
-| `Ctrl+H` | Open transcript history (search + replay) |
+| `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+O` | Open settings |
 | `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
@@ -144,8 +144,12 @@ Open with `Ctrl+H`.
 - Type to filter transcript history entries (newest first).
 - `Up`/`Down` moves selection.
 - `Backspace` removes one search character.
-- `Enter` replays the selected transcript into the active CLI input.
+- `Enter` replays selected replayable entries (`mic` and `you`) into active CLI input.
+- `ai` rows are output-only and are not replayable.
+- Mouse: click a row to select it; click footer `[×] close` (or `[x]` in ASCII glyph mode) to close.
+- The overlay shows 7 rows at a time, plus a 2-line preview pane for the selected row.
 - `Esc` closes the overlay.
+- Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 
 ## Voice Modes
 
@@ -168,7 +172,7 @@ Three controls define runtime behavior:
 
 - In `insert` mode, Enter is submit-only for staged text.
 - `Ctrl+R` stops recording without sending.
-- `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it is a no-op.
+- `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it shows `Nothing to send`.
 - Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
 - In Full HUD, wake privacy state is explicit: `Wake: ON` (theme-matched pulse) means always-listening is active, and `Wake: PAUSED` means wake listening is temporarily suspended during active capture/transcription.
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.

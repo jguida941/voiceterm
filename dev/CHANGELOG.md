@@ -10,7 +10,12 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Add transcript history overlay (`Ctrl+H`) with type-to-filter search and replay into the active CLI input.
+- Upgrade transcript history to capture source-aware conversation rows (`mic`/`you`/`ai`) from both PTY input and PTY output, add a selected-entry preview pane, widen default overlay width for longer lines, and block replay for output-only (`ai`) rows.
 - Add persistent runtime settings storage at `~/.config/voiceterm/config.toml` for core HUD/voice preferences while preserving CLI-flag precedence per launch.
+- Improve themed `--help` readability by adding spacer rows between option blocks, using a distinct section-header accent color, and applying a separate definition-text color so groups like `[Backend]`/`[Voice]` and their descriptions are easier to scan.
+- Fix transcript-history overlay row layout on ANSI-themed terminals so border columns stay aligned (removes stray interior `│` artifacts caused by ANSI-aware width mismatches).
+- Fix transcript-history search input to ignore terminal control/focus escape noise (for example `\\x1b[0[I`) so non-text sequences no longer appear in the search field.
+- Add opt-in markdown session memory logging (`--session-memory`, `--session-memory-path`) so users can persist newline-delimited user/backend conversation history to a project-local file.
 
 ### Runtime Hardening
 
@@ -39,6 +44,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Replace the verbose README Settings Menu details with direct links to `guides/USAGE.md` sections (`Settings Menu`, `Themes`, `HUD styles`) to keep README onboarding-focused.
 - Reorder README sections so `Voice Macros` appears before `Engineering History` for better feature-first navigation.
 - Restructure the README `Controls` section into grouped link lists (`keybindings`, `CLI flags`, `related docs`) to match the rest of the docs navigation style.
+- Rebalance onboarding-vs-reference documentation scope: trim `QUICK_START.md` to essential setup/controls, move deep runtime behavior notes into guides, and keep pre-release/test-branch flow in `guides/INSTALL.md`.
+- Expand user-guide/runtime parity for transcript history and control semantics (`Ctrl+E` idle feedback, transcript-history mouse selection/close behavior), and document `VOICETERM_ONBOARDING_STATE` plus `VOICETERM_STYLE_PACK_JSON` in the CLI env-var reference.
+- Add a maintainer screenshot-refresh capture matrix in `dev/DEVELOPMENT.md` so UI image updates are tracked per surface instead of ad-hoc.
+- Harden docs governance control-plane checks: add CLI flag parity + screenshot integrity guard scripts, enforce `ENGINEERING_EVOLUTION.md` updates for tooling/process/CI shifts via `docs-check --strict-tooling`, and add CI/root-artifact guardrails in `tooling_control_plane.yml`.
 
 ## [1.0.84] - 2026-02-19
 

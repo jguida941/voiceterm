@@ -163,6 +163,75 @@ class DocsCheckCommandTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
 
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_requires_engineering_evolution_update(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {
+            "changes": [
+                {"status": "M", "path": ".github/workflows/tooling_control_plane.yml"},
+                {"status": "M", "path": "AGENTS.md"},
+                {"status": "M", "path": "dev/DEVELOPMENT.md"},
+                {"status": "M", "path": "dev/scripts/README.md"},
+                {"status": "M", "path": "dev/active/MASTER_PLAN.md"},
+            ]
+        }
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref="HEAD~1",
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_passes_with_engineering_evolution_update(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {
+            "changes": [
+                {"status": "M", "path": ".github/workflows/tooling_control_plane.yml"},
+                {"status": "M", "path": "AGENTS.md"},
+                {"status": "M", "path": "dev/DEVELOPMENT.md"},
+                {"status": "M", "path": "dev/scripts/README.md"},
+                {"status": "M", "path": "dev/active/MASTER_PLAN.md"},
+                {"status": "M", "path": "dev/history/ENGINEERING_EVOLUTION.md"},
+            ]
+        }
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref="HEAD~1",
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

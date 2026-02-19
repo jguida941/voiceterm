@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)<br>
 **Audience:** users and developers<br>
-**Last Updated:** 2026-02-17<br>
+**Last Updated:** 2026-02-19<br>
 
 ## At a Glance
 
@@ -152,6 +152,7 @@ Inference: These screenshots improve readability for users. They show current UI
 2. Re-check its `Pressure` and `Learning` bullets before coding.
 3. Verify you are not reintroducing a previously reverted pattern.
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
+5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
 
 ### Replay the Evidence Quickly
 
@@ -235,6 +236,7 @@ timeline
   2026-02-15 : e2c8d4a VoiceTerm alignment and docs polish
   2026-02-16 : v1.0.69 and v1.0.70 release train, release-notes automation, and mutation score badge endpoint
   2026-02-17 : v1.0.71 to v1.0.79 release wave, HUD/control semantics hardening, and docs consistency push
+  2026-02-19 : docs-governance hardening: strict tooling docs-check now requires ENGINEERING_EVOLUTION updates for tooling/process/CI shifts, plus CI guardrails for CLI flag parity and screenshot integrity
 ```
 
 ## Original Hypothesis and Why It Changed
