@@ -27,6 +27,8 @@ Related docs:
 - [Option D: macOS App (folder picker)](#option-d-macos-app-folder-picker)
 - [Option E: Manual run (no install)](#option-e-manual-run-no-install)
 - [Option F: Windows (WSL2 only)](#option-f-windows-wsl2-only)
+- [After install: run in your project](#after-install-run-in-your-project)
+- [Optional: Macro Wizard](#optional-macro-wizard)
 - [See Also](#see-also)
 
 ## Prerequisites
@@ -271,21 +273,6 @@ Use a Linux environment in WSL2:
 
 </details>
 
-## Integration/Test Branch Installs
-
-If you need to validate a pre-release integration build before final tagging:
-
-```bash
-git clone --branch <branch-name> https://github.com/jguida941/voiceterm.git
-cd voiceterm
-./scripts/install.sh
-voiceterm --version
-```
-
-After install, run the release verification commands in `dev/DEVELOPMENT.md`
-(`Testing` and `Manual QA checklist`) for process teardown, CPU leak detection,
-and high-load UI responsiveness.
-
 ## After install: run in your project
 
 VoiceTerm works with any codebase. Run from your project directory or set
@@ -301,6 +288,31 @@ To target Claude instead of Codex:
 ```bash
 voiceterm --claude
 ```
+
+Maintainer note:
+integration/test-branch release validation lives in
+[`dev/DEVELOPMENT.md` testing](../dev/DEVELOPMENT.md#testing) and
+[manual QA](../dev/DEVELOPMENT.md#manual-qa-checklist).
+
+## Optional: Macro Wizard
+
+Use the macro wizard if you want project-local voice command packs:
+
+```bash
+./scripts/macros.sh wizard
+```
+
+Run wizard during source install:
+
+```bash
+./scripts/install.sh --with-macros-wizard
+./scripts/install.sh --with-macros-wizard --macros-pack full-dev
+```
+
+Canonical macro docs and pack details:
+
+- [USAGE.md - Project Voice Macros](USAGE.md#project-voice-macros)
+- [scripts/README.md - macros.sh](../scripts/README.md#macrossh)
 
 Common next steps:
 
