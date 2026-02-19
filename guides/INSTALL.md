@@ -26,8 +26,7 @@ Related docs:
 - [Option C: Install from source](#option-c-install-from-source)
 - [Option D: macOS App (folder picker)](#option-d-macos-app-folder-picker)
 - [Option E: Manual run (no install)](#option-e-manual-run-no-install)
-- [Using with your own projects](#using-with-your-own-projects)
-- [Windows](#windows)
+- [Option F: Windows (WSL2 only)](#option-f-windows-wsl2-only)
 - [See Also](#see-also)
 
 ## Prerequisites
@@ -252,6 +251,26 @@ VOICETERM_CWD="$(pwd)" /path/to/voiceterm/scripts/start.sh
 
 </details>
 
+## Option F: Windows (WSL2 only)
+
+<details>
+<summary><strong>Show Windows (WSL2) steps</strong></summary>
+
+Windows native is not supported (VoiceTerm uses a Unix PTY).
+Use a Linux environment in WSL2:
+
+1. Install WSL2 + Ubuntu.
+2. Open a WSL terminal.
+3. Follow one Linux install path in this doc (Homebrew, PyPI, source, or manual run).
+4. Run VoiceTerm inside WSL:
+
+   ```bash
+   cd ~/my-project
+   voiceterm
+   ```
+
+</details>
+
 ## Integration/Test Branch Installs
 
 If you need to validate a pre-release integration build before final tagging:
@@ -267,7 +286,7 @@ After install, run the release verification commands in `dev/DEVELOPMENT.md`
 (`Testing` and `Manual QA checklist`) for process teardown, CPU leak detection,
 and high-load UI responsiveness.
 
-## Using with your own projects
+## After install: run in your project
 
 VoiceTerm works with any codebase. Run from your project directory or set
 `VOICETERM_CWD` to force the working directory.
@@ -283,32 +302,12 @@ To target Claude instead of Codex:
 voiceterm --claude
 ```
 
-Built-in voice navigation phrases are available after install:
-`scroll up`, `scroll down`, `show last error`, `copy last error`, and
-`explain last error`.
+Common next steps:
 
-Linux clipboard note: `copy last error` uses `wl-copy`, `xclip`, or `xsel`
-when available.
-
-Optional macro wizard (project-local smart command pack):
-
-```bash
-./scripts/macros.sh wizard
-```
-
-Available packs:
-
-- `safe-core`: low-risk git/GitHub inspection commands
-- `power-git`: write actions (commit/push/PR/issue) in insert mode
-- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
-
-For GitHub macros, wizard validation expects `gh` to be authenticated
-(`gh auth login`).
-
-## Windows
-
-Windows native is not supported yet (the overlay uses a Unix PTY). Use WSL2 or
-a macOS/Linux machine.
+- Voice controls and behavior: [USAGE.md](USAGE.md)
+- Voice macros setup and packs: [USAGE.md#project-voice-macros](USAGE.md#project-voice-macros)
+- Built-in voice navigation commands: [USAGE.md#built-in-voice-navigation-commands](USAGE.md#built-in-voice-navigation-commands)
+- Runtime troubleshooting: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ## See Also
 

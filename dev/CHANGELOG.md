@@ -51,6 +51,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Refresh core user-doc parity for transcript-history/session-memory behavior across `README.md`, `QUICK_START.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, and `guides/TROUBLESHOOTING.md`.
 - Add onboarding decision-flow diagrams to `guides/USAGE.md`, `guides/TROUBLESHOOTING.md`, and `.github/CONTRIBUTING.md`, and simplify `QUICK_START.md` to core controls plus direct links to the full usage reference.
 - Reformat `guides/INSTALL.md` entrypoint content for readability by replacing the noisy top docs-map block and making each install option (`Homebrew`/`PyPI`/`source`/`app`/`manual`) collapsible.
+- Clarify install doc structure by adding a dedicated `Option F: Windows (WSL2 only)` collapsible section and replacing the long post-install command block with a concise `After install` section that links to canonical usage/macro/navigation docs.
 
 ## [1.0.84] - 2026-02-19
 
