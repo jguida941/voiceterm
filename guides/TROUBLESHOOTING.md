@@ -2,42 +2,38 @@
 <!-- markdownlint-disable MD033 -->
 
 Single troubleshooting reference for VoiceTerm.
-Use the contents first, then the quick-fix table for common day-to-day issues.
-
-## Contents
-
-- [Status Messages](#status-messages)
-- [Audio Setup](#audio-setup)
-- [Mic Sensitivity](#mic-sensitivity)
-- [Backend Issues](#backend-issues)
-- [Terminal and IDE Issues](#terminal-and-ide-issues)
-- [Install and Update Issues](#install-and-update-issues)
-- [Enabling Logs](#enabling-logs)
-- [FAQ](#faq)
-- [Getting Help](#getting-help)
-- [See Also](#see-also)
+Use the quick-fix table first, then jump into the matching section shortcuts.
 
 ## Quick Fixes
 
 | Problem | First action | Section |
 |---------|--------------|---------|
-| No speech detected | Lower mic threshold (`Ctrl+\\`) | [No speech detected](#no-speech-detected) |
-| Voice not recording | Check microphone permissions | [Voice capture failed (see log)](#voice-capture-failed-see-log) |
-| Voice macro not expanding | Validate macros file + toggle state | [Voice macro not expanding](#voice-macro-not-expanding) |
-| Codex/Claude not responding | Verify install + login | [Codex or Claude not responding](#codex-or-claude-not-responding) |
-| Claude executes actions without confirmation | Disable permission-skip mode | [Claude running without permission prompts](#claude-running-without-permission-prompts) |
-| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded) |
-| Auto-voice not triggering | Check prompt detection | [Auto-voice not triggering](#auto-voice-not-triggering) |
-| Transcript queued while backend is busy | Wait for prompt or tune regex | [Transcript queued (N)](#transcript-queued-n) |
-| Wrong version after update | Check PATH + reinstall flow | [Wrong version after update](#wrong-version-after-update) |
-| Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Settings or HUD lags during heavy backend output](#settings-or-hud-lags-during-heavy-backend-output) |
-| Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Meter looks too loud for normal speech](#meter-looks-too-loud-for-normal-speech) |
-| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags) |
-| Startup splash behaves oddly | Tune splash env vars | [Startup banner lingers in IDE terminal](#startup-banner-lingers-in-ide-terminal) |
-| Theme colors look muted | Verify truecolor env | [Theme colors look muted in IDE terminal](#theme-colors-look-muted-in-ide-terminal) |
-| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [PTY exit write error in logs](#pty-exit-write-error-in-logs) |
+| No speech detected | Lower mic threshold (`Ctrl+\\`) | [Status Messages](#status-messages) |
+| Voice not recording | Check microphone permissions | [Audio Setup](#audio-setup) |
+| Voice macro not expanding | Validate macros file + toggle state | [Status Messages](#status-messages) |
+| Codex/Claude not responding | Verify install + login | [Backend Issues](#backend-issues) |
+| Claude executes actions without confirmation | Disable permission-skip mode | [Backend Issues](#backend-issues) |
+| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Backend Issues](#backend-issues) |
+| Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
+| Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
+| Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
+| Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Status Messages](#status-messages) |
+| Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 
 ## Status Messages
+
+Section shortcuts:
+
+- [No speech detected](#no-speech-detected)
+- [Voice capture failed (see log)](#voice-capture-failed-see-log)
+- [Latency badge seems wrong](#latency-badge-seems-wrong-in-auto-mode)
+- [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags)
+- [Session memory file is missing](#session-memory-file-is-missing)
+- [Voice macro not expanding](#voice-macro-not-expanding)
 
 <details>
 <summary>Expand Status Messages</summary>
@@ -198,6 +194,12 @@ the HUD parser, not forwarded to the backend.
 
 ## Audio Setup
 
+Section shortcuts:
+
+- [Check microphone permissions](#check-microphone-permissions)
+- [Verify Whisper model exists](#verify-whisper-model-exists)
+- [Microphone changed or unplugged](#microphone-changed-or-unplugged)
+
 <details>
 <summary>Expand Audio Setup</summary>
 
@@ -233,6 +235,12 @@ Restart VoiceTerm after plugging in a new input device.
 
 ## Mic Sensitivity
 
+Section shortcuts:
+
+- [Too sensitive](#too-sensitive-background-noise-triggers-capture)
+- [Not sensitive enough](#not-sensitive-enough-misses-your-voice)
+- [Find the right threshold](#find-the-right-threshold)
+
 <details>
 <summary>Expand Mic Sensitivity</summary>
 
@@ -266,6 +274,17 @@ CLI flag range: `-120 dB` to `0 dB`.
 </details>
 
 ## Backend Issues
+
+Section shortcuts:
+
+- [Codex or Claude not responding](#codex-or-claude-not-responding)
+- [Claude running without permission prompts](#claude-running-without-permission-prompts)
+- [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded)
+- [Auto-voice not triggering](#auto-voice-not-triggering)
+- [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet)
+- [Transcript queued (N)](#transcript-queued-n)
+- [Transcript queue full (oldest dropped)](#transcript-queue-full-oldest-dropped)
+- [Status line clips oddly](#status-line-clips-oddly-with-cjk-or-emoji-text)
 
 <details>
 <summary>Expand Backend Issues</summary>
@@ -445,6 +464,17 @@ should clip cleanly without shifting HUD alignment.
 </details>
 
 ## Terminal and IDE Issues
+
+Section shortcuts:
+
+- [Settings or HUD lags](#settings-or-hud-lags-during-heavy-backend-output)
+- [Meter looks too loud](#meter-looks-too-loud-for-normal-speech)
+- [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals)
+- [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
+- [Startup banner lingers](#startup-banner-lingers-in-ide-terminal)
+- [Theme colors look muted](#theme-colors-look-muted-in-ide-terminal)
+- [Style-pack preview payload not applying](#style-pack-preview-payload-not-applying)
+- [PTY exit write error in logs](#pty-exit-write-error-in-logs)
 
 <details>
 <summary>Expand Terminal and IDE Issues</summary>
@@ -656,6 +686,11 @@ runtime visual overrides.
 
 ## Install and Update Issues
 
+Section shortcuts:
+
+- [Homebrew link conflict](#homebrew-link-conflict)
+- [Wrong version after update](#wrong-version-after-update)
+
 <details>
 <summary>Expand Install and Update Issues</summary>
 
@@ -756,6 +791,14 @@ Log paths:
 </details>
 
 ## FAQ
+
+Section shortcuts:
+
+- [What languages does Whisper support?](#what-languages-does-whisper-support)
+- [Which AI CLI backends work?](#which-ai-cli-backends-work)
+- [Which Whisper model should I use?](#which-whisper-model-should-i-use)
+- [Can I use VoiceTerm without Codex?](#can-i-use-voiceterm-without-codex)
+- [Does VoiceTerm send voice audio to the cloud?](#does-voiceterm-send-voice-audio-to-the-cloud)
 
 <details>
 <summary>Expand FAQ</summary>
