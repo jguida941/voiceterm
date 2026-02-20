@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_top, truncate_display,
 };
-use crate::theme::{overlay_close_symbol, overlay_separator, GlyphSet, Theme, ThemeColors};
+use crate::theme::{
+    overlay_close_symbol, overlay_separator, BorderSet, GlyphSet, Theme, ThemeColors,
+};
 
 /// Maximum number of toasts kept in the history ring.
 pub(crate) const TOAST_HISTORY_MAX: usize = 50;
@@ -279,12 +281,36 @@ pub(crate) fn format_toast_inline(toast: &Toast, colors: &ThemeColors, max_width
 }
 
 /// Format a toast history overlay panel for review.
+fn framed_toast_history_row(
+    colors: &ThemeColors,
+    borders: &BorderSet,
+    width: usize,
+    content: &str,
+    content_width: usize,
+) -> String {
+    let body_width = width.saturating_sub(4);
+    let row_padding = body_width.saturating_sub(content_width);
+
+    format!(
+        "{}{}{} {content}{} {}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.reset,
+        " ".repeat(row_padding),
+        colors.border,
+        borders.vertical,
+        colors.reset,
+    )
+}
+
+/// Format a toast history overlay panel for review.
 #[must_use]
 pub(crate) fn format_toast_history_overlay(
     center: &ToastCenter,
     theme: Theme,
     width: usize,
 ) -> String {
+    let width = width.max(4);
     let colors = theme.colors();
     let borders = &colors.borders;
     let sep = overlay_separator(colors.glyph_set);
@@ -293,37 +319,28 @@ pub(crate) fn format_toast_history_overlay(
     let mut lines = Vec::new();
     lines.push(frame_top(&colors, borders, width));
 
-    let title = format!(
-        "{}Toast History ({} entries){}",
-        colors.info,
-        center.history_count(),
-        colors.reset
-    );
+    let title = format!("Toast History ({} entries)", center.history_count());
     lines.push(centered_title_line(&colors, borders, &title, width));
 
     // Content rows
-    let inner_width = width.saturating_sub(4); // borders + padding
+    let body_width = width.saturating_sub(4); // side borders + one-space left/right padding
     if center.history.is_empty() {
         let empty_msg = "No notifications yet.";
-        let padding = inner_width.saturating_sub(display_width(empty_msg));
+        let clipped_msg = truncate_display(empty_msg, body_width);
+        let padding = body_width.saturating_sub(display_width(&clipped_msg));
         let left_pad = padding / 2;
         let right_pad = padding - left_pad;
-        lines.push(format!(
-            "{}{}{} {}{}{} {}{}{}",
-            colors.border,
-            borders.vertical,
-            colors.reset,
+        let centered = format!(
+            "{}{}{}{}{}",
             " ".repeat(left_pad),
             colors.dim,
-            empty_msg,
+            clipped_msg,
+            colors.reset,
             " ".repeat(right_pad),
-            colors.border,
-            borders.vertical,
+        );
+        lines.push(framed_toast_history_row(
+            &colors, borders, width, &centered, body_width,
         ));
-        // Add reset after vertical
-        if let Some(last) = lines.last_mut() {
-            last.push_str(colors.reset);
-        }
     } else {
         // Show most recent entries (up to 10 visible in overlay).
         let visible_count = center.history.len().min(10);
@@ -333,21 +350,20 @@ pub(crate) fn format_toast_history_overlay(
             let severity_color = toast.severity.color(&colors);
             let label = toast.severity.label();
             let prefix = format!("{icon} [{label}]");
-            let prefix_width = display_width(&prefix);
-            let msg_budget = inner_width.saturating_sub(prefix_width + 1);
-            let msg = truncate_display(&toast.message, msg_budget);
-            let content = format!("{severity_color}{prefix}{} {msg}", colors.reset);
-            let content_width = display_width(&prefix) + 1 + display_width(&msg);
-            let row_padding = inner_width.saturating_sub(content_width);
-            lines.push(format!(
-                "{}{}{} {content}{}{}{}{}",
-                colors.border,
-                borders.vertical,
-                colors.reset,
-                " ".repeat(row_padding),
-                colors.border,
-                borders.vertical,
-                colors.reset,
+            let plain_content = format!("{prefix} {}", toast.message);
+            let clipped = truncate_display(&plain_content, body_width);
+            let clipped_width = display_width(&clipped);
+            let content = if let Some(rest) = clipped.strip_prefix(&prefix) {
+                format!("{severity_color}{prefix}{}{}", colors.reset, rest)
+            } else {
+                format!("{severity_color}{clipped}{}", colors.reset)
+            };
+            lines.push(framed_toast_history_row(
+                &colors,
+                borders,
+                width,
+                &content,
+                clipped_width,
             ));
         }
     }
@@ -360,7 +376,7 @@ pub(crate) fn format_toast_history_overlay(
     lines.push(centered_title_line(&colors, borders, &footer, width));
     lines.push(frame_bottom(&colors, borders, width));
 
-    lines.join("\r\n")
+    lines.join("\n")
 }
 
 /// Height of the toast history overlay in terminal rows.
@@ -378,6 +394,25 @@ pub(crate) fn toast_history_overlay_height(center: &ToastCenter) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn strip_ansi_sgr(input: &str) -> String {
+        let mut out = String::with_capacity(input.len());
+        let mut in_escape = false;
+        for ch in input.chars() {
+            if ch == '\x1b' {
+                in_escape = true;
+                continue;
+            }
+            if in_escape {
+                if ch == 'm' {
+                    in_escape = false;
+                }
+                continue;
+            }
+            out.push(ch);
+        }
+        out
+    }
 
     #[test]
     fn toast_severity_labels() {
@@ -547,6 +582,27 @@ mod tests {
         assert!(output.contains("first toast"));
         assert!(output.contains("error toast"));
         assert!(output.contains("2 total"));
+    }
+
+    #[test]
+    fn toast_history_overlay_rows_match_target_width() {
+        let mut center = ToastCenter::new();
+        center.push(ToastSeverity::Info, "HUD right panel: recording-only");
+        center.push(ToastSeverity::Error, "Theme set: gruvbox");
+        center.dismiss_all();
+
+        let width = 60;
+        let output = format_toast_history_overlay(&center, Theme::Coral, width);
+        assert!(!output.contains('\r'));
+
+        for (idx, line) in output.lines().enumerate() {
+            let visible = strip_ansi_sgr(line);
+            assert_eq!(
+                display_width(&visible),
+                width,
+                "line {idx} should keep exact overlay width"
+            );
+        }
     }
 
     #[test]

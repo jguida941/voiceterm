@@ -192,6 +192,7 @@ Open with `Ctrl+N`.
 
 - Shows recent status notifications with severity labels (`INFO`, `OK`, `WARN`, `ERR`).
 - Notifications are captured from runtime status events and auto-dismiss from the active toast lane.
+- Overlay borders and rows keep alignment in both Unicode and ASCII glyph modes (including long history lists).
 - Use `Esc` (or `Ctrl+N` again) to close the overlay.
 
 ## Voice Modes

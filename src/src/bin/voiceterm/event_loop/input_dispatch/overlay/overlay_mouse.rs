@@ -29,14 +29,17 @@ pub(super) fn handle_overlay_mouse_click(
         }
         OverlayMode::None => 0,
     };
-    if overlay_height == 0 || state.terminal_rows == 0 {
+    if overlay_height == 0 {
+        return;
+    }
+    if state.terminal_rows == 0 {
         return;
     }
     let overlay_top_y = state
         .terminal_rows
         .saturating_sub(overlay_height as u16)
         .saturating_add(1);
-    if y < overlay_top_y || y > state.terminal_rows {
+    if !(overlay_top_y..=state.terminal_rows).contains(&y) {
         return;
     }
     let overlay_row = (y - overlay_top_y) as usize + 1;
@@ -94,18 +97,16 @@ pub(super) fn handle_overlay_mouse_click(
     }
     let centered_overlay_left = cols.saturating_sub(overlay_width) / 2 + 1;
     let centered_overlay_right = centered_overlay_left.saturating_add(overlay_width);
-    let centered_hit =
-        (x as usize) >= centered_overlay_left && (x as usize) < centered_overlay_right;
-    let left_aligned_hit = (x as usize) >= 1 && (x as usize) <= overlay_width;
-    if !centered_hit && !left_aligned_hit {
-        return;
-    }
+    let x_usize = x as usize;
+    let centered_hit = x_usize >= centered_overlay_left && x_usize < centered_overlay_right;
     let rel_x = if centered_hit {
-        (x as usize)
+        x_usize
             .saturating_sub(centered_overlay_left)
             .saturating_add(1)
+    } else if (1..=overlay_width).contains(&x_usize) {
+        x_usize
     } else {
-        x as usize
+        return;
     };
 
     let footer_row = overlay_height.saturating_sub(1);

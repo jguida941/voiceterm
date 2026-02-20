@@ -485,6 +485,25 @@ fn centered_theme_picker_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize)
     u16::try_from(x).expect("overlay x fits in u16")
 }
 
+fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(theme_studio_height() as u16)
+        .saturating_add(1);
+    overlay_top_y
+        .saturating_add(THEME_STUDIO_OPTION_START_ROW as u16)
+        .saturating_add(u16::try_from(option_index).expect("option index fits in u16"))
+        .saturating_sub(1)
+}
+
+fn centered_theme_studio_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = theme_studio_total_width_for_terminal(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
+    u16::try_from(x).expect("overlay x fits in u16")
+}
+
 fn hud_button_click_coords(
     state: &EventLoopState,
     deps: &EventLoopDeps,
@@ -2574,6 +2593,36 @@ fn settings_overlay_mouse_click_footer_close_prefix_closes_overlay() {
 }
 
 #[test]
+fn settings_overlay_mouse_click_footer_outside_close_prefix_keeps_overlay_open() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+
+    let overlay_height = settings_overlay_height() as u16;
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(overlay_height)
+        .saturating_add(1);
+    let footer_y = overlay_top_y
+        .saturating_add(overlay_height.saturating_sub(1))
+        .saturating_sub(1);
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = settings_overlay_width_for_terminal(cols);
+    let x = centered_settings_overlay_rel_x_to_screen_x(&state, overlay_width.saturating_sub(2));
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y: footer_y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+}
+
+#[test]
 fn settings_overlay_enter_backend_row_keeps_overlay_open() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
@@ -2977,6 +3026,103 @@ fn theme_picker_mouse_click_on_border_columns_does_not_select_option() {
 }
 
 #[test]
+fn theme_studio_mouse_click_on_border_columns_does_not_select_option() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 4;
+    let row = theme_studio_overlay_row_y(&state, 0);
+    let left_border_x = centered_theme_studio_rel_x_to_screen_x(&state, 1);
+    let cols = resolved_cols(state.terminal_cols) as usize;
+    let overlay_width = theme_studio_total_width_for_terminal(cols);
+    let right_border_x = centered_theme_studio_rel_x_to_screen_x(&state, overlay_width);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: left_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio_selected, 4);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: right_border_x,
+            y: row,
+        },
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio_selected, 4);
+}
+
+#[test]
+fn theme_studio_mouse_click_on_theme_picker_row_opens_theme_picker_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 6;
+    let row = theme_studio_overlay_row_y(&state, 0);
+    let interior_x = centered_theme_studio_rel_x_to_screen_x(&state, 3);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: interior_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_studio_selected, 0);
+}
+
+#[test]
+fn theme_studio_mouse_click_above_option_rows_does_not_activate_selection() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 6;
+    let overlay_top_y = state
+        .terminal_rows
+        .saturating_sub(theme_studio_height() as u16)
+        .saturating_add(1);
+    let row_above_options = overlay_top_y
+        .saturating_add(THEME_STUDIO_OPTION_START_ROW as u16)
+        .saturating_sub(2);
+    let interior_x = centered_theme_studio_rel_x_to_screen_x(&state, 3);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: interior_x,
+            y: row_above_options,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio_selected, 6);
+}
+
+#[test]
 fn settings_mouse_click_on_border_columns_does_not_select_option() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
@@ -3012,6 +3158,27 @@ fn settings_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
+    assert_eq!(state.settings_menu.selected, 0);
+}
+
+#[test]
+fn settings_mouse_click_zero_column_is_ignored() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::Settings;
+    state.settings_menu.selected = 0;
+    let row = settings_overlay_row_y(&state, SettingsItem::Latency);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x: 0, y: row },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::Settings);
     assert_eq!(state.settings_menu.selected, 0);
 }
 

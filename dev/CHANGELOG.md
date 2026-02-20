@@ -7,9 +7,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### UX
+
+- Fix `Ctrl+N` toast-history overlay rendering so border columns stay aligned across theme glyph modes and long notification lists.
+- Fix toast-history overlay line endings/width accounting so every rendered row keeps exact panel width without stray right-edge artifacts.
+- Harden overlay mouse hit-gates so non-close footer clicks and Theme Studio border clicks do not trigger unintended selection actions.
+
 ### Code Quality
 
 - Add targeted regression coverage for `auth.rs` login-command validation/status handling and `lock.rs` mutex-poison recovery.
+- Stabilize process-signal missing-PID test selection by preferring a high ESRCH candidate and avoiding race-prone fallback behavior.
 
 ### Documentation
 

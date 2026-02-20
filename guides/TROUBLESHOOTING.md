@@ -23,6 +23,7 @@ Current stable release: `v1.0.87` (2026-02-20). Full release notes: [../dev/CHAN
 | Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Status Messages](#status-messages) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Toast-history overlay rows look misaligned | Update to latest version | [Status Messages](#status-messages) |
 | `PTY write failed` error on exit | Usually a benign shutdown race (PTY = virtual terminal session) | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 
 ## Status Messages
@@ -111,6 +112,11 @@ and errors), not transcript rows.
 1. Trigger a status event first (for example `Ctrl+V` to toggle auto-voice).
 2. Reopen notification history (`Ctrl+N`) and verify entries appear.
 3. If entries still do not appear, run with logs: `voiceterm --logs`
+
+### Notification history rows look misaligned
+
+If borders or row widths look uneven in `Ctrl+N`, update to the latest release.
+Recent builds fixed toast-history row width accounting for mixed glyph/color themes.
 
 ### Session memory file is missing
 

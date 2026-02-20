@@ -68,17 +68,26 @@ mod tests {
 
     #[cfg(unix)]
     fn find_missing_pid() -> i32 {
+        // Prefer a very high pid to avoid racey "found missing, then reused" windows.
+        let high_pid = i32::MAX;
+        let high_res = unsafe { libc::kill(high_pid, 0) };
+        let high_err = io::Error::last_os_error();
+        if high_res != 0 && is_no_such_process(&high_err) {
+            return high_pid;
+        }
+
         let current_pid = unsafe { libc::getpid() } as i32;
-        let mut candidate = current_pid + 10_000;
+        let mut candidate = current_pid.saturating_add(10_000);
         for _ in 0..1000 {
             let res = unsafe { libc::kill(candidate, 0) };
             let err = io::Error::last_os_error();
-            if res != 0 && err.kind() == io::ErrorKind::NotFound {
+            if res != 0 && is_no_such_process(&err) {
                 return candidate;
             }
-            candidate += 1;
+            candidate = candidate.saturating_add(1);
         }
-        candidate
+
+        panic!("unable to find an unused pid for signal helper tests")
     }
 
     #[test]
