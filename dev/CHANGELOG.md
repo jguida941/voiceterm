@@ -24,8 +24,8 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Docs
 
 - Clarify `guides/USAGE.md` wording that HUD border/right-panel animation controls are launch-time CLI flag options rather than Settings rows.
-- Replace the README top banner asset with a thinner/smaller VoiceTerm hero image and add a transparent variant (`img/logo-hero-transparent.png`) for light-background preview checks while keeping the icon + subtitle identity and removing redundant platform chips from the banner artwork.
-- Tune the transparent hero variant for readability on light backgrounds by restoring all three window-control dots and shifting subtitle text to a darker purple contrast profile.
+- Replace the README top banner asset with a thinner/smaller VoiceTerm hero image and add a transparent variant (`img/logo-hero-transparent.png`) for light-background checks while removing redundant platform chips from the banner artwork.
+- Tune the transparent hero variant for readability on light backgrounds by restoring all three terminal-style window-control dots, strengthening top-bar chrome, and removing the subtitle line from the transparent banner treatment.
 
 ## [1.0.85] - 2026-02-20
 
