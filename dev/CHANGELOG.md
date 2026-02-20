@@ -58,6 +58,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Remove pre-release integration/test-branch command steps from the user install guide, and point maintainers to `dev/DEVELOPMENT.md` testing/manual-QA guidance; add an explicit `Optional: Macro Wizard` section in `guides/INSTALL.md` with install-time and post-install entrypoints.
 - Reorganize `guides/USAGE.md` for faster scanning: remove the redundant top contents block, add recommended reading paths, group core controls by intent, add a common-task quick index, place local shortcuts near collapsible advanced sections, and convert launch recipes to a goal/command table.
 - Reorganize `guides/TROUBLESHOOTING.md` navigation: remove the redundant top contents block, route Quick Fix jumps to top-level sections, and add section-local shortcut links above each collapsible block.
+- Track theme capability matrix milestones (framework parity, texture profile, dependency baseline, widget pack, rule profile) in master plan.
 
 ## [1.0.84] - 2026-02-19
 
