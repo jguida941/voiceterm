@@ -7,8 +7,8 @@ use std::io;
 use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::buttons::{ButtonAction, ButtonRegistry};
-use crate::config::HudStyle;
 use crate::config::OverlayConfig;
+use crate::config::{HudStyle, LatencyDisplayMode};
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
@@ -2062,8 +2062,9 @@ fn handle_output_chunk_non_empty_responding_transitions_to_idle() {
 fn settings_overlay_mouse_click_cycles_setting_value() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
-    state.status_state.hud_style = HudStyle::Full;
-    let hud_style_row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    state.config.latency_display = LatencyDisplayMode::Short;
+    state.status_state.latency_display = LatencyDisplayMode::Short;
+    let latency_row = settings_overlay_row_y(&state, SettingsItem::Latency);
 
     let mut running = true;
     handle_input_event(
@@ -2072,27 +2073,31 @@ fn settings_overlay_mouse_click_cycles_setting_value() {
         &mut deps,
         InputEvent::MouseClick {
             x: 3,
-            y: hud_style_row,
+            y: latency_row,
         },
         &mut running,
     );
 
     assert!(running);
     assert_eq!(state.overlay_mode, OverlayMode::Settings);
-    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
-    let hud_style_index = SETTINGS_ITEMS
+    assert_eq!(
+        state.status_state.latency_display,
+        LatencyDisplayMode::Label
+    );
+    let latency_index = SETTINGS_ITEMS
         .iter()
-        .position(|item| *item == SettingsItem::HudStyle)
-        .expect("hud style index");
-    assert_eq!(state.settings_menu.selected, hud_style_index);
+        .position(|item| *item == SettingsItem::Latency)
+        .expect("latency index");
+    assert_eq!(state.settings_menu.selected, latency_index);
 }
 
 #[test]
 fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
-    state.status_state.hud_style = HudStyle::Full;
-    let hud_style_row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    state.config.latency_display = LatencyDisplayMode::Short;
+    state.status_state.latency_display = LatencyDisplayMode::Short;
+    let latency_row = settings_overlay_row_y(&state, SettingsItem::Latency);
     let click_x = centered_overlay_click_x(&state);
 
     let mut running = true;
@@ -2102,14 +2107,17 @@ fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
         &mut deps,
         InputEvent::MouseClick {
             x: click_x,
-            y: hud_style_row,
+            y: latency_row,
         },
         &mut running,
     );
 
     assert!(running);
     assert_eq!(state.overlay_mode, OverlayMode::Settings);
-    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
+    assert_eq!(
+        state.status_state.latency_display,
+        LatencyDisplayMode::Label
+    );
 }
 
 #[test]
@@ -2335,9 +2343,10 @@ fn settings_overlay_enter_actionable_row_redraws_overlay() {
     state.overlay_mode = OverlayMode::Settings;
     state.settings_menu.selected = SETTINGS_ITEMS
         .iter()
-        .position(|item| *item == SettingsItem::HudStyle)
-        .expect("hud style index");
-    state.status_state.hud_style = HudStyle::Full;
+        .position(|item| *item == SettingsItem::Latency)
+        .expect("latency index");
+    state.config.latency_display = LatencyDisplayMode::Short;
+    state.status_state.latency_display = LatencyDisplayMode::Short;
 
     let mut running = true;
     handle_input_event(
@@ -2421,11 +2430,12 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
     let (mut left_state, mut left_timers, mut left_deps, left_writer_rx, _left_input_tx) =
         build_harness("cat", &[], 8);
     left_state.overlay_mode = OverlayMode::Settings;
-    left_state.status_state.hud_style = HudStyle::Full;
+    left_state.config.latency_display = LatencyDisplayMode::Short;
+    left_state.status_state.latency_display = LatencyDisplayMode::Short;
     left_state.settings_menu.selected = SETTINGS_ITEMS
         .iter()
-        .position(|item| *item == SettingsItem::HudStyle)
-        .expect("hud style index");
+        .position(|item| *item == SettingsItem::Latency)
+        .expect("latency index");
     while left_writer_rx.try_recv().is_ok() {}
 
     let mut running = true;
@@ -2437,7 +2447,7 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
         &mut running,
     );
     assert!(running);
-    let left_style = left_state.status_state.hud_style;
+    let left_latency = left_state.status_state.latency_display;
     let left_redraw = left_writer_rx
         .try_iter()
         .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
@@ -2446,11 +2456,12 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
     let (mut right_state, mut right_timers, mut right_deps, right_writer_rx, _right_input_tx) =
         build_harness("cat", &[], 8);
     right_state.overlay_mode = OverlayMode::Settings;
-    right_state.status_state.hud_style = HudStyle::Full;
+    right_state.config.latency_display = LatencyDisplayMode::Short;
+    right_state.status_state.latency_display = LatencyDisplayMode::Short;
     right_state.settings_menu.selected = SETTINGS_ITEMS
         .iter()
-        .position(|item| *item == SettingsItem::HudStyle)
-        .expect("hud style index");
+        .position(|item| *item == SettingsItem::Latency)
+        .expect("latency index");
     while right_writer_rx.try_recv().is_ok() {}
 
     let mut running = true;
@@ -2462,12 +2473,12 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
         &mut running,
     );
     assert!(running);
-    let right_style = right_state.status_state.hud_style;
+    let right_latency = right_state.status_state.latency_display;
     let right_redraw = right_writer_rx
         .try_iter()
         .any(|msg| matches!(msg, WriterMessage::ShowOverlay { .. }));
     assert!(right_redraw, "right-arrow setting changes should redraw");
-    assert_ne!(left_style, right_style);
+    assert_ne!(left_latency, right_latency);
 }
 
 #[test]
@@ -2621,7 +2632,7 @@ fn overlay_mouse_click_outside_horizontal_bounds_is_ignored() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
     state.settings_menu.selected = 0;
-    let row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    let row = settings_overlay_row_y(&state, SettingsItem::Latency);
     let click_x = state.terminal_cols;
 
     let mut running = true;
@@ -2682,7 +2693,7 @@ fn settings_mouse_click_on_border_columns_does_not_select_option() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::Settings;
     state.settings_menu.selected = 0;
-    let row = settings_overlay_row_y(&state, SettingsItem::HudStyle);
+    let row = settings_overlay_row_y(&state, SettingsItem::Latency);
     let left_border_x = centered_settings_overlay_rel_x_to_screen_x(&state, 1);
     let cols = resolved_cols(state.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);

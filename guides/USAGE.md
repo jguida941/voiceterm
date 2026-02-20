@@ -151,12 +151,15 @@ Common settings:
 - Send mode (`auto` or `insert`)
 - Macros toggle
 - Mic threshold
-- Theme (quick cycle with `Ctrl+G` or choose from picker with `Ctrl+Y`)
 - Latency display (`Off`, `Nms`, `Latency: Nms`)
-- HUD style and border style
-- Right panel mode and recording-only animation
 - Mouse support
 - `Backend` / `Pipeline` rows are read-only session diagnostics
+
+Visual controls are no longer in Settings:
+
+- Theme: use `Ctrl+Y` (picker) or `Ctrl+G` (quick cycle)
+- HUD style: use `Ctrl+U`
+- HUD borders/right panel/animation: set at launch with `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
 
 Settings persistence:
 
@@ -371,10 +374,11 @@ Theme shortcuts:
   processing status text/spinner surfaces outside the HUD as well.
 - If `VOICETERM_STYLE_PACK_JSON` is valid and sets `base_theme`, runtime theme
   switching is locked to that base theme until the env var is unset. Theme picker
-  rows are rendered as read-only/dimmed, and quick-cycle/settings attempts show
+  rows are rendered as read-only/dimmed, and quick-cycle/theme-picker attempts show
   an explicit lock status message.
-- Settings migration note: existing `Theme`/HUD settings controls are unchanged;
-  no user config migration is required for this runtime resolver foundation.
+- Settings migration note: `Theme`/HUD visual rows are now removed from Settings.
+  Use Theme Picker/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
+  visual runtime choices; no user config migration is required.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
@@ -402,7 +406,7 @@ Full HUD border style options:
 Right panel options:
 
 - `off`, `ribbon`, `dots`, `heartbeat`
-- Optional recording-only animation in Settings
+- Optional recording-only animation via `--hud-right-panel-recording-only`
 - In Full HUD, right-panel telemetry is rendered on the main status row
   (top-right lane).
 

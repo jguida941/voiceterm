@@ -506,13 +506,9 @@ mod tests {
     }
 
     #[test]
-    fn settings_overlay_marks_theme_as_locked_when_style_pack_is_active() {
-        let theme_index = SETTINGS_ITEMS
-            .iter()
-            .position(|item| *item == SettingsItem::Theme)
-            .expect("theme item exists");
+    fn settings_overlay_omits_legacy_visual_rows() {
         let view = SettingsView {
-            selected: theme_index,
+            selected: 0,
             auto_voice_enabled: false,
             wake_word_enabled: false,
             wake_word_sensitivity: 0.55,
@@ -521,7 +517,7 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Codex,
-            theme_locked: true,
+            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -532,7 +528,10 @@ mod tests {
             pipeline: Pipeline::Rust,
         };
         let rendered = format_settings_overlay(&view, 90);
-        assert!(rendered.contains("[ codex (locked) ]"));
-        assert!(rendered.contains("Theme selection is locked by VOICETERM_STYLE_PACK_JSON."));
+        assert!(!rendered.contains("Theme"));
+        assert!(!rendered.contains("HUD style"));
+        assert!(!rendered.contains("Borders"));
+        assert!(!rendered.contains("Right panel"));
+        assert!(!rendered.contains("Anim rec-only"));
     }
 }

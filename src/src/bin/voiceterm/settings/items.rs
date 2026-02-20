@@ -16,9 +16,15 @@ pub enum SettingsItem {
     Macros,
     Sensitivity,
     Theme,
+    // Retained for Theme Studio migration wiring; no longer exposed in Settings menu.
+    #[allow(dead_code)]
     HudStyle,
+    // Retained for Theme Studio migration wiring; no longer exposed in Settings menu.
+    #[allow(dead_code)]
     HudBorders,
+    #[allow(dead_code)]
     HudPanel,
+    #[allow(dead_code)]
     HudAnimate,
     Latency,
     Mouse,
@@ -36,11 +42,6 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
     SettingsItem::SendMode,
     SettingsItem::Macros,
     SettingsItem::Sensitivity,
-    SettingsItem::Theme,
-    SettingsItem::HudStyle,
-    SettingsItem::HudBorders,
-    SettingsItem::HudPanel,
-    SettingsItem::HudAnimate,
     SettingsItem::Latency,
     SettingsItem::Mouse,
     SettingsItem::Backend,

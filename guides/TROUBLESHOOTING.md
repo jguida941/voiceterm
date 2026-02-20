@@ -545,7 +545,7 @@ renders on the **main status row** (top-right lane), not on the shortcuts row.
 For `ribbon`, short sample history should render from a low baseline with peaks
 above it, not as a full-height block across the entire lane.
 
-1. Verify `HUD panel` in Settings (`Ctrl+O`) is not `Off`.
+1. Verify HUD panel mode is not `off` at launch (for example `--hud-right-panel ribbon`).
 2. Confirm terminal width is large enough for Full HUD (`>= 60` columns is a
    practical minimum; very narrow widths may fall back to compact rendering).
 3. If visualizer placement still looks wrong, run once with logs:
