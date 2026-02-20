@@ -1275,9 +1275,7 @@ fn cycle_runtime_glyph_set_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
 }
 
@@ -1295,9 +1293,7 @@ fn cycle_runtime_indicator_set_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
 }
 
@@ -1317,9 +1313,7 @@ fn cycle_runtime_border_style_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
 }
 
@@ -1338,9 +1332,7 @@ fn cycle_runtime_progress_style_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
 }
 
@@ -1359,9 +1351,7 @@ fn cycle_runtime_progress_bar_family_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
 }
 
@@ -1379,10 +1369,24 @@ fn cycle_runtime_voice_scene_style_override(
         .iter()
         .position(|value| *value == current)
         .unwrap_or(0);
-    let step = if direction < 0 { -1 } else { 1 };
-    let len = values.len() as i32;
-    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
     values[next_idx]
+}
+
+fn cycle_override_index(current_idx: usize, len: usize, direction: i32) -> usize {
+    if len == 0 {
+        return 0;
+    }
+
+    if direction < 0 {
+        if current_idx == 0 {
+            len - 1
+        } else {
+            current_idx - 1
+        }
+    } else {
+        (current_idx + 1) % len
+    }
 }
 
 fn apply_theme_studio_selection(
