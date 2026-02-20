@@ -3,6 +3,7 @@
 
 Single troubleshooting reference for VoiceTerm.
 Use the quick-fix table first, then jump into the matching section shortcuts.
+Current stable release: `v1.0.85` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 ## Quick Fixes
 

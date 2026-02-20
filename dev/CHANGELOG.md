@@ -7,6 +7,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.85] - 2026-02-20
+
 ### UX
 
 - Add notification-history overlay (`Ctrl+N`) and wire runtime status updates into the toast center with severity mapping (`INFO`/`OK`/`WARN`/`ERR`) plus auto-dismiss lifecycle tracking.
