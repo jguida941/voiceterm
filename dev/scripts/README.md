@@ -38,6 +38,7 @@ python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 # `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts.
@@ -81,6 +82,7 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 | `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
+| `dev/scripts/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using soft/hard line-count policy on changed files. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
 | `dev/scripts/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |

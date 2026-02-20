@@ -82,6 +82,7 @@ CI will run the same check families again.
 | Release version fields | `python3 dev/scripts/check_release_version_parity.py` | `.github/workflows/tooling_control_plane.yml` |
 | CLI docs vs clap schema | `python3 dev/scripts/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
 | Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
+| Rust/Python source-file shape drift | `python3 dev/scripts/check_code_shape.py` | `.github/workflows/tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `.github/workflows/tooling_control_plane.yml` |
 
 ## When to push where
@@ -162,6 +163,7 @@ voiceterm/
 │       ├── check_mutation_score.py # Mutation score helper
 │       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
 │       ├── check_screenshot_integrity.py # image reference + stale-age guard
+│       ├── check_code_shape.py # Rust/Python God-file drift guard
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
 ├── Makefile             # Developer tasks
@@ -347,6 +349,9 @@ python3 dev/scripts/check_cli_flags_parity.py
 # Screenshot reference integrity + stale-age report
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 
+# Source-shape guard (blocks new Rust/Python God-file growth)
+python3 dev/scripts/check_code_shape.py
+
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
@@ -412,6 +417,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/check_release_version_parity.py`
 - `python3 dev/scripts/check_cli_flags_parity.py`
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
+- `python3 dev/scripts/check_code_shape.py`
 
 ### Documentation decisions
 
@@ -470,6 +476,7 @@ Docs governance guardrails:
 
 - `python3 dev/scripts/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
+- `python3 dev/scripts/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files and oversized-file growth).
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
@@ -526,6 +533,7 @@ python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)

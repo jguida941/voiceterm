@@ -194,6 +194,7 @@ python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -206,6 +207,7 @@ python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -220,6 +222,7 @@ python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -236,6 +239,7 @@ python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -251,6 +255,7 @@ python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py --since-ref origin/develop
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -345,6 +350,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Parser/ANSI/OSC boundary logic | `parser_fuzz_guard.yml` |
 | Dependency/security policy changes | `security_guard.yml` |
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
+| Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
 | User docs/markdown changes | `docs_lint.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
@@ -393,6 +399,7 @@ python3 dev/scripts/check_agents_contract.py
 python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/check_code_shape.py
 ```
 
 ## Tooling inventory
@@ -422,6 +429,7 @@ Supporting scripts:
 - `dev/scripts/check_cli_flags_parity.py`
 - `dev/scripts/check_release_version_parity.py`
 - `dev/scripts/check_screenshot_integrity.py`
+- `dev/scripts/check_code_shape.py`
 - `dev/scripts/check_mutation_score.py`
 - `dev/scripts/check_rustsec_policy.py`
 - `dev/scripts/tests/measure_latency.sh`

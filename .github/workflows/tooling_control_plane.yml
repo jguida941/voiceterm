@@ -176,6 +176,12 @@ jobs:
       - name: Run screenshot integrity guard
         run: python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 
+      - name: Run code-shape guard
+        run: |
+          python3 dev/scripts/check_code_shape.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Guard root-level accidental CLI artifact files
         run: |
           ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
