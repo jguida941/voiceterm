@@ -2,6 +2,7 @@
 
 All flags for the `voiceterm` command. Run `voiceterm --help` for the live
 themed, grouped output.
+Current stable release: `v1.0.87` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Docs map:
 

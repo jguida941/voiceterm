@@ -2,6 +2,7 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
+Current stable release: `v1.0.87` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 See [README](README.md) for the current release.
 
 ## 1) Install Codex CLI (default backend)

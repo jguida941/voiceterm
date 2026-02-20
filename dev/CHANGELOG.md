@@ -7,6 +7,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+- No changes yet.
+
+## [1.0.87] - 2026-02-20
+
 <details>
 <summary>Code Quality (internal refactors, no user-visible changes)</summary>
 
@@ -19,7 +23,9 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Documentation
 
-- Restyle all top README badges to a unified red-orange/charcoal `for-the-badge` theme to match the hero visual direction.
+- Restyle README badges with a unified red-orange/charcoal theme and refine the flat badge treatment/sizing for visual consistency.
+- Simplify core user guides (`README.md`, `QUICK_START.md`, `guides/*`) plus contributor/security references for clearer onboarding language and reduced duplication.
+- Record MP-265 decomposition progress in engineering evolution history to keep tooling-governance documentation synchronized with master-plan updates.
 
 ## [1.0.86] - 2026-02-20
 
