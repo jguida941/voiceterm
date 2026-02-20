@@ -2,7 +2,6 @@
 
 This doc covers install options and model setup.
 Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
-Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Related docs:
 [Quick Start](../QUICK_START.md) |
@@ -51,11 +50,10 @@ voiceterm --login --claude
 **Other requirements:**
 
 - Microphone access
-- Whisper model (GGML) downloaded on first run
+- Whisper model file downloaded on first run
 - Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
 - Rust toolchain (stable) only if you build from source: <https://rustup.rs>
-- Optional (Python fallback): `python3`, `ffmpeg`, and the `whisper` CLI on PATH
-  (disable with `--no-python-fallback`)
+- Optional: `python3`, `ffmpeg`, and `whisper` CLI on PATH (used as backup if native engine is unavailable; disable with `--no-python-fallback`)
 
 ## Choose an Install Path
 
@@ -114,22 +112,7 @@ brew upgrade voiceterm
 If Homebrew still shows an older version or `voiceterm` runs an older binary, see
 [Troubleshooting: Wrong version after update](TROUBLESHOOTING.md#wrong-version-after-update).
 
-After upgrading, run `voiceterm --version` and open Settings (`Ctrl+O`) once to
-confirm your expected defaults (for example `Send mode`, `Macros`, and
-`Latency display`) are available. Wake-word controls are also present there,
-but default to `OFF` unless explicitly enabled.
-Quick post-upgrade smoke check:
-
-- `Ctrl+R` record toggle
-- `Ctrl+E` insert-mode send/finalize behavior
-- `Ctrl+H` transcript history overlay (source labels + replayable-row behavior)
-- `Ctrl+N` notification history overlay (status events with severity labels)
-- `Ctrl+O` settings overlay opens and persists changes
-- `Ctrl+Y` Theme Studio opens and rows cycle visual controls
-  (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`, `Glyph profile`,
-  `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`,
-  `Voice scene`)
-- Optional: `voiceterm --session-memory` writes markdown memory logs at the expected path
+After upgrading, run `voiceterm --version` to confirm.
 
 Detailed runtime behavior is documented in [USAGE.md](USAGE.md). Runtime issues
 and terminal-specific edge cases are documented in
@@ -191,9 +174,7 @@ cd voiceterm
 The installer builds the overlay, installs the `voiceterm` wrapper, and downloads
 a Whisper model to the correct path for the CLI.
 
-To suppress the startup splash screen, set `VOICETERM_NO_STARTUP_BANNER=1`.
-To keep it but shorten/disable dwell time, set `VOICETERM_STARTUP_SPLASH_MS`
-(`0` = immediate clear, default `1500`).
+For startup splash options, see [USAGE.md - Startup splash behavior](USAGE.md#startup-splash-behavior).
 
 Example output:
 
@@ -264,7 +245,7 @@ VOICETERM_CWD="$(pwd)" /path/to/voiceterm/scripts/start.sh
 <details>
 <summary><strong>Show Windows (WSL2) steps</strong></summary>
 
-Windows native is not supported (VoiceTerm uses a Unix PTY).
+Windows native is not supported (VoiceTerm requires a Unix terminal).
 Use a Linux environment in WSL2:
 
 1. Install WSL2 + Ubuntu.
@@ -295,11 +276,6 @@ To target Claude instead of Codex:
 voiceterm --claude
 ```
 
-Maintainer note:
-integration/test-branch release validation lives in
-[`dev/DEVELOPMENT.md` testing](../dev/DEVELOPMENT.md#testing) and
-[manual QA](../dev/DEVELOPMENT.md#manual-qa-checklist).
-
 ## Optional: Macro Wizard
 
 Use the macro wizard if you want project-local voice command packs:
@@ -326,6 +302,22 @@ Common next steps:
 - Voice macros setup and packs: [USAGE.md#project-voice-macros](USAGE.md#project-voice-macros)
 - Built-in voice navigation commands: [USAGE.md#built-in-voice-navigation-commands](USAGE.md#built-in-voice-navigation-commands)
 - Runtime troubleshooting: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+## Uninstall
+
+**Homebrew:**
+
+```bash
+brew uninstall voiceterm
+```
+
+**PyPI:**
+
+```bash
+pipx uninstall voiceterm
+```
+
+**From source:** Remove the `voiceterm` binary from your PATH (check `which voiceterm` for the location).
 
 ## See Also
 

@@ -21,7 +21,7 @@ Docs map:
 
 1. **You speak** → VoiceTerm captures audio from your microphone
 2. **Voice Activity Detection (VAD)** → Detects when you start/stop speaking
-3. **Whisper transcribes** → Converts speech to text locally using whisper.cpp
+3. **Whisper transcribes** → Converts speech to text locally using a local Whisper engine
 4. **Text typed into CLI** → Transcript is injected into your AI CLI terminal
 
 The entire pipeline runs locally with ~250ms latency on modern hardware.
@@ -188,8 +188,8 @@ export VOICETERM_MODEL_DIR=/path/to/models
 
 Whisper options (native pipeline):
 
-- `--whisper-beam-size <N>`: beam search size (0 = greedy)
-- `--whisper-temperature <T>`: sampling temperature
+- `--whisper-beam-size <N>`: beam search size — how many candidates to evaluate (0 = fastest, greedy decoding)
+- `--whisper-temperature <T>`: randomness in transcription (0.0 = most predictable)
 
 Fallback control:
 

@@ -2,7 +2,6 @@
 
 VoiceTerm is a voice-first terminal overlay for AI CLIs. It transcribes speech
 locally and injects text into your terminal input.
-Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Primary support: Codex and Claude Code.
 
@@ -66,11 +65,11 @@ backend CLI.
 ```mermaid
 flowchart TD
     A["Start capture (Ctrl+R / auto-voice / wake word)"] --> B["Record microphone audio"]
-    B --> C["Whisper STT (local)"]
+    B --> C["Whisper speech-to-text (local)"]
     C --> D{"Macros enabled?"}
     D -->|Yes| E["Apply .voiceterm/macros.yaml rules"]
     D -->|No| F["Keep raw transcript"]
-    E --> G["Inject text into PTY input"]
+    E --> G["Inject text into terminal input"]
     F --> G
     G --> H{"Send mode"}
     H -->|auto| I["Submit (Enter)"]
@@ -96,7 +95,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | In `insert` mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, show `Nothing to send` |
+| `Ctrl+E` | Send staged text (or stop recording and send) |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Enter` | In `insert` mode: send staged prompt text |
@@ -129,8 +128,8 @@ Mouse and overlay behavior:
   works with Left/Right + Enter.
 - If help/settings/theme overlays are open, unmatched input closes the overlay
   and replays the key/action into normal input handling.
-- Help overlay includes clickable Docs/Troubleshooting links (OSC-8 capable
-  terminals).
+- Help overlay includes clickable Docs/Troubleshooting links (terminals that
+  support clickable links).
 
 ## Settings Menu
 
@@ -184,7 +183,7 @@ Open with `Ctrl+H`.
 - `Esc` closes the overlay.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 - Override the memory-log path with `--session-memory-path <PATH>` when needed.
-- Session memory is backed by a structured persistence layer (JSONL + SQLite index) for reliable event storage and retrieval.
+- Session memory is stored reliably for later retrieval.
 
 ## Notification History
 
@@ -307,22 +306,6 @@ voiceterm --sound-on-complete
 voiceterm --sound-on-error
 ```
 
-Maintainer shortcut:
-[Release checks in `dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md)
-
-<details>
-<summary><strong>Release-candidate validation (maintainers)</strong></summary>
-
-For pre-release builds, run the release verification commands in
-[`dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md) and prioritize:
-
-- backend worker lifecycle checks (normal exit, abrupt kill, multi-session
-  isolation)
-- process churn + CPU leak checks
-- high-load settings responsiveness and meter sanity
-
-</details>
-
 ## Customization
 
 ### Themes
@@ -353,49 +336,12 @@ Tips:
 - On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
 
-Theme shortcuts:
-[Theme/display flags](CLI_FLAGS.md#themes--display) |
-[Style-pack env vars](CLI_FLAGS.md#environment-variables)
-<details>
-<summary><strong>Advanced theme preview details</strong></summary>
+Advanced theme options:
 
-- Advanced style-pack preview: set `VOICETERM_STYLE_PACK_JSON` to a schema payload
-  (for example `{"version":4,"profile":"ops","base_theme":"dracula"}`); invalid
-  payloads fall back to the selected built-in theme. V4 adds a
-  `component_overrides` map for per-widget style routing.
-- Supported preview overrides in `overrides`: `border_style` (`single`, `rounded`,
-  `double`, `heavy`, `none`), `indicators` (`ascii`, `dot`, `diamond`), and
-  `glyphs` (`unicode`, `ascii`).
-- Supported preview overrides in `surfaces`: `progress_style`
-  (`braille`, `dots`, `line`, `block`) and `voice_scene_style`
-  (`pulse`, `static`, `minimal`).
-- Supported preview override in `components`: `progress_bar_family`
-  (`bar`, `compact`, `blocks`, `braille`).
-  `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
-  plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
-  `glyphs` affects HUD queue/latency/meter iconography, waveform sparkline bars,
-  mic-meter calibration bars/waveforms, progress bar/block/bounce glyph families,
-  and overlay chrome symbols (help/settings/theme-picker footer close/separator
-  markers, settings selected-row marker, and settings slider track/knob glyphs).
-  Default processing spinner animation remains unless an override replaces the
-  processing indicator symbol; that same indicator choice is reused for
-  processing status text/spinner surfaces outside the HUD as well.
-- If `VOICETERM_STYLE_PACK_JSON` is valid and sets `base_theme`, runtime theme
-  switching is locked to that base theme until the env var is unset. Theme picker
-  rows are rendered as read-only/dimmed, and quick-cycle/theme-studio attempts show
-  an explicit lock status message.
-- Settings migration note: `Theme`/HUD visual rows are now removed from Settings.
-  Use Theme Studio/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
-  visual runtime choices; no user config migration is required.
-  Theme Studio currently includes direct controls for HUD style, HUD border
-  style, right panel mode, panel animation mode, glyph profile, indicator set,
-  progress spinner style, progress bar family, theme border profile, and voice
-  scene style, with live current-value labels in each control row.
-- The theme system is being extended with a capability matrix for framework
-  parity, texture profiles, and dependency baselines; no user action is required.
-- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Studio row to select/apply its action, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
-
-</details>
+- Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
+- When a style-pack sets `base_theme`, theme switching is locked to that theme until the env var is unset.
+- Visual controls (HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene) are all adjustable in Theme Studio.
+- For full env var and flag details, see [CLI_FLAGS.md](CLI_FLAGS.md#environment-variables).
 
 ### HUD styles
 
@@ -478,7 +424,7 @@ Starter packs:
 
 - `safe-core`: low-risk git/GitHub inspection commands
 - `power-git`: write actions (commit/push/PR/issue), default `insert` mode
-- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+- `full-dev`: safe-core + power-git + project checks and release helpers
 
 Wizard extras:
 
@@ -518,7 +464,7 @@ Example:
 Main areas:
 
 - mode indicator
-- mode lane (`PTT`, `AUTO`, `IDLE`) with active color transitions
+- mode lane (`PTT` (push-to-talk), `AUTO`, `IDLE`) with active color transitions
 - mic threshold
 - status message lane (`Ready`, `Recording`, `Processing`, `Responding`, warnings/errors)
 - shortcut hints (space permitting)
@@ -532,10 +478,11 @@ Latency badge behavior:
 
 - shows post-capture STT delay (`stt_ms`) when reliable metrics exist
 - larger `ms` values on longer utterances are expected for non-streaming STT
-- severity color follows speech-relative STT speed (`rtf = stt_ms / speech_ms`)
+- severity color follows real-time factor (`rtf = stt_ms / speech_ms` — how fast transcription runs compared to speech length; lower is faster)
 - recording duration is shown separately while speaking
 - hides automatically when latency metrics are incomplete (no synthetic elapsed/capture fallback)
 - stale idle badges auto-expire after a short window
+- full and compact button rows share the same queue/wake/latency badge rules and thresholds
 
 Common statuses:
 
@@ -549,7 +496,7 @@ Common statuses:
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
 | `No speech detected` | Capture ended without enough detected speech |
 
-Pipeline selection is available in Settings (`Ctrl+O`) under `Voice pipeline`.
+You can check or change the active voice pipeline in Settings (`Ctrl+O`).
 
 ## Launch Recipes
 

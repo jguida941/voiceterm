@@ -3,7 +3,6 @@
 
 Single troubleshooting reference for VoiceTerm.
 Use the quick-fix table first, then jump into the matching section shortcuts.
-Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 ## Quick Fixes
 
@@ -23,21 +22,9 @@ Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHAN
 | Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Status Messages](#status-messages) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| `PTY write failed: Input/output error` on exit | Usually benign shutdown race | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| `PTY write failed` error on exit | Usually a benign shutdown race (PTY = virtual terminal session) | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 
 ## Status Messages
-
-Section shortcuts:
-
-- [No speech detected](#no-speech-detected)
-- [Voice capture failed (see log)](#voice-capture-failed-see-log)
-- [Latency badge seems wrong](#latency-badge-seems-wrong-in-auto-mode)
-- [Transcript includes ambient-sound tags](#transcript-includes-ambient-sound-tags)
-- [Session memory file is missing](#session-memory-file-is-missing)
-- [Voice macro not expanding](#voice-macro-not-expanding)
-
-<details>
-<summary>Expand Status Messages</summary>
 
 ### No speech detected
 
@@ -47,8 +34,19 @@ The mic recorded but no voice crossed the current threshold.
 2. Lower threshold with `Ctrl+\\` (or `Ctrl+/`).
 3. Run `voiceterm --mic-meter` to calibrate.
 
-Status text is pipeline-neutral; check Settings (`Ctrl+O`) -> `Voice pipeline`
-if you need to confirm native Rust vs fallback capture.
+### Voice macro not expanding
+
+Macros load from `<project>/.voiceterm/macros.yaml` and apply only when
+`Settings -> Macros` is ON.
+
+1. Confirm file path and YAML structure.
+2. Check `Macros` toggle state in Settings (`Ctrl+O`) since startup default is `OFF`.
+3. Check trigger text match (case/whitespace-insensitive).
+4. Run `./scripts/macros.sh validate --output ./.voiceterm/macros.yaml`.
+5. Restart VoiceTerm after editing macros.
+
+<details>
+<summary>More status message issues</summary>
 
 ### Voice capture failed (see log)
 
@@ -74,48 +72,21 @@ Transcription is taking longer than expected.
 1. Wait up to 60 seconds for longer captures.
 2. If still stuck, press `Ctrl+C` and restart.
 3. Try a smaller model (`--whisper-model base`).
-4. In insert mode, use `Ctrl+R` to stop active recording without sending.
-   `Ctrl+E` sends staged text immediately; with no staged text it only
-   finalizes+submits during active recording (idle with no staged text shows
-   `Nothing to send`). `Enter` is forwarded to wrapped CLI input (`insert`
-   mode: submit staged text).
 
 ### Latency badge seems wrong in auto mode
 
-The HUD latency badge is meant to reflect the latest completed transcript STT
-processing delay (`stt_ms`), not backend response time.
+The HUD latency badge reflects the latest transcript processing delay, not backend response time.
 
-1. Confirm version:
-
-   ```bash
-   voiceterm --version
-   ```
-
-2. Re-run with logs and inspect latency audit lines:
-
-   ```bash
-   voiceterm --logs
-   ```
-
-   Look for `latency_audit|display_ms=...|capture_ms=...|speech_ms=...|stt_ms=...|rtf=...`.
-3. If `stt_ms` rises on longer utterances, that is usually expected. Final-result
-   latency scales with audio length for non-streaming STT.
-4. Compare `rtf` (real-time factor) for consistency across short and long clips:
-   lower is faster (`0.20` means 1 second of speech took ~200ms to transcribe).
-   If `rtf` stays roughly stable while `stt_ms` changes, the pipeline is
-   behaving normally.
-5. If no transcript was produced (`No speech detected` / capture errors), the
-   badge should hide instead of showing a synthetic value.
-6. Color severity follows speech-relative STT speed (`rtf`) when speech metrics
-   are present, with absolute-ms thresholds only as fallback.
-7. The badge is STT-only (no derived elapsed/capture fallback math) and stale
-   idle values auto-expire after a short window.
+1. Re-run with logs: `voiceterm --logs`
+2. Look for `latency_audit` lines in the log.
+3. If `stt_ms` rises on longer utterances, that is expected for non-streaming transcription.
+4. Compare `rtf` (real-time factor — how fast transcription runs compared to speech length; lower is faster) for consistency across short and long clips.
 
 ### Transcript includes ambient-sound tags
 
 If Whisper emits ambient placeholders such as `(siren wailing)` or
 `(water splashing)`, update to the latest build. Current sanitizer rules strip
-known non-speech tags in both `(...)` and `[...]` forms before delivery.
+known non-speech tags before delivery.
 
 If artifacts persist:
 
@@ -129,30 +100,16 @@ If artifacts persist:
 
 1. Run one successful capture first (`Ctrl+R`, speak, wait for transcript).
 2. Reopen transcript history (`Ctrl+H`) and verify entries appear newest-first.
-3. If entries still do not appear, run with logs:
-
-   ```bash
-   voiceterm --logs
-   ```
-
-4. Include terminal/IDE details and relevant `${TMPDIR}/voiceterm_tui.log`
-   lines when reporting.
+3. If entries still do not appear, run with logs: `voiceterm --logs`
 
 ### Notification history has no entries
 
 `Ctrl+N` shows runtime status notifications (for example mode toggles, warnings,
 and errors), not transcript rows.
 
-1. Trigger a status event first (for example `Ctrl+V` to toggle auto-voice, or
-   open/close Settings with `Ctrl+O`).
+1. Trigger a status event first (for example `Ctrl+V` to toggle auto-voice).
 2. Reopen notification history (`Ctrl+N`) and verify entries appear.
-3. If entries still do not appear, run with logs:
-
-   ```bash
-   voiceterm --logs
-   ```
-
-4. Include relevant `${TMPDIR}/voiceterm_tui.log` lines when reporting.
+3. If entries still do not appear, run with logs: `voiceterm --logs`
 
 ### Session memory file is missing
 
@@ -160,25 +117,8 @@ The markdown session-memory log is opt-in.
 
 1. Start VoiceTerm with `--session-memory`.
 2. If needed, set an explicit path: `--session-memory-path <PATH>`.
-3. Speak once (or send one backend/output line), then close VoiceTerm to flush
-   pending lines.
+3. Speak once, then close VoiceTerm to flush pending lines.
 4. Confirm the file exists (default: `<cwd>/.voiceterm/session-memory.md`).
-5. If still missing, rerun with logs (`voiceterm --logs`) and check
-   `${TMPDIR}/voiceterm_tui.log` for session-memory initialization errors.
-
-### Voice macro not expanding
-
-Macros load from `<project>/.voiceterm/macros.yaml` and apply only when
-`Settings -> Macros` is ON.
-
-1. Confirm file path and YAML structure.
-2. Check `Macros` toggle state in Settings (`Ctrl+O`) since startup default is `OFF`.
-3. Check trigger text match (case/whitespace-insensitive).
-4. Run `./scripts/macros.sh validate --output ./.voiceterm/macros.yaml`.
-   If it warns about unresolved placeholders (for example `__GITHUB_REPO__`),
-   rerun `./scripts/macros.sh wizard` and provide repo details.
-   If it warns about GitHub auth, run `gh auth login`.
-5. Restart VoiceTerm after editing macros.
 
 ### Voice macro expanded unexpectedly
 
@@ -199,7 +139,7 @@ Native STT was unavailable, so Python fallback was used.
 ### Raw mouse escape text appears in terminal
 
 If you see fragments like `[<0;35;25M` in the wrapped CLI while clicking or
-interrupting, those are mouse-report escape sequences that should be handled by
+interrupting, those are mouse event codes that should be handled by
 the HUD parser, not forwarded to the backend.
 
 1. Confirm version: `voiceterm --version`
@@ -211,19 +151,15 @@ the HUD parser, not forwarded to the backend.
 
 ## Audio Setup
 
-Section shortcuts:
+### Voice not recording
 
-- [Check microphone permissions](#check-microphone-permissions)
-- [Verify Whisper model exists](#verify-whisper-model-exists)
-- [Microphone changed or unplugged](#microphone-changed-or-unplugged)
-
-<details>
-<summary>Expand Audio Setup</summary>
-
-### Check microphone permissions
+Check microphone permissions:
 
 - macOS: System Settings -> Privacy & Security -> Microphone
 - Linux: verify PulseAudio/PipeWire access (`pactl list sources`)
+
+<details>
+<summary>More audio setup help</summary>
 
 ### Verify Whisper model exists
 
@@ -292,20 +228,6 @@ CLI flag range: `-120 dB` to `0 dB`.
 
 ## Backend Issues
 
-Section shortcuts:
-
-- [Codex or Claude not responding](#codex-or-claude-not-responding)
-- [Claude running without permission prompts](#claude-running-without-permission-prompts)
-- [Claude prompt rows are occluded](#claude-prompt-rows-are-occluded)
-- [Auto-voice not triggering](#auto-voice-not-triggering)
-- [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet)
-- [Transcript queued (N)](#transcript-queued-n)
-- [Transcript queue full (oldest dropped)](#transcript-queue-full-oldest-dropped)
-- [Status line clips oddly](#status-line-clips-oddly-with-cjk-or-emoji-text)
-
-<details>
-<summary>Expand Backend Issues</summary>
-
 ### Codex or Claude not responding
 
 1. Verify backend CLI exists:
@@ -318,19 +240,14 @@ Section shortcuts:
 2. Verify authentication:
 
    ```bash
-   codex login
-   # or
-   claude login
-   ```
-
-   Or from VoiceTerm:
-
-   ```bash
    voiceterm --login --codex
    voiceterm --login --claude
    ```
 
 3. Restart `voiceterm` if the session is stuck.
+
+<details>
+<summary>More backend issues</summary>
 
 ### Claude running without permission prompts
 
@@ -612,7 +529,7 @@ If you see:
 failed to send PTY exit command: PTY write failed: Input/output error (os error 5)
 ```
 
-This is usually a benign shutdown race where the PTY was already closing.
+This is usually a benign shutdown race where the virtual terminal session was already closing.
 
 ### Startup banner missing
 
@@ -670,54 +587,16 @@ Some IDE profiles do not expose truecolor env vars.
 
 ### Style-pack preview payload not applying
 
-If `VOICETERM_STYLE_PACK_JSON` is set, VoiceTerm loads that payload through the
-style-schema parser and applies the resolved `base_theme` plus any supported
-runtime visual overrides.
+If `VOICETERM_STYLE_PACK_JSON` is set but your theme looks wrong:
 
-1. Validate payload shape:
-
-   ```bash
-   VOICETERM_STYLE_PACK_JSON='{"version":2,"profile":"ops","base_theme":"dracula","overrides":{"border_style":"rounded","indicators":"ascii","glyphs":"ascii"}}' voiceterm --version
-   ```
-
-   The `indicators` override is reflected in status-lane state glyphs (idle,
-   auto/manual/recording, and processing/responding lanes). The `glyphs`
-   override is reflected in HUD meter/icon families plus overlay chrome symbols
-   (for example footer `[x] close` text and ASCII slider track/knob glyphs in
-   Settings).
-
-2. If payload is invalid/unsupported, VoiceTerm falls back to the selected
-   built-in theme (startup should remain stable).
-3. If payload is valid and includes `base_theme`, Theme Picker/quick-cycle
-   switching is intentionally locked to that base theme during the session.
-   You'll see a lock status message and dimmed picker rows for non-current
-   themes.
-4. Clear the override to confirm fallback path:
-
-   ```bash
-   unset VOICETERM_STYLE_PACK_JSON
-   voiceterm --theme codex
-   ```
+1. Check that the JSON is valid. Invalid payloads fall back to the built-in theme.
+2. If the payload sets `base_theme`, theme switching is locked to that theme for the session.
+3. Clear the variable to reset: `unset VOICETERM_STYLE_PACK_JSON`
+4. See [USAGE.md - Themes](USAGE.md#themes) for full style-pack details.
 
 </details>
 
 ## Install and Update Issues
-
-Section shortcuts:
-
-- [Homebrew link conflict](#homebrew-link-conflict)
-- [Wrong version after update](#wrong-version-after-update)
-
-<details>
-<summary>Expand Install and Update Issues</summary>
-
-### Homebrew link conflict
-
-If `brew install voiceterm` fails because the command already exists:
-
-```bash
-brew link --overwrite voiceterm
-```
 
 ### Wrong version after update
 
@@ -777,6 +656,17 @@ Verify Homebrew binary directly:
 $(brew --prefix)/opt/voiceterm/libexec/src/target/release/voiceterm --version
 ```
 
+<details>
+<summary>More install issues</summary>
+
+### Homebrew link conflict
+
+If `brew install voiceterm` fails because the command already exists:
+
+```bash
+brew link --overwrite voiceterm
+```
+
 </details>
 
 ## Enabling Logs
@@ -809,48 +699,41 @@ Log paths:
 
 ## FAQ
 
-Section shortcuts:
+### How do I reset settings to defaults?
 
-- [What languages does Whisper support?](#what-languages-does-whisper-support)
-- [Which AI CLI backends work?](#which-ai-cli-backends-work)
-- [Which Whisper model should I use?](#which-whisper-model-should-i-use)
-- [Can I use VoiceTerm without Codex?](#can-i-use-voiceterm-without-codex)
-- [Does VoiceTerm send voice audio to the cloud?](#does-voiceterm-send-voice-audio-to-the-cloud)
+Delete the config file and restart VoiceTerm:
 
-<details>
-<summary>Expand FAQ</summary>
+```bash
+rm ~/.config/voiceterm/config.toml
+```
+
+### How do I uninstall VoiceTerm?
+
+See [INSTALL.md - Uninstall](INSTALL.md#uninstall).
 
 ### What languages does Whisper support?
 
 Whisper supports many languages. Start with `--lang en` (tested) or use
 `--lang auto`.
-
 Reference:
 [Whisper supported languages](https://github.com/openai/whisper#available-models-and-languages)
 
 ### Which AI CLI backends work?
 
-Canonical backend support matrix lives in:  
-[USAGE.md -> Backend Support](USAGE.md#backend-support)
+See [USAGE.md -> Backend Support](USAGE.md#backend-support).
 
 ### Which Whisper model should I use?
 
-Start with `base` for speed, `small` for balance, `medium` for higher accuracy.  
+Start with `base` for speed, `small` for balance, `medium` for higher accuracy.
 See [WHISPER.md](WHISPER.md) for full guidance.
 
 ### Can I use VoiceTerm without Codex?
 
-Yes. Use Claude:
-
-```bash
-voiceterm --claude
-```
+Yes. Use Claude: `voiceterm --claude`
 
 ### Does VoiceTerm send voice audio to the cloud?
 
 No. Whisper runs locally.
-
-</details>
 
 ## Getting Help
 

@@ -29,7 +29,11 @@ Use this page as the canonical user documentation entrypoint.
 - Terminal and IDE issues: [`TROUBLESHOOTING.md#terminal-and-ide-issues`](TROUBLESHOOTING.md#terminal-and-ide-issues)
 - Install and update issues: [`TROUBLESHOOTING.md#install-and-update-issues`](TROUBLESHOOTING.md#install-and-update-issues)
 
+## Other Links
+
+- [What changed (Changelog)](../dev/CHANGELOG.md)
+- [Report bugs or request features (Contributing)](../.github/CONTRIBUTING.md)
+
 ## Related Developer Docs
 
-- [`../dev/history/ENGINEERING_EVOLUTION.md`](../dev/history/ENGINEERING_EVOLUTION.md)
 - [`../dev/README.md`](../dev/README.md)

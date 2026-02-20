@@ -5,9 +5,31 @@
 Please report security issues via GitHub Security Advisories (preferred). If that is not possible,
 open an issue with minimal details and clearly mark it as a security concern.
 
+**Do NOT open a public GitHub issue for security vulnerabilities.** Use the
+private advisory process so we can coordinate a fix before disclosure.
+
+We aim to acknowledge reports within 48 hours and provide an initial assessment
+within 7 days.
+
+### What to include in your report
+
+- Description of the vulnerability
+- Steps to reproduce
+- Impact (what an attacker could do)
+- Affected versions
+
 ## Supported Versions
 
-Only the latest release is supported.
+| Version | Supported |
+|---------|-----------|
+| Latest release | Yes |
+| Previous minor | Best-effort |
+| Older | No |
+
+## Severity Rating
+
+We use CVSS (Common Vulnerability Scoring System) to rate severity from 0 to 10.
+Higher scores indicate more serious vulnerabilities.
 
 ## Disclosure
 

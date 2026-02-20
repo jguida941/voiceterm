@@ -33,7 +33,8 @@ Launch the macro wizard at the end of install:
 
 ## start.sh
 
-Launches VoiceTerm directly (downloads model if needed).
+Same as running `voiceterm` directly, but handles model download and setup
+automatically. Useful when running from the source repo without installing.
 
 ```bash
 ./scripts/start.sh
@@ -74,7 +75,7 @@ Pack summary:
 
 - `safe-core`: low-risk git/GitHub inspection commands
 - `power-git`: write actions (commit/push/PR/issue) defaulting to `insert` mode
-- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+- `full-dev`: safe-core + power-git + project checks and release helpers
 
 Wizard personalization:
 
@@ -88,12 +89,12 @@ Wizard personalization:
 
 ## python_fallback.py
 
-Python fallback pipeline for speech-to-text. Used automatically when:
-
-- Native Whisper model is not available
-- Audio device issues occur
+Python fallback pipeline for speech-to-text. VoiceTerm uses this automatically
+when the native Whisper engine cannot run — for example, if the model file is
+missing or the audio device is not accessible to the native pipeline.
 
 Requires: `python3`, `ffmpeg`, `whisper` CLI on PATH.
+You can disable this fallback with `--no-python-fallback`.
 
 ---
 

@@ -3,19 +3,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-stable?style=for-the-badge&logo=rust&logoColor=white&labelColor=B34722&color=2D2F34" alt="Rust">
-  <img src="https://img.shields.io/badge/macOS-supported?style=for-the-badge&logo=apple&logoColor=white&labelColor=B34722&color=2D2F34" alt="macOS">
-  <img src="https://img.shields.io/badge/Linux-supported?style=for-the-badge&logo=linux&logoColor=white&labelColor=B34722&color=2D2F34" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-local?style=for-the-badge&logo=openai&logoColor=white&labelColor=B34722&color=2D2F34" alt="Whisper">
-  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Ratatui-native?style=for-the-badge&logo=ratatui&logoColor=white&labelColor=B34722&color=2D2F34" alt="Ratatui"></a>
+  <img src="https://img.shields.io/badge/Rust-stable?style=for-the-badge&logo=rust&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Rust">
+  <img src="https://img.shields.io/badge/macOS-supported?style=for-the-badge&logo=apple&logoColor=white&labelColor=7C422B&color=2D2F34" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-supported?style=for-the-badge&logo=linux&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Linux">
+  <img src="https://img.shields.io/badge/Whisper-local?style=for-the-badge&logo=openai&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Whisper">
+  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Ratatui-native?style=for-the-badge&logo=ratatui&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Ratatui"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=for-the-badge&label=release&labelColor=B34722&color=2D2F34" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT?style=for-the-badge&labelColor=B34722&color=2D2F34" alt="MIT License"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=for-the-badge&label=ci&labelColor=B34722&color=2D2F34&logo=github&logoColor=white" alt="CI"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=for-the-badge&label=mutation&labelColor=B34722&color=2D2F34&logo=github&logoColor=white" alt="Mutation Score"></a>
-  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=for-the-badge&label=coverage&labelColor=B34722&color=2D2F34&logo=codecov&logoColor=white" alt="Coverage"></a>
+  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=for-the-badge&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT?style=for-the-badge&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=for-the-badge&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=for-the-badge&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="Mutation Score"></a>
+  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=for-the-badge&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white" alt="Coverage"></a>
 </p>
 
 Voice input for AI CLIs. Talk instead of type.
@@ -96,6 +96,8 @@ voiceterm --login --claude
 <details>
 <summary><strong>From source</strong></summary>
 
+Requires Rust toolchain. See [Install Guide](guides/INSTALL.md) for details.
+
 ```bash
 git clone https://github.com/jguida941/voiceterm.git
 cd voiceterm
@@ -121,16 +123,18 @@ For model options and startup/IDE tuning:
 
 ```mermaid
 graph TD
-    A["Microphone"] --> B["Whisper STT"]
+    A["Microphone"] --> B["Whisper Speech-to-Text"]
     B --> C["Transcript"]
-    C --> D["PTY"]
+    C --> D["Terminal Session"]
     D --> E["AI CLI"]
     E --> F["Terminal Output"]
 ```
 
-VoiceTerm wraps your AI CLI in a PTY and adds voice input.
+VoiceTerm wraps your AI CLI in a virtual terminal session and adds voice input.
 You talk → Whisper transcribes locally → text gets typed into the CLI.
 All CLI output passes through unchanged.
+
+![Recording](img/recording.png)
 
 ## Requirements
 
@@ -144,9 +148,9 @@ All CLI output passes through unchanged.
 
 | Feature | What it does |
 |---------|---------------|
-| **Local STT** | Whisper runs on your machine (no cloud calls) |
-| **Fast voice-to-text** | `whisper.cpp` turns speech into text quickly |
-| **PTY passthrough** | Your CLI layout and behavior stay the same |
+| **Local speech-to-text** | Whisper runs on your machine (no cloud calls) |
+| **Fast voice-to-text** | A local Whisper engine turns speech into text quickly |
+| **Terminal passthrough** | Your CLI layout and behavior stay the same |
 | **Auto-voice** | You can talk hands-free instead of typing |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
@@ -164,10 +168,6 @@ All CLI output passes through unchanged.
 
 For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
 
-## Voice Recording
-
-![Recording](img/recording.png)
-
 ## Supported AI CLIs
 
 VoiceTerm is optimized for Codex and Claude Code.
@@ -177,22 +177,9 @@ For backend configuration details, see the [Usage Guide](guides/USAGE.md).
 
 ### Codex
 
-```bash
-npm install -g @openai/codex
-voiceterm
-voiceterm --codex   # explicit (optional)
-voiceterm --login --codex
-```
-
 ![Codex Backend](img/codex-backend.png)
 
 ### Claude Code
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-voiceterm --claude
-voiceterm --login --claude
-```
 
 ![Claude Backend](img/claude-backend.png)
 
@@ -213,8 +200,8 @@ Mouse control is enabled by default. Open Settings with `Ctrl+O`.
 For full behavior and configuration details, use:
 
 - [Settings Menu](guides/USAGE.md#settings-menu)
-- [Themes](guides/USAGE.md#themes) (including `VOICETERM_STYLE_PACK_JSON` and `base_theme` lock behavior)
-- [HUD styles](guides/USAGE.md#hud-styles) (including right-panel visualizer behavior)
+- [Themes](guides/USAGE.md#themes)
+- [HUD styles](guides/USAGE.md#hud-styles)
 
 ### Transcript History
 
@@ -230,7 +217,7 @@ Detailed behavior: [Transcript History](guides/USAGE.md#transcript-history).
 
 Press `?` to open grouped shortcuts (`Recording`, `Mode`, `Appearance`,
 `Sensitivity`, `Navigation`) with clickable Docs/Troubleshooting links on
-OSC-8 terminals. Details: [Core Controls](guides/USAGE.md#core-controls).
+terminals that support clickable links. Details: [Core Controls](guides/USAGE.md#core-controls).
 
 ## Controls
 
@@ -276,7 +263,7 @@ Packs:
 
 - `safe-core`: low-risk git/GitHub inspection commands
 - `power-git`: write actions (commit/push/PR/issue) in `insert` mode by default
-- `full-dev`: safe-core + power-git + codex-voice maintainer checks/release helpers
+- `full-dev`: safe-core + power-git + project checks and release helpers
 
 If you use GitHub macros, the wizard checks `gh` availability/auth and can
 prompt for `gh auth login`.

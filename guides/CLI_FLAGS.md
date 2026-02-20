@@ -2,7 +2,6 @@
 
 All flags for the `voiceterm` command. Run `voiceterm --help` for the live
 themed, grouped output.
-Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Docs map:
 
@@ -59,41 +58,7 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 | `--wake-word-cooldown-ms <MS>` | Cooldown between wake triggers (500-10000) | 2000 |
 | `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
-<details>
-<summary><strong>Runtime behavior notes (not CLI flags)</strong></summary>
-
-`Macros` is currently a runtime Settings toggle (`Ctrl+O`) and does not yet
-have a CLI flag.
-`Voice pipeline` is also a runtime Settings value (no dedicated CLI flag), and
-status text remains pipeline-neutral.
-Wake-word listening uses local audio/STT and requires an available local
-Whisper model path.
-High-load HUD responsiveness and meter visualization behavior are also runtime
-Settings/HUD concerns (no dedicated CLI flags); see
-`dev/DEVELOPMENT.md` (`Testing` and `Manual QA checklist`) for release
-validation commands.
-
-Built-in voice navigation commands are runtime phrase actions (not CLI flags):
-`scroll up`, `scroll down`, `show last error`, `copy last error`, and
-`explain last error`.
-If a macro and built-in phrase overlap, the macro runs first; use explicit
-`voice scroll up`/`voice scroll down` to force built-in navigation phrases.
-Runtime control note: `Ctrl+R` toggles recording (start/stop), `Ctrl+E` sends
-staged insert-mode text immediately and with no staged text requests early-stop
-submit only while recording; if idle with no staged text it shows
-`Nothing to send`. `Enter` is forwarded to wrapped CLI input (`insert` mode:
-submit staged text).
-`Ctrl+H` opens history (search + replay for replayable rows), including `mic`,
-`you`, and `ai` entries.
-`Ctrl+N` opens notification history for recent runtime status events.
-History search input ignores terminal control/focus escape noise, and replay is
-blocked for output-only `ai` rows.
-Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI
-flags win over persisted values for the current run.
-Input parser note: malformed/fragmented SGR mouse-report escapes (raw `[<...`
-fragments) are dropped instead of being forwarded to the wrapped CLI input stream.
-
-</details>
+For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
 
 ---
 
@@ -124,7 +89,7 @@ voiceterm --login --claude      # Login to Claude CLI
 
 **Notes:**
 
-- `--backend` accepts a custom command string.
+- `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`
 - Gemini is currently nonfunctional; Aider/OpenCode presets exist but are untested. Only Codex and Claude are fully supported.
 
 ---
@@ -149,7 +114,7 @@ voiceterm --login --claude      # Login to Claude CLI
 | Flag | Purpose | Default |
 |------|---------|---------|
 | `--whisper-model <NAME>` | Model size: `tiny`, `base`, `small`, `medium`, `large` | small |
-| `--whisper-model-path <PATH>` | Path to GGML model file | auto-detected |
+| `--whisper-model-path <PATH>` | Path to Whisper model file | auto-detected |
 | `--lang <LANG>` | Language code (`en`, `es`, `auto`, etc.) | en |
 | `--whisper-cmd <PATH>` | Whisper CLI path (python fallback) | whisper |
 | `--whisper-beam-size <N>` | Beam search size (0 = greedy) | 0 |
@@ -165,6 +130,8 @@ For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.m
 
 ## Capture Tuning
 
+VAD (voice activity detection) flags control when VoiceTerm starts and stops recording.
+
 | Flag | Purpose | Default |
 |------|---------|---------|
 | `--voice-vad-threshold-db <DB>` | Mic sensitivity (-120 = very sensitive, 0 = less; hotkeys clamp -80..-10) | -55.0 |
@@ -176,7 +143,7 @@ For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.m
 | `--voice-sample-rate <HZ>` | Audio sample rate | 16000 |
 | `--voice-vad-frame-ms <MS>` | VAD frame size | 20 |
 | `--voice-vad-smoothing-frames <N>` | VAD smoothing window | 3 |
-| `--voice-vad-engine <earshot\|simple>` | VAD implementation | earshot (when built with `vad_earshot`), otherwise `simple` |
+| `--voice-vad-engine <earshot\|simple>` | VAD implementation — earshot is the built-in advanced engine | earshot (when built with `vad_earshot`), otherwise `simple` |
 | `--voice-channel-capacity <N>` | Internal frame channel capacity | 100 |
 
 ---
@@ -198,40 +165,7 @@ For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.m
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
 
-<details>
-<summary><strong>HUD behavior and theme runtime notes</strong></summary>
-
-**HUD styles:**
-
-- `full`: 4-row banner with borders, mode indicator, dB meter, and shortcuts
-- `minimal`: Single-line strip with optional compact right-panel visualization chip
-- `hidden`: Muted launcher row when idle (`VoiceTerm hidden` + `? help` + `^O settings` + subtle `[open] [hide]` controls; selecting `hide` collapses to `[open]` only, first `open` restores launcher, next `open` switches HUD style); same muted gray `rec` indicator while recording
-- In Full HUD, right-panel telemetry (`ribbon`/`dots`/`heartbeat`) is shown on
-  the main status row (top-right lane).
-- Full HUD border style can be overridden with `--hud-border-style` (`theme`, `single`, `rounded`, `double`, `heavy`, `none`)
-- To disable the right-side waveform/pulse panel, set `--hud-right-panel off`
-- Latency badge reports direct STT delay (`stt_ms`) only, hides on no-speech/error
-  captures, and auto-expires stale idle values; severity color follows
-  speech-relative STT speed (`rtf`) when speech metrics are available.
-- Startup and first-run discoverability now surfaces `?` help + `Ctrl+O` settings
-  hints, and first-run guidance remains visible until the first successful transcript.
-- Help overlay now includes clickable Docs/Troubleshooting links on OSC-8
-  capable terminals.
-
-Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
-Theme controls at runtime: `Ctrl+Y` opens Theme Studio (then choose
-`Theme picker`) and `Ctrl+G` quick-cycles to the next theme.
-Compact HUD modules adapt by state and available width (recording favors meter +
-latency + queue, busy favors queue + latency, idle favors latency).
-Rendering internals and terminal-specific behavior are documented in
-`guides/TROUBLESHOOTING.md` and `dev/ARCHITECTURE.md`.
-
-**Theme defaults:** If `--theme` is not provided, VoiceTerm selects a backend-
-appropriate default. Claude → `claude`, Codex → `codex`, others → `coral`.
-On `xterm-256color` terminals, VoiceTerm preserves selected themes; ANSI
-fallback is only applied on ANSI16 terminals.
-
-</details>
+For HUD runtime behavior and theme details, see [USAGE.md](USAGE.md#hud-styles).
 
 ---
 

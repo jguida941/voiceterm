@@ -2,17 +2,7 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
-Current stable release: `v1.0.86` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
-
-Docs map:
-
-- User docs entrypoint: [guides/README.md](guides/README.md)
-- Install details: [guides/INSTALL.md](guides/INSTALL.md)
-- Usage and controls: [guides/USAGE.md](guides/USAGE.md)
-- Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-- Engineering history: [dev/history/ENGINEERING_EVOLUTION.md](dev/history/ENGINEERING_EVOLUTION.md)
-
-Maintainer check (source edits): run `python3 dev/scripts/devctl.py check --profile ci` before pushing.
+See [README](README.md) for the current release.
 
 ## 1) Install Codex CLI (default backend)
 
@@ -78,7 +68,7 @@ voiceterm --claude
 ## 4) Core controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
-- `Ctrl+E` - in insert mode: send staged text now; if recording with no staged text, finalize and submit current capture; if idle with no staged text, shows `Nothing to send`
+- `Ctrl+E` - send text now (see [USAGE.md](guides/USAGE.md#core-controls) for full behavior)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+O` - open settings menu
@@ -92,14 +82,8 @@ Full controls reference:
 - [guides/USAGE.md#settings-menu](guides/USAGE.md#settings-menu)
 - [guides/USAGE.md#voice-modes](guides/USAGE.md#voice-modes)
 
-Behavior highlights:
-
-- Send mode: `auto` types and submits; `insert` types and waits for `Enter`.
-- Overlays (`help` / `settings` / `theme studio` / `theme picker` / `history` / `notifications`): unmatched input closes the overlay and replays the action.
-- History overlay rows are source-labeled (`mic`, `you`, `ai`); only `mic` and `you` rows are replayable.
-- Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI flags override persisted values for that run.
-- Hidden HUD keeps idle controls subtle: `? help`, `^O settings`, `[open] [hide]`.
-- Claude approval/permission prompts temporarily suppress HUD rows to keep prompt actions visible.
+In `auto` mode, text is typed and submitted. In `insert` mode, text is typed
+and you press Enter. See [Usage Guide](guides/USAGE.md) for full details.
 
 Deep-dive guides:
 
@@ -117,7 +101,6 @@ Optional macro setup (project-local):
 If you install from source, `./scripts/install.sh` now prompts to run the macro
 wizard at the end of install.
 
-- Pre-release/test branch install flow: [guides/INSTALL.md#integrationtest-branch-installs](guides/INSTALL.md#integrationtest-branch-installs)
 - Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
 
 ## 5) Common flags
@@ -128,18 +111,10 @@ voiceterm --voice-send-mode insert
 voiceterm --voice-vad-threshold-db -50
 voiceterm --mic-meter
 voiceterm --logs
-voiceterm --latency-display label
-voiceterm --voice-max-capture-ms 60000 --voice-buffer-ms 60000
-voiceterm --transcript-idle-ms 250
-voiceterm --prompt-regex '^codex> $'
-voiceterm --wake-word --wake-word-sensitivity 0.65 --wake-word-cooldown-ms 3000
-voiceterm --session-memory --session-memory-path ./.voiceterm/session-memory.md
 ```
 
-Wake-word remains OFF by default; use the flag above or Settings (`Ctrl+O`) to
-enable and tune sensitivity/cooldown.
-
-See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full CLI flag and env var list.
+See [CLI_FLAGS.md](guides/CLI_FLAGS.md) for all options including wake-word,
+session memory, theme, and capture tuning flags.
 
 ## 6) Need help?
 

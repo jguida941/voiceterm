@@ -7,12 +7,15 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-### Code Quality
+<details>
+<summary>Code Quality (internal refactors, no user-visible changes)</summary>
 
-- Reduce PTY counter lint debt by removing function-level `#[allow(dead_code)]` suppressions from `src/src/pty_session/counters.rs` and narrowing test-only re-exports in `src/src/pty_session/mod.rs`; no runtime behavior change.
-- Decompose status-line right-panel rendering helpers out of `src/src/bin/voiceterm/status_line/format.rs` into `status_line/right_panel.rs` (MP-265) with no runtime behavior change.
-- Continue MP-265 decomposition by moving minimal-HUD right-panel scene/waveform/pulse helpers from `src/src/bin/voiceterm/status_line/buttons.rs` into `status_line/right_panel.rs`, centralizing full/minimal panel helper logic with no runtime behavior change.
-- Continue MP-265 decomposition by extracting queue/wake/latency badge helpers from `src/src/bin/voiceterm/status_line/buttons.rs` into `status_line/buttons/badges.rs`, reducing `buttons.rs` size while preserving runtime behavior.
+- Remove unused lint suppressions in PTY counters module.
+- Extract right-panel rendering helpers into a dedicated module for cleaner code organization.
+- Centralize full/minimal HUD right-panel scene and waveform helpers.
+- Extract badge helpers (queue/wake/latency) into a dedicated submodule.
+
+</details>
 
 ### Documentation
 
@@ -56,21 +59,21 @@ Note: Some historical entries reference internal documents that are not publishe
 - Harden Claude interactive prompt safety: when approval/permission prompts are detected, HUD rows are fully suppressed (no reserved PTY rows) and automatically restored on user input or timeout.
 - Fix prompt-suppression lifecycle so timeout-based HUD restore also runs on periodic ticks (not only on new PTY output).
 
-### Code Quality
+<details>
+<summary>Code Quality (internal refactors, no user-visible changes)</summary>
 
-- Standardize status-line width/truncation on Unicode display width in remaining writer/status-style paths, including printable-Unicode-safe status sanitization and wide-glyph truncation coverage.
-- Consolidate transcript-preview text formatting into a shared `voice_control/transcript_preview.rs` helper so navigation and drain delivery paths cannot drift.
-- Fix persistent-config explicit-flag detection so explicitly passed default values (for example `--voice-send-mode auto`) are treated as explicit and not overridden by persisted config.
-- Extend Theme Upgrade Phase 1 runtime wiring: style resolver now loads/migrates schema payloads through `theme/style_schema.rs` before palette resolution, with deterministic fallback to built-in base-theme palettes for invalid/unsupported packs.
-- Extend Theme Studio style-pack runtime coverage beyond base palettes: schema payload overrides now support border glyph-set routing and indicator glyph-family routing (`ascii`, `dot`, `diamond`) through the resolver path, including compact/full/minimal/hidden processing/responding indicator lanes while preserving default processing spinner animation unless an override changes it.
-- Route non-HUD processing/progress spinner rendering through theme/style-pack indicator resolution (status animation, periodic processing status text, and `progress::format_spinner`) so these surfaces no longer depend on hardcoded frame tables outside Theme Studio ownership.
-- Add style-pack `glyphs` override routing (`unicode`/`ascii`) across runtime icon and meter surfaces: HUD queue/latency/meter modules, minimal/full status waveform placeholders, minimal pulse-dots, and progress bar/block/bounce glyph rendering now resolve from the active theme glyph profile instead of hardcoded Unicode constants.
-- Extend glyph-profile routing into audio meter formatting (`audio_meter/format.rs`) so calibration/mic-meter bars, peak markers, threshold pointers, and waveform rendering also honor `glyphs` style-pack overrides.
-- Extend glyph-profile routing into overlay chrome for help/settings/theme-picker surfaces so footer separators/close markers, selected-row markers, and settings slider track/knob symbols all honor `glyphs` overrides; footer close hit-testing now follows the active unicode/ascii footer text.
-- Harden style-pack lock UX for theme switching: when `VOICETERM_STYLE_PACK_JSON` provides a valid `base_theme`, quick-cycle/settings/theme-picker selection paths now report an explicit lock status instead of pretending to apply a switch, Theme Picker options render as locked/dimmed, and Settings marks Theme as locked/read-only.
-- Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
-- Add StylePack V4 schema migration with component-override routing, a ToastCenter notification lifecycle (push/dismiss/tick), and a styleable component registry contract for theme-aware widget state tracking.
-- Add memory subsystem foundation: event type model, schema validation, JSONL append-only persistence, in-memory SQLite retrieval index, ingest pipeline with mode-gated dual-write, retrieval query with token budgeting, context-pack assembly, governance safety layer, and action audit state.
+- Standardize status-line width handling on Unicode display width.
+- Consolidate transcript-preview formatting into a shared helper.
+- Fix persistent-config detection so explicit default values are not overridden by saved config.
+- Wire style-pack theme resolver with fallback to built-in palettes.
+- Route all indicator, glyph, spinner, and progress bar rendering through the theme resolver.
+- Extend glyph-profile routing to audio meter, overlay chrome, and footer symbols.
+- Harden style-pack lock UX so theme switching shows lock status when a base theme is set.
+- Add theme resolver policy gate test.
+- Add StylePack V4 schema migration and notification lifecycle.
+- Add session memory subsystem foundation.
+
+</details>
 
 ### Documentation
 
