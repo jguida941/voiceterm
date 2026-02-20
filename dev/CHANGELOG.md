@@ -7,6 +7,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Code Quality
+
+- Reduce PTY counter lint debt by removing function-level `#[allow(dead_code)]` suppressions from `src/src/pty_session/counters.rs` and narrowing test-only re-exports in `src/src/pty_session/mod.rs`; no runtime behavior change.
+
 ## [1.0.86] - 2026-02-20
 
 ### UX

@@ -12,6 +12,8 @@ Docs map:
 - Troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 - Engineering history: [dev/history/ENGINEERING_EVOLUTION.md](dev/history/ENGINEERING_EVOLUTION.md)
 
+Maintainer check (source edits): run `python3 dev/scripts/devctl.py check --profile ci` before pushing.
+
 ## 1) Install Codex CLI (default backend)
 
 ```bash
