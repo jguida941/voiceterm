@@ -88,6 +88,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::TranscriptHistoryToggle);
                 }
+                0x0e => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::ToastHistoryToggle);
+                }
                 b'?' => {
                     self.flush_pending(out);
                     out.push(InputEvent::HelpToggle);
@@ -282,6 +286,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
         'o' => Some(InputEvent::SettingsToggle),
         'u' => Some(InputEvent::ToggleHudStyle),
         'h' => Some(InputEvent::TranscriptHistoryToggle),
+        'n' => Some(InputEvent::ToastHistoryToggle),
         '?' => Some(InputEvent::HelpToggle),
         'q' => Some(InputEvent::Exit),
         _ => None,
@@ -324,7 +329,7 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(
             &[
-                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08,
+                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08, 0x0e,
             ],
             &mut out,
         );
@@ -344,6 +349,7 @@ mod tests {
                 InputEvent::SettingsToggle,
                 InputEvent::ToggleHudStyle,
                 InputEvent::TranscriptHistoryToggle,
+                InputEvent::ToastHistoryToggle,
             ]
         );
     }
@@ -556,6 +562,10 @@ mod tests {
         assert_eq!(
             parse_csi_u_event(b"\x1b[111;5u"),
             Some(InputEvent::SettingsToggle)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[110;5u"),
+            Some(InputEvent::ToastHistoryToggle)
         );
         assert_eq!(
             parse_csi_u_event(b"\x1b[63;5u"),

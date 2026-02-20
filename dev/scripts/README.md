@@ -50,12 +50,15 @@ python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 # Tag + notes (legacy release flow)
 python3 dev/scripts/devctl.py release --version X.Y.Z
 
-# Full release pipeline (single command)
-python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --pypi --homebrew --verify-pypi
+# Workflow-first release path (recommended)
+python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+gh run list --workflow publish_pypi.yml --limit 1
 
 # Distribution steps
-python3 dev/scripts/devctl.py pypi --upload
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
+
+# Manual fallback (local PyPI publish)
+python3 dev/scripts/devctl.py pypi --upload --yes
 ```
 
 ## Scripts Inventory
@@ -114,21 +117,35 @@ python3 dev/scripts/check_release_version_parity.py
 # 2) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
 
-# 3) publish GitHub release
+# 3) publish GitHub release (triggers publish_pypi.yml)
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
 
-# 4) publish package + update tap
-python3 dev/scripts/devctl.py pypi --upload
-python3 dev/scripts/devctl.py homebrew --version X.Y.Z
+# 4) monitor the PyPI publish workflow
+gh run list --workflow publish_pypi.yml --limit 1
+# gh run watch <run-id>
 
 # 5) verify published package
 curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
+
+# 6) update Homebrew tap
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
-Or run the unified control-plane flow:
+Manual fallback (if GitHub Actions publish lane is unavailable):
 
 ```bash
-python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --pypi --homebrew --verify-pypi
+python3 dev/scripts/devctl.py pypi --upload --yes
+```
+
+Or run unified control-plane commands directly:
+
+```bash
+# Workflow-first release path
+python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+python3 dev/scripts/devctl.py ship --version X.Y.Z --homebrew --yes
+
+# Manual fallback (local PyPI publish)
+python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebrew --yes
 ```
 
 ## Test Scripts

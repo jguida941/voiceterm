@@ -84,6 +84,7 @@ submit only while recording; if idle with no staged text it shows
 submit staged text).
 `Ctrl+H` opens history (search + replay for replayable rows), including `mic`,
 `you`, and `ai` entries.
+`Ctrl+N` opens notification history for recent runtime status events.
 History search input ignores terminal control/focus escape noise, and replay is
 blocked for output-only `ai` rows.
 Runtime settings persist to `~/.config/voiceterm/config.toml`; explicit CLI

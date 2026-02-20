@@ -454,6 +454,7 @@ fn main() -> Result<()> {
         claude_prompt_detector: ClaudePromptDetector::new(
             backend_label.to_ascii_lowercase().contains("claude"),
         ),
+        last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
         action_center_state: memory::ActionCenterState::new(),

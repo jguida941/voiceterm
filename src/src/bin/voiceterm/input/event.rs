@@ -16,6 +16,7 @@ pub(crate) enum InputEvent {
     ToggleHudStyle,
     CollapseHiddenLauncher,
     TranscriptHistoryToggle,
+    ToastHistoryToggle,
     EnterKey,
     Exit,
     /// Mouse click at (x, y) coordinates (1-based, like terminal reports)

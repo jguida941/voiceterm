@@ -324,6 +324,7 @@ fn build_harness(
         transcript_history_state: crate::transcript_history::TranscriptHistoryState::new(),
         session_memory_logger: None,
         claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
+        last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
         action_center_state: crate::memory::ActionCenterState::new(),
@@ -3316,4 +3317,97 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
         .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
         .max(1);
     assert_eq!(restored_rows, expected_rows);
+}
+
+#[test]
+fn toast_history_toggle_opens_and_closes_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ToastHistoryToggle,
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ToastHistory);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ToastHistoryToggle,
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+}
+
+#[test]
+fn periodic_tasks_push_status_toasts_with_severity_mapping() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+
+    state.current_status = Some("Transcript ready".to_string());
+    state.status_state.message = "Transcript ready".to_string();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert_eq!(state.toast_center.active_count(), 1);
+    assert_eq!(
+        state.toast_center.active_toasts()[0].severity,
+        crate::toast::ToastSeverity::Success
+    );
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(10),
+    );
+    assert_eq!(state.toast_center.active_count(), 1);
+
+    state.current_status = Some("Voice capture failed".to_string());
+    state.status_state.message = "Voice capture failed".to_string();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(20),
+    );
+    assert_eq!(state.toast_center.active_count(), 2);
+    assert_eq!(
+        state.toast_center.active_toasts()[1].severity,
+        crate::toast::ToastSeverity::Error
+    );
+}
+
+#[test]
+fn periodic_tasks_status_clear_resets_toast_dedupe() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let now = Instant::now();
+
+    state.current_status = Some("Capture stopped".to_string());
+    state.status_state.message = "Capture stopped".to_string();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert_eq!(state.toast_center.active_count(), 1);
+
+    timers.status_clear_deadline = Some(now - Duration::from_millis(1));
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(2),
+    );
+    assert!(state.current_status.is_none());
+
+    state.current_status = Some("Capture stopped".to_string());
+    state.status_state.message = "Capture stopped".to_string();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(4),
+    );
+    assert_eq!(state.toast_center.active_count(), 2);
 }

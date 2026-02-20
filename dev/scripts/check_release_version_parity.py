@@ -13,6 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CARGO_TOML = REPO_ROOT / "src/Cargo.toml"
 PYPROJECT_TOML = REPO_ROOT / "pypi/pyproject.toml"
+INIT_PY = REPO_ROOT / "pypi/src/voiceterm/__init__.py"
 INFO_PLIST = REPO_ROOT / "app/macos/VoiceTerm.app/Contents/Info.plist"
 
 
@@ -56,14 +57,24 @@ def _read_plist_versions(path: Path) -> tuple[str | None, str | None]:
     return short_version, bundle_version
 
 
+def _read_init_version(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    return match.group(1) if match else None
+
+
 def _build_report() -> dict:
     cargo_version = _read_cargo_version(CARGO_TOML)
     pyproject_version = _read_pyproject_version(PYPROJECT_TOML)
+    init_version = _read_init_version(INIT_PY)
     plist_short, plist_bundle = _read_plist_versions(INFO_PLIST)
 
     values = {
         "src/Cargo.toml": cargo_version,
         "pypi/pyproject.toml": pyproject_version,
+        "pypi/src/voiceterm/__init__.py": init_version,
         "app/macos/VoiceTerm.app/Contents/Info.plist:CFBundleShortVersionString": plist_short,
         "app/macos/VoiceTerm.app/Contents/Info.plist:CFBundleVersion": plist_bundle,
     }

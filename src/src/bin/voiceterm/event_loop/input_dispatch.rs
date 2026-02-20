@@ -50,6 +50,10 @@ pub(super) fn handle_input_event(
                 state.status_state.hud_button_focus = None;
                 open_transcript_history_overlay(state, deps);
             }
+            InputEvent::ToastHistoryToggle => {
+                state.status_state.hud_button_focus = None;
+                open_toast_history_overlay(state, deps);
+            }
             InputEvent::ToggleHudStyle => {
                 let overlay_mode = state.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
@@ -723,6 +727,10 @@ fn handle_overlay_input_event(
                 close_overlay(state, deps, false);
             }
             // Arrow keys and other input are ignored in toast history (read-only).
+            None
+        }
+        (OverlayMode::ToastHistory, InputEvent::ToastHistoryToggle) => {
+            close_overlay(state, deps, false);
             None
         }
         (OverlayMode::ToastHistory, InputEvent::HelpToggle) => {

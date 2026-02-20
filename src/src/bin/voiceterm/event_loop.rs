@@ -61,7 +61,7 @@ use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
-    open_transcript_history_overlay,
+    open_toast_history_overlay, open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 

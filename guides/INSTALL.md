@@ -122,6 +122,7 @@ Quick post-upgrade smoke check:
 - `Ctrl+R` record toggle
 - `Ctrl+E` insert-mode send/finalize behavior
 - `Ctrl+H` transcript history overlay (source labels + replayable-row behavior)
+- `Ctrl+N` notification history overlay (status events with severity labels)
 - `Ctrl+O` settings overlay opens and persists changes
 - Optional: `voiceterm --session-memory` writes markdown memory logs at the expected path
 

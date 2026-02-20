@@ -109,6 +109,7 @@ Flow:
 |-----|--------|
 | `Ctrl+G` | Quick cycle theme |
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
+| `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
 | `Ctrl+Y` | Open theme picker |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
@@ -177,6 +178,14 @@ Open with `Ctrl+H`.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 - Override the memory-log path with `--session-memory-path <PATH>` when needed.
 - Session memory is backed by a structured persistence layer (JSONL + SQLite index) for reliable event storage and retrieval.
+
+## Notification History
+
+Open with `Ctrl+N`.
+
+- Shows recent status notifications with severity labels (`INFO`, `OK`, `WARN`, `ERR`).
+- Notifications are captured from runtime status events and auto-dismiss from the active toast lane.
+- Use `Esc` (or `Ctrl+N` again) to close the overlay.
 
 ## Voice Modes
 

@@ -217,6 +217,7 @@ pub(super) fn run_periodic_tasks(
         );
     }
     maybe_expire_stale_latency(state, deps, now);
+    maybe_capture_status_toast(state, deps);
 
     if state.auto_voice_enabled
         && !state.auto_voice_paused_by_user
@@ -253,6 +254,9 @@ pub(super) fn run_periodic_tasks(
     if now.duration_since(timers.last_toast_tick) >= Duration::from_millis(TOAST_TICK_INTERVAL_MS) {
         timers.last_toast_tick = now;
         if state.toast_center.tick() {
+            if state.overlay_mode == OverlayMode::ToastHistory {
+                render_toast_history_overlay_for_state(state, deps);
+            }
             send_enhanced_status_with_buttons(
                 &deps.writer_tx,
                 &deps.button_registry,
@@ -285,6 +289,7 @@ pub(super) fn run_periodic_tasks(
         if now >= deadline {
             timers.status_clear_deadline = None;
             state.current_status = None;
+            state.last_toast_status = None;
             state.status_state.message.clear();
             if state.status_state.recording_state == RecordingState::Responding {
                 state.status_state.recording_state = RecordingState::Idle;
@@ -299,6 +304,28 @@ pub(super) fn run_periodic_tasks(
                 state.theme,
             );
         }
+    }
+}
+
+fn maybe_capture_status_toast(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    let Some(status) = state.current_status.clone() else {
+        return;
+    };
+    if state.last_toast_status.as_deref() == Some(status.as_str()) {
+        return;
+    }
+    let severity = match crate::status_style::StatusType::from_message(&status) {
+        crate::status_style::StatusType::Success => crate::toast::ToastSeverity::Success,
+        crate::status_style::StatusType::Warning => crate::toast::ToastSeverity::Warning,
+        crate::status_style::StatusType::Error => crate::toast::ToastSeverity::Error,
+        crate::status_style::StatusType::Recording
+        | crate::status_style::StatusType::Processing
+        | crate::status_style::StatusType::Info => crate::toast::ToastSeverity::Info,
+    };
+    state.toast_center.push(severity, status.clone());
+    state.last_toast_status = Some(status);
+    if state.overlay_mode == OverlayMode::ToastHistory {
+        render_toast_history_overlay_for_state(state, deps);
     }
 }
 
