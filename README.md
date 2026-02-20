@@ -4,12 +4,12 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/-Rust-C2785C?style=flat&labelColor=C2785C&logo=rust&logoColor=white" alt="Rust">
-  <img src="https://img.shields.io/badge/-macOS-C2785C?style=flat&labelColor=4B2D5F&logo=apple&logoColor=white" alt="macOS">
-  <img src="https://img.shields.io/badge/-Linux-C2785C?style=flat&labelColor=4B2D5F&logo=linux&logoColor=white" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-Voice_Input-C2785C?style=flat&labelColor=4B2D5F&logo=audacity&logoColor=white" alt="Whisper">
-  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&color=C2785C&labelColor=4B2D5F" alt="VoiceTerm Version"></a>
+  <img src="https://img.shields.io/badge/-macOS-000000?style=flat&labelColor=000000&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/-Linux-FCC624?style=flat&labelColor=FCC624&logo=linux&logoColor=black" alt="Linux">
+  <img src="https://img.shields.io/badge/Whisper-Voice_Input-4B2D5F?style=flat&labelColor=C2785C&logo=audacity&logoColor=white" alt="Whisper">
+  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&color=4B2D5F&labelColor=C2785C" alt="VoiceTerm Version"></a>
   <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Built%20With-Ratatui-000000?style=flat&labelColor=000000&logo=ratatui&logoColor=white" alt="Built With Ratatui"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-C2785C?style=flat&labelColor=4B2D5F" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4B2D5F?style=flat&labelColor=C2785C" alt="MIT License"></a>
 </p>
 
 <p align="center">
