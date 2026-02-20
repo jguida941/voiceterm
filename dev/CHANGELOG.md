@@ -7,6 +7,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.86] - 2026-02-20
+
 ### UX
 
 - Remove legacy visual controls from `Ctrl+O` Settings (`Theme`, `HUD style`, `Borders`, `Right panel`, `Anim rec-only`) so Settings focuses on non-theme runtime controls; visual selection now routes through `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` shortcuts and HUD display flags.

@@ -2,7 +2,7 @@
 
 This doc covers install options and model setup.
 Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
-Current stable release: `v1.0.85` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+Current stable release: `v1.0.86` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Related docs:
 [Quick Start](../QUICK_START.md) |

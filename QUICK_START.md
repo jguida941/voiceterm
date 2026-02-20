@@ -2,7 +2,7 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
-Current stable release: `v1.0.85` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
+Current stable release: `v1.0.86` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
 Docs map:
 
