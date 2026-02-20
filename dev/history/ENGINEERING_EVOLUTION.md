@@ -332,6 +332,24 @@ Inference: Execution moved from qualitative decomposition intent to
 quantitative enforcement while still keeping strategic architecture choices
 explicitly staged behind tracked plan items.
 
+### Recent Governance Update (2026-02-20, Rust Lint-Debt Gate)
+
+Fact: Tooling governance now includes a commit-range lint-debt non-regression
+gate for Rust so changed non-test files cannot increase `#[allow(...)]` usage
+or non-test `unwrap/expect` call-sites without an explicit CI failure.
+
+Evidence:
+
+- `dev/scripts/check_rust_lint_debt.py` (working-tree + `--since-ref` /
+  `--head-ref` commit-range support)
+- `.github/workflows/tooling_control_plane.yml` (commit-range enforcement step)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
+  (bundle/docs/operator guidance aligned with the new guard)
+- `dev/active/MASTER_PLAN.md` (`MP-266` in-progress evidence)
+
+Inference: Lint-debt management shifted from one-time cleanup intent to
+continuous enforcement that blocks silent debt growth during normal delivery.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
@@ -416,6 +434,7 @@ timeline
   2026-02-17 : v1.0.71 to v1.0.79 release wave, HUD/control semantics hardening, and docs consistency push
   2026-02-19 : docs-governance hardening: strict tooling docs-check now requires ENGINEERING_EVOLUTION updates for tooling/process/CI shifts, plus CI guardrails for CLI flag parity and screenshot integrity, and an index-first AGENTS execution-router refactor cross-linked with DEVELOPMENT guidance so contributors can deterministically select context packs, command bundles, CI lanes, and release parity checks
   2026-02-20 : source-shape governance hardening: added `check_code_shape.py` plus tooling-control-plane commit-range enforcement to block new Rust/Python God-file growth while allowing non-regressive maintenance on existing large modules
+  2026-02-20 : Rust lint-debt non-regression governance: added `check_rust_lint_debt.py` and wired tooling-control-plane commit-range checks so changed Rust files cannot introduce net-new `#[allow(...)]` / non-test `unwrap/expect` debt silently
 ```
 
 ## Original Hypothesis and Why It Changed

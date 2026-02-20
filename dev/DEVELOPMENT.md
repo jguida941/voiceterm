@@ -84,6 +84,7 @@ CI will run the same check families again.
 | CLI docs vs clap schema | `python3 dev/scripts/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
 | Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
 | Rust/Python source-file shape drift | `python3 dev/scripts/check_code_shape.py` | `.github/workflows/tooling_control_plane.yml` |
+| Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/check_rust_lint_debt.py` | `.github/workflows/tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `.github/workflows/tooling_control_plane.yml` |
 
 ## When to push where
@@ -165,6 +166,7 @@ voiceterm/
 │       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
 │       ├── check_screenshot_integrity.py # image reference + stale-age guard
 │       ├── check_code_shape.py # Rust/Python God-file drift guard
+│       ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
 ├── Makefile             # Developer tasks
@@ -353,6 +355,9 @@ python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 # Source-shape guard (blocks new Rust/Python God-file growth)
 python3 dev/scripts/check_code_shape.py
 
+# Rust lint-debt non-regression guard (changed-file growth only)
+python3 dev/scripts/check_rust_lint_debt.py
+
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
@@ -419,6 +424,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/check_cli_flags_parity.py`
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
 - `python3 dev/scripts/check_code_shape.py`
+- `python3 dev/scripts/check_rust_lint_debt.py`
 
 ### Documentation decisions
 
@@ -479,6 +485,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
+- `python3 dev/scripts/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
@@ -539,7 +546,7 @@ GitHub Actions lanes used by this repo:
 | Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC) |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
 
 Workflow hardening baseline:
@@ -567,6 +574,7 @@ python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
+python3 dev/scripts/check_rust_lint_debt.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)

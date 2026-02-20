@@ -51,6 +51,7 @@ python3 dev/scripts/check_release_version_parity.py
 python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
+python3 dev/scripts/check_rust_lint_debt.py
 rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA-F]{40}$"
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -97,6 +98,7 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 | `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets. |
+| `dev/scripts/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
 | `dev/scripts/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
