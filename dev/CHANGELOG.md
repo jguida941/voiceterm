@@ -24,7 +24,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Docs
 
 - Clarify `guides/USAGE.md` wording that HUD border/right-panel animation controls are launch-time CLI flag options rather than Settings rows.
-- Replace the README top banner asset with a new VoiceTerm hero image (`img/logo-hero.png`) based on the finalized artwork that keeps the icon + subtitle identity while removing redundant platform chips from the banner artwork.
+- Replace the README top banner asset with a thinner/smaller VoiceTerm hero image and add a transparent variant (`img/logo-hero-transparent.png`) for light-background preview checks while keeping the icon + subtitle identity and removing redundant platform chips from the banner artwork.
 
 ## [1.0.85] - 2026-02-20
 
