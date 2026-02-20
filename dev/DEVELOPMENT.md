@@ -14,6 +14,7 @@
 - [Handoff paper trail template](#handoff-paper-trail-template)
 - [Pre-refactor docs readiness checklist](#pre-refactor-docs-readiness-checklist)
 - [Screenshot refresh capture matrix](#screenshot-refresh-capture-matrix)
+- [Engineering quality review protocol](#engineering-quality-review-protocol)
 - [Code style](#code-style)
 - [Testing philosophy](#testing-philosophy)
 - [CI/CD Workflow](#cicd-workflow)
@@ -441,6 +442,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - MP items:
 - Risks/unknowns:
+- Rust references consulted (for non-trivial Rust changes):
 ```
 
 Root artifact prevention: run `find . -maxdepth 1 -type f -name '--*'` and remove accidental files before push.
@@ -482,6 +484,30 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
 - `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
+
+## Engineering quality review protocol
+
+Use this protocol for non-trivial runtime/tooling Rust changes.
+
+1. Validate approach against official Rust references before coding:
+   - Rust Book: `https://doc.rust-lang.org/book/`
+   - Rust Reference: `https://doc.rust-lang.org/reference/`
+   - Rust API Guidelines: `https://rust-lang.github.io/api-guidelines/`
+   - Rustonomicon (unsafe/FFI): `https://doc.rust-lang.org/nomicon/`
+   - Standard library docs: `https://doc.rust-lang.org/std/`
+   - Clippy lint index: `https://rust-lang.github.io/rust-clippy/master/`
+2. Keep names stable and behavior-oriented:
+   - function and type names should describe behavior, not implementation detail
+   - prefer explicit domain terms over ambiguous abbreviations
+3. Keep modules cohesive and bounded:
+   - split files before they become multi-domain “god files”
+   - consolidate duplicated helpers shared by status/theme/settings/overlay paths
+4. Make debt visible:
+   - avoid adding `#[allow(...)]` without clear rationale and follow-up plan
+   - avoid non-test `unwrap/expect` unless failure is provably unrecoverable
+5. Capture review evidence in handoff:
+   - list which Rust references were consulted
+   - note tradeoffs made for naming, API shape, and scalability
 
 ## Code style
 

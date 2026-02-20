@@ -23,6 +23,7 @@ same execution path with minimal ambiguity.
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
 | Where is the developer lifecycle quick guide? | `dev/DEVELOPMENT.md` (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) |
+| Where are clean-code and Rust-reference rules defined? | `AGENTS.md` (`Engineering quality contract`), `dev/DEVELOPMENT.md` (`Engineering quality review protocol`) |
 | What process is mandatory? | `AGENTS.md` |
 | What architecture/lifecycle is current? | `dev/ARCHITECTURE.md` |
 | Where is process history tracked? | `dev/history/ENGINEERING_EVOLUTION.md` |
@@ -63,6 +64,27 @@ Run this sequence for every task. Do not skip steps.
    credentials/publishing/tagging, or conflicting policy signals.
 3. Stay guarded: do not invent behavior, do not skip required checks.
 4. Keep changes scoped: ignore unrelated diffs unless user asks.
+
+## Engineering quality contract (required)
+
+For non-trivial Rust runtime/tooling changes, contributors must:
+
+1. Validate design/implementation against official references before coding:
+   - Rust Book: `https://doc.rust-lang.org/book/`
+   - Rust Reference: `https://doc.rust-lang.org/reference/`
+   - Rust API Guidelines: `https://rust-lang.github.io/api-guidelines/`
+   - Rustonomicon (unsafe/FFI): `https://doc.rust-lang.org/nomicon/`
+   - Standard library docs: `https://doc.rust-lang.org/std/`
+   - Clippy lint index: `https://rust-lang.github.io/rust-clippy/master/`
+2. Keep naming and ownership explicit: names should describe behavior, modules
+   should keep one responsibility, and public APIs should expose stable
+   intent-based contracts.
+3. Treat technical debt as explicit debt: `#[allow(...)]`, non-test
+   `unwrap/expect`, and oversized files/functions require documented rationale
+   and a follow-up MP item when not resolved immediately.
+4. Prefer consolidation over duplication: extract shared helpers instead of
+   repeating logic across overlays/themes/settings/status surfaces.
+5. Record references consulted in handoff for non-trivial Rust changes.
 
 ## Branch policy (required)
 
@@ -474,6 +496,7 @@ Before calling implementation done, review for:
 - Concurrency: deadlocks, races, lock contention
 - Performance: unnecessary allocations, blocking in hot paths
 - Style/maintenance: clippy warnings, naming, dead code
+- API/docs alignment: Rust reference checks captured for non-trivial changes
 
 ## Handoff paper trail protocol
 
@@ -483,6 +506,7 @@ Include:
 - exact commands run
 - docs decisions (`updated` or `no change needed`)
 - screenshot decisions
+- Rust references consulted (for non-trivial Rust changes)
 - follow-up MP IDs
 
 ## Archive and ADR policy

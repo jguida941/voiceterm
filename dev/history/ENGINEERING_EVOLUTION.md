@@ -274,6 +274,25 @@ Inference: Theme Studio parity moved beyond visual-profile toggles into explicit
 voice-scene behavior controls, reducing hardcoded status-line behavior outside
 Studio ownership.
 
+### Recent Governance Update (2026-02-20, Senior Engineering Audit Track)
+
+Fact: The project established a measurable senior-level engineering audit
+baseline and translated findings into active execution items covering CI
+supply-chain hardening, ownership/dependency automation, runtime module shape,
+lint/debt burn-down, and naming/API cohesion.
+
+Evidence:
+
+- `dev/archive/2026-02-20-senior-engineering-audit.md` (evidence matrix and
+  prioritized findings)
+- `dev/active/MASTER_PLAN.md` (`MP-262` through `MP-268`)
+- `AGENTS.md` (`Engineering quality contract`)
+- `dev/DEVELOPMENT.md` (`Engineering quality review protocol`)
+
+Inference: Governance focus expanded from release-flow consolidation to
+continuous engineering-excellence enforcement, with explicit policy linkage
+between local coding decisions and long-term scalability/maintainability gates.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

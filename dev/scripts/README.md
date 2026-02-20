@@ -15,6 +15,18 @@ For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
 
+Engineering quality rule:
+
+- For non-trivial Rust runtime/tooling changes, follow the Rust reference pack
+  in `AGENTS.md` and `dev/DEVELOPMENT.md` before coding:
+  - `https://doc.rust-lang.org/book/`
+  - `https://doc.rust-lang.org/reference/`
+  - `https://rust-lang.github.io/api-guidelines/`
+  - `https://doc.rust-lang.org/nomicon/`
+  - `https://doc.rust-lang.org/std/`
+  - `https://rust-lang.github.io/rust-clippy/master/`
+- Capture references consulted in handoff notes for non-trivial changes.
+
 Documentation style rule:
 
 - Write docs in plain language first.

@@ -293,6 +293,13 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-215 Standardize runtime status-line width/truncation on Unicode-aware display width in remaining char-count paths (`src/src/bin/voiceterm/writer/render.rs` and `src/src/bin/voiceterm/status_style.rs`) with regression coverage for wide glyphs (landed Unicode-aware width/truncation in writer sanitize/render/status-style paths, preserved printable Unicode status text, and added regression tests for wide-glyph truncation and width accounting).
 - [x] MP-216 Consolidate duplicate transcript-preview formatting logic shared by `src/src/bin/voiceterm/voice_control/navigation.rs` and `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` into a single helper with shared tests (landed shared `voice_control/transcript_preview.rs` formatter and removed duplicated implementations from navigation/drain paths with focused unit coverage).
 - [x] MP-217 Enable settings-overlay row mouse actions so row clicks select and apply setting toggles/cycles (including click paths for `Close` and `Quit`) instead of requiring keyboard-only action keys.
+- [x] MP-262 Publish a full senior-level engineering audit baseline in `dev/archive/2026-02-20-senior-engineering-audit.md` with measured code-shape, lint-debt, CI hardening, and automation findings mapped to executable follow-up MPs.
+- [ ] MP-263 Harden GitHub Actions supply-chain posture: pin third-party actions by commit SHA, define explicit least-privilege `permissions:` on every workflow, and add `concurrency:` groups where duplicate in-flight runs can race or waste minutes.
+- [ ] MP-264 Add repository ownership and dependency automation baseline by introducing `.github/CODEOWNERS` and `.github/dependabot.yml` (grouped update policies + review routing) so tooling/runtime changes always have accountable reviewers and timely dependency refresh cadence.
+- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`) while preserving non-regression behavior coverage.
+- [ ] MP-266 Burn down Rust lint-debt hotspots by reducing `#[allow(...)]` surface area and non-test `unwrap/expect` usage, then add measurable gates/reporting so debt cannot silently regress.
+- [ ] MP-267 Run a naming/API cohesion pass across theme/event-loop/status/memory surfaces to remove ambiguous names, tighten public API intent, and consolidate duplicated helper logic into shared modules.
+- [x] MP-268 Codify a Rust-reference-first engineering quality contract in `AGENTS.md` and `dev/DEVELOPMENT.md`, including mandatory official-doc reference pack links and handoff evidence requirements for non-trivial Rust changes.
 
 ## Phase 3D - Memory + Action Studio (Planning Track)
 
@@ -416,3 +423,4 @@ documented `MS-G*` pass evidence.
 - `dev/archive/2026-02-01-transcript-queue-flush.md`
 - `dev/archive/2026-02-02-release-audit-completed.md`
 - `dev/archive/2026-02-17-tooling-control-plane-consolidation.md`
+- `dev/archive/2026-02-20-senior-engineering-audit.md`
