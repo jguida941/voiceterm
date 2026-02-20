@@ -23,6 +23,7 @@ def make_args(profile: str) -> SimpleNamespace:
         mem_iterations=2,
         with_wake_guard=False,
         wake_soak_rounds=4,
+        with_ai_guard=False,
         with_mutants=False,
         with_mutation_score=False,
         mutants_all=False,
@@ -56,6 +57,11 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--profile", "maintainer-lint"])
         self.assertEqual(args.profile, "maintainer-lint")
+
+    def test_cli_accepts_ai_guard_profile(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--profile", "ai-guard"])
+        self.assertEqual(args.profile, "ai-guard")
 
     @patch("dev.scripts.devctl.commands.check.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -159,3 +165,35 @@ class CheckProfileTests(TestCase):
         names = [call["name"] for call in calls]
         self.assertIn("wake-guard", names)
         self.assertIn("mutation-score", names)
+        self.assertIn("code-shape-guard", names)
+        self.assertIn("rust-lint-debt-guard", names)
+        self.assertIn("rust-best-practices-guard", names)
+
+    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_prepush_profile_enables_ai_guard_steps(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
+            return {"name": name, "cmd": cmd, "cwd": str(cwd), "returncode": 0, "duration_s": 0.0, "skipped": False}
+
+        mock_run_cmd.side_effect = fake_run_cmd
+        args = make_args("prepush")
+        args.skip_tests = True
+        args.skip_build = True
+        args.skip_fmt = True
+        args.skip_clippy = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        names = [call["name"] for call in calls]
+        self.assertIn("code-shape-guard", names)
+        self.assertIn("rust-lint-debt-guard", names)
+        self.assertIn("rust-best-practices-guard", names)

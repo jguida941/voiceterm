@@ -39,6 +39,7 @@ def run(args) -> int:
     with_mutants = args.with_mutants
     with_mutation_score = args.with_mutation_score
     with_wake_guard = args.with_wake_guard
+    with_ai_guard = args.with_ai_guard
     clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
 
     if args.profile == "ci":
@@ -48,12 +49,23 @@ def run(args) -> int:
         with_mutants = False
         with_mutation_score = False
         with_wake_guard = False
+        with_ai_guard = False
     elif args.profile == "prepush":
         with_perf = True
         with_mem_loop = True
+        with_ai_guard = True
     elif args.profile == "release":
         with_mutation_score = True
         with_wake_guard = True
+        with_ai_guard = True
+    elif args.profile == "ai-guard":
+        skip_build = True
+        with_perf = False
+        with_mem_loop = False
+        with_mutants = False
+        with_mutation_score = False
+        with_wake_guard = False
+        with_ai_guard = True
     elif args.profile == "maintainer-lint":
         skip_tests = True
         skip_build = True
@@ -62,6 +74,7 @@ def run(args) -> int:
         with_mutants = False
         with_mutation_score = False
         with_wake_guard = False
+        with_ai_guard = False
         clippy_cmd = [
             "cargo",
             "clippy",
@@ -76,6 +89,7 @@ def run(args) -> int:
         skip_build = True
         skip_tests = True
         with_wake_guard = False
+        with_ai_guard = False
 
     def add_step(name: str, cmd: List[str], cwd=None, step_env=None) -> None:
         result = run_cmd(name, cmd, cwd=cwd, env=step_env or env, dry_run=args.dry_run)
@@ -98,6 +112,22 @@ def run(args) -> int:
                 "clippy",
                 clippy_cmd,
                 cwd=SRC_DIR,
+            )
+        if with_ai_guard:
+            add_step(
+                "code-shape-guard",
+                ["python3", "dev/scripts/check_code_shape.py"],
+                cwd=REPO_ROOT,
+            )
+            add_step(
+                "rust-lint-debt-guard",
+                ["python3", "dev/scripts/check_rust_lint_debt.py"],
+                cwd=REPO_ROOT,
+            )
+            add_step(
+                "rust-best-practices-guard",
+                ["python3", "dev/scripts/check_rust_best_practices.py"],
+                cwd=REPO_ROOT,
             )
         if not skip_tests:
             add_step("test", ["cargo", "test", "--workspace", "--all-features"], cwd=SRC_DIR)

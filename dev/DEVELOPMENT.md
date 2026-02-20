@@ -85,6 +85,7 @@ CI will run the same check families again.
 | Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
 | Rust/Python source-file shape drift | `python3 dev/scripts/check_code_shape.py` | `.github/workflows/tooling_control_plane.yml` |
 | Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/check_rust_lint_debt.py` | `.github/workflows/tooling_control_plane.yml` |
+| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs hygiene) | `python3 dev/scripts/check_rust_best_practices.py` | `.github/workflows/tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `.github/workflows/tooling_control_plane.yml` |
 
 ## When to push where
@@ -167,6 +168,7 @@ voiceterm/
 │       ├── check_screenshot_integrity.py # image reference + stale-age guard
 │       ├── check_code_shape.py # Rust/Python God-file drift guard
 │       ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
+│       ├── check_rust_best_practices.py # Rust best-practices non-regression guard
 │       └── tests/             # Test scripts
 ├── img/                 # Screenshots
 ├── Makefile             # Developer tasks
@@ -313,6 +315,9 @@ python3 dev/scripts/devctl.py check --profile prepush
 # Maintainer lint-hardening lane (strict clippy policy subset)
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 
+# AI guard lane (code-shape + lint-debt + Rust best-practices guards)
+python3 dev/scripts/devctl.py check --profile ai-guard
+
 # Release verification lane (includes wake-word guard + mutation-score gate)
 python3 dev/scripts/devctl.py check --profile release
 
@@ -357,6 +362,9 @@ python3 dev/scripts/check_code_shape.py
 
 # Rust lint-debt non-regression guard (changed-file growth only)
 python3 dev/scripts/check_rust_lint_debt.py
+
+# Rust best-practices non-regression guard (changed-file growth only)
+python3 dev/scripts/check_rust_best_practices.py
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
@@ -425,6 +433,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
 - `python3 dev/scripts/check_code_shape.py`
 - `python3 dev/scripts/check_rust_lint_debt.py`
+- `python3 dev/scripts/check_rust_best_practices.py`
 
 ### Documentation decisions
 
@@ -486,6 +495,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
 - `python3 dev/scripts/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
+- `python3 dev/scripts/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
@@ -575,6 +585,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)

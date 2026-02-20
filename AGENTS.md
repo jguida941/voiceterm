@@ -218,6 +218,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -232,6 +233,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -248,6 +250,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -266,6 +269,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -283,6 +287,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py --since-ref origin/develop
 python3 dev/scripts/check_rust_lint_debt.py --since-ref origin/develop
+python3 dev/scripts/check_rust_best_practices.py --since-ref origin/develop
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -428,6 +433,7 @@ python3 dev/scripts/check_cli_flags_parity.py
 python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/check_code_shape.py
 python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/check_rust_best_practices.py
 ```
 
 ## Tooling inventory
@@ -436,7 +442,7 @@ Canonical tool: `python3 dev/scripts/devctl.py ...`
 
 Core commands:
 
-- `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`)
+- `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
 - `docs-check`
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
 - `mutation-score`
@@ -459,6 +465,7 @@ Supporting scripts:
 - `dev/scripts/check_screenshot_integrity.py`
 - `dev/scripts/check_code_shape.py`
 - `dev/scripts/check_rust_lint_debt.py`
+- `dev/scripts/check_rust_best_practices.py`
 - `dev/scripts/check_mutation_score.py`
 - `dev/scripts/check_rustsec_policy.py`
 - `dev/scripts/tests/measure_latency.sh`
@@ -469,6 +476,9 @@ Supporting scripts:
 hotspot budgets for Phase 3C decomposition targets.
 `check_rust_lint_debt.py` enforces non-regressive growth for `#[allow(...)]`
 and non-test `unwrap/expect` call-sites in changed Rust files.
+`check_rust_best_practices.py` blocks non-regressive growth of reason-less
+`#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn`
+surfaces without `# Safety` docs in changed Rust files.
 
 ## CI workflows (reference)
 

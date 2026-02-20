@@ -30,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd = sub.add_parser("check", help="Run fmt/clippy/tests/build (and optional extras)")
     check_cmd.add_argument(
         "--profile",
-        choices=["ci", "prepush", "release", "maintainer-lint", "quick"],
+        choices=["ci", "prepush", "release", "maintainer-lint", "quick", "ai-guard"],
     )
     check_cmd.add_argument("--ci", action="store_true", help="Match rust_ci.yml scope (alias for --profile ci)")
     check_cmd.add_argument("--prepush", action="store_true", help="Run CI + perf/mem loop (alias for --profile prepush)")
@@ -51,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_cmd.add_argument("--with-mutants", action="store_true", help="Run mutants after checks")
     check_cmd.add_argument("--with-mutation-score", action="store_true", help="Check mutation score")
+    check_cmd.add_argument(
+        "--with-ai-guard",
+        action="store_true",
+        help="Run code-shape, lint-debt, and Rust best-practices guards",
+    )
     check_cmd.add_argument("--mutation-score-path", help="Path to outcomes.json")
     check_cmd.add_argument("--mutation-score-threshold", type=float, default=DEFAULT_MUTATION_THRESHOLD)
     check_cmd.add_argument("--mutants-module", help="Mutants module filter")

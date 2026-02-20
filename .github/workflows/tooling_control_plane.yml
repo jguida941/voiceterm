@@ -195,6 +195,12 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run rust best-practices non-regression guard
+        run: |
+          python3 dev/scripts/check_rust_best_practices.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Guard root-level accidental CLI artifact files
         run: |
           ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"

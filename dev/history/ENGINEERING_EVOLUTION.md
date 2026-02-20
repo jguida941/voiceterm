@@ -350,6 +350,31 @@ Evidence:
 Inference: Lint-debt management shifted from one-time cleanup intent to
 continuous enforcement that blocks silent debt growth during normal delivery.
 
+### Recent Governance Update (2026-02-20, AI Guardrails for Rust Best Practices)
+
+Fact: Tooling governance now includes a Rust best-practices non-regression
+gate and a dedicated `devctl` check profile so AI/human contributors can run
+one command that enforces shape + lint debt + unsafe/suppression hygiene before
+push/release.
+
+Evidence:
+
+- `dev/scripts/check_rust_best_practices.py` (working-tree + `--since-ref` /
+  `--head-ref` commit-range support for reason-less `#[allow(...)]`,
+  undocumented `unsafe { ... }`, and public `unsafe fn` without `# Safety`
+  docs)
+- `dev/scripts/devctl/commands/check.py` (`ai-guard` profile plus automatic
+  guard steps on `prepush` and `release` profiles)
+- `dev/scripts/devctl/cli.py` and `dev/scripts/devctl/commands/listing.py`
+  (CLI surface/profile inventory parity)
+- `.github/workflows/tooling_control_plane.yml`
+  (commit-range enforcement step for the new guard)
+- `dev/active/MASTER_PLAN.md` (`MP-274`)
+
+Inference: The project now has a concrete "AI code guard" workflow that fails
+early when changed Rust code regresses suppression rationale or unsafe
+documentation hygiene, without requiring full historical debt cleanup first.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
@@ -435,6 +460,7 @@ timeline
   2026-02-19 : docs-governance hardening: strict tooling docs-check now requires ENGINEERING_EVOLUTION updates for tooling/process/CI shifts, plus CI guardrails for CLI flag parity and screenshot integrity, and an index-first AGENTS execution-router refactor cross-linked with DEVELOPMENT guidance so contributors can deterministically select context packs, command bundles, CI lanes, and release parity checks
   2026-02-20 : source-shape governance hardening: added `check_code_shape.py` plus tooling-control-plane commit-range enforcement to block new Rust/Python God-file growth while allowing non-regressive maintenance on existing large modules
   2026-02-20 : Rust lint-debt non-regression governance: added `check_rust_lint_debt.py` and wired tooling-control-plane commit-range checks so changed Rust files cannot introduce net-new `#[allow(...)]` / non-test `unwrap/expect` debt silently
+  2026-02-20 : AI guardrails for Rust best practices: added `check_rust_best_practices.py`, wired `devctl check --profile ai-guard` (and prepush/release auto-guards), and enforced commit-range checks in tooling-control-plane CI
 ```
 
 ## Original Hypothesis and Why It Changed
