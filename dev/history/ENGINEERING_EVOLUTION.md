@@ -312,6 +312,26 @@ Inference: Tooling governance moved from "best effort hardening" to explicit
 default controls that reduce action-tag risk, token overreach, and dependency
 drift latency.
 
+### Recent Governance Update (2026-02-20, Shape Budget Enforcement and Strategy Intake)
+
+Fact: The code-shape guard now enforces path-level growth budgets for the
+largest runtime hotspot modules, and strategic follow-up items were added for
+theme hot reload, algorithmic palette generation, animation contracts, memory
+context injection, and overlay architecture ADR work.
+
+Evidence:
+
+- `dev/scripts/check_code_shape.py` (path-level `PATH_POLICY_OVERRIDES` for
+  Phase 3C hotspot files)
+- `dev/active/MASTER_PLAN.md` (`MP-265` in-progress note and new `MP-269` ..
+  `MP-273` backlog items)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (updated guard
+  policy/operator guidance)
+
+Inference: Execution moved from qualitative decomposition intent to
+quantitative enforcement while still keeping strategic architecture choices
+explicitly staged behind tracked plan items.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

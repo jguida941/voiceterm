@@ -458,6 +458,9 @@ Supporting scripts:
 - `dev/scripts/tests/wake_word_guard.sh`
 - `scripts/macros.sh`
 
+`check_code_shape.py` enforces both language-level limits and path-level
+hotspot budgets for Phase 3C decomposition targets.
+
 ## CI workflows (reference)
 
 - `rust_ci.yml`

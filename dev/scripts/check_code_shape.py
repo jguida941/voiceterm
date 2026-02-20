@@ -39,6 +39,63 @@ LANGUAGE_POLICIES: dict[str, ShapePolicy] = {
     ),
 }
 
+# Phase 3C hotspot budgets (MP-265): these files must not grow while staged
+# decomposition work is active.
+PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
+    "src/src/bin/voiceterm/event_loop/input_dispatch.rs": ShapePolicy(
+        soft_limit=1200,
+        hard_limit=1561,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "src/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
+        soft_limit=1000,
+        hard_limit=1200,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "src/src/bin/voiceterm/status_line/buttons.rs": ShapePolicy(
+        soft_limit=1000,
+        hard_limit=1200,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "src/src/bin/voiceterm/theme/rule_profile.rs": ShapePolicy(
+        soft_limit=1000,
+        hard_limit=1200,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "src/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
+        soft_limit=750,
+        hard_limit=950,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "src/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
+        soft_limit=750,
+        hard_limit=950,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/check_code_shape.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+}
+
+
+def _policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:
+    override = PATH_POLICY_OVERRIDES.get(path.as_posix())
+    if override is not None:
+        return override, f"path_override:{path.as_posix()}"
+    policy = LANGUAGE_POLICIES.get(path.suffix)
+    if policy is None:
+        return None, None
+    return policy, f"language_default:{path.suffix}"
+
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
@@ -126,6 +183,7 @@ def _violation(
     reason: str,
     guidance: str,
     policy: ShapePolicy,
+    policy_source: str,
     base_lines: int | None,
     current_lines: int,
 ) -> dict:
@@ -143,6 +201,7 @@ def _violation(
             "oversize_growth_limit": policy.oversize_growth_limit,
             "hard_lock_growth_limit": policy.hard_lock_growth_limit,
         },
+        "policy_source": policy_source,
     }
 
 
@@ -150,6 +209,7 @@ def _evaluate_shape(
     *,
     path: Path,
     policy: ShapePolicy,
+    policy_source: str,
     base_lines: int | None,
     current_lines: int | None,
 ) -> dict | None:
@@ -159,6 +219,7 @@ def _evaluate_shape(
             reason="current_file_missing",
             guidance="File is missing in current tree; rerun after resolving rename/delete state.",
             policy=policy,
+            policy_source=policy_source,
             base_lines=base_lines,
             current_lines=0,
         )
@@ -170,6 +231,7 @@ def _evaluate_shape(
                 reason="new_file_exceeds_soft_limit",
                 guidance="Split the new file before merge or keep it under the soft limit.",
                 policy=policy,
+                policy_source=policy_source,
                 base_lines=base_lines,
                 current_lines=current_lines,
             )
@@ -182,6 +244,7 @@ def _evaluate_shape(
             reason="crossed_soft_limit",
             guidance="Refactor into smaller modules before crossing the soft limit.",
             policy=policy,
+            policy_source=policy_source,
             base_lines=base_lines,
             current_lines=current_lines,
         )
@@ -192,6 +255,7 @@ def _evaluate_shape(
             reason="crossed_hard_limit",
             guidance="Hard limit exceeded; split and reduce file size before merge.",
             policy=policy,
+            policy_source=policy_source,
             base_lines=base_lines,
             current_lines=current_lines,
         )
@@ -202,6 +266,7 @@ def _evaluate_shape(
             reason="hard_locked_file_grew",
             guidance="File is already above hard limit; do not grow it further.",
             policy=policy,
+            policy_source=policy_source,
             base_lines=base_lines,
             current_lines=current_lines,
         )
@@ -214,6 +279,7 @@ def _evaluate_shape(
                 "File is already above soft limit; keep growth within budget or decompose first."
             ),
             policy=policy,
+            policy_source=policy_source,
             base_lines=base_lines,
             current_lines=current_lines,
         )
@@ -227,6 +293,7 @@ def _render_md(report: dict) -> str:
     lines.append(f"- ok: {report['ok']}")
     lines.append(f"- files_changed: {report['files_changed']}")
     lines.append(f"- files_considered: {report['files_considered']}")
+    lines.append(f"- files_using_path_overrides: {report['files_using_path_overrides']}")
     lines.append(f"- files_skipped_non_source: {report['files_skipped_non_source']}")
     lines.append(f"- files_skipped_tests: {report['files_skipped_tests']}")
     lines.append(f"- violations: {len(report['violations'])}")
@@ -244,7 +311,8 @@ def _render_md(report: dict) -> str:
             lines.append(
                 f"- `{violation['path']}` ({violation['reason']}): "
                 f"{violation['base_lines']} -> {violation['current_lines']} "
-                f"(growth {growth_label}); {violation['guidance']}"
+                f"(growth {growth_label}); {violation['guidance']} "
+                f"[policy: {violation['policy_source']}]"
             )
     return "\n".join(lines)
 
@@ -284,9 +352,10 @@ def main() -> int:
     files_skipped_non_source = 0
     files_skipped_tests = 0
     files_considered = 0
+    files_using_path_overrides = 0
 
     for path in changed_paths:
-        policy = LANGUAGE_POLICIES.get(path.suffix)
+        policy, policy_source = _policy_for_path(path)
         if policy is None:
             files_skipped_non_source += 1
             continue
@@ -295,6 +364,8 @@ def main() -> int:
             continue
 
         files_considered += 1
+        if policy_source and policy_source.startswith("path_override:"):
+            files_using_path_overrides += 1
 
         if args.since_ref:
             base_lines = _count_lines(_read_text_from_ref(path, args.since_ref))
@@ -306,6 +377,7 @@ def main() -> int:
         violation = _evaluate_shape(
             path=path,
             policy=policy,
+            policy_source=policy_source or "unknown",
             base_lines=base_lines,
             current_lines=current_lines,
         )
@@ -321,6 +393,7 @@ def main() -> int:
         "ok": len(violations) == 0,
         "files_changed": len(changed_paths),
         "files_considered": files_considered,
+        "files_using_path_overrides": files_using_path_overrides,
         "files_skipped_non_source": files_skipped_non_source,
         "files_skipped_tests": files_skipped_tests,
         "violations": violations,
