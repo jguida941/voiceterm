@@ -375,6 +375,26 @@ Inference: The project now has a concrete "AI code guard" workflow that fails
 early when changed Rust code regresses suppression rationale or unsafe
 documentation hygiene, without requiring full historical debt cleanup first.
 
+### Recent Governance Update (2026-02-20, Status-Line Decomposition Progress)
+
+Fact: MP-265 decomposition progressed from planning-only tracking to concrete
+runtime extraction in the status-line path, reducing one hotspot file and
+moving reusable badge logic into a dedicated module.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-265` note updated with concrete extraction
+  evidence and line-count reduction)
+- `src/src/bin/voiceterm/status_line/buttons.rs` (reduced module footprint and
+  imports rewired to helper module)
+- `src/src/bin/voiceterm/status_line/buttons/badges.rs` (new queue/wake/ready/
+  latency badge helper module)
+- `dev/CHANGELOG.md` (unreleased code-quality note documenting the extraction)
+
+Inference: The decomposition strategy is now producing measurable code-shape
+improvements on live runtime hotspots while preserving behavior gates, instead
+of remaining a policy-only target.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
