@@ -293,6 +293,25 @@ Inference: Governance focus expanded from release-flow consolidation to
 continuous engineering-excellence enforcement, with explicit policy linkage
 between local coding decisions and long-term scalability/maintainability gates.
 
+### Recent Governance Update (2026-02-20, CI Supply-Chain and Ownership Hardening)
+
+Fact: CI governance now enforces supply-chain baseline controls across all
+workflows: pinned action SHAs, explicit permissions, and explicit concurrency.
+Repository ownership and dependency automation were also added.
+
+Evidence:
+
+- `.github/workflows/*.yml` (all `uses:` refs pinned to 40-char SHAs,
+  explicit `permissions:` and `concurrency:` in each workflow)
+- `.github/CODEOWNERS` (path-based review ownership baseline)
+- `.github/dependabot.yml` (weekly grouped updates for GitHub Actions, Cargo,
+  and PyPI package surfaces)
+- `dev/active/MASTER_PLAN.md` (`MP-263`, `MP-264` marked complete)
+
+Inference: Tooling governance moved from "best effort hardening" to explicit
+default controls that reduce action-tag risk, token overreach, and dependency
+drift latency.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

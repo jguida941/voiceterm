@@ -1,0 +1,14 @@
+# Default owner for all repository paths.
+* @jguida941
+
+# Runtime and lifecycle-critical Rust code.
+/src/ @jguida941
+
+# CI and automation control plane.
+/.github/workflows/ @jguida941
+/dev/scripts/ @jguida941
+/scripts/macro-packs/ @jguida941
+
+# Distribution surfaces.
+/pypi/ @jguida941
+/app/ @jguida941

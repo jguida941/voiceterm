@@ -542,6 +542,13 @@ GitHub Actions lanes used by this repo:
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
 
+Workflow hardening baseline:
+
+- Keep all workflow action refs pinned to commit SHAs (`uses: ...@<40-hex>`).
+- Keep explicit top-level `permissions:` and `concurrency:` in every workflow.
+- Prefer `contents: read` defaults, and elevate to `contents: write` only on jobs
+  that must commit/push automation artifacts.
+
 **Before pushing, run locally (recommended):**
 
 ```bash

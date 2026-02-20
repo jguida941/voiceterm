@@ -485,6 +485,8 @@ Add or extend CI when new risk classes are introduced:
 - New user modes/flags -> at least one integration lane exercises them
 - New dependency/supply-chain exposure -> security policy coverage
 - New parser/control-sequence boundary logic -> property-fuzz coverage
+- New/edited workflows must keep action refs SHA-pinned (`uses: org/action@<40-hex>`)
+  and declare explicit `permissions:` + `concurrency:` blocks.
 
 ## Mandatory self-review checklist
 
@@ -497,6 +499,7 @@ Before calling implementation done, review for:
 - Performance: unnecessary allocations, blocking in hot paths
 - Style/maintenance: clippy warnings, naming, dead code
 - API/docs alignment: Rust reference checks captured for non-trivial changes
+- CI supply chain: workflow refs pinned, permissions least-privilege, concurrency set
 
 ## Handoff paper trail protocol
 
