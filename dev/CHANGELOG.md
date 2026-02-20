@@ -12,6 +12,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Reduce PTY counter lint debt by removing function-level `#[allow(dead_code)]` suppressions from `src/src/pty_session/counters.rs` and narrowing test-only re-exports in `src/src/pty_session/mod.rs`; no runtime behavior change.
 - Decompose status-line right-panel rendering helpers out of `src/src/bin/voiceterm/status_line/format.rs` into `status_line/right_panel.rs` (MP-265) with no runtime behavior change.
 - Continue MP-265 decomposition by moving minimal-HUD right-panel scene/waveform/pulse helpers from `src/src/bin/voiceterm/status_line/buttons.rs` into `status_line/right_panel.rs`, centralizing full/minimal panel helper logic with no runtime behavior change.
+- Continue MP-265 decomposition by extracting queue/wake/latency badge helpers from `src/src/bin/voiceterm/status_line/buttons.rs` into `status_line/buttons/badges.rs`, reducing `buttons.rs` size while preserving runtime behavior.
 
 ### Documentation
 
