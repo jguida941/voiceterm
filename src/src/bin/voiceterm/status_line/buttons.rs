@@ -3,7 +3,9 @@
 use crate::buttons::ButtonAction;
 use crate::config::{HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_style::StatusType;
-use crate::theme::{filled_indicator, waveform_bars, BorderSet, GlyphSet, Theme, ThemeColors};
+use crate::theme::{
+    filled_indicator, waveform_bars, BorderSet, GlyphSet, Theme, ThemeColors, VoiceSceneStyle,
+};
 
 use super::animation::{get_processing_spinner, heartbeat_glyph, recording_pulse_on};
 use super::layout::breakpoints;
@@ -211,7 +213,12 @@ fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<
         return None;
     }
     let recording_active = state.recording_state == RecordingState::Recording;
-    let animate_panel = !state.hud_right_panel_recording_only || recording_active;
+    let scene_style = colors.voice_scene_style;
+    let animate_panel = scene_should_animate(
+        scene_style,
+        state.hud_right_panel_recording_only,
+        recording_active,
+    );
 
     let panel = match state.hud_right_panel {
         HudRightPanel::Ribbon => {
@@ -220,23 +227,32 @@ fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<
             } else {
                 &[][..]
             };
-            let waveform = minimal_waveform(levels, 6, colors);
+            let waveform_width = if scene_style == VoiceSceneStyle::Minimal {
+                4
+            } else {
+                6
+            };
+            let waveform = minimal_waveform(levels, waveform_width, colors);
             format!(
                 "{}[{}{}{}]{}",
                 colors.dim, colors.reset, waveform, colors.dim, colors.reset
             )
         }
         HudRightPanel::Dots => {
+            let idle_level = scene_idle_level(scene_style);
             let level = if animate_panel {
-                state.meter_db.unwrap_or(-60.0)
+                state.meter_db.unwrap_or(idle_level)
             } else {
-                -60.0
+                idle_level
             };
-            minimal_pulse_dots(level, colors)
+            minimal_pulse_dots(level, colors, scene_dot_count(scene_style))
         }
         HudRightPanel::Heartbeat => {
-            let animate =
-                should_animate_heartbeat(state.hud_right_panel_recording_only, recording_active);
+            let animate = scene_should_animate(
+                scene_style,
+                state.hud_right_panel_recording_only,
+                recording_active,
+            );
             let (glyph, is_peak) = heartbeat_glyph(animate);
             let color = if is_peak { colors.info } else { colors.dim };
             format!(
@@ -250,8 +266,34 @@ fn minimal_right_panel(state: &StatusLineState, colors: &ThemeColors) -> Option<
 }
 
 #[inline]
-fn should_animate_heartbeat(recording_only: bool, recording_active: bool) -> bool {
-    !recording_only || recording_active
+fn scene_should_animate(
+    scene_style: VoiceSceneStyle,
+    recording_only: bool,
+    recording_active: bool,
+) -> bool {
+    match scene_style {
+        VoiceSceneStyle::Theme => !recording_only || recording_active,
+        VoiceSceneStyle::Pulse => true,
+        VoiceSceneStyle::Static | VoiceSceneStyle::Minimal => false,
+    }
+}
+
+#[inline]
+fn scene_idle_level(scene_style: VoiceSceneStyle) -> f32 {
+    match scene_style {
+        VoiceSceneStyle::Static => -42.0,
+        VoiceSceneStyle::Minimal => -50.0,
+        VoiceSceneStyle::Theme | VoiceSceneStyle::Pulse => -60.0,
+    }
+}
+
+#[inline]
+fn scene_dot_count(scene_style: VoiceSceneStyle) -> usize {
+    if scene_style == VoiceSceneStyle::Minimal {
+        3
+    } else {
+        5
+    }
 }
 
 #[inline]
@@ -297,9 +339,10 @@ fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> Strin
     out
 }
 
-fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
+fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors, dots: usize) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
-    let active = (normalized * 5.0).round() as usize;
+    let dots = dots.max(1);
+    let active = (normalized * dots as f32).round() as usize;
     let (active_glyph, idle_glyph) = match colors.glyph_set {
         GlyphSet::Unicode => ('•', '·'),
         GlyphSet::Ascii => ('*', '.'),
@@ -309,7 +352,7 @@ fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
     result.push_str(colors.dim);
     result.push('[');
     result.push_str(colors.reset);
-    for idx in 0..5 {
+    for idx in 0..dots {
         if idx < active {
             result.push_str(color);
             result.push(active_glyph);

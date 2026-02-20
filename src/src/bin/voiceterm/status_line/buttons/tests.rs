@@ -156,11 +156,11 @@ fn minimal_right_panel_dots_gates_animation_on_recording_only_flag() {
 
     state.recording_state = RecordingState::Idle;
     let idle_panel = minimal_right_panel(&state, &colors).expect("idle panel");
-    assert_eq!(idle_panel, minimal_pulse_dots(-60.0, &colors));
+    assert_eq!(idle_panel, minimal_pulse_dots(-60.0, &colors, 5));
 
     state.recording_state = RecordingState::Recording;
     let recording_panel = minimal_right_panel(&state, &colors).expect("recording panel");
-    assert_eq!(recording_panel, minimal_pulse_dots(-6.0, &colors));
+    assert_eq!(recording_panel, minimal_pulse_dots(-6.0, &colors, 5));
     assert_ne!(idle_panel, recording_panel);
 }
 
@@ -174,7 +174,7 @@ fn minimal_right_panel_dots_animate_when_not_recording_only() {
     state.meter_db = Some(-9.0);
 
     let panel = minimal_right_panel(&state, &colors).expect("panel");
-    assert_eq!(panel, minimal_pulse_dots(-9.0, &colors));
+    assert_eq!(panel, minimal_pulse_dots(-9.0, &colors, 5));
 }
 
 #[test]
@@ -869,23 +869,24 @@ fn minimal_waveform_handles_padding_and_boundaries() {
 #[test]
 fn minimal_pulse_dots_respect_activity_and_color_thresholds() {
     let none = Theme::None.colors();
-    assert_eq!(minimal_pulse_dots(-60.0, &none), "[·····]");
-    assert_eq!(minimal_pulse_dots(-48.0, &none), "[•····]");
-    assert_eq!(minimal_pulse_dots(-30.0, &none), "[•••··]");
-    assert_eq!(minimal_pulse_dots(0.0, &none), "[•••••]");
+    assert_eq!(minimal_pulse_dots(-60.0, &none, 5), "[·····]");
+    assert_eq!(minimal_pulse_dots(-48.0, &none, 5), "[•····]");
+    assert_eq!(minimal_pulse_dots(-30.0, &none, 5), "[•••··]");
+    assert_eq!(minimal_pulse_dots(0.0, &none, 5), "[•••••]");
+    assert_eq!(minimal_pulse_dots(-30.0, &none, 3), "[••·]");
 
     let colors = Theme::Coral.colors();
-    let warning = minimal_pulse_dots(-25.0, &colors);
+    let warning = minimal_pulse_dots(-25.0, &colors, 5);
     assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
     assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
 
-    let error = minimal_pulse_dots(-5.0, &colors);
+    let error = minimal_pulse_dots(-5.0, &colors, 5);
     assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
 
     let mut ascii = Theme::None.colors();
     ascii.glyph_set = crate::theme::GlyphSet::Ascii;
-    assert_eq!(minimal_pulse_dots(-60.0, &ascii), "[.....]");
-    assert_eq!(minimal_pulse_dots(-30.0, &ascii), "[***..]");
+    assert_eq!(minimal_pulse_dots(-60.0, &ascii, 5), "[.....]");
+    assert_eq!(minimal_pulse_dots(-30.0, &ascii, 5), "[***..]");
 }
 
 #[test]
@@ -1066,10 +1067,12 @@ fn minimal_right_panel_dots_without_meter_defaults_to_silent_level() {
 
 #[test]
 fn heartbeat_animation_truth_table() {
-    assert!(should_animate_heartbeat(false, false));
-    assert!(should_animate_heartbeat(false, true));
-    assert!(!should_animate_heartbeat(true, false));
-    assert!(should_animate_heartbeat(true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, true));
+    assert!(!scene_should_animate(VoiceSceneStyle::Theme, true, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Pulse, true, false));
+    assert!(!scene_should_animate(VoiceSceneStyle::Static, false, true));
 }
 
 #[test]

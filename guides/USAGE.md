@@ -159,10 +159,10 @@ Visual controls are now in Theme Studio:
 
 - Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
 - HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
-- Glyph/indicator/progress/theme-border profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, and `Theme borders` rows
+- Glyph/indicator/progress/theme-border/scene profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, and `Voice scene` rows
 - `Ctrl+U` remains a quick shortcut for cycling HUD style
 - Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
-- Theme Studio glyph/indicator/spinner/progress-bar/theme-border overrides apply at runtime for the current session and reset on restart.
+- Theme Studio glyph/indicator/spinner/progress-bar/theme-border/voice-scene overrides apply at runtime for the current session and reset on restart.
 
 Settings persistence:
 
@@ -366,6 +366,9 @@ Theme shortcuts:
 - Supported preview overrides in `overrides`: `border_style` (`single`, `rounded`,
   `double`, `heavy`, `none`), `indicators` (`ascii`, `dot`, `diamond`), and
   `glyphs` (`unicode`, `ascii`).
+- Supported preview overrides in `surfaces`: `progress_style`
+  (`braille`, `dots`, `line`, `block`) and `voice_scene_style`
+  (`pulse`, `static`, `minimal`).
 - Supported preview override in `components`: `progress_bar_family`
   (`bar`, `compact`, `blocks`, `braille`).
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
@@ -386,8 +389,8 @@ Theme shortcuts:
   visual runtime choices; no user config migration is required.
   Theme Studio currently includes direct controls for HUD style, HUD border
   style, right panel mode, panel animation mode, glyph profile, indicator set,
-  progress spinner style, progress bar family, and theme border profile, with
-  live current-value labels in each control row.
+  progress spinner style, progress bar family, theme border profile, and voice
+  scene style, with live current-value labels in each control row.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Studio row to select/apply its action, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
@@ -418,6 +421,8 @@ Right panel options:
 - Optional recording-only animation via `--hud-right-panel-recording-only`
 - In Full HUD, right-panel telemetry is rendered on the main status row
   (top-right lane).
+- Theme Studio `Voice scene` cycles scene policy (`theme`, `pulse`, `static`,
+  `minimal`) for right-panel animation and visual density in Full/Minimal HUD.
 
 Examples:
 

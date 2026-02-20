@@ -26,6 +26,20 @@ pub enum SpinnerStyle {
     Block,
 }
 
+/// Voice-scene animation profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum VoiceSceneStyle {
+    /// Theme-default scene behavior.
+    #[default]
+    Theme,
+    /// Emphasize animated scene behavior.
+    Pulse,
+    /// Reduce dynamic scene animation.
+    Static,
+    /// Minimal scene ornamentation.
+    Minimal,
+}
+
 /// Progress bar glyph family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ProgressBarFamily {
@@ -80,6 +94,8 @@ pub struct ThemeColors {
     pub glyph_set: GlyphSet,
     /// Processing spinner animation profile.
     pub spinner_style: SpinnerStyle,
+    /// Voice-scene animation profile.
+    pub voice_scene_style: VoiceSceneStyle,
     /// Progress bar glyph profile.
     pub progress_bar_family: ProgressBarFamily,
 }

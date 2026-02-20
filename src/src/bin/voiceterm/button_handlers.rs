@@ -226,6 +226,7 @@ impl<'a> ButtonActionContext<'a> {
             indicator_set_override: style_pack_overrides.indicator_set_override,
             progress_style_override: style_pack_overrides.progress_style_override,
             progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
+            voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
         };
         show_theme_studio_overlay(self.writer_tx, &view, cols);
     }

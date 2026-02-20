@@ -7,7 +7,7 @@ use crate::overlay_frame::{
 use crate::theme::{
     overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
     RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
-    RuntimeProgressStyleOverride, Theme, ThemeColors,
+    RuntimeProgressStyleOverride, RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +22,7 @@ pub(crate) enum ThemeStudioItem {
     ProgressSpinner,
     ProgressBars,
     ThemeBorders,
+    VoiceScene,
     Close,
 }
 
@@ -36,6 +37,7 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ProgressSpinner,
     ThemeStudioItem::ProgressBars,
     ThemeStudioItem::ThemeBorders,
+    ThemeStudioItem::VoiceScene,
     ThemeStudioItem::Close,
 ];
 
@@ -54,6 +56,7 @@ pub(crate) struct ThemeStudioView {
     pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
     pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
     pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
+    pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
 }
 
 #[must_use]
@@ -206,6 +209,14 @@ fn format_theme_studio_option_line(
             ),
             false,
         ),
+        ThemeStudioItem::VoiceScene => (
+            "Voice scene",
+            format!(
+                "Current: {}. Cycle scene style (theme/pulse/static/minimal).",
+                voice_scene_label(view.voice_scene_style_override)
+            ),
+            false,
+        ),
         ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
     };
     let marker = if selected { ">" } else { " " };
@@ -295,6 +306,15 @@ fn progress_bar_family_label(
     }
 }
 
+fn voice_scene_label(override_value: Option<RuntimeVoiceSceneStyleOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeVoiceSceneStyleOverride::Pulse) => "Pulse",
+        Some(RuntimeVoiceSceneStyleOverride::Static) => "Static",
+        Some(RuntimeVoiceSceneStyleOverride::Minimal) => "Minimal",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,6 +322,7 @@ mod tests {
     use crate::theme::{
         RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
         RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
+        RuntimeVoiceSceneStyleOverride,
     };
 
     fn sample_view(theme: Theme) -> ThemeStudioView {
@@ -317,6 +338,7 @@ mod tests {
             indicator_set_override: None,
             progress_style_override: None,
             progress_bar_family_override: None,
+            voice_scene_style_override: None,
         }
     }
 
@@ -334,7 +356,8 @@ mod tests {
         assert!(rendered.contains("8. Progress spinner"));
         assert!(rendered.contains("9. Progress bars"));
         assert!(rendered.contains("10. Theme borders"));
-        assert!(rendered.contains("11. Close"));
+        assert!(rendered.contains("11. Voice scene"));
+        assert!(rendered.contains("12. Close"));
     }
 
     #[test]
@@ -359,6 +382,7 @@ mod tests {
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
             progress_style_override: Some(RuntimeProgressStyleOverride::Line),
             progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Blocks),
+            voice_scene_style_override: Some(RuntimeVoiceSceneStyleOverride::Pulse),
         };
         let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("Current: Hidden"));
@@ -370,17 +394,18 @@ mod tests {
         assert!(rendered.contains("Current: Line"));
         assert!(rendered.contains("Current: Blocks"));
         assert!(rendered.contains("Current: Heavy"));
+        assert!(rendered.contains("Current: Pulse"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 17);
+        assert_eq!(theme_studio_height(), 18);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(10), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(11), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

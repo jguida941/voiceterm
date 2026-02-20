@@ -7,8 +7,8 @@ use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{
-    filled_indicator, waveform_bars, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
-    BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
+    filled_indicator, waveform_bars, BorderSet, Theme, ThemeColors, VoiceSceneStyle, BORDER_DOUBLE,
+    BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 use super::animation::{
@@ -503,7 +503,12 @@ fn format_right_panel(
         return String::new();
     }
     let recording_active = state.recording_state == RecordingState::Recording;
-    let animate_panel = !state.hud_right_panel_recording_only || recording_active;
+    let scene_style = colors.voice_scene_style;
+    let animate_panel = scene_should_animate(
+        scene_style,
+        state.hud_right_panel_recording_only,
+        recording_active,
+    );
 
     let content_width = max_width.saturating_sub(1);
     if content_width < RIGHT_PANEL_MIN_CONTENT_WIDTH {
@@ -517,7 +522,12 @@ fn format_right_panel(
         HudRightPanel::Ribbon => {
             let reserved = 2; // brackets
             let available = panel_width.saturating_sub(reserved);
-            let wave_width = available.min(RIGHT_PANEL_MAX_WAVEFORM_WIDTH);
+            let max_wave_width = if scene_style == VoiceSceneStyle::Minimal {
+                8
+            } else {
+                RIGHT_PANEL_MAX_WAVEFORM_WIDTH
+            };
+            let wave_width = available.min(max_wave_width);
             let waveform = if show_live {
                 format_waveform(&state.meter_levels, wave_width, theme)
             } else {
@@ -526,12 +536,16 @@ fn format_right_panel(
             format_panel_brackets(&waveform, colors)
         }
         HudRightPanel::Dots => {
+            let idle_level = scene_idle_level(scene_style);
             let active = if animate_panel {
-                state.meter_db.unwrap_or(-60.0)
+                state.meter_db.unwrap_or(idle_level)
             } else {
-                -60.0
+                idle_level
             };
-            truncate_display(&format_pulse_dots(active, colors), panel_width)
+            truncate_display(
+                &format_pulse_dots(active, colors, scene_dot_count(scene_style)),
+                panel_width,
+            )
         }
         HudRightPanel::Heartbeat => {
             truncate_display(&format_heartbeat_panel(state, colors), panel_width)
@@ -547,15 +561,16 @@ fn format_right_panel(
 }
 
 #[inline]
-fn format_pulse_dots(level_db: f32, colors: &ThemeColors) -> String {
+fn format_pulse_dots(level_db: f32, colors: &ThemeColors, dots: usize) -> String {
     let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
-    let active = (normalized * 5.0).round() as usize;
+    let dots = dots.max(1);
+    let active = (normalized * dots as f32).round() as usize;
     let color = meter_level_color(level_db, colors);
     // Pre-allocate for 5 dots with color codes
     let mut result = String::with_capacity(128);
     result.push_str(colors.dim);
     result.push('[');
-    for idx in 0..5 {
+    for idx in 0..dots {
         if idx < active {
             result.push_str(color);
             result.push('•');
@@ -584,8 +599,34 @@ fn meter_level_color(level_db: f32, colors: &ThemeColors) -> &str {
 }
 
 #[inline]
-fn should_animate_heartbeat(recording_only: bool, recording_active: bool) -> bool {
-    !recording_only || recording_active
+fn scene_should_animate(
+    scene_style: VoiceSceneStyle,
+    recording_only: bool,
+    recording_active: bool,
+) -> bool {
+    match scene_style {
+        VoiceSceneStyle::Theme => !recording_only || recording_active,
+        VoiceSceneStyle::Pulse => true,
+        VoiceSceneStyle::Static | VoiceSceneStyle::Minimal => false,
+    }
+}
+
+#[inline]
+fn scene_idle_level(scene_style: VoiceSceneStyle) -> f32 {
+    match scene_style {
+        VoiceSceneStyle::Static => -42.0,
+        VoiceSceneStyle::Minimal => -50.0,
+        VoiceSceneStyle::Theme | VoiceSceneStyle::Pulse => -60.0,
+    }
+}
+
+#[inline]
+fn scene_dot_count(scene_style: VoiceSceneStyle) -> usize {
+    if scene_style == VoiceSceneStyle::Minimal {
+        3
+    } else {
+        5
+    }
 }
 
 #[inline]
@@ -598,7 +639,8 @@ fn heartbeat_color(animate: bool, is_peak: bool, colors: &ThemeColors) -> &str {
 }
 
 fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColors) -> String {
-    let animate = should_animate_heartbeat(
+    let animate = scene_should_animate(
+        colors.voice_scene_style,
         state.hud_right_panel_recording_only,
         state.recording_state == RecordingState::Recording,
     );

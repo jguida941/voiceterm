@@ -1,8 +1,8 @@
 //! Built-in theme palettes so color choices remain centralized and testable.
 
 use super::{
-    GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
-    BORDER_ROUNDED, BORDER_SINGLE,
+    GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, VoiceSceneStyle, BORDER_DOUBLE,
+    BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 /// Coral theme - warm red/coral accents (default)
@@ -28,6 +28,7 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -54,6 +55,7 @@ pub const THEME_CLAUDE: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -80,6 +82,7 @@ pub const THEME_CODEX: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -107,6 +110,7 @@ pub const THEME_CHATGPT: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -134,6 +138,7 @@ pub const THEME_CATPPUCCIN: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -161,6 +166,7 @@ pub const THEME_DRACULA: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -187,6 +193,7 @@ pub const THEME_NORD: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -213,6 +220,7 @@ pub const THEME_TOKYONIGHT: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -239,6 +247,7 @@ pub const THEME_GRUVBOX: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -266,6 +275,7 @@ pub const THEME_ANSI: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };
 
@@ -291,5 +301,6 @@ pub const THEME_NONE: ThemeColors = ThemeColors {
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
     spinner_style: SpinnerStyle::Theme,
+    voice_scene_style: VoiceSceneStyle::Theme,
     progress_bar_family: ProgressBarFamily::Theme,
 };

@@ -23,7 +23,7 @@ pub(crate) mod widget_pack;
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
 pub use borders::{BORDER_DOTTED, BORDER_NONE};
-pub use colors::{GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors};
+pub use colors::{GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, VoiceSceneStyle};
 pub use palettes::{
     THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX, THEME_CORAL,
     THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
@@ -37,7 +37,7 @@ use self::{
 pub(crate) use style_pack::{
     runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBorderStyleOverride,
     RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
-    RuntimeProgressStyleOverride, RuntimeStylePackOverrides,
+    RuntimeProgressStyleOverride, RuntimeStylePackOverrides, RuntimeVoiceSceneStyleOverride,
 };
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.

@@ -1249,6 +1249,15 @@ fn apply_theme_studio_adjustment(
             crate::theme::set_runtime_style_pack_overrides(overrides);
             true
         }
+        ThemeStudioItem::VoiceScene => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.voice_scene_style_override = cycle_runtime_voice_scene_style_override(
+                overrides.voice_scene_style_override,
+                direction,
+            );
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
         _ => false,
     }
 }
@@ -1356,6 +1365,26 @@ fn cycle_runtime_progress_bar_family_override(
     values[next_idx]
 }
 
+fn cycle_runtime_voice_scene_style_override(
+    current: Option<crate::theme::RuntimeVoiceSceneStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeVoiceSceneStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Pulse),
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Static),
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Minimal),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
+}
+
 fn apply_theme_studio_selection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -1374,7 +1403,8 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::LayoutMotion
         | ThemeStudioItem::ProgressSpinner
         | ThemeStudioItem::ProgressBars
-        | ThemeStudioItem::ThemeBorders => {
+        | ThemeStudioItem::ThemeBorders
+        | ThemeStudioItem::VoiceScene => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {

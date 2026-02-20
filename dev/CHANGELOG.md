@@ -16,6 +16,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add a runtime-editable `Theme borders` row in Theme Studio so overlay/theme border profiles (`theme`/`single`/`rounded`/`double`/`heavy`/`none`) can be cycled live from the same control surface.
 - Add a runtime-editable `Progress spinner` row in Theme Studio so processing spinner style (`theme`/`braille`/`dots`/`line`/`block`) can be cycled live for status-line and progress spinner surfaces.
 - Add a runtime-editable `Progress bars` row in Theme Studio so progress bar family (`theme`/`bar`/`compact`/`blocks`/`braille`) can be cycled live for progress and meter-style surfaces.
+- Add a runtime-editable `Voice scene` row in Theme Studio so scene style (`theme`/`pulse`/`static`/`minimal`) can be cycled live for full/minimal status right-panel behavior.
 - Add live value readouts in Theme Studio control rows so `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` always show the currently active setting before adjustment.
 
 ### Docs
