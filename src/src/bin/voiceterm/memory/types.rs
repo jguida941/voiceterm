@@ -89,18 +89,13 @@ impl EventSource {
 }
 
 /// Retrieval eligibility state for events, units, and cards.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum RetrievalState {
+    #[default]
     Eligible,
     Quarantined,
     Deprecated,
-}
-
-impl Default for RetrievalState {
-    fn default() -> Self {
-        Self::Eligible
-    }
 }
 
 impl RetrievalState {
@@ -176,7 +171,7 @@ fn default_confidence() -> f64 {
 // ---------------------------------------------------------------------------
 
 /// User memory-control mode governing capture and retrieval behavior.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryMode {
     /// No capture, no retrieval.
@@ -184,17 +179,12 @@ pub(crate) enum MemoryMode {
     /// Write events/cards, do not inject into prompts.
     CaptureOnly,
     /// Capture + retrieval enabled (default).
+    #[default]
     Assist,
     /// Keep store immutable until resumed.
     Paused,
     /// Ephemeral session; no durable writeback.
     Incognito,
-}
-
-impl Default for MemoryMode {
-    fn default() -> Self {
-        Self::Assist
-    }
 }
 
 impl MemoryMode {
@@ -256,19 +246,14 @@ impl MemoryMode {
 // ---------------------------------------------------------------------------
 
 /// Retention policy for memory governance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum RetentionPolicy {
     Days7,
+    #[default]
     Days30,
     Days90,
     Forever,
-}
-
-impl Default for RetentionPolicy {
-    fn default() -> Self {
-        Self::Days30
-    }
 }
 
 impl RetentionPolicy {
@@ -324,21 +309,16 @@ impl RetentionPolicy {
 // ---------------------------------------------------------------------------
 
 /// Command safety tier for the Action Center.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ActionPolicyTier {
     /// Execute directly (safe, read-only commands).
     ReadOnly,
     /// Preview + explicit user approval required.
+    #[default]
     ConfirmRequired,
     /// Cannot execute from overlay.
     Blocked,
-}
-
-impl Default for ActionPolicyTier {
-    fn default() -> Self {
-        Self::ConfirmRequired
-    }
 }
 
 impl ActionPolicyTier {
@@ -414,11 +394,7 @@ pub(crate) fn iso_timestamp() -> String {
     // Simple ISO format: seconds-level precision is sufficient for event logging.
     let secs = ts / 1000;
     let millis = ts % 1000;
-    format!("1970-01-01T00:00:00.000Z") // placeholder for correct formatting below
-        .replace(
-            "1970-01-01T00:00:00.000Z",
-            &format_epoch_millis(secs, millis),
-        )
+    format_epoch_millis(secs, millis)
 }
 
 fn format_epoch_millis(epoch_secs: u128, millis: u128) -> String {
@@ -433,9 +409,7 @@ fn format_epoch_millis(epoch_secs: u128, millis: u128) -> String {
     // Compute year/month/day from days since epoch (simplified Gregorian).
     let (year, month, day) = days_to_ymd(days);
 
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
 }
 
 fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
@@ -479,7 +453,7 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 }
 
 fn is_leap(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 // ---------------------------------------------------------------------------
@@ -638,7 +612,10 @@ mod tests {
     #[test]
     fn action_policy_tier_labels() {
         assert_eq!(ActionPolicyTier::ReadOnly.as_str(), "read_only");
-        assert_eq!(ActionPolicyTier::ConfirmRequired.as_str(), "confirm_required");
+        assert_eq!(
+            ActionPolicyTier::ConfirmRequired.as_str(),
+            "confirm_required"
+        );
         assert_eq!(ActionPolicyTier::Blocked.as_str(), "blocked");
     }
 

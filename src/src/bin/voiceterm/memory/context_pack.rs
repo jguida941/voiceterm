@@ -3,7 +3,7 @@
 //! Produces `context_pack.json` and `context_pack.md` outputs from
 //! memory retrieval results with provenance-tagged evidence.
 
-use super::retrieval::{execute_query, estimate_tokens, trim_to_budget, RetrievalQuery};
+use super::retrieval::{estimate_tokens, execute_query, trim_to_budget, RetrievalQuery};
 use super::store::sqlite::MemoryIndex;
 use super::types::*;
 
@@ -16,7 +16,7 @@ pub(crate) fn generate_boot_pack(
     project_id: &str,
     max_tokens: usize,
 ) -> ContextPack {
-    let results = execute_query(&index, &RetrievalQuery::Recent(100));
+    let results = execute_query(index, &RetrievalQuery::Recent(100));
     let (included, used, trimmed) = trim_to_budget(&results, max_tokens);
 
     let evidence: Vec<PackEvidence> = included
@@ -143,10 +143,13 @@ pub(crate) fn pack_to_json(pack: &ContextPack) -> String {
 pub(crate) fn pack_to_markdown(pack: &ContextPack) -> String {
     let mut md = String::new();
     md.push_str("# Context Pack\n\n");
-    md.push_str(&format!("- **Type**: {}\n", match pack.pack_type {
-        ContextPackType::Boot => "Boot",
-        ContextPackType::Task => "Task",
-    }));
+    md.push_str(&format!(
+        "- **Type**: {}\n",
+        match pack.pack_type {
+            ContextPackType::Boot => "Boot",
+            ContextPackType::Task => "Task",
+        }
+    ));
     md.push_str(&format!("- **Query**: {}\n", pack.query));
     md.push_str(&format!("- **Generated**: {}\n", pack.generated_at));
     md.push_str(&format!(

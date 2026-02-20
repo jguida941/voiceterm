@@ -25,6 +25,7 @@ mod help;
 mod hud;
 mod icons;
 mod input;
+#[allow(dead_code, unused_imports)]
 mod memory;
 mod onboarding;
 mod overlay_frame;

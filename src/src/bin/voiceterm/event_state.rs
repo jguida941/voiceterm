@@ -55,7 +55,9 @@ pub(crate) struct EventLoopState {
     pub(crate) transcript_history_state: TranscriptHistoryState,
     pub(crate) session_memory_logger: Option<SessionMemoryLogger>,
     pub(crate) claude_prompt_detector: ClaudePromptDetector,
+    #[allow(dead_code)]
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
+    #[allow(dead_code)]
     pub(crate) action_center_state: ActionCenterState,
 }
 

@@ -23,7 +23,9 @@ pub(crate) enum OverlayMode {
     ThemePicker,
     Settings,
     TranscriptHistory,
+    #[allow(dead_code)]
     MemoryBrowser,
+    #[allow(dead_code)]
     ActionCenter,
 }
 

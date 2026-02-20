@@ -129,8 +129,8 @@ fn ymd_to_days(year: i64, month: i64, day: i64) -> i64 {
         30,
         31,
     ];
-    for m in 0..((month - 1) as usize).min(11) {
-        days += month_days[m];
+    for month_days_value in month_days.iter().take(((month - 1) as usize).min(11)) {
+        days += *month_days_value;
     }
     days += day - 1;
     days
@@ -300,11 +300,8 @@ mod tests {
         old_event.ts = "2026-02-18T12:00:00.000Z".to_string();
         idx.insert(old_event);
 
-        let gc_count = count_gc_candidates(
-            &idx,
-            RetentionPolicy::Days30,
-            "2026-02-19T00:00:00.000Z",
-        );
+        let gc_count =
+            count_gc_candidates(&idx, RetentionPolicy::Days30, "2026-02-19T00:00:00.000Z");
         assert_eq!(gc_count, 1); // Only the January event is older than 30 days
     }
 }

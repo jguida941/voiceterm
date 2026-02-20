@@ -24,10 +24,7 @@ impl JsonlWriter {
             fs::create_dir_all(parent)?;
         }
 
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
 
         // Count existing lines for bookkeeping.
         let lines_written = count_lines(path);
@@ -101,10 +98,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!(
-            "voiceterm-memory-jsonl-{}-{nanos}.jsonl",
-            suffix
-        ))
+        std::env::temp_dir().join(format!("voiceterm-memory-jsonl-{}-{nanos}.jsonl", suffix))
     }
 
     fn sample_event(id: &str, text: &str) -> MemoryEvent {

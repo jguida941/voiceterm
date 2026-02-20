@@ -58,11 +58,7 @@ pub(crate) fn execute_query<'a>(
             // Score = 0.40 * importance + 0.20 * recency_decay + 0.25 * text_relevance + 0.15 * confidence
             // Simplified for initial iteration: importance + confidence decay.
             let score = (event.importance * 0.55 + event.confidence * 0.45).clamp(0.0, 1.0);
-            RetrievalResult {
-                event,
-                score,
-                rank,
-            }
+            RetrievalResult { event, score, rank }
         })
         .collect()
 }
@@ -70,7 +66,7 @@ pub(crate) fn execute_query<'a>(
 /// Estimate token count for a text string (simple word-based approximation).
 pub(crate) fn estimate_tokens(text: &str) -> usize {
     // Rough approximation: ~4 chars per token for English text.
-    (text.len() + 3) / 4
+    text.len().div_ceil(4)
 }
 
 /// Trim retrieval results to fit within a token budget.
@@ -182,7 +178,11 @@ mod tests {
         let idx = populated_index();
         let results = execute_query(&idx, &RetrievalQuery::Recent(10));
         for r in &results {
-            assert!(r.score >= 0.0 && r.score <= 1.0, "score out of range: {}", r.score);
+            assert!(
+                r.score >= 0.0 && r.score <= 1.0,
+                "score out of range: {}",
+                r.score
+            );
         }
     }
 

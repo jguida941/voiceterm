@@ -131,12 +131,7 @@ impl MemoryIndex {
     }
 
     /// Retrieve events within a time range (ISO string comparison).
-    pub(crate) fn timeline(
-        &self,
-        start: &str,
-        end: &str,
-        n: usize,
-    ) -> Vec<&MemoryEvent> {
+    pub(crate) fn timeline(&self, start: &str, end: &str, n: usize) -> Vec<&MemoryEvent> {
         self.events
             .iter()
             .rev()
@@ -334,11 +329,7 @@ mod tests {
         idx.insert(e2);
         idx.insert(e3);
 
-        let results = idx.timeline(
-            "2026-02-19T11:00:00.000Z",
-            "2026-02-19T13:00:00.000Z",
-            10,
-        );
+        let results = idx.timeline("2026-02-19T11:00:00.000Z", "2026-02-19T13:00:00.000Z", 10);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].event_id, "evt_2");
     }

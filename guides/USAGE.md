@@ -166,6 +166,7 @@ Open with `Ctrl+H`.
 - `Esc` closes the overlay.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 - Override the memory-log path with `--session-memory-path <PATH>` when needed.
+- Session memory is backed by a structured persistence layer (JSONL + SQLite index) for reliable event storage and retrieval.
 
 ## Voice Modes
 

@@ -195,13 +195,8 @@ mod tests {
     use super::*;
 
     fn make_ingestor(mode: MemoryMode) -> MemoryIngestor {
-        MemoryIngestor::new(
-            "sess_test".to_string(),
-            "proj_test".to_string(),
-            None,
-            mode,
-        )
-        .expect("create ingestor")
+        MemoryIngestor::new("sess_test".to_string(), "proj_test".to_string(), None, mode)
+            .expect("create ingestor")
     }
 
     #[test]
@@ -331,8 +326,7 @@ mod tests {
         }
 
         // Verify JSONL file has content.
-        let events =
-            super::super::store::jsonl::read_all_events(&path).expect("read jsonl");
+        let events = super::super::store::jsonl::read_all_events(&path).expect("read jsonl");
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].text, "persisted event");
 
