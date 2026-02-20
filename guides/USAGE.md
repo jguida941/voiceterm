@@ -159,7 +159,7 @@ Visual controls are no longer in Settings:
 
 - Theme: use `Ctrl+Y` (picker) or `Ctrl+G` (quick cycle)
 - HUD style: use `Ctrl+U`
-- HUD borders/right panel/animation: set at launch with `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
+- HUD borders/right panel/animation: set at launch with CLI flags `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
 
 Settings persistence:
 
