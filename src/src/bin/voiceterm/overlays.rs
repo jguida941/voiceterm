@@ -24,6 +24,7 @@ pub(crate) enum OverlayMode {
     ThemePicker,
     Settings,
     TranscriptHistory,
+    #[allow(dead_code)]
     ToastHistory,
 }
 

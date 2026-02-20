@@ -345,27 +345,21 @@ fn normalize_voice_scene_style(
     }
 }
 
-fn normalize_toast_severity_mode(
-    value: Option<ToastSeverityMode>,
-) -> Option<ToastSeverityMode> {
+fn normalize_toast_severity_mode(value: Option<ToastSeverityMode>) -> Option<ToastSeverityMode> {
     match value {
         Some(ToastSeverityMode::Theme) | None => None,
         other => other,
     }
 }
 
-fn normalize_banner_style(
-    value: Option<BannerStyleOverride>,
-) -> Option<BannerStyleOverride> {
+fn normalize_banner_style(value: Option<BannerStyleOverride>) -> Option<BannerStyleOverride> {
     match value {
         Some(BannerStyleOverride::Theme) | None => None,
         other => other,
     }
 }
 
-fn normalize_progress_bar_family(
-    value: Option<ProgressBarFamily>,
-) -> Option<ProgressBarFamily> {
+fn normalize_progress_bar_family(value: Option<ProgressBarFamily>) -> Option<ProgressBarFamily> {
     match value {
         Some(ProgressBarFamily::Theme) | None => None,
         other => other,

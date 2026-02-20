@@ -6,10 +6,9 @@
 use super::{
     style_schema::{
         parse_style_schema, parse_style_schema_with_fallback, BannerStyleOverride,
-        BorderStyleOverride, ComponentOverrides, GlyphSetOverride, IndicatorSetOverride,
-        ProgressBarFamily, ProgressStyleOverride, StartupStyleOverride, StyleSchemaPack,
-        ToastPositionOverride, ToastSeverityMode, VoiceSceneStyleOverride,
-        CURRENT_STYLE_SCHEMA_VERSION,
+        BorderStyleOverride, GlyphSetOverride, IndicatorSetOverride, ProgressBarFamily,
+        ProgressStyleOverride, StartupStyleOverride, StyleSchemaPack, ToastPositionOverride,
+        ToastSeverityMode, VoiceSceneStyleOverride, CURRENT_STYLE_SCHEMA_VERSION,
     },
     GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
     BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,

@@ -247,9 +247,7 @@ pub(super) fn run_periodic_tasks(
     }
 
     // Tick toast center to dismiss expired notifications.
-    if now.duration_since(timers.last_toast_tick)
-        >= Duration::from_millis(TOAST_TICK_INTERVAL_MS)
-    {
+    if now.duration_since(timers.last_toast_tick) >= Duration::from_millis(TOAST_TICK_INTERVAL_MS) {
         timers.last_toast_tick = now;
         if state.toast_center.tick() {
             send_enhanced_status_with_buttons(

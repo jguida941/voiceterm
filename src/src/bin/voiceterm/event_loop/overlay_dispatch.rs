@@ -51,10 +51,8 @@ pub(super) fn open_transcript_history_overlay(
     render_transcript_history_overlay_for_state(state, deps);
 }
 
-pub(super) fn open_toast_history_overlay(
-    state: &mut EventLoopState,
-    deps: &mut EventLoopDeps,
-) {
+#[allow(dead_code)]
+pub(super) fn open_toast_history_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
     state.overlay_mode = OverlayMode::ToastHistory;
     sync_overlay_winsize(state, deps);
     render_toast_history_overlay_for_state(state, deps);

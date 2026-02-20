@@ -788,7 +788,9 @@ fn handle_overlay_mouse_click(
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
-        OverlayMode::ToastHistory => crate::toast::toast_history_overlay_height(&state.toast_center),
+        OverlayMode::ToastHistory => {
+            crate::toast::toast_history_overlay_height(&state.toast_center)
+        }
         OverlayMode::None => 0,
     };
     if overlay_height == 0 || state.terminal_rows == 0 {

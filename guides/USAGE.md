@@ -315,8 +315,9 @@ Tips:
 <summary><strong>Advanced theme preview details</strong></summary>
 
 - Advanced style-pack preview: set `VOICETERM_STYLE_PACK_JSON` to a schema payload
-  (for example `{"version":2,"profile":"ops","base_theme":"dracula"}`); invalid
-  payloads fall back to the selected built-in theme.
+  (for example `{"version":4,"profile":"ops","base_theme":"dracula"}`); invalid
+  payloads fall back to the selected built-in theme. V4 adds a
+  `component_overrides` map for per-widget style routing.
 - Supported preview overrides in `overrides`: `border_style` (`single`, `rounded`,
   `double`, `heavy`, `none`), `indicators` (`ascii`, `dot`, `diamond`), and
   `glyphs` (`unicode`, `ascii`).

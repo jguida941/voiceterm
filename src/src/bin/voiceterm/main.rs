@@ -42,6 +42,7 @@ mod terminal;
 mod theme;
 mod theme_ops;
 mod theme_picker;
+#[allow(dead_code)]
 mod toast;
 mod transcript;
 mod transcript_history;
