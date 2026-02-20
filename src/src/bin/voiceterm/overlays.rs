@@ -182,6 +182,7 @@ mod tests {
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
+            border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
         };

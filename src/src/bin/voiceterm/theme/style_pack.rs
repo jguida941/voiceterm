@@ -29,6 +29,7 @@ static RUNTIME_STYLE_PACK_OVERRIDES: OnceLock<Mutex<RuntimeStylePackOverrides>> 
 thread_local! {
     static RUNTIME_STYLE_PACK_OVERRIDES: Cell<RuntimeStylePackOverrides> = const {
         Cell::new(RuntimeStylePackOverrides {
+            border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
         })
@@ -50,9 +51,20 @@ pub(crate) enum RuntimeIndicatorSetOverride {
     Diamond,
 }
 
+/// Runtime border-style override applied on top of resolved style-pack payloads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RuntimeBorderStyleOverride {
+    Single,
+    Rounded,
+    Double,
+    Heavy,
+    None,
+}
+
 /// Runtime Theme Studio overrides applied after style-pack payload resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct RuntimeStylePackOverrides {
+    pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
     pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
     pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
 }
@@ -202,6 +214,15 @@ fn base_theme_colors(theme: Theme) -> ThemeColors {
 }
 
 fn apply_runtime_style_pack_overrides(pack: &mut StylePack, overrides: RuntimeStylePackOverrides) {
+    if let Some(border_override) = overrides.border_style_override {
+        pack.border_style_override = Some(match border_override {
+            RuntimeBorderStyleOverride::Single => BorderStyleOverride::Single,
+            RuntimeBorderStyleOverride::Rounded => BorderStyleOverride::Rounded,
+            RuntimeBorderStyleOverride::Double => BorderStyleOverride::Double,
+            RuntimeBorderStyleOverride::Heavy => BorderStyleOverride::Heavy,
+            RuntimeBorderStyleOverride::None => BorderStyleOverride::None,
+        });
+    }
     if let Some(glyph_override) = overrides.glyph_set_override {
         pack.glyph_set_override = Some(match glyph_override {
             RuntimeGlyphSetOverride::Unicode => GlyphSetOverride::Unicode,
@@ -476,6 +497,7 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_glyph_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+            border_style_override: None,
             glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
             indicator_set_override: None,
         });
@@ -486,12 +508,24 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_indicator_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+            border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.indicator_rec, "◆");
         assert_eq!(colors.indicator_processing, "◈");
+    }
+
+    #[test]
+    fn resolve_theme_colors_applies_runtime_border_override() {
+        let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+            border_style_override: Some(RuntimeBorderStyleOverride::None),
+            glyph_set_override: None,
+            indicator_set_override: None,
+        });
+        let colors = resolve_theme_colors(Theme::Codex);
+        assert_eq!(colors.borders, BORDER_NONE);
     }
 
     #[test]

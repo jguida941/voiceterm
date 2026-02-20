@@ -159,10 +159,10 @@ Visual controls are now in Theme Studio:
 
 - Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
 - HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
-- Glyph profile and indicator set: use `Ctrl+Y` and adjust `Glyph profile` / `Indicator set` rows
+- Glyph/indicator/theme-border profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, and `Theme borders` rows
 - `Ctrl+U` remains a quick shortcut for cycling HUD style
 - Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
-- Theme Studio glyph/indicator overrides apply at runtime for the current session and reset on restart.
+- Theme Studio glyph/indicator/theme-border overrides apply at runtime for the current session and reset on restart.
 
 Settings persistence:
 
@@ -383,8 +383,9 @@ Theme shortcuts:
   Use Theme Studio/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
   visual runtime choices; no user config migration is required.
   Theme Studio currently includes direct controls for HUD style, HUD border
-  style, right panel mode, panel animation mode, glyph profile, and indicator
-  set, with live current-value labels in each control row.
+  style, right panel mode, panel animation mode, glyph profile, indicator
+  set, and theme border profile, with live current-value labels in each control
+  row.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Studio row to select/apply its action, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.

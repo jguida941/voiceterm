@@ -16,7 +16,8 @@ use crate::status_line::{
     status_banner_height, Pipeline, StatusLineState, VoiceMode, WakeWordHudState,
 };
 use crate::theme::{
-    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeStylePackOverrides, Theme,
+    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+    RuntimeStylePackOverrides, Theme,
 };
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
@@ -1016,6 +1017,32 @@ fn theme_studio_arrow_right_on_indicator_set_row_cycles_runtime_override() {
     assert_eq!(
         overrides.indicator_set_override,
         Some(RuntimeIndicatorSetOverride::Ascii)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_theme_borders_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 7; // Theme borders
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.border_style_override,
+        Some(RuntimeBorderStyleOverride::Single)
     );
 }
 

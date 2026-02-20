@@ -1226,6 +1226,13 @@ fn apply_theme_studio_adjustment(
             crate::theme::set_runtime_style_pack_overrides(overrides);
             true
         }
+        ThemeStudioItem::ThemeBorders => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.border_style_override =
+                cycle_runtime_border_style_override(overrides.border_style_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
         _ => false,
     }
 }
@@ -1269,6 +1276,28 @@ fn cycle_runtime_indicator_set_override(
     values[next_idx]
 }
 
+fn cycle_runtime_border_style_override(
+    current: Option<crate::theme::RuntimeBorderStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeBorderStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeBorderStyleOverride::Single),
+        Some(crate::theme::RuntimeBorderStyleOverride::Rounded),
+        Some(crate::theme::RuntimeBorderStyleOverride::Double),
+        Some(crate::theme::RuntimeBorderStyleOverride::Heavy),
+        Some(crate::theme::RuntimeBorderStyleOverride::None),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
+}
+
 fn apply_theme_studio_selection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -1284,7 +1313,8 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::HudPanel
         | ThemeStudioItem::HudAnimate
         | ThemeStudioItem::ColorsGlyphs
-        | ThemeStudioItem::LayoutMotion => {
+        | ThemeStudioItem::LayoutMotion
+        | ThemeStudioItem::ThemeBorders => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {

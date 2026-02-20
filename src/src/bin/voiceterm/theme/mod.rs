@@ -35,8 +35,8 @@ use self::{
 };
 #[allow(unused_imports)]
 pub(crate) use style_pack::{
-    runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeGlyphSetOverride,
-    RuntimeIndicatorSetOverride, RuntimeStylePackOverrides,
+    runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBorderStyleOverride,
+    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeStylePackOverrides,
 };
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.

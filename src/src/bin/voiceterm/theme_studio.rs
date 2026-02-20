@@ -5,8 +5,8 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeGlyphSetOverride,
-    RuntimeIndicatorSetOverride, Theme, ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
+    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +18,7 @@ pub(crate) enum ThemeStudioItem {
     HudAnimate,
     ColorsGlyphs,
     LayoutMotion,
+    ThemeBorders,
     Close,
 }
 
@@ -29,6 +30,7 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::HudAnimate,
     ThemeStudioItem::ColorsGlyphs,
     ThemeStudioItem::LayoutMotion,
+    ThemeStudioItem::ThemeBorders,
     ThemeStudioItem::Close,
 ];
 
@@ -42,6 +44,7 @@ pub(crate) struct ThemeStudioView {
     pub(crate) hud_border_style: HudBorderStyle,
     pub(crate) hud_right_panel: HudRightPanel,
     pub(crate) hud_right_panel_recording_only: bool,
+    pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
     pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
     pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
 }
@@ -172,6 +175,14 @@ fn format_theme_studio_option_line(
             ),
             false,
         ),
+        ThemeStudioItem::ThemeBorders => (
+            "Theme borders",
+            format!(
+                "Current: {}. Cycle theme border profile (theme/single/rounded/double/heavy/none).",
+                theme_border_label(view.border_style_override)
+            ),
+            false,
+        ),
         ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
     };
     let marker = if selected { ">" } else { " " };
@@ -228,11 +239,24 @@ fn indicator_set_label(override_value: Option<RuntimeIndicatorSetOverride>) -> &
     }
 }
 
+fn theme_border_label(override_value: Option<RuntimeBorderStyleOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeBorderStyleOverride::Single) => "Single",
+        Some(RuntimeBorderStyleOverride::Rounded) => "Rounded",
+        Some(RuntimeBorderStyleOverride::Double) => "Double",
+        Some(RuntimeBorderStyleOverride::Heavy) => "Heavy",
+        Some(RuntimeBorderStyleOverride::None) => "None",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
-    use crate::theme::{RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride};
+    use crate::theme::{
+        RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+    };
 
     fn sample_view(theme: Theme) -> ThemeStudioView {
         ThemeStudioView {
@@ -242,6 +266,7 @@ mod tests {
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
+            border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
         }
@@ -258,7 +283,8 @@ mod tests {
         assert!(rendered.contains("5. Panel animation"));
         assert!(rendered.contains("6. Glyph profile"));
         assert!(rendered.contains("7. Indicator set"));
-        assert!(rendered.contains("8. Close"));
+        assert!(rendered.contains("8. Theme borders"));
+        assert!(rendered.contains("9. Close"));
     }
 
     #[test]
@@ -278,6 +304,7 @@ mod tests {
             hud_border_style: HudBorderStyle::Double,
             hud_right_panel: HudRightPanel::Dots,
             hud_right_panel_recording_only: false,
+            border_style_override: Some(RuntimeBorderStyleOverride::Heavy),
             glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
         };
@@ -288,17 +315,18 @@ mod tests {
         assert!(rendered.contains("Current: Always"));
         assert!(rendered.contains("Current: Ascii"));
         assert!(rendered.contains("Current: Diamond"));
+        assert!(rendered.contains("Current: Heavy"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 14);
+        assert_eq!(theme_studio_height(), 15);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(7), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(8), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

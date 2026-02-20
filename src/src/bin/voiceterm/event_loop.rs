@@ -380,6 +380,7 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         hud_border_style: state.config.hud_border_style,
         hud_right_panel: state.config.hud_right_panel,
         hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
+        border_style_override: style_pack_overrides.border_style_override,
         glyph_set_override: style_pack_overrides.glyph_set_override,
         indicator_set_override: style_pack_overrides.indicator_set_override,
     };
