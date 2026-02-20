@@ -10,6 +10,38 @@ pub enum GlyphSet {
     Ascii,
 }
 
+/// Processing spinner animation family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpinnerStyle {
+    /// Theme-default processing behavior.
+    #[default]
+    Theme,
+    /// Braille spinner frames.
+    Braille,
+    /// Dots spinner frames.
+    Dots,
+    /// Line spinner frames.
+    Line,
+    /// Block spinner frames.
+    Block,
+}
+
+/// Progress bar glyph family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ProgressBarFamily {
+    /// Theme-default progress bar behavior.
+    #[default]
+    Theme,
+    /// Classic bar-family glyphs.
+    Bar,
+    /// Compact glyph-heavy bar family.
+    Compact,
+    /// Block-oriented bar family.
+    Blocks,
+    /// Braille-style bar family.
+    Braille,
+}
+
 /// ANSI color codes for a theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeColors {
@@ -46,4 +78,8 @@ pub struct ThemeColors {
     pub indicator_responding: &'static str,
     /// Icon/progress glyph profile.
     pub glyph_set: GlyphSet,
+    /// Processing spinner animation profile.
+    pub spinner_style: SpinnerStyle,
+    /// Progress bar glyph profile.
+    pub progress_bar_family: ProgressBarFamily,
 }

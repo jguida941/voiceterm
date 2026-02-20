@@ -1,6 +1,9 @@
 //! Built-in theme palettes so color choices remain centralized and testable.
 
-use super::{GlyphSet, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
+use super::{
+    GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
+    BORDER_ROUNDED, BORDER_SINGLE,
+};
 
 /// Coral theme - warm red/coral accents (default)
 /// Uses transparent backgrounds for best compatibility across terminals
@@ -24,6 +27,8 @@ pub const THEME_CORAL: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Claude theme - warm neutrals (Anthropic-inspired palette)
@@ -48,6 +53,8 @@ pub const THEME_CLAUDE: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Codex theme - cool blue neutrals (OpenAI-style, neutral)
@@ -72,6 +79,8 @@ pub const THEME_CODEX: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// ChatGPT theme - emerald green (OpenAI ChatGPT brand)
@@ -97,6 +106,8 @@ pub const THEME_CHATGPT: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Catppuccin Mocha theme - pastel colors
@@ -122,6 +133,8 @@ pub const THEME_CATPPUCCIN: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Dracula theme - high contrast
@@ -147,6 +160,8 @@ pub const THEME_DRACULA: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Nord theme - arctic blue-gray
@@ -171,6 +186,8 @@ pub const THEME_NORD: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Tokyo Night theme - elegant purple/blue dark theme
@@ -195,6 +212,8 @@ pub const THEME_TOKYONIGHT: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// Gruvbox theme - warm retro earthy colors
@@ -219,6 +238,8 @@ pub const THEME_GRUVBOX: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// ANSI 16-color theme - works on all color terminals
@@ -244,6 +265,8 @@ pub const THEME_ANSI: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };
 
 /// No colors - plain text output
@@ -267,4 +290,6 @@ pub const THEME_NONE: ThemeColors = ThemeColors {
     indicator_processing: "◐",
     indicator_responding: "↺",
     glyph_set: GlyphSet::Unicode,
+    spinner_style: SpinnerStyle::Theme,
+    progress_bar_family: ProgressBarFamily::Theme,
 };

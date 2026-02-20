@@ -85,7 +85,7 @@ impl Progress {
 pub fn format_progress_bar(progress: &Progress, config: &ProgressConfig, theme: Theme) -> String {
     let colors = theme.colors();
     let ratio = progress.progress.clamp(0.0, 1.0);
-    let glyphs = progress_glyph_profile(colors.glyph_set);
+    let glyphs = progress_glyph_profile(&colors);
 
     // Build the bar
     let bar = match config.style {
@@ -211,7 +211,7 @@ pub fn format_spinner(frame: usize, message: &str, theme: Theme) -> String {
 /// Bouncing bar for indeterminate progress.
 pub fn format_bouncing_bar(frame: usize, width: usize, theme: Theme) -> String {
     let colors = theme.colors();
-    let glyphs = progress_glyph_profile(colors.glyph_set);
+    let glyphs = progress_glyph_profile(&colors);
     let bar_width = width.min(4);
     let travel = width.saturating_sub(bar_width);
 
@@ -329,28 +329,27 @@ mod tests {
     #[test]
     fn format_bar_standard_exact_output() {
         let colors = Theme::None.colors();
-        let bar = format_bar_standard(0.5, 10, &colors, progress_glyph_profile(colors.glyph_set));
+        let bar = format_bar_standard(0.5, 10, &colors, progress_glyph_profile(&colors));
         assert_eq!(bar, "[█████░░░░░]");
     }
 
     #[test]
     fn format_bar_compact_fractional_and_full_width_cases() {
         let colors = Theme::None.colors();
-        let fractional =
-            format_bar_compact(0.26, 10, &colors, progress_glyph_profile(colors.glyph_set));
+        let fractional = format_bar_compact(0.26, 10, &colors, progress_glyph_profile(&colors));
         assert_eq!(fractional, "██▌░░░░░░░");
 
-        let full = format_bar_compact(1.0, 10, &colors, progress_glyph_profile(colors.glyph_set));
+        let full = format_bar_compact(1.0, 10, &colors, progress_glyph_profile(&colors));
         assert_eq!(full, "██████████");
 
-        let zero = format_bar_compact(0.0, 10, &colors, progress_glyph_profile(colors.glyph_set));
+        let zero = format_bar_compact(0.0, 10, &colors, progress_glyph_profile(&colors));
         assert_eq!(zero, "░░░░░░░░░░");
     }
 
     #[test]
     fn format_bar_blocks_exact_output() {
         let colors = Theme::None.colors();
-        let blocks = format_bar_blocks(0.4, 10, &colors, progress_glyph_profile(colors.glyph_set));
+        let blocks = format_bar_blocks(0.4, 10, &colors, progress_glyph_profile(&colors));
         assert_eq!(blocks, "▓▓▓▓░░░░░░");
     }
 
@@ -389,7 +388,7 @@ mod tests {
     fn progress_bars_respect_ascii_glyph_profile() {
         let mut colors = Theme::None.colors();
         colors.glyph_set = crate::theme::GlyphSet::Ascii;
-        let glyphs = progress_glyph_profile(colors.glyph_set);
+        let glyphs = progress_glyph_profile(&colors);
 
         assert_eq!(format_bar_standard(0.5, 6, &colors, glyphs), "[===---]");
         assert_eq!(format_bar_blocks(0.5, 6, &colors, glyphs), "###...");

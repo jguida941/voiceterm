@@ -1226,6 +1226,22 @@ fn apply_theme_studio_adjustment(
             crate::theme::set_runtime_style_pack_overrides(overrides);
             true
         }
+        ThemeStudioItem::ProgressSpinner => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.progress_style_override =
+                cycle_runtime_progress_style_override(overrides.progress_style_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::ProgressBars => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.progress_bar_family_override = cycle_runtime_progress_bar_family_override(
+                overrides.progress_bar_family_override,
+                direction,
+            );
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
         ThemeStudioItem::ThemeBorders => {
             let mut overrides = crate::theme::runtime_style_pack_overrides();
             overrides.border_style_override =
@@ -1298,6 +1314,48 @@ fn cycle_runtime_border_style_override(
     values[next_idx]
 }
 
+fn cycle_runtime_progress_style_override(
+    current: Option<crate::theme::RuntimeProgressStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeProgressStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeProgressStyleOverride::Braille),
+        Some(crate::theme::RuntimeProgressStyleOverride::Dots),
+        Some(crate::theme::RuntimeProgressStyleOverride::Line),
+        Some(crate::theme::RuntimeProgressStyleOverride::Block),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
+}
+
+fn cycle_runtime_progress_bar_family_override(
+    current: Option<crate::theme::RuntimeProgressBarFamilyOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeProgressBarFamilyOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Bar),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Compact),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Blocks),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Braille),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
+}
+
 fn apply_theme_studio_selection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -1314,6 +1372,8 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::HudAnimate
         | ThemeStudioItem::ColorsGlyphs
         | ThemeStudioItem::LayoutMotion
+        | ThemeStudioItem::ProgressSpinner
+        | ThemeStudioItem::ProgressBars
         | ThemeStudioItem::ThemeBorders => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
                 && state.overlay_mode == OverlayMode::ThemeStudio

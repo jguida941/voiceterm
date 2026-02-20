@@ -6,13 +6,15 @@
 use super::{
     style_schema::{
         parse_style_schema, parse_style_schema_with_fallback, BannerStyleOverride,
-        BorderStyleOverride, GlyphSetOverride, IndicatorSetOverride, ProgressBarFamily,
-        ProgressStyleOverride, StartupStyleOverride, StyleSchemaPack, ToastPositionOverride,
-        ToastSeverityMode, VoiceSceneStyleOverride, CURRENT_STYLE_SCHEMA_VERSION,
+        BorderStyleOverride, GlyphSetOverride, IndicatorSetOverride,
+        ProgressBarFamily as SchemaProgressBarFamily, ProgressStyleOverride, StartupStyleOverride,
+        StyleSchemaPack, ToastPositionOverride, ToastSeverityMode, VoiceSceneStyleOverride,
+        CURRENT_STYLE_SCHEMA_VERSION,
     },
-    GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
-    BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,
-    THEME_CORAL, THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
+    GlyphSet, ProgressBarFamily, SpinnerStyle, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
+    BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT,
+    THEME_CLAUDE, THEME_CODEX, THEME_CORAL, THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD,
+    THEME_TOKYONIGHT,
 };
 #[cfg(test)]
 use std::cell::Cell;
@@ -32,6 +34,8 @@ thread_local! {
             border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: None,
         })
     };
 }
@@ -51,6 +55,24 @@ pub(crate) enum RuntimeIndicatorSetOverride {
     Diamond,
 }
 
+/// Runtime progress-spinner override applied on top of resolved style-pack payloads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RuntimeProgressStyleOverride {
+    Braille,
+    Dots,
+    Line,
+    Block,
+}
+
+/// Runtime progress-bar-family override applied on top of resolved style-pack payloads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RuntimeProgressBarFamilyOverride {
+    Bar,
+    Compact,
+    Blocks,
+    Braille,
+}
+
 /// Runtime border-style override applied on top of resolved style-pack payloads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RuntimeBorderStyleOverride {
@@ -67,6 +89,8 @@ pub(crate) struct RuntimeStylePackOverrides {
     pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
     pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
     pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
+    pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
+    pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
 }
 
 /// Resolved surface-level style overrides exposed to runtime rendering.
@@ -85,7 +109,7 @@ pub(crate) struct ResolvedComponentOverrides {
     pub(crate) hud_border: Option<BorderStyleOverride>,
     pub(crate) toast_severity_mode: Option<ToastSeverityMode>,
     pub(crate) banner_style: Option<BannerStyleOverride>,
-    pub(crate) progress_bar_family: Option<ProgressBarFamily>,
+    pub(crate) progress_bar_family: Option<SchemaProgressBarFamily>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -236,6 +260,22 @@ fn apply_runtime_style_pack_overrides(pack: &mut StylePack, overrides: RuntimeSt
             RuntimeIndicatorSetOverride::Diamond => IndicatorSetOverride::Diamond,
         });
     }
+    if let Some(progress_override) = overrides.progress_style_override {
+        pack.surface_overrides.progress_style = Some(match progress_override {
+            RuntimeProgressStyleOverride::Braille => ProgressStyleOverride::Braille,
+            RuntimeProgressStyleOverride::Dots => ProgressStyleOverride::Dots,
+            RuntimeProgressStyleOverride::Line => ProgressStyleOverride::Line,
+            RuntimeProgressStyleOverride::Block => ProgressStyleOverride::Block,
+        });
+    }
+    if let Some(progress_bar_override) = overrides.progress_bar_family_override {
+        pack.component_overrides.progress_bar_family = Some(match progress_bar_override {
+            RuntimeProgressBarFamilyOverride::Bar => SchemaProgressBarFamily::Bar,
+            RuntimeProgressBarFamilyOverride::Compact => SchemaProgressBarFamily::Compact,
+            RuntimeProgressBarFamilyOverride::Blocks => SchemaProgressBarFamily::Blocks,
+            RuntimeProgressBarFamilyOverride::Braille => SchemaProgressBarFamily::Braille,
+        });
+    }
 }
 
 #[must_use]
@@ -249,6 +289,8 @@ pub(crate) fn resolve_style_pack_colors(pack: StylePack) -> ThemeColors {
     apply_border_style_override(&mut colors, pack.border_style_override);
     apply_indicator_set_override(&mut colors, pack.indicator_set_override);
     apply_glyph_set_override(&mut colors, pack.glyph_set_override);
+    apply_progress_style_override(&mut colors, pack.surface_overrides.progress_style);
+    apply_progress_bar_family_override(&mut colors, pack.component_overrides.progress_bar_family);
     colors
 }
 
@@ -342,6 +384,38 @@ fn apply_glyph_set_override(colors: &mut ThemeColors, override_value: Option<Gly
         GlyphSetOverride::Theme => colors.glyph_set,
         GlyphSetOverride::Unicode => GlyphSet::Unicode,
         GlyphSetOverride::Ascii => GlyphSet::Ascii,
+    };
+}
+
+fn apply_progress_style_override(
+    colors: &mut ThemeColors,
+    override_value: Option<ProgressStyleOverride>,
+) {
+    let Some(override_value) = override_value else {
+        return;
+    };
+    colors.spinner_style = match override_value {
+        ProgressStyleOverride::Theme => colors.spinner_style,
+        ProgressStyleOverride::Braille => SpinnerStyle::Braille,
+        ProgressStyleOverride::Dots => SpinnerStyle::Dots,
+        ProgressStyleOverride::Line => SpinnerStyle::Line,
+        ProgressStyleOverride::Block => SpinnerStyle::Block,
+    };
+}
+
+fn apply_progress_bar_family_override(
+    colors: &mut ThemeColors,
+    override_value: Option<SchemaProgressBarFamily>,
+) {
+    let Some(override_value) = override_value else {
+        return;
+    };
+    colors.progress_bar_family = match override_value {
+        SchemaProgressBarFamily::Theme => colors.progress_bar_family,
+        SchemaProgressBarFamily::Bar => ProgressBarFamily::Bar,
+        SchemaProgressBarFamily::Compact => ProgressBarFamily::Compact,
+        SchemaProgressBarFamily::Blocks => ProgressBarFamily::Blocks,
+        SchemaProgressBarFamily::Braille => ProgressBarFamily::Braille,
     };
 }
 
@@ -495,11 +569,37 @@ mod tests {
     }
 
     #[test]
+    fn resolve_theme_colors_with_payload_applies_progress_style_override() {
+        let payload = r#"{
+            "version":4,
+            "profile":"ops",
+            "base_theme":"codex",
+            "surfaces":{"progress_style":"dots"}
+        }"#;
+        let colors = resolve_theme_colors_with_payload(Theme::Codex, Some(payload));
+        assert_eq!(colors.spinner_style, SpinnerStyle::Dots);
+    }
+
+    #[test]
+    fn resolve_theme_colors_with_payload_applies_progress_bar_family_override() {
+        let payload = r#"{
+            "version":4,
+            "profile":"ops",
+            "base_theme":"codex",
+            "components":{"progress_bar_family":"blocks"}
+        }"#;
+        let colors = resolve_theme_colors_with_payload(Theme::Codex, Some(payload));
+        assert_eq!(colors.progress_bar_family, ProgressBarFamily::Blocks);
+    }
+
+    #[test]
     fn resolve_theme_colors_applies_runtime_glyph_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
             border_style_override: None,
             glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
             indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: None,
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.glyph_set, GlyphSet::Ascii);
@@ -511,6 +611,8 @@ mod tests {
             border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
+            progress_style_override: None,
+            progress_bar_family_override: None,
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.indicator_rec, "◆");
@@ -523,9 +625,37 @@ mod tests {
             border_style_override: Some(RuntimeBorderStyleOverride::None),
             glyph_set_override: None,
             indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: None,
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.borders, BORDER_NONE);
+    }
+
+    #[test]
+    fn resolve_theme_colors_applies_runtime_progress_style_override() {
+        let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+            border_style_override: None,
+            glyph_set_override: None,
+            indicator_set_override: None,
+            progress_style_override: Some(RuntimeProgressStyleOverride::Line),
+            progress_bar_family_override: None,
+        });
+        let colors = resolve_theme_colors(Theme::Codex);
+        assert_eq!(colors.spinner_style, SpinnerStyle::Line);
+    }
+
+    #[test]
+    fn resolve_theme_colors_applies_runtime_progress_bar_family_override() {
+        let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+            border_style_override: None,
+            glyph_set_override: None,
+            indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Braille),
+        });
+        let colors = resolve_theme_colors(Theme::Codex);
+        assert_eq!(colors.progress_bar_family, ProgressBarFamily::Braille);
     }
 
     #[test]

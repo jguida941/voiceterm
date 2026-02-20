@@ -21,7 +21,7 @@ fn format_level_meter_with_colors(
     colors: &ThemeColors,
 ) -> String {
     let range = config.max_db - config.min_db;
-    let glyphs = progress_glyph_profile(colors.glyph_set);
+    let glyphs = progress_glyph_profile(colors);
     let peak_marker = match colors.glyph_set {
         GlyphSet::Unicode => '│',
         GlyphSet::Ascii => '|',

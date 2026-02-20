@@ -14,6 +14,8 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add first interactive Theme Studio visual controls for existing runtime styling: `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` rows now apply directly from Theme Studio (with Enter and Left/Right arrow adjustments).
 - Replace Theme Studio placeholder rows with runtime-editable style-pack controls: `Glyph profile` and `Indicator set` now cycle live rendering overrides from Theme Studio (`Enter` and Left/Right arrows).
 - Add a runtime-editable `Theme borders` row in Theme Studio so overlay/theme border profiles (`theme`/`single`/`rounded`/`double`/`heavy`/`none`) can be cycled live from the same control surface.
+- Add a runtime-editable `Progress spinner` row in Theme Studio so processing spinner style (`theme`/`braille`/`dots`/`line`/`block`) can be cycled live for status-line and progress spinner surfaces.
+- Add a runtime-editable `Progress bars` row in Theme Studio so progress bar family (`theme`/`bar`/`compact`/`blocks`/`braille`) can be cycled live for progress and meter-style surfaces.
 - Add live value readouts in Theme Studio control rows so `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` always show the currently active setting before adjustment.
 
 ### Docs

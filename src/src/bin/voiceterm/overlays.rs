@@ -185,6 +185,8 @@ mod tests {
             border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: None,
         };
         show_theme_studio_overlay(&writer_tx, &view, 80);
         match writer_rx

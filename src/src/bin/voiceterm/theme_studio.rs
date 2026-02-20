@@ -6,7 +6,8 @@ use crate::overlay_frame::{
 };
 use crate::theme::{
     overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
-    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, Theme, ThemeColors,
+    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
+    RuntimeProgressStyleOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +19,8 @@ pub(crate) enum ThemeStudioItem {
     HudAnimate,
     ColorsGlyphs,
     LayoutMotion,
+    ProgressSpinner,
+    ProgressBars,
     ThemeBorders,
     Close,
 }
@@ -30,6 +33,8 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::HudAnimate,
     ThemeStudioItem::ColorsGlyphs,
     ThemeStudioItem::LayoutMotion,
+    ThemeStudioItem::ProgressSpinner,
+    ThemeStudioItem::ProgressBars,
     ThemeStudioItem::ThemeBorders,
     ThemeStudioItem::Close,
 ];
@@ -47,6 +52,8 @@ pub(crate) struct ThemeStudioView {
     pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
     pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
     pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
+    pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
+    pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
 }
 
 #[must_use]
@@ -175,6 +182,22 @@ fn format_theme_studio_option_line(
             ),
             false,
         ),
+        ThemeStudioItem::ProgressSpinner => (
+            "Progress spinner",
+            format!(
+                "Current: {}. Cycle spinner style (theme/braille/dots/line/block).",
+                progress_spinner_label(view.progress_style_override)
+            ),
+            false,
+        ),
+        ThemeStudioItem::ProgressBars => (
+            "Progress bars",
+            format!(
+                "Current: {}. Cycle bar family (theme/bar/compact/blocks/braille).",
+                progress_bar_family_label(view.progress_bar_family_override)
+            ),
+            false,
+        ),
         ThemeStudioItem::ThemeBorders => (
             "Theme borders",
             format!(
@@ -250,12 +273,35 @@ fn theme_border_label(override_value: Option<RuntimeBorderStyleOverride>) -> &'s
     }
 }
 
+fn progress_spinner_label(override_value: Option<RuntimeProgressStyleOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeProgressStyleOverride::Braille) => "Braille",
+        Some(RuntimeProgressStyleOverride::Dots) => "Dots",
+        Some(RuntimeProgressStyleOverride::Line) => "Line",
+        Some(RuntimeProgressStyleOverride::Block) => "Block",
+    }
+}
+
+fn progress_bar_family_label(
+    override_value: Option<RuntimeProgressBarFamilyOverride>,
+) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeProgressBarFamilyOverride::Bar) => "Bar",
+        Some(RuntimeProgressBarFamilyOverride::Compact) => "Compact",
+        Some(RuntimeProgressBarFamilyOverride::Blocks) => "Blocks",
+        Some(RuntimeProgressBarFamilyOverride::Braille) => "Braille",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
     use crate::theme::{
         RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+        RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
     };
 
     fn sample_view(theme: Theme) -> ThemeStudioView {
@@ -269,6 +315,8 @@ mod tests {
             border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
+            progress_style_override: None,
+            progress_bar_family_override: None,
         }
     }
 
@@ -283,8 +331,10 @@ mod tests {
         assert!(rendered.contains("5. Panel animation"));
         assert!(rendered.contains("6. Glyph profile"));
         assert!(rendered.contains("7. Indicator set"));
-        assert!(rendered.contains("8. Theme borders"));
-        assert!(rendered.contains("9. Close"));
+        assert!(rendered.contains("8. Progress spinner"));
+        assert!(rendered.contains("9. Progress bars"));
+        assert!(rendered.contains("10. Theme borders"));
+        assert!(rendered.contains("11. Close"));
     }
 
     #[test]
@@ -307,6 +357,8 @@ mod tests {
             border_style_override: Some(RuntimeBorderStyleOverride::Heavy),
             glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
+            progress_style_override: Some(RuntimeProgressStyleOverride::Line),
+            progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Blocks),
         };
         let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("Current: Hidden"));
@@ -315,18 +367,20 @@ mod tests {
         assert!(rendered.contains("Current: Always"));
         assert!(rendered.contains("Current: Ascii"));
         assert!(rendered.contains("Current: Diamond"));
+        assert!(rendered.contains("Current: Line"));
+        assert!(rendered.contains("Current: Blocks"));
         assert!(rendered.contains("Current: Heavy"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 15);
+        assert_eq!(theme_studio_height(), 17);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(8), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(10), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

@@ -224,6 +224,8 @@ impl<'a> ButtonActionContext<'a> {
             border_style_override: style_pack_overrides.border_style_override,
             glyph_set_override: style_pack_overrides.glyph_set_override,
             indicator_set_override: style_pack_overrides.indicator_set_override,
+            progress_style_override: style_pack_overrides.progress_style_override,
+            progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
         };
         show_theme_studio_overlay(self.writer_tx, &view, cols);
     }
