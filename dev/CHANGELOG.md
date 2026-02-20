@@ -13,6 +13,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Decompose status-line right-panel rendering helpers out of `src/src/bin/voiceterm/status_line/format.rs` into `status_line/right_panel.rs` (MP-265) with no runtime behavior change.
 - Continue MP-265 decomposition by moving minimal-HUD right-panel scene/waveform/pulse helpers from `src/src/bin/voiceterm/status_line/buttons.rs` into `status_line/right_panel.rs`, centralizing full/minimal panel helper logic with no runtime behavior change.
 
+### Documentation
+
+- Restyle all top README badges to a unified red-orange/charcoal `for-the-badge` theme to match the hero visual direction.
+
 ## [1.0.86] - 2026-02-20
 
 ### UX
