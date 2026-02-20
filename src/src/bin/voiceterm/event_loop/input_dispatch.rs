@@ -1179,7 +1179,17 @@ fn apply_theme_studio_adjustment(
     deps: &mut EventLoopDeps,
     direction: i32,
 ) -> bool {
-    match theme_studio_item_at(state.theme_studio_selected) {
+    ensure_theme_studio_session(state);
+    let before = theme_studio_snapshot_from_state(state);
+    let did_apply = match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::Theme => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::Theme,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
         ThemeStudioItem::HudStyle => run_settings_item_action(
             state,
             timers,
@@ -1258,8 +1268,16 @@ fn apply_theme_studio_adjustment(
             crate::theme::set_runtime_style_pack_overrides(overrides);
             true
         }
-        _ => false,
+        ThemeStudioItem::Undo
+        | ThemeStudioItem::Redo
+        | ThemeStudioItem::Rollback
+        | ThemeStudioItem::ThemePicker
+        | ThemeStudioItem::Close => false,
+    };
+    if !did_apply {
+        return false;
     }
+    record_theme_studio_adjustment(state, before)
 }
 
 fn cycle_runtime_glyph_set_override(
@@ -1400,6 +1418,7 @@ fn apply_theme_studio_selection(
             open_theme_picker_overlay(state, timers, deps);
         }
         ThemeStudioItem::HudStyle
+        | ThemeStudioItem::Theme
         | ThemeStudioItem::HudBorders
         | ThemeStudioItem::HudPanel
         | ThemeStudioItem::HudAnimate
@@ -1410,6 +1429,27 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::ThemeBorders
         | ThemeStudioItem::VoiceScene => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+        ThemeStudioItem::Undo => {
+            if apply_theme_studio_undo(state, deps)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+        ThemeStudioItem::Redo => {
+            if apply_theme_studio_redo(state, deps)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+        ThemeStudioItem::Rollback => {
+            if apply_theme_studio_rollback(state, deps)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {
                 render_theme_studio_overlay_for_state(state, deps);

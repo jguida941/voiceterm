@@ -41,7 +41,9 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
 use crate::terminal::{apply_pty_winsize, resolved_cols, take_sigwinch, update_pty_winsize};
-use crate::theme::{runtime_style_pack_overrides, style_pack_theme_lock};
+use crate::theme::{
+    runtime_style_pack_overrides, set_runtime_style_pack_overrides, style_pack_theme_lock,
+};
 use crate::theme_ops::{
     apply_theme_picker_index, theme_index_from_theme, theme_picker_has_longer_match,
     theme_picker_parse_index,
@@ -52,8 +54,8 @@ use crate::theme_picker::{
 };
 use crate::theme_studio::{
     theme_studio_footer, theme_studio_height, theme_studio_inner_width_for_terminal,
-    theme_studio_item_at, theme_studio_total_width_for_terminal, ThemeStudioItem, ThemeStudioView,
-    THEME_STUDIO_ITEMS, THEME_STUDIO_OPTION_START_ROW,
+    theme_studio_item_at, theme_studio_total_width_for_terminal, ThemeStudioItem,
+    ThemeStudioSnapshot, ThemeStudioView, THEME_STUDIO_ITEMS, THEME_STUDIO_OPTION_START_ROW,
 };
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::transcript_history::transcript_history_overlay_height;
@@ -81,6 +83,7 @@ const PTY_OUTPUT_BATCH_CHUNKS: usize = 16;
 const PENDING_OUTPUT_RETRY_MS: u64 = 5;
 const PTY_INPUT_FLUSH_ATTEMPTS: usize = 16;
 const PTY_INPUT_MAX_BUFFER_BYTES: usize = 256 * 1024;
+const THEME_STUDIO_HISTORY_MAX: usize = 64;
 
 #[cfg(test)]
 type TrySendHook = fn(&[u8]) -> io::Result<usize>;
@@ -375,6 +378,7 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
     let style_pack_overrides = runtime_style_pack_overrides();
     let view = ThemeStudioView {
         theme: state.theme,
+        theme_locked: style_pack_theme_lock(),
         selected,
         hud_style: state.status_state.hud_style,
         hud_border_style: state.config.hud_border_style,
@@ -386,8 +390,137 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         progress_style_override: style_pack_overrides.progress_style_override,
         progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
         voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+        undo_count: state.theme_studio_undo_stack.len(),
+        redo_count: state.theme_studio_redo_stack.len(),
+        rollback_available: theme_studio_session_is_dirty(state),
     };
     show_theme_studio_overlay(&deps.writer_tx, &view, cols);
+}
+
+fn theme_studio_snapshot_from_state(state: &EventLoopState) -> ThemeStudioSnapshot {
+    ThemeStudioSnapshot {
+        theme: state.theme,
+        hud_style: state.status_state.hud_style,
+        hud_border_style: state.config.hud_border_style,
+        hud_right_panel: state.config.hud_right_panel,
+        hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
+        runtime_overrides: runtime_style_pack_overrides(),
+    }
+}
+
+fn apply_theme_studio_snapshot(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    snapshot: ThemeStudioSnapshot,
+) {
+    state.theme = snapshot.theme;
+    state.config.theme_name = Some(snapshot.theme.to_string());
+    let _ = deps.writer_tx.send(WriterMessage::SetTheme(snapshot.theme));
+    state.status_state.hud_style = snapshot.hud_style;
+    state.config.hud_style = snapshot.hud_style;
+    state.config.hud_border_style = snapshot.hud_border_style;
+    state.status_state.hud_border_style = snapshot.hud_border_style;
+    state.config.hud_right_panel = snapshot.hud_right_panel;
+    state.status_state.hud_right_panel = snapshot.hud_right_panel;
+    state.config.hud_right_panel_recording_only = snapshot.hud_right_panel_recording_only;
+    state.status_state.hud_right_panel_recording_only = snapshot.hud_right_panel_recording_only;
+    set_runtime_style_pack_overrides(snapshot.runtime_overrides);
+    sync_overlay_winsize(state, deps);
+}
+
+fn push_theme_studio_history(stack: &mut Vec<ThemeStudioSnapshot>, snapshot: ThemeStudioSnapshot) {
+    if stack.len() >= THEME_STUDIO_HISTORY_MAX {
+        stack.remove(0);
+    }
+    stack.push(snapshot);
+}
+
+fn begin_theme_studio_session(state: &mut EventLoopState) {
+    state.theme_studio_baseline = Some(theme_studio_snapshot_from_state(state));
+    state.theme_studio_undo_stack.clear();
+    state.theme_studio_redo_stack.clear();
+}
+
+fn clear_theme_studio_session(state: &mut EventLoopState) {
+    state.theme_studio_baseline = None;
+    state.theme_studio_undo_stack.clear();
+    state.theme_studio_redo_stack.clear();
+}
+
+fn should_preserve_theme_studio_session(mode: OverlayMode) -> bool {
+    matches!(mode, OverlayMode::ThemeStudio | OverlayMode::ThemePicker)
+}
+
+fn ensure_theme_studio_session(state: &mut EventLoopState) {
+    if state.theme_studio_baseline.is_none() {
+        begin_theme_studio_session(state);
+    }
+}
+
+fn theme_studio_session_is_dirty(state: &EventLoopState) -> bool {
+    match state.theme_studio_baseline {
+        Some(baseline) => baseline != theme_studio_snapshot_from_state(state),
+        None => false,
+    }
+}
+
+fn record_theme_studio_adjustment(state: &mut EventLoopState, before: ThemeStudioSnapshot) -> bool {
+    let after = theme_studio_snapshot_from_state(state);
+    if before == after {
+        return false;
+    }
+    push_theme_studio_history(&mut state.theme_studio_undo_stack, before);
+    state.theme_studio_redo_stack.clear();
+    true
+}
+
+fn apply_theme_studio_undo(state: &mut EventLoopState, deps: &mut EventLoopDeps) -> bool {
+    ensure_theme_studio_session(state);
+    let Some(previous) = state.theme_studio_undo_stack.pop() else {
+        return false;
+    };
+    let current = theme_studio_snapshot_from_state(state);
+    apply_theme_studio_snapshot(state, deps, previous);
+    push_theme_studio_history(&mut state.theme_studio_redo_stack, current);
+    persist_runtime_config_snapshot(state);
+    true
+}
+
+fn apply_theme_studio_redo(state: &mut EventLoopState, deps: &mut EventLoopDeps) -> bool {
+    ensure_theme_studio_session(state);
+    let Some(next) = state.theme_studio_redo_stack.pop() else {
+        return false;
+    };
+    let current = theme_studio_snapshot_from_state(state);
+    apply_theme_studio_snapshot(state, deps, next);
+    push_theme_studio_history(&mut state.theme_studio_undo_stack, current);
+    persist_runtime_config_snapshot(state);
+    true
+}
+
+fn apply_theme_studio_rollback(state: &mut EventLoopState, deps: &mut EventLoopDeps) -> bool {
+    ensure_theme_studio_session(state);
+    let Some(baseline) = state.theme_studio_baseline else {
+        return false;
+    };
+    let current = theme_studio_snapshot_from_state(state);
+    if current == baseline {
+        return false;
+    }
+    push_theme_studio_history(&mut state.theme_studio_undo_stack, current);
+    state.theme_studio_redo_stack.clear();
+    apply_theme_studio_snapshot(state, deps, baseline);
+    persist_runtime_config_snapshot(state);
+    true
+}
+
+fn persist_runtime_config_snapshot(state: &EventLoopState) {
+    let snapshot = crate::persistent_config::snapshot_from_runtime(
+        &state.config,
+        &state.status_state,
+        state.theme,
+    );
+    crate::persistent_config::save_user_config(&snapshot);
 }
 
 fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
@@ -559,6 +692,9 @@ fn button_action_context<'a>(
         overlay_mode: &mut state.overlay_mode,
         settings_menu: &mut state.settings_menu,
         theme_studio_selected: &mut state.theme_studio_selected,
+        theme_studio_baseline: &mut state.theme_studio_baseline,
+        theme_studio_undo_stack: &mut state.theme_studio_undo_stack,
+        theme_studio_redo_stack: &mut state.theme_studio_redo_stack,
         config: &mut state.config,
         status_state: &mut state.status_state,
         auto_voice_enabled: &mut state.auto_voice_enabled,

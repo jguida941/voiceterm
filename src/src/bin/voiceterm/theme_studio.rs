@@ -7,12 +7,14 @@ use crate::overlay_frame::{
 use crate::theme::{
     overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
     RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
-    RuntimeProgressStyleOverride, RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
+    RuntimeProgressStyleOverride, RuntimeStylePackOverrides, RuntimeVoiceSceneStyleOverride, Theme,
+    ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ThemeStudioItem {
     ThemePicker,
+    Theme,
     HudStyle,
     HudBorders,
     HudPanel,
@@ -23,11 +25,15 @@ pub(crate) enum ThemeStudioItem {
     ProgressBars,
     ThemeBorders,
     VoiceScene,
+    Undo,
+    Redo,
+    Rollback,
     Close,
 }
 
 pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ThemePicker,
+    ThemeStudioItem::Theme,
     ThemeStudioItem::HudStyle,
     ThemeStudioItem::HudBorders,
     ThemeStudioItem::HudPanel,
@@ -38,14 +44,28 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ProgressBars,
     ThemeStudioItem::ThemeBorders,
     ThemeStudioItem::VoiceScene,
+    ThemeStudioItem::Undo,
+    ThemeStudioItem::Redo,
+    ThemeStudioItem::Rollback,
     ThemeStudioItem::Close,
 ];
 
 pub(crate) const THEME_STUDIO_OPTION_START_ROW: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ThemeStudioSnapshot {
+    pub(crate) theme: Theme,
+    pub(crate) hud_style: HudStyle,
+    pub(crate) hud_border_style: HudBorderStyle,
+    pub(crate) hud_right_panel: HudRightPanel,
+    pub(crate) hud_right_panel_recording_only: bool,
+    pub(crate) runtime_overrides: RuntimeStylePackOverrides,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ThemeStudioView {
     pub(crate) theme: Theme,
+    pub(crate) theme_locked: Option<Theme>,
     pub(crate) selected: usize,
     pub(crate) hud_style: HudStyle,
     pub(crate) hud_border_style: HudBorderStyle,
@@ -57,6 +77,9 @@ pub(crate) struct ThemeStudioView {
     pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
     pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
     pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
+    pub(crate) undo_count: usize,
+    pub(crate) redo_count: usize,
+    pub(crate) rollback_available: bool,
 }
 
 #[must_use]
@@ -137,6 +160,16 @@ fn format_theme_studio_option_line(
             "Open classic palette browser for quick theme apply.".to_string(),
             false,
         ),
+        ThemeStudioItem::Theme => (
+            "Theme",
+            match view.theme_locked {
+                Some(locked_theme) => {
+                    format!("Current: {locked_theme}. Locked by style-pack payload.")
+                }
+                None => format!("Current: {}. Cycle base theme palette.", view.theme),
+            },
+            false,
+        ),
         ThemeStudioItem::HudStyle => (
             "HUD style",
             format!(
@@ -215,6 +248,49 @@ fn format_theme_studio_option_line(
                 "Current: {}. Cycle scene style (theme/pulse/static/minimal).",
                 voice_scene_label(view.voice_scene_style_override)
             ),
+            false,
+        ),
+        ThemeStudioItem::Undo => (
+            "Undo",
+            if view.undo_count > 0 {
+                format!(
+                    "Revert last visual change ({} {} available).",
+                    view.undo_count,
+                    if view.undo_count == 1 {
+                        "step"
+                    } else {
+                        "steps"
+                    }
+                )
+            } else {
+                "No previous visual change to undo.".to_string()
+            },
+            false,
+        ),
+        ThemeStudioItem::Redo => (
+            "Redo",
+            if view.redo_count > 0 {
+                format!(
+                    "Re-apply reverted change ({} {} available).",
+                    view.redo_count,
+                    if view.redo_count == 1 {
+                        "step"
+                    } else {
+                        "steps"
+                    }
+                )
+            } else {
+                "No reverted visual change to re-apply.".to_string()
+            },
+            false,
+        ),
+        ThemeStudioItem::Rollback => (
+            "Rollback",
+            if view.rollback_available {
+                "Restore visual controls to session baseline.".to_string()
+            } else {
+                "Already at session baseline.".to_string()
+            },
             false,
         ),
         ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
@@ -328,6 +404,7 @@ mod tests {
     fn sample_view(theme: Theme) -> ThemeStudioView {
         ThemeStudioView {
             theme,
+            theme_locked: None,
             selected: 0,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
@@ -339,6 +416,9 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            undo_count: 0,
+            redo_count: 0,
+            rollback_available: false,
         }
     }
 
@@ -347,31 +427,36 @@ mod tests {
         let rendered = format_theme_studio(&sample_view(Theme::Codex), 80);
         assert!(rendered.contains("VoiceTerm - Theme Studio"));
         assert!(rendered.contains("1. Theme picker"));
-        assert!(rendered.contains("2. HUD style"));
-        assert!(rendered.contains("3. HUD borders"));
-        assert!(rendered.contains("4. Right panel"));
-        assert!(rendered.contains("5. Panel animation"));
-        assert!(rendered.contains("6. Glyph profile"));
-        assert!(rendered.contains("7. Indicator set"));
-        assert!(rendered.contains("8. Progress spinner"));
-        assert!(rendered.contains("9. Progress bars"));
-        assert!(rendered.contains("10. Theme borders"));
-        assert!(rendered.contains("11. Voice scene"));
-        assert!(rendered.contains("12. Close"));
+        assert!(rendered.contains("2. Theme"));
+        assert!(rendered.contains("3. HUD style"));
+        assert!(rendered.contains("4. HUD borders"));
+        assert!(rendered.contains("5. Right panel"));
+        assert!(rendered.contains("6. Panel animation"));
+        assert!(rendered.contains("7. Glyph profile"));
+        assert!(rendered.contains("8. Indicator set"));
+        assert!(rendered.contains("9. Progress spinner"));
+        assert!(rendered.contains("10. Progress bars"));
+        assert!(rendered.contains("11. Theme borders"));
+        assert!(rendered.contains("12. Voice scene"));
+        assert!(rendered.contains("13. Undo"));
+        assert!(rendered.contains("14. Redo"));
+        assert!(rendered.contains("15. Rollback"));
+        assert!(rendered.contains("16. Close"));
     }
 
     #[test]
     fn theme_studio_overlay_marks_selected_row() {
         let mut view = sample_view(Theme::Codex);
-        view.selected = 4;
+        view.selected = 5;
         let rendered = format_theme_studio(&view, 80);
-        assert!(rendered.contains("> 5. Panel animation"));
+        assert!(rendered.contains("> 6. Panel animation"));
     }
 
     #[test]
     fn theme_studio_overlay_shows_live_visual_values() {
         let view = ThemeStudioView {
             theme: Theme::Codex,
+            theme_locked: Some(Theme::Codex),
             selected: 0,
             hud_style: HudStyle::Hidden,
             hud_border_style: HudBorderStyle::Double,
@@ -383,11 +468,15 @@ mod tests {
             progress_style_override: Some(RuntimeProgressStyleOverride::Line),
             progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Blocks),
             voice_scene_style_override: Some(RuntimeVoiceSceneStyleOverride::Pulse),
+            undo_count: 2,
+            redo_count: 1,
+            rollback_available: true,
         };
         let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("Current: Hidden"));
         assert!(rendered.contains("Current: Double"));
         assert!(rendered.contains("Current: Dots"));
+        assert!(rendered.contains("Locked by style-pack payload"));
         assert!(rendered.contains("Current: Always"));
         assert!(rendered.contains("Current: Ascii"));
         assert!(rendered.contains("Current: Diamond"));
@@ -395,17 +484,20 @@ mod tests {
         assert!(rendered.contains("Current: Blocks"));
         assert!(rendered.contains("Current: Heavy"));
         assert!(rendered.contains("Current: Pulse"));
+        assert!(rendered.contains("2 steps available"));
+        assert!(rendered.contains("1 step available"));
+        assert!(rendered.contains("session baseline"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 18);
+        assert_eq!(theme_studio_height(), 22);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(11), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(15), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

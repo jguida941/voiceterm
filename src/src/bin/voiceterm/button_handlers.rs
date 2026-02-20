@@ -18,8 +18,8 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{get_button_positions, status_banner_height_for_state, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
-use crate::theme::{runtime_style_pack_overrides, Theme};
-use crate::theme_studio::{ThemeStudioView, THEME_STUDIO_ITEMS};
+use crate::theme::{runtime_style_pack_overrides, style_pack_theme_lock, Theme};
+use crate::theme_studio::{ThemeStudioSnapshot, ThemeStudioView, THEME_STUDIO_ITEMS};
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
 
@@ -27,6 +27,9 @@ pub(crate) struct ButtonActionContext<'a> {
     pub(crate) overlay_mode: &'a mut OverlayMode,
     pub(crate) settings_menu: &'a mut SettingsMenuState,
     pub(crate) theme_studio_selected: &'a mut usize,
+    pub(crate) theme_studio_baseline: &'a mut Option<ThemeStudioSnapshot>,
+    pub(crate) theme_studio_undo_stack: &'a mut Vec<ThemeStudioSnapshot>,
+    pub(crate) theme_studio_redo_stack: &'a mut Vec<ThemeStudioSnapshot>,
     pub(crate) config: &'a mut OverlayConfig,
     pub(crate) status_state: &'a mut StatusLineState,
     pub(crate) auto_voice_enabled: &'a mut bool,
@@ -214,8 +217,19 @@ impl<'a> ButtonActionContext<'a> {
                 (*self.theme_studio_selected).min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
         }
         let style_pack_overrides = runtime_style_pack_overrides();
+        *self.theme_studio_baseline = Some(ThemeStudioSnapshot {
+            theme: *self.theme,
+            hud_style: self.status_state.hud_style,
+            hud_border_style: self.config.hud_border_style,
+            hud_right_panel: self.config.hud_right_panel,
+            hud_right_panel_recording_only: self.config.hud_right_panel_recording_only,
+            runtime_overrides: style_pack_overrides,
+        });
+        self.theme_studio_undo_stack.clear();
+        self.theme_studio_redo_stack.clear();
         let view = ThemeStudioView {
             theme: *self.theme,
+            theme_locked: style_pack_theme_lock(),
             selected: *self.theme_studio_selected,
             hud_style: self.status_state.hud_style,
             hud_border_style: self.config.hud_border_style,
@@ -227,6 +241,9 @@ impl<'a> ButtonActionContext<'a> {
             progress_style_override: style_pack_overrides.progress_style_override,
             progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
             voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+            undo_count: 0,
+            redo_count: 0,
+            rollback_available: false,
         };
         show_theme_studio_overlay(self.writer_tx, &view, cols);
     }

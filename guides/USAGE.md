@@ -157,9 +157,10 @@ Common settings:
 
 Visual controls are now in Theme Studio:
 
-- Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
+- Theme: use `Ctrl+Y` and adjust the `Theme` row for in-place palette cycling, use `Theme picker` for the full list view, or use `Ctrl+G` for quick cycle
 - HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
 - Glyph/indicator/progress/theme-border/scene profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, and `Voice scene` rows
+- Undo/Redo/Rollback: use `Ctrl+Y` and select `Undo`, `Redo`, or `Rollback` to move through Theme Studio session edits for those runtime visual controls
 - `Ctrl+U` remains a quick shortcut for cycling HUD style
 - Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
 - Theme Studio glyph/indicator/spinner/progress-bar/theme-border/voice-scene overrides apply at runtime for the current session and reset on restart.
@@ -387,10 +388,11 @@ Theme shortcuts:
 - Settings migration note: `Theme`/HUD visual rows are now removed from Settings.
   Use Theme Studio/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
   visual runtime choices; no user config migration is required.
-  Theme Studio currently includes direct controls for HUD style, HUD border
-  style, right panel mode, panel animation mode, glyph profile, indicator set,
-  progress spinner style, progress bar family, theme border profile, and voice
-  scene style, with live current-value labels in each control row.
+  Theme Studio currently includes direct controls for theme palette, HUD style,
+  HUD border style, right panel mode, panel animation mode, glyph profile,
+  indicator set, progress spinner style, progress bar family, theme border
+  profile, and voice scene style, with live current-value labels in each
+  control row.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Studio row to select/apply its action, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.

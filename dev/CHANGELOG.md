@@ -7,6 +7,11 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### UX
+
+- Add Theme Studio session edit history for current visual controls: `Undo`, `Redo`, and `Rollback` rows now track/revert runtime visual adjustments (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`, glyph/indicator/progress/theme-border/voice-scene overrides) within an active Theme Studio session.
+- Add a direct `Theme` row in Theme Studio so base palette cycling no longer requires leaving Studio for Theme Picker, and include theme changes in Studio undo/redo/rollback snapshots.
+
 ## [1.0.86] - 2026-02-20
 
 ### UX

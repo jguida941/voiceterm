@@ -177,6 +177,7 @@ mod tests {
         let (writer_tx, writer_rx) = bounded(4);
         let view = ThemeStudioView {
             theme: Theme::Coral,
+            theme_locked: None,
             selected: 0,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
@@ -188,6 +189,9 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            undo_count: 0,
+            redo_count: 0,
+            rollback_available: false,
         };
         show_theme_studio_overlay(&writer_tx, &view, 80);
         match writer_rx

@@ -18,6 +18,7 @@ use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
 use crate::status_line::StatusLineState;
 use crate::theme::Theme;
+use crate::theme_studio::ThemeStudioSnapshot;
 use crate::toast::ToastCenter;
 use crate::transcript::PendingTranscript;
 use crate::transcript_history::{TranscriptHistory, TranscriptHistoryState};
@@ -36,6 +37,9 @@ pub(crate) struct EventLoopState {
     pub(crate) settings_menu: SettingsMenuState,
     pub(crate) meter_levels: VecDeque<f32>,
     pub(crate) theme_studio_selected: usize,
+    pub(crate) theme_studio_baseline: Option<ThemeStudioSnapshot>,
+    pub(crate) theme_studio_undo_stack: Vec<ThemeStudioSnapshot>,
+    pub(crate) theme_studio_redo_stack: Vec<ThemeStudioSnapshot>,
     pub(crate) theme_picker_selected: usize,
     pub(crate) theme_picker_digits: String,
     pub(crate) current_status: Option<String>,
