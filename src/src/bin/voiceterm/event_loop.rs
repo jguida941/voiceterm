@@ -52,7 +52,7 @@ use crate::theme_picker::{
 };
 use crate::theme_studio::{
     theme_studio_footer, theme_studio_height, theme_studio_inner_width_for_terminal,
-    theme_studio_item_at, theme_studio_total_width_for_terminal, ThemeStudioItem,
+    theme_studio_item_at, theme_studio_total_width_for_terminal, ThemeStudioItem, ThemeStudioView,
     THEME_STUDIO_ITEMS, THEME_STUDIO_OPTION_START_ROW,
 };
 use crate::transcript::{try_flush_pending, TranscriptIo};
@@ -372,7 +372,15 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
     let selected = state
         .theme_studio_selected
         .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
-    show_theme_studio_overlay(&deps.writer_tx, state.theme, selected, cols);
+    let view = ThemeStudioView {
+        theme: state.theme,
+        selected,
+        hud_style: state.status_state.hud_style,
+        hud_border_style: state.config.hud_border_style,
+        hud_right_panel: state.config.hud_right_panel,
+        hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
+    };
+    show_theme_studio_overlay(&deps.writer_tx, &view, cols);
 }
 
 fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {

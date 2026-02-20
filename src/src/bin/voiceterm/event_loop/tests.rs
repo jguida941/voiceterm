@@ -843,6 +843,10 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::None;
     state.theme_studio_selected = 1;
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.config.hud_border_style = crate::config::HudBorderStyle::Double;
+    state.config.hud_right_panel = crate::config::HudRightPanel::Dots;
+    state.config.hud_right_panel_recording_only = false;
     while writer_rx.try_recv().is_ok() {}
 
     open_theme_studio_overlay(&mut state, &mut deps);
@@ -855,6 +859,10 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
         WriterMessage::ShowOverlay { height, content } => {
             assert_eq!(height, theme_studio_height());
             assert!(content.contains("Theme Studio"));
+            assert!(content.contains("Current: Hidden"));
+            assert!(content.contains("Current: Double"));
+            assert!(content.contains("Current: Dots"));
+            assert!(content.contains("Current: Always"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }

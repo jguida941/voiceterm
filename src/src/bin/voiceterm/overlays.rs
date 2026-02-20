@@ -10,7 +10,7 @@ use crate::settings::{
 use crate::status_line::StatusLineState;
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
-use crate::theme_studio::{format_theme_studio, theme_studio_height};
+use crate::theme_studio::{format_theme_studio, theme_studio_height, ThemeStudioView};
 use crate::toast::{format_toast_history_overlay, toast_history_overlay_height, ToastCenter};
 use crate::transcript_history::{
     format_transcript_history_overlay, transcript_history_overlay_height, TranscriptHistory,
@@ -84,11 +84,10 @@ pub(crate) fn show_theme_picker_overlay(
 
 pub(crate) fn show_theme_studio_overlay(
     writer_tx: &Sender<WriterMessage>,
-    theme: Theme,
-    selected_idx: usize,
+    view: &ThemeStudioView,
     cols: u16,
 ) {
-    let content = format_theme_studio(theme, selected_idx, cols as usize);
+    let content = format_theme_studio(view, cols as usize);
     let height = theme_studio_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
@@ -125,6 +124,7 @@ pub(crate) fn show_transcript_history_overlay(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
     use crate::status_line::Pipeline;
     use clap::Parser;
     use crossbeam_channel::bounded;
@@ -175,7 +175,15 @@ mod tests {
     #[test]
     fn show_theme_studio_overlay_sends_overlay() {
         let (writer_tx, writer_rx) = bounded(4);
-        show_theme_studio_overlay(&writer_tx, Theme::Coral, 0, 80);
+        let view = ThemeStudioView {
+            theme: Theme::Coral,
+            selected: 0,
+            hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
+            hud_right_panel: HudRightPanel::Ribbon,
+            hud_right_panel_recording_only: true,
+        };
+        show_theme_studio_overlay(&writer_tx, &view, 80);
         match writer_rx
             .recv_timeout(std::time::Duration::from_millis(200))
             .expect("overlay message")

@@ -1,5 +1,6 @@
 //! Theme Studio overlay home so deep visual editing has a dedicated entry surface.
 
+use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
@@ -32,6 +33,16 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
 
 pub(crate) const THEME_STUDIO_OPTION_START_ROW: usize = 4;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ThemeStudioView {
+    pub(crate) theme: Theme,
+    pub(crate) selected: usize,
+    pub(crate) hud_style: HudStyle,
+    pub(crate) hud_border_style: HudBorderStyle,
+    pub(crate) hud_right_panel: HudRightPanel,
+    pub(crate) hud_right_panel_recording_only: bool,
+}
+
 #[must_use]
 pub(crate) fn theme_studio_footer(colors: &ThemeColors) -> String {
     let close = overlay_close_symbol(colors.glyph_set);
@@ -61,8 +72,8 @@ pub(crate) fn theme_studio_item_at(index: usize) -> ThemeStudioItem {
         .unwrap_or(ThemeStudioItem::Close)
 }
 
-pub(crate) fn format_theme_studio(theme: Theme, selected_idx: usize, width: usize) -> String {
-    let colors = theme.colors();
+pub(crate) fn format_theme_studio(view: &ThemeStudioView, width: usize) -> String {
+    let colors = view.theme.colors();
     let borders = &colors.borders;
     let total_width = theme_studio_total_width_for_terminal(width);
     let inner_width = total_width.saturating_sub(2);
@@ -79,10 +90,11 @@ pub(crate) fn format_theme_studio(theme: Theme, selected_idx: usize, width: usiz
 
     for (idx, item) in THEME_STUDIO_ITEMS.iter().enumerate() {
         lines.push(format_theme_studio_option_line(
+            view,
             &colors,
             item,
             idx + 1,
-            idx == selected_idx,
+            idx == view.selected,
             inner_width,
         ));
     }
@@ -96,47 +108,62 @@ pub(crate) fn format_theme_studio(theme: Theme, selected_idx: usize, width: usiz
 }
 
 fn format_theme_studio_option_line(
+    view: &ThemeStudioView,
     colors: &ThemeColors,
     item: &ThemeStudioItem,
     num: usize,
     selected: bool,
     inner_width: usize,
 ) -> String {
-    let (title, description, coming_soon) = match item {
+    let (title, description, coming_soon): (&str, String, bool) = match item {
         ThemeStudioItem::ThemePicker => (
             "Theme picker",
-            "Open classic palette browser for quick theme apply.",
+            "Open classic palette browser for quick theme apply.".to_string(),
             false,
         ),
         ThemeStudioItem::HudStyle => (
             "HUD style",
-            "Cycle HUD style (Full, Minimal, Hidden).",
+            format!(
+                "Current: {}. Cycle HUD style (Full, Minimal, Hidden).",
+                view.hud_style
+            ),
             false,
         ),
-        ThemeStudioItem::HudBorders => {
-            ("HUD borders", "Cycle Full HUD border style presets.", false)
-        }
+        ThemeStudioItem::HudBorders => (
+            "HUD borders",
+            format!(
+                "Current: {}. Cycle Full HUD border style presets.",
+                view.hud_border_style
+            ),
+            false,
+        ),
         ThemeStudioItem::HudPanel => (
             "Right panel",
-            "Cycle right panel mode (ribbon/dots/heartbeat/off).",
+            format!(
+                "Current: {}. Cycle right panel mode (ribbon/dots/heartbeat/off).",
+                view.hud_right_panel
+            ),
             false,
         ),
         ThemeStudioItem::HudAnimate => (
             "Panel animation",
-            "Toggle panel animation mode (recording-only/always).",
+            format!(
+                "Current: {}. Toggle panel animation mode (recording-only/always).",
+                panel_animation_mode_label(view.hud_right_panel_recording_only)
+            ),
             false,
         ),
         ThemeStudioItem::ColorsGlyphs => (
             "Colors + glyphs",
-            "Theme Studio page set coming soon (tokens + iconography).",
+            "Theme Studio page set coming soon (tokens + iconography).".to_string(),
             true,
         ),
         ThemeStudioItem::LayoutMotion => (
             "Layout + motion",
-            "Theme Studio page set coming soon (layout + animation).",
+            "Theme Studio page set coming soon (layout + animation).".to_string(),
             true,
         ),
-        ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.", false),
+        ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
     };
     let marker = if selected { ">" } else { " " };
     let label = format!("{num}. {title}");
@@ -144,7 +171,7 @@ fn format_theme_studio_option_line(
     let label_padded = format!("{label:<width$}", width = label_col);
     let fixed_visible = 1 + 1 + label_col + 1; // marker + space + label + space
     let desc_col = inner_width.saturating_sub(fixed_visible);
-    let desc = truncate_display(description, desc_col);
+    let desc = truncate_display(&description, desc_col);
     let desc_pad = " ".repeat(desc_col.saturating_sub(display_width(&desc)));
     let row_prefix = if coming_soon { colors.dim } else { "" };
     let row_suffix = if coming_soon { colors.reset } else { "" };
@@ -167,13 +194,33 @@ fn format_theme_studio_option_line(
     )
 }
 
+fn panel_animation_mode_label(recording_only: bool) -> &'static str {
+    if recording_only {
+        "Recording-only"
+    } else {
+        "Always"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
+
+    fn sample_view(theme: Theme) -> ThemeStudioView {
+        ThemeStudioView {
+            theme,
+            selected: 0,
+            hud_style: HudStyle::Full,
+            hud_border_style: HudBorderStyle::Theme,
+            hud_right_panel: HudRightPanel::Ribbon,
+            hud_right_panel_recording_only: true,
+        }
+    }
 
     #[test]
     fn theme_studio_overlay_contains_expected_rows() {
-        let rendered = format_theme_studio(Theme::Codex, 0, 80);
+        let rendered = format_theme_studio(&sample_view(Theme::Codex), 80);
         assert!(rendered.contains("VoiceTerm - Theme Studio"));
         assert!(rendered.contains("1. Theme picker"));
         assert!(rendered.contains("2. HUD style"));
@@ -187,8 +234,27 @@ mod tests {
 
     #[test]
     fn theme_studio_overlay_marks_selected_row() {
-        let rendered = format_theme_studio(Theme::Codex, 4, 80);
+        let mut view = sample_view(Theme::Codex);
+        view.selected = 4;
+        let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("> 5. Panel animation"));
+    }
+
+    #[test]
+    fn theme_studio_overlay_shows_live_visual_values() {
+        let view = ThemeStudioView {
+            theme: Theme::Codex,
+            selected: 0,
+            hud_style: HudStyle::Hidden,
+            hud_border_style: HudBorderStyle::Double,
+            hud_right_panel: HudRightPanel::Dots,
+            hud_right_panel_recording_only: false,
+        };
+        let rendered = format_theme_studio(&view, 80);
+        assert!(rendered.contains("Current: Hidden"));
+        assert!(rendered.contains("Current: Double"));
+        assert!(rendered.contains("Current: Dots"));
+        assert!(rendered.contains("Current: Always"));
     }
 
     #[test]
@@ -205,7 +271,7 @@ mod tests {
 
     #[test]
     fn theme_studio_none_theme_has_no_ansi_sequences() {
-        let rendered = format_theme_studio(Theme::None, 0, 80);
+        let rendered = format_theme_studio(&sample_view(Theme::None), 80);
         assert!(!rendered.contains("\x1b["));
     }
 }
