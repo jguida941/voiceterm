@@ -17,6 +17,7 @@ use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
 use crate::status_line::StatusLineState;
 use crate::theme::Theme;
+use crate::toast::ToastCenter;
 use crate::transcript::PendingTranscript;
 use crate::transcript_history::{TranscriptHistory, TranscriptHistoryState};
 use crate::voice_control::VoiceManager;
@@ -54,6 +55,7 @@ pub(crate) struct EventLoopState {
     pub(crate) transcript_history_state: TranscriptHistoryState,
     pub(crate) session_memory_logger: Option<SessionMemoryLogger>,
     pub(crate) claude_prompt_detector: ClaudePromptDetector,
+    pub(crate) toast_center: ToastCenter,
 }
 
 pub(crate) struct EventLoopTimers {
@@ -68,6 +70,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_heartbeat_tick: Instant,
     pub(crate) last_meter_update: Instant,
     pub(crate) last_wake_hud_tick: Instant,
+    pub(crate) last_toast_tick: Instant,
 }
 
 pub(crate) struct EventLoopDeps {

@@ -5,10 +5,10 @@
 
 use super::{
     style_schema::{
-        parse_style_schema, parse_style_schema_with_fallback, BorderStyleOverride,
-        GlyphSetOverride, IndicatorSetOverride, ProgressStyleOverride, StartupStyleOverride,
-        StyleSchemaPack, ToastPositionOverride, VoiceSceneStyleOverride,
-        CURRENT_STYLE_SCHEMA_VERSION,
+        parse_style_schema, parse_style_schema_with_fallback, BannerStyleOverride,
+        BorderStyleOverride, GlyphSetOverride, IndicatorSetOverride, ProgressBarFamily,
+        ProgressStyleOverride, StartupStyleOverride, StyleSchemaPack, ToastPositionOverride,
+        ToastSeverityMode, VoiceSceneStyleOverride, CURRENT_STYLE_SCHEMA_VERSION,
     },
     GlyphSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED,
     BORDER_SINGLE, THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX,
@@ -29,6 +29,16 @@ pub(crate) struct ResolvedSurfaceOverrides {
     pub(crate) voice_scene_style: Option<VoiceSceneStyleOverride>,
 }
 
+/// Resolved component-level style overrides exposed to runtime rendering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct ResolvedComponentOverrides {
+    pub(crate) overlay_border: Option<BorderStyleOverride>,
+    pub(crate) hud_border: Option<BorderStyleOverride>,
+    pub(crate) toast_severity_mode: Option<ToastSeverityMode>,
+    pub(crate) banner_style: Option<BannerStyleOverride>,
+    pub(crate) progress_bar_family: Option<ProgressBarFamily>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StylePack {
     pub(crate) schema_version: u16,
@@ -37,6 +47,7 @@ pub(crate) struct StylePack {
     pub(crate) indicator_set_override: Option<IndicatorSetOverride>,
     pub(crate) glyph_set_override: Option<GlyphSetOverride>,
     pub(crate) surface_overrides: ResolvedSurfaceOverrides,
+    pub(crate) component_overrides: ResolvedComponentOverrides,
 }
 
 impl StylePack {
@@ -49,6 +60,7 @@ impl StylePack {
             indicator_set_override: None,
             glyph_set_override: None,
             surface_overrides: ResolvedSurfaceOverrides::default(),
+            component_overrides: ResolvedComponentOverrides::default(),
         }
     }
 
@@ -62,6 +74,7 @@ impl StylePack {
             indicator_set_override,
             glyph_set_override,
             surface_overrides,
+            component_overrides,
         } = pack;
         Self {
             schema_version: version,
@@ -74,6 +87,13 @@ impl StylePack {
                 startup_style: surface_overrides.startup_style,
                 progress_style: surface_overrides.progress_style,
                 voice_scene_style: surface_overrides.voice_scene_style,
+            },
+            component_overrides: ResolvedComponentOverrides {
+                overlay_border: component_overrides.overlay_border,
+                hud_border: component_overrides.hud_border,
+                toast_severity_mode: component_overrides.toast_severity_mode,
+                banner_style: component_overrides.banner_style,
+                progress_bar_family: component_overrides.progress_bar_family,
             },
         }
     }
@@ -88,6 +108,7 @@ impl StylePack {
             indicator_set_override: None,
             glyph_set_override: None,
             surface_overrides: ResolvedSurfaceOverrides::default(),
+            component_overrides: ResolvedComponentOverrides::default(),
         }
     }
 }

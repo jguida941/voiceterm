@@ -29,7 +29,7 @@ use crate::help::{
 use crate::input::InputEvent;
 use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
-    show_transcript_history_overlay, OverlayMode,
+    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
@@ -371,6 +371,11 @@ fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &Ev
         state.theme,
         cols,
     );
+}
+
+fn render_toast_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    show_toast_history_overlay(&deps.writer_tx, &state.toast_center, state.theme, cols);
 }
 
 fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
