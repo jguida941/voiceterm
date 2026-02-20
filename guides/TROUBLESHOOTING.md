@@ -245,7 +245,9 @@ CLI flag range: `-120 dB` to `0 dB`.
    voiceterm --login --claude
    ```
 
-3. Restart `voiceterm` if the session is stuck.
+3. If login fails with `failed to spawn ... login`, your backend CLI binary is missing or not on `PATH`; reinstall the backend CLI and rerun step 1.
+
+4. Restart `voiceterm` if the session is stuck.
 
 <details>
 <summary>More backend issues</summary>

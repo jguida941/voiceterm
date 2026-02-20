@@ -7,7 +7,13 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-- No changes yet.
+### Code Quality
+
+- Add targeted regression coverage for `auth.rs` login-command validation/status handling and `lock.rs` mutex-poison recovery.
+
+### Documentation
+
+- Add backend-login troubleshooting guidance for missing backend command errors during `--login` flows.
 
 ## [1.0.87] - 2026-02-20
 

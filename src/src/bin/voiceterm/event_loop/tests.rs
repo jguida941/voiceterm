@@ -3178,6 +3178,46 @@ fn insert_mode_empty_bytes_do_not_mark_pending_send() {
 }
 
 #[test]
+fn empty_bytes_keep_claude_prompt_suppression_enabled() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let mut running = true;
+
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(Vec::new()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn non_empty_bytes_clear_claude_prompt_suppression() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let mut running = true;
+
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"x".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
 fn send_staged_text_processing_insert_mode_consumes_without_status_or_write() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
