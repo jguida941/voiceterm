@@ -38,7 +38,7 @@ const MODE_SHORTCUTS: &[Shortcut] = &[
 const APPEARANCE_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+Y",
-        description: "Theme picker",
+        description: "Theme Studio",
     },
     Shortcut {
         key: "Ctrl+G",

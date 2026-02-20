@@ -10,6 +10,7 @@ use crate::settings::{
 use crate::status_line::StatusLineState;
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::{format_theme_picker, theme_picker_height};
+use crate::theme_studio::{format_theme_studio, theme_studio_height};
 use crate::toast::{format_toast_history_overlay, toast_history_overlay_height, ToastCenter};
 use crate::transcript_history::{
     format_transcript_history_overlay, transcript_history_overlay_height, TranscriptHistory,
@@ -21,6 +22,7 @@ use crate::writer::{try_send_message, WriterMessage};
 pub(crate) enum OverlayMode {
     None,
     Help,
+    ThemeStudio,
     ThemePicker,
     Settings,
     TranscriptHistory,
@@ -77,6 +79,17 @@ pub(crate) fn show_theme_picker_overlay(
 ) {
     let content = format_theme_picker(theme, selected_idx, cols as usize, locked_theme);
     let height = theme_picker_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_theme_studio_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    theme: Theme,
+    selected_idx: usize,
+    cols: u16,
+) {
+    let content = format_theme_studio(theme, selected_idx, cols as usize);
+    let height = theme_studio_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
@@ -154,6 +167,22 @@ mod tests {
             WriterMessage::ShowOverlay { content, height } => {
                 assert_eq!(height, theme_picker_height());
                 assert!(!content.is_empty());
+            }
+            other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn show_theme_studio_overlay_sends_overlay() {
+        let (writer_tx, writer_rx) = bounded(4);
+        show_theme_studio_overlay(&writer_tx, Theme::Coral, 0, 80);
+        match writer_rx
+            .recv_timeout(std::time::Duration::from_millis(200))
+            .expect("overlay message")
+        {
+            WriterMessage::ShowOverlay { content, height } => {
+                assert_eq!(height, theme_studio_height());
+                assert!(content.contains("Theme Studio"));
             }
             other => panic!("unexpected writer message: {other:?}"),
         }

@@ -303,6 +303,7 @@ fn build_harness(
         overlay_mode: OverlayMode::None,
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
+        theme_studio_selected: 0,
         theme_picker_selected: theme_index_from_theme(theme),
         theme_picker_digits: String::new(),
         current_status: None,
@@ -835,6 +836,65 @@ fn open_theme_picker_overlay_sets_mode_resets_picker_and_renders_overlay() {
         WriterMessage::ShowOverlay { .. } => {}
         other => panic!("unexpected writer message: {other:?}"),
     }
+}
+
+#[test]
+fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    state.theme_studio_selected = 1;
+    while writer_rx.try_recv().is_ok() {}
+
+    open_theme_studio_overlay(&mut state, &mut deps);
+
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("theme studio overlay render")
+    {
+        WriterMessage::ShowOverlay { height, content } => {
+            assert_eq!(height, theme_studio_height());
+            assert!(content.contains("Theme Studio"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn theme_picker_hotkey_opens_theme_studio_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ThemePicker,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+}
+
+#[test]
+fn theme_studio_enter_on_theme_picker_row_opens_theme_picker_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 0;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
 }
 
 #[test]

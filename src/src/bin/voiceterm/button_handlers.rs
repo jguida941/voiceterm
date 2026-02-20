@@ -10,7 +10,7 @@ use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::{HudStyle, OverlayConfig};
 use crate::log_debug;
 use crate::overlays::{
-    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, OverlayMode,
+    show_help_overlay, show_settings_overlay, show_theme_studio_overlay, OverlayMode,
 };
 use crate::settings::SettingsMenuState;
 use crate::settings_handlers::{
@@ -18,14 +18,15 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{get_button_positions, status_banner_height_for_state, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
-use crate::theme::{style_pack_theme_lock, Theme};
-use crate::theme_ops::theme_index_from_theme;
+use crate::theme::Theme;
+use crate::theme_studio::THEME_STUDIO_ITEMS;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
 
 pub(crate) struct ButtonActionContext<'a> {
     pub(crate) overlay_mode: &'a mut OverlayMode,
     pub(crate) settings_menu: &'a mut SettingsMenuState,
+    pub(crate) theme_studio_selected: &'a mut usize,
     pub(crate) config: &'a mut OverlayConfig,
     pub(crate) status_state: &'a mut StatusLineState,
     pub(crate) auto_voice_enabled: &'a mut bool,
@@ -136,7 +137,7 @@ impl<'a> ButtonActionContext<'a> {
                 self.open_help_overlay();
             }
             ButtonAction::ThemePicker => {
-                self.open_theme_picker_overlay();
+                self.open_theme_studio_overlay();
             }
         }
 
@@ -202,21 +203,21 @@ impl<'a> ButtonActionContext<'a> {
         show_help_overlay(self.writer_tx, *self.theme, cols);
     }
 
-    fn open_theme_picker_overlay(&mut self) {
-        *self.overlay_mode = OverlayMode::ThemePicker;
+    fn open_theme_studio_overlay(&mut self) {
+        *self.overlay_mode = OverlayMode::ThemeStudio;
         self.sync_overlay_winsize();
         let cols = resolved_cols(*self.terminal_cols);
-        let locked_theme = style_pack_theme_lock();
-        let display_theme = locked_theme.unwrap_or(*self.theme);
-        let selected_idx = locked_theme
-            .map(theme_index_from_theme)
-            .unwrap_or_else(|| theme_index_from_theme(*self.theme));
-        show_theme_picker_overlay(
+        if THEME_STUDIO_ITEMS.is_empty() {
+            *self.theme_studio_selected = 0;
+        } else {
+            *self.theme_studio_selected =
+                (*self.theme_studio_selected).min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+        }
+        show_theme_studio_overlay(
             self.writer_tx,
-            display_theme,
-            selected_idx,
+            *self.theme,
+            *self.theme_studio_selected,
             cols,
-            locked_theme,
         );
     }
 

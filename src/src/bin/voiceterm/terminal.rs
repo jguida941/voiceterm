@@ -11,6 +11,7 @@ use crate::help::help_overlay_height;
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height;
 use crate::theme_picker::theme_picker_height;
+use crate::theme_studio::theme_studio_height;
 use crate::OverlayMode;
 
 /// Flag set by SIGWINCH handler to trigger terminal resize.
@@ -72,6 +73,7 @@ pub(crate) fn reserved_rows_for_mode(
             }
         }
         OverlayMode::Help => help_overlay_height(),
+        OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => {

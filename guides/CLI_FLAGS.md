@@ -219,8 +219,8 @@ For model-size tradeoffs and troubleshooting details, see [WHISPER.md](WHISPER.m
   capable terminals.
 
 Examples of the Minimal strip: `◉ AUTO · Ready`, `● REC · -55dB`.
-Theme controls at runtime: `Ctrl+Y` opens the picker and `Ctrl+G` quick-cycles
-to the next theme.
+Theme controls at runtime: `Ctrl+Y` opens Theme Studio (then choose
+`Theme picker`) and `Ctrl+G` quick-cycles to the next theme.
 Compact HUD modules adapt by state and available width (recording favors meter +
 latency + queue, busy favors queue + latency, idle favors latency).
 Rendering internals and terminal-specific behavior are documented in

@@ -581,7 +581,7 @@ fn format_status_banner_full_mode_manual_matches_reference_spacing_from_this_md(
         "main_row={main_row}"
     );
     assert!(
-        shortcuts_row.contains("[rec] · [ptt] · [send] · [set] · [hud] · [help] · [theme]"),
+        shortcuts_row.contains("[rec] · [ptt] · [send] · [set] · [hud] · [help] · [studio]"),
         "shortcuts_row={shortcuts_row}"
     );
 }
@@ -1209,12 +1209,12 @@ fn status_banner_snapshot_matrix_is_stable() {
     hidden_idle.hidden_launcher_collapsed = true;
 
     let cases = [
-        ("full_idle_w120", full_idle, 120usize, 0xe788_22c9_d08f_dbb3),
+        ("full_idle_w120", full_idle, 120usize, 0x83b1_b030_16d7_1504),
         (
             "full_manual_w52",
             full_narrow,
             52usize,
-            0x838b_ab3b_1b61_9a9d,
+            0x786e_b245_8920_88e6,
         ),
         (
             "minimal_idle_w80",

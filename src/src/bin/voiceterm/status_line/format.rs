@@ -49,7 +49,7 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("Ctrl+U", "hud"),
     ("Ctrl+O", "settings"),
     ("?", "help"),
-    ("Ctrl+Y", "theme"),
+    ("Ctrl+Y", "studio"),
 ];
 
 /// Compact shortcuts for narrow terminals.
@@ -61,7 +61,7 @@ const SHORTCUTS_COMPACT: &[(&str, &str)] = &[
     ("^U", "hud"),
     ("^O", "settings"),
     ("?", "help"),
-    ("^Y", "theme"),
+    ("^Y", "std"),
 ];
 
 fn resolve_hud_border_set<'a>(

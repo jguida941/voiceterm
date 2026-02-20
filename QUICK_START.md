@@ -93,7 +93,7 @@ Full controls reference:
 Behavior highlights:
 
 - Send mode: `auto` types and submits; `insert` types and waits for `Enter`.
-- Overlays (`help` / `settings` / `theme` / `history` / `notifications`): unmatched input closes the overlay and replays the action.
+- Overlays (`help` / `settings` / `theme studio` / `theme picker` / `history` / `notifications`): unmatched input closes the overlay and replays the action.
 - History overlay rows are source-labeled (`mic`, `you`, `ai`); only `mic` and `you` rows are replayable.
 - Runtime settings persist in `~/.config/voiceterm/config.toml`; explicit CLI flags override persisted values for that run.
 - Hidden HUD keeps idle controls subtle: `? help`, `^O settings`, `[open] [hide]`.

@@ -581,7 +581,7 @@ fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
             action: ButtonAction::HelpToggle,
         },
         ButtonDef {
-            label: "theme",
+            label: "studio",
             action: ButtonAction::ThemePicker,
         },
     ]
@@ -919,7 +919,7 @@ fn format_button_row_legacy(
     items.push(format_button(colors, "set", "", false));
     items.push(format_button(colors, "hud", "", false));
     items.push(format_button(colors, "help", "", false));
-    items.push(format_button(colors, "theme", "", false));
+    items.push(format_button(colors, "studio", "", false));
 
     // Queue badge - modern pill style
     if let Some(queue_badge) = format_queue_badge(state, colors) {

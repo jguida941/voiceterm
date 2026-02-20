@@ -35,6 +35,7 @@ pub(crate) struct EventLoopState {
     pub(crate) overlay_mode: OverlayMode,
     pub(crate) settings_menu: SettingsMenuState,
     pub(crate) meter_levels: VecDeque<f32>,
+    pub(crate) theme_studio_selected: usize,
     pub(crate) theme_picker_selected: usize,
     pub(crate) theme_picker_digits: String,
     pub(crate) current_status: Option<String>,

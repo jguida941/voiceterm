@@ -112,7 +112,7 @@ Flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
-| `Ctrl+Y` | Open theme picker |
+| `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
 
@@ -157,7 +157,7 @@ Common settings:
 
 Visual controls are no longer in Settings:
 
-- Theme: use `Ctrl+Y` (picker) or `Ctrl+G` (quick cycle)
+- Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
 - HUD style: use `Ctrl+U`
 - HUD borders/right panel/animation: set at launch with CLI flags `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
 
@@ -324,7 +324,7 @@ For pre-release builds, run the release verification commands in
 
 ### Themes
 
-Open theme picker with `Ctrl+Y`.
+Open Theme Studio with `Ctrl+Y`, then choose `Theme picker`.
 
 ![Theme Picker](../img/theme-picker.png)
 
@@ -374,10 +374,10 @@ Theme shortcuts:
   processing status text/spinner surfaces outside the HUD as well.
 - If `VOICETERM_STYLE_PACK_JSON` is valid and sets `base_theme`, runtime theme
   switching is locked to that base theme until the env var is unset. Theme picker
-  rows are rendered as read-only/dimmed, and quick-cycle/theme-picker attempts show
+  rows are rendered as read-only/dimmed, and quick-cycle/theme-studio attempts show
   an explicit lock status message.
 - Settings migration note: `Theme`/HUD visual rows are now removed from Settings.
-  Use Theme Picker/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
+  Use Theme Studio/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
   visual runtime choices; no user config migration is required.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.

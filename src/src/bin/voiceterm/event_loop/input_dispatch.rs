@@ -32,7 +32,7 @@ pub(super) fn handle_input_event(
             }
             InputEvent::ThemePicker => {
                 state.status_state.hud_button_focus = None;
-                open_theme_picker_overlay(state, timers, deps);
+                open_theme_studio_overlay(state, deps);
             }
             InputEvent::QuickThemeCycle => {
                 let overlay_mode = state.overlay_mode;
@@ -200,7 +200,7 @@ pub(super) fn handle_input_event(
                     state.status_state.hud_button_focus = None;
                     if action != ButtonAction::ToggleAutoVoice {
                         if action == ButtonAction::ThemePicker {
-                            reset_theme_picker_selection(state, timers);
+                            reset_theme_studio_selection(state);
                         }
                         {
                             let mut button_ctx = button_action_context(state, timers, deps);
@@ -244,7 +244,7 @@ pub(super) fn handle_input_event(
 
                 if let Some(action) = deps.button_registry.find_at(x, y, state.terminal_rows) {
                     if action == ButtonAction::ThemePicker {
-                        reset_theme_picker_selection(state, timers);
+                        reset_theme_studio_selection(state);
                     }
                     {
                         let mut button_ctx = button_action_context(state, timers, deps);
@@ -444,6 +444,9 @@ fn handle_overlay_input_event(
                     state.theme_picker_selected = theme_index_from_theme(state.theme);
                     render_theme_picker_overlay_for_state(state, deps);
                 }
+                OverlayMode::ThemeStudio => {
+                    render_theme_studio_overlay_for_state(state, deps);
+                }
                 OverlayMode::Help => {
                     render_help_overlay_for_state(state, deps);
                 }
@@ -469,7 +472,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::Settings, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (OverlayMode::Settings, InputEvent::EnterKey) => {
@@ -551,7 +554,53 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::Help, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::ThemePicker) => {
+            close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {
+            apply_theme_studio_selection(state, timers, deps, running);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            } else {
+                let mut moved = false;
+                for key in parse_arrow_keys(&bytes) {
+                    match key {
+                        ArrowKey::Up => {
+                            if state.theme_studio_selected > 0 {
+                                state.theme_studio_selected =
+                                    state.theme_studio_selected.saturating_sub(1);
+                                moved = true;
+                            }
+                        }
+                        ArrowKey::Down => {
+                            let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
+                            if state.theme_studio_selected < max {
+                                state.theme_studio_selected += 1;
+                                moved = true;
+                            }
+                        }
+                        ArrowKey::Left | ArrowKey::Right => {}
+                    }
+                }
+                if moved {
+                    render_theme_studio_overlay_for_state(state, deps);
+                }
+            }
             None
         }
         (OverlayMode::ThemePicker, InputEvent::HelpToggle) => {
@@ -563,7 +612,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ThemePicker, InputEvent::ThemePicker) => {
-            close_overlay(state, deps, false);
+            open_theme_studio_overlay(state, deps);
             reset_theme_picker_digits(state, timers);
             None
         }
@@ -646,7 +695,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::TranscriptHistory, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (OverlayMode::TranscriptHistory, InputEvent::EnterKey) => {
@@ -742,7 +791,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ToastHistory, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (_, replay_evt) => {
@@ -796,6 +845,7 @@ fn handle_overlay_mouse_click(
 
     let overlay_height = match state.overlay_mode {
         OverlayMode::Help => help_overlay_height(),
+        OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
@@ -825,6 +875,11 @@ fn handle_overlay_mouse_click(
             help_overlay_width_for_terminal(cols),
             help_overlay_inner_width_for_terminal(cols),
             help_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::ThemeStudio => (
+            theme_studio_total_width_for_terminal(cols),
+            theme_studio_inner_width_for_terminal(cols),
+            theme_studio_footer(&state.theme.colors()),
         ),
         OverlayMode::ThemePicker => (
             theme_picker_total_width_for_terminal(cols),
@@ -905,6 +960,23 @@ fn handle_overlay_mouse_click(
         {
             let idx = overlay_row.saturating_sub(options_start);
             apply_theme_picker_selection(state, timers, deps, idx);
+        }
+        return;
+    }
+
+    if state.overlay_mode == OverlayMode::ThemeStudio {
+        let options_start = THEME_STUDIO_OPTION_START_ROW;
+        let options_end = options_start.saturating_add(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+        if overlay_row >= options_start
+            && overlay_row <= options_end
+            && rel_x > 1
+            && rel_x < overlay_width
+        {
+            state.theme_studio_selected = overlay_row.saturating_sub(options_start);
+            apply_theme_studio_selection(state, timers, deps, running);
+            if state.overlay_mode == OverlayMode::ThemeStudio {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
         }
         return;
     }
@@ -1094,6 +1166,38 @@ fn run_settings_item_action(
         did_apply = apply_settings_item_action(selected, direction, settings_ctx);
     });
     did_apply
+}
+
+fn apply_theme_studio_selection(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    running: &mut bool,
+) {
+    match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::ThemePicker => {
+            open_theme_picker_overlay(state, timers, deps);
+        }
+        ThemeStudioItem::Close => {
+            close_overlay(state, deps, false);
+        }
+        ThemeStudioItem::ColorsGlyphs | ThemeStudioItem::LayoutMotion => {
+            set_status(
+                &deps.writer_tx,
+                &mut timers.status_clear_deadline,
+                &mut state.current_status,
+                &mut state.status_state,
+                "Theme Studio page coming soon",
+                Some(Duration::from_secs(2)),
+            );
+            if state.overlay_mode == OverlayMode::ThemeStudio {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+    }
+    if !*running {
+        close_overlay(state, deps, false);
+    }
 }
 
 fn apply_theme_picker_selection(

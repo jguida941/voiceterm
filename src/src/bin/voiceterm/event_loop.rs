@@ -28,7 +28,7 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
+    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, show_theme_studio_overlay,
     show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
@@ -50,6 +50,11 @@ use crate::theme_picker::{
     theme_picker_footer, theme_picker_height, theme_picker_inner_width_for_terminal,
     theme_picker_total_width_for_terminal, THEME_OPTIONS, THEME_PICKER_OPTION_START_ROW,
 };
+use crate::theme_studio::{
+    theme_studio_footer, theme_studio_height, theme_studio_inner_width_for_terminal,
+    theme_studio_item_at, theme_studio_total_width_for_terminal, ThemeStudioItem,
+    THEME_STUDIO_ITEMS, THEME_STUDIO_OPTION_START_ROW,
+};
 use crate::transcript::{try_flush_pending, TranscriptIo};
 use crate::transcript_history::transcript_history_overlay_height;
 use crate::voice_control::{
@@ -61,7 +66,7 @@ use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
-    open_toast_history_overlay, open_transcript_history_overlay,
+    open_theme_studio_overlay, open_toast_history_overlay, open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -362,6 +367,14 @@ fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoo
     );
 }
 
+fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    let selected = state
+        .theme_studio_selected
+        .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+    show_theme_studio_overlay(&deps.writer_tx, state.theme, selected, cols);
+}
+
 fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.terminal_cols);
     show_transcript_history_overlay(
@@ -400,6 +413,12 @@ fn reset_theme_picker_selection(state: &mut EventLoopState, timers: &mut EventLo
     let selection_theme = style_pack_theme_lock().unwrap_or(state.theme);
     state.theme_picker_selected = theme_index_from_theme(selection_theme);
     reset_theme_picker_digits(state, timers);
+}
+
+fn reset_theme_studio_selection(state: &mut EventLoopState) {
+    state.theme_studio_selected = state
+        .theme_studio_selected
+        .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
 }
 
 fn settings_action_context<'a>(
@@ -524,6 +543,7 @@ fn button_action_context<'a>(
     ButtonActionContext {
         overlay_mode: &mut state.overlay_mode,
         settings_menu: &mut state.settings_menu,
+        theme_studio_selected: &mut state.theme_studio_selected,
         config: &mut state.config,
         status_state: &mut state.status_state,
         auto_voice_enabled: &mut state.auto_voice_enabled,

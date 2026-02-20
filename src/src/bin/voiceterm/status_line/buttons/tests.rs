@@ -645,7 +645,7 @@ fn button_row_ready_badge_requires_idle_and_empty_queue() {
 }
 
 #[test]
-fn legacy_button_row_compact_mode_drops_hud_and_theme_entries() {
+fn legacy_button_row_compact_mode_drops_hud_and_studio_entries() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
     state.queue_depth = 2;
@@ -657,7 +657,7 @@ fn legacy_button_row_compact_mode_drops_hud_and_theme_entries() {
 
     assert!(display_width(&compact) <= narrow_width);
     assert!(!compact.contains("hud"));
-    assert!(!compact.contains("theme"));
+    assert!(!compact.contains("studio"));
     assert!(compact.contains("help"));
 }
 
@@ -692,7 +692,7 @@ fn full_hud_button_positions_match_expected_geometry() {
         (ButtonAction::SettingsToggle, 28, 32),
         (ButtonAction::ToggleHudStyle, 36, 40),
         (ButtonAction::HelpToggle, 44, 49),
-        (ButtonAction::ThemePicker, 53, 59),
+        (ButtonAction::ThemePicker, 53, 60),
     ];
 
     assert_eq!(positions.len(), expected.len());
@@ -764,7 +764,7 @@ fn compact_hud_button_positions_match_expected_geometry() {
         (ButtonAction::ToggleSendMode, 15, 20),
         (ButtonAction::SettingsToggle, 22, 26),
         (ButtonAction::HelpToggle, 28, 33),
-        (ButtonAction::ThemePicker, 35, 41),
+        (ButtonAction::ThemePicker, 35, 42),
     ];
 
     assert_eq!(positions.len(), expected.len());
