@@ -38,6 +38,13 @@ pub(super) fn open_theme_picker_overlay(
     render_theme_picker_overlay_for_state(state, deps);
 }
 
+pub(super) fn open_theme_studio_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    reset_theme_studio_selection(state);
+    sync_overlay_winsize(state, deps);
+    render_theme_studio_overlay_for_state(state, deps);
+}
+
 pub(super) fn open_transcript_history_overlay(
     state: &mut EventLoopState,
     deps: &mut EventLoopDeps,

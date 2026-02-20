@@ -44,6 +44,7 @@ mod terminal;
 mod theme;
 mod theme_ops;
 mod theme_picker;
+mod theme_studio;
 #[allow(dead_code)]
 mod toast;
 mod transcript;
@@ -431,6 +432,7 @@ fn main() -> Result<()> {
         overlay_mode: OverlayMode::None,
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
+        theme_studio_selected: 0,
         theme_picker_selected: theme_index_from_theme(theme),
         theme_picker_digits: String::new(),
         current_status: None,

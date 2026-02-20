@@ -112,7 +112,7 @@ Flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
-| `Ctrl+Y` | Open theme picker |
+| `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
 
@@ -155,11 +155,14 @@ Common settings:
 - Mouse support
 - `Backend` / `Pipeline` rows are read-only session diagnostics
 
-Visual controls are no longer in Settings:
+Visual controls are now in Theme Studio:
 
-- Theme: use `Ctrl+Y` (picker) or `Ctrl+G` (quick cycle)
-- HUD style: use `Ctrl+U`
-- HUD borders/right panel/animation: set at launch with CLI flags `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
+- Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
+- HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
+- Glyph/indicator/progress/theme-border/scene profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, and `Voice scene` rows
+- `Ctrl+U` remains a quick shortcut for cycling HUD style
+- Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
+- Theme Studio glyph/indicator/spinner/progress-bar/theme-border/voice-scene overrides apply at runtime for the current session and reset on restart.
 
 Settings persistence:
 
@@ -324,7 +327,7 @@ For pre-release builds, run the release verification commands in
 
 ### Themes
 
-Open theme picker with `Ctrl+Y`.
+Open Theme Studio with `Ctrl+Y`, then choose `Theme picker`.
 
 ![Theme Picker](../img/theme-picker.png)
 
@@ -363,6 +366,11 @@ Theme shortcuts:
 - Supported preview overrides in `overrides`: `border_style` (`single`, `rounded`,
   `double`, `heavy`, `none`), `indicators` (`ascii`, `dot`, `diamond`), and
   `glyphs` (`unicode`, `ascii`).
+- Supported preview overrides in `surfaces`: `progress_style`
+  (`braille`, `dots`, `line`, `block`) and `voice_scene_style`
+  (`pulse`, `static`, `minimal`).
+- Supported preview override in `components`: `progress_bar_family`
+  (`bar`, `compact`, `blocks`, `braille`).
   `indicators` affects status-lane voice-state symbols (idle/auto/manual/recording
   plus processing/responding lanes in compact/full/minimal/hidden HUD rendering).
   `glyphs` affects HUD queue/latency/meter iconography, waveform sparkline bars,
@@ -374,14 +382,18 @@ Theme shortcuts:
   processing status text/spinner surfaces outside the HUD as well.
 - If `VOICETERM_STYLE_PACK_JSON` is valid and sets `base_theme`, runtime theme
   switching is locked to that base theme until the env var is unset. Theme picker
-  rows are rendered as read-only/dimmed, and quick-cycle/theme-picker attempts show
+  rows are rendered as read-only/dimmed, and quick-cycle/theme-studio attempts show
   an explicit lock status message.
 - Settings migration note: `Theme`/HUD visual rows are now removed from Settings.
-  Use Theme Picker/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
+  Use Theme Studio/shortcuts (`Ctrl+Y`, `Ctrl+G`, `Ctrl+U`) and CLI flags for
   visual runtime choices; no user config migration is required.
+  Theme Studio currently includes direct controls for HUD style, HUD border
+  style, right panel mode, panel animation mode, glyph profile, indicator set,
+  progress spinner style, progress bar family, theme border profile, and voice
+  scene style, with live current-value labels in each control row.
 - The theme system is being extended with a capability matrix for framework
   parity, texture profiles, and dependency baselines; no user action is required.
-- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
+- Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Studio row to select/apply its action, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
 
 </details>
 
@@ -409,6 +421,8 @@ Right panel options:
 - Optional recording-only animation via `--hud-right-panel-recording-only`
 - In Full HUD, right-panel telemetry is rendered on the main status row
   (top-right lane).
+- Theme Studio `Voice scene` cycles scene policy (`theme`, `pulse`, `static`,
+  `minimal`) for right-panel animation and visual density in Full/Minimal HUD.
 
 Examples:
 

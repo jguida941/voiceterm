@@ -10,6 +10,14 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Remove legacy visual controls from `Ctrl+O` Settings (`Theme`, `HUD style`, `Borders`, `Right panel`, `Anim rec-only`) so Settings focuses on non-theme runtime controls; visual selection now routes through `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` shortcuts and HUD display flags.
+- Add a dedicated Theme Studio entry flow: `Ctrl+Y` now opens Theme Studio first (instead of jumping directly into Theme Picker), with keyboard/mouse navigation and `Enter` routing from the Theme Studio picker row into the legacy Theme Picker overlay.
+- Add first interactive Theme Studio visual controls for existing runtime styling: `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` rows now apply directly from Theme Studio (with Enter and Left/Right arrow adjustments).
+- Replace Theme Studio placeholder rows with runtime-editable style-pack controls: `Glyph profile` and `Indicator set` now cycle live rendering overrides from Theme Studio (`Enter` and Left/Right arrows).
+- Add a runtime-editable `Theme borders` row in Theme Studio so overlay/theme border profiles (`theme`/`single`/`rounded`/`double`/`heavy`/`none`) can be cycled live from the same control surface.
+- Add a runtime-editable `Progress spinner` row in Theme Studio so processing spinner style (`theme`/`braille`/`dots`/`line`/`block`) can be cycled live for status-line and progress spinner surfaces.
+- Add a runtime-editable `Progress bars` row in Theme Studio so progress bar family (`theme`/`bar`/`compact`/`blocks`/`braille`) can be cycled live for progress and meter-style surfaces.
+- Add a runtime-editable `Voice scene` row in Theme Studio so scene style (`theme`/`pulse`/`static`/`minimal`) can be cycled live for full/minimal status right-panel behavior.
+- Add live value readouts in Theme Studio control rows so `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` always show the currently active setting before adjustment.
 
 ### Docs
 

@@ -514,7 +514,7 @@ and `input events` lines.
 
 ### Ctrl+G quick theme cycle does not work
 
-1. Verify terminal key handling with `Ctrl+Y` first (theme picker should open).
+1. Verify terminal key handling with `Ctrl+Y` first (Theme Studio should open).
 2. If `Ctrl+Y` works but `Ctrl+G` does not, check for shell/terminal keybinding
    overrides and disable that binding.
 3. Use `VOICETERM_DEBUG_INPUT=1 voiceterm --logs` and inspect

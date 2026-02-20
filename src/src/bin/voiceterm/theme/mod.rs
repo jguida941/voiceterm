@@ -23,7 +23,7 @@ pub(crate) mod widget_pack;
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
 pub use borders::{BORDER_DOTTED, BORDER_NONE};
-pub use colors::{GlyphSet, ThemeColors};
+pub use colors::{GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, VoiceSceneStyle};
 pub use palettes::{
     THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX, THEME_CORAL,
     THEME_DRACULA, THEME_GRUVBOX, THEME_NONE, THEME_NORD, THEME_TOKYONIGHT,
@@ -33,10 +33,22 @@ use self::{
     detect::is_warp_terminal,
     style_pack::{locked_style_pack_theme, resolve_theme_colors},
 };
+#[allow(unused_imports)]
+pub(crate) use style_pack::{
+    runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBorderStyleOverride,
+    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
+    RuntimeProgressStyleOverride, RuntimeStylePackOverrides, RuntimeVoiceSceneStyleOverride,
+};
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.
 pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =
     &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/// Dot-based processing spinner frames.
+pub(crate) const PROCESSING_SPINNER_DOTS: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+/// Line-based processing spinner frames.
+pub(crate) const PROCESSING_SPINNER_LINE: &[&str] = &["-", "\\", "|", "/"];
+/// Block-based processing spinner frames.
+pub(crate) const PROCESSING_SPINNER_BLOCK: &[&str] = &["▖", "▘", "▝", "▗"];
 
 /// Waveform bars for HUD sparkline rendering.
 pub(crate) const WAVEFORM_BARS_UNICODE: &[char; 8] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
@@ -49,6 +61,18 @@ pub(crate) const PROGRESS_PARTIAL_UNICODE: &[char; 9] =
 /// ASCII-safe partial fill characters.
 pub(crate) const PROGRESS_PARTIAL_ASCII: &[char; 9] =
     &['-', '.', ':', '-', '=', '+', '*', '#', '#'];
+/// Compact unicode partial fill characters.
+pub(crate) const PROGRESS_PARTIAL_COMPACT_UNICODE: &[char; 9] =
+    &['·', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '■'];
+/// Braille-style unicode partial fill characters.
+pub(crate) const PROGRESS_PARTIAL_BRAILLE_UNICODE: &[char; 9] =
+    &['⣀', '⣄', '⣆', '⣇', '⣧', '⣷', '⣾', '⣿', '⣿'];
+/// Compact ASCII partial fill characters.
+pub(crate) const PROGRESS_PARTIAL_COMPACT_ASCII: &[char; 9] =
+    &['.', '.', ':', ':', '-', '=', '=', '*', '#'];
+/// Braille-style ASCII fallback partial fill characters.
+pub(crate) const PROGRESS_PARTIAL_BRAILLE_ASCII: &[char; 9] =
+    &['.', '.', ':', '-', '=', '+', '*', '#', '#'];
 
 /// Resolved glyph profile for progress rendering surfaces.
 #[derive(Debug, Clone, Copy)]
@@ -200,11 +224,21 @@ pub fn filled_indicator(symbol: &'static str) -> &'static str {
 /// processing indicator glyph, preserve that exact glyph and disable animation.
 #[must_use]
 pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &'static str {
-    if colors.indicator_processing == "◐" {
-        let idx = frame % PROCESSING_SPINNER_BRAILLE.len();
-        return PROCESSING_SPINNER_BRAILLE[idx];
+    match colors.spinner_style {
+        SpinnerStyle::Braille => {
+            PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
+        }
+        SpinnerStyle::Dots => PROCESSING_SPINNER_DOTS[frame % PROCESSING_SPINNER_DOTS.len()],
+        SpinnerStyle::Line => PROCESSING_SPINNER_LINE[frame % PROCESSING_SPINNER_LINE.len()],
+        SpinnerStyle::Block => PROCESSING_SPINNER_BLOCK[frame % PROCESSING_SPINNER_BLOCK.len()],
+        SpinnerStyle::Theme => {
+            if colors.indicator_processing == "◐" {
+                PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
+            } else {
+                colors.indicator_processing
+            }
+        }
     }
-    colors.indicator_processing
 }
 
 /// Resolve HUD queue label glyph by selected icon pack.
@@ -236,22 +270,74 @@ pub(crate) fn waveform_bars(glyph_set: GlyphSet) -> &'static [char; 8] {
 
 /// Resolve progress-glyph family for bars/spinners.
 #[must_use]
-pub(crate) fn progress_glyph_profile(glyph_set: GlyphSet) -> ProgressGlyphProfile {
-    match glyph_set {
-        GlyphSet::Unicode => ProgressGlyphProfile {
-            bar_filled: '█',
-            bar_empty: '░',
-            blocks_filled: '▓',
-            blocks_empty: '░',
-            partial: PROGRESS_PARTIAL_UNICODE,
-            bouncing_fill: '=',
+pub(crate) fn progress_glyph_profile(colors: &ThemeColors) -> ProgressGlyphProfile {
+    match (colors.progress_bar_family, colors.glyph_set) {
+        (ProgressBarFamily::Theme | ProgressBarFamily::Bar, GlyphSet::Unicode) => {
+            ProgressGlyphProfile {
+                bar_filled: '█',
+                bar_empty: '░',
+                blocks_filled: '▓',
+                blocks_empty: '░',
+                partial: PROGRESS_PARTIAL_UNICODE,
+                bouncing_fill: '=',
+            }
+        }
+        (ProgressBarFamily::Theme | ProgressBarFamily::Bar, GlyphSet::Ascii) => {
+            ProgressGlyphProfile {
+                bar_filled: '=',
+                bar_empty: '-',
+                blocks_filled: '#',
+                blocks_empty: '.',
+                partial: PROGRESS_PARTIAL_ASCII,
+                bouncing_fill: '=',
+            }
+        }
+        (ProgressBarFamily::Compact, GlyphSet::Unicode) => ProgressGlyphProfile {
+            bar_filled: '■',
+            bar_empty: '·',
+            blocks_filled: '■',
+            blocks_empty: '·',
+            partial: PROGRESS_PARTIAL_COMPACT_UNICODE,
+            bouncing_fill: '■',
         },
-        GlyphSet::Ascii => ProgressGlyphProfile {
-            bar_filled: '=',
-            bar_empty: '-',
+        (ProgressBarFamily::Compact, GlyphSet::Ascii) => ProgressGlyphProfile {
+            bar_filled: '#',
+            bar_empty: '.',
             blocks_filled: '#',
             blocks_empty: '.',
+            partial: PROGRESS_PARTIAL_COMPACT_ASCII,
+            bouncing_fill: '#',
+        },
+        (ProgressBarFamily::Blocks, GlyphSet::Unicode) => ProgressGlyphProfile {
+            bar_filled: '▓',
+            bar_empty: '░',
+            blocks_filled: '█',
+            blocks_empty: '░',
+            partial: PROGRESS_PARTIAL_UNICODE,
+            bouncing_fill: '▓',
+        },
+        (ProgressBarFamily::Blocks, GlyphSet::Ascii) => ProgressGlyphProfile {
+            bar_filled: '#',
+            bar_empty: ' ',
+            blocks_filled: '#',
+            blocks_empty: ' ',
             partial: PROGRESS_PARTIAL_ASCII,
+            bouncing_fill: '#',
+        },
+        (ProgressBarFamily::Braille, GlyphSet::Unicode) => ProgressGlyphProfile {
+            bar_filled: '⣿',
+            bar_empty: '⣀',
+            blocks_filled: '⣿',
+            blocks_empty: '⣀',
+            partial: PROGRESS_PARTIAL_BRAILLE_UNICODE,
+            bouncing_fill: '⣶',
+        },
+        (ProgressBarFamily::Braille, GlyphSet::Ascii) => ProgressGlyphProfile {
+            bar_filled: '=',
+            bar_empty: '.',
+            blocks_filled: '#',
+            blocks_empty: '.',
+            partial: PROGRESS_PARTIAL_BRAILLE_ASCII,
             bouncing_fill: '=',
         },
     }
@@ -477,6 +563,16 @@ mod tests {
     }
 
     #[test]
+    fn processing_spinner_symbol_honors_explicit_spinner_style() {
+        let mut colors = Theme::Codex.colors();
+        colors.spinner_style = SpinnerStyle::Line;
+        assert_eq!(processing_spinner_symbol(&colors, 2), "|");
+
+        colors.spinner_style = SpinnerStyle::Dots;
+        assert_eq!(processing_spinner_symbol(&colors, 1), "⣽");
+    }
+
+    #[test]
     fn hud_icons_follow_glyph_set() {
         assert_eq!(hud_queue_icon(GlyphSet::Unicode), "▤");
         assert_eq!(hud_queue_icon(GlyphSet::Ascii), "Q");
@@ -486,12 +582,27 @@ mod tests {
 
     #[test]
     fn waveform_and_progress_profiles_follow_glyph_set() {
-        let unicode = progress_glyph_profile(GlyphSet::Unicode);
-        let ascii = progress_glyph_profile(GlyphSet::Ascii);
+        let unicode_colors = Theme::Codex.colors();
+        let unicode = progress_glyph_profile(&unicode_colors);
+        let mut ascii_colors = Theme::Codex.colors();
+        ascii_colors.glyph_set = GlyphSet::Ascii;
+        let ascii = progress_glyph_profile(&ascii_colors);
         assert_eq!(waveform_bars(GlyphSet::Unicode)[0], '▁');
         assert_eq!(waveform_bars(GlyphSet::Ascii)[0], '.');
         assert_eq!(unicode.bar_filled, '█');
         assert_eq!(ascii.bar_filled, '=');
+    }
+
+    #[test]
+    fn progress_profile_honors_explicit_family_override() {
+        let mut colors = Theme::Codex.colors();
+        colors.progress_bar_family = ProgressBarFamily::Compact;
+        let compact = progress_glyph_profile(&colors);
+        assert_eq!(compact.bar_filled, '■');
+
+        colors.progress_bar_family = ProgressBarFamily::Braille;
+        let braille = progress_glyph_profile(&colors);
+        assert_eq!(braille.bar_filled, '⣿');
     }
 
     #[test]

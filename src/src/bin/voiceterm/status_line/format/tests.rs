@@ -581,7 +581,7 @@ fn format_status_banner_full_mode_manual_matches_reference_spacing_from_this_md(
         "main_row={main_row}"
     );
     assert!(
-        shortcuts_row.contains("[rec] · [ptt] · [send] · [set] · [hud] · [help] · [theme]"),
+        shortcuts_row.contains("[rec] · [ptt] · [send] · [set] · [hud] · [help] · [studio]"),
         "shortcuts_row={shortcuts_row}"
     );
 }
@@ -992,17 +992,18 @@ fn format_right_panel_enforces_minimum_content_width() {
 #[test]
 fn format_pulse_dots_boundaries_are_stable() {
     let none = Theme::None.colors();
-    assert_eq!(format_pulse_dots(-60.0, &none), "[·····]");
-    assert_eq!(format_pulse_dots(-48.0, &none), "[•····]");
-    assert_eq!(format_pulse_dots(-30.0, &none), "[•••··]");
-    assert_eq!(format_pulse_dots(0.0, &none), "[•••••]");
+    assert_eq!(format_pulse_dots(-60.0, &none, 5), "[·····]");
+    assert_eq!(format_pulse_dots(-48.0, &none, 5), "[•····]");
+    assert_eq!(format_pulse_dots(-30.0, &none, 5), "[•••··]");
+    assert_eq!(format_pulse_dots(0.0, &none, 5), "[•••••]");
+    assert_eq!(format_pulse_dots(-30.0, &none, 3), "[••·]");
 
     let colors = Theme::Coral.colors();
-    let warning = format_pulse_dots(-25.0, &colors);
+    let warning = format_pulse_dots(-25.0, &colors, 5);
     assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
     assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
 
-    let error = format_pulse_dots(-5.0, &colors);
+    let error = format_pulse_dots(-5.0, &colors, 5);
     assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
 }
 
@@ -1018,10 +1019,12 @@ fn format_meter_level_color_boundaries_are_exclusive() {
 
 #[test]
 fn heartbeat_helpers_cover_truth_table() {
-    assert!(should_animate_heartbeat(false, false));
-    assert!(should_animate_heartbeat(false, true));
-    assert!(!should_animate_heartbeat(true, false));
-    assert!(should_animate_heartbeat(true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, true));
+    assert!(!scene_should_animate(VoiceSceneStyle::Theme, true, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Pulse, true, false));
+    assert!(!scene_should_animate(VoiceSceneStyle::Static, false, true));
 }
 
 #[test]
@@ -1209,12 +1212,12 @@ fn status_banner_snapshot_matrix_is_stable() {
     hidden_idle.hidden_launcher_collapsed = true;
 
     let cases = [
-        ("full_idle_w120", full_idle, 120usize, 0xe788_22c9_d08f_dbb3),
+        ("full_idle_w120", full_idle, 120usize, 0x83b1_b030_16d7_1504),
         (
             "full_manual_w52",
             full_narrow,
             52usize,
-            0x838b_ab3b_1b61_9a9d,
+            0x786e_b245_8920_88e6,
         ),
         (
             "minimal_idle_w80",

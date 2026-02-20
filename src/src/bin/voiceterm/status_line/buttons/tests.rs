@@ -156,11 +156,11 @@ fn minimal_right_panel_dots_gates_animation_on_recording_only_flag() {
 
     state.recording_state = RecordingState::Idle;
     let idle_panel = minimal_right_panel(&state, &colors).expect("idle panel");
-    assert_eq!(idle_panel, minimal_pulse_dots(-60.0, &colors));
+    assert_eq!(idle_panel, minimal_pulse_dots(-60.0, &colors, 5));
 
     state.recording_state = RecordingState::Recording;
     let recording_panel = minimal_right_panel(&state, &colors).expect("recording panel");
-    assert_eq!(recording_panel, minimal_pulse_dots(-6.0, &colors));
+    assert_eq!(recording_panel, minimal_pulse_dots(-6.0, &colors, 5));
     assert_ne!(idle_panel, recording_panel);
 }
 
@@ -174,7 +174,7 @@ fn minimal_right_panel_dots_animate_when_not_recording_only() {
     state.meter_db = Some(-9.0);
 
     let panel = minimal_right_panel(&state, &colors).expect("panel");
-    assert_eq!(panel, minimal_pulse_dots(-9.0, &colors));
+    assert_eq!(panel, minimal_pulse_dots(-9.0, &colors, 5));
 }
 
 #[test]
@@ -645,7 +645,7 @@ fn button_row_ready_badge_requires_idle_and_empty_queue() {
 }
 
 #[test]
-fn legacy_button_row_compact_mode_drops_hud_and_theme_entries() {
+fn legacy_button_row_compact_mode_drops_hud_and_studio_entries() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
     state.queue_depth = 2;
@@ -657,7 +657,7 @@ fn legacy_button_row_compact_mode_drops_hud_and_theme_entries() {
 
     assert!(display_width(&compact) <= narrow_width);
     assert!(!compact.contains("hud"));
-    assert!(!compact.contains("theme"));
+    assert!(!compact.contains("studio"));
     assert!(compact.contains("help"));
 }
 
@@ -692,7 +692,7 @@ fn full_hud_button_positions_match_expected_geometry() {
         (ButtonAction::SettingsToggle, 28, 32),
         (ButtonAction::ToggleHudStyle, 36, 40),
         (ButtonAction::HelpToggle, 44, 49),
-        (ButtonAction::ThemePicker, 53, 59),
+        (ButtonAction::ThemePicker, 53, 60),
     ];
 
     assert_eq!(positions.len(), expected.len());
@@ -764,7 +764,7 @@ fn compact_hud_button_positions_match_expected_geometry() {
         (ButtonAction::ToggleSendMode, 15, 20),
         (ButtonAction::SettingsToggle, 22, 26),
         (ButtonAction::HelpToggle, 28, 33),
-        (ButtonAction::ThemePicker, 35, 41),
+        (ButtonAction::ThemePicker, 35, 42),
     ];
 
     assert_eq!(positions.len(), expected.len());
@@ -869,23 +869,24 @@ fn minimal_waveform_handles_padding_and_boundaries() {
 #[test]
 fn minimal_pulse_dots_respect_activity_and_color_thresholds() {
     let none = Theme::None.colors();
-    assert_eq!(minimal_pulse_dots(-60.0, &none), "[·····]");
-    assert_eq!(minimal_pulse_dots(-48.0, &none), "[•····]");
-    assert_eq!(minimal_pulse_dots(-30.0, &none), "[•••··]");
-    assert_eq!(minimal_pulse_dots(0.0, &none), "[•••••]");
+    assert_eq!(minimal_pulse_dots(-60.0, &none, 5), "[·····]");
+    assert_eq!(minimal_pulse_dots(-48.0, &none, 5), "[•····]");
+    assert_eq!(minimal_pulse_dots(-30.0, &none, 5), "[•••··]");
+    assert_eq!(minimal_pulse_dots(0.0, &none, 5), "[•••••]");
+    assert_eq!(minimal_pulse_dots(-30.0, &none, 3), "[••·]");
 
     let colors = Theme::Coral.colors();
-    let warning = minimal_pulse_dots(-25.0, &colors);
+    let warning = minimal_pulse_dots(-25.0, &colors, 5);
     assert!(warning.contains(&format!("{}•{}", colors.warning, colors.reset)));
     assert!(!warning.contains(&format!("{}•{}", colors.success, colors.reset)));
 
-    let error = minimal_pulse_dots(-5.0, &colors);
+    let error = minimal_pulse_dots(-5.0, &colors, 5);
     assert!(error.contains(&format!("{}•{}", colors.error, colors.reset)));
 
     let mut ascii = Theme::None.colors();
     ascii.glyph_set = crate::theme::GlyphSet::Ascii;
-    assert_eq!(minimal_pulse_dots(-60.0, &ascii), "[.....]");
-    assert_eq!(minimal_pulse_dots(-30.0, &ascii), "[***..]");
+    assert_eq!(minimal_pulse_dots(-60.0, &ascii, 5), "[.....]");
+    assert_eq!(minimal_pulse_dots(-30.0, &ascii, 5), "[***..]");
 }
 
 #[test]
@@ -1066,10 +1067,12 @@ fn minimal_right_panel_dots_without_meter_defaults_to_silent_level() {
 
 #[test]
 fn heartbeat_animation_truth_table() {
-    assert!(should_animate_heartbeat(false, false));
-    assert!(should_animate_heartbeat(false, true));
-    assert!(!should_animate_heartbeat(true, false));
-    assert!(should_animate_heartbeat(true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, true));
+    assert!(!scene_should_animate(VoiceSceneStyle::Theme, true, false));
+    assert!(scene_should_animate(VoiceSceneStyle::Theme, true, true));
+    assert!(scene_should_animate(VoiceSceneStyle::Pulse, true, false));
+    assert!(!scene_should_animate(VoiceSceneStyle::Static, false, true));
 }
 
 #[test]

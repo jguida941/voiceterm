@@ -15,7 +15,11 @@ use crate::settings::SettingsMenuState;
 use crate::status_line::{
     status_banner_height, Pipeline, StatusLineState, VoiceMode, WakeWordHudState,
 };
-use crate::theme::Theme;
+use crate::theme::{
+    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStylePackOverrides,
+    RuntimeVoiceSceneStyleOverride, Theme,
+};
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
@@ -136,6 +140,24 @@ fn install_drain_hook(hook: DrainVoiceMessagesHook) -> DrainHookGuard {
     set_drain_voice_messages_hook(Some(hook));
     DRAIN_CALLS.with(|calls| calls.set(0));
     DrainHookGuard
+}
+
+struct RuntimeStylePackOverrideGuard {
+    previous: RuntimeStylePackOverrides,
+}
+
+impl Drop for RuntimeStylePackOverrideGuard {
+    fn drop(&mut self) {
+        crate::theme::set_runtime_style_pack_overrides(self.previous);
+    }
+}
+
+fn install_runtime_style_pack_overrides(
+    overrides: RuntimeStylePackOverrides,
+) -> RuntimeStylePackOverrideGuard {
+    let previous = crate::theme::runtime_style_pack_overrides();
+    crate::theme::set_runtime_style_pack_overrides(overrides);
+    RuntimeStylePackOverrideGuard { previous }
 }
 
 fn hook_would_block(_: &[u8]) -> io::Result<usize> {
@@ -303,6 +325,7 @@ fn build_harness(
         overlay_mode: OverlayMode::None,
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
+        theme_studio_selected: 0,
         theme_picker_selected: theme_index_from_theme(theme),
         theme_picker_digits: String::new(),
         current_status: None,
@@ -835,6 +858,271 @@ fn open_theme_picker_overlay_sets_mode_resets_picker_and_renders_overlay() {
         WriterMessage::ShowOverlay { .. } => {}
         other => panic!("unexpected writer message: {other:?}"),
     }
+}
+
+#[test]
+fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    state.theme_studio_selected = 1;
+    state.status_state.hud_style = HudStyle::Hidden;
+    state.config.hud_border_style = crate::config::HudBorderStyle::Double;
+    state.config.hud_right_panel = crate::config::HudRightPanel::Dots;
+    state.config.hud_right_panel_recording_only = false;
+    while writer_rx.try_recv().is_ok() {}
+
+    open_theme_studio_overlay(&mut state, &mut deps);
+
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("theme studio overlay render")
+    {
+        WriterMessage::ShowOverlay { height, content } => {
+            assert_eq!(height, theme_studio_height());
+            assert!(content.contains("Theme Studio"));
+            assert!(content.contains("Current: Hidden"));
+            assert!(content.contains("Current: Double"));
+            assert!(content.contains("Current: Dots"));
+            assert!(content.contains("Current: Always"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn theme_picker_hotkey_opens_theme_studio_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ThemePicker,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+}
+
+#[test]
+fn theme_studio_enter_on_theme_picker_row_opens_theme_picker_overlay() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 0;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+}
+
+#[test]
+fn theme_studio_enter_on_hud_style_row_cycles_style_and_stays_open() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 1; // HUD style
+    state.status_state.hud_style = HudStyle::Full;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
+}
+
+#[test]
+fn theme_studio_arrow_left_on_hud_style_row_cycles_backward() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 1; // HUD style
+    state.status_state.hud_style = HudStyle::Minimal;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.status_state.hud_style, HudStyle::Full);
+}
+
+#[test]
+fn theme_studio_enter_on_glyph_profile_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 5; // Glyph profile
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.glyph_set_override,
+        Some(RuntimeGlyphSetOverride::Unicode)
+    );
+}
+
+#[test]
+fn theme_studio_arrow_right_on_indicator_set_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 6; // Indicator set
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.indicator_set_override,
+        Some(RuntimeIndicatorSetOverride::Ascii)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_progress_spinner_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 7; // Progress spinner
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.progress_style_override,
+        Some(RuntimeProgressStyleOverride::Braille)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_progress_bars_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 8; // Progress bars
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.progress_bar_family_override,
+        Some(RuntimeProgressBarFamilyOverride::Bar)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_theme_borders_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 9; // Theme borders
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.border_style_override,
+        Some(RuntimeBorderStyleOverride::Single)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_voice_scene_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 10; // Voice scene
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.voice_scene_style_override,
+        Some(RuntimeVoiceSceneStyleOverride::Pulse)
+    );
 }
 
 #[test]

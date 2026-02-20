@@ -125,6 +125,10 @@ Quick post-upgrade smoke check:
 - `Ctrl+H` transcript history overlay (source labels + replayable-row behavior)
 - `Ctrl+N` notification history overlay (status events with severity labels)
 - `Ctrl+O` settings overlay opens and persists changes
+- `Ctrl+Y` Theme Studio opens and rows cycle visual controls
+  (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`, `Glyph profile`,
+  `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`,
+  `Voice scene`)
 - Optional: `voiceterm --session-memory` writes markdown memory logs at the expected path
 
 Detailed runtime behavior is documented in [USAGE.md](USAGE.md). Runtime issues

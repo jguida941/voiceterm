@@ -201,7 +201,8 @@ voiceterm --login --claude
 ### Theme Picker
 
 ![Theme Picker](img/theme-picker.png)
-Use `Ctrl+Y` to open the picker (or `Ctrl+G` to quick-cycle themes), then use
+Use `Ctrl+Y` to open Theme Studio, then choose `Theme picker`
+(or use `Ctrl+G` to quick-cycle themes). In the picker, use
 ↑/↓ to move and Enter to select, or type the theme number.
 
 ### Settings Menu

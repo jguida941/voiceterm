@@ -39,6 +39,7 @@ pub(super) fn run_periodic_tasks(
                 refresh_button_registry_if_mouse(state, deps);
                 match state.overlay_mode {
                     OverlayMode::Help => render_help_overlay_for_state(state, deps),
+                    OverlayMode::ThemeStudio => render_theme_studio_overlay_for_state(state, deps),
                     OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
                     OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
                     OverlayMode::TranscriptHistory => {

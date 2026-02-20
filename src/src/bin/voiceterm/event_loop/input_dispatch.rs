@@ -32,7 +32,7 @@ pub(super) fn handle_input_event(
             }
             InputEvent::ThemePicker => {
                 state.status_state.hud_button_focus = None;
-                open_theme_picker_overlay(state, timers, deps);
+                open_theme_studio_overlay(state, deps);
             }
             InputEvent::QuickThemeCycle => {
                 let overlay_mode = state.overlay_mode;
@@ -200,7 +200,7 @@ pub(super) fn handle_input_event(
                     state.status_state.hud_button_focus = None;
                     if action != ButtonAction::ToggleAutoVoice {
                         if action == ButtonAction::ThemePicker {
-                            reset_theme_picker_selection(state, timers);
+                            reset_theme_studio_selection(state);
                         }
                         {
                             let mut button_ctx = button_action_context(state, timers, deps);
@@ -244,7 +244,7 @@ pub(super) fn handle_input_event(
 
                 if let Some(action) = deps.button_registry.find_at(x, y, state.terminal_rows) {
                     if action == ButtonAction::ThemePicker {
-                        reset_theme_picker_selection(state, timers);
+                        reset_theme_studio_selection(state);
                     }
                     {
                         let mut button_ctx = button_action_context(state, timers, deps);
@@ -444,6 +444,9 @@ fn handle_overlay_input_event(
                     state.theme_picker_selected = theme_index_from_theme(state.theme);
                     render_theme_picker_overlay_for_state(state, deps);
                 }
+                OverlayMode::ThemeStudio => {
+                    render_theme_studio_overlay_for_state(state, deps);
+                }
                 OverlayMode::Help => {
                     render_help_overlay_for_state(state, deps);
                 }
@@ -469,7 +472,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::Settings, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (OverlayMode::Settings, InputEvent::EnterKey) => {
@@ -551,7 +554,58 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::Help, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::ThemePicker) => {
+            close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {
+            apply_theme_studio_selection(state, timers, deps, running);
+            None
+        }
+        (OverlayMode::ThemeStudio, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            } else {
+                let mut should_redraw = false;
+                for key in parse_arrow_keys(&bytes) {
+                    match key {
+                        ArrowKey::Up => {
+                            if state.theme_studio_selected > 0 {
+                                state.theme_studio_selected =
+                                    state.theme_studio_selected.saturating_sub(1);
+                                should_redraw = true;
+                            }
+                        }
+                        ArrowKey::Down => {
+                            let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
+                            if state.theme_studio_selected < max {
+                                state.theme_studio_selected += 1;
+                                should_redraw = true;
+                            }
+                        }
+                        ArrowKey::Left => {
+                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, -1);
+                        }
+                        ArrowKey::Right => {
+                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, 1);
+                        }
+                    }
+                }
+                if should_redraw {
+                    render_theme_studio_overlay_for_state(state, deps);
+                }
+            }
             None
         }
         (OverlayMode::ThemePicker, InputEvent::HelpToggle) => {
@@ -563,7 +617,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ThemePicker, InputEvent::ThemePicker) => {
-            close_overlay(state, deps, false);
+            open_theme_studio_overlay(state, deps);
             reset_theme_picker_digits(state, timers);
             None
         }
@@ -646,7 +700,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::TranscriptHistory, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (OverlayMode::TranscriptHistory, InputEvent::EnterKey) => {
@@ -742,7 +796,7 @@ fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ToastHistory, InputEvent::ThemePicker) => {
-            open_theme_picker_overlay(state, timers, deps);
+            open_theme_studio_overlay(state, deps);
             None
         }
         (_, replay_evt) => {
@@ -796,6 +850,7 @@ fn handle_overlay_mouse_click(
 
     let overlay_height = match state.overlay_mode {
         OverlayMode::Help => help_overlay_height(),
+        OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
         OverlayMode::Settings => settings_overlay_height(),
         OverlayMode::TranscriptHistory => transcript_history_overlay_height(),
@@ -825,6 +880,11 @@ fn handle_overlay_mouse_click(
             help_overlay_width_for_terminal(cols),
             help_overlay_inner_width_for_terminal(cols),
             help_overlay_footer(&state.theme.colors()),
+        ),
+        OverlayMode::ThemeStudio => (
+            theme_studio_total_width_for_terminal(cols),
+            theme_studio_inner_width_for_terminal(cols),
+            theme_studio_footer(&state.theme.colors()),
         ),
         OverlayMode::ThemePicker => (
             theme_picker_total_width_for_terminal(cols),
@@ -905,6 +965,23 @@ fn handle_overlay_mouse_click(
         {
             let idx = overlay_row.saturating_sub(options_start);
             apply_theme_picker_selection(state, timers, deps, idx);
+        }
+        return;
+    }
+
+    if state.overlay_mode == OverlayMode::ThemeStudio {
+        let options_start = THEME_STUDIO_OPTION_START_ROW;
+        let options_end = options_start.saturating_add(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+        if overlay_row >= options_start
+            && overlay_row <= options_end
+            && rel_x > 1
+            && rel_x < overlay_width
+        {
+            state.theme_studio_selected = overlay_row.saturating_sub(options_start);
+            apply_theme_studio_selection(state, timers, deps, running);
+            if state.overlay_mode == OverlayMode::ThemeStudio {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
         }
         return;
     }
@@ -1094,6 +1171,257 @@ fn run_settings_item_action(
         did_apply = apply_settings_item_action(selected, direction, settings_ctx);
     });
     did_apply
+}
+
+fn apply_theme_studio_adjustment(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    direction: i32,
+) -> bool {
+    match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::HudStyle => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudStyle,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudBorders => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudBorders,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudPanel => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudPanel,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudAnimate => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudAnimate,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::ColorsGlyphs => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.glyph_set_override =
+                cycle_runtime_glyph_set_override(overrides.glyph_set_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::LayoutMotion => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.indicator_set_override =
+                cycle_runtime_indicator_set_override(overrides.indicator_set_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::ProgressSpinner => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.progress_style_override =
+                cycle_runtime_progress_style_override(overrides.progress_style_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::ProgressBars => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.progress_bar_family_override = cycle_runtime_progress_bar_family_override(
+                overrides.progress_bar_family_override,
+                direction,
+            );
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::ThemeBorders => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.border_style_override =
+                cycle_runtime_border_style_override(overrides.border_style_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::VoiceScene => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.voice_scene_style_override = cycle_runtime_voice_scene_style_override(
+                overrides.voice_scene_style_override,
+                direction,
+            );
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn cycle_runtime_glyph_set_override(
+    current: Option<crate::theme::RuntimeGlyphSetOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeGlyphSetOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeGlyphSetOverride::Unicode),
+        Some(crate::theme::RuntimeGlyphSetOverride::Ascii),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_runtime_indicator_set_override(
+    current: Option<crate::theme::RuntimeIndicatorSetOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeIndicatorSetOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeIndicatorSetOverride::Ascii),
+        Some(crate::theme::RuntimeIndicatorSetOverride::Dot),
+        Some(crate::theme::RuntimeIndicatorSetOverride::Diamond),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_runtime_border_style_override(
+    current: Option<crate::theme::RuntimeBorderStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeBorderStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeBorderStyleOverride::Single),
+        Some(crate::theme::RuntimeBorderStyleOverride::Rounded),
+        Some(crate::theme::RuntimeBorderStyleOverride::Double),
+        Some(crate::theme::RuntimeBorderStyleOverride::Heavy),
+        Some(crate::theme::RuntimeBorderStyleOverride::None),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_runtime_progress_style_override(
+    current: Option<crate::theme::RuntimeProgressStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeProgressStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeProgressStyleOverride::Braille),
+        Some(crate::theme::RuntimeProgressStyleOverride::Dots),
+        Some(crate::theme::RuntimeProgressStyleOverride::Line),
+        Some(crate::theme::RuntimeProgressStyleOverride::Block),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_runtime_progress_bar_family_override(
+    current: Option<crate::theme::RuntimeProgressBarFamilyOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeProgressBarFamilyOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Bar),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Compact),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Blocks),
+        Some(crate::theme::RuntimeProgressBarFamilyOverride::Braille),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_runtime_voice_scene_style_override(
+    current: Option<crate::theme::RuntimeVoiceSceneStyleOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeVoiceSceneStyleOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Pulse),
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Static),
+        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Minimal),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let next_idx = cycle_override_index(current_idx, values.len(), direction);
+    values[next_idx]
+}
+
+fn cycle_override_index(current_idx: usize, len: usize, direction: i32) -> usize {
+    if len == 0 {
+        return 0;
+    }
+
+    if direction < 0 {
+        if current_idx == 0 {
+            len - 1
+        } else {
+            current_idx - 1
+        }
+    } else {
+        (current_idx + 1) % len
+    }
+}
+
+fn apply_theme_studio_selection(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    running: &mut bool,
+) {
+    match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::ThemePicker => {
+            open_theme_picker_overlay(state, timers, deps);
+        }
+        ThemeStudioItem::HudStyle
+        | ThemeStudioItem::HudBorders
+        | ThemeStudioItem::HudPanel
+        | ThemeStudioItem::HudAnimate
+        | ThemeStudioItem::ColorsGlyphs
+        | ThemeStudioItem::LayoutMotion
+        | ThemeStudioItem::ProgressSpinner
+        | ThemeStudioItem::ProgressBars
+        | ThemeStudioItem::ThemeBorders
+        | ThemeStudioItem::VoiceScene => {
+            if apply_theme_studio_adjustment(state, timers, deps, 1)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+        ThemeStudioItem::Close => {
+            close_overlay(state, deps, false);
+        }
+    }
+    if !*running {
+        close_overlay(state, deps, false);
+    }
 }
 
 fn apply_theme_picker_selection(
