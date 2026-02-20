@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/-Rust-C2785C?style=flat&labelColor=4B2D5F&logo=rust&logoColor=white" alt="Rust">
+  <img src="https://img.shields.io/badge/-Rust-C2785C?style=flat&labelColor=C2785C&logo=rust&logoColor=white" alt="Rust">
   <img src="https://img.shields.io/badge/-macOS-C2785C?style=flat&labelColor=4B2D5F&logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/-Linux-C2785C?style=flat&labelColor=4B2D5F&logo=linux&logoColor=white" alt="Linux">
   <img src="https://img.shields.io/badge/Whisper-Voice_Input-C2785C?style=flat&labelColor=4B2D5F&logo=audacity&logoColor=white" alt="Whisper">
