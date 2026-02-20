@@ -1179,21 +1179,94 @@ fn apply_theme_studio_adjustment(
     deps: &mut EventLoopDeps,
     direction: i32,
 ) -> bool {
-    let selected = match theme_studio_item_at(state.theme_studio_selected) {
-        ThemeStudioItem::HudStyle => SettingsItem::HudStyle,
-        ThemeStudioItem::HudBorders => SettingsItem::HudBorders,
-        ThemeStudioItem::HudPanel => SettingsItem::HudPanel,
-        ThemeStudioItem::HudAnimate => SettingsItem::HudAnimate,
-        _ => return false,
-    };
-    run_settings_item_action(
-        state,
-        timers,
-        deps,
-        selected,
-        direction,
-        OverlayMode::ThemeStudio,
-    )
+    match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::HudStyle => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudStyle,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudBorders => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudBorders,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudPanel => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudPanel,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::HudAnimate => run_settings_item_action(
+            state,
+            timers,
+            deps,
+            SettingsItem::HudAnimate,
+            direction,
+            OverlayMode::ThemeStudio,
+        ),
+        ThemeStudioItem::ColorsGlyphs => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.glyph_set_override =
+                cycle_runtime_glyph_set_override(overrides.glyph_set_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        ThemeStudioItem::LayoutMotion => {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.indicator_set_override =
+                cycle_runtime_indicator_set_override(overrides.indicator_set_override, direction);
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn cycle_runtime_glyph_set_override(
+    current: Option<crate::theme::RuntimeGlyphSetOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeGlyphSetOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeGlyphSetOverride::Unicode),
+        Some(crate::theme::RuntimeGlyphSetOverride::Ascii),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
+}
+
+fn cycle_runtime_indicator_set_override(
+    current: Option<crate::theme::RuntimeIndicatorSetOverride>,
+    direction: i32,
+) -> Option<crate::theme::RuntimeIndicatorSetOverride> {
+    let values = [
+        None,
+        Some(crate::theme::RuntimeIndicatorSetOverride::Ascii),
+        Some(crate::theme::RuntimeIndicatorSetOverride::Dot),
+        Some(crate::theme::RuntimeIndicatorSetOverride::Diamond),
+    ];
+    let current_idx = values
+        .iter()
+        .position(|value| *value == current)
+        .unwrap_or(0);
+    let step = if direction < 0 { -1 } else { 1 };
+    let len = values.len() as i32;
+    let next_idx = (current_idx as i32 + step).rem_euclid(len) as usize;
+    values[next_idx]
 }
 
 fn apply_theme_studio_selection(
@@ -1209,7 +1282,9 @@ fn apply_theme_studio_selection(
         ThemeStudioItem::HudStyle
         | ThemeStudioItem::HudBorders
         | ThemeStudioItem::HudPanel
-        | ThemeStudioItem::HudAnimate => {
+        | ThemeStudioItem::HudAnimate
+        | ThemeStudioItem::ColorsGlyphs
+        | ThemeStudioItem::LayoutMotion => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {
@@ -1218,19 +1293,6 @@ fn apply_theme_studio_selection(
         }
         ThemeStudioItem::Close => {
             close_overlay(state, deps, false);
-        }
-        ThemeStudioItem::ColorsGlyphs | ThemeStudioItem::LayoutMotion => {
-            set_status(
-                &deps.writer_tx,
-                &mut timers.status_clear_deadline,
-                &mut state.current_status,
-                &mut state.status_state,
-                "Theme Studio page coming soon",
-                Some(Duration::from_secs(2)),
-            );
-            if state.overlay_mode == OverlayMode::ThemeStudio {
-                render_theme_studio_overlay_for_state(state, deps);
-            }
         }
     }
     if !*running {

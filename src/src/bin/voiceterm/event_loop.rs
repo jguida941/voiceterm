@@ -41,7 +41,7 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
 use crate::terminal::{apply_pty_winsize, resolved_cols, take_sigwinch, update_pty_winsize};
-use crate::theme::style_pack_theme_lock;
+use crate::theme::{runtime_style_pack_overrides, style_pack_theme_lock};
 use crate::theme_ops::{
     apply_theme_picker_index, theme_index_from_theme, theme_picker_has_longer_match,
     theme_picker_parse_index,
@@ -372,6 +372,7 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
     let selected = state
         .theme_studio_selected
         .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+    let style_pack_overrides = runtime_style_pack_overrides();
     let view = ThemeStudioView {
         theme: state.theme,
         selected,
@@ -379,6 +380,8 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         hud_border_style: state.config.hud_border_style,
         hud_right_panel: state.config.hud_right_panel,
         hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
+        glyph_set_override: style_pack_overrides.glyph_set_override,
+        indicator_set_override: style_pack_overrides.indicator_set_override,
     };
     show_theme_studio_overlay(&deps.writer_tx, &view, cols);
 }

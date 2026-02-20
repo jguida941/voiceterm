@@ -18,7 +18,7 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{get_button_positions, status_banner_height_for_state, StatusLineState};
 use crate::terminal::{resolved_cols, update_pty_winsize};
-use crate::theme::Theme;
+use crate::theme::{runtime_style_pack_overrides, Theme};
 use crate::theme_studio::{ThemeStudioView, THEME_STUDIO_ITEMS};
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::writer::{send_enhanced_status, set_status, WriterMessage};
@@ -213,6 +213,7 @@ impl<'a> ButtonActionContext<'a> {
             *self.theme_studio_selected =
                 (*self.theme_studio_selected).min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
         }
+        let style_pack_overrides = runtime_style_pack_overrides();
         let view = ThemeStudioView {
             theme: *self.theme,
             selected: *self.theme_studio_selected,
@@ -220,6 +221,8 @@ impl<'a> ButtonActionContext<'a> {
             hud_border_style: self.config.hud_border_style,
             hud_right_panel: self.config.hud_right_panel,
             hud_right_panel_recording_only: self.config.hud_right_panel_recording_only,
+            glyph_set_override: style_pack_overrides.glyph_set_override,
+            indicator_set_override: style_pack_overrides.indicator_set_override,
         };
         show_theme_studio_overlay(self.writer_tx, &view, cols);
     }

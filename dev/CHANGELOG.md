@@ -11,7 +11,8 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Remove legacy visual controls from `Ctrl+O` Settings (`Theme`, `HUD style`, `Borders`, `Right panel`, `Anim rec-only`) so Settings focuses on non-theme runtime controls; visual selection now routes through `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` shortcuts and HUD display flags.
 - Add a dedicated Theme Studio entry flow: `Ctrl+Y` now opens Theme Studio first (instead of jumping directly into Theme Picker), with keyboard/mouse navigation and `Enter` routing from the Theme Studio picker row into the legacy Theme Picker overlay.
-- Add first interactive Theme Studio visual controls for existing runtime styling: `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` rows now apply directly from Theme Studio (with Enter and Left/Right arrow adjustments), while deep `Colors + glyphs` and `Layout + motion` page sets remain in-progress.
+- Add first interactive Theme Studio visual controls for existing runtime styling: `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` rows now apply directly from Theme Studio (with Enter and Left/Right arrow adjustments).
+- Replace Theme Studio placeholder rows with runtime-editable style-pack controls: `Glyph profile` and `Indicator set` now cycle live rendering overrides from Theme Studio (`Enter` and Left/Right arrows).
 - Add live value readouts in Theme Studio control rows so `HUD style`, `HUD borders`, `Right panel`, and `Panel animation` always show the currently active setting before adjustment.
 
 ### Docs

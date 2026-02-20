@@ -33,6 +33,11 @@ use self::{
     detect::is_warp_terminal,
     style_pack::{locked_style_pack_theme, resolve_theme_colors},
 };
+#[allow(unused_imports)]
+pub(crate) use style_pack::{
+    runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, RuntimeStylePackOverrides,
+};
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.
 pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =

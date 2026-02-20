@@ -182,6 +182,8 @@ mod tests {
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
+            glyph_set_override: None,
+            indicator_set_override: None,
         };
         show_theme_studio_overlay(&writer_tx, &view, 80);
         match writer_rx

@@ -5,7 +5,8 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, Theme, ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +42,8 @@ pub(crate) struct ThemeStudioView {
     pub(crate) hud_border_style: HudBorderStyle,
     pub(crate) hud_right_panel: HudRightPanel,
     pub(crate) hud_right_panel_recording_only: bool,
+    pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
+    pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
 }
 
 #[must_use]
@@ -154,14 +157,20 @@ fn format_theme_studio_option_line(
             false,
         ),
         ThemeStudioItem::ColorsGlyphs => (
-            "Colors + glyphs",
-            "Theme Studio page set coming soon (tokens + iconography).".to_string(),
-            true,
+            "Glyph profile",
+            format!(
+                "Current: {}. Cycle glyph profile (theme/unicode/ascii).",
+                glyph_profile_label(view.glyph_set_override)
+            ),
+            false,
         ),
         ThemeStudioItem::LayoutMotion => (
-            "Layout + motion",
-            "Theme Studio page set coming soon (layout + animation).".to_string(),
-            true,
+            "Indicator set",
+            format!(
+                "Current: {}. Cycle indicator set (theme/ascii/dot/diamond).",
+                indicator_set_label(view.indicator_set_override)
+            ),
+            false,
         ),
         ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
     };
@@ -202,10 +211,28 @@ fn panel_animation_mode_label(recording_only: bool) -> &'static str {
     }
 }
 
+fn glyph_profile_label(override_value: Option<RuntimeGlyphSetOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeGlyphSetOverride::Unicode) => "Unicode",
+        Some(RuntimeGlyphSetOverride::Ascii) => "Ascii",
+    }
+}
+
+fn indicator_set_label(override_value: Option<RuntimeIndicatorSetOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeIndicatorSetOverride::Ascii) => "Ascii",
+        Some(RuntimeIndicatorSetOverride::Dot) => "Dot",
+        Some(RuntimeIndicatorSetOverride::Diamond) => "Diamond",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
+    use crate::theme::{RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride};
 
     fn sample_view(theme: Theme) -> ThemeStudioView {
         ThemeStudioView {
@@ -215,6 +242,8 @@ mod tests {
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Ribbon,
             hud_right_panel_recording_only: true,
+            glyph_set_override: None,
+            indicator_set_override: None,
         }
     }
 
@@ -227,8 +256,8 @@ mod tests {
         assert!(rendered.contains("3. HUD borders"));
         assert!(rendered.contains("4. Right panel"));
         assert!(rendered.contains("5. Panel animation"));
-        assert!(rendered.contains("6. Colors + glyphs"));
-        assert!(rendered.contains("7. Layout + motion"));
+        assert!(rendered.contains("6. Glyph profile"));
+        assert!(rendered.contains("7. Indicator set"));
         assert!(rendered.contains("8. Close"));
     }
 
@@ -249,12 +278,16 @@ mod tests {
             hud_border_style: HudBorderStyle::Double,
             hud_right_panel: HudRightPanel::Dots,
             hud_right_panel_recording_only: false,
+            glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
+            indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
         };
         let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("Current: Hidden"));
         assert!(rendered.contains("Current: Double"));
         assert!(rendered.contains("Current: Dots"));
         assert!(rendered.contains("Current: Always"));
+        assert!(rendered.contains("Current: Ascii"));
+        assert!(rendered.contains("Current: Diamond"));
     }
 
     #[test]
