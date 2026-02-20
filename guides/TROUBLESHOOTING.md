@@ -137,6 +137,22 @@ If artifacts persist:
 4. Include terminal/IDE details and relevant `${TMPDIR}/voiceterm_tui.log`
    lines when reporting.
 
+### Notification history has no entries
+
+`Ctrl+N` shows runtime status notifications (for example mode toggles, warnings,
+and errors), not transcript rows.
+
+1. Trigger a status event first (for example `Ctrl+V` to toggle auto-voice, or
+   open/close Settings with `Ctrl+O`).
+2. Reopen notification history (`Ctrl+N`) and verify entries appear.
+3. If entries still do not appear, run with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+4. Include relevant `${TMPDIR}/voiceterm_tui.log` lines when reporting.
+
 ### Session memory file is missing
 
 The markdown session-memory log is opt-in.
