@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="img/logo-hero.png" alt="VoiceTerm" width="900">
+  <img src="img/logo-hero-transparent.png" alt="VoiceTerm" width="780">
 </p>
 
 <p align="center">
