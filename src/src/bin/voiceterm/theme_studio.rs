@@ -10,6 +10,10 @@ use crate::theme::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ThemeStudioItem {
     ThemePicker,
+    HudStyle,
+    HudBorders,
+    HudPanel,
+    HudAnimate,
     ColorsGlyphs,
     LayoutMotion,
     Close,
@@ -17,6 +21,10 @@ pub(crate) enum ThemeStudioItem {
 
 pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ThemePicker,
+    ThemeStudioItem::HudStyle,
+    ThemeStudioItem::HudBorders,
+    ThemeStudioItem::HudPanel,
+    ThemeStudioItem::HudAnimate,
     ThemeStudioItem::ColorsGlyphs,
     ThemeStudioItem::LayoutMotion,
     ThemeStudioItem::Close,
@@ -100,6 +108,24 @@ fn format_theme_studio_option_line(
             "Open classic palette browser for quick theme apply.",
             false,
         ),
+        ThemeStudioItem::HudStyle => (
+            "HUD style",
+            "Cycle HUD style (Full, Minimal, Hidden).",
+            false,
+        ),
+        ThemeStudioItem::HudBorders => {
+            ("HUD borders", "Cycle Full HUD border style presets.", false)
+        }
+        ThemeStudioItem::HudPanel => (
+            "Right panel",
+            "Cycle right panel mode (ribbon/dots/heartbeat/off).",
+            false,
+        ),
+        ThemeStudioItem::HudAnimate => (
+            "Panel animation",
+            "Toggle panel animation mode (recording-only/always).",
+            false,
+        ),
         ThemeStudioItem::ColorsGlyphs => (
             "Colors + glyphs",
             "Theme Studio page set coming soon (tokens + iconography).",
@@ -150,26 +176,30 @@ mod tests {
         let rendered = format_theme_studio(Theme::Codex, 0, 80);
         assert!(rendered.contains("VoiceTerm - Theme Studio"));
         assert!(rendered.contains("1. Theme picker"));
-        assert!(rendered.contains("2. Colors + glyphs"));
-        assert!(rendered.contains("3. Layout + motion"));
-        assert!(rendered.contains("4. Close"));
+        assert!(rendered.contains("2. HUD style"));
+        assert!(rendered.contains("3. HUD borders"));
+        assert!(rendered.contains("4. Right panel"));
+        assert!(rendered.contains("5. Panel animation"));
+        assert!(rendered.contains("6. Colors + glyphs"));
+        assert!(rendered.contains("7. Layout + motion"));
+        assert!(rendered.contains("8. Close"));
     }
 
     #[test]
     fn theme_studio_overlay_marks_selected_row() {
-        let rendered = format_theme_studio(Theme::Codex, 2, 80);
-        assert!(rendered.contains("> 3. Layout + motion"));
+        let rendered = format_theme_studio(Theme::Codex, 4, 80);
+        assert!(rendered.contains("> 5. Panel animation"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 10);
+        assert_eq!(theme_studio_height(), 14);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(3), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(7), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

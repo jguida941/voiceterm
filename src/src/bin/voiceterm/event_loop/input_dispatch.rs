@@ -577,27 +577,32 @@ fn handle_overlay_input_event(
             if bytes == [0x1b] {
                 close_overlay(state, deps, false);
             } else {
-                let mut moved = false;
+                let mut should_redraw = false;
                 for key in parse_arrow_keys(&bytes) {
                     match key {
                         ArrowKey::Up => {
                             if state.theme_studio_selected > 0 {
                                 state.theme_studio_selected =
                                     state.theme_studio_selected.saturating_sub(1);
-                                moved = true;
+                                should_redraw = true;
                             }
                         }
                         ArrowKey::Down => {
                             let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
                             if state.theme_studio_selected < max {
                                 state.theme_studio_selected += 1;
-                                moved = true;
+                                should_redraw = true;
                             }
                         }
-                        ArrowKey::Left | ArrowKey::Right => {}
+                        ArrowKey::Left => {
+                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, -1);
+                        }
+                        ArrowKey::Right => {
+                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, 1);
+                        }
                     }
                 }
-                if moved {
+                if should_redraw {
                     render_theme_studio_overlay_for_state(state, deps);
                 }
             }
@@ -1168,6 +1173,29 @@ fn run_settings_item_action(
     did_apply
 }
 
+fn apply_theme_studio_adjustment(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    direction: i32,
+) -> bool {
+    let selected = match theme_studio_item_at(state.theme_studio_selected) {
+        ThemeStudioItem::HudStyle => SettingsItem::HudStyle,
+        ThemeStudioItem::HudBorders => SettingsItem::HudBorders,
+        ThemeStudioItem::HudPanel => SettingsItem::HudPanel,
+        ThemeStudioItem::HudAnimate => SettingsItem::HudAnimate,
+        _ => return false,
+    };
+    run_settings_item_action(
+        state,
+        timers,
+        deps,
+        selected,
+        direction,
+        OverlayMode::ThemeStudio,
+    )
+}
+
 fn apply_theme_studio_selection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -1177,6 +1205,16 @@ fn apply_theme_studio_selection(
     match theme_studio_item_at(state.theme_studio_selected) {
         ThemeStudioItem::ThemePicker => {
             open_theme_picker_overlay(state, timers, deps);
+        }
+        ThemeStudioItem::HudStyle
+        | ThemeStudioItem::HudBorders
+        | ThemeStudioItem::HudPanel
+        | ThemeStudioItem::HudAnimate => {
+            if apply_theme_studio_adjustment(state, timers, deps, 1)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
         }
         ThemeStudioItem::Close => {
             close_overlay(state, deps, false);

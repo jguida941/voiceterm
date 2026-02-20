@@ -898,6 +898,48 @@ fn theme_studio_enter_on_theme_picker_row_opens_theme_picker_overlay() {
 }
 
 #[test]
+fn theme_studio_enter_on_hud_style_row_cycles_style_and_stays_open() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 1; // HUD style
+    state.status_state.hud_style = HudStyle::Full;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
+}
+
+#[test]
+fn theme_studio_arrow_left_on_hud_style_row_cycles_backward() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 1; // HUD style
+    state.status_state.hud_style = HudStyle::Minimal;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.status_state.hud_style, HudStyle::Full);
+}
+
+#[test]
 fn reset_theme_picker_selection_resets_index_and_digits() {
     let (mut state, mut timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.theme = Theme::Codex;
