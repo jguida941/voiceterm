@@ -249,6 +249,31 @@ Evidence:
 Inference: Theme Studio ownership boundaries are now stricter in runtime and
 docs, reducing Settings/UI ambiguity ahead of `MP-164` and `MP-166`.
 
+### Recent Governance Update (2026-02-20, Theme Studio Scene Controls)
+
+Fact: Theme Studio delivery tracking advanced by extending `MP-166` control
+coverage with voice-scene runtime controls and scene-style routing through the
+style-pack resolver path.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-166` in-progress note now includes
+  `Voice scene` control coverage)
+- `src/src/bin/voiceterm/theme_studio.rs` (new `Voice scene` row + live value
+  label)
+- `src/src/bin/voiceterm/theme/style_pack.rs` and
+  `src/src/bin/voiceterm/theme/colors.rs` (runtime `voice_scene_style`
+  overrides wired through resolver)
+- `src/src/bin/voiceterm/status_line/format.rs` and
+  `src/src/bin/voiceterm/status_line/buttons.rs` (scene-style-aware
+  animation/density behavior in full/minimal right panel rendering)
+- `guides/USAGE.md` and `dev/CHANGELOG.md` (user-facing control and behavior
+  updates)
+
+Inference: Theme Studio parity moved beyond visual-profile toggles into explicit
+voice-scene behavior controls, reducing hardcoded status-line behavior outside
+Studio ownership.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
