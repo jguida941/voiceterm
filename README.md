@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white" alt="Rust">
-  <img src="https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white" alt="macOS">
-  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-Voice_Input-8B5CF6?style=flat&logo=audacity&logoColor=white" alt="Whisper">
+  <img src="https://img.shields.io/badge/-Rust-000000?style=flat&labelColor=555555&logo=rust&logoColor=white" alt="Rust">
+  <img src="https://img.shields.io/badge/-macOS-000000?style=flat&labelColor=555555&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/-Linux-000000?style=flat&labelColor=555555&logo=linux&logoColor=white" alt="Linux">
+  <img src="https://img.shields.io/badge/Whisper-Voice_Input-000000?style=flat&labelColor=555555&logo=audacity&logoColor=white" alt="Whisper">
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&color=000000&labelColor=555555" alt="VoiceTerm Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-000000?style=flat&labelColor=555555" alt="MIT License"></a>
   <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Built%20With-Ratatui-000000?style=flat&labelColor=555555&logo=ratatui&logoColor=white" alt="Built With Ratatui"></a>
