@@ -269,11 +269,11 @@ cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_
 
 # Mutation tests (single run; CI enforces 80% minimum score)
 cd src && cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation tests (sharded, mirrors CI approach)
 cd src && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Historical CI shard artifacts are useful for hotspot triage only.
 # Final release gating must use a fresh full-shard aggregate for the current SHA.
@@ -281,7 +281,7 @@ python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.j
 # Mutation tests (offline/sandboxed; use a writable cache)
 rsync -a ~/.cargo/ /tmp/cargo-home/
 cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation helper script (module filter + offline env)
 python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
@@ -294,6 +294,8 @@ python3 ../dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-
 ```
 
 `--results-only` auto-detects the most recent `outcomes.json` under `src/mutants.out/`.
+`check_mutation_score.py` now prints the source path + age and supports
+`--max-age-hours` to fail on stale outcomes.
 Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if needed.
 
 ## Dev CLI (devctl)
@@ -332,7 +334,7 @@ python3 dev/scripts/devctl.py mutants --module overlay --offline \
 python3 dev/scripts/devctl.py mutants --module overlay --shard 1/8
 
 # Check mutation score only
-python3 dev/scripts/devctl.py mutation-score --threshold 0.80
+python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72
 
 # Docs check (user-facing changes must update docs + changelog)
 python3 dev/scripts/devctl.py docs-check --user-facing
@@ -618,7 +620,7 @@ cargo test --workspace --all-features
 
 # Check mutation score (optional, CI enforces this)
 cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80
+python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 ```
 
 **Check CI status:** [GitHub Actions](https://github.com/jguida941/voiceterm/actions)

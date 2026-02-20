@@ -213,7 +213,12 @@ def run(args) -> int:
                 raise RuntimeError("mutation outcomes.json not found")
             add_step(
                 "mutation-score",
-                build_mutation_score_cmd(outcomes_path, args.mutation_score_threshold),
+                build_mutation_score_cmd(
+                    outcomes_path,
+                    args.mutation_score_threshold,
+                    args.mutation_score_max_age_hours,
+                    args.mutation_score_warn_age_hours,
+                ),
                 cwd=REPO_ROOT,
             )
     except RuntimeError:

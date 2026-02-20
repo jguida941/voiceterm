@@ -315,7 +315,7 @@ find . -maxdepth 1 -type f -name '--*'
   - `cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture`
   - `cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture`
 - Mutation-hardening work:
-  - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80`
+  - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72`
   - optional: `python3 dev/scripts/devctl.py mutants --module overlay`
 - Macro/wizard onboarding changes:
   - `./scripts/macros.sh list`
@@ -445,7 +445,7 @@ Core commands:
 - `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
 - `docs-check`
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
-- `mutation-score`
+- `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
 - `mutants`
 - `release`
 - `release-notes`

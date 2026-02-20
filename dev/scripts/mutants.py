@@ -23,7 +23,7 @@ import sys
 from collections import Counter
 from typing import Optional
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Module definitions with their source paths
 MODULES = {
@@ -93,6 +93,17 @@ def find_latest_outcomes_file() -> Optional[Path]:
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def isoformat_utc(timestamp: float) -> str:
+    """Render a POSIX timestamp in stable UTC ISO-8601 format."""
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def age_hours_from_timestamp(timestamp: float) -> float:
+    """Return age in fractional hours from now for a POSIX timestamp."""
+    now = datetime.now(timezone.utc).timestamp()
+    return max(0.0, (now - timestamp) / 3600.0)
 
 
 def normalize_top_pct(value: float) -> float:
@@ -390,6 +401,10 @@ def parse_results():
     testable = stats["killed"] + stats["survived"] + stats["timeout"]
     score = (stats["killed"] / testable * 100) if testable > 0 else 0
 
+    outcomes_stat = outcomes_file.stat()
+    outcomes_updated_at = isoformat_utc(outcomes_stat.st_mtime)
+    outcomes_age_hours = age_hours_from_timestamp(outcomes_stat.st_mtime)
+
     return {
         "stats": stats,
         "score": score,
@@ -398,6 +413,8 @@ def parse_results():
         "survived_by_dir": survived_by_dir,
         "outcomes_path": str(outcomes_file),
         "results_dir": str(outcomes_file.parent),
+        "outcomes_updated_at": outcomes_updated_at,
+        "outcomes_age_hours": round(outcomes_age_hours, 2),
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -414,6 +431,8 @@ def output_results(results, format="markdown", top_n=5):
     survived_by_dir = results["survived_by_dir"]
     outcomes_path = results["outcomes_path"]
     results_dir = results["results_dir"]
+    outcomes_updated_at = results.get("outcomes_updated_at", "unknown")
+    outcomes_age_hours = results.get("outcomes_age_hours")
 
     if format == "json":
         json_results = results.copy()
@@ -444,6 +463,8 @@ Status: {"PASS" if score >= 80 else "FAIL"}
 
 Results dir: {results_dir}
 Outcomes: {outcomes_path}
+Outcomes updated: {outcomes_updated_at}
+Outcomes age (hours): {outcomes_age_hours if outcomes_age_hours is not None else "unknown"}
 """)
 
     if survived:
@@ -481,6 +502,9 @@ Outcomes: {outcomes_path}
         f.write(f"- Total: {stats['total']}\n")
         f.write(f"- Results dir: {results_dir}\n")
         f.write(f"- Outcomes: {outcomes_path}\n\n")
+        f.write(f"- Outcomes updated: {outcomes_updated_at}\n")
+        if outcomes_age_hours is not None:
+            f.write(f"- Outcomes age (hours): {outcomes_age_hours}\n\n")
         if survived:
             f.write("## Top Files by Survived Mutants\n\n")
             for file_path, count in survived_by_file.most_common(top_n):

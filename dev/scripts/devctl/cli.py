@@ -58,6 +58,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_cmd.add_argument("--mutation-score-path", help="Path to outcomes.json")
     check_cmd.add_argument("--mutation-score-threshold", type=float, default=DEFAULT_MUTATION_THRESHOLD)
+    check_cmd.add_argument(
+        "--mutation-score-warn-age-hours",
+        type=float,
+        default=24.0,
+        help="Warn when mutation outcomes are older than this many hours (set <0 to disable)",
+    )
+    check_cmd.add_argument(
+        "--mutation-score-max-age-hours",
+        type=float,
+        help="Fail release mutation-score step when outcomes are older than this many hours",
+    )
     check_cmd.add_argument("--mutants-module", help="Mutants module filter")
     check_cmd.add_argument("--mutants-all", action="store_true")
     check_cmd.add_argument("--mutants-timeout", type=int, default=DEFAULT_MUTANTS_TIMEOUT)
@@ -103,6 +114,17 @@ def build_parser() -> argparse.ArgumentParser:
     score_cmd = sub.add_parser("mutation-score", help="Check mutation score threshold")
     score_cmd.add_argument("--path", help="Path to outcomes.json (optional)")
     score_cmd.add_argument("--threshold", type=float, default=DEFAULT_MUTATION_THRESHOLD)
+    score_cmd.add_argument(
+        "--warn-age-hours",
+        type=float,
+        default=24.0,
+        help="Warn when mutation outcomes are older than this many hours (set <0 to disable)",
+    )
+    score_cmd.add_argument(
+        "--max-age-hours",
+        type=float,
+        help="Fail when outcomes are older than this many hours",
+    )
     score_cmd.add_argument("--dry-run", action="store_true")
 
     # release

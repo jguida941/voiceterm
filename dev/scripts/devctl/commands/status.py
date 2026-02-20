@@ -31,6 +31,22 @@ def run(args) -> int:
             lines.append(f"- Changelog updated: {git_info.get('changelog_updated')}")
             lines.append(f"- Master plan updated: {git_info.get('master_plan_updated')}")
             lines.append(f"- Changed files: {len(git_info.get('changes', []))}")
+        mutants_info = report.get("mutants", {})
+        if "error" in mutants_info:
+            lines.append(f"- Mutation score: error ({mutants_info['error']})")
+        else:
+            results = mutants_info.get("results", {})
+            if not isinstance(results, dict):
+                results = {}
+            score = results.get("score")
+            outcomes = results.get("outcomes_path", "unknown")
+            updated_at = results.get("outcomes_updated_at", "unknown")
+            age_hours = results.get("outcomes_age_hours")
+            score_label = "unknown" if score is None else f"{float(score):.2f}%"
+            lines.append(f"- Mutation score: {score_label}")
+            lines.append(f"- Mutation outcomes: {outcomes}")
+            age_label = "unknown" if age_hours is None else f"{float(age_hours):.2f}h"
+            lines.append(f"- Mutation outcomes updated: {updated_at} ({age_label} old)")
         if ci_requested:
             ci_info = report.get("ci", {})
             if "error" in ci_info:

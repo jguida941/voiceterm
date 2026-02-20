@@ -3,6 +3,7 @@
 import argparse
 import glob
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -76,6 +77,31 @@ def resolve_paths(path_args: List[str], glob_args: List[str]) -> List[Path]:
     return unique
 
 
+def isoformat_utc(timestamp: float) -> str:
+    """Render a POSIX timestamp in stable UTC ISO-8601 format."""
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def age_hours_from_timestamp(timestamp: float) -> float:
+    """Return age in fractional hours from now for a POSIX timestamp."""
+    now = datetime.now(timezone.utc).timestamp()
+    return max(0.0, (now - timestamp) / 3600.0)
+
+
+def format_age_hours(age_hours: float) -> str:
+    """Format age-hours into a short human-readable duration."""
+    total_minutes = int(round(age_hours * 60))
+    days, rem_minutes = divmod(total_minutes, 60 * 24)
+    hours, minutes = divmod(rem_minutes, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours or days:
+        parts.append(f"{hours}h")
+    parts.append(f"{minutes}m")
+    return " ".join(parts)
+
+
 def main() -> int:
     """Parse outcomes.json, print score, and return non-zero if below threshold."""
     parser = argparse.ArgumentParser(description="Check mutation score threshold.")
@@ -97,6 +123,17 @@ def main() -> int:
         default=0.80,
         help="Minimum acceptable mutation score (0.0-1.0)",
     )
+    parser.add_argument(
+        "--warn-age-hours",
+        type=float,
+        default=24.0,
+        help="Warn when outcomes are older than this many hours (set <0 to disable)",
+    )
+    parser.add_argument(
+        "--max-age-hours",
+        type=float,
+        help="Fail when any outcomes are older than this many hours",
+    )
     args = parser.parse_args()
 
     outcome_paths = resolve_paths(args.path, args.glob)
@@ -115,13 +152,23 @@ def main() -> int:
         "timeout": 0,
         "unviable": 0,
     }
-
+    freshness = []
     per_file = []
     for path in outcome_paths:
         counts = read_counts(path)
         per_file.append((path, counts))
         for key in total:
             total[key] += counts[key]
+        stat = path.stat()
+        age_hours = age_hours_from_timestamp(stat.st_mtime)
+        freshness.append(
+            {
+                "path": path,
+                "updated_at": isoformat_utc(stat.st_mtime),
+                "age_hours": age_hours,
+                "age_label": format_age_hours(age_hours),
+            }
+        )
 
     caught = total["caught"]
     missed = total["missed"]
@@ -146,6 +193,16 @@ def main() -> int:
                     unviable=counts["unviable"],
                 )
             )
+        print("Outcome file freshness:")
+        for item in freshness:
+            print(
+                f"  - {item['path']}: updated {item['updated_at']} ({item['age_label']} old)"
+            )
+    elif freshness:
+        item = freshness[0]
+        print(
+            f"Outcome file: {item['path']} (updated {item['updated_at']}, {item['age_label']} old)"
+        )
 
     print(
         "Mutation score: {score:.2%} (caught {caught}, missed {missed}, timeout {timeout}, unviable {unviable})".format(
@@ -164,6 +221,27 @@ def main() -> int:
             )
         )
         return 1
+
+    if args.warn_age_hours is not None and args.warn_age_hours >= 0:
+        stale_warn = [item for item in freshness if item["age_hours"] > args.warn_age_hours]
+        if stale_warn:
+            print(
+                "WARN: mutation outcomes are older than warn threshold "
+                f"({args.warn_age_hours:.1f}h):"
+            )
+            for item in stale_warn:
+                print(f"  - {item['path']} ({item['age_label']} old)")
+
+    if args.max_age_hours is not None:
+        stale_fail = [item for item in freshness if item["age_hours"] > args.max_age_hours]
+        if stale_fail:
+            print(
+                "FAIL: mutation outcomes exceed max age threshold "
+                f"({args.max_age_hours:.1f}h). Re-run mutants to refresh data."
+            )
+            for item in stale_fail:
+                print(f"  - {item['path']} ({item['age_label']} old)")
+            return 1
 
     return 0
 

@@ -92,8 +92,8 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 | `dev/scripts/release.sh` | Legacy adapter | Routes to `devctl release`. |
 | `dev/scripts/publish-pypi.sh` | Legacy adapter | Routes to `devctl pypi`; internal mode used by devctl. |
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
-| `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output. |
-| `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation. |
+| `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output (includes outcomes source age metadata). |
+| `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
 | `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, cross-doc links, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. |
 | `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
@@ -111,7 +111,7 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
-- `mutation-score`: threshold gate for outcomes
+- `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
 - `release`: tag + notes flow (legacy release behavior)
@@ -124,7 +124,8 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 
 Historical shard artifacts from previous CI runs are useful for hotspot triage,
 but release gating should always use a full aggregated score generated from the
-current commit's shard outcomes.
+current commit's shard outcomes. Use `--max-age-hours` in local gates when you
+need freshness enforcement instead of historical trend visibility.
 
 ## Markdown Lint Config
 

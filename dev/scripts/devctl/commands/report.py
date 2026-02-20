@@ -34,8 +34,18 @@ def run(args) -> int:
         if "error" in mutants_info:
             lines.append(f"- Mutants: {mutants_info['error']}")
         else:
-            score = mutants_info.get("results", {}).get("score")
-            lines.append(f"- Mutation score: {score}%")
+            results = mutants_info.get("results", {})
+            if not isinstance(results, dict):
+                results = {}
+            score = results.get("score")
+            outcomes = results.get("outcomes_path", "unknown")
+            updated_at = results.get("outcomes_updated_at", "unknown")
+            age_hours = results.get("outcomes_age_hours")
+            score_label = "unknown" if score is None else f"{float(score):.2f}%"
+            age_label = "unknown" if age_hours is None else f"{float(age_hours):.2f}h"
+            lines.append(f"- Mutation score: {score_label}")
+            lines.append(f"- Mutation outcomes: {outcomes}")
+            lines.append(f"- Mutation outcomes updated: {updated_at} ({age_label} old)")
         if args.ci and "ci" in report:
             ci_info = report["ci"]
             if "error" in ci_info:

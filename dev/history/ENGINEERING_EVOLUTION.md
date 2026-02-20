@@ -395,6 +395,28 @@ Inference: The decomposition strategy is now producing measurable code-shape
 improvements on live runtime hotspots while preserving behavior gates, instead
 of remaining a policy-only target.
 
+### Recent Governance Update (2026-02-20, Mutation Freshness Guardrails)
+
+Fact: Mutation-score tooling now surfaces outcomes freshness metadata by
+default and can fail on stale mutation data, so maintainers can distinguish
+"current commit signal" from historical snapshot reuse.
+
+Evidence:
+
+- `dev/scripts/check_mutation_score.py` (outcomes source path + updated-at/age
+  reporting, stale warning threshold, and `--max-age-hours` fail gate)
+- `dev/scripts/devctl/commands/mutation_score.py`,
+  `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/check.py`
+  (`devctl mutation-score` + release-profile wiring for freshness flags)
+- `dev/scripts/mutants.py`, `dev/scripts/devctl/commands/status.py`,
+  `dev/scripts/devctl/commands/report.py` (status/report exposure of mutation
+  outcomes path + age metadata)
+- `dev/active/MASTER_PLAN.md` (`MP-015` execution note)
+
+Inference: Mutation score moved from a threshold-only number to an auditable
+quality signal with explicit provenance and freshness semantics, reducing false
+confidence during release checks.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

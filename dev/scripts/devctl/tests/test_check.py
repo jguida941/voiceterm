@@ -40,6 +40,8 @@ def make_args(profile: str) -> SimpleNamespace:
         mutants_plot_show=False,
         mutation_score_path=None,
         mutation_score_threshold=0.8,
+        mutation_score_warn_age_hours=24.0,
+        mutation_score_max_age_hours=None,
         keep_going=False,
         dry_run=False,
         format="text",

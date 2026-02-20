@@ -342,6 +342,7 @@ documented `MS-G*` pass evidence.
 
 - [ ] MP-015 Improve mutation score with targeted high-value tests (promoted from Backlog).
   - [ ] Build a fresh shard-by-shard survivor baseline on `master` and rank hotspots by missed mutants.
+  - [x] Add mutation outcomes freshness visibility and stale-data gating in local tooling (`check_mutation_score.py` + `devctl mutation-score` now report source path/age and support `--max-age-hours`).
   - [x] Add targeted mutation-killer coverage for `theme_ops::cycle_theme` ordering/wrap semantics so default-return/empty-list/position-selection mutants are caught deterministically.
   - [x] Add targeted mutation-killer coverage for `Theme::from_name` alias arms (`tokyonight`/`tokyo-night`/`tokyo`, `gruvbox`/`gruv`) and `Theme::available()` list parity so empty/placeholder return mutants are caught.
   - [x] Add targeted mutation-killer coverage for `status_style::status_display_width` arithmetic and `terminal::take_sigwinch` clear-on-read semantics so constant-return/math mutants are caught.
