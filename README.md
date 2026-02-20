@@ -3,19 +3,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/-Rust-000000?style=flat&labelColor=555555&logo=rust&logoColor=white" alt="Rust">
-  <img src="https://img.shields.io/badge/-macOS-000000?style=flat&labelColor=555555&logo=apple&logoColor=white" alt="macOS">
-  <img src="https://img.shields.io/badge/-Linux-000000?style=flat&labelColor=555555&logo=linux&logoColor=white" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-Voice_Input-000000?style=flat&labelColor=555555&logo=audacity&logoColor=white" alt="Whisper">
-  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&color=000000&labelColor=555555" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-000000?style=flat&labelColor=555555" alt="MIT License"></a>
-  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Built%20With-Ratatui-000000?style=flat&labelColor=555555&logo=ratatui&logoColor=white" alt="Built With Ratatui"></a>
+  <img src="https://img.shields.io/badge/-Rust-C2785C?style=flat&labelColor=4B2D5F&logo=rust&logoColor=white" alt="Rust">
+  <img src="https://img.shields.io/badge/-macOS-C2785C?style=flat&labelColor=4B2D5F&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/-Linux-C2785C?style=flat&labelColor=4B2D5F&logo=linux&logoColor=white" alt="Linux">
+  <img src="https://img.shields.io/badge/Whisper-Voice_Input-C2785C?style=flat&labelColor=4B2D5F&logo=audacity&logoColor=white" alt="Whisper">
+  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&color=C2785C&labelColor=4B2D5F" alt="VoiceTerm Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-C2785C?style=flat&labelColor=4B2D5F" alt="MIT License"></a>
+  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Built%20With-Ratatui-C2785C?style=flat&labelColor=4B2D5F&logo=ratatui&logoColor=white" alt="Built With Ratatui"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&labelColor=555555&logo=github&logoColor=white" alt="CI"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&labelColor=555555&logo=github&logoColor=white" alt="Mutation Score"></a>
-  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=555555&color=000000&logo=codecov&logoColor=white" alt="Coverage"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&labelColor=4B2D5F&logo=github&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&labelColor=4B2D5F&logo=github&logoColor=white" alt="Mutation Score"></a>
+  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=4B2D5F&color=C2785C&logo=codecov&logoColor=white" alt="Coverage"></a>
 </p>
 
 Voice input for AI CLIs. Talk instead of type.
