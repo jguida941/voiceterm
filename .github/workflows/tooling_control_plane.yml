@@ -27,6 +27,7 @@ on:
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
       - ".github/workflows/docs_lint.yml"
+      - ".github/workflows/coverage.yml"
       - ".github/workflows/tooling_control_plane.yml"
   pull_request:
     paths:
@@ -51,6 +52,7 @@ on:
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
       - ".github/workflows/docs_lint.yml"
+      - ".github/workflows/coverage.yml"
       - ".github/workflows/tooling_control_plane.yml"
 
 jobs:

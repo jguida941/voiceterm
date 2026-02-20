@@ -47,6 +47,10 @@ find . -maxdepth 1 -type f -name '--*'
 # Release notes from git diff range
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 
+# Coverage workflow (mirrors .github/workflows/coverage.yml)
+cd src && cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+gh run list --workflow coverage.yml --limit 1
+
 # Tag + notes (legacy release flow)
 python3 dev/scripts/devctl.py release --version X.Y.Z
 

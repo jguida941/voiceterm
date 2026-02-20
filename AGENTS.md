@@ -344,6 +344,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Long-running worker/thread lifecycle | `memory_guard.yml` |
 | Parser/ANSI/OSC boundary logic | `parser_fuzz_guard.yml` |
 | Dependency/security policy changes | `security_guard.yml` |
+| Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | User docs/markdown changes | `docs_lint.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
@@ -438,6 +439,7 @@ Supporting scripts:
 - `mutation-testing.yml`
 - `security_guard.yml`
 - `parser_fuzz_guard.yml`
+- `coverage.yml`
 - `docs_lint.yml`
 - `lint_hardening.yml`
 - `tooling_control_plane.yml`

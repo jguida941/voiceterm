@@ -210,6 +210,27 @@ Inference: Release process now keeps one canonical control plane (`devctl`) but
 moves credentialed distribution execution into CI to reduce manual release
 friction and repeated local secret handling.
 
+### Recent Governance Update (2026-02-20, Coverage Automation)
+
+Fact: Coverage publication is now automated through a dedicated CI lane that
+generates Rust LCOV output and uploads to Codecov on push/PR events that touch
+runtime sources, enabling the README coverage badge to track current reports
+instead of remaining `unknown`.
+
+Evidence:
+
+- `.github/workflows/coverage.yml` (stable toolchain + `llvm-tools-preview`,
+  `cargo llvm-cov --workspace --all-features --lcov`, artifact upload, and
+  `codecov/codecov-action@v5` upload with `use_oidc: true`)
+- `README.md` (existing Codecov badge target)
+- `AGENTS.md` (CI lane mapping + workflow reference updated with `coverage.yml`)
+- `dev/DEVELOPMENT.md` (CI/CD workflow table updated with coverage lane)
+- `dev/active/MASTER_PLAN.md` (`MP-259`)
+
+Inference: Coverage reporting moved from badge-only intent to enforceable CI
+execution, reducing drift between advertised coverage status and actual upload
+activity.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

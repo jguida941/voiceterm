@@ -1,0 +1,75 @@
+name: Coverage Upload
+
+permissions:
+  contents: read
+  id-token: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - develop
+    paths:
+      - "src/**"
+      - ".github/workflows/coverage.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/coverage.yml"
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src/target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('src/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate LCOV report
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+
+      - name: Upload LCOV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: src/lcov.info
+          if-no-files-found: error
+
+      - name: Upload coverage report to Codecov
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+        uses: codecov/codecov-action@v5
+        with:
+          files: src/lcov.info
+          flags: rust
+          name: rust-coverage
+          use_oidc: true
+          fail_ci_if_error: true
+          verbose: true
