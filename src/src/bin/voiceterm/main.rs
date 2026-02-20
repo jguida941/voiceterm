@@ -25,6 +25,8 @@ mod help;
 mod hud;
 mod icons;
 mod input;
+#[allow(dead_code, unused_imports)]
+mod memory;
 mod onboarding;
 mod overlay_frame;
 mod overlays;
@@ -453,6 +455,8 @@ fn main() -> Result<()> {
             backend_label.to_ascii_lowercase().contains("claude"),
         ),
         toast_center: crate::toast::ToastCenter::new(),
+        memory_ingestor: None,
+        action_center_state: memory::ActionCenterState::new(),
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,

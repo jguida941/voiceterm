@@ -26,6 +26,10 @@ pub(crate) enum OverlayMode {
     TranscriptHistory,
     #[allow(dead_code)]
     ToastHistory,
+    #[allow(dead_code)]
+    MemoryBrowser,
+    #[allow(dead_code)]
+    ActionCenter,
 }
 
 pub(crate) fn show_settings_overlay(

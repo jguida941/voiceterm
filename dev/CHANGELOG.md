@@ -36,6 +36,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Harden style-pack lock UX for theme switching: when `VOICETERM_STYLE_PACK_JSON` provides a valid `base_theme`, quick-cycle/settings/theme-picker selection paths now report an explicit lock status instead of pretending to apply a switch, Theme Picker options render as locked/dimmed, and Settings marks Theme as locked/read-only.
 - Add a Theme Studio resolver-bypass policy gate (`theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`) that fails when runtime modules reference `THEME_*` palette or `BORDER_*` border constants outside the theme resolver/style-ownership allowlist.
 - Add StylePack V4 schema migration with component-override routing, a ToastCenter notification lifecycle (push/dismiss/tick), and a styleable component registry contract for theme-aware widget state tracking.
+- Add memory subsystem foundation: event type model, schema validation, JSONL append-only persistence, in-memory SQLite retrieval index, ingest pipeline with mode-gated dual-write, retrieval query with token budgeting, context-pack assembly, governance safety layer, and action audit state.
 
 ### Documentation
 

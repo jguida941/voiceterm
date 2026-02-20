@@ -176,6 +176,7 @@ Open with `Ctrl+H`.
 - `Esc` closes the overlay.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 - Override the memory-log path with `--session-memory-path <PATH>` when needed.
+- Session memory is backed by a structured persistence layer (JSONL + SQLite index) for reliable event storage and retrieval.
 
 ## Voice Modes
 
@@ -339,7 +340,6 @@ Tips:
 Theme shortcuts:
 [Theme/display flags](CLI_FLAGS.md#themes--display) |
 [Style-pack env vars](CLI_FLAGS.md#environment-variables)
-
 <details>
 <summary><strong>Advanced theme preview details</strong></summary>
 
@@ -439,7 +439,6 @@ Setup:
 Macro shortcuts:
 [Macro script reference](../scripts/README.md#macrossh) |
 [Flags/env reference](CLI_FLAGS.md)
-
 <details>
 <summary><strong>More macro details (starter packs, wizard extras, file format)</strong></summary>
 

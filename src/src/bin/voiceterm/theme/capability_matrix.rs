@@ -274,14 +274,14 @@ pub(crate) fn check_parity() -> ParityCheckResult {
         .ratatui_widgets
         .iter()
         .filter(|w| !REGISTERED_WIDGET_STYLE_IDS.contains(w))
-        .map(|w| w.name())
+        .map(RatatuiWidget::name)
         .collect();
 
     let unmapped_symbols: Vec<&'static str> = snapshot
         .ratatui_symbols
         .iter()
         .filter(|s| !MAPPED_SYMBOL_FAMILIES.contains(s))
-        .map(|s| s.name())
+        .map(RatatuiSymbolFamily::name)
         .collect();
 
     let passed = unregistered_widgets.is_empty() && unmapped_symbols.is_empty();
@@ -352,42 +352,42 @@ pub(crate) fn compute_upgrade_delta(
         .ratatui_widgets
         .iter()
         .filter(|w| !from.ratatui_widgets.contains(w))
-        .map(|w| w.name())
+        .map(RatatuiWidget::name)
         .collect();
 
     let removed_widgets: Vec<&'static str> = from
         .ratatui_widgets
         .iter()
         .filter(|w| !to.ratatui_widgets.contains(w))
-        .map(|w| w.name())
+        .map(RatatuiWidget::name)
         .collect();
 
     let added_symbols: Vec<&'static str> = to
         .ratatui_symbols
         .iter()
         .filter(|s| !from.ratatui_symbols.contains(s))
-        .map(|s| s.name())
+        .map(RatatuiSymbolFamily::name)
         .collect();
 
     let removed_symbols: Vec<&'static str> = from
         .ratatui_symbols
         .iter()
         .filter(|s| !to.ratatui_symbols.contains(s))
-        .map(|s| s.name())
+        .map(RatatuiSymbolFamily::name)
         .collect();
 
     let added_capabilities: Vec<&'static str> = to
         .crossterm_capabilities
         .iter()
         .filter(|c| !from.crossterm_capabilities.contains(c))
-        .map(|c| c.name())
+        .map(CrosstermCapability::name)
         .collect();
 
     let removed_capabilities: Vec<&'static str> = from
         .crossterm_capabilities
         .iter()
         .filter(|c| !to.crossterm_capabilities.contains(c))
-        .map(|c| c.name())
+        .map(CrosstermCapability::name)
         .collect();
 
     UpgradeDelta {

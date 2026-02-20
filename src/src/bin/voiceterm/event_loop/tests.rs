@@ -325,6 +325,8 @@ fn build_harness(
         session_memory_logger: None,
         claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
         toast_center: crate::toast::ToastCenter::new(),
+        memory_ingestor: None,
+        action_center_state: crate::memory::ActionCenterState::new(),
     };
 
     let now = Instant::now();

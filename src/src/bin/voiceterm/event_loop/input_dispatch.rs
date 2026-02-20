@@ -449,6 +449,9 @@ fn handle_overlay_input_event(
                 OverlayMode::ToastHistory => {
                     render_toast_history_overlay_for_state(state, deps);
                 }
+                OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
+                    // Placeholder: re-render after theme cycle when overlays ship.
+                }
                 OverlayMode::None => {}
             }
             None
@@ -791,6 +794,9 @@ fn handle_overlay_mouse_click(
         OverlayMode::ToastHistory => {
             crate::toast::toast_history_overlay_height(&state.toast_center)
         }
+        OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
+            transcript_history_overlay_height()
+        }
         OverlayMode::None => 0,
     };
     if overlay_height == 0 || state.terminal_rows == 0 {
@@ -840,6 +846,11 @@ fn handle_overlay_mouse_click(
             );
             (toast_width, toast_inner, footer)
         }
+        OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => (
+            crate::transcript_history::transcript_history_overlay_width(cols),
+            crate::transcript_history::transcript_history_overlay_inner_width(cols),
+            crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
+        ),
         OverlayMode::None => (0, 0, String::new()),
     };
 

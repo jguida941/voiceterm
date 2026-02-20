@@ -312,7 +312,11 @@ pub(crate) fn check_graduation(crate_name: &str) -> GraduationCheckResult {
     // In a full implementation, we would check actual test results here.
     // For now, report all parity requirements as structurally unmet
     // (they need CI evidence to pass).
-    let unmet: Vec<&'static str> = pack.parity_requirements.iter().map(|r| r.label()).collect();
+    let unmet: Vec<&'static str> = pack
+        .parity_requirements
+        .iter()
+        .map(ParityRequirement::label)
+        .collect();
 
     GraduationCheckResult {
         crate_name: pack.crate_name,
