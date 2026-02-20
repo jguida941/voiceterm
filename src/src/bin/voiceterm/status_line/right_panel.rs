@@ -1,6 +1,6 @@
 use crate::audio_meter::format_waveform;
 use crate::config::HudRightPanel;
-use crate::theme::{waveform_bars, Theme, ThemeColors, VoiceSceneStyle};
+use crate::theme::{waveform_bars, GlyphSet, Theme, ThemeColors, VoiceSceneStyle};
 
 use super::animation::heartbeat_glyph;
 use super::state::{RecordingState, StatusLineState};
@@ -199,4 +199,128 @@ pub(super) fn format_heartbeat_panel(state: &StatusLineState, colors: &ThemeColo
     content.push_str(colors.reset);
 
     format_panel_brackets(&content, colors)
+}
+
+pub(super) fn format_minimal_right_panel(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+) -> Option<String> {
+    if state.hud_right_panel == HudRightPanel::Off {
+        return None;
+    }
+    let recording_active = state.recording_state == RecordingState::Recording;
+    let scene_style = colors.voice_scene_style;
+    let animate_panel = scene_should_animate(
+        scene_style,
+        state.hud_right_panel_recording_only,
+        recording_active,
+    );
+
+    let panel = match state.hud_right_panel {
+        HudRightPanel::Ribbon => {
+            let levels = if animate_panel {
+                &state.meter_levels
+            } else {
+                &[][..]
+            };
+            let waveform_width = if scene_style == VoiceSceneStyle::Minimal {
+                4
+            } else {
+                6
+            };
+            let waveform = minimal_waveform(levels, waveform_width, colors);
+            format!(
+                "{}[{}{}{}]{}",
+                colors.dim, colors.reset, waveform, colors.dim, colors.reset
+            )
+        }
+        HudRightPanel::Dots => {
+            let idle_level = scene_idle_level(scene_style);
+            let level = if animate_panel {
+                state.meter_db.unwrap_or(idle_level)
+            } else {
+                idle_level
+            };
+            minimal_pulse_dots(level, colors, scene_dot_count(scene_style))
+        }
+        HudRightPanel::Heartbeat => {
+            let animate = scene_should_animate(
+                scene_style,
+                state.hud_right_panel_recording_only,
+                recording_active,
+            );
+            let (glyph, is_peak) = heartbeat_glyph(animate);
+            let color = if is_peak { colors.info } else { colors.dim };
+            format!(
+                "{}[{}{}{}{}]{}",
+                colors.dim, colors.reset, color, glyph, colors.reset, colors.reset
+            )
+        }
+        HudRightPanel::Off => return None,
+    };
+    Some(panel)
+}
+
+pub(super) fn minimal_waveform(levels: &[f32], width: usize, colors: &ThemeColors) -> String {
+    let glyphs = waveform_bars(colors.glyph_set);
+    if width == 0 {
+        return String::new();
+    }
+    if levels.is_empty() {
+        // Match full HUD behavior: keep idle placeholder in theme accent.
+        return format!(
+            "{}{}{}",
+            colors.success,
+            glyphs[0].to_string().repeat(width),
+            colors.reset
+        );
+    }
+
+    let mut out = String::with_capacity(width * 8);
+    let start = levels.len().saturating_sub(width);
+    let slice = &levels[start..];
+    if slice.len() < width {
+        out.push_str(colors.dim);
+        out.push_str(&glyphs[0].to_string().repeat(width - slice.len()));
+        out.push_str(colors.reset);
+    }
+    for db in slice {
+        let normalized = ((*db + 60.0) / 60.0).clamp(0.0, 1.0);
+        let idx = (normalized * (glyphs.len() as f32 - 1.0)) as usize;
+        let color = meter_level_color(*db, colors);
+        out.push_str(color);
+        out.push(glyphs[idx]);
+        out.push_str(colors.reset);
+    }
+    out
+}
+
+pub(super) fn minimal_pulse_dots(level_db: f32, colors: &ThemeColors, dots: usize) -> String {
+    let normalized = ((level_db + 60.0) / 60.0).clamp(0.0, 1.0);
+    let dots = dots.max(1);
+    let active = (normalized * dots as f32).round() as usize;
+    let (active_glyph, idle_glyph) = match colors.glyph_set {
+        GlyphSet::Unicode => ('•', '·'),
+        GlyphSet::Ascii => ('*', '.'),
+    };
+    let color = meter_level_color(level_db, colors);
+    let mut result = String::with_capacity(64);
+    result.push_str(colors.dim);
+    result.push('[');
+    result.push_str(colors.reset);
+    for idx in 0..dots {
+        if idx < active {
+            result.push_str(color);
+            result.push(active_glyph);
+            result.push_str(colors.reset);
+        } else {
+            result.push_str(colors.dim);
+            result.push(idle_glyph);
+            result.push_str(colors.reset);
+        }
+    }
+    result.push_str(colors.dim);
+    result.push(']');
+    result.push_str(colors.reset);
+    result
 }
