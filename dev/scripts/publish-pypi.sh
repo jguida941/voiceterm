@@ -49,6 +49,37 @@ if [[ "$CARGO_VERSION" != "$PYPI_VERSION" ]]; then
     exit 1
 fi
 
+INIT_PY="$PYPI_DIR/src/voiceterm/__init__.py"
+if [[ -f "$INIT_PY" ]]; then
+    INIT_VERSION="$(awk -F'"' '/^__version__[[:space:]]*=[[:space:]]*"/{print $2; exit}' "$INIT_PY")"
+    if [[ -z "$INIT_VERSION" ]]; then
+        echo "Error: missing __version__ assignment in $INIT_PY"
+        exit 1
+    fi
+    if [[ "$INIT_VERSION" != "$PYPI_VERSION" ]]; then
+        echo "Auto-syncing __init__.py version: $INIT_VERSION -> $PYPI_VERSION"
+        python3 - "$INIT_PY" "$PYPI_VERSION" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+version = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+updated, count = re.subn(
+    r'^__version__\s*=\s*"[^"]+"',
+    f'__version__ = "{version}"',
+    text,
+    count=1,
+    flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit(f"Error: expected one __version__ assignment in {path}")
+path.write_text(updated, encoding="utf-8")
+PY
+    fi
+fi
+
 echo "Building PyPI package for VoiceTerm v$PYPI_VERSION"
 cd "$PYPI_DIR"
 rm -rf "$DIST_DIR"
@@ -57,8 +88,19 @@ python3 -m build
 python3 -m twine check dist/*
 
 if [[ $UPLOAD -eq 1 ]]; then
-    echo "Uploading to PyPI..."
-    python3 -m twine upload dist/*
+    if [[ -n "${PYPI_API_TOKEN:-}" && -z "${TWINE_PASSWORD:-}" ]]; then
+        export TWINE_USERNAME="${TWINE_USERNAME:-__token__}"
+        export TWINE_PASSWORD="$PYPI_API_TOKEN"
+    fi
+
+    if [[ -z "${TWINE_PASSWORD:-}" && -z "${TWINE_CONFIG_FILE:-}" && ! -f "${HOME}/.pypirc" ]]; then
+        echo "Error: missing PyPI credentials for non-interactive upload."
+        echo "Set PYPI_API_TOKEN (recommended) or TWINE_USERNAME/TWINE_PASSWORD, or configure ~/.pypirc."
+        exit 1
+    fi
+
+    echo "Uploading to PyPI (non-interactive)..."
+    python3 -m twine upload --non-interactive dist/*
     echo "Upload complete."
 else
     echo "Build complete. Artifacts:"

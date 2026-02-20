@@ -155,6 +155,7 @@ All CLI output passes through unchanged.
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
 - **Voice navigation**: spoken `scroll`, `show last error`, `copy last error`, and `explain last error`
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
+- **Notification history**: use `Ctrl+N` to review recent status notifications
 - **Saved settings**: keeps runtime settings in `~/.config/voiceterm/config.toml` (CLI flags still override per run)
 - **Claude prompt safety**: hides the HUD during Claude approval/permission prompts so prompt lines stay readable
 - **HUD telemetry**: mic/latency chips for recording, busy, and idle states

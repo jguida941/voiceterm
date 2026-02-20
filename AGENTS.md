@@ -304,7 +304,7 @@ Use this exact sequence:
    - `dev/CHANGELOG.md` has release heading for `X.Y.Z`
 3. Verify release prerequisites:
    - `gh auth status -h github.com`
-   - PyPI upload credentials are configured (`twine` path works)
+   - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
    - Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
 4. Run `bundle.release`.
 5. Run release tagging and notes:
@@ -312,17 +312,25 @@ Use this exact sequence:
    ```bash
    python3 dev/scripts/devctl.py release --version <version>
    gh release create v<version> --title "v<version>" --notes-file /tmp/voiceterm-release-v<version>.md
-   python3 dev/scripts/devctl.py pypi --upload
+   # PyPI publish runs automatically via .github/workflows/publish_pypi.yml.
+   gh run list --workflow publish_pypi.yml --limit 1
+   # gh run watch <run-id>
    curl -fsSL https://pypi.org/pypi/voiceterm/<version>/json
    python3 dev/scripts/devctl.py homebrew --version <version>
    ```
 
 6. Run `bundle.post-push`.
 
-Unified control plane alternative (replaces steps 5 and 6):
+Unified control plane alternatives:
 
 ```bash
-python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --pypi --homebrew --verify-pypi
+# Workflow-first release path (recommended)
+python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --yes
+gh run list --workflow publish_pypi.yml --limit 1
+python3 dev/scripts/devctl.py ship --version <version> --homebrew --yes
+
+# Manual fallback (run PyPI locally)
+python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --homebrew --yes
 ```
 
 ## CI lane mapping (what must be green)
@@ -337,6 +345,7 @@ python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --
 | Parser/ANSI/OSC boundary logic | `parser_fuzz_guard.yml` |
 | Dependency/security policy changes | `security_guard.yml` |
 | User docs/markdown changes | `docs_lint.yml` |
+| GitHub release publication / PyPI distribution | `publish_pypi.yml` |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled) plus local mutation-score evidence |
 
@@ -432,6 +441,7 @@ Supporting scripts:
 - `docs_lint.yml`
 - `lint_hardening.yml`
 - `tooling_control_plane.yml`
+- `publish_pypi.yml`
 
 ## CI expansion policy
 

@@ -191,6 +191,25 @@ Inference: The Theme Studio track moved from prerequisite definition to
 evidence-backed gate completion, reducing release risk for future Studio
 surface migration work.
 
+### Recent Governance Update (2026-02-20, Release Automation)
+
+Fact: Release publication now has a dedicated PyPI distribution lane in GitHub
+Actions so published GitHub releases trigger automated PyPI upload for matching
+`vX.Y.Z` tags.
+
+Evidence:
+
+- `.github/workflows/publish_pypi.yml` (triggered by `release: published`)
+- `dev/scripts/publish-pypi.sh` (non-interactive upload flow)
+- `dev/DEVELOPMENT.md` and `dev/scripts/README.md` (release steps updated for
+  workflow-first publish path and manual fallback)
+- `AGENTS.md` (Release SOP + CI lane mapping updated for `publish_pypi.yml`)
+- `dev/active/MASTER_PLAN.md` (`MP-258`)
+
+Inference: Release process now keeps one canonical control plane (`devctl`) but
+moves credentialed distribution execution into CI to reduce manual release
+friction and repeated local secret handling.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

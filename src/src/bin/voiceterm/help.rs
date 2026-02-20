@@ -79,6 +79,10 @@ const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
         description: "History (transcripts + chat lines)",
     },
     Shortcut {
+        key: "Ctrl+N",
+        description: "History (notifications)",
+    },
+    Shortcut {
         key: "Enter",
         description: "Send prompt",
     },
@@ -298,6 +302,7 @@ mod tests {
         assert!(help.contains("Ctrl+V"));
         assert!(help.contains("Navigation"));
         assert!(help.contains("?"));
+        assert!(help.contains("Ctrl+N"));
         assert!(help.contains("Resources"));
         assert!(help.contains("Docs:"));
         assert!(help.contains("Troubleshooting:"));

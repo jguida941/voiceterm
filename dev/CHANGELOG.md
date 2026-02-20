@@ -9,6 +9,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### UX
 
+- Add notification-history overlay (`Ctrl+N`) and wire runtime status updates into the toast center with severity mapping (`INFO`/`OK`/`WARN`/`ERR`) plus auto-dismiss lifecycle tracking.
 - Add transcript history overlay (`Ctrl+H`) with type-to-filter search and replay into the active CLI input.
 - Upgrade transcript history to capture source-aware conversation rows (`mic`/`you`/`ai`) from both PTY input and PTY output, add a selected-entry preview pane, widen default overlay width for longer lines, and block replay for output-only (`ai`) rows.
 - Add persistent runtime settings storage at `~/.config/voiceterm/config.toml` for core HUD/voice preferences while preserving CLI-flag precedence per launch.

@@ -16,8 +16,8 @@
 - Current release target: `v1.0.84`
 - Active development branch: `develop`
 - Release branch: `master`
-- Strategic focus: post-v1.0.83 mutation-hardening execution to keep `mutation-testing` green at `>=0.80` while progressing the visual-surface-first Theme Studio track.
-- In-flight: v1.0.84 release prep (docs/version alignment + mutation hotspot triage) and MP-015 shard hardening continuation.
+- Strategic focus: visual-surface-first Theme Studio execution and release-flow automation hardening while a parallel agent track owns mutation hardening.
+- In-flight: v1.0.84 release-flow automation/docs alignment and Theme Studio prerequisite continuation (`MP-161`, `MP-162`, `MP-172`, `MP-174`).
 - Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
 
 ## Strategic Direction
@@ -90,7 +90,7 @@
 - [x] MP-139 Tighten user-facing docs information architecture (entrypoint clarity, navigation consistency, and guide discoverability).
 - [x] MP-104 Add explicit voice-state visualization (idle/listening/processing/responding) with clear transitions.
 - [x] MP-055 Quick theme switcher in settings.
-- [ ] MP-102 Add toast notification center with auto-dismiss, severity, and history review.
+- [x] MP-102 Add toast notification center with auto-dismiss, severity, and history review (landed runtime status-to-toast ingestion with severity mapping, `Ctrl+N` notification-history overlay toggle, periodic auto-dismiss/re-render behavior, and input/parser/help/docs coverage for toast-history control flow).
 - [x] MP-226 Fix Claude-mode command/approval prompt occlusion in active overlay sessions: when Claude enters interactive Bash approval or sandbox permission prompts (for example `Do you want to proceed?` while running `Bash(...)` or cross-worktree read prompts), VoiceTerm HUD/overlay rows can obscure prompt text and controls; implement a Claude-specific prompt-state rendering policy (overlay layering, temporary HUD suppression/resume, or reserved prompt-safe rows) so prompts remain readable/actionable without losing runtime status clarity, with non-regression validation for Codex, Cursor, and JetBrains terminals.
   - Repro note (2026-02-19): issue severity appears higher for local/worktree permission prompts during multi-tool explore batches (`+N more tool uses`), while some single-command Claude prompt flows appear acceptable.
   - Additional repro signal (2026-02-19): severity appears correlated with vertical UI density (long wrapped absolute command paths, larger active task list sections, and multi-line tool-batch summaries), suggesting row-budget/stacking pressure near bottom prompt rows.
@@ -195,7 +195,7 @@ Theme Studio mandatory verification bundle (per PR):
 
 ## Phase 2D - Visual Surface Expansion (Theme Studio Prerequisite)
 
-- [ ] MP-161 Execute a visual-first runtime pass before deep Studio editing: complete MP-102 and promote MP-103, MP-106, MP-107, MP-108, and MP-109 from Backlog into active execution order with non-regression gates.
+- [ ] MP-161 Execute a visual-first runtime pass before deep Studio editing: with MP-102 complete, promote MP-103, MP-106, MP-107, MP-108, and MP-109 from Backlog into active execution order with non-regression gates.
 - [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship (in progress: schema/resolver now supports runtime visual overrides for border glyph sets, indicator glyph families, and glyph-set profile selection (`glyphs`: `unicode`/`ascii`) via style-pack payloads, including compact/full/minimal/hidden processing/responding indicator lanes in status rendering while preserving default processing spinner animation unless explicitly overridden).
 - [x] MP-163 Add explicit coverage tests/gates that fail if new visual runtime surfaces bypass theme resolver paths with hardcoded style constants (landed `theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`, a source-policy gate that scans runtime Rust modules and fails when `THEME_*` palette or `BORDER_*` border constants are referenced outside theme resolver/style-ownership allowlist files).
 - [ ] MP-172 Add a styleable component registry and state-matrix contract for all renderable control surfaces (buttons, tabs, lists, tables, trees, scrollbars, modal/popup/tooltip, input/caret/selection) with schema + resolver + snapshot coverage.
@@ -251,6 +251,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-239 Reorganize `AGENTS.md` into an agent-first execution router (task classes, context packs, normal-push vs release workflows, branch sync policy, command bundles, and explicit autonomy/guardrail rules) so AI contributors can deterministically choose the right docs, tools, and checks for each task.
 - [x] MP-245 Refine `AGENTS.md` and `dev/DEVELOPMENT.md` into an index-first, user-story-driven execution system: add explicit start-up bootstrap steps, dirty-tree protocol, single-source command bundles, CI lane mapping by risk/path, release version-parity checks (`Cargo.toml` + `pyproject.toml` + macOS `Info.plist` + changelog) with a dedicated parity guard (`dev/scripts/check_release_version_parity.py`), add an AGENTS-structure guard (`dev/scripts/check_agents_contract.py`), and add an active-plan registry/sync guard (`dev/scripts/check_active_plan_sync.py` + `dev/active/INDEX.md`) so SOP/router/bundle and active-doc discovery contracts fail early in local/CI governance checks.
 - [x] MP-256 Add an orphaned-test process guardrail to tooling governance by extending `devctl hygiene` to detect leaked `target/debug/deps/voiceterm-*` binaries (error on detached `PPID=1` candidates, warning on active runs) so local bundles and tooling CI fail fast before process churn/CPU contention escalates.
+- [x] MP-258 Automate PyPI publish in release flow by adding `.github/workflows/publish_pypi.yml` (triggered on `release: published`) and aligning maintainer docs so release runs publish through GitHub Actions while `devctl pypi --upload --yes` remains an explicit fallback path.
 - [ ] MP-257 Run a plain-language readability pass across primary `dev/` entry docs (`dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`) so new developers can follow workflows quickly without losing technical accuracy.
 
 ## Phase 3C - Codebase Best-Practice Consolidation (Active Audit Track)
@@ -321,7 +322,7 @@ documented `MS-G*` pass evidence.
 - [ ] MP-254 Evaluate ZGraph-inspired symbolic compaction for memory units/context packs (pattern aliases for repeated paths/commands/errors), with reversible transforms and deterministic citation-equivalence checks (`MS-G03`, `MS-G15`, `MS-G17`).
 - [ ] MP-255 Gate any symbolic compaction rollout behind non-inferiority quality thresholds, round-trip parity fixtures, and explicit default-off operator guidance until `MS-G17` passes (`MS-G07`, `MS-G08`, `MS-G17`).
 
-## Phase 3A - Mutation Hardening (Current Execution Focus)
+## Phase 3A - Mutation Hardening (Parallel Track)
 
 - [ ] MP-015 Improve mutation score with targeted high-value tests (promoted from Backlog).
   - [ ] Build a fresh shard-by-shard survivor baseline on `master` and rank hotspots by missed mutants.

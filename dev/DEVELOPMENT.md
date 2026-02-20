@@ -349,9 +349,13 @@ python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
-python3 dev/scripts/devctl.py pypi --upload
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
-python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --pypi --homebrew --verify-pypi
+python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+gh run list --workflow publish_pypi.yml --limit 1
+
+# Manual fallback (local PyPI publish)
+python3 dev/scripts/devctl.py pypi --upload --yes
+python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebrew --yes
 
 # Generate a report (JSON/MD)
 python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.json
@@ -486,7 +490,7 @@ Docs governance guardrails:
 
 ## CI/CD Workflow
 
-GitHub Actions run on every push and PR:
+GitHub Actions lanes used by this repo:
 
 | Workflow | File | What it checks |
 |----------|------|----------------|
@@ -502,6 +506,7 @@ GitHub Actions run on every push and PR:
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
+| Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
 
 **Before pushing, run locally (recommended):**
 
@@ -585,7 +590,7 @@ Preflight auth/deployment prerequisites:
 
 ```bash
 gh auth status -h github.com
-python3 -m twine --version
+gh secret list | rg PYPI_API_TOKEN
 ```
 
 ```bash
@@ -603,25 +608,38 @@ compare range (previous tag to current tag). You can also generate it manually:
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 ```
 
+Publishing the GitHub release triggers `.github/workflows/publish_pypi.yml`,
+which publishes the matching `voiceterm` version to PyPI.
+
+### Publish PyPI package
+
+Default path: automatic from GitHub Actions when release is published.
+
+```bash
+# Monitor the publish workflow
+gh run list --workflow publish_pypi.yml --limit 1
+# then watch the latest run:
+# gh run watch <run-id>
+```
+
+Manual fallback (if workflow is unavailable):
+
+```bash
+python3 dev/scripts/devctl.py pypi --upload --yes
+```
+
+Verify the published version appears (replace `X.Y.Z`):
+
+```bash
+curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
+```
+
 ### Update Homebrew tap
 
 ```bash
 # Canonical control plane
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
-
-### Publish PyPI package
-
-```bash
-# Build + upload package to PyPI
-python3 dev/scripts/devctl.py pypi --upload
-
-# Verify the published version appears (replace X.Y.Z)
-curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
-```
-
-Use `python3 dev/scripts/devctl.py homebrew --version X.Y.Z` in the previous step to fetch
-the SHA256 and update the Homebrew formula.
 
 Legacy wrappers (`dev/scripts/release.sh`, `dev/scripts/publish-pypi.sh`,
 `dev/scripts/update-homebrew.sh`) remain for compatibility and route into
