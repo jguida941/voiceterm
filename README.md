@@ -3,19 +3,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-stable?style=for-the-badge&logo=rust&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Rust">
-  <img src="https://img.shields.io/badge/macOS-supported?style=for-the-badge&logo=apple&logoColor=white&labelColor=7C422B&color=2D2F34" alt="macOS">
-  <img src="https://img.shields.io/badge/Linux-supported?style=for-the-badge&logo=linux&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-local?style=for-the-badge&logo=openai&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Whisper">
-  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Ratatui-native?style=for-the-badge&logo=ratatui&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Ratatui"></a>
+  <img src="https://img.shields.io/badge/Rust-stable?style=flat&logo=rust&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Rust">
+  <img src="https://img.shields.io/badge/macOS-supported?style=flat&logo=apple&logoColor=white&labelColor=7C422B&color=2D2F34" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-supported?style=flat&logo=linux&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Linux">
+  <img src="https://img.shields.io/badge/Whisper-local?style=flat&logo=openai&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Whisper">
+  <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Ratatui-native?style=flat&logo=ratatui&logoColor=white&labelColor=7C422B&color=2D2F34" alt="Ratatui"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=for-the-badge&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT?style=for-the-badge&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=for-the-badge&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="CI"></a>
-  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=for-the-badge&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="Mutation Score"></a>
-  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=for-the-badge&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white" alt="Coverage"></a>
+  <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT?style=flat&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white" alt="Mutation Score"></a>
+  <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white" alt="Coverage"></a>
 </p>
 
 Voice input for AI CLIs. Talk instead of type.
