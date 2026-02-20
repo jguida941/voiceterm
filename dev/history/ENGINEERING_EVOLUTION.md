@@ -231,6 +231,24 @@ Inference: Coverage reporting moved from badge-only intent to enforceable CI
 execution, reducing drift between advertised coverage status and actual upload
 activity.
 
+### Recent Governance Update (2026-02-20, Theme Studio Settings Ownership)
+
+Fact: Theme Studio delivery tracking advanced by completing `MP-165`, which
+removes legacy visual controls from the `Ctrl+O` Settings list so Settings
+remains focused on non-theme runtime controls.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-165` marked complete with landed note)
+- `src/src/bin/voiceterm/settings/items.rs` (`SETTINGS_ITEMS` no longer
+  includes `Theme`, `HudStyle`, `HudBorders`, `HudPanel`, `HudAnimate`)
+- `guides/USAGE.md` and `guides/TROUBLESHOOTING.md` (updated operator guidance
+  for `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` and HUD panel launch flags)
+- `dev/CHANGELOG.md` (`Unreleased` UX entry for settings visual-row removal)
+
+Inference: Theme Studio ownership boundaries are now stricter in runtime and
+docs, reducing Settings/UI ambiguity ahead of `MP-164` and `MP-166`.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
