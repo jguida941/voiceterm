@@ -335,6 +335,8 @@ Tips:
   an explicit lock status message.
 - Settings migration note: existing `Theme`/HUD settings controls are unchanged;
   no user config migration is required for this runtime resolver foundation.
+- The theme system is being extended with a capability matrix for framework
+  parity, texture profiles, and dependency baselines; no user action is required.
 - Mouse behavior in overlays: click a Settings row to select+apply it, click a Theme Picker row to apply/select it, and click footer `[×] close` (or `[x] close` with ASCII glyph profile) to dismiss an overlay.
 
 </details>
