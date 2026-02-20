@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-19
+**Last Updated:** 2026-02-20
 
 ## At a Glance
 
@@ -170,6 +170,26 @@ Evidence:
 
 Inference: Governance focus shifted from "add memory features" to
 "prove safety and measurable quality gains before default-on behavior."
+
+### Recent Governance Update (2026-02-20)
+
+Fact: Theme Studio prerequisite planning gates were advanced in the canonical
+tracker by marking `MP-175`, `MP-176`, `MP-179`, `MP-180`, and `MP-182` as
+completed with implementation evidence.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-175`, `MP-176`, `MP-179`, `MP-180`,
+  `MP-182` status and gate-evidence notes)
+- `src/src/bin/voiceterm/theme/capability_matrix.rs`
+- `src/src/bin/voiceterm/theme/texture_profile.rs`
+- `src/src/bin/voiceterm/theme/dependency_baseline.rs`
+- `src/src/bin/voiceterm/theme/widget_pack.rs`
+- `src/src/bin/voiceterm/theme/rule_profile.rs`
+
+Inference: The Theme Studio track moved from prerequisite definition to
+evidence-backed gate completion, reducing release risk for future Studio
+surface migration work.
 
 ### Replay the Evidence Quickly
 
