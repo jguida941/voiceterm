@@ -419,6 +419,8 @@ Right panel options:
 
 - `off`, `ribbon`, `dots`, `heartbeat`
 - Optional recording-only animation via `--hud-right-panel-recording-only`
+- Recording-only mode pauses animated motion while idle but keeps the panel
+  visible so layout stays stable between idle and recording states.
 - In Full HUD, right-panel telemetry is rendered on the main status row
   (top-right lane).
 - Theme Studio `Voice scene` cycles scene policy (`theme`, `pulse`, `static`,

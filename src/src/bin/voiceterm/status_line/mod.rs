@@ -10,6 +10,7 @@ mod animation;
 mod buttons;
 mod format;
 mod layout;
+mod right_panel;
 mod state;
 mod text;
 
