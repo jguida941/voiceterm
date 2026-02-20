@@ -67,6 +67,7 @@ python3 dev/scripts/devctl.py status --ci --format md
 Why these guardrails exist:
 
 - `docs-check`: stops behavior changes from shipping without matching docs.
+- `docs-check --strict-tooling`: when `dev/active/MASTER_PLAN.md` moves, record the process shift in `dev/history/ENGINEERING_EVOLUTION.md` in the same change.
 - `hygiene`: catches doc/process drift (ADR index, archive naming, scripts list).
 - `check_cli_flags_parity.py`: keeps CLI docs in sync with clap flags.
 - `check_screenshot_integrity.py`: catches missing image links and stale screenshots.
