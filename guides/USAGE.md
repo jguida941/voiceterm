@@ -2,7 +2,7 @@
 
 VoiceTerm is a voice-first terminal overlay for AI CLIs. It transcribes speech
 locally and injects text into your terminal input.
-Current stable release: `v1.0.87` (2026-02-20). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+Current stable release: `v1.0.88` (2026-02-22). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Primary support: Codex and Claude Code.
 

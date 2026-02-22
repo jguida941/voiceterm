@@ -20,7 +20,7 @@
 
 Voice input for AI CLIs. Talk instead of type.
 Runs Whisper locally with ~250ms latency. No cloud, no API keys.
-Current stable release: `v1.0.87` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
+Current stable release: `v1.0.88` (2026-02-22). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
 Recent runtime updates:
 

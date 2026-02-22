@@ -7,6 +7,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+_No entries yet._
+
+## [1.0.88] - 2026-02-22
+
 ### UX
 
 - Fix `Ctrl+N` toast-history overlay rendering so border columns stay aligned across theme glyph modes and long notification lists.
