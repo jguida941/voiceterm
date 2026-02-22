@@ -83,6 +83,14 @@ Full controls reference:
 - [guides/USAGE.md#settings-menu](guides/USAGE.md#settings-menu)
 - [guides/USAGE.md#voice-modes](guides/USAGE.md#voice-modes)
 
+Theme Studio tip:
+
+- Press `Ctrl+Y` and use `Undo edit`, `Redo edit`, and `Rollback edits` to recover live visual override changes for the current session.
+
+Wake-word tip:
+
+- If wake listener startup fails, Full HUD now shows `Wake: ERR`; run with `--logs` and check [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
+
 In `auto` mode, text is typed and submitted. In `insert` mode, text is typed
 and you press Enter. See [Usage Guide](guides/USAGE.md) for full details.
 

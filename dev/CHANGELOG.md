@@ -27,6 +27,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 
 - Add backend-login troubleshooting guidance for missing backend command errors during `--login` flows.
+- Sync core user docs (`README`, `QUICK_START`, `USAGE`, `CLI_FLAGS`, `INSTALL`, `TROUBLESHOOTING`) with Theme Studio runtime edit recovery controls, wake listener `Wake: ERR` status semantics, and `--input-device` whitespace/newline normalization behavior.
 
 ## [1.0.87] - 2026-02-20
 

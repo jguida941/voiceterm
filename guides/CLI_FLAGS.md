@@ -61,6 +61,12 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 
 For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
 
+Wake status labels in Full HUD:
+
+- `Wake: ON` - listener active
+- `Wake: PAUSED` - listener intentionally paused during active capture/transcription
+- `Wake: ERR` - listener startup failed; check status/log-path message
+
 ---
 
 ## Backend Selection
@@ -107,6 +113,8 @@ voiceterm --login --claude      # Login to Claude CLI
 | `--doctor` | Print environment diagnostics and exit | - |
 | `--ffmpeg-cmd <PATH>` | FFmpeg binary path (python fallback) | ffmpeg |
 | `--ffmpeg-device <NAME>` | FFmpeg audio device override (python fallback) | - |
+
+`--input-device` values are normalized before lookup (wrapped whitespace/newlines are collapsed), so pasted multi-line names from terminal output resolve correctly.
 
 ---
 

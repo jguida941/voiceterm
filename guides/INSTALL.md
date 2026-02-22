@@ -56,6 +56,10 @@ voiceterm --login --claude
 - Rust toolchain (stable) only if you build from source: <https://rustup.rs>
 - Optional: `python3`, `ffmpeg`, and `whisper` CLI on PATH (used as backup if native engine is unavailable; disable with `--no-python-fallback`)
 
+Input-device note:
+
+- If you copy/paste a device name from wrapped terminal output, `--input-device` now normalizes embedded whitespace/newlines before runtime lookup.
+
 ## Choose an Install Path
 
 | If you want... | Choose | Why |

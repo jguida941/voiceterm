@@ -219,7 +219,7 @@ Three controls define runtime behavior:
 - `Ctrl+R` stops recording without sending.
 - `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it shows `Nothing to send`.
 - Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
-- In Full HUD, wake privacy state is explicit: `Wake: ON` (theme-matched pulse) means always-listening is active, and `Wake: PAUSED` means wake listening is temporarily suspended during active capture/transcription.
+- In Full HUD, wake state is explicit: `Wake: ON` means listener active, `Wake: PAUSED` means listener intentionally paused during active capture/transcription, and `Wake: ERR` means wake listener startup failed (status includes log-path guidance).
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
 
@@ -252,6 +252,7 @@ once when ready to submit, or use `Ctrl+E` while recording to stop early and sub
 |---|---|
 | Adjust mic sensitivity | `Ctrl+]`, `Ctrl+\`, `Ctrl+/`, or `voiceterm --mic-meter` |
 | Select an input device | `voiceterm --list-input-devices` |
+| Use wrapped/pasted device names | `--input-device` normalizes whitespace/newlines before lookup |
 | Run diagnostics | `voiceterm --doctor` |
 | Tune auto-voice timing | `--auto-voice-idle-ms`, `--transcript-idle-ms` |
 | Configure startup splash | `VOICETERM_STARTUP_SPLASH_MS`, `VOICETERM_NO_STARTUP_BANNER` |

@@ -22,6 +22,12 @@ Voice input for AI CLIs. Talk instead of type.
 Runs Whisper locally with ~250ms latency. No cloud, no API keys.
 Current stable release: `v1.0.87` (2026-02-20). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
+Recent runtime updates:
+
+- Theme Studio now supports in-session style-pack override recovery via `Undo edit`, `Redo edit`, and `Rollback edits`.
+- Wake listener startup failures now show explicit HUD/state feedback (`Wake: ERR`) instead of a false-ready wake badge.
+- `--input-device` values are normalized before lookup, so wrapped copy/paste device names are handled reliably.
+
 ## Quick Nav
 
 - [Install and Start](#install-and-start)

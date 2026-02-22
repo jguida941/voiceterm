@@ -15,6 +15,7 @@ Current stable release: `v1.0.87` (2026-02-20). Full release notes: [../dev/CHAN
 | Codex/Claude not responding | Verify install + login | [Backend Issues](#backend-issues) |
 | Claude executes actions without confirmation | Disable permission-skip mode | [Backend Issues](#backend-issues) |
 | Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Backend Issues](#backend-issues) |
+| Full HUD shows `Wake: ERR` | Verify wake listener startup/log path details | [Status Messages](#status-messages) |
 | Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
@@ -49,6 +50,16 @@ Macros load from `<project>/.voiceterm/macros.yaml` and apply only when
 
 <details>
 <summary>More status message issues</summary>
+
+### Wake: ERR
+
+Wake listener startup failed. Voice capture can still be started manually, but
+always-listening wake triggers are unavailable until startup succeeds.
+
+1. Run with logs: `voiceterm --logs`.
+2. Check the status line message for the wake-listener log path.
+3. Re-check microphone access and selected input device (`voiceterm --list-input-devices`).
+4. If using `--input-device`, copy the exact name from `--list-input-devices` output and retry.
 
 ### Voice capture failed (see log)
 
