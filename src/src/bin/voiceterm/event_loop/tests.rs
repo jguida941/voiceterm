@@ -326,6 +326,8 @@ fn build_harness(
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
         theme_studio_selected: 0,
+        theme_studio_undo_history: Vec::new(),
+        theme_studio_redo_history: Vec::new(),
         theme_picker_selected: theme_index_from_theme(theme),
         theme_picker_digits: String::new(),
         current_status: None,
@@ -1145,6 +1147,144 @@ fn theme_studio_enter_on_voice_scene_row_cycles_runtime_override() {
 }
 
 #[test]
+fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 5; // Glyph profile
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides().glyph_set_override,
+        Some(RuntimeGlyphSetOverride::Unicode)
+    );
+    assert_eq!(state.theme_studio_undo_history.len(), 1);
+    assert!(state.theme_studio_redo_history.is_empty());
+
+    state.theme_studio_selected = 11; // Undo edit
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides().glyph_set_override,
+        None
+    );
+    assert!(state.theme_studio_undo_history.is_empty());
+    assert_eq!(state.theme_studio_redo_history.len(), 1);
+}
+
+#[test]
+fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    let mut running = true;
+
+    state.theme_studio_selected = 5; // Glyph profile
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    state.theme_studio_selected = 11; // Undo edit
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    state.theme_studio_selected = 12; // Redo edit
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides().glyph_set_override,
+        Some(RuntimeGlyphSetOverride::Unicode)
+    );
+    assert_eq!(state.theme_studio_undo_history.len(), 1);
+    assert!(state.theme_studio_redo_history.is_empty());
+}
+
+#[test]
+fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    let mut running = true;
+
+    state.theme_studio_selected = 5; // Glyph profile
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    state.theme_studio_selected = 6; // Indicator set
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides().glyph_set_override,
+        Some(RuntimeGlyphSetOverride::Unicode)
+    );
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides().indicator_set_override,
+        Some(RuntimeIndicatorSetOverride::Ascii)
+    );
+
+    state.theme_studio_selected = 13; // Rollback edits
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides(),
+        RuntimeStylePackOverrides::default()
+    );
+    assert!(state.theme_studio_undo_history.len() >= 2);
+    assert!(state.theme_studio_redo_history.is_empty());
+}
+
+#[test]
 fn reset_theme_picker_selection_resets_index_and_digits() {
     let (mut state, mut timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.theme = Theme::Codex;
@@ -1755,6 +1895,8 @@ fn run_periodic_tasks_heartbeat_only_runs_for_heartbeat_panel() {
 fn run_periodic_tasks_wake_badge_pulse_refreshes_full_hud_when_interval_elapsed() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
 
     let now = Instant::now();
     state.config.wake_word = true;
@@ -1774,6 +1916,8 @@ fn run_periodic_tasks_wake_badge_pulse_refreshes_full_hud_when_interval_elapsed(
 fn run_periodic_tasks_wake_badge_pulse_waits_for_interval() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
 
     let now = Instant::now();
     state.config.wake_word = true;
@@ -1794,6 +1938,8 @@ fn run_periodic_tasks_wake_badge_pulse_waits_for_interval() {
 fn run_periodic_tasks_wake_badge_pulse_ticks_at_exact_interval_boundary() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
 
     let now = Instant::now();
     state.config.wake_word = true;
@@ -1815,6 +1961,8 @@ fn run_periodic_tasks_wake_badge_pulse_ticks_at_exact_interval_boundary() {
 fn run_periodic_tasks_wake_badge_skips_when_hud_not_full() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
 
     let now = Instant::now();
     state.config.wake_word = true;
@@ -1837,6 +1985,8 @@ fn run_periodic_tasks_wake_badge_skips_when_hud_not_full() {
 fn run_periodic_tasks_wake_badge_skips_when_overlay_is_open() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
 
     let now = Instant::now();
     state.config.wake_word = true;
@@ -1937,7 +2087,7 @@ fn run_periodic_tasks_expires_stale_latency_badge_at_exact_boundary() {
 }
 
 #[test]
-fn run_periodic_tasks_updates_wake_word_hud_state_when_config_changes() {
+fn run_periodic_tasks_marks_wake_hud_unavailable_when_listener_is_not_active() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
@@ -1949,7 +2099,14 @@ fn run_periodic_tasks_updates_wake_word_hud_state_when_config_changes() {
 
     assert_eq!(
         state.status_state.wake_word_state,
-        WakeWordHudState::Listening
+        WakeWordHudState::Unavailable
+    );
+    assert!(
+        state
+            .current_status
+            .as_deref()
+            .is_some_and(|msg| msg.contains("Wake listener unavailable")),
+        "wake listener startup failures should surface a user-visible status"
     );
     assert_eq!(timers.last_wake_hud_tick, now);
 }

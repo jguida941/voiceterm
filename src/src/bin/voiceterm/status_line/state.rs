@@ -81,6 +81,8 @@ pub enum WakeWordHudState {
     Listening,
     /// Wake listening is temporarily paused while capture/transcription is active.
     Paused,
+    /// Wake listening is enabled in config, but runtime listener startup failed.
+    Unavailable,
 }
 
 /// Maximum number of meter level samples to keep for waveform display.

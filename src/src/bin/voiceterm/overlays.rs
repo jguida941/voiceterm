@@ -188,6 +188,9 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            undo_available: false,
+            redo_available: false,
+            runtime_overrides_dirty: false,
         };
         show_theme_studio_overlay(&writer_tx, &view, 80);
         match writer_rx

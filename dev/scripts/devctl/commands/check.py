@@ -1,6 +1,10 @@
 """devctl check command implementation."""
 
+import os
+import re
+import signal
 import subprocess
+import time
 from datetime import datetime
 from typing import List
 from types import SimpleNamespace
@@ -25,6 +29,153 @@ MAINTAINER_LINT_CLIPPY_ARGS = [
     "-W",
     "dead_code",
 ]
+VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
+ORPHAN_TEST_MIN_AGE_SECONDS = 60
+
+
+def _parse_etime_seconds(raw: str) -> int | None:
+    trimmed = raw.strip()
+    if not trimmed:
+        return None
+
+    days = 0
+    rest = trimmed
+    if "-" in trimmed:
+        day_part, rest = trimmed.split("-", 1)
+        if not day_part.isdigit():
+            return None
+        days = int(day_part)
+
+    chunks = rest.split(":")
+    if len(chunks) == 2:
+        mm, ss = chunks
+        if not (mm.isdigit() and ss.isdigit()):
+            return None
+        seconds = int(mm) * 60 + int(ss)
+    elif len(chunks) == 3:
+        hh, mm, ss = chunks
+        if not (hh.isdigit() and mm.isdigit() and ss.isdigit()):
+            return None
+        seconds = int(hh) * 3600 + int(mm) * 60 + int(ss)
+    else:
+        return None
+
+    return days * 86400 + seconds
+
+
+def _scan_orphaned_voiceterm_test_binaries() -> tuple[list[dict], list[str]]:
+    warnings: list[str] = []
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,ppid=,etime=,command="],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        warnings.append(f"Process sweep skipped: unable to execute ps ({exc})")
+        return [], warnings
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() if result.stderr else "unknown ps error"
+        warnings.append(f"Process sweep skipped: ps returned {result.returncode} ({stderr})")
+        return [], warnings
+
+    this_pid = os.getpid()
+    orphaned: list[dict] = []
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        parts = stripped.split(None, 3)
+        if len(parts) != 4:
+            continue
+
+        pid_raw, ppid_raw, etime, command = parts
+        if not (pid_raw.isdigit() and ppid_raw.isdigit()):
+            continue
+        if "ps -axo pid=,ppid=,etime=,command=" in command:
+            continue
+        if not VOICETERM_TEST_BIN_RE.search(command):
+            continue
+
+        pid = int(pid_raw)
+        if pid == this_pid:
+            continue
+
+        elapsed_seconds = _parse_etime_seconds(etime)
+        if elapsed_seconds is None:
+            continue
+        if int(ppid_raw) != 1:
+            continue
+        if elapsed_seconds < ORPHAN_TEST_MIN_AGE_SECONDS:
+            continue
+
+        orphaned.append(
+            {
+                "pid": pid,
+                "ppid": int(ppid_raw),
+                "etime": etime,
+                "elapsed_seconds": elapsed_seconds,
+                "command": command,
+            }
+        )
+
+    orphaned.sort(key=lambda row: row["elapsed_seconds"], reverse=True)
+    return orphaned, warnings
+
+
+def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> dict:
+    start = time.time()
+    if dry_run:
+        return {
+            "name": step_name,
+            "cmd": ["internal", "process-sweep", "--dry-run"],
+            "cwd": str(REPO_ROOT),
+            "returncode": 0,
+            "duration_s": 0.0,
+            "skipped": True,
+            "warnings": [],
+            "killed_pids": [],
+            "detected_orphans": 0,
+        }
+
+    orphaned, warnings = _scan_orphaned_voiceterm_test_binaries()
+    killed_pids: list[int] = []
+    errors: list[str] = []
+
+    for row in orphaned:
+        pid = row["pid"]
+        try:
+            os.kill(pid, signal.SIGKILL)
+            killed_pids.append(pid)
+        except ProcessLookupError:
+            continue
+        except PermissionError as exc:
+            errors.append(f"pid={pid} permission denied ({exc})")
+        except OSError as exc:
+            errors.append(f"pid={pid} kill failed ({exc})")
+
+    for warning in warnings:
+        print(f"[{step_name}] warning: {warning}")
+    if orphaned:
+        print(f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test binaries")
+    if killed_pids:
+        print(f"[{step_name}] killed {len(killed_pids)} orphaned voiceterm test binaries")
+    for error in errors:
+        print(f"[{step_name}] warning: {error}")
+
+    return {
+        "name": step_name,
+        "cmd": ["internal", "process-sweep", "--kill-orphans"],
+        "cwd": str(REPO_ROOT),
+        "returncode": 0,
+        "duration_s": round(time.time() - start, 2),
+        "skipped": False,
+        "warnings": warnings + errors,
+        "killed_pids": killed_pids,
+        "detected_orphans": len(orphaned),
+    }
 
 
 def run(args) -> int:
@@ -40,6 +191,7 @@ def run(args) -> int:
     with_mutation_score = args.with_mutation_score
     with_wake_guard = args.with_wake_guard
     with_ai_guard = args.with_ai_guard
+    process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
     clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
 
     if args.profile == "ci":
@@ -96,6 +248,14 @@ def run(args) -> int:
         steps.append(result)
         if result["returncode"] != 0 and not args.keep_going:
             raise RuntimeError(f"{name} failed")
+
+    if process_sweep_cleanup:
+        steps.append(
+            _cleanup_orphaned_voiceterm_test_binaries(
+                step_name="process-sweep-pre",
+                dry_run=args.dry_run,
+            )
+        )
 
     try:
         if not args.skip_fmt:
@@ -223,6 +383,14 @@ def run(args) -> int:
             )
     except RuntimeError:
         pass
+    finally:
+        if process_sweep_cleanup:
+            steps.append(
+                _cleanup_orphaned_voiceterm_test_binaries(
+                    step_name="process-sweep-post",
+                    dry_run=args.dry_run,
+                )
+            )
 
     success = all(step["returncode"] == 0 for step in steps)
     report = {

@@ -41,6 +41,8 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py check --profile release
+# Optional: disable automatic orphaned-test cleanup sweep
+python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
 # Docs + governance checks
 python3 dev/scripts/devctl.py docs-check --user-facing
@@ -109,6 +111,8 @@ python3 dev/scripts/devctl.py pypi --upload --yes
 ## Devctl Command Set
 
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+  - Runs an automatic orphaned-test sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
+  - Disable only when needed with `--no-process-sweep-cleanup`.
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)

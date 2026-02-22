@@ -382,11 +382,7 @@ fn main() -> Result<()> {
     let mut status_state = StatusLineState::new();
     status_state.sensitivity_db = config.app.voice_vad_threshold_db;
     status_state.auto_voice_enabled = auto_voice_enabled;
-    status_state.wake_word_state = if config.wake_word {
-        WakeWordHudState::Listening
-    } else {
-        WakeWordHudState::Off
-    };
+    status_state.wake_word_state = WakeWordHudState::Off;
     status_state.send_mode = config.voice_send_mode;
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = false;
@@ -433,6 +429,8 @@ fn main() -> Result<()> {
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
         theme_studio_selected: 0,
+        theme_studio_undo_history: Vec::new(),
+        theme_studio_redo_history: Vec::new(),
         theme_picker_selected: theme_index_from_theme(theme),
         theme_picker_digits: String::new(),
         current_status: None,
@@ -499,6 +497,13 @@ fn main() -> Result<()> {
         state.config.wake_word_cooldown_ms,
         false,
     );
+    state.status_state.wake_word_state = if !state.config.wake_word {
+        WakeWordHudState::Off
+    } else if deps.wake_word_runtime.is_listener_active() {
+        WakeWordHudState::Listening
+    } else {
+        WakeWordHudState::Unavailable
+    };
 
     if state.auto_voice_enabled {
         set_status(

@@ -220,6 +220,24 @@ fn rejects_ffmpeg_device_with_shell_metacharacters() {
     }
 }
 
+#[test]
+fn normalizes_input_device_whitespace_before_runtime_use() {
+    let mut cfg = AppConfig::parse_from([
+        "test-app",
+        "--input-device",
+        "  MacBook   Pro\nMicrophone\t  ",
+    ]);
+    cfg.validate()
+        .expect("input device with wrapped whitespace should normalize");
+    assert_eq!(cfg.input_device.as_deref(), Some("MacBook Pro Microphone"));
+}
+
+#[test]
+fn rejects_input_device_when_normalized_value_is_empty() {
+    let mut cfg = AppConfig::parse_from(["test-app", "--input-device", " \n\t "]);
+    assert!(cfg.validate().is_err());
+}
+
 #[cfg(unix)]
 #[test]
 fn codex_cmd_path_must_be_executable() {

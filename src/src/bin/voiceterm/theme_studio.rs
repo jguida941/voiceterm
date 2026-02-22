@@ -4,6 +4,8 @@ use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
+#[cfg(test)]
+use crate::theme::StylePackFieldId;
 use crate::theme::{
     overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
     RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
@@ -23,6 +25,9 @@ pub(crate) enum ThemeStudioItem {
     ProgressBars,
     ThemeBorders,
     VoiceScene,
+    UndoEdit,
+    RedoEdit,
+    RollbackEdits,
     Close,
 }
 
@@ -38,10 +43,15 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ProgressBars,
     ThemeStudioItem::ThemeBorders,
     ThemeStudioItem::VoiceScene,
+    ThemeStudioItem::UndoEdit,
+    ThemeStudioItem::RedoEdit,
+    ThemeStudioItem::RollbackEdits,
     ThemeStudioItem::Close,
 ];
 
 pub(crate) const THEME_STUDIO_OPTION_START_ROW: usize = 4;
+#[cfg(test)]
+const STYLE_PACK_STUDIO_PARITY_COMPLETE: bool = false;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ThemeStudioView {
@@ -57,6 +67,9 @@ pub(crate) struct ThemeStudioView {
     pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
     pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
     pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
+    pub(crate) undo_available: bool,
+    pub(crate) redo_available: bool,
+    pub(crate) runtime_overrides_dirty: bool,
 }
 
 #[must_use]
@@ -217,6 +230,30 @@ fn format_theme_studio_option_line(
             ),
             false,
         ),
+        ThemeStudioItem::UndoEdit => (
+            "Undo edit",
+            format!(
+                "Current: {}. Revert the most recent style-pack override edit.",
+                edit_history_state_label(view.undo_available)
+            ),
+            false,
+        ),
+        ThemeStudioItem::RedoEdit => (
+            "Redo edit",
+            format!(
+                "Current: {}. Re-apply the most recently undone override edit.",
+                edit_history_state_label(view.redo_available)
+            ),
+            false,
+        ),
+        ThemeStudioItem::RollbackEdits => (
+            "Rollback edits",
+            format!(
+                "Current: {}. Reset all runtime style-pack overrides to theme defaults.",
+                runtime_override_state_label(view.runtime_overrides_dirty)
+            ),
+            false,
+        ),
         ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
     };
     let marker = if selected { ">" } else { " " };
@@ -315,6 +352,58 @@ fn voice_scene_label(override_value: Option<RuntimeVoiceSceneStyleOverride>) -> 
     }
 }
 
+fn edit_history_state_label(available: bool) -> &'static str {
+    if available {
+        "Available"
+    } else {
+        "Empty"
+    }
+}
+
+fn runtime_override_state_label(dirty: bool) -> &'static str {
+    if dirty {
+        "Dirty"
+    } else {
+        "Clean"
+    }
+}
+
+#[cfg(test)]
+fn style_pack_field_studio_item(field: StylePackFieldId) -> Option<ThemeStudioItem> {
+    match field {
+        StylePackFieldId::OverrideBorderStyle => Some(ThemeStudioItem::ThemeBorders),
+        StylePackFieldId::OverrideIndicatorSet => Some(ThemeStudioItem::LayoutMotion),
+        StylePackFieldId::OverrideGlyphSet => Some(ThemeStudioItem::ColorsGlyphs),
+        StylePackFieldId::SurfaceToastPosition => None,
+        StylePackFieldId::SurfaceStartupStyle => None,
+        StylePackFieldId::SurfaceProgressStyle => Some(ThemeStudioItem::ProgressSpinner),
+        StylePackFieldId::SurfaceVoiceSceneStyle => Some(ThemeStudioItem::VoiceScene),
+        StylePackFieldId::ComponentOverlayBorder => None,
+        StylePackFieldId::ComponentHudBorder => None,
+        StylePackFieldId::ComponentToastSeverityMode => None,
+        StylePackFieldId::ComponentBannerStyle => None,
+        StylePackFieldId::ComponentProgressBarFamily => Some(ThemeStudioItem::ProgressBars),
+    }
+}
+
+#[cfg(test)]
+fn style_pack_field_studio_mapping_deferred(field: StylePackFieldId) -> bool {
+    match field {
+        StylePackFieldId::SurfaceToastPosition
+        | StylePackFieldId::SurfaceStartupStyle
+        | StylePackFieldId::ComponentOverlayBorder
+        | StylePackFieldId::ComponentHudBorder
+        | StylePackFieldId::ComponentToastSeverityMode
+        | StylePackFieldId::ComponentBannerStyle => true,
+        StylePackFieldId::OverrideBorderStyle
+        | StylePackFieldId::OverrideIndicatorSet
+        | StylePackFieldId::OverrideGlyphSet
+        | StylePackFieldId::SurfaceProgressStyle
+        | StylePackFieldId::SurfaceVoiceSceneStyle
+        | StylePackFieldId::ComponentProgressBarFamily => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,6 +428,9 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            undo_available: false,
+            redo_available: false,
+            runtime_overrides_dirty: false,
         }
     }
 
@@ -357,7 +449,10 @@ mod tests {
         assert!(rendered.contains("9. Progress bars"));
         assert!(rendered.contains("10. Theme borders"));
         assert!(rendered.contains("11. Voice scene"));
-        assert!(rendered.contains("12. Close"));
+        assert!(rendered.contains("12. Undo edit"));
+        assert!(rendered.contains("13. Redo edit"));
+        assert!(rendered.contains("14. Rollback edits"));
+        assert!(rendered.contains("15. Close"));
     }
 
     #[test]
@@ -383,6 +478,9 @@ mod tests {
             progress_style_override: Some(RuntimeProgressStyleOverride::Line),
             progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Blocks),
             voice_scene_style_override: Some(RuntimeVoiceSceneStyleOverride::Pulse),
+            undo_available: true,
+            redo_available: true,
+            runtime_overrides_dirty: true,
         };
         let rendered = format_theme_studio(&view, 80);
         assert!(rendered.contains("Current: Hidden"));
@@ -395,17 +493,19 @@ mod tests {
         assert!(rendered.contains("Current: Blocks"));
         assert!(rendered.contains("Current: Heavy"));
         assert!(rendered.contains("Current: Pulse"));
+        assert!(rendered.contains("Current: Available"));
+        assert!(rendered.contains("Current: Dirty"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 18);
+        assert_eq!(theme_studio_height(), 21);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(11), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(14), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 
@@ -413,5 +513,51 @@ mod tests {
     fn theme_studio_none_theme_has_no_ansi_sequences() {
         let rendered = format_theme_studio(&sample_view(Theme::None), 80);
         assert!(!rendered.contains("\x1b["));
+    }
+
+    #[test]
+    fn style_pack_field_mapping_classifies_every_field_exactly_once() {
+        for field in StylePackFieldId::all() {
+            let mapped = style_pack_field_studio_item(*field).is_some();
+            let deferred = style_pack_field_studio_mapping_deferred(*field);
+            assert!(
+                mapped ^ deferred,
+                "field {} must be mapped or deferred (exclusive)",
+                field.path()
+            );
+        }
+    }
+
+    #[test]
+    fn style_pack_field_mapping_points_to_existing_theme_studio_rows() {
+        for field in StylePackFieldId::all() {
+            if let Some(item) = style_pack_field_studio_item(*field) {
+                assert!(
+                    THEME_STUDIO_ITEMS.contains(&item),
+                    "field {} maps to non-existent Theme Studio row {:?}",
+                    field.path(),
+                    item
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn style_pack_field_mapping_parity_gate_respects_completion_flag() {
+        let deferred_count = StylePackFieldId::all()
+            .iter()
+            .filter(|field| style_pack_field_studio_mapping_deferred(**field))
+            .count();
+        if STYLE_PACK_STUDIO_PARITY_COMPLETE {
+            assert_eq!(
+                deferred_count, 0,
+                "post-parity gate requires zero deferred style-pack fields"
+            );
+        } else {
+            assert!(
+                deferred_count > 0,
+                "pre-parity configuration should track deferred style-pack fields"
+            );
+        }
     }
 }

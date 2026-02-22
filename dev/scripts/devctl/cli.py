@@ -90,6 +90,11 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.add_argument("--offline", action="store_true")
     check_cmd.add_argument("--cargo-home")
     check_cmd.add_argument("--cargo-target-dir")
+    check_cmd.add_argument(
+        "--no-process-sweep-cleanup",
+        action="store_true",
+        help="Disable automatic orphaned voiceterm test-binary cleanup before/after checks",
+    )
 
     # mutants
     mutants_cmd = sub.add_parser("mutants", help="Run mutation testing helper")

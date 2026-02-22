@@ -303,6 +303,7 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 Unified CLI for common dev workflows:
 
 Use `AGENTS.md` as the routing policy for when to run each bundle (`normal push`, `docs-only`, `tooling/process`, `tagged release`) and use this section for exact command syntax.
+`devctl check` now runs an automatic orphaned-test process sweep before and after each run (detached `target/*/deps/voiceterm-*` binaries older than a short grace window).
 
 ```bash
 # Core checks (fmt, clippy, tests, build)
@@ -310,6 +311,8 @@ python3 dev/scripts/devctl.py check
 
 # Match CI scope (fmt-check + clippy + tests)
 python3 dev/scripts/devctl.py check --profile ci
+# Optional: disable automatic orphaned-test cleanup sweep
+python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
 # Pre-push scope (CI + perf + mem loop)
 python3 dev/scripts/devctl.py check --profile prepush

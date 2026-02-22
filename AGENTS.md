@@ -443,6 +443,8 @@ Canonical tool: `python3 dev/scripts/devctl.py ...`
 Core commands:
 
 - `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+  - Includes automatic orphaned-test cleanup sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
+  - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)

@@ -41,7 +41,9 @@ use crate::settings_handlers::{
 };
 use crate::status_line::{RecordingState, METER_HISTORY_MAX};
 use crate::terminal::{apply_pty_winsize, resolved_cols, take_sigwinch, update_pty_winsize};
-use crate::theme::{runtime_style_pack_overrides, style_pack_theme_lock};
+use crate::theme::{
+    runtime_style_pack_overrides, style_pack_theme_lock, RuntimeStylePackOverrides,
+};
 use crate::theme_ops::{
     apply_theme_picker_index, theme_index_from_theme, theme_picker_has_longer_match,
     theme_picker_parse_index,
@@ -386,6 +388,9 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         progress_style_override: style_pack_overrides.progress_style_override,
         progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
         voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+        undo_available: !state.theme_studio_undo_history.is_empty(),
+        redo_available: !state.theme_studio_redo_history.is_empty(),
+        runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
     };
     show_theme_studio_overlay(&deps.writer_tx, &view, cols);
 }
@@ -559,6 +564,8 @@ fn button_action_context<'a>(
         overlay_mode: &mut state.overlay_mode,
         settings_menu: &mut state.settings_menu,
         theme_studio_selected: &mut state.theme_studio_selected,
+        theme_studio_undo_history: &mut state.theme_studio_undo_history,
+        theme_studio_redo_history: &mut state.theme_studio_redo_history,
         config: &mut state.config,
         status_state: &mut state.status_state,
         auto_voice_enabled: &mut state.auto_voice_enabled,

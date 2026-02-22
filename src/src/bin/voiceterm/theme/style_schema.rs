@@ -13,6 +13,66 @@ pub(super) const LEGACY_STYLE_SCHEMA_VERSION: u16 = 1;
 const DEFAULT_PROFILE_NAME: &str = "default";
 const LEGACY_PROFILE_NAME: &str = "legacy-v1";
 
+#[cfg(test)]
+/// Stable identifiers for all style-pack fields that require Studio mapping
+/// parity tracking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum StylePackFieldId {
+    OverrideBorderStyle,
+    OverrideIndicatorSet,
+    OverrideGlyphSet,
+    SurfaceToastPosition,
+    SurfaceStartupStyle,
+    SurfaceProgressStyle,
+    SurfaceVoiceSceneStyle,
+    ComponentOverlayBorder,
+    ComponentHudBorder,
+    ComponentToastSeverityMode,
+    ComponentBannerStyle,
+    ComponentProgressBarFamily,
+}
+
+#[cfg(test)]
+impl StylePackFieldId {
+    /// Full inventory of persisted style-pack fields.
+    #[must_use]
+    pub(crate) const fn all() -> &'static [Self] {
+        &[
+            Self::OverrideBorderStyle,
+            Self::OverrideIndicatorSet,
+            Self::OverrideGlyphSet,
+            Self::SurfaceToastPosition,
+            Self::SurfaceStartupStyle,
+            Self::SurfaceProgressStyle,
+            Self::SurfaceVoiceSceneStyle,
+            Self::ComponentOverlayBorder,
+            Self::ComponentHudBorder,
+            Self::ComponentToastSeverityMode,
+            Self::ComponentBannerStyle,
+            Self::ComponentProgressBarFamily,
+        ]
+    }
+
+    /// Canonical field path in the style-pack payload.
+    #[must_use]
+    pub(crate) const fn path(self) -> &'static str {
+        match self {
+            Self::OverrideBorderStyle => "overrides.border_style",
+            Self::OverrideIndicatorSet => "overrides.indicators",
+            Self::OverrideGlyphSet => "overrides.glyphs",
+            Self::SurfaceToastPosition => "surfaces.toast_position",
+            Self::SurfaceStartupStyle => "surfaces.startup_style",
+            Self::SurfaceProgressStyle => "surfaces.progress_style",
+            Self::SurfaceVoiceSceneStyle => "surfaces.voice_scene_style",
+            Self::ComponentOverlayBorder => "components.overlay_border",
+            Self::ComponentHudBorder => "components.hud_border",
+            Self::ComponentToastSeverityMode => "components.toast_severity_mode",
+            Self::ComponentBannerStyle => "components.banner_style",
+            Self::ComponentProgressBarFamily => "components.progress_bar_family",
+        }
+    }
+}
+
 /// Surface-level style-pack overrides for runtime visual surfaces.
 ///
 /// Each field corresponds to a visual surface category that can be independently
@@ -486,6 +546,26 @@ pub(super) fn parse_style_schema_with_fallback(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn style_pack_field_inventory_has_unique_paths() {
+        let mut seen_paths = HashSet::new();
+        for field in StylePackFieldId::all() {
+            let inserted = seen_paths.insert(field.path());
+            assert!(
+                inserted,
+                "duplicate style-pack field path in inventory: {}",
+                field.path()
+            );
+        }
+        assert_eq!(seen_paths.len(), StylePackFieldId::all().len());
+    }
+
+    #[test]
+    fn style_pack_field_inventory_count_matches_expected_contract() {
+        assert_eq!(StylePackFieldId::all().len(), 12);
+    }
 
     #[test]
     fn parse_style_schema_reads_current_version_payload() {

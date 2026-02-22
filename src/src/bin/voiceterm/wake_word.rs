@@ -132,6 +132,8 @@ pub(crate) struct WakeWordRuntime {
     listener: Option<WakeListener>,
     active_settings: Option<WakeSettings>,
     start_retry_after: Option<Instant>,
+    #[cfg(test)]
+    listener_active_override: Option<bool>,
 }
 
 impl WakeWordRuntime {
@@ -145,6 +147,8 @@ impl WakeWordRuntime {
             listener: None,
             active_settings: None,
             start_retry_after: None,
+            #[cfg(test)]
+            listener_active_override: None,
         }
     }
 
@@ -152,6 +156,21 @@ impl WakeWordRuntime {
     #[must_use = "receiver is required to consume wake detections"]
     pub(crate) fn receiver(&self) -> Receiver<WakeWordEvent> {
         self.detection_rx.clone()
+    }
+
+    /// Returns true when a wake listener thread is currently active.
+    #[must_use = "callers should use this to keep HUD state aligned with runtime health"]
+    pub(crate) fn is_listener_active(&self) -> bool {
+        #[cfg(test)]
+        if let Some(active) = self.listener_active_override {
+            return active;
+        }
+        self.listener.is_some()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_listener_active_override_for_tests(&mut self, active: Option<bool>) {
+        self.listener_active_override = active;
     }
 
     /// Reconcile listener lifecycle with current settings and capture activity.
@@ -307,6 +326,10 @@ fn spawn_wake_listener_thread(
             match detector.listen_once(&capture_stop_flag) {
                 Ok(Some(())) => match detection_tx.try_send(WakeWordEvent::Detected) {
                     Ok(()) => {
+                        // Pause immediately so wake-triggered capture can claim
+                        // the microphone without listener overlap races.
+                        pause_flag.store(true, Ordering::Relaxed);
+                        capture_stop_flag.store(true, Ordering::Relaxed);
                         last_detection_at = Some(Instant::now());
                     }
                     Err(TrySendError::Full(_)) => {
@@ -603,6 +626,10 @@ mod tests {
             runtime.listener.is_some(),
             "expected wake listener to start when enabled"
         );
+        assert!(
+            runtime.is_listener_active(),
+            "listener activity helper should report running listener"
+        );
         assert_eq!(
             SPAWN_LISTENER_CALLS.load(Ordering::Relaxed),
             1,
@@ -624,6 +651,10 @@ mod tests {
         assert!(
             runtime.listener.is_none(),
             "expected wake listener to stop when disabled"
+        );
+        assert!(
+            !runtime.is_listener_active(),
+            "listener activity helper should report no listener after stop"
         );
     }
 

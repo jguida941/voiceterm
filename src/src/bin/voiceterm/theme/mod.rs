@@ -39,6 +39,8 @@ pub(crate) use style_pack::{
     RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
     RuntimeProgressStyleOverride, RuntimeStylePackOverrides, RuntimeVoiceSceneStyleOverride,
 };
+#[cfg(test)]
+pub(crate) use style_schema::StylePackFieldId;
 
 /// Default processing spinner frames used by Theme Studio-resolved surfaces.
 pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =

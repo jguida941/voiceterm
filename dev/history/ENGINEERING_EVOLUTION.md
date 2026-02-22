@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-20
+**Last Updated:** 2026-02-22
 
 ## At a Glance
 
@@ -416,6 +416,29 @@ Evidence:
 Inference: Mutation score moved from a threshold-only number to an auditable
 quality signal with explicit provenance and freshness semantics, reducing false
 confidence during release checks.
+
+### Recent Governance Update (2026-02-22, Orphaned Test Process Auto-Cleanup)
+
+Fact: `devctl check` now performs automatic pre/post cleanup sweeps for detached
+`target/*/deps/voiceterm-*` test binaries, so interrupted local runs no longer
+accumulate stale runners across parallel worktrees by default.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check.py` (orphaned-test scan + kill sweep
+  helpers wired as `process-sweep-pre` and `process-sweep-post` steps)
+- `dev/scripts/devctl/cli.py` (`check --no-process-sweep-cleanup` escape hatch
+  for intentionally preserving in-flight runs)
+- `dev/scripts/devctl/tests/test_check.py` (coverage for etime parsing and
+  orphaned-process cleanup selection behavior)
+- `dev/scripts/README.md`, `dev/DEVELOPMENT.md`, `AGENTS.md`
+  (operator/governance docs updated with sweep defaults and override guidance)
+- `dev/active/MASTER_PLAN.md` (`MP-256` note extended with `devctl check`
+  auto-sweep hardening)
+
+Inference: Process-leak handling moved from manual triage to default-safe
+maintenance behavior in the primary verification command, reducing repeated
+CPU/disk churn incidents during heavy multi-agent test cycles.
 
 ### Replay the Evidence Quickly
 

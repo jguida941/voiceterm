@@ -247,7 +247,9 @@ const REGISTERED_WIDGET_STYLE_IDS: &[RatatuiWidget] = &[
     RatatuiWidget::Gauge,
     RatatuiWidget::LineGauge,
     RatatuiWidget::Scrollbar,
+    RatatuiWidget::Canvas,
     RatatuiWidget::BarChart,
+    RatatuiWidget::Calendar,
     RatatuiWidget::Clear,
 ];
 
@@ -258,6 +260,7 @@ const MAPPED_SYMBOL_FAMILIES: &[RatatuiSymbolFamily] = &[
     RatatuiSymbolFamily::Border,
     RatatuiSymbolFamily::Braille,
     RatatuiSymbolFamily::Line,
+    RatatuiSymbolFamily::Marker,
     RatatuiSymbolFamily::Scrollbar,
     RatatuiSymbolFamily::Shade,
 ];
@@ -454,36 +457,32 @@ mod tests {
     }
 
     #[test]
-    fn parity_gate_detects_unregistered_widgets() {
+    fn parity_gate_has_no_unregistered_widgets() {
         let result = check_parity();
-        // Canvas and Calendar are not yet in REGISTERED_WIDGET_STYLE_IDS.
         assert!(
-            result.unregistered_widgets.contains(&"Canvas"),
-            "Canvas should be unregistered: {:?}",
-            result.unregistered_widgets
-        );
-        assert!(
-            result.unregistered_widgets.contains(&"Calendar"),
-            "Calendar should be unregistered: {:?}",
+            result.unregistered_widgets.is_empty(),
+            "unexpected unregistered widgets: {:?}",
             result.unregistered_widgets
         );
     }
 
     #[test]
-    fn parity_gate_detects_unmapped_symbols() {
+    fn parity_gate_has_no_unmapped_symbols() {
         let result = check_parity();
-        // Marker is not yet in MAPPED_SYMBOL_FAMILIES.
         assert!(
-            result.unmapped_symbols.contains(&"marker"),
-            "marker should be unmapped: {:?}",
+            result.unmapped_symbols.is_empty(),
+            "unexpected unmapped symbols: {:?}",
             result.unmapped_symbols
         );
     }
 
     #[test]
-    fn parity_gate_fails_when_gaps_exist() {
+    fn parity_gate_passes_when_registration_is_complete() {
         let result = check_parity();
-        assert!(!result.passed, "parity gate should fail with known gaps");
+        assert!(
+            result.passed,
+            "parity gate should pass when no registration gaps exist"
+        );
     }
 
     #[test]

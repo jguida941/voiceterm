@@ -5,6 +5,8 @@ use crate::transcript_history::transcript_history_visible_rows;
 
 mod overlay_mouse;
 
+const THEME_STUDIO_HISTORY_LIMIT: usize = 64;
+
 pub(super) fn handle_overlay_input_event(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -490,53 +492,130 @@ fn apply_theme_studio_adjustment(
             OverlayMode::ThemeStudio,
         ),
         ThemeStudioItem::ColorsGlyphs => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.glyph_set_override =
-                cycle_runtime_glyph_set_override(overrides.glyph_set_override, direction);
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.glyph_set_override =
+                    cycle_runtime_glyph_set_override(overrides.glyph_set_override, direction);
+            })
         }
         ThemeStudioItem::LayoutMotion => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.indicator_set_override =
-                cycle_runtime_indicator_set_override(overrides.indicator_set_override, direction);
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.indicator_set_override = cycle_runtime_indicator_set_override(
+                    overrides.indicator_set_override,
+                    direction,
+                );
+            })
         }
         ThemeStudioItem::ProgressSpinner => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.progress_style_override =
-                cycle_runtime_progress_style_override(overrides.progress_style_override, direction);
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.progress_style_override = cycle_runtime_progress_style_override(
+                    overrides.progress_style_override,
+                    direction,
+                );
+            })
         }
         ThemeStudioItem::ProgressBars => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.progress_bar_family_override = cycle_runtime_progress_bar_family_override(
-                overrides.progress_bar_family_override,
-                direction,
-            );
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.progress_bar_family_override = cycle_runtime_progress_bar_family_override(
+                    overrides.progress_bar_family_override,
+                    direction,
+                );
+            })
         }
         ThemeStudioItem::ThemeBorders => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.border_style_override =
-                cycle_runtime_border_style_override(overrides.border_style_override, direction);
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.border_style_override =
+                    cycle_runtime_border_style_override(overrides.border_style_override, direction);
+            })
         }
         ThemeStudioItem::VoiceScene => {
-            let mut overrides = crate::theme::runtime_style_pack_overrides();
-            overrides.voice_scene_style_override = cycle_runtime_voice_scene_style_override(
-                overrides.voice_scene_style_override,
-                direction,
-            );
-            crate::theme::set_runtime_style_pack_overrides(overrides);
-            true
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.voice_scene_style_override = cycle_runtime_voice_scene_style_override(
+                    overrides.voice_scene_style_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::UndoEdit => {
+            if direction == 0 {
+                theme_studio_undo_runtime_override_edit(state)
+            } else {
+                false
+            }
+        }
+        ThemeStudioItem::RedoEdit => {
+            if direction == 0 {
+                theme_studio_redo_runtime_override_edit(state)
+            } else {
+                false
+            }
+        }
+        ThemeStudioItem::RollbackEdits => {
+            if direction == 0 {
+                theme_studio_rollback_runtime_override_edits(state)
+            } else {
+                false
+            }
         }
         _ => false,
     }
+}
+
+fn push_theme_studio_history_entry(
+    history: &mut Vec<crate::theme::RuntimeStylePackOverrides>,
+    overrides: crate::theme::RuntimeStylePackOverrides,
+) {
+    if history.len() >= THEME_STUDIO_HISTORY_LIMIT {
+        history.remove(0);
+    }
+    history.push(overrides);
+}
+
+fn apply_theme_studio_runtime_override_edit(
+    state: &mut EventLoopState,
+    edit: impl FnOnce(&mut crate::theme::RuntimeStylePackOverrides),
+) -> bool {
+    let mut next = crate::theme::runtime_style_pack_overrides();
+    let previous = next;
+    edit(&mut next);
+    if next == previous {
+        return false;
+    }
+    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, previous);
+    state.theme_studio_redo_history.clear();
+    crate::theme::set_runtime_style_pack_overrides(next);
+    true
+}
+
+fn theme_studio_undo_runtime_override_edit(state: &mut EventLoopState) -> bool {
+    let Some(previous) = state.theme_studio_undo_history.pop() else {
+        return false;
+    };
+    let current = crate::theme::runtime_style_pack_overrides();
+    push_theme_studio_history_entry(&mut state.theme_studio_redo_history, current);
+    crate::theme::set_runtime_style_pack_overrides(previous);
+    true
+}
+
+fn theme_studio_redo_runtime_override_edit(state: &mut EventLoopState) -> bool {
+    let Some(next) = state.theme_studio_redo_history.pop() else {
+        return false;
+    };
+    let current = crate::theme::runtime_style_pack_overrides();
+    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
+    crate::theme::set_runtime_style_pack_overrides(next);
+    true
+}
+
+fn theme_studio_rollback_runtime_override_edits(state: &mut EventLoopState) -> bool {
+    let current = crate::theme::runtime_style_pack_overrides();
+    let defaults = crate::theme::RuntimeStylePackOverrides::default();
+    if current == defaults {
+        return false;
+    }
+    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
+    state.theme_studio_redo_history.clear();
+    crate::theme::set_runtime_style_pack_overrides(defaults);
+    true
 }
 
 fn cycle_runtime_glyph_set_override(
@@ -687,6 +766,13 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::ThemeBorders
         | ThemeStudioItem::VoiceScene => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
+                && state.overlay_mode == OverlayMode::ThemeStudio
+            {
+                render_theme_studio_overlay_for_state(state, deps);
+            }
+        }
+        ThemeStudioItem::UndoEdit | ThemeStudioItem::RedoEdit | ThemeStudioItem::RollbackEdits => {
+            if apply_theme_studio_adjustment(state, timers, deps, 0)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {
                 render_theme_studio_overlay_for_state(state, deps);

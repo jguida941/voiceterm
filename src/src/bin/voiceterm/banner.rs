@@ -240,13 +240,18 @@ fn use_minimal_banner(cols: u16) -> bool {
     cols < 60
 }
 
-fn build_startup_banner(config: &BannerConfig, theme: Theme) -> String {
+fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Option<u16>) -> String {
     let use_color = theme != Theme::None;
-    match terminal_size() {
-        Ok((cols, _)) if cols >= 66 => format_ascii_banner(use_color, cols),
-        Ok((cols, _)) if use_minimal_banner(cols) => format_minimal_banner(theme),
+    match cols {
+        Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols),
+        Some(cols) if use_minimal_banner(cols) => format_minimal_banner(theme),
         _ => format_startup_banner(config, theme),
     }
+}
+
+fn build_startup_banner(config: &BannerConfig, theme: Theme) -> String {
+    let cols = terminal_size().ok().map(|(cols, _)| cols);
+    build_startup_banner_for_cols(config, theme, cols)
 }
 
 pub(crate) fn show_startup_splash(config: &BannerConfig, theme: Theme) -> io::Result<()> {
@@ -288,6 +293,42 @@ mod tests {
             match prev {
                 Some(v) => std::env::set_var("VOICETERM_STARTUP_SPLASH_MS", v),
                 None => std::env::remove_var("VOICETERM_STARTUP_SPLASH_MS"),
+            }
+            result
+        })
+    }
+
+    fn with_banner_env_vars<T>(pairs: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
+        with_env_lock(|| {
+            let keys = [
+                "PYCHARM_HOSTED",
+                "JETBRAINS_IDE",
+                "IDEA_INITIAL_DIRECTORY",
+                "IDEA_INITIAL_PROJECT",
+                "CLION_IDE",
+                "WEBSTORM_IDE",
+                "TERM_PROGRAM",
+                "TERMINAL_EMULATOR",
+            ];
+            let prev: Vec<(String, Option<String>)> = keys
+                .iter()
+                .map(|key| ((*key).to_string(), std::env::var(key).ok()))
+                .collect();
+            for key in keys {
+                std::env::remove_var(key);
+            }
+            for (key, value) in pairs {
+                match value {
+                    Some(v) => std::env::set_var(key, v),
+                    None => std::env::remove_var(key),
+                }
+            }
+            let result = f();
+            for (key, value) in prev {
+                match value {
+                    Some(v) => std::env::set_var(key, v),
+                    None => std::env::remove_var(key),
+                }
             }
             result
         })
@@ -352,47 +393,97 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn should_skip_banner_matches_flags() {
-        with_env_lock(|| {
-            let keys = [
-                "PYCHARM_HOSTED",
-                "JETBRAINS_IDE",
-                "IDEA_INITIAL_DIRECTORY",
-                "IDEA_INITIAL_PROJECT",
-                "CLION_IDE",
-                "WEBSTORM_IDE",
-                "TERM_PROGRAM",
-                "TERMINAL_EMULATOR",
-            ];
-            let prev: Vec<(String, Option<String>)> = keys
-                .iter()
-                .map(|key| ((*key).to_string(), std::env::var(key).ok()))
-                .collect();
-            for key in keys {
-                std::env::remove_var(key);
-            }
-
+        with_banner_env_vars(&[], || {
             assert!(!should_skip_banner(false));
             assert!(should_skip_banner(true));
-
-            for (key, value) in prev {
-                match value {
-                    Some(v) => std::env::set_var(key, v),
-                    None => std::env::remove_var(key),
-                }
-            }
         });
     }
 
     #[test]
     fn should_skip_banner_in_jetbrains_env() {
-        with_env_lock(|| {
-            let prev = std::env::var("PYCHARM_HOSTED").ok();
-            std::env::set_var("PYCHARM_HOSTED", "1");
+        with_banner_env_vars(&[("PYCHARM_HOSTED", Some("1"))], || {
             assert!(should_skip_banner(false));
-            match prev {
-                Some(v) => std::env::set_var("PYCHARM_HOSTED", v),
-                None => std::env::remove_var("PYCHARM_HOSTED"),
-            }
+        });
+    }
+
+    #[test]
+    fn jetbrains_terminal_detection_matches_term_program_and_emulator_hints() {
+        with_banner_env_vars(&[("TERM_PROGRAM", Some("IntelliJ IDEA"))], || {
+            assert!(is_jetbrains_terminal());
+        });
+        with_banner_env_vars(&[("TERM_PROGRAM", Some("PyCharm"))], || {
+            assert!(is_jetbrains_terminal());
+        });
+        with_banner_env_vars(&[("TERMINAL_EMULATOR", Some("JediTerm"))], || {
+            assert!(is_jetbrains_terminal());
+        });
+        with_banner_env_vars(&[("TERM_PROGRAM", Some("WezTerm"))], || {
+            assert!(!is_jetbrains_terminal());
+        });
+    }
+
+    #[test]
+    fn centered_padding_returns_expected_value_for_common_width_relationships() {
+        assert_eq!(centered_padding(20, "abcd"), 8);
+        assert_eq!(centered_padding(4, "abcd"), 0);
+        assert_eq!(centered_padding(3, "abcd"), 0);
+    }
+
+    #[test]
+    fn clear_screen_writes_full_reset_and_clear_sequence() {
+        let mut buf = Vec::<u8>::new();
+        clear_screen(&mut buf).expect("clear sequence should write");
+        assert_eq!(buf, b"\x1b[0m\x1b[2J\x1b[3J\x1b[H");
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_selects_expected_render_mode() {
+        let config = BannerConfig::default();
+
+        let ascii = build_startup_banner_for_cols(&config, Theme::None, Some(66));
+        assert!(ascii.contains("██╗"));
+        assert!(ascii.contains("Initializing..."));
+
+        let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(59));
+        assert!(minimal.contains("Ctrl+R rec"));
+        assert!(!minimal.contains("Initializing..."));
+
+        let standard = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+        assert!(standard.contains("mouse: click HUD buttons"));
+        assert!(!standard.contains("Initializing..."));
+
+        let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
+        assert!(fallback.contains("mouse: click HUD buttons"));
+        assert!(!fallback.contains("Initializing..."));
+    }
+
+    #[test]
+    fn ascii_banner_logo_left_padding_matches_centered_formula() {
+        let width = 120;
+        let banner = format_ascii_banner(false, width);
+        let first_logo_line = banner.lines().next().expect("logo line");
+        let expected = centered_padding(width, ASCII_LOGO[0]);
+        let leading_spaces = first_logo_line.chars().take_while(|c| *c == ' ').count();
+        assert_eq!(leading_spaces, expected);
+    }
+
+    #[test]
+    fn ascii_banner_initializing_padding_matches_centered_formula() {
+        let width = 120;
+        let banner = format_ascii_banner(false, width);
+        let init_line = banner
+            .lines()
+            .find(|line| line.contains("Initializing..."))
+            .expect("initializing line should exist");
+        let expected = centered_padding(width, "Initializing...");
+        let leading_spaces = init_line.chars().take_while(|c| *c == ' ').count();
+        assert_eq!(leading_spaces, expected);
+    }
+
+    #[test]
+    fn splash_duration_ignores_invalid_env_values() {
+        with_splash_env(Some("invalid"), || {
+            assert_eq!(splash_duration_ms(), DEFAULT_STARTUP_SPLASH_CLEAR_MS);
         });
     }
 

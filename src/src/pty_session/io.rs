@@ -10,9 +10,9 @@ use std::time::Duration;
 #[cfg(any(test, feature = "mutants"))]
 use std::time::Instant;
 
-#[cfg(any(test, feature = "mutants"))]
-use super::counters::guard_loop;
 use super::counters::write_all_limit;
+#[cfg(any(test, feature = "mutants"))]
+use super::counters::{guard_iteration_loop, guard_loop};
 use super::osc::{
     find_csi_sequence, find_osc_terminator, respond_to_terminal_queries,
     respond_to_terminal_queries_passthrough,
@@ -54,8 +54,6 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
         let mut buffer = [0u8; 4096];
         let mut pending: Vec<u8> = Vec::new();
         #[cfg(any(test, feature = "mutants"))]
-        let guard_start = Instant::now();
-        #[cfg(any(test, feature = "mutants"))]
         let mut guard_iters: usize = 0;
         loop {
             #[cfg(any(test, feature = "mutants"))]
@@ -63,7 +61,7 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
                 let prev = guard_iters;
                 guard_iters += 1;
                 assert!(guard_iters > prev);
-                guard_loop(guard_start, guard_iters, 10_000, "spawn_reader_thread");
+                guard_iteration_loop(guard_iters, 10_000, "spawn_reader_thread");
             }
             // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {
@@ -118,8 +116,6 @@ pub(super) fn spawn_passthrough_reader_thread(
         let mut buffer = [0u8; 4096];
         let mut pending: Vec<u8> = Vec::new();
         #[cfg(any(test, feature = "mutants"))]
-        let guard_start = Instant::now();
-        #[cfg(any(test, feature = "mutants"))]
         let mut guard_iters: usize = 0;
         loop {
             #[cfg(any(test, feature = "mutants"))]
@@ -127,12 +123,7 @@ pub(super) fn spawn_passthrough_reader_thread(
                 let prev = guard_iters;
                 guard_iters += 1;
                 assert!(guard_iters > prev);
-                guard_loop(
-                    guard_start,
-                    guard_iters,
-                    10_000,
-                    "spawn_passthrough_reader_thread",
-                );
+                guard_iteration_loop(guard_iters, 10_000, "spawn_passthrough_reader_thread");
             }
             // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {

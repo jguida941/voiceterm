@@ -12,11 +12,17 @@ Note: Some historical entries reference internal documents that are not publishe
 - Fix `Ctrl+N` toast-history overlay rendering so border columns stay aligned across theme glyph modes and long notification lists.
 - Fix toast-history overlay line endings/width accounting so every rendered row keeps exact panel width without stray right-edge artifacts.
 - Harden overlay mouse hit-gates so non-close footer clicks and Theme Studio border clicks do not trigger unintended selection actions.
+- Add Theme Studio edit-safety controls for runtime style-pack overrides: `Undo edit`, `Redo edit`, and `Rollback edits` rows with bounded history so live visual override changes can be reverted without restarting.
+- Normalize `--input-device` values during config validation by collapsing wrapped whitespace/newlines and rejecting empty normalized values, so pasted multi-line device names no longer fail wake/manual capture setup.
+- Fix wake-word runtime health signaling: when wake listener startup fails, HUD now shows `Wake: ERR` (instead of `Wake: ON`) and surfaces `Wake listener unavailable (log: ...)`, preventing false-ready wake indicators.
+- Reduce wake-trigger capture handoff races by pausing wake-listener capture immediately after a wake detection event is queued, so manual capture startup can claim the microphone without overlap.
 
 ### Code Quality
 
 - Add targeted regression coverage for `auth.rs` login-command validation/status handling and `lock.rs` mutex-poison recovery.
 - Stabilize process-signal missing-PID test selection by preferring a high ESRCH candidate and avoiding race-prone fallback behavior.
+- Add Theme Studio policy gates for MP-173: capability parity now fails on unregistered Ratatui widget/symbol additions, component registry inventory checks are exact with stable style-ID uniqueness, and style-pack fields must be explicitly classified as Studio-mapped or deferred (with a post-parity zero-deferred gate path).
+- Harden `devctl check` with automatic pre/post orphaned-test sweeps so detached `target/*/deps/voiceterm-*` runners are reaped before and after local verification runs (disable via `--no-process-sweep-cleanup` when needed).
 
 ### Documentation
 

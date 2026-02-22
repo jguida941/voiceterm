@@ -464,6 +464,11 @@ fn wake_badge_renders_theme_matched_on_and_paused_states() {
     let (paused_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(paused_row.contains("Wake: PAUSED"));
     assert!(paused_row.contains(&format!("{}Wake: PAUSED{}", colors.warning, colors.reset)));
+
+    state.wake_word_state = WakeWordHudState::Unavailable;
+    let (error_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(error_row.contains("Wake: ERR"));
+    assert!(error_row.contains(&format!("{}Wake: ERR{}", colors.error, colors.reset)));
 }
 
 #[test]

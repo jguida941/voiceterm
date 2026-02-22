@@ -17,6 +17,9 @@ pub(crate) fn signal_process_group_or_pid(
         return Ok(());
     }
 
+    // SAFETY: `libc::kill` is called with plain integer pid/signal values. We do
+    // not dereference pointers, and we only read errno immediately after each
+    // syscall to capture its result for this thread.
     unsafe {
         if libc::kill(-pid, signal) == 0 {
             return Ok(());
@@ -70,15 +73,19 @@ mod tests {
     fn find_missing_pid() -> i32 {
         // Prefer a very high pid to avoid racey "found missing, then reused" windows.
         let high_pid = i32::MAX;
+        // SAFETY: Probe-only signal `0` does not deliver a signal; it checks pid
+        // existence/permission and is side-effect free for process state.
         let high_res = unsafe { libc::kill(high_pid, 0) };
         let high_err = io::Error::last_os_error();
         if high_res != 0 && is_no_such_process(&high_err) {
             return high_pid;
         }
 
+        // SAFETY: `getpid` has no preconditions and returns the current process id.
         let current_pid = unsafe { libc::getpid() } as i32;
         let mut candidate = current_pid.saturating_add(10_000);
         for _ in 0..1000 {
+            // SAFETY: Probe-only signal `0` is used to test pid availability.
             let res = unsafe { libc::kill(candidate, 0) };
             let err = io::Error::last_os_error();
             if res != 0 && is_no_such_process(&err) {

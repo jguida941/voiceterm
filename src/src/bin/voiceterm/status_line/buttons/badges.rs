@@ -27,6 +27,7 @@ pub(super) fn format_wake_badge(state: &StatusLineState, colors: &ThemeColors) -
             Some(format!("{color}{emphasis}Wake: ON{}", colors.reset))
         }
         WakeWordHudState::Paused => Some(format!("{}Wake: PAUSED{}", colors.warning, colors.reset)),
+        WakeWordHudState::Unavailable => Some(format!("{}Wake: ERR{}", colors.error, colors.reset)),
     }
 }
 

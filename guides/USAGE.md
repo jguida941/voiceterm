@@ -160,6 +160,7 @@ Visual controls are now in Theme Studio:
 - Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
 - HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
 - Glyph/indicator/progress/theme-border/scene profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, and `Voice scene` rows
+- Runtime override edit safety: in Theme Studio, use `Undo edit`, `Redo edit`, and `Rollback edits` rows to revert/reapply/reset live style-pack override changes for the current session
 - `Ctrl+U` remains a quick shortcut for cycling HUD style
 - Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
 - Theme Studio glyph/indicator/spinner/progress-bar/theme-border/voice-scene overrides apply at runtime for the current session and reset on restart.

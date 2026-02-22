@@ -51,6 +51,7 @@ def make_args(profile: str) -> SimpleNamespace:
         offline=False,
         cargo_home=None,
         cargo_target_dir=None,
+        no_process_sweep_cleanup=True,
     )
 
 
@@ -64,6 +65,11 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--profile", "ai-guard"])
         self.assertEqual(args.profile, "ai-guard")
+
+    def test_cli_accepts_no_process_sweep_cleanup_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--no-process-sweep-cleanup"])
+        self.assertTrue(args.no_process_sweep_cleanup)
 
     @patch("dev.scripts.devctl.commands.check.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -199,3 +205,47 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+
+
+class CheckProcessSweepTests(TestCase):
+    def test_parse_etime_seconds_handles_mm_ss_hh_mm_ss_and_days(self) -> None:
+        self.assertEqual(check._parse_etime_seconds("05:30"), 330)
+        self.assertEqual(check._parse_etime_seconds("01:05:30"), 3930)
+        self.assertEqual(check._parse_etime_seconds("2-01:05:30"), 176730)
+        self.assertIsNone(check._parse_etime_seconds("bad"))
+
+    @patch("dev.scripts.devctl.commands.check.os.getpid", return_value=99999)
+    @patch("dev.scripts.devctl.commands.check.subprocess.run")
+    @patch("dev.scripts.devctl.commands.check.os.kill")
+    def test_cleanup_kills_only_orphaned_voiceterm_test_binaries(
+        self,
+        kill_mock,
+        run_mock,
+        _getpid_mock,
+    ) -> None:
+        run_mock.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "1234 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
+                "2222 777 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
+                "3333 1 05:00 /tmp/project/target/debug/deps/not-voiceterm-deadbeef\n"
+            ),
+            stderr="",
+        )
+
+        result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
+
+        kill_mock.assert_called_once_with(1234, check.signal.SIGKILL)
+        self.assertEqual(result["detected_orphans"], 1)
+        self.assertEqual(result["killed_pids"], [1234])
+        self.assertEqual(result["returncode"], 0)
+
+    @patch("dev.scripts.devctl.commands.check.subprocess.run", side_effect=OSError("blocked"))
+    @patch("dev.scripts.devctl.commands.check.os.kill")
+    def test_cleanup_reports_warning_when_ps_unavailable(self, kill_mock, _run_mock) -> None:
+        result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
+
+        kill_mock.assert_not_called()
+        self.assertEqual(result["detected_orphans"], 0)
+        self.assertTrue(result["warnings"])
+        self.assertEqual(result["returncode"], 0)

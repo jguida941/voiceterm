@@ -247,6 +247,14 @@ impl AppConfig {
             }
         }
 
+        if let Some(device) = &mut self.input_device {
+            let normalized = normalize_input_device_name(device);
+            if normalized.is_empty() {
+                bail!("--input-device must not be empty");
+            }
+            *device = normalized;
+        }
+
         Ok(())
     }
 
@@ -386,4 +394,9 @@ pub(super) fn sanitize_binary(value: &str, flag: &str, allowlist: &[&str]) -> Re
     }
 
     bail!("{flag} must be one of {allowlist:?} or an existing binary path");
+}
+
+#[must_use = "input device values should be normalized before recorder matching"]
+fn normalize_input_device_name(raw: &str) -> String {
+    raw.split_whitespace().collect::<Vec<_>>().join(" ")
 }

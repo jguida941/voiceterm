@@ -190,14 +190,16 @@ pub(super) fn run_periodic_tasks(
 
     drain_voice_messages_once(state, timers, deps, now);
 
-    let wake_paused = !deps.voice_manager.is_idle();
+    let capture_active = !deps.voice_manager.is_idle();
     deps.wake_word_runtime.sync(
         state.config.wake_word,
         state.config.wake_word_sensitivity,
         state.config.wake_word_cooldown_ms,
-        wake_paused,
+        capture_active,
     );
-    update_wake_word_hud_state(state, timers, deps, wake_paused, now);
+    let wake_listener_active = deps.wake_word_runtime.is_listener_active();
+    let wake_paused = wake_listener_active && capture_active;
+    update_wake_word_hud_state(state, timers, deps, wake_listener_active, wake_paused, now);
     maybe_tick_wake_word_hud_animation(state, timers, deps, now);
 
     {
@@ -358,6 +360,7 @@ fn update_wake_word_hud_state(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &EventLoopDeps,
+    wake_listener_active: bool,
     wake_paused: bool,
     now: Instant,
 ) {
@@ -365,6 +368,8 @@ fn update_wake_word_hud_state(
 
     let next_state = if !state.config.wake_word {
         WakeWordHudState::Off
+    } else if !wake_listener_active {
+        WakeWordHudState::Unavailable
     } else if wake_paused {
         WakeWordHudState::Paused
     } else {
@@ -373,7 +378,20 @@ fn update_wake_word_hud_state(
     if state.status_state.wake_word_state == next_state {
         return;
     }
+    let previous_state = state.status_state.wake_word_state;
     state.status_state.wake_word_state = next_state;
+    if previous_state != WakeWordHudState::Unavailable
+        && next_state == WakeWordHudState::Unavailable
+    {
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            &crate::status_messages::with_log_path("Wake listener unavailable"),
+            Some(Duration::from_secs(3)),
+        );
+    }
     timers.last_wake_hud_tick = now;
     send_enhanced_status_with_buttons(
         &deps.writer_tx,

@@ -97,6 +97,7 @@ pub(crate) fn run_mic_meter(config: &AppConfig, theme: Theme) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
 
     #[test]
     fn audio_level_default() {
@@ -111,5 +112,16 @@ mod tests {
         assert_eq!(config.min_db, -60.0);
         assert_eq!(config.max_db, 0.0);
         assert_eq!(config.width, 30);
+    }
+
+    #[test]
+    fn run_mic_meter_fails_early_when_durations_are_invalid() {
+        let mut config = AppConfig::parse_from(["voiceterm"]);
+        config.mic_meter_ambient_ms = 0;
+        assert!(run_mic_meter(&config, Theme::None).is_err());
+
+        config.mic_meter_ambient_ms = 500;
+        config.mic_meter_speech_ms = 99_999;
+        assert!(run_mic_meter(&config, Theme::None).is_err());
     }
 }

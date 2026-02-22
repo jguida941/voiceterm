@@ -349,6 +349,20 @@ fn guard_elapsed_exceeded_allows_exact_limit() {
 }
 
 #[test]
+fn guard_iteration_exceeded_allows_exact_limit() {
+    assert!(!guard_iteration_exceeded(10, 10));
+    assert!(guard_iteration_exceeded(11, 10));
+}
+
+#[test]
+fn guard_iteration_loop_enforces_limit() {
+    let ok = std::panic::catch_unwind(|| guard_iteration_loop(10, 10, "guard"));
+    assert!(ok.is_ok());
+    let err = std::panic::catch_unwind(|| guard_iteration_loop(11, 10, "guard"));
+    assert!(err.is_err());
+}
+
+#[test]
 fn respond_to_terminal_queries_handles_multiple_sequences() {
     let (read_fd, write_fd) = pipe_pair();
     let mut buffer = b"start\x1b[6nmid\x1b[cend".to_vec();

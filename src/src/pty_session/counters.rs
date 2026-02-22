@@ -197,8 +197,20 @@ pub(super) fn guard_elapsed_exceeded(elapsed: Duration, iterations: usize, limit
 }
 
 #[cfg(any(test, feature = "mutants"))]
+pub(super) fn guard_iteration_exceeded(iterations: usize, limit: usize) -> bool {
+    iterations > limit
+}
+
+#[cfg(any(test, feature = "mutants"))]
 pub(super) fn guard_loop(start: Instant, iterations: usize, limit: usize, label: &str) {
     if guard_elapsed_exceeded(start.elapsed(), iterations, limit) {
+        panic!("{label} loop guard exceeded");
+    }
+}
+
+#[cfg(any(test, feature = "mutants"))]
+pub(super) fn guard_iteration_loop(iterations: usize, limit: usize, label: &str) {
+    if guard_iteration_exceeded(iterations, limit) {
         panic!("{label} loop guard exceeded");
     }
 }

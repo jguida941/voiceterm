@@ -109,6 +109,72 @@ pub(crate) enum ComponentId {
     DashboardPanel,
 }
 
+impl ComponentId {
+    /// Stable style-ID path for this renderable component.
+    ///
+    /// Keep this exhaustive match in sync with the enum so new components
+    /// cannot land without an explicit style-ID decision.
+    #[must_use]
+    pub(crate) const fn style_id(self) -> &'static str {
+        match self {
+            Self::ButtonHud => "components.button.hud",
+            Self::ButtonOverlay => "components.button.overlay",
+            Self::ButtonSettings => "components.button.settings",
+            Self::ButtonThemePicker => "components.button.theme_picker",
+            Self::TabStudio => "components.tab.studio",
+            Self::TabSettings => "components.tab.settings",
+            Self::ListSettings => "components.list.settings",
+            Self::ListHelp => "components.list.help",
+            Self::ListThemePicker => "components.list.theme_picker",
+            Self::ListHistory => "components.list.history",
+            Self::TableShortcuts => "components.table.shortcuts",
+            Self::TreeLayout => "components.tree.layout",
+            Self::ScrollbarOverlay => "components.scrollbar.overlay",
+            Self::ModalConfirm => "components.modal.confirm",
+            Self::PopupToast => "components.popup.toast",
+            Self::TooltipHint => "components.tooltip.hint",
+            Self::InputSearch => "components.input.search",
+            Self::InputSlider => "components.input.slider",
+            Self::ToastInfo => "components.toast.info",
+            Self::ToastSuccess => "components.toast.success",
+            Self::ToastWarning => "components.toast.warning",
+            Self::ToastError => "components.toast.error",
+            Self::HudStatusLine => "components.hud.status_line",
+            Self::HudBanner => "components.hud.banner",
+            Self::HudMeter => "components.hud.meter",
+            Self::HudLatency => "components.hud.latency",
+            Self::HudQueue => "components.hud.queue",
+            Self::HudMode => "components.hud.mode",
+            Self::HudWaveform => "components.hud.waveform",
+            Self::OverlayFrame => "components.overlay.frame",
+            Self::OverlayTitle => "components.overlay.title",
+            Self::OverlayFooter => "components.overlay.footer",
+            Self::OverlaySeparator => "components.overlay.separator",
+            Self::ProgressBar => "components.progress.bar",
+            Self::ProgressSpinner => "components.progress.spinner",
+            Self::ProgressBounce => "components.progress.bounce",
+            Self::StartupSplash => "components.startup.splash",
+            Self::StartupBanner => "components.startup.banner",
+            Self::StartupTagline => "components.startup.tagline",
+            Self::HelpSection => "components.help.section",
+            Self::SettingsRow => "components.settings.row",
+            Self::ThemePickerRow => "components.theme_picker.row",
+            Self::MeterBar => "components.meter.bar",
+            Self::MeterPeak => "components.meter.peak",
+            Self::MeterThreshold => "components.meter.threshold",
+            Self::IconPack => "components.icon.pack",
+            Self::VoiceIdle => "components.voice.idle",
+            Self::VoiceListening => "components.voice.listening",
+            Self::VoiceProcessing => "components.voice.processing",
+            Self::VoiceResponding => "components.voice.responding",
+            Self::PaletteFrame => "components.palette.frame",
+            Self::PaletteMatch => "components.palette.match",
+            Self::AutocompleteRow => "components.autocomplete.row",
+            Self::DashboardPanel => "components.dashboard.panel",
+        }
+    }
+}
+
 /// Interaction / visual state variants for components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum ComponentState {
@@ -445,6 +511,7 @@ impl ComponentRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn default_registry_is_nonempty() {
@@ -455,9 +522,9 @@ mod tests {
     #[test]
     fn default_registry_covers_all_component_ids() {
         let registry = ComponentRegistry::build_default();
-        let ids = registry.all_component_ids();
+        let mut ids = registry.all_component_ids();
         // Ensure every variant of ComponentId is present.
-        let expected_ids = vec![
+        let mut expected_ids = vec![
             ComponentId::ButtonHud,
             ComponentId::ButtonOverlay,
             ComponentId::ButtonSettings,
@@ -520,8 +587,12 @@ mod tests {
                 expected
             );
         }
-        // ids vec should cover all expected
-        assert!(ids.len() >= expected_ids.len());
+        ids.sort_unstable_by_key(|id| format!("{id:?}"));
+        expected_ids.sort_unstable_by_key(|id| format!("{id:?}"));
+        assert_eq!(
+            ids, expected_ids,
+            "registry component inventory drifted from declared style-ID inventory"
+        );
     }
 
     #[test]
@@ -636,5 +707,22 @@ mod tests {
             "Expected at least 100 component/state entries, got {}",
             registry.entry_count()
         );
+    }
+
+    #[test]
+    fn component_style_ids_are_unique_and_prefixed() {
+        let registry = ComponentRegistry::build_default();
+        let mut seen_style_ids = HashSet::new();
+        for id in registry.all_component_ids() {
+            let style_id = id.style_id();
+            assert!(
+                style_id.starts_with("components."),
+                "style-ID must use components namespace: {style_id}"
+            );
+            assert!(
+                seen_style_ids.insert(style_id),
+                "duplicate component style-ID detected: {style_id}"
+            );
+        }
     }
 }

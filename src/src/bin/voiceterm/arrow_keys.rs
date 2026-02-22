@@ -19,11 +19,6 @@ fn map_arrow_final(byte: u8) -> Option<ArrowKey> {
     }
 }
 
-#[inline]
-fn is_csi_final(byte: u8) -> bool {
-    (0x40..=0x7e).contains(&byte)
-}
-
 fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)> {
     if start.checked_add(1).is_none_or(|idx| idx >= bytes.len()) || bytes[start] != 0x1b {
         return None;
@@ -41,7 +36,7 @@ fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)>
                 if let Some(key) = map_arrow_final(byte) {
                     return Some((key, idx + 1));
                 }
-                if is_csi_final(byte) {
+                if (0x40..=0x7e).contains(&byte) {
                     return None;
                 }
                 if byte.is_ascii_digit() || byte == b';' {
@@ -59,7 +54,7 @@ fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)>
 pub(crate) fn parse_arrow_keys(bytes: &[u8]) -> Vec<ArrowKey> {
     let mut keys = Vec::new();
     let mut idx: usize = 0;
-    while idx < bytes.len() {
+    while bytes.get(idx).is_some() {
         if let Some((key, next_idx)) = parse_arrow_sequence(bytes, idx) {
             keys.push(key);
             idx = next_idx;
@@ -109,6 +104,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parse_arrow_keys_ignores_lone_escape_without_panicking() {
+        assert!(parse_arrow_keys(&[0x1b]).is_empty());
+        assert!(parse_arrow_keys_only(&[0x1b]).is_none());
+    }
+
+    #[test]
     fn parse_arrow_keys_reads_sequences() {
         let bytes = [
             0x1b, b'[', b'A', 0x1b, b'[', b'B', b'x', 0x1b, b'O', b'C', 0x1b, b'[', b'D',
@@ -142,6 +143,20 @@ mod tests {
         ];
         let keys = parse_arrow_keys_only(&bytes).expect("parameterized arrows");
         assert_eq!(keys, vec![ArrowKey::Right, ArrowKey::Left]);
+    }
+
+    #[test]
+    fn parse_arrow_keys_only_accepts_ss3_sequences() {
+        let bytes = [0x1b, b'O', b'A', 0x1b, b'O', b'D'];
+        let keys = parse_arrow_keys_only(&bytes).expect("ss3 arrows");
+        assert_eq!(keys, vec![ArrowKey::Up, ArrowKey::Left]);
+    }
+
+    #[test]
+    fn parse_arrow_keys_does_not_treat_incomplete_parameterized_sequence_as_arrow() {
+        let bytes = [0x1b, b'[', b'1', b';', b'2'];
+        assert!(parse_arrow_keys(&bytes).is_empty());
+        assert!(parse_arrow_keys_only(&bytes).is_none());
     }
 
     #[test]
