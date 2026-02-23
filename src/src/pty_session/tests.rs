@@ -1526,12 +1526,9 @@ fn pty_cli_session_wait_for_output_collects_and_drains() {
         output_rx: rx,
         _output_thread: handle,
     });
-    let sender = thread::spawn(move || {
-        tx.send(b"first".to_vec()).unwrap();
-        tx.send(b"second".to_vec()).unwrap();
-    });
+    tx.send(b"first".to_vec()).unwrap();
+    tx.send(b"second".to_vec()).unwrap();
     let output = session.wait_for_output(Duration::from_millis(200));
-    sender.join().unwrap();
     assert_eq!(output, vec![b"first".to_vec(), b"second".to_vec()]);
 }
 
