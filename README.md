@@ -18,24 +18,12 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-VoiceTerm gives you voice control for AI CLIs in your normal terminal.
-
-It supports a fully hands-free flow:
-
-- wake mode (`hey codex` / `hey claude`)
-- talk your prompt
-- say `send` / `submit` in `insert` mode to send without typing
-
-Start hands-free:
-
-```bash
-voiceterm --auto-voice --wake-word --voice-send-mode insert
-```
-
-One-shot examples:
-
-- `hey codex send`
-- `hey claude send`
+**VoiceTerm** gives you voice control for AI CLIs in your normal terminal.
+It supports a fully hands-free flow: say the wake phrase (`hey codex` /
+`hey claude`), speak your prompt, then say `send` or `submit`.
+You can also use one-shot commands like `hey codex send` or
+`hey claude send`.
+Completely hands-free, no keyboard needed.
 
 Whisper runs locally by default. No cloud API keys required.
 Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
@@ -51,18 +39,6 @@ Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 - [Guides Index](guides/README.md)
 - [Documentation](#documentation)
 - [Support](#support)
-
-## Hands-Free Quick Start
-
-```bash
-voiceterm --auto-voice --wake-word --voice-send-mode insert
-```
-
-Think of this like Alexa for your terminal:
-
-1. Say the wake phrase (`hey codex` or `hey claude`)
-2. Speak your prompt
-3. Say `send` (or `submit`)
 
 ## Install and Start
 
@@ -198,6 +174,18 @@ For full backend status and setup details, see
 ### Claude Code
 
 ![Claude Backend](img/claude-backend.png)
+
+## Hands-Free Quick Start
+
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
+
+Think of this like Alexa for your terminal:
+
+1. Say the wake phrase (`hey codex` or `hey claude`)
+2. Speak your prompt
+3. Say `send` (or `submit`)
 
 ## UI Tour
 

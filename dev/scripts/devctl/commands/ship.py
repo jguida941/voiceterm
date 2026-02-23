@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple
 
 from ..common import build_env, confirm_or_abort, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
+from .release_guard import check_release_version_parity
 
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 
@@ -101,6 +102,10 @@ def _render_text(report: Dict) -> str:
 
 
 def _run_verify(args, context: Dict) -> Dict:
+    parity_ok, parity_details = check_release_version_parity(context["version"])
+    if not parity_ok:
+        return _step("verify", False, 2, details=parity_details)
+
     checks = [
         ("check-release", ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"]),
         ("hygiene", ["python3", "dev/scripts/devctl.py", "hygiene", "--format", "json"]),
@@ -246,6 +251,10 @@ def _internal_env(args) -> Dict:
 
 
 def _run_pypi(args, context: Dict) -> Dict:
+    parity_ok, parity_details = check_release_version_parity(context["version"])
+    if not parity_ok:
+        return _step("pypi", False, 2, details=parity_details)
+
     if os.environ.get("CI") and not args.allow_ci and not args.dry_run:
         return _step("pypi", False, 2, details={"reason": "refusing to publish in CI without --allow-ci"})
     try:
@@ -266,6 +275,10 @@ def _run_pypi(args, context: Dict) -> Dict:
 
 
 def _run_homebrew(args, context: Dict) -> Dict:
+    parity_ok, parity_details = check_release_version_parity(context["version"])
+    if not parity_ok:
+        return _step("homebrew", False, 2, details=parity_details)
+
     if os.environ.get("CI") and not args.allow_ci and not args.dry_run:
         return _step("homebrew", False, 2, details={"reason": "refusing homebrew update in CI without --allow-ci"})
     try:

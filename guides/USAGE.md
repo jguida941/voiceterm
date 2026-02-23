@@ -215,15 +215,18 @@ Three controls define runtime behavior:
 
 This is the most hands-free mode and works like an Alexa-style flow:
 
-1. Enable wake + insert mode:
+1. Open Settings with `Ctrl+O` and set `Wake word` to `ON`.
+2. Press `Ctrl+T` until send mode is `insert`.
+3. Press `Ctrl+V` to turn auto-voice on.
+4. Say the wake phrase (`hey codex` or `hey claude`).
+5. Speak your prompt.
+6. Say `send` (or `submit`) to submit it.
 
-   ```bash
-   voiceterm --auto-voice --wake-word --voice-send-mode insert
-   ```
+Optional startup command:
 
-2. Say the wake phrase (`hey codex` or `hey claude`).
-3. Speak your prompt.
-4. Say `send` (or `submit`) to submit it.
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
 
 You can also do one-shot submit with:
 

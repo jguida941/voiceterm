@@ -11,6 +11,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Rewrite user-facing doc intros in plain language and lead with the hands-free flow (`--auto-voice --wake-word --voice-send-mode insert`) so wake mode and voice submit are immediately visible in `README.md`, `QUICK_START.md`, and guide entry points.
 - Add an explicit wake + voice send walkthrough (Alexa-style flow) with step-by-step examples and one-shot phrases (`hey codex send`, `hey claude send`) in user docs.
+- Make wake + voice send docs GUI-first (Settings + shortcuts) and keep CLI flags as optional startup shortcuts.
 
 ## [1.0.90] - 2026-02-23
 

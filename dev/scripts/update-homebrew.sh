@@ -33,6 +33,27 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 TAG="v$VERSION"
+HOMEBREW_TAP_BRANCH="${HOMEBREW_TAP_BRANCH:-main}"
+TMP_TARBALL=""
+
+cleanup_tmp_tarball() {
+    if [[ -n "$TMP_TARBALL" && -f "$TMP_TARBALL" ]]; then
+        rm -f "$TMP_TARBALL"
+    fi
+}
+
+trap cleanup_tmp_tarball EXIT
+
+# Portable in-place sed (BSD/macOS and GNU/Linux).
+sedi() {
+    local expression="$1"
+    local file="$2"
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        sed -i '' "$expression" "$file"
+    else
+        sed -i "$expression" "$file"
+    fi
+}
 
 # Resolve the tap repo path (env override -> brew repo -> fallback path).
 resolve_homebrew_repo() {
@@ -76,7 +97,20 @@ fi
 # Get SHA256 of release tarball
 TARBALL_URL="https://github.com/jguida941/voiceterm/archive/refs/tags/$TAG.tar.gz"
 echo "Fetching SHA256 for $TARBALL_URL..."
-SHA256=$(curl -sL "$TARBALL_URL" | shasum -a 256 | cut -d' ' -f1)
+TMP_TARBALL="$(mktemp "${TMPDIR:-/tmp}/voiceterm-homebrew-${VERSION}-XXXXXX.tar.gz")"
+curl -fsSL \
+    --retry 5 \
+    --retry-delay 2 \
+    --retry-connrefused \
+    "$TARBALL_URL" \
+    -o "$TMP_TARBALL"
+
+if ! tar -tzf "$TMP_TARBALL" >/dev/null 2>&1; then
+    echo "Error: downloaded tarball is invalid for $TAG"
+    exit 1
+fi
+
+SHA256=$(shasum -a 256 "$TMP_TARBALL" | awk '{print $1}')
 
 if [[ -z "$SHA256" || "$SHA256" == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]]; then
     echo "Error: Failed to get SHA256 (empty tarball or tag doesn't exist)"
@@ -91,9 +125,9 @@ echo "Updating $FORMULA..."
 cd "$HOMEBREW_REPO"
 
 # Update version
-sed -i '' "s|url \"https://github.com/jguida941/voiceterm/archive/refs/tags/v[0-9.]*\.tar\.gz\"|url \"$TARBALL_URL\"|" "$FORMULA"
-sed -i '' "s|version \"[0-9.]*\"|version \"$VERSION\"|" "$FORMULA"
-sed -i '' "s|sha256 \"[a-f0-9]*\"|sha256 \"$SHA256\"|" "$FORMULA"
+sedi "s|url \"https://github.com/jguida941/voiceterm/archive/refs/tags/v[0-9.]*\.tar\.gz\"|url \"$TARBALL_URL\"|" "$FORMULA"
+sedi "s|version \"[0-9.]*\"|version \"$VERSION\"|" "$FORMULA"
+sedi "s|sha256 \"[a-f0-9]*\"|sha256 \"$SHA256\"|" "$FORMULA"
 
 # Keep tap README intentionally minimal and canonical.
 # The main repo hosts full docs; the tap repo should only cover brew-specific entrypoints.
@@ -170,13 +204,20 @@ else
 fi
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if ! git config user.name >/dev/null; then
+        git config user.name "${HOMEBREW_GIT_USER_NAME:-github-actions[bot]}"
+    fi
+    if ! git config user.email >/dev/null; then
+        git config user.email "${HOMEBREW_GIT_USER_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
+    fi
+
     if [[ -f "$README" ]]; then
         git add "$FORMULA" "$README"
     else
         git add "$FORMULA"
     fi
     git commit -m "Update to v$VERSION"
-    git push origin main
+    git push origin "$HOMEBREW_TAP_BRANCH"
     echo ""
     echo "=== Homebrew tap updated ==="
     echo "Users can now run: brew update && brew upgrade voiceterm"
@@ -185,5 +226,5 @@ else
     echo "  cd $HOMEBREW_REPO"
     echo "  git add Formula/voiceterm.rb"
     echo "  git commit -m 'Update to v$VERSION'"
-    echo "  git push origin main"
+    echo "  git push origin $HOMEBREW_TAP_BRANCH"
 fi

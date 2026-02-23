@@ -210,6 +210,31 @@ Inference: Release process now keeps one canonical control plane (`devctl`) but
 moves credentialed distribution execution into CI to reduce manual release
 friction and repeated local secret handling.
 
+### Recent Governance Update (2026-02-23, Release Automation Hardening)
+
+Fact: Release distribution automation was hardened with a dedicated release
+preflight workflow, a Homebrew publish workflow path, and additional guardrails
+in `devctl ship`/Homebrew scripting to fail early on version mismatch and bad
+tarball downloads.
+
+Evidence:
+
+- `.github/workflows/release_preflight.yml` (manual release gate bundle with
+  parity validation + governance checks + distribution dry-run smoke)
+- `.github/workflows/publish_homebrew.yml` (triggered by `release: published`
+  and `workflow_dispatch`; routes Homebrew updates through `devctl ship`)
+- `dev/scripts/devctl/commands/ship.py` (release parity enforcement before
+  `pypi`/`homebrew` steps)
+- `dev/scripts/update-homebrew.sh` (fail-fast tarball download + archive
+  validity check, cross-platform in-place edits, and CI-safe git identity)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, and `dev/scripts/README.md` (release SOP
+  and workflow routing updates)
+- `dev/active/MASTER_PLAN.md` (`MP-283`)
+
+Inference: The release path remains centered on one control plane (`devctl`)
+while reducing publish-time drift risk between requested tag versions,
+repository metadata, and downstream Homebrew formula updates.
+
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
 Fact: Coverage publication is now automated through a dedicated CI lane that

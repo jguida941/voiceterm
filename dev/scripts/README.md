@@ -79,12 +79,17 @@ python3 dev/scripts/devctl.py release --version X.Y.Z
 # Workflow-first release path (recommended)
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
+gh run list --workflow publish_homebrew.yml --limit 1
 
-# Distribution steps
-python3 dev/scripts/devctl.py homebrew --version X.Y.Z
+# Optional: run release preflight workflow in CI before tagging
+gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
 
-# Manual fallback (local PyPI publish)
+# Optional: manually trigger Homebrew workflow for an existing tag/version
+gh workflow run publish_homebrew.yml -f version=X.Y.Z
+
+# Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py pypi --upload --yes
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
 ## Scripts Inventory
@@ -149,24 +154,26 @@ python3 dev/scripts/check_release_version_parity.py
 # 2) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
 
-# 3) publish GitHub release (triggers publish_pypi.yml)
+# 3) publish GitHub release (triggers publish_pypi.yml + publish_homebrew.yml)
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
 
-# 4) monitor the PyPI publish workflow
+# 4) monitor publish workflows
 gh run list --workflow publish_pypi.yml --limit 1
+gh run list --workflow publish_homebrew.yml --limit 1
 # gh run watch <run-id>
 
 # 5) verify published package
 curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 
-# 6) update Homebrew tap
+# 6) fallback Homebrew update (if workflow path is unavailable)
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
-Manual fallback (if GitHub Actions publish lane is unavailable):
+Manual fallback (if GitHub Actions publish lanes are unavailable):
 
 ```bash
 python3 dev/scripts/devctl.py pypi --upload --yes
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
 Or run unified control-plane commands directly:
@@ -174,9 +181,10 @@ Or run unified control-plane commands directly:
 ```bash
 # Workflow-first release path
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
-python3 dev/scripts/devctl.py ship --version X.Y.Z --homebrew --yes
+gh run list --workflow publish_pypi.yml --limit 1
+gh run list --workflow publish_homebrew.yml --limit 1
 
-# Manual fallback (local PyPI publish)
+# Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebrew --yes
 ```
 

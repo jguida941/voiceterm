@@ -35,6 +35,9 @@ on:
       - "dev/scripts/README.md"
       - ".github/workflows/docs_lint.yml"
       - ".github/workflows/coverage.yml"
+      - ".github/workflows/publish_pypi.yml"
+      - ".github/workflows/publish_homebrew.yml"
+      - ".github/workflows/release_preflight.yml"
       - ".github/workflows/tooling_control_plane.yml"
   pull_request:
     paths:
@@ -60,6 +63,9 @@ on:
       - "dev/scripts/README.md"
       - ".github/workflows/docs_lint.yml"
       - ".github/workflows/coverage.yml"
+      - ".github/workflows/publish_pypi.yml"
+      - ".github/workflows/publish_homebrew.yml"
+      - ".github/workflows/release_preflight.yml"
       - ".github/workflows/tooling_control_plane.yml"
 
 jobs:
@@ -82,9 +88,23 @@ jobs:
 
       - name: Smoke devctl ship/pypi/list commands
         run: |
+          VERSION="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("src/Cargo.toml").read_text(encoding="utf-8")
+          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+          if not match:
+              raise SystemExit("Failed to resolve version from src/Cargo.toml")
+          print(match.group(1))
+          PY
+          )"
           python3 dev/scripts/devctl.py list --format md
           python3 dev/scripts/devctl.py pypi --dry-run
-          python3 dev/scripts/devctl.py ship --version 0.0.0 --notes --dry-run --format json
+          python3 dev/scripts/devctl.py homebrew --version "${VERSION}" --dry-run
+          python3 dev/scripts/devctl.py ship --version "${VERSION}" --notes --dry-run --format json
+          python3 dev/scripts/devctl.py ship --version "${VERSION}" --pypi --verify-pypi --dry-run --format json
+          python3 dev/scripts/devctl.py ship --version "${VERSION}" --homebrew --dry-run --format json
 
   shell-integrity:
     name: shell script integrity

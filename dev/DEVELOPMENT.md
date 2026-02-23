@@ -385,12 +385,15 @@ python3 dev/scripts/check_rust_best_practices.py
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
-python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
+gh run list --workflow publish_homebrew.yml --limit 1
+gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
+gh workflow run publish_homebrew.yml -f version=X.Y.Z
 
-# Manual fallback (local PyPI publish)
+# Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py pypi --upload --yes
+python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebrew --yes
 
 # Generate a report (JSON/MD)
@@ -574,7 +577,9 @@ GitHub Actions lanes used by this repo:
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
+| Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
+| Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested |
 
 Workflow hardening baseline:
 
@@ -669,6 +674,7 @@ Preflight auth/deployment prerequisites:
 ```bash
 gh auth status -h github.com
 gh secret list | rg PYPI_API_TOKEN
+gh secret list | rg HOMEBREW_TAP_TOKEN
 ```
 
 ```bash
@@ -687,7 +693,8 @@ python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 ```
 
 Publishing the GitHub release triggers `.github/workflows/publish_pypi.yml`,
-which publishes the matching `voiceterm` version to PyPI.
+which publishes the matching `voiceterm` version to PyPI, and
+`.github/workflows/publish_homebrew.yml`, which updates the Homebrew tap.
 
 ### Publish PyPI package
 
@@ -696,6 +703,7 @@ Default path: automatic from GitHub Actions when release is published.
 ```bash
 # Monitor the publish workflow
 gh run list --workflow publish_pypi.yml --limit 1
+gh run list --workflow publish_homebrew.yml --limit 1
 # then watch the latest run:
 # gh run watch <run-id>
 ```
@@ -715,8 +723,14 @@ curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 ### Update Homebrew tap
 
 ```bash
-# Canonical control plane
+# Local fallback control plane (workflow path is preferred)
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
+```
+
+Optional manual workflow trigger:
+
+```bash
+gh workflow run publish_homebrew.yml -f version=X.Y.Z
 ```
 
 Legacy wrappers (`dev/scripts/release.sh`, `dev/scripts/publish-pypi.sh`,

@@ -1,0 +1,125 @@
+name: release_preflight
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-preflight-${{ github.ref }}-${{ github.event.inputs.version || github.run_id }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (X.Y.Z)"
+        required: true
+        type: string
+      verify_docs:
+        description: "Run strict user-facing docs checks"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  preflight:
+    name: release-preflight
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ github.event.inputs.version }}
+      VERIFY_DOCS: ${{ github.event.inputs.verify_docs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.45.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Validate version format
+        run: |
+          if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: ${RELEASE_VERSION}"
+            exit 1
+          fi
+
+      - name: Verify release version parity and requested version
+        run: |
+          python3 dev/scripts/check_release_version_parity.py --format json > /tmp/release-version-parity.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          with open("/tmp/release-version-parity.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          expected = os.environ["RELEASE_VERSION"]
+          if not report.get("ok"):
+              print("Release parity check failed:")
+              print(json.dumps(report, indent=2))
+              sys.exit(1)
+
+          versions = report.get("versions_present") or []
+          if versions != [expected]:
+              print(f"Requested version {expected} does not match detected metadata versions: {versions}")
+              sys.exit(1)
+          PY
+
+      - name: Run CI runtime bundle
+        run: python3 dev/scripts/devctl.py check --profile ci
+
+      - name: Run release governance bundle
+        run: |
+          python3 dev/scripts/devctl.py docs-check --strict-tooling
+          if [[ "${VERIFY_DOCS}" == "true" ]]; then
+            python3 dev/scripts/devctl.py docs-check --user-facing --strict
+          else
+            echo "Skipping strict user-facing docs check."
+          fi
+          python3 dev/scripts/devctl.py hygiene
+          python3 dev/scripts/check_agents_contract.py
+          python3 dev/scripts/check_active_plan_sync.py
+          python3 dev/scripts/check_release_version_parity.py
+          python3 dev/scripts/check_cli_flags_parity.py
+          python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+          python3 dev/scripts/check_code_shape.py
+          python3 dev/scripts/check_rust_lint_debt.py
+          python3 dev/scripts/check_rust_best_practices.py
+          markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
+            README.md \
+            QUICK_START.md \
+            DEV_INDEX.md \
+            guides/*.md \
+            dev/README.md \
+            scripts/README.md \
+            pypi/README.md \
+            app/README.md
+          ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
+          if [[ -n "${ARTIFACTS}" ]]; then
+            echo "Unexpected root-level CLI artifact files detected:"
+            echo "${ARTIFACTS}"
+            exit 1
+          fi
+
+      - name: Smoke release/distribution command paths
+        run: |
+          python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --notes --dry-run --format md
+          python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --pypi --verify-pypi --dry-run --format md
+          python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --homebrew --dry-run --format md

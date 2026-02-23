@@ -343,7 +343,8 @@ Use this exact sequence:
 3. Verify release prerequisites:
    - `gh auth status -h github.com`
    - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
-   - Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
+   - GitHub Actions secret `HOMEBREW_TAP_TOKEN` exists for `.github/workflows/publish_homebrew.yml`
+   - Optional local fallback: Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
 4. Run `bundle.release`.
 5. Run release tagging and notes:
 
@@ -352,8 +353,11 @@ Use this exact sequence:
    gh release create v<version> --title "v<version>" --notes-file /tmp/voiceterm-release-v<version>.md
    # PyPI publish runs automatically via .github/workflows/publish_pypi.yml.
    gh run list --workflow publish_pypi.yml --limit 1
+   # Homebrew publish runs automatically via .github/workflows/publish_homebrew.yml.
+   gh run list --workflow publish_homebrew.yml --limit 1
    # gh run watch <run-id>
    curl -fsSL https://pypi.org/pypi/voiceterm/<version>/json
+   # Local fallback (if workflow is unavailable):
    python3 dev/scripts/devctl.py homebrew --version <version>
    ```
 
@@ -365,9 +369,9 @@ Unified control plane alternatives:
 # Workflow-first release path (recommended)
 python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
-python3 dev/scripts/devctl.py ship --version <version> --homebrew --yes
+gh run list --workflow publish_homebrew.yml --limit 1
 
-# Manual fallback (run PyPI locally)
+# Manual fallback (run PyPI/Homebrew locally)
 python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --homebrew --yes
 ```
 
@@ -385,7 +389,9 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
 | User docs/markdown changes | `docs_lint.yml` |
+| Release preflight verification bundle | `release_preflight.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
+| GitHub release publication / Homebrew distribution | `publish_homebrew.yml` |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled) plus local mutation-score evidence |
 
@@ -497,8 +503,10 @@ surfaces without `# Safety` docs in changed Rust files.
 - `coverage.yml`
 - `docs_lint.yml`
 - `lint_hardening.yml`
+- `release_preflight.yml`
 - `tooling_control_plane.yml`
 - `publish_pypi.yml`
+- `publish_homebrew.yml`
 
 ## CI expansion policy
 

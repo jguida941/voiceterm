@@ -85,12 +85,13 @@ Full controls reference:
 
 ## 5) Hands-free starter (optional)
 
-```bash
-voiceterm --auto-voice --wake-word --voice-send-mode insert
-```
+GUI setup:
 
-Then say your wake phrase (`hey codex` / `hey claude`), speak your prompt, and
-say `send` when you want to submit.
+1. Press `Ctrl+O` and set `Wake word` to `ON`.
+2. Press `Ctrl+T` until send mode is `insert`.
+3. Press `Ctrl+V` to turn auto-voice on.
+4. Say your wake phrase (`hey codex` / `hey claude`), speak your prompt, then
+   say `send`.
 
 Example flow:
 
@@ -102,6 +103,12 @@ One-shot examples:
 
 - `hey codex send`
 - `hey claude send`
+
+Optional startup command:
+
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
 
 If wake startup fails, Full HUD shows `Wake: ERR`. Run with `--logs` and check
 [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
