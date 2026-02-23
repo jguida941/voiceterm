@@ -26,6 +26,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Fix README badge rendering so `Whisper` and `license` chips no longer clip text in GitHub page rendering.
 - Document image-mode controls/flags (`--image-mode`, `--image-capture-command`, `VOICETERM_IMAGE_CAPTURE_COMMAND`) in `USAGE`, `CLI_FLAGS`, and `QUICK_START`.
 - Document guarded dev-event logging flags (`--dev-log`, `--dev-path`) and JSONL log location behavior in `USAGE`, `CLI_FLAGS`, `README`, and `QUICK_START`.
+- Fix README license badge rendering by switching to a stable static `license | MIT` shield so the label segment remains readable.
 
 ## [1.0.90] - 2026-02-23
 
