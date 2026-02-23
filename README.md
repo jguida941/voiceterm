@@ -156,6 +156,7 @@ types the result into your AI CLI input.
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
 - **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel, and add `--dev-log` to write session JSONL diagnostics
+- **Prompt-safe reply boxes**: Codex/Claude approval and reply/composer prompts temporarily suppress HUD rows so prompt text remains visible while you respond
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
 - **Saved settings**: keeps your settings in `~/.config/voiceterm/config.toml`

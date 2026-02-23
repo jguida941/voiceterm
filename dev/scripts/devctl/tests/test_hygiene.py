@@ -66,15 +66,21 @@ class HygieneAuditTests(unittest.TestCase):
             self.assertTrue(report["errors"])
             self.assertIn("new_tool.sh", report["errors"][0])
 
-    @mock.patch("dev.scripts.devctl.commands.hygiene.os.getpid", return_value=99999)
-    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run")
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_flags_orphaned_voiceterm_test_binary(
-        self, run_mock: mock.Mock, _getpid_mock: mock.Mock
+        self, scan_mock: mock.Mock
     ) -> None:
-        run_mock.return_value = mock.Mock(
-            returncode=0,
-            stdout="1234 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n",
-            stderr="",
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 1234,
+                    "ppid": 1,
+                    "etime": "05:00",
+                    "elapsed_seconds": 300,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4",
+                }
+            ],
+            [],
         )
 
         report = hygiene._audit_runtime_processes()
@@ -83,15 +89,21 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertTrue(report["errors"])
         self.assertIn("Orphaned voiceterm test binaries detected", report["errors"][0])
 
-    @mock.patch("dev.scripts.devctl.commands.hygiene.os.getpid", return_value=99999)
-    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run")
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_warns_for_active_test_binary(
-        self, run_mock: mock.Mock, _getpid_mock: mock.Mock
+        self, scan_mock: mock.Mock
     ) -> None:
-        run_mock.return_value = mock.Mock(
-            returncode=0,
-            stdout="2222 777 00:10 /tmp/project/target/debug/deps/voiceterm-deadbeef\n",
-            stderr="",
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 2222,
+                    "ppid": 777,
+                    "etime": "00:10",
+                    "elapsed_seconds": 10,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-deadbeef",
+                }
+            ],
+            [],
         )
 
         report = hygiene._audit_runtime_processes()
@@ -101,8 +113,9 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertTrue(report["warnings"])
         self.assertIn("Active voiceterm test binaries detected", report["warnings"][0])
 
-    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run", side_effect=OSError("blocked"))
-    def test_runtime_process_audit_warns_when_ps_unavailable(self, _run_mock: mock.Mock) -> None:
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
+    def test_runtime_process_audit_warns_when_ps_unavailable(self, scan_mock: mock.Mock) -> None:
+        scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
         with mock.patch.dict("os.environ", {"CI": ""}, clear=False):
             report = hygiene._audit_runtime_processes()
 
@@ -111,10 +124,11 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertTrue(report["warnings"])
         self.assertIn("Process sweep skipped", report["warnings"][0])
 
-    @mock.patch("dev.scripts.devctl.commands.hygiene.subprocess.run", side_effect=OSError("blocked"))
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_errors_when_ps_unavailable_in_ci(
-        self, _run_mock: mock.Mock
+        self, scan_mock: mock.Mock
     ) -> None:
+        scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
         with mock.patch.dict("os.environ", {"CI": "true"}, clear=False):
             report = hygiene._audit_runtime_processes()
 

@@ -87,6 +87,8 @@ Use `voiceterm --claude` to target Claude.
 
 In `auto` mode, text is typed and submitted.
 In `insert` mode, text is typed and waits for Enter (or spoken `send`).
+When Codex/Claude approval or reply/composer prompts appear, VoiceTerm
+suppresses HUD rows until you submit/cancel so the prompt stays readable.
 
 Full controls reference:
 

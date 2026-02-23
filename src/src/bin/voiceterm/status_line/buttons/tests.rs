@@ -991,9 +991,10 @@ fn rtf_latency_severity_thresholds_are_exclusive() {
 }
 
 #[test]
-fn latency_badge_hides_during_recording_and_processing() {
+fn latency_badge_hides_during_manual_recording_and_processing() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
+    state.auto_voice_enabled = false;
     state.last_latency_ms = Some(412);
     state.last_latency_rtf_x1000 = Some(300);
 
@@ -1009,6 +1010,24 @@ fn latency_badge_hides_during_recording_and_processing() {
     state.recording_state = RecordingState::Idle;
     let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(idle_row.contains("412ms"));
+}
+
+#[test]
+fn latency_badge_stays_visible_during_auto_recording_and_processing() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.auto_voice_enabled = true;
+    state.last_latency_ms = Some(412);
+    state.last_latency_rtf_x1000 = Some(300);
+
+    state.recording_state = RecordingState::Recording;
+    let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(recording_row.contains("412ms"));
+
+    state.recording_state = RecordingState::Processing;
+    let (processing_row, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(processing_row.contains("412ms"));
 }
 
 #[test]

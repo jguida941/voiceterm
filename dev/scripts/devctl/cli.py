@@ -15,10 +15,14 @@ from .commands import (
     release,
     release_notes,
     report,
+    security,
     ship,
     status,
+    triage,
 )
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
+from .security_parser import add_security_parser
+from .triage_parser import add_triage_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -271,6 +275,10 @@ def build_parser() -> argparse.ArgumentParser:
     hygiene_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     hygiene_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
 
+    # security
+    add_security_parser(sub)
+    add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
+
     return parser
 
 
@@ -305,10 +313,14 @@ def main() -> int:
         return status.run(args)
     if args.command == "report":
         return report.run(args)
+    if args.command == "triage":
+        return triage.run(args)
     if args.command == "list":
         return listing.run(args)
     if args.command == "hygiene":
         return hygiene.run(args)
+    if args.command == "security":
+        return security.run(args)
 
     return 0
 

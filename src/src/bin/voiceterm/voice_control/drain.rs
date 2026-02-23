@@ -101,6 +101,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let Some(message) = voice_manager.poll_message() else {
         return;
     };
+    let should_clear_latency = should_clear_latency_for_message(&message, auto_voice_enabled);
     let rearm_auto = matches!(
         message,
         VoiceJobMessage::Empty { .. } | VoiceJobMessage::Error(_)
@@ -154,7 +155,9 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         VoiceJobMessage::Empty { source, metrics } => {
             *force_send_on_next_transcript = false;
-            clear_last_latency(status_state);
+            if should_clear_latency {
+                clear_last_latency(status_state);
+            }
             let mut non_transcript_ctx = NonTranscriptDispatchContext {
                 config,
                 session,
@@ -189,7 +192,9 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         other => {
             *force_send_on_next_transcript = false;
-            clear_last_latency(status_state);
+            if should_clear_latency {
+                clear_last_latency(status_state);
+            }
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
                 let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
             }
@@ -215,6 +220,15 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         status_state,
         recording_started_at,
     );
+}
+
+fn should_clear_latency_for_message(message: &VoiceJobMessage, auto_voice_enabled: bool) -> bool {
+    match message {
+        // Keep the latest known latency visible through auto re-arm empty captures.
+        VoiceJobMessage::Empty { .. } => !auto_voice_enabled,
+        VoiceJobMessage::Error(_) => true,
+        VoiceJobMessage::Transcript { .. } => false,
+    }
 }
 
 pub(crate) fn reset_capture_visuals(

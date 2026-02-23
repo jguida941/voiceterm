@@ -117,6 +117,9 @@ After upgrading, run `voiceterm --version` to confirm.
 Daily usage details are in [USAGE.md](USAGE.md). Install/runtime issues and
 terminal-specific edge cases are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+If Codex/Claude approval or reply/composer rows look clipped, use the
+occlusion guidance in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md#codex-or-claude-reply-rows-are-occluded).
 
 </details>
 

@@ -74,6 +74,7 @@ Wake status labels in Full HUD:
 - `Wake: ERR` - listener startup failed; check status/log-path message
 - Wake phrases still work even if auto-voice is paused.
 - Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
+- In `auto` mode, wake-triggered `send`/`submit` still submits Enter even when no staged insert text is pending.
 - Image mode adds an `IMG` HUD badge when enabled.
 
 ---

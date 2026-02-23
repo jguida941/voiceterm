@@ -92,6 +92,7 @@ Transcription is taking longer than expected.
 ### Latency badge seems wrong in auto mode
 
 The HUD latency badge reflects the latest transcript processing delay, not backend response time.
+In auto mode, the last successful latency sample stays visible between captures to avoid flashing.
 
 1. Re-run with logs: `voiceterm --logs`
 2. Look for `latency_audit` lines in the log.
@@ -296,12 +297,14 @@ If Claude tool actions run without approval prompts, check whether
 3. Avoid using skip-permissions mode with untrusted repositories or with
    credentials/secrets available in your shell environment.
 
-### Claude prompt rows are occluded
+### Codex or Claude reply rows are occluded
 
-VoiceTerm now suppresses HUD rows when Claude interactive approval/permission
-prompts are detected, so prompt text/actions stay visible.
+VoiceTerm suppresses HUD rows when Codex/Claude interactive prompts are
+detected (approval walls plus reply/composer prompt markers), so your active
+reply area stays visible. For reply/composer prompts, suppression stays active
+while you type and clears when the prompt is submitted or canceled.
 
-If prompts still look clipped or overlapped:
+If reply rows still look clipped or overlapped:
 
 1. Confirm version:
 
@@ -311,9 +314,10 @@ If prompts still look clipped or overlapped:
 
 2. Retry in a larger terminal row count first (wrapped absolute command paths
    can consume multiple rows quickly).
-3. Re-run with logs and capture a screenshot:
+3. Re-run with logs and capture a screenshot while the overlap is visible:
 
    ```bash
+   voiceterm --logs --codex
    voiceterm --logs --claude
    ```
 

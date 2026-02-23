@@ -10,6 +10,8 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Add Gemini-specific HUD compaction so `--gemini` sessions keep a single-row HUD when `Full` style is selected, reducing textbox crowding and redraw flicker while preserving existing Full HUD behavior for other backends.
+- Expand prompt-occlusion guardrails for Codex and Claude reply/composer prompts (including Unicode prompt markers and Codex command-composer hints) so HUD rows are suppressed sooner when the interactive reply area is active.
+- Keep reply/composer prompt suppression active while typing (clear on submit/cancel) so the HUD does not re-occlude the active Claude/Codex input row mid-reply.
 - Add `Image mode` runtime toggle for picture-assisted prompts: when enabled, `Ctrl+R`/HUD `[rec]` captures an image, saves it to `.voiceterm/captures/`, shows an `IMG` HUD badge, and injects a Codex prompt line using the saved image path.
 - Add a guarded developer launch mode (`--dev`, alias `--dev-mode` / `-D`) that keeps default runtime behavior unchanged when absent and shows a `DEV` HUD badge when active.
 - Add guarded dev-event logging controls (`--dev-log`, `--dev-path`) that require `--dev` and persist per-session JSONL event files under the configured dev data root.
@@ -21,6 +23,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Improve Full/Minimal HUD controls-row readability by tinting button brackets to each button's active theme color and adding stronger focused-bracket contrast in arrow-key focus mode.
 - Route transcript-history overlay borders through the style-pack overlay border resolver so `components.overlay_border` now applies consistently across help/settings/theme-picker/theme-studio/toast/history overlays.
 - Add a small manual/PTT capture grace window by applying a manual-only `+400 ms` silence-tail adjustment (clamped to max capture) so brief hesitation before speaking is less likely to auto-stop recording too early.
+- Keep the shortcuts-row latency badge stable in auto mode by preserving the latest successful latency sample across auto-capture `Empty` cycles and allowing the badge to remain visible while auto capture is actively recording/processing.
+- Expand wake/send command parsing for common Whisper mishears: backend-addressed submit phrases now accept variants like `code x send`, `hate codex`, and `hate cloud`/`okay cloud`, wake submit tails now include `send it`/`sending`, and explicit voice `send` submits in `auto` mode so false `Nothing to send` statuses are reduced when text is visibly staged in the backend composer.
+- Add wake transcript decision diagnostics in debug logs (`voiceterm --logs --log-content`) so field triage can see raw/normalized/canonical wake parsing when submit phrases are intermittently missed.
 
 ### Documentation
 

@@ -125,8 +125,11 @@ pub(super) fn handle_input_event(
                 }
 
                 state.status_state.hud_button_focus = None;
-                // Clear Claude prompt suppression when user sends any input to PTY.
-                if state.status_state.claude_prompt_suppressed && !bytes.is_empty() {
+                // Clear prompt suppression only when this input resolves the prompt.
+                // Reply composers should stay suppressed while the user is still typing.
+                if state.status_state.claude_prompt_suppressed
+                    && state.claude_prompt_detector.should_resolve_on_input(&bytes)
+                {
                     state.claude_prompt_detector.on_user_input();
                     set_claude_prompt_suppression(state, deps, false);
                 }
@@ -434,7 +437,9 @@ fn handle_wake_word_send_intent(
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
-    if should_send_staged_text_hotkey(state) {
+    let can_submit_now = should_send_staged_text_hotkey(state)
+        || state.config.voice_send_mode == VoiceSendMode::Auto;
+    if can_submit_now {
         if write_or_queue_pty_input(state, deps, vec![0x0d]) {
             timers.last_enter_at = Some(Instant::now());
             state.status_state.insert_pending_send = false;

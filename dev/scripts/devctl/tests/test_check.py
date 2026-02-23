@@ -73,6 +73,38 @@ class CheckProfileTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.check.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
+    @patch("builtins.print")
+    def test_failed_step_prints_failure_summary(
+        self,
+        mock_print,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_run_cmd.return_value = {
+            "name": "clippy",
+            "cmd": ["cargo", "clippy"],
+            "cwd": "src",
+            "returncode": 1,
+            "duration_s": 0.0,
+            "skipped": False,
+            "failure_output": "warning: unused variable",
+        }
+        args = make_args("")
+        args.skip_fmt = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 1)
+
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
+        self.assertIn("[check] step failed: clippy (exit 1)", printed)
+        self.assertIn("[check] last output from clippy:", printed)
+        self.assertIn("warning: unused variable", printed)
+
+    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
     def test_maintainer_lint_profile_uses_strict_clippy_subset(
         self,
         mock_build_env,
@@ -214,38 +246,42 @@ class CheckProcessSweepTests(TestCase):
         self.assertEqual(check._parse_etime_seconds("2-01:05:30"), 176730)
         self.assertIsNone(check._parse_etime_seconds("bad"))
 
-    @patch("dev.scripts.devctl.commands.check.os.getpid", return_value=99999)
-    @patch("dev.scripts.devctl.commands.check.subprocess.run")
-    @patch("dev.scripts.devctl.commands.check.os.kill")
+    @patch("dev.scripts.devctl.commands.check.kill_processes")
+    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
     def test_cleanup_kills_only_orphaned_voiceterm_test_binaries(
         self,
+        scan_mock,
         kill_mock,
-        run_mock,
-        _getpid_mock,
     ) -> None:
-        run_mock.return_value = SimpleNamespace(
-            returncode=0,
-            stdout=(
-                "1234 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
-                "2222 777 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
-                "3333 1 05:00 /tmp/project/target/debug/deps/not-voiceterm-deadbeef\n"
-            ),
-            stderr="",
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 1234,
+                    "ppid": 1,
+                    "etime": "05:00",
+                    "elapsed_seconds": 300,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4",
+                }
+            ],
+            [],
         )
+        kill_mock.return_value = ([1234], [])
 
         result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
-        kill_mock.assert_called_once_with(1234, check.signal.SIGKILL)
+        kill_mock.assert_called_once()
         self.assertEqual(result["detected_orphans"], 1)
         self.assertEqual(result["killed_pids"], [1234])
         self.assertEqual(result["returncode"], 0)
 
-    @patch("dev.scripts.devctl.commands.check.subprocess.run", side_effect=OSError("blocked"))
-    @patch("dev.scripts.devctl.commands.check.os.kill")
-    def test_cleanup_reports_warning_when_ps_unavailable(self, kill_mock, _run_mock) -> None:
+    @patch("dev.scripts.devctl.commands.check.kill_processes")
+    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
+    def test_cleanup_reports_warning_when_ps_unavailable(self, scan_mock, kill_mock) -> None:
+        scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
+        kill_mock.return_value = ([], [])
         result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
-        kill_mock.assert_not_called()
+        kill_mock.assert_called_once_with([])
         self.assertEqual(result["detected_orphans"], 0)
         self.assertTrue(result["warnings"])
         self.assertEqual(result["returncode"], 0)

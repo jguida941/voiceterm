@@ -88,7 +88,8 @@ use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
 use crate::hud::HudRegistry;
 use crate::input::spawn_input_thread;
 use crate::prompt::{
-    resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
+    backend_supports_prompt_occlusion_guard, resolve_prompt_log, resolve_prompt_regex,
+    ClaudePromptDetector, PromptLogger, PromptTracker,
 };
 use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::{format_session_stats, SessionStats};
@@ -497,9 +498,9 @@ fn main() -> Result<()> {
         transcript_history: transcript_history::TranscriptHistory::new(),
         transcript_history_state: transcript_history::TranscriptHistoryState::new(),
         session_memory_logger,
-        claude_prompt_detector: ClaudePromptDetector::new(
-            backend_label.to_ascii_lowercase().contains("claude"),
-        ),
+        claude_prompt_detector: ClaudePromptDetector::new(backend_supports_prompt_occlusion_guard(
+            &backend_label,
+        )),
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,

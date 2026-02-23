@@ -305,6 +305,24 @@ fn update_last_latency_hides_previous_badge_when_metrics_missing() {
 }
 
 #[test]
+fn should_clear_latency_for_empty_depends_on_auto_mode() {
+    let empty = VoiceJobMessage::Empty {
+        source: VoiceCaptureSource::Native,
+        metrics: None,
+    };
+
+    assert!(should_clear_latency_for_message(&empty, false));
+    assert!(!should_clear_latency_for_message(&empty, true));
+}
+
+#[test]
+fn should_clear_latency_for_error_is_always_true() {
+    let error = VoiceJobMessage::Error("mic unavailable".to_string());
+    assert!(should_clear_latency_for_message(&error, false));
+    assert!(should_clear_latency_for_message(&error, true));
+}
+
+#[test]
 fn clear_last_latency_hides_badge_without_erasing_history() {
     let mut status_state = StatusLineState::new();
     status_state.last_latency_ms = Some(420);

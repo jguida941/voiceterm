@@ -11,30 +11,28 @@ class ReportCommandTests(unittest.TestCase):
     """Validate report command markdown output."""
 
     @patch("dev.scripts.devctl.commands.report.write_output")
-    @patch("dev.scripts.devctl.commands.report.collect_dev_log_summary")
-    @patch("dev.scripts.devctl.commands.report.collect_mutation_summary")
-    @patch("dev.scripts.devctl.commands.report.collect_git_status")
+    @patch("dev.scripts.devctl.commands.report.build_project_report")
     def test_markdown_includes_dev_log_summary(
         self,
-        mock_git,
-        mock_mutants,
-        mock_dev_logs,
+        mock_build_report,
         mock_write_output,
     ) -> None:
-        mock_git.return_value = {"branch": "develop", "changes": []}
-        mock_mutants.return_value = {"results": []}
-        mock_dev_logs.return_value = {
-            "dev_root": "/tmp/dev",
-            "sessions_scanned": 1,
-            "session_files_total": 3,
-            "events_scanned": 4,
-            "transcript_events": 2,
-            "empty_events": 1,
-            "error_events": 1,
-            "total_words": 7,
-            "avg_latency_ms": None,
-            "parse_errors": 1,
-            "latest_event_iso": None,
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+            "dev_logs": {
+                "dev_root": "/tmp/dev",
+                "sessions_scanned": 1,
+                "session_files_total": 3,
+                "events_scanned": 4,
+                "transcript_events": 2,
+                "empty_events": 1,
+                "error_events": 1,
+                "total_words": 7,
+                "avg_latency_ms": None,
+                "parse_errors": 1,
+                "latest_event_iso": None,
+            },
         }
         args = SimpleNamespace(
             ci=False,

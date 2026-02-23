@@ -1738,6 +1738,27 @@ fn wake_word_send_intent_without_staged_text_sets_status() {
 }
 
 #[test]
+fn wake_word_send_intent_in_auto_mode_submits_enter_without_pending_flag() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Auto;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Auto;
+    state.status_state.insert_pending_send = false;
+
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::SendStagedInput,
+    );
+
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(state.current_status.is_none());
+    assert!(!state.status_state.insert_pending_send);
+}
+
+#[test]
 fn manual_voice_trigger_while_recording_uses_cancel_capture_path() {
     let _cancel = install_cancel_capture_hook(hook_cancel_capture_true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
@@ -3707,8 +3728,13 @@ fn empty_bytes_keep_claude_prompt_suppression_enabled() {
 #[test]
 fn non_empty_bytes_clear_claude_prompt_suppression() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
     let mut running = true;
 
+    let detected = state
+        .claude_prompt_detector
+        .feed_output(b"Do you want to proceed? (y/n)\n");
+    assert!(detected);
     set_claude_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
 
@@ -3717,6 +3743,52 @@ fn non_empty_bytes_clear_claude_prompt_suppression() {
         &mut timers,
         &mut deps,
         InputEvent::Bytes(b"x".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn reply_composer_typing_keeps_claude_prompt_suppression() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    let mut running = true;
+
+    let detected = state.claude_prompt_detector.feed_output("❯ ".as_bytes());
+    assert!(detected);
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"hello".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn reply_composer_cancel_key_clears_claude_prompt_suppression() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    let mut running = true;
+
+    let detected = state.claude_prompt_detector.feed_output("❯ ".as_bytes());
+    assert!(detected);
+    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(vec![0x1b]),
         &mut running,
     );
 
