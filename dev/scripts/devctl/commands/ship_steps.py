@@ -17,6 +17,7 @@ from typing import Dict
 from ..common import confirm_or_abort, run_cmd
 from ..config import REPO_ROOT
 from .release_guard import check_release_version_parity
+from .release_prep import prepare_release_metadata
 from .ship_common import (
     changelog_has_version,
     internal_env,
@@ -27,10 +28,37 @@ from .ship_common import (
 )
 
 
+def run_prepare_release_step(args, context: Dict) -> Dict:
+    """Auto-update release metadata files before verify/tag/publish steps."""
+    try:
+        details = prepare_release_metadata(context["version"], dry_run=args.dry_run)
+    except RuntimeError as exc:
+        return make_step("prepare-release", False, 2, details={"reason": str(exc)})
+
+    return make_step(
+        "prepare-release",
+        True,
+        skipped=args.dry_run,
+        details=details,
+    )
+
+
+def _can_skip_parity_in_dry_run(args, parity_details: Dict) -> bool:
+    return (
+        args.dry_run
+        and getattr(args, "prepare_release", False)
+        and parity_details.get("reason") == "requested version does not match release metadata"
+    )
+
+
 def run_verify_step(args, context: Dict) -> Dict:
     """Run pre-release checks before tagging/publishing."""
     parity_ok, parity_details = check_release_version_parity(context["version"])
     if not parity_ok:
+        if _can_skip_parity_in_dry_run(args, parity_details):
+            details = dict(parity_details)
+            details["reason"] = "dry-run: parity precheck skipped because --prepare-release would update metadata"
+            return make_step("verify", True, skipped=True, details=details)
         return make_step("verify", False, 2, details=parity_details)
 
     checks = [
@@ -212,6 +240,10 @@ def run_pypi_step(args, context: Dict) -> Dict:
     """Publish to PyPI through the wrapper script with parity/CI safeguards."""
     parity_ok, parity_details = check_release_version_parity(context["version"])
     if not parity_ok:
+        if _can_skip_parity_in_dry_run(args, parity_details):
+            details = dict(parity_details)
+            details["reason"] = "dry-run: parity precheck skipped because --prepare-release would update metadata"
+            return make_step("pypi", True, skipped=True, details=details)
         return make_step("pypi", False, 2, details=parity_details)
 
     if os.environ.get("CI") and not args.allow_ci and not args.dry_run:
@@ -240,6 +272,10 @@ def run_homebrew_step(args, context: Dict) -> Dict:
     """Update Homebrew tap through the wrapper script with safeguards."""
     parity_ok, parity_details = check_release_version_parity(context["version"])
     if not parity_ok:
+        if _can_skip_parity_in_dry_run(args, parity_details):
+            details = dict(parity_details)
+            details["reason"] = "dry-run: parity precheck skipped because --prepare-release would update metadata"
+            return make_step("homebrew", True, skipped=True, details=details)
         return make_step("homebrew", False, 2, details=parity_details)
 
     if os.environ.get("CI") and not args.allow_ci and not args.dry_run:
@@ -289,6 +325,7 @@ def run_verify_pypi_step(args, context: Dict) -> Dict:
 
 
 STEP_HANDLERS = {
+    "prepare-release": run_prepare_release_step,
     "verify": run_verify_step,
     "tag": run_tag_step,
     "notes": run_notes_step,
