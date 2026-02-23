@@ -7,8 +7,8 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::theme::{
-    filled_indicator, overlay_close_symbol, overlay_move_hint, overlay_separator, Theme,
-    ThemeColors,
+    filled_indicator, overlay_close_symbol, overlay_move_hint, overlay_separator,
+    resolved_overlay_border_set, Theme, ThemeColors,
 };
 
 /// Theme options with labels and descriptions.
@@ -54,7 +54,8 @@ pub fn format_theme_picker(
     locked_theme: Option<Theme>,
 ) -> String {
     let display_theme = locked_theme.unwrap_or(current_theme);
-    let colors = display_theme.colors();
+    let mut colors = display_theme.colors();
+    colors.borders = resolved_overlay_border_set(display_theme);
     let borders = &colors.borders;
     let show_theme_preview = display_theme != Theme::None;
     let is_locked = locked_theme.is_some();

@@ -41,7 +41,10 @@ pub(crate) use runtime_overrides::{
     RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
     RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
 };
-pub(crate) use style_pack::{runtime_style_pack_overrides, set_runtime_style_pack_overrides};
+pub(crate) use style_pack::{
+    resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
+    set_runtime_style_pack_overrides,
+};
 #[cfg(test)]
 pub(crate) use style_schema::StylePackFieldId;
 
@@ -651,6 +654,7 @@ mod tests {
             "src/bin/voiceterm/theme/borders.rs",
             "src/bin/voiceterm/theme/palettes.rs",
             "src/bin/voiceterm/theme/style_pack.rs",
+            "src/bin/voiceterm/theme/style_pack/tests.rs",
             "src/bin/voiceterm/status_line/format.rs",
         ];
 

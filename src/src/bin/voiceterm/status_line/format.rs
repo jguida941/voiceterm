@@ -7,8 +7,8 @@ use crate::config::{HudBorderStyle, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{
-    filled_indicator, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE,
-    BORDER_ROUNDED, BORDER_SINGLE,
+    filled_indicator, resolved_hud_border_set, BorderSet, Theme, ThemeColors, BORDER_DOUBLE,
+    BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 use super::animation::{get_processing_spinner, recording_pulse_on, transition_marker};
@@ -187,7 +187,8 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
         return StatusBanner::new(Vec::new());
     }
 
-    let colors = theme.colors();
+    let mut colors = theme.colors();
+    colors.borders = resolved_hud_border_set(theme);
     let effective_hud_style = effective_hud_style_for_state(state);
     let borders = resolve_hud_border_set(state, &colors.borders);
     let borderless =

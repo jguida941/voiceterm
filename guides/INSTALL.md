@@ -281,6 +281,7 @@ First-run control note (current behavior):
 - `Ctrl+R` starts/stops recording.
 - `Ctrl+E` finalizes active recording early in `insert` mode and stages text (it does not send Enter).
 - In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
+- If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD only when border mode is `theme`.
 
 ## Optional: Macro Wizard
 

@@ -5,7 +5,10 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::status_line::Pipeline;
-use crate::theme::{overlay_row_marker, overlay_slider_knob, overlay_slider_track, ThemeColors};
+use crate::theme::{
+    overlay_row_marker, overlay_slider_knob, overlay_slider_track, resolved_overlay_border_set,
+    ThemeColors,
+};
 
 use super::items::{
     settings_overlay_footer, settings_overlay_width_for_terminal, SettingsItem, SettingsView,
@@ -13,7 +16,8 @@ use super::items::{
 };
 
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
-    let colors = view.theme.colors();
+    let mut colors = view.theme.colors();
+    colors.borders = resolved_overlay_border_set(view.theme);
     let borders = &colors.borders;
     let mut lines = Vec::new();
     let content_width = settings_overlay_width_for_terminal(width);

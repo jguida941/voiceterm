@@ -132,6 +132,14 @@ and errors), not transcript rows.
 If borders or row widths look uneven in `Ctrl+N`, update to the latest release.
 Recent builds fixed toast-history row width accounting for mixed glyph/color themes.
 
+### Style-pack HUD border override does not apply
+
+`components.hud_border` from `VOICETERM_STYLE_PACK_JSON` only applies when HUD border mode is `theme`.
+
+1. Check current HUD border mode (`Ctrl+Y` -> `HUD borders`) or launch flag (`--hud-border-style`).
+2. Set HUD borders to `theme` if you want style-pack `components.hud_border` to drive the Full HUD border set.
+3. If you need fixed borders regardless of style-pack, keep `single`/`rounded`/`double`/`heavy`/`none`.
+
 ### Session memory file is missing
 
 The markdown session-memory log is opt-in.

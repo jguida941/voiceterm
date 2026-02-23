@@ -137,6 +137,10 @@ voiceterm --mic-meter
 voiceterm --logs
 ```
 
+Style-pack note:
+
+- `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays and `components.hud_border` for Full HUD when border style is `theme`.
+
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 
 ## 7) Need help?

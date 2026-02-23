@@ -10,7 +10,7 @@ use crate::config::OverlayConfig;
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
-use crate::theme::{BorderSet, Theme, ThemeColors};
+use crate::theme::{resolved_overlay_border_set, BorderSet, Theme, ThemeColors};
 
 const MIN_HELP_WIDTH: usize = 72;
 const MAX_HELP_WIDTH: usize = 120;
@@ -214,7 +214,8 @@ pub(crate) fn print_themed_help(theme: Theme) {
 }
 
 pub(crate) fn render_themed_help(theme: Theme) -> String {
-    let colors = help_palette(theme.colors());
+    let mut colors = help_palette(theme.colors());
+    colors.borders = resolved_overlay_border_set(theme);
     let borders = &colors.borders;
     let section_color = help_section_color(&colors);
     let flag_color = help_flag_color(&colors);

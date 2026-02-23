@@ -160,6 +160,7 @@ types the result into your AI CLI input.
 - **Notification history**: use `Ctrl+N` to review recent status notifications
 - **Saved settings**: keeps your settings in `~/.config/voiceterm/config.toml`
 - **Built-in themes**: 11 themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, and Gruvbox
+- **Style-pack border routing**: `VOICETERM_STYLE_PACK_JSON` supports `components.overlay_border` and `components.hud_border` (HUD applies when border mode is `theme`)
 
 For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
 

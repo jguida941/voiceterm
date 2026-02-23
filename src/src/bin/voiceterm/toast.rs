@@ -11,8 +11,9 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_top, truncate_display,
 };
 use crate::theme::{
-    overlay_close_symbol, overlay_separator, runtime_style_pack_overrides, BorderSet, GlyphSet,
-    RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride, Theme, ThemeColors,
+    overlay_close_symbol, overlay_separator, resolved_overlay_border_set,
+    runtime_style_pack_overrides, BorderSet, GlyphSet, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, Theme, ThemeColors,
 };
 
 /// Maximum number of toasts kept in the history ring.
@@ -307,7 +308,8 @@ pub(crate) fn format_toast_history_overlay(
     width: usize,
 ) -> String {
     let width = width.max(4);
-    let colors = theme.colors();
+    let mut colors = theme.colors();
+    colors.borders = resolved_overlay_border_set(theme);
     let borders = &colors.borders;
     let sep = overlay_separator(colors.glyph_set);
     let close_sym = overlay_close_symbol(colors.glyph_set);

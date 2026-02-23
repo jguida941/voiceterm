@@ -7,11 +7,11 @@ use crate::overlay_frame::{
 #[cfg(test)]
 use crate::theme::StylePackFieldId;
 use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBannerStyleOverride,
-    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
-    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStartupStyleOverride,
-    RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
-    Theme, ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_separator, resolved_overlay_border_set,
+    RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
+    RuntimeStartupStyleOverride, RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
+    RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,7 +116,8 @@ pub(crate) fn theme_studio_item_at(index: usize) -> ThemeStudioItem {
 }
 
 pub(crate) fn format_theme_studio(view: &ThemeStudioView, width: usize) -> String {
-    let colors = view.theme.colors();
+    let mut colors = view.theme.colors();
+    colors.borders = resolved_overlay_border_set(view.theme);
     let borders = &colors.borders;
     let total_width = theme_studio_total_width_for_terminal(width);
     let inner_width = total_width.saturating_sub(2);

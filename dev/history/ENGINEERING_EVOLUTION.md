@@ -299,6 +299,32 @@ Inference: Theme Studio parity moved beyond visual-profile toggles into explicit
 voice-scene behavior controls, reducing hardcoded status-line behavior outside
 Studio ownership.
 
+### Recent Governance Update (2026-02-23, Theme Studio Border Routing)
+
+Fact: Theme Studio style-pack resolver routing was extended so component-level
+border overrides now apply at runtime for both overlay surfaces and Full HUD.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-174` in-progress note now includes
+  resolver-based routing for `components.overlay_border` and
+  `components.hud_border`)
+- `src/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
+  overlay/HUD component border sets)
+- `src/src/bin/voiceterm/help.rs`,
+  `src/src/bin/voiceterm/settings/render.rs`,
+  `src/src/bin/voiceterm/theme_picker.rs`,
+  `src/src/bin/voiceterm/theme_studio.rs`,
+  `src/src/bin/voiceterm/toast.rs`,
+  `src/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
+  overlay border set)
+- `src/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
+  HUD border set when HUD border mode is `theme`)
+
+Inference: Component-border style-pack fields moved from parse-only schema
+coverage into live renderer ownership, reducing residual visual paths outside
+Theme Studio control.
+
 ### Recent Governance Update (2026-02-20, Senior Engineering Audit Track)
 
 Fact: The project established a measurable senior-level engineering audit
