@@ -7,7 +7,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
-_No entries yet._
+### UX
+
+- Improve wake-word alias matching for common Whisper token splits so wake phrases still trigger when transcripts come through as `code x` or `voice term`.
+- Fix wake-trigger capture origin labeling so logs/status now report `wake-word` instead of `manual` when wake detection starts recording.
+- Make the Full HUD `Wake: ON` badge steady (remove pulse redraw) so wake state no longer appears to flicker on/off.
+- Reduce wake-listener microphone stream churn by extending wake detection capture windows, which lowers frequent mic indicator flapping on macOS.
+
+### Documentation
+
+- Update wake-word troubleshooting guidance with expanded accepted phrase variants (`code x`, `voice term`) for faster field debugging.
 
 ## [1.0.88] - 2026-02-22
 

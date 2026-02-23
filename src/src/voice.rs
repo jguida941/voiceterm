@@ -13,13 +13,15 @@ use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Instant;
 
-/// Shows whether capture was started manually or by auto mode.
+/// Shows what initiated voice capture.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum VoiceCaptureTrigger {
     /// User explicitly pressed the recording hotkey.
     Manual,
     /// Auto-voice triggered capture based on prompt detection.
     Auto,
+    /// Wake-word detection triggered capture.
+    WakeWord,
 }
 
 /// Handle the UI uses to poll the worker thread for results.

@@ -307,10 +307,15 @@ fn start_capture_for_trigger(
     deps: &mut EventLoopDeps,
     origin: VoiceTriggerOrigin,
 ) {
-    let trigger = if state.auto_voice_enabled {
-        VoiceCaptureTrigger::Auto
-    } else {
-        VoiceCaptureTrigger::Manual
+    let trigger = match origin {
+        VoiceTriggerOrigin::WakeWord => VoiceCaptureTrigger::WakeWord,
+        VoiceTriggerOrigin::ManualHotkey => {
+            if state.auto_voice_enabled {
+                VoiceCaptureTrigger::Auto
+            } else {
+                VoiceCaptureTrigger::Manual
+            }
+        }
     };
     if let Err(err) = start_voice_capture_with_hook(
         &mut deps.voice_manager,

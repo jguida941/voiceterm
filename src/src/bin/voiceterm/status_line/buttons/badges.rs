@@ -1,7 +1,6 @@
 use crate::config::LatencyDisplayMode;
 use crate::theme::ThemeColors;
 
-use super::super::animation::recording_pulse_on;
 use super::super::state::{RecordingState, StatusLineState, WakeWordHudState};
 
 // Speech-relative STT speed bands (RTF scaled by 1000, e.g. 250 => 0.25x realtime).
@@ -16,16 +15,7 @@ pub(super) fn format_queue_badge(state: &StatusLineState, colors: &ThemeColors) 
 pub(super) fn format_wake_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
     match state.wake_word_state {
         WakeWordHudState::Off => None,
-        WakeWordHudState::Listening => {
-            // Keep a calm baseline, then pulse into a brighter accent so listening
-            // is visible without looking "always hot".
-            let (color, emphasis) = if recording_pulse_on() {
-                (colors.success, "\x1b[1m")
-            } else {
-                (colors.border, "")
-            };
-            Some(format!("{color}{emphasis}Wake: ON{}", colors.reset))
-        }
+        WakeWordHudState::Listening => Some(format!("{}Wake: ON{}", colors.success, colors.reset)),
         WakeWordHudState::Paused => Some(format!("{}Wake: PAUSED{}", colors.warning, colors.reset)),
         WakeWordHudState::Unavailable => Some(format!("{}Wake: ERR{}", colors.error, colors.reset)),
     }

@@ -28,6 +28,7 @@ use crate::wake_word::WakeWordRuntime;
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
+    static LAST_CAPTURE_TRIGGER: Cell<Option<VoiceCaptureTrigger>> = const { Cell::new(None) };
     static EARLY_STOP_CALLS: Cell<usize> = const { Cell::new(0) };
     static CANCEL_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
     static WAKE_CAPTURE_LOG_CALLS: Cell<usize> = const { Cell::new(0) };
@@ -73,12 +74,14 @@ impl Drop for StartCaptureHookGuard {
     fn drop(&mut self) {
         set_start_capture_hook(None);
         START_CAPTURE_CALLS.with(|calls| calls.set(0));
+        LAST_CAPTURE_TRIGGER.with(|trigger| trigger.set(None));
     }
 }
 
 fn install_start_capture_hook(hook: StartCaptureHook) -> StartCaptureHookGuard {
     set_start_capture_hook(Some(hook));
     START_CAPTURE_CALLS.with(|calls| calls.set(0));
+    LAST_CAPTURE_TRIGGER.with(|trigger| trigger.set(None));
     StartCaptureHookGuard
 }
 
@@ -226,13 +229,14 @@ fn hook_terminal_size_80x24() -> io::Result<(u16, u16)> {
 
 fn hook_start_capture_count(
     _: &mut crate::voice_control::VoiceManager,
-    _: VoiceCaptureTrigger,
+    trigger: VoiceCaptureTrigger,
     _: &crossbeam_channel::Sender<WriterMessage>,
     _: &mut Option<Instant>,
     _: &mut Option<String>,
     _: &mut crate::status_line::StatusLineState,
 ) -> anyhow::Result<()> {
     START_CAPTURE_CALLS.with(|calls| calls.set(calls.get() + 1));
+    LAST_CAPTURE_TRIGGER.with(|last| last.set(Some(trigger)));
     Ok(())
 }
 
@@ -1420,6 +1424,9 @@ fn wake_word_detection_starts_capture_via_shared_trigger_path() {
     input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    LAST_CAPTURE_TRIGGER.with(|last| {
+        assert_eq!(last.get(), Some(VoiceCaptureTrigger::WakeWord));
+    });
 }
 
 #[test]
@@ -1892,50 +1899,7 @@ fn run_periodic_tasks_heartbeat_only_runs_for_heartbeat_panel() {
 }
 
 #[test]
-fn run_periodic_tasks_wake_badge_pulse_refreshes_full_hud_when_interval_elapsed() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    while writer_rx.try_recv().is_ok() {}
-    deps.wake_word_runtime
-        .set_listener_active_override_for_tests(Some(true));
-
-    let now = Instant::now();
-    state.config.wake_word = true;
-    state.status_state.hud_style = HudStyle::Full;
-    state.status_state.wake_word_state = WakeWordHudState::Listening;
-    timers.last_wake_hud_tick = now - Duration::from_secs(1);
-
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert_eq!(timers.last_wake_hud_tick, now);
-    assert!(
-        writer_rx.try_recv().is_ok(),
-        "expected wake-badge pulse redraw when interval elapsed"
-    );
-}
-
-#[test]
-fn run_periodic_tasks_wake_badge_pulse_waits_for_interval() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    while writer_rx.try_recv().is_ok() {}
-    deps.wake_word_runtime
-        .set_listener_active_override_for_tests(Some(true));
-
-    let now = Instant::now();
-    state.config.wake_word = true;
-    state.status_state.hud_style = HudStyle::Full;
-    state.status_state.wake_word_state = WakeWordHudState::Listening;
-    timers.last_wake_hud_tick = now - Duration::from_millis(100);
-    let prior_tick = timers.last_wake_hud_tick;
-
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert_eq!(timers.last_wake_hud_tick, prior_tick);
-    assert!(
-        writer_rx.try_recv().is_err(),
-        "no wake-badge redraw expected before pulse interval"
-    );
-}
-
-#[test]
-fn run_periodic_tasks_wake_badge_pulse_ticks_at_exact_interval_boundary() {
+fn run_periodic_tasks_wake_badge_does_not_pulse_redraw_while_listening() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
     deps.wake_word_runtime
@@ -1946,29 +1910,6 @@ fn run_periodic_tasks_wake_badge_pulse_ticks_at_exact_interval_boundary() {
     state.overlay_mode = OverlayMode::None;
     state.status_state.hud_style = HudStyle::Full;
     state.status_state.wake_word_state = WakeWordHudState::Listening;
-    timers.last_wake_hud_tick = now - Duration::from_millis(420);
-
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-
-    assert_eq!(timers.last_wake_hud_tick, now);
-    assert!(
-        writer_rx.try_recv().is_ok(),
-        "expected wake badge redraw at exact pulse interval boundary"
-    );
-}
-
-#[test]
-fn run_periodic_tasks_wake_badge_skips_when_hud_not_full() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    while writer_rx.try_recv().is_ok() {}
-    deps.wake_word_runtime
-        .set_listener_active_override_for_tests(Some(true));
-
-    let now = Instant::now();
-    state.config.wake_word = true;
-    state.overlay_mode = OverlayMode::None;
-    state.status_state.hud_style = HudStyle::Minimal;
-    state.status_state.wake_word_state = WakeWordHudState::Listening;
     timers.last_wake_hud_tick = now - Duration::from_secs(1);
     let prior_tick = timers.last_wake_hud_tick;
 
@@ -1977,31 +1918,7 @@ fn run_periodic_tasks_wake_badge_skips_when_hud_not_full() {
     assert_eq!(timers.last_wake_hud_tick, prior_tick);
     assert!(
         writer_rx.try_recv().is_err(),
-        "no wake-badge redraw expected for non-full HUD styles"
-    );
-}
-
-#[test]
-fn run_periodic_tasks_wake_badge_skips_when_overlay_is_open() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    while writer_rx.try_recv().is_ok() {}
-    deps.wake_word_runtime
-        .set_listener_active_override_for_tests(Some(true));
-
-    let now = Instant::now();
-    state.config.wake_word = true;
-    state.overlay_mode = OverlayMode::Settings;
-    state.status_state.hud_style = HudStyle::Full;
-    state.status_state.wake_word_state = WakeWordHudState::Listening;
-    timers.last_wake_hud_tick = now - Duration::from_secs(1);
-    let prior_tick = timers.last_wake_hud_tick;
-
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-
-    assert_eq!(timers.last_wake_hud_tick, prior_tick);
-    assert!(
-        writer_rx.try_recv().is_err(),
-        "no wake-badge redraw expected while an overlay is open"
+        "listening badge should stay steady without periodic pulse redraw"
     );
 }
 

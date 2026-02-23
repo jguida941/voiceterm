@@ -360,12 +360,15 @@ transcription, so setup issues can prevent detections.
 1. In Full HUD, confirm wake privacy status:
    - `Wake: ON` means always-listening is active.
    - `Wake: PAUSED` means wake listening is temporarily suspended while capture/transcription is active.
+   - `Wake: ON` is now a steady badge (no pulse blink), so visual state matches runtime state.
+   - macOS microphone indicator (`orange dot`) can still blink during internal wake-listener capture cycles; this is expected stream lifecycle behavior, not a wake toggle-off event.
 2. Confirm expected values in Settings (`Ctrl+O`) or via
    `--wake-word-sensitivity` / `--wake-word-cooldown-ms`.
 3. Confirm a local Whisper model path is configured and usable in your install.
 4. Try moderate sensitivity first (for example `0.55` to `0.70`), then retest.
 5. Use expected wake phrases (`hey codex`, `ok codex`, `hey claude`, or
    `voiceterm`) and speak clearly near the mic.
+   Common transcript variants like `code x` and `voice term` are accepted.
 6. If this persists, keep using `Ctrl+R` / `Ctrl+E` controls and share logs
    (`voiceterm --logs`).
 

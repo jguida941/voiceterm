@@ -25,7 +25,9 @@ const WAKE_LISTENER_JOIN_POLL_MS: u64 = 5;
 const WAKE_LISTENER_JOIN_TIMEOUT_MS: u64 = 1000;
 const WAKE_LISTENER_RETRY_BACKOFF_MS: u64 = 1500;
 
-const WAKE_CAPTURE_MAX_MS: u64 = 1200;
+// Keep the wake listener stream open longer to avoid frequent OS-level
+// microphone indicator flapping caused by rapid open/close cycles.
+const WAKE_CAPTURE_MAX_MS: u64 = 8000;
 const WAKE_CAPTURE_SILENCE_TAIL_MS: u64 = 220;
 const WAKE_CAPTURE_MIN_SPEECH_MS: u64 = 120;
 const WAKE_CAPTURE_LOOKBACK_MS: u64 = 200;
@@ -493,13 +495,41 @@ fn contains_hotword_phrase(normalized: &str) -> bool {
     if normalized.is_empty() {
         return false;
     }
-    let haystack_tokens: Vec<&str> = normalized.split_whitespace().collect();
-    if haystack_tokens.is_empty() || haystack_tokens.len() > WAKE_MAX_TRANSCRIPT_TOKENS {
+    let raw_tokens: Vec<&str> = normalized.split_whitespace().collect();
+    if raw_tokens.is_empty() {
         return false;
     }
+    let canonical_tokens = canonicalize_hotword_tokens(&raw_tokens);
+    if canonical_tokens.len() > WAKE_MAX_TRANSCRIPT_TOKENS {
+        return false;
+    }
+    let haystack_tokens: Vec<&str> = canonical_tokens.iter().map(String::as_str).collect();
     HOTWORD_PHRASES
         .iter()
         .any(|phrase| contains_hotword_window(&haystack_tokens, phrase))
+}
+
+#[must_use = "token canonicalization keeps wake matching resilient to common STT splits"]
+fn canonicalize_hotword_tokens(tokens: &[&str]) -> Vec<String> {
+    let mut canonical = Vec::with_capacity(tokens.len());
+    let mut idx = 0;
+    while idx < tokens.len() {
+        if idx + 1 < tokens.len() {
+            if tokens[idx] == "code" && tokens[idx + 1] == "x" {
+                canonical.push("codex".to_string());
+                idx += 2;
+                continue;
+            }
+            if tokens[idx] == "voice" && tokens[idx + 1] == "term" {
+                canonical.push("voiceterm".to_string());
+                idx += 2;
+                continue;
+            }
+        }
+        canonical.push(tokens[idx].to_string());
+        idx += 1;
+    }
+    canonical
 }
 
 #[must_use = "phrase match result is required for wake-word gating"]
@@ -595,13 +625,30 @@ mod tests {
     }
 
     #[test]
+    fn canonicalize_hotword_tokens_merges_common_split_aliases() {
+        let codex = canonicalize_hotword_tokens(&["hey", "code", "x", "now"]);
+        let codex_tokens: Vec<&str> = codex.iter().map(String::as_str).collect();
+        assert_eq!(codex_tokens, vec!["hey", "codex", "now"]);
+
+        let voiceterm = canonicalize_hotword_tokens(&["ok", "voice", "term", "start"]);
+        let voiceterm_tokens: Vec<&str> = voiceterm.iter().map(String::as_str).collect();
+        assert_eq!(voiceterm_tokens, vec!["ok", "voiceterm", "start"]);
+    }
+
+    #[test]
     fn contains_hotword_phrase_detects_supported_aliases() {
         assert!(contains_hotword_phrase("please hey codex start"));
+        assert!(contains_hotword_phrase("okay code x"));
         assert!(contains_hotword_phrase("okay claude"));
         assert!(contains_hotword_phrase("voiceterm"));
+        assert!(contains_hotword_phrase("hey voice term"));
+        assert!(contains_hotword_phrase("voice term start recording"));
         assert!(contains_hotword_phrase("voiceterm start recording"));
         assert!(!contains_hotword_phrase("hello codec"));
         assert!(!contains_hotword_phrase("random noise words"));
+        assert!(!contains_hotword_phrase(
+            "we should review the code x integration details"
+        ));
         assert!(!contains_hotword_phrase(
             "we should maybe hey codex after this meeting"
         ));

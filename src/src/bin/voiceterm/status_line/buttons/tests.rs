@@ -452,13 +452,7 @@ fn wake_badge_renders_theme_matched_on_and_paused_states() {
     state.wake_word_state = WakeWordHudState::Listening;
     let (on_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(on_row.contains("Wake: ON"));
-    assert!(
-        on_row.contains(&format!("{}Wake: ON{}", colors.border, colors.reset))
-            || on_row.contains(&format!(
-                "{}\u{1b}[1mWake: ON{}",
-                colors.success, colors.reset
-            ))
-    );
+    assert!(on_row.contains(&format!("{}Wake: ON{}", colors.success, colors.reset)));
 
     state.wake_word_state = WakeWordHudState::Paused;
     let (paused_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);

@@ -156,6 +156,7 @@ impl VoiceManager {
         let status = match trigger {
             VoiceCaptureTrigger::Manual => "manual",
             VoiceCaptureTrigger::Auto => "auto",
+            VoiceCaptureTrigger::WakeWord => "wake-word",
         };
         log_debug(&format!(
             "voice capture started ({status}) using {pipeline_label}"
@@ -280,6 +281,7 @@ pub(crate) fn start_voice_capture(
             let mode_label = match trigger {
                 VoiceCaptureTrigger::Manual => "Manual Mode",
                 VoiceCaptureTrigger::Auto => "Auto Mode",
+                VoiceCaptureTrigger::WakeWord => "Wake Word",
             };
             let mut status = format!("Listening {mode_label}");
             if let Some(note) = info.fallback_note {

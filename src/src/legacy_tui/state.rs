@@ -359,6 +359,11 @@ impl CodexApp {
                 self.config.seconds,
                 pipeline_label = pipeline_label
             ),
+            VoiceCaptureTrigger::WakeWord => format!(
+                "Recording voice for {} seconds... ({pipeline_label}, wake word)",
+                self.config.seconds,
+                pipeline_label = pipeline_label
+            ),
         };
         if let Some(note) = fallback_note {
             self.status.push(' ');
