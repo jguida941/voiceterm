@@ -9,6 +9,19 @@ Note: Some historical entries reference internal documents that are not publishe
 
 _No entries yet._
 
+## [1.0.90] - 2026-02-23
+
+### UX
+
+- Improve wake-word trigger reliability after first activation by allowing wake detections even when auto-voice idle re-arm is paused by user action.
+- Broaden actionable wake phrase matching when the wake phrase leads the transcript so natural command-style phrases (for example `hey codex ...`) are less likely to be missed.
+- Add built-in voice submit intents (`send`, `send message`, `submit`) that submit staged `insert`-mode text without keyboard input, including one-shot wake tails (`hey codex send` / `hey claude send`).
+- In `insert` mode, make `Ctrl+E` strictly finalize-only: it now requests early finalize while recording, never sends Enter, and shows explicit idle guidance (`Text staged; press Enter to send` / `Nothing to finalize`).
+
+### Runtime Hardening
+
+- Add wake-listener no-audio retry backoff to reduce rapid microphone open/close churn during transient no-sample capture failures.
+
 ## [1.0.89] - 2026-02-23
 
 ### UX

@@ -755,8 +755,8 @@ pub(crate) fn run_event_loop(
                 }
             }
             recv(wake_rx) -> wake_event => {
-                if wake_event.is_ok() {
-                    handle_wake_word_detection(state, timers, deps);
+                if let Ok(event) = wake_event {
+                    handle_wake_word_detection(state, timers, deps, event);
                 }
             }
             default(select_timeout) => {}

@@ -19,6 +19,7 @@ use super::STATUS_TOAST_SECS;
 pub(super) enum VoiceNavigationAction {
     ScrollUp,
     ScrollDown,
+    SendStagedInput,
     CopyLastError,
     ShowLastError,
     ExplainLastError,
@@ -27,14 +28,22 @@ pub(super) enum VoiceNavigationAction {
 pub(super) fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigationAction> {
     let normalized = text
         .split_whitespace()
+        .filter_map(|token| {
+            let cleaned = token.trim_matches(|c: char| !c.is_ascii_alphanumeric());
+            if cleaned.is_empty() {
+                None
+            } else {
+                Some(cleaned.to_ascii_lowercase())
+            }
+        })
         .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_lowercase();
+        .join(" ");
     match normalized.as_str() {
         "scroll up" | "voice scroll up" | "page up" => Some(VoiceNavigationAction::ScrollUp),
         "scroll down" | "voice scroll down" | "page down" => {
             Some(VoiceNavigationAction::ScrollDown)
         }
+        "send" | "send message" | "submit" => Some(VoiceNavigationAction::SendStagedInput),
         "copy last error" | "copy the last error" => Some(VoiceNavigationAction::CopyLastError),
         "show last error" | "what was the last error" => Some(VoiceNavigationAction::ShowLastError),
         "explain last error" | "explain the last error" => {
@@ -118,6 +127,46 @@ pub(super) fn execute_voice_navigation_action<S: TranscriptSession>(
     status_state: &mut StatusLineState,
 ) -> bool {
     match action {
+        VoiceNavigationAction::SendStagedInput => {
+            if !status_state.insert_pending_send {
+                set_status(
+                    writer_tx,
+                    status_clear_deadline,
+                    current_status,
+                    status_state,
+                    "Nothing to send",
+                    Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                );
+                return false;
+            }
+            match session.send_text("\r") {
+                Ok(()) => {
+                    status_state.insert_pending_send = false;
+                    status_state.recording_state = RecordingState::Responding;
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command: send",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                    true
+                }
+                Err(err) => {
+                    log_debug(&format!("voice command send failed: {err:#}"));
+                    set_status(
+                        writer_tx,
+                        status_clear_deadline,
+                        current_status,
+                        status_state,
+                        "Voice command failed: send",
+                        Some(Duration::from_secs(STATUS_TOAST_SECS)),
+                    );
+                    false
+                }
+            }
+        }
         VoiceNavigationAction::ScrollUp => match session.send_text("\u{1b}[5~") {
             Ok(()) => {
                 set_status(
@@ -307,6 +356,18 @@ mod tests {
             Some(VoiceNavigationAction::ScrollDown)
         );
         assert_eq!(
+            parse_voice_navigation_action("send message"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("send."),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("submit"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
             parse_voice_navigation_action("copy last error"),
             Some(VoiceNavigationAction::CopyLastError)
         );
@@ -324,6 +385,7 @@ mod tests {
     #[test]
     fn resolve_voice_navigation_action_skips_builtins_when_macro_matched() {
         assert_eq!(resolve_voice_navigation_action("scroll up", true), None);
+        assert_eq!(resolve_voice_navigation_action("send", true), None);
         assert_eq!(
             resolve_voice_navigation_action("voice scroll up", false),
             Some(VoiceNavigationAction::ScrollUp)
@@ -353,6 +415,59 @@ mod tests {
         assert!(!sent_newline);
         assert_eq!(session.sent, vec!["\u{1b}[5~".to_string()]);
         assert!(status_state.message.contains("scroll up"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_send_submits_staged_insert_text() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        status_state.insert_pending_send = true;
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"ready\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::SendStagedInput,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(sent_newline);
+        assert_eq!(session.sent, vec!["\r".to_string()]);
+        assert_eq!(status_state.recording_state, RecordingState::Responding);
+        assert!(!status_state.insert_pending_send);
+        assert!(status_state.message.contains("Voice command: send"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_send_without_staged_text_sets_status() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"ready\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::SendStagedInput,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(!sent_newline);
+        assert!(session.sent.is_empty());
+        assert!(status_state.message.contains("Nothing to send"));
     }
 
     #[test]

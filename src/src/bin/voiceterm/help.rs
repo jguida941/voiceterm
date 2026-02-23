@@ -20,7 +20,7 @@ const RECORDING_SHORTCUTS: &[Shortcut] = &[
     },
     Shortcut {
         key: "Ctrl+E",
-        description: "Send staged text / stop+submit (insert mode)",
+        description: "Finalize capture (stage text only, no send)",
     },
 ];
 

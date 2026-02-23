@@ -361,16 +361,35 @@ transcription, so setup issues can prevent detections.
    - `Wake: ON` means always-listening is active.
    - `Wake: PAUSED` means wake listening is temporarily suspended while capture/transcription is active.
    - `Wake: ON` is now a steady badge (no pulse blink), so visual state matches runtime state.
-   - macOS microphone indicator (`orange dot`) can still blink during internal wake-listener capture cycles; this is expected stream lifecycle behavior, not a wake toggle-off event.
+   - macOS microphone indicator (`orange dot`) can still blink briefly during internal wake-listener capture cycles; that does not mean wake mode toggled off.
 2. Confirm expected values in Settings (`Ctrl+O`) or via
    `--wake-word-sensitivity` / `--wake-word-cooldown-ms`.
 3. Confirm a local Whisper model path is configured and usable in your install.
 4. Try moderate sensitivity first (for example `0.55` to `0.70`), then retest.
 5. Use expected wake phrases (`hey codex`, `ok codex`, `hey claude`, or
    `voiceterm`) and speak clearly near the mic.
-   Common transcript variants like `code x` and `voice term` are accepted.
+   Common transcript variants like `code x` and `voice term` are accepted, and leading command tails (`hey codex ...`) are supported.
 6. If this persists, keep using `Ctrl+R` / `Ctrl+E` controls and share logs
    (`voiceterm --logs`).
+
+### Voice `send` does nothing / `Nothing to send`
+
+The built-in `send` / `send message` / `submit` phrases only submit staged text
+in `insert` send mode.
+
+1. Confirm send mode is `insert` (`Ctrl+T`).
+2. Dictate text first so staged input exists, then say `send`.
+3. Wake-tail submit also works: `hey codex send` / `hey claude send`.
+   It submits staged text in `insert` mode.
+4. If no staged text exists in `insert` mode, `send` will show `Nothing to send`.
+
+### Ctrl+E behavior feels inconsistent
+
+`Ctrl+E` is finalize-only in `insert` mode.
+
+1. While recording, `Ctrl+E` requests early finalize so transcript text lands in the input box sooner.
+2. It does not send Enter to the backend.
+3. When you are ready to submit, press Enter (or use wake-tail submit like `hey codex send`).
 
 ### Transcript queued (N)
 

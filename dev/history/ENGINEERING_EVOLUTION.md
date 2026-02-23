@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-02-23
 
 ## At a Glance
 
@@ -439,6 +439,31 @@ Evidence:
 Inference: Process-leak handling moved from manual triage to default-safe
 maintenance behavior in the primary verification command, reducing repeated
 CPU/disk churn incidents during heavy multi-agent test cycles.
+
+### Recent Governance Update (2026-02-23, Wake/Send Runtime Semantics)
+
+Fact: Wake-word and insert-mode send behavior were tightened so voice-first
+submission flow is explicit and less error-prone under noisy runtime
+conditions.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-280`, `MP-281` completed)
+- `src/src/bin/voiceterm/wake_word.rs` and
+  `src/src/bin/voiceterm/wake_word/tests.rs` (alias normalization expansion,
+  wake-event classification, no-audio retry backoff)
+- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` (wake-trigger handling
+  decoupled from auto-voice pause latch, insert-mode `Ctrl+E` finalize-only
+  semantics, wake-tail send intent routing)
+- `src/src/bin/voiceterm/voice_control/navigation.rs` (built-in voice submit
+  intents: `send`, `send message`, `submit`)
+- User docs updated for control behavior: `README.md`, `QUICK_START.md`,
+  `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`,
+  `guides/TROUBLESHOOTING.md`
+
+Inference: Runtime now separates "finalize capture" from "submit prompt"
+cleanly in insert mode while keeping wake detection resilient to common STT
+aliasing (`code x`, `codecs`, `kodak`) and transient no-audio capture churn.
 
 ### Replay the Evidence Quickly
 

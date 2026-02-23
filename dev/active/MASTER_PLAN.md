@@ -311,6 +311,8 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-277 Expand wake-word matcher alias normalization for common STT token-split variants (`code x` -> `codex`, `voice term` -> `voiceterm`) while preserving short-utterance guardrails and updating troubleshooting phrase guidance.
 - [x] MP-278 Correct wake-trigger capture origin labeling end-to-end so wake-detected recordings flow through the shared capture path with explicit `WakeWord` trigger semantics (logs/status no longer misreport wake-initiated captures as manual starts).
 - [x] MP-279 Reduce wake-state confusion and listener churn: keep `Wake: ON` badge styling steady (no pulse redraw), remove periodic wake-badge animation ticks, and extend wake-listener capture windows to reduce frequent microphone open/close cycling on macOS.
+- [x] MP-280 Harden wake re-arm reliability after first trigger by decoupling wake detections from the auto-voice pause latch, allowing longer command tails when wake phrases lead the transcript, and adding no-audio retry backoff to reduce rapid microphone indicator churn on transient capture failures.
+- [x] MP-281 Add built-in voice submit intents for insert mode (`send`, `send message`, `submit`) so staged transcripts can be submitted hands-free through the same newline path as Enter, including one-shot wake tails (`hey codex send` / `hey claude send`).
 
 ## Phase 3D - Memory + Action Studio (Planning Track)
 

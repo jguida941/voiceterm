@@ -23,7 +23,7 @@ use crate::theme::{
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
-use crate::wake_word::WakeWordRuntime;
+use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
@@ -1421,7 +1421,12 @@ fn wake_word_detection_starts_capture_via_shared_trigger_path() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.wake_word = true;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
     LAST_CAPTURE_TRIGGER.with(|last| {
@@ -1436,7 +1441,12 @@ fn wake_word_detection_logs_wake_capture_marker() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.wake_word = true;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
     WAKE_CAPTURE_LOG_CALLS.with(|calls| assert_eq!(calls.get(), 1));
@@ -1469,21 +1479,76 @@ fn wake_word_detection_is_ignored_while_recording() {
     state.config.wake_word = true;
     state.status_state.recording_state = RecordingState::Recording;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
-fn wake_word_detection_is_ignored_when_auto_voice_is_paused_by_user() {
+fn wake_word_detection_still_triggers_when_auto_voice_is_paused_by_user() {
     let _capture = install_start_capture_hook(hook_start_capture_count);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.wake_word = true;
+    state.auto_voice_enabled = true;
+    state.status_state.auto_voice_enabled = true;
+    state.status_state.voice_mode = VoiceMode::Auto;
     state.auto_voice_paused_by_user = true;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
-    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(
+        !state.auto_voice_paused_by_user,
+        "wake trigger should resume auto mode after manual pause"
+    );
+}
+
+#[test]
+fn wake_word_send_intent_submits_staged_insert_text() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = true;
+
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::SendStagedInput,
+    );
+
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(!state.status_state.insert_pending_send);
+}
+
+#[test]
+fn wake_word_send_intent_without_staged_text_sets_status() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.wake_word = true;
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = false;
+
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::SendStagedInput,
+    );
+
+    assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
 }
 
 #[test]
@@ -1581,7 +1646,12 @@ fn wake_word_detection_while_recording_does_not_use_cancel_capture_path() {
     state.config.wake_word = true;
     state.status_state.recording_state = RecordingState::Recording;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     assert_eq!(
         state.status_state.recording_state,
@@ -1597,7 +1667,12 @@ fn wake_word_detection_is_ignored_when_disabled() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.wake_word = false;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
@@ -1609,7 +1684,12 @@ fn wake_word_detection_is_ignored_when_overlay_is_open() {
     state.config.wake_word = true;
     state.overlay_mode = OverlayMode::Settings;
 
-    input_dispatch::handle_wake_word_detection(&mut state, &mut timers, &mut deps);
+    input_dispatch::handle_wake_word_detection(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        WakeWordEvent::Detected,
+    );
 
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
@@ -2232,7 +2312,7 @@ fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
 
     assert!(running);
     assert_eq!(state.overlay_mode, OverlayMode::None);
-    assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
+    assert_eq!(state.current_status.as_deref(), Some("Nothing to finalize"));
 }
 
 #[test]
@@ -3749,7 +3829,7 @@ fn hidden_open_mouse_click_expands_collapsed_launcher_and_emits_status_redraw() 
 }
 
 #[test]
-fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_while_recording() {
+fn run_event_loop_ctrl_e_with_pending_insert_text_finalizes_without_sending_while_recording() {
     let _hook = install_try_send_hook(hook_count_writes);
     let _early_stop = install_request_early_stop_hook(hook_request_early_stop_true);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
@@ -3765,15 +3845,15 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_while_record
 
     run_event_loop(&mut state, &mut timers, &mut deps);
 
-    EARLY_STOP_CALLS.with(|calls| assert_eq!(calls.get(), 0));
-    assert!(timers.last_enter_at.is_some());
-    assert!(!state.status_state.insert_pending_send);
+    EARLY_STOP_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(timers.last_enter_at.is_none());
+    assert!(state.status_state.insert_pending_send);
     assert_eq!(
         state.status_state.recording_state,
-        RecordingState::Recording
+        RecordingState::Processing
     );
     assert!(!state.force_send_on_next_transcript);
-    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
@@ -3799,11 +3879,11 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_requests_early_finalize() {
         state.status_state.recording_state,
         RecordingState::Processing
     );
-    assert!(state.force_send_on_next_transcript);
+    assert!(!state.force_send_on_next_transcript);
 }
 
 #[test]
-fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_outside_recording() {
+fn run_event_loop_ctrl_e_with_pending_insert_text_outside_recording_keeps_text_staged() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
@@ -3818,15 +3898,19 @@ fn run_event_loop_ctrl_e_with_pending_insert_text_sends_immediately_outside_reco
 
     run_event_loop(&mut state, &mut timers, &mut deps);
 
-    assert!(timers.last_enter_at.is_some());
-    assert!(!state.status_state.insert_pending_send);
+    assert!(timers.last_enter_at.is_none());
+    assert!(state.status_state.insert_pending_send);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     assert!(!state.force_send_on_next_transcript);
-    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert_eq!(
+        state.current_status.as_deref(),
+        Some("Text staged; press Enter to send")
+    );
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
-fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_send() {
+fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_finalize() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
@@ -3845,7 +3929,7 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_send() {
     assert!(!state.status_state.insert_pending_send);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     assert!(!state.force_send_on_next_transcript);
-    assert_eq!(state.current_status.as_deref(), Some("Nothing to send"));
+    assert_eq!(state.current_status.as_deref(), Some("Nothing to finalize"));
     HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 

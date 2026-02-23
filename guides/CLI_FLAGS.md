@@ -66,6 +66,8 @@ Wake status labels in Full HUD:
 - `Wake: ON` - listener active (steady badge in Full HUD)
 - `Wake: PAUSED` - listener intentionally paused during active capture/transcription
 - `Wake: ERR` - listener startup failed; check status/log-path message
+- Wake-word triggers are explicit input and remain available even if auto-voice idle rearm was paused by the user.
+- Built-in voice command phrases include `send` / `send message` / `submit` to submit staged text in `insert` send mode.
 
 ---
 

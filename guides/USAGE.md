@@ -74,7 +74,7 @@ flowchart TD
     F --> G
     G --> H{"Send mode"}
     H -->|auto| I["Submit (Enter)"]
-    H -->|insert| J["Wait for Enter or Ctrl+E"]
+    H -->|insert| J["Wait for Enter (Ctrl+E finalizes capture only)"]
 ```
 
 Flow:
@@ -96,7 +96,7 @@ Flow:
 | Key | Action |
 |-----|--------|
 | `Ctrl+R` | Toggle recording (start / stop early) |
-| `Ctrl+E` | Send staged text (or stop recording and send) |
+| `Ctrl+E` | Finalize active capture early (stage text only, never sends Enter) |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
 | `Enter` | In `insert` mode: send staged prompt text |
@@ -216,9 +216,12 @@ Three controls define runtime behavior:
 ### Practical notes
 
 - In `insert` mode, Enter is submit-only for staged text.
+- In `insert` mode, saying `send`, `send message`, or `submit` submits staged text the same as pressing Enter.
+- Wake-tail submit is supported: `hey codex send` (or `hey claude send`) submits staged text in `insert` mode without a second command phrase.
 - `Ctrl+R` stops recording without sending.
-- `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it shows `Nothing to send`.
+- `Ctrl+E` never sends; it only finalizes active recording early so transcript text lands in the input box. When idle in `insert` mode it shows status guidance.
 - Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
+- Pausing auto-voice idle rearm does not disable wake-word triggers; explicit wake phrases still start capture when wake listening is ON.
 - In Full HUD, wake state is explicit: `Wake: ON` means listener active (steady badge, no pulse blink), `Wake: PAUSED` means listener intentionally paused during active capture/transcription, and `Wake: ERR` means wake listener startup failed (status includes log-path guidance).
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
@@ -230,6 +233,7 @@ navigation action instead of typing the raw text.
 
 - `scroll up` - sends terminal PageUp
 - `scroll down` - sends terminal PageDown
+- `send` / `send message` / `submit` - submits staged `insert`-mode text (same behavior as Enter)
 - `show last error` - surfaces the most recent error-like terminal line in HUD status
 - `copy last error` - copies the most recent error-like terminal line to clipboard
 - `explain last error` - sends an "explain this error" prompt to the active backend
@@ -244,7 +248,7 @@ Precedence:
 
 Capture is chunked by duration (default 30s, max 60s via
 `--voice-max-capture-ms`). Each chunk is transcribed and injected; press Enter
-once when ready to submit, or use `Ctrl+E` while recording to stop early and submit immediately.
+once when ready to submit, or use `Ctrl+E` while recording to stop early and stage text without waiting for silence timeout.
 
 ## Common Tasks
 

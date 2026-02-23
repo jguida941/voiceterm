@@ -2,7 +2,7 @@
 
 This doc covers install options and model setup.
 Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+Current stable release: `v1.0.90` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Related docs:
 [Quick Start](../QUICK_START.md) |
@@ -280,6 +280,12 @@ To target Claude instead of Codex:
 ```bash
 voiceterm --claude
 ```
+
+First-run control note (current behavior):
+
+- `Ctrl+R` starts/stops recording.
+- `Ctrl+E` finalizes active recording early in `insert` mode and stages text (it does not send Enter).
+- In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
 
 ## Optional: Macro Wizard
 

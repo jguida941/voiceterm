@@ -69,7 +69,7 @@ voiceterm --claude
 ## 4) Core controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
-- `Ctrl+E` - send text now (see [USAGE.md](guides/USAGE.md#core-controls) for full behavior)
+- `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
 - `Ctrl+O` - open settings menu
@@ -91,9 +91,10 @@ Wake-word tip:
 
 - If wake listener startup fails, Full HUD now shows `Wake: ERR`; run with `--logs` and check [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
 - `Wake: ON` is now a steady badge and wake-listener capture windows are longer to reduce macOS microphone-indicator flicker.
+- Pausing auto-voice rearm does not disable wake-word triggers; saying a wake phrase still starts capture when wake mode is ON.
 
 In `auto` mode, text is typed and submitted. In `insert` mode, text is typed
-and you press Enter. See [Usage Guide](guides/USAGE.md) for full details.
+and you press Enter (or say `send`). See [Usage Guide](guides/USAGE.md) for full details.
 
 Deep-dive guides:
 

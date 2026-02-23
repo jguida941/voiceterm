@@ -27,6 +27,7 @@ Recent runtime updates:
 - Theme Studio now supports in-session style-pack override recovery via `Undo edit`, `Redo edit`, and `Rollback edits`.
 - Wake listener startup failures now show explicit HUD/state feedback (`Wake: ERR`) instead of a false-ready wake badge.
 - Full HUD `Wake: ON` now renders as a steady status badge and wake listener capture windows are longer to reduce mic indicator flapping on macOS.
+- Wake phrases now stay active even when auto-voice idle rearm is paused, and leading phrase command tails (`hey codex ...`) are matched more reliably.
 - `--input-device` values are normalized before lookup, so wrapped copy/paste device names are handled reliably.
 
 ## Quick Nav
@@ -165,7 +166,7 @@ All CLI output passes through unchanged.
 ### Everyday tools
 
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
-- **Voice navigation**: spoken `scroll`, `show last error`, `copy last error`, and `explain last error`
+- **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
 - **Saved settings**: keeps runtime settings in `~/.config/voiceterm/config.toml` (CLI flags still override per run)

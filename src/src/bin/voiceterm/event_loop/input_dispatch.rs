@@ -1,6 +1,7 @@
 //! Input event handling extracted from the core event loop.
 
 use super::*;
+use crate::wake_word::WakeWordEvent;
 
 mod overlay;
 pub(super) fn handle_input_event(
@@ -133,29 +134,23 @@ pub(super) fn handle_input_event(
                 handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::ManualHotkey);
             }
             InputEvent::SendStagedText => {
-                if should_send_staged_text_hotkey(state) {
-                    if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
-                        *running = false;
-                    } else {
-                        timers.last_enter_at = Some(Instant::now());
-                        state.status_state.insert_pending_send = false;
-                    }
-                    return;
-                }
                 if should_finalize_insert_capture_hotkey(state) {
                     let _ = request_early_finalize_capture(state, timers, deps);
                     return;
                 }
                 if should_consume_insert_send_hotkey(state) {
-                    if state.status_state.recording_state == RecordingState::Idle
-                        && !state.status_state.insert_pending_send
-                    {
+                    if state.status_state.recording_state == RecordingState::Idle {
+                        let msg = if state.status_state.insert_pending_send {
+                            "Text staged; press Enter to send"
+                        } else {
+                            "Nothing to finalize"
+                        };
                         set_status(
                             &deps.writer_tx,
                             &mut timers.status_clear_deadline,
                             &mut state.current_status,
                             &mut state.status_state,
-                            "Nothing to send",
+                            msg,
                             Some(Duration::from_secs(2)),
                         );
                     }
@@ -270,14 +265,22 @@ pub(super) fn handle_wake_word_detection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
+    wake_event: WakeWordEvent,
 ) {
-    if !state.config.wake_word
-        || state.overlay_mode != OverlayMode::None
-        || state.auto_voice_paused_by_user
-    {
+    // Auto-voice pause is a guard for idle auto-triggering only; explicit wake
+    // phrases should still arm capture.
+    if !state.config.wake_word || state.overlay_mode != OverlayMode::None {
         return;
     }
-    handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::WakeWord);
+    match wake_event {
+        WakeWordEvent::Detected => {
+            resume_auto_voice_if_wake_triggered(state);
+            handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::WakeWord);
+        }
+        WakeWordEvent::SendStagedInput => {
+            handle_wake_word_send_intent(state, timers, deps);
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -355,10 +358,37 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
+fn resume_auto_voice_if_wake_triggered(state: &mut EventLoopState) {
+    if state.auto_voice_enabled && state.auto_voice_paused_by_user {
+        state.auto_voice_paused_by_user = false;
+    }
+}
+
+fn handle_wake_word_send_intent(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    if should_send_staged_text_hotkey(state) {
+        if write_or_queue_pty_input(state, deps, vec![0x0d]) {
+            timers.last_enter_at = Some(Instant::now());
+            state.status_state.insert_pending_send = false;
+        }
+        return;
+    }
+    set_status(
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+        "Nothing to send",
+        Some(Duration::from_secs(2)),
+    );
+}
+
 fn should_finalize_insert_capture_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert
         && state.status_state.recording_state == RecordingState::Recording
-        && !state.status_state.insert_pending_send
 }
 
 fn should_consume_insert_send_hotkey(state: &EventLoopState) -> bool {
@@ -373,7 +403,7 @@ fn request_early_finalize_capture(
     if !request_early_stop_with_hook(&mut deps.voice_manager) {
         return false;
     }
-    state.force_send_on_next_transcript = true;
+    state.force_send_on_next_transcript = false;
     state.status_state.recording_state = RecordingState::Processing;
     set_status(
         &deps.writer_tx,
