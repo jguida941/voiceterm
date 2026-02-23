@@ -15,10 +15,14 @@ from .commands import (
     release,
     release_notes,
     report,
+    security,
     ship,
     status,
+    triage,
 )
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
+from .security_parser import add_security_parser
+from .triage_parser import add_triage_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -216,6 +220,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit non-zero when CI fetch fails (implies --ci)",
     )
     status_cmd.add_argument("--format", choices=["json", "md", "text"], default="text")
+    status_cmd.add_argument(
+        "--dev-logs",
+        action="store_true",
+        help="Include guarded Dev Mode JSONL session summary",
+    )
+    status_cmd.add_argument(
+        "--dev-root",
+        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
+    )
+    status_cmd.add_argument(
+        "--dev-sessions-limit",
+        type=int,
+        default=5,
+        help="Maximum recent session files to scan when --dev-logs",
+    )
     status_cmd.add_argument("--output")
     status_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     status_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
@@ -225,6 +244,21 @@ def build_parser() -> argparse.ArgumentParser:
     report_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     report_cmd.add_argument("--ci-limit", type=int, default=DEFAULT_CI_LIMIT)
     report_cmd.add_argument("--format", choices=["json", "md"], default="md")
+    report_cmd.add_argument(
+        "--dev-logs",
+        action="store_true",
+        help="Include guarded Dev Mode JSONL session summary",
+    )
+    report_cmd.add_argument(
+        "--dev-root",
+        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
+    )
+    report_cmd.add_argument(
+        "--dev-sessions-limit",
+        type=int,
+        default=5,
+        help="Maximum recent session files to scan when --dev-logs",
+    )
     report_cmd.add_argument("--output")
     report_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     report_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
@@ -240,6 +274,10 @@ def build_parser() -> argparse.ArgumentParser:
     hygiene_cmd.add_argument("--output")
     hygiene_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     hygiene_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+
+    # security
+    add_security_parser(sub)
+    add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
 
     return parser
 
@@ -275,10 +313,14 @@ def main() -> int:
         return status.run(args)
     if args.command == "report":
         return report.run(args)
+    if args.command == "triage":
+        return triage.run(args)
     if args.command == "list":
         return listing.run(args)
     if args.command == "hygiene":
         return hygiene.run(args)
+    if args.command == "security":
+        return security.run(args)
 
     return 0
 

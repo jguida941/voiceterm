@@ -67,6 +67,7 @@ echo ""
 
 if [[ "$MODE" == "ci-guard" ]]; then
   echo "Running CI-friendly synthetic latency guardrails (no mic, no Whisper model)..."
+  echo "Note: CI guard validates Rust capture/VAD timing only; STT is intentionally skipped."
   echo ""
 
   cargo run --quiet --release --bin latency_measurement -- \

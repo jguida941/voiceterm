@@ -24,6 +24,7 @@ struct VoiceStartInfo {
 
 const VOICE_MANAGER_JOIN_POLL_MS: u64 = 5;
 const VOICE_MANAGER_JOIN_TIMEOUT_MS: u64 = 200;
+const MANUAL_CAPTURE_SILENCE_GRACE_MS: u64 = 400;
 
 pub(crate) struct VoiceManager {
     config: AppConfig,
@@ -138,10 +139,12 @@ impl VoiceManager {
         } else {
             VoiceCaptureSource::Python
         };
+        let mut job_config = self.config.clone();
+        apply_manual_capture_silence_grace(&mut job_config, trigger);
         let job = voice::start_voice_job(
             recorder,
             transcriber,
-            self.config.clone(),
+            job_config,
             Some(self.live_meter.clone()),
         );
         self.job = Some(job);
@@ -227,6 +230,16 @@ impl VoiceManager {
         }
         Ok(self.transcriber.as_ref().cloned())
     }
+}
+
+fn apply_manual_capture_silence_grace(config: &mut AppConfig, trigger: VoiceCaptureTrigger) {
+    if trigger != VoiceCaptureTrigger::Manual {
+        return;
+    }
+    config.voice_silence_tail_ms = config
+        .voice_silence_tail_ms
+        .saturating_add(MANUAL_CAPTURE_SILENCE_GRACE_MS)
+        .min(config.voice_max_capture_ms);
 }
 
 impl Drop for VoiceManager {
@@ -456,6 +469,28 @@ mod tests {
         config.whisper_model_path = Some("/no/such/model.bin".to_string());
         let mut manager = VoiceManager::new(config);
         assert!(manager.get_transcriber().is_err());
+    }
+
+    #[test]
+    fn apply_manual_capture_silence_grace_only_changes_manual_trigger() {
+        let mut config = AppConfig::parse_from(["test"]);
+        let original = config.voice_silence_tail_ms;
+        apply_manual_capture_silence_grace(&mut config, VoiceCaptureTrigger::Auto);
+        assert_eq!(config.voice_silence_tail_ms, original);
+        apply_manual_capture_silence_grace(&mut config, VoiceCaptureTrigger::Manual);
+        assert_eq!(
+            config.voice_silence_tail_ms,
+            original + MANUAL_CAPTURE_SILENCE_GRACE_MS
+        );
+    }
+
+    #[test]
+    fn apply_manual_capture_silence_grace_clamps_to_max_capture() {
+        let mut config = AppConfig::parse_from(["test"]);
+        config.voice_max_capture_ms = 900;
+        config.voice_silence_tail_ms = 800;
+        apply_manual_capture_silence_grace(&mut config, VoiceCaptureTrigger::Manual);
+        assert_eq!(config.voice_silence_tail_ms, 900);
     }
 
     #[test]

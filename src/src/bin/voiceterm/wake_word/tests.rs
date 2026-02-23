@@ -67,6 +67,14 @@ fn canonicalize_hotword_tokens_merges_common_split_aliases() {
     let voiceterm = canonicalize_hotword_tokens(&["ok", "voice", "term", "start"]);
     let voiceterm_tokens: Vec<&str> = voiceterm.iter().map(String::as_str).collect();
     assert_eq!(voiceterm_tokens, vec!["ok", "voiceterm", "start"]);
+
+    let hate_alias = canonicalize_hotword_tokens(&["hate", "codex"]);
+    let hate_alias_tokens: Vec<&str> = hate_alias.iter().map(String::as_str).collect();
+    assert_eq!(hate_alias_tokens, vec!["hey", "codex"]);
+
+    let cloud_alias = canonicalize_hotword_tokens(&["okay", "cloud", "send"]);
+    let cloud_alias_tokens: Vec<&str> = cloud_alias.iter().map(String::as_str).collect();
+    assert_eq!(cloud_alias_tokens, vec!["okay", "claude", "send"]);
 }
 
 #[test]
@@ -75,7 +83,9 @@ fn contains_hotword_phrase_detects_supported_aliases() {
     assert!(contains_hotword_phrase("okay code x"));
     assert!(contains_hotword_phrase("hey codecs start"));
     assert!(contains_hotword_phrase("hey kodak start"));
+    assert!(contains_hotword_phrase("hate codex start"));
     assert!(contains_hotword_phrase("okay claude"));
+    assert!(contains_hotword_phrase("okay cloud"));
     assert!(contains_hotword_phrase("voiceterm"));
     assert!(contains_hotword_phrase("hey voice term"));
     assert!(contains_hotword_phrase("voice term start recording"));
@@ -124,6 +134,18 @@ fn detect_wake_event_maps_send_suffix_intent() {
         detect_wake_event("voiceterm submit now"),
         Some(WakeWordEvent::SendStagedInput)
     );
+    assert_eq!(
+        detect_wake_event("hey codex send it"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hate cloud send this"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("okay cloud sending"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
 }
 
 #[test]
@@ -136,6 +158,7 @@ fn detect_wake_event_defaults_to_detection_for_non_send_suffix() {
         detect_wake_event("please hey codex start"),
         Some(WakeWordEvent::Detected)
     );
+    assert_eq!(detect_wake_event("i hate codex"), None);
     assert_eq!(detect_wake_event("random words"), None);
 }
 

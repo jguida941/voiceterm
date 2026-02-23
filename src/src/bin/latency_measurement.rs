@@ -174,12 +174,13 @@ fn collect_synthetic_measurements(
 
     let mut measurements = Vec::with_capacity(args.count);
 
-    let transcriber = if let Some(model_path) = &config.whisper_model_path {
+    let transcriber = if synthetic_cfg.skip_stt {
+        None
+    } else if let Some(model_path) = &config.whisper_model_path {
         let t = stt::Transcriber::new(model_path).context("failed to load Whisper model")?;
         Some(Arc::new(Mutex::new(t)))
     } else {
-        eprintln!("Warning: No Whisper model configured, using Python fallback");
-        None
+        bail!("Synthetic STT mode requires a native Whisper model (or pass --skip-stt)")
     };
 
     let backend: Arc<dyn CodexJobRunner> = Arc::new(CodexCliBackend::new(config.clone()));

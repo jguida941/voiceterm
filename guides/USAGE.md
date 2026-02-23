@@ -62,7 +62,7 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 |---------|-------------|--------|
 | Codex | `voiceterm` or `voiceterm --codex` | Supported |
 | Claude Code | `voiceterm --claude` | Supported |
-| Gemini CLI | `voiceterm --gemini` | Experimental (currently not working) |
+| Gemini CLI | `voiceterm --gemini` | Experimental (supported; compact HUD layout) |
 | Aider | `voiceterm --backend aider` | Experimental (untested) |
 | OpenCode | `voiceterm --backend opencode` | Experimental (untested) |
 
@@ -103,7 +103,7 @@ Flow:
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+R` | Toggle recording (start / stop early) |
+| `Ctrl+R` | Trigger capture (voice by default; image capture when `Image mode` is ON) |
 | `Ctrl+E` | Finalize active capture early (stage text only, never sends Enter) |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
@@ -120,6 +120,7 @@ Flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
+| `Ctrl+D` | Toggle Dev panel (`--dev` only) |
 | `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
@@ -157,6 +158,7 @@ Common settings:
 - Auto-voice
 - Wake word (`OFF`/`ON`, sensitivity, cooldown; default `OFF`)
 - Send mode (`auto` or `insert`)
+- Image mode (`OFF`/`ON`; ON makes `Ctrl+R`/`[rec]` capture an image prompt)
 - Macros toggle
 - Mic threshold
 - Latency display (`Off`, `Nms`, `Latency: Nms`)
@@ -167,7 +169,8 @@ Visual controls are now in Theme Studio:
 
 - Press `Ctrl+Y` to open Theme Studio.
 - Use `Theme picker` (or `Ctrl+G`) to change themes.
-- Use Theme Studio rows to change HUD style, borders, right panel, and animation.
+- Use Theme Studio rows to change HUD style, borders, right panel, animation, toast position/severity, startup splash style, and banner style.
+- Theme Studio rows use a `Label [ Value ]` layout with a bottom `tip:` line for the currently selected row.
 - Use `Undo edit`, `Redo edit`, and `Rollback edits` if you want to revert visual changes.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
@@ -176,6 +179,47 @@ Settings persistence:
 
 - Settings are saved to `~/.config/voiceterm/config.toml`.
 - CLI flags always override persisted values for the current launch.
+
+## Image Mode (Picture Prompts)
+
+Use this mode when you want `Ctrl+R` and HUD `[rec]` to capture an image and
+insert a prompt into the active terminal session.
+
+1. Open Settings with `Ctrl+O`.
+2. Set `Image mode` to `ON`.
+3. Press `Ctrl+R` (or click `[rec]` when mouse is enabled).
+
+Behavior:
+
+- Captures are saved to `<project>/.voiceterm/captures/capture-<timestamp>.png`.
+- Full HUD shows `IMG` while image mode is active.
+- In `auto` send mode, VoiceTerm inserts and sends the image prompt line.
+- In `insert` send mode, VoiceTerm inserts the image prompt and waits for Enter.
+
+Capture command:
+
+- macOS default: tries `imagesnap` first, then falls back to `screencapture`.
+- Other platforms: set `--image-capture-command` (or `VOICETERM_IMAGE_CAPTURE_COMMAND`).
+- Custom commands receive output path via `VOICETERM_IMAGE_PATH`.
+
+## Developer Guard Mode
+
+Use `--dev` (or `--dev-mode` / `-D`) to enable deferred developer-only
+experiments for a launch without changing normal default behavior.
+
+```bash
+voiceterm --dev
+voiceterm --dev --dev-log
+voiceterm --dev --dev-log --dev-path ~/.voiceterm/dev
+```
+
+Behavior:
+
+- Default launch stays unchanged when the flag is not present.
+- Full HUD shows `DEV` while the guard is active.
+- `Ctrl+D` toggles the in-session Dev panel (read-only session counters).
+- `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
+- `--dev-path` requires `--dev --dev-log`.
 
 ## Transcript History
 
@@ -192,7 +236,7 @@ Open with `Ctrl+H`.
 - `Esc` closes the overlay.
 - Optional memory logging: `--session-memory` writes `user` + `assistant` lines to markdown (`<cwd>/.voiceterm/session-memory.md` by default).
 - Override the memory-log path with `--session-memory-path <PATH>` when needed.
-- Session memory is stored reliably for later retrieval.
+- Session memory lines append to a markdown file and persist across runs in that project.
 
 ## Notification History
 
@@ -247,7 +291,8 @@ You can also do one-shot submit with:
 - In `insert` mode, Enter submits staged text.
 - In `insert` mode, saying `send`, `send message`, or `submit` submits staged text.
 - One-shot wake submit works: `hey codex send` or `hey claude send`.
-- `Ctrl+R` stops recording without sending.
+- When Image mode is `OFF`, `Ctrl+R` stops active recording without sending.
+- When Image mode is `ON`, `Ctrl+R` captures an image prompt instead of voice.
 - `Ctrl+E` finalizes only. It never sends.
 - Wake state labels in Full HUD:
   `Wake: ON` (listening), `Wake: PAUSED` (temporarily paused), `Wake: ERR` (startup failed).
@@ -373,8 +418,11 @@ Tips:
 Advanced theme options (optional):
 
 - Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
+- `components.overlay_border` in style-pack JSON controls overlay frame borders (help/settings/theme-picker/theme-studio/toast/history overlays).
+- `components.hud_border` controls Full HUD borders when `--hud-border-style theme` (or Theme Studio `HUD borders` set to Theme) is active.
+- `Glyph profile: ASCII` now forces ASCII separators in startup banner variants and keeps explicit spinner-style animations ASCII-safe.
 - When a style-pack sets `base_theme`, theme switching is locked to that theme until the env var is unset.
-- Visual controls (HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene) are all adjustable in Theme Studio.
+- Visual controls (HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast position/severity, startup splash, banner style) are all adjustable in Theme Studio.
 - For full env var and flag details, see [CLI_FLAGS.md](CLI_FLAGS.md#environment-variables).
 
 ### HUD styles
@@ -384,6 +432,10 @@ Advanced theme options (optional):
 | Full | default | Multi-row HUD with detailed controls and telemetry |
 | Minimal | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
 | Hidden | `--hud-style hidden` | Muted launcher row when idle (`open` + `hide` controls), muted recording indicator when active |
+
+Backend-specific layout note:
+
+- In Gemini sessions (`voiceterm --gemini`), selecting `Full` HUD uses a compact single-row layout to keep Gemini's input textbox readable in tighter terminals.
 
 Hidden launcher controls:
 
@@ -514,6 +566,8 @@ Latency badge behavior:
 - larger `ms` values on longer utterances are expected for non-streaming STT
 - severity color follows real-time factor (`rtf = stt_ms / speech_ms` — how fast transcription runs compared to speech length; lower is faster)
 - recording duration is shown separately while speaking
+- manual/PTT mode hides latency while actively recording/processing
+- auto mode keeps the latest successful latency visible during active capture so the badge does not flash between turns
 - hides automatically when latency metrics are incomplete (no synthetic elapsed/capture fallback)
 - stale idle badges auto-expire after a short window
 - full and compact button rows share the same queue/wake/latency badge rules and thresholds
@@ -528,7 +582,7 @@ Common statuses:
 | `Ready` | Idle/success state after transcript delivery |
 | `Transcript queued (N)` | Backend was busy; transcript is queued |
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
-| `No speech detected` | Capture ended without enough detected speech |
+| `No speech detected` | Capture ended without enough detected speech (manual/PTT mode now includes a short extra grace window before silence stop) |
 
 You can check or change the active voice pipeline in Settings (`Ctrl+O`).
 

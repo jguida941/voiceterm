@@ -13,6 +13,7 @@ mod detect;
 mod palettes;
 #[allow(dead_code)]
 pub(crate) mod rule_profile;
+mod runtime_overrides;
 mod style_pack;
 mod style_schema;
 #[allow(dead_code)]
@@ -34,10 +35,15 @@ use self::{
     style_pack::{locked_style_pack_theme, resolve_theme_colors},
 };
 #[allow(unused_imports)]
+pub(crate) use runtime_overrides::{
+    RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
+    RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
+};
 pub(crate) use style_pack::{
-    runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBorderStyleOverride,
-    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
-    RuntimeProgressStyleOverride, RuntimeStylePackOverrides, RuntimeVoiceSceneStyleOverride,
+    resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
+    set_runtime_style_pack_overrides,
 };
 #[cfg(test)]
 pub(crate) use style_schema::StylePackFieldId;
@@ -51,6 +57,8 @@ pub(crate) const PROCESSING_SPINNER_DOTS: &[&str] = &["⣾", "⣽", "⣻", "⢿"
 pub(crate) const PROCESSING_SPINNER_LINE: &[&str] = &["-", "\\", "|", "/"];
 /// Block-based processing spinner frames.
 pub(crate) const PROCESSING_SPINNER_BLOCK: &[&str] = &["▖", "▘", "▝", "▗"];
+/// ASCII-safe spinner frames used when explicit animation styles are selected.
+pub(crate) const PROCESSING_SPINNER_ASCII: &[&str] = &[".", "o", "O", "o"];
 
 /// Waveform bars for HUD sparkline rendering.
 pub(crate) const WAVEFORM_BARS_UNICODE: &[char; 8] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
@@ -227,15 +235,31 @@ pub fn filled_indicator(symbol: &'static str) -> &'static str {
 #[must_use]
 pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &'static str {
     match colors.spinner_style {
-        SpinnerStyle::Braille => {
-            PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
-        }
-        SpinnerStyle::Dots => PROCESSING_SPINNER_DOTS[frame % PROCESSING_SPINNER_DOTS.len()],
+        SpinnerStyle::Braille => match colors.glyph_set {
+            GlyphSet::Unicode => {
+                PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
+            }
+            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
+        },
+        SpinnerStyle::Dots => match colors.glyph_set {
+            GlyphSet::Unicode => PROCESSING_SPINNER_DOTS[frame % PROCESSING_SPINNER_DOTS.len()],
+            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
+        },
         SpinnerStyle::Line => PROCESSING_SPINNER_LINE[frame % PROCESSING_SPINNER_LINE.len()],
-        SpinnerStyle::Block => PROCESSING_SPINNER_BLOCK[frame % PROCESSING_SPINNER_BLOCK.len()],
+        SpinnerStyle::Block => match colors.glyph_set {
+            GlyphSet::Unicode => PROCESSING_SPINNER_BLOCK[frame % PROCESSING_SPINNER_BLOCK.len()],
+            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
+        },
         SpinnerStyle::Theme => {
             if colors.indicator_processing == "◐" {
-                PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
+                match colors.glyph_set {
+                    GlyphSet::Unicode => {
+                        PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
+                    }
+                    GlyphSet::Ascii => {
+                        PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()]
+                    }
+                }
             } else {
                 colors.indicator_processing
             }
@@ -350,6 +374,15 @@ pub(crate) fn progress_glyph_profile(colors: &ThemeColors) -> ProgressGlyphProfi
 pub(crate) fn overlay_separator(glyph_set: GlyphSet) -> &'static str {
     match glyph_set {
         GlyphSet::Unicode => "·",
+        GlyphSet::Ascii => "|",
+    }
+}
+
+/// Resolve inline separator glyph (used by startup/banner rows).
+#[must_use]
+pub(crate) fn inline_separator(glyph_set: GlyphSet) -> &'static str {
+    match glyph_set {
+        GlyphSet::Unicode => "│",
         GlyphSet::Ascii => "|",
     }
 }
@@ -575,6 +608,25 @@ mod tests {
     }
 
     #[test]
+    fn processing_spinner_symbol_falls_back_to_ascii_frames_for_ascii_glyph_set() {
+        let mut colors = Theme::Codex.colors();
+        colors.glyph_set = GlyphSet::Ascii;
+
+        // Theme-default spinner should stay ASCII-safe when the default
+        // processing indicator is active.
+        assert_eq!(processing_spinner_symbol(&colors, 0), ".");
+
+        colors.spinner_style = SpinnerStyle::Braille;
+        assert_eq!(processing_spinner_symbol(&colors, 2), "O");
+
+        colors.spinner_style = SpinnerStyle::Dots;
+        assert_eq!(processing_spinner_symbol(&colors, 1), "o");
+
+        colors.spinner_style = SpinnerStyle::Block;
+        assert_eq!(processing_spinner_symbol(&colors, 3), "o");
+    }
+
+    #[test]
     fn hud_icons_follow_glyph_set() {
         assert_eq!(hud_queue_icon(GlyphSet::Unicode), "▤");
         assert_eq!(hud_queue_icon(GlyphSet::Ascii), "Q");
@@ -609,6 +661,8 @@ mod tests {
 
     #[test]
     fn overlay_chrome_glyphs_follow_glyph_set() {
+        assert_eq!(inline_separator(GlyphSet::Unicode), "│");
+        assert_eq!(inline_separator(GlyphSet::Ascii), "|");
         assert_eq!(overlay_separator(GlyphSet::Unicode), "·");
         assert_eq!(overlay_separator(GlyphSet::Ascii), "|");
         assert_eq!(overlay_close_symbol(GlyphSet::Unicode), '×');
@@ -648,6 +702,7 @@ mod tests {
             "src/bin/voiceterm/theme/borders.rs",
             "src/bin/voiceterm/theme/palettes.rs",
             "src/bin/voiceterm/theme/style_pack.rs",
+            "src/bin/voiceterm/theme/style_pack/tests.rs",
             "src/bin/voiceterm/status_line/format.rs",
         ];
 

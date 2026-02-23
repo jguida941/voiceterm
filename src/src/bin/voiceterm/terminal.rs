@@ -7,9 +7,10 @@ use voiceterm::log_debug;
 use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::config::HudStyle;
+use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
 use crate::settings::settings_overlay_height;
-use crate::status_line::status_banner_height;
+use crate::status_line::status_banner_height_with_policy;
 use crate::theme_picker::theme_picker_height;
 use crate::theme_studio::theme_studio_height;
 use crate::OverlayMode;
@@ -66,12 +67,9 @@ pub(crate) fn reserved_rows_for_mode(
 ) -> usize {
     match mode {
         OverlayMode::None => {
-            if claude_prompt_suppressed {
-                0
-            } else {
-                status_banner_height(cols as usize, hud_style)
-            }
+            status_banner_height_with_policy(cols as usize, hud_style, claude_prompt_suppressed)
         }
+        OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
@@ -182,11 +180,15 @@ mod tests {
         let cols = 80;
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false),
-            status_banner_height(cols as usize, HudStyle::Full)
+            status_banner_height_with_policy(cols as usize, HudStyle::Full, false)
         );
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full, false),
             help_overlay_height()
+        );
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::DevPanel, cols, HudStyle::Full, false),
+            dev_panel_height()
         );
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full, false),

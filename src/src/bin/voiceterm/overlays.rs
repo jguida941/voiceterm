@@ -1,8 +1,12 @@
 //! Help/settings overlay rendering so panel layout stays centralized and consistent.
 
+use std::path::Path;
+
 use crossbeam_channel::Sender;
+use voiceterm::devtools::DevModeSnapshot;
 
 use crate::config::OverlayConfig;
+use crate::dev_panel::{dev_panel_height, format_dev_panel};
 use crate::help::{format_help_overlay, help_overlay_height};
 use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsMenuState, SettingsView,
@@ -21,6 +25,7 @@ use crate::writer::{try_send_message, WriterMessage};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OverlayMode {
     None,
+    DevPanel,
     Help,
     ThemeStudio,
     ThemePicker,
@@ -52,6 +57,7 @@ pub(crate) fn show_settings_overlay(
         wake_word_sensitivity: config.wake_word_sensitivity,
         wake_word_cooldown_ms: config.wake_word_cooldown_ms,
         send_mode: config.voice_send_mode,
+        image_mode_enabled: config.image_mode,
         macros_enabled: status_state.macros_enabled,
         sensitivity_db: status_state.sensitivity_db,
         theme: effective_theme,
@@ -67,6 +73,19 @@ pub(crate) fn show_settings_overlay(
     };
     let content = format_settings_overlay(&view, cols as usize);
     let height = settings_overlay_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_dev_panel_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    theme: Theme,
+    snapshot: Option<DevModeSnapshot>,
+    dev_log_enabled: bool,
+    dev_path: Option<&Path>,
+    cols: u16,
+) {
+    let content = format_dev_panel(theme, snapshot, dev_log_enabled, dev_path, cols as usize);
+    let height = dev_panel_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
 
@@ -128,6 +147,7 @@ mod tests {
     use crate::status_line::Pipeline;
     use clap::Parser;
     use crossbeam_channel::bounded;
+    use std::path::Path;
 
     #[test]
     fn show_settings_overlay_sends_overlay() {
@@ -188,6 +208,10 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            toast_position_override: None,
+            startup_style_override: None,
+            toast_severity_mode_override: None,
+            banner_style_override: None,
             undo_available: false,
             redo_available: false,
             runtime_overrides_dirty: false,
@@ -218,6 +242,28 @@ mod tests {
                 assert!(content.contains("Shortcuts"));
             }
             other => panic!("unexpected writer message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn show_dev_panel_overlay_sends_overlay() {
+        let (writer_tx, writer_rx) = bounded(4);
+        show_dev_panel_overlay(
+            &writer_tx,
+            Theme::Coral,
+            None,
+            true,
+            Some(Path::new("/tmp")),
+            80,
+        );
+        let message = writer_rx.recv_timeout(std::time::Duration::from_millis(200));
+        match message {
+            Ok(WriterMessage::ShowOverlay { content, height }) => {
+                assert_eq!(height, dev_panel_height());
+                assert!(content.contains("Dev Panel"));
+            }
+            Ok(other) => panic!("unexpected writer message: {other:?}"),
+            Err(err) => panic!("missing overlay message: {err}"),
         }
     }
 }

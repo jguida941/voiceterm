@@ -50,6 +50,9 @@ python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+# Security guardrails (RustSec baseline + optional workflow scan)
+python3 dev/scripts/devctl.py security
+python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 python3 dev/scripts/check_agents_contract.py
 python3 dev/scripts/check_active_plan_sync.py
 python3 dev/scripts/check_release_version_parity.py
@@ -65,6 +68,14 @@ find . -maxdepth 1 -type f -name '--*'
 # `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
+
+# Triage output for humans + AI agents (optional CIHub ingestion)
+python3 dev/scripts/devctl.py triage --ci --format md --output /tmp/devctl-triage.md
+python3 dev/scripts/devctl.py triage --ci --cihub --emit-bundle --bundle-dir .cihub --bundle-prefix triage
+# Optional: route categories to team owners via JSON map
+python3 dev/scripts/devctl.py triage --ci --cihub --owner-map-file dev/config/triage_owner_map.json --format json
+# If your cihub binary doesn't support `triage`, devctl records an infra warning
+# and still emits local triage output.
 
 # Release notes from git diff range
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
@@ -125,13 +136,46 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
+- `security`: RustSec policy checks plus optional workflow security scanning (`--with-zizmor`)
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
 - `ship`: full release/distribution orchestrator with step toggles
 - `homebrew`: Homebrew tap update flow
 - `pypi`: PyPI build/check/upload flow
-- `status` and `report`: machine-readable project status outputs
+- `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
+- `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, and emits rollups for severity/category/owner counts
 - `list`: command/profile inventory
+
+## Devctl Internals
+
+`devctl` keeps shared behavior in a few helper modules so command output stays
+consistent:
+
+- `dev/scripts/devctl/process_sweep.py`: shared process parsing/cleanup logic
+  used by both `check` and `hygiene`.
+- `dev/scripts/devctl/security_parser.py`: shared CLI parser wiring for the
+  `security` command so `cli.py` stays smaller and easier to maintain.
+- `dev/scripts/devctl/triage_parser.py`: shared CLI parser wiring for the
+  `triage` command so `cli.py` remains under shape limits.
+- `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
+  toggles/normalization.
+- `dev/scripts/devctl/status_report.py`: shared payload collection and markdown
+  rendering used by both `status` and `report`.
+- `dev/scripts/devctl/triage_support.py`: shared triage classification,
+  artifact-ingestion, markdown rendering, and bundle writers used by
+  `dev/scripts/devctl/commands/triage.py`.
+- `dev/scripts/devctl/triage_enrich.py`: normalization/routing helpers used to
+  map triage issues and `cihub` artifact records into consistent severity +
+  owner labels, including optional owner-map file overrides.
+- `dev/scripts/devctl/commands/ship_common.py` and
+  `dev/scripts/devctl/commands/ship_steps.py`: shared ship step/runtime helpers
+  used by `dev/scripts/devctl/commands/ship.py`.
+- `dev/scripts/devctl/commands/security.py`: shared local security gate runner
+  (RustSec policy + optional `zizmor` scanner behavior).
+- `dev/scripts/devctl/common.py`: shared command runner returns structured
+  non-zero results (including missing-binary failures) instead of uncaught
+  exceptions, streams live subprocess output, and keeps bounded failure-output
+  excerpts for markdown/json report diagnostics.
 
 Historical shard artifacts from previous CI runs are useful for hotspot triage,
 but release gating should always use a full aggregated score generated from the

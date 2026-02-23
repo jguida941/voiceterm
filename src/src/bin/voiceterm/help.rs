@@ -3,7 +3,9 @@
 use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
-use crate::theme::{overlay_close_symbol, overlay_separator, Theme, ThemeColors};
+use crate::theme::{
+    overlay_close_symbol, overlay_separator, resolved_overlay_border_set, Theme, ThemeColors,
+};
 
 /// Keyboard shortcut definition.
 pub struct Shortcut {
@@ -16,7 +18,7 @@ pub struct Shortcut {
 const RECORDING_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+R",
-        description: "Toggle voice capture (start/stop)",
+        description: "Trigger capture (voice or image mode)",
     },
     Shortcut {
         key: "Ctrl+E",
@@ -83,6 +85,10 @@ const NAVIGATION_SHORTCUTS: &[Shortcut] = &[
         description: "History (notifications)",
     },
     Shortcut {
+        key: "Ctrl+D",
+        description: "Dev panel (--dev only)",
+    },
+    Shortcut {
         key: "Enter",
         description: "Send prompt",
     },
@@ -125,7 +131,8 @@ pub fn help_overlay_inner_width_for_terminal(width: usize) -> usize {
 
 /// Format the help overlay as a string.
 pub fn format_help_overlay(theme: Theme, width: usize) -> String {
-    let colors = theme.colors();
+    let mut colors = theme.colors();
+    colors.borders = resolved_overlay_border_set(theme);
     let borders = &colors.borders;
     let mut lines = Vec::new();
 

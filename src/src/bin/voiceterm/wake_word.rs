@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use voiceterm::{
     audio,
     config::{AppConfig, VadEngineKind},
-    log_debug, stt,
+    log_debug, log_debug_content, stt,
 };
 
 const WAKE_EVENT_CHANNEL_CAPACITY: usize = 8;
@@ -452,7 +452,10 @@ impl AudioWakeDetector {
         let transcript = self
             .transcriber
             .transcribe(&capture.audio, &self.app_config)?;
-        Ok(match detect_wake_event(&transcript) {
+        let normalized = normalize_for_hotword_match(&transcript);
+        let wake_event = detect_wake_event_from_normalized(&normalized);
+        log_wake_transcript_decision(&transcript, &normalized, wake_event);
+        Ok(match wake_event {
             Some(event) => WakeListenOutcome::Detected(event),
             None => WakeListenOutcome::NoDetection,
         })
@@ -511,9 +514,14 @@ fn transcript_matches_hotword(raw: &str) -> bool {
     detect_wake_event(raw).is_some()
 }
 
+#[cfg(test)]
 #[must_use = "wake event classification should map transcript intent into runtime action"]
 fn detect_wake_event(raw: &str) -> Option<WakeWordEvent> {
     let normalized = normalize_for_hotword_match(raw);
+    detect_wake_event_from_normalized(&normalized)
+}
+
+fn detect_wake_event_from_normalized(normalized: &str) -> Option<WakeWordEvent> {
     if normalized.is_empty() {
         return None;
     }
@@ -542,6 +550,54 @@ fn detect_wake_event(raw: &str) -> Option<WakeWordEvent> {
         return Some(WakeWordEvent::SendStagedInput);
     }
     Some(WakeWordEvent::Detected)
+}
+
+fn log_wake_transcript_decision(raw: &str, normalized: &str, event: Option<WakeWordEvent>) {
+    let normalized_tokens: Vec<&str> = normalized.split_whitespace().collect();
+    if normalized_tokens.is_empty() {
+        return;
+    }
+    // Keep wake transcript tracing focused on likely intent phrases to avoid
+    // flooding logs with unrelated ambient transcripts.
+    let interesting_tokens = normalized_tokens.iter().any(|token| {
+        matches!(
+            *token,
+            "hey"
+                | "hate"
+                | "codex"
+                | "codec"
+                | "codecs"
+                | "kodak"
+                | "kodex"
+                | "claude"
+                | "cloud"
+                | "voiceterm"
+                | "voice"
+                | "term"
+                | "send"
+                | "sen"
+                | "sending"
+                | "submit"
+        )
+    });
+    if !interesting_tokens {
+        return;
+    }
+
+    let event_label = match event {
+        Some(WakeWordEvent::Detected) => "detected",
+        Some(WakeWordEvent::SendStagedInput) => "send-intent",
+        None => "none",
+    };
+    let canonical = canonicalize_hotword_tokens(&normalized_tokens);
+    log_debug(&format!(
+        "wake-word transcript decision: event={event_label}, tokens={}",
+        normalized_tokens.len()
+    ));
+    log_debug_content(&format!(
+        "wake-word transcript raw='{raw}' normalized='{normalized}' canonical='{}'",
+        canonical.join(" ")
+    ));
 }
 
 #[cfg(test)]
@@ -583,6 +639,8 @@ fn canonicalize_hotword_tokens(tokens: &[&str]) -> Vec<String> {
         }
         let token = match tokens[idx] {
             "codec" | "codecs" | "kodak" | "kodaks" | "kodex" => "codex",
+            "cloud" | "clod" | "clawd" => "claude",
+            "hate" if idx == 0 => "hey",
             other => other,
         };
         canonical.push(token.to_string());
@@ -623,6 +681,11 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
         suffix_tokens,
         ["send"]
             | ["sen"]
+            | ["sending"]
+            | ["send", "it"]
+            | ["sen", "it"]
+            | ["send", "this"]
+            | ["sen", "this"]
             | ["send", "message"]
             | ["sen", "message"]
             | ["submit"]

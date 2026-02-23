@@ -13,6 +13,7 @@ pub(crate) enum InputEvent {
     ThemePicker,
     QuickThemeCycle,
     SettingsToggle,
+    DevPanelToggle,
     ToggleHudStyle,
     CollapseHiddenLauncher,
     TranscriptHistoryToggle,

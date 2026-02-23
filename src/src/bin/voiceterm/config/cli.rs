@@ -168,6 +168,29 @@ pub(crate) struct OverlayConfig {
     )]
     pub(crate) wake_word_cooldown_ms: u64,
 
+    /// Enable image capture mode (Ctrl+R / [rec] captures an image instead of voice).
+    #[arg(long = "image-mode", default_value_t = false)]
+    pub(crate) image_mode: bool,
+
+    /// Custom image capture command (receives output path in VOICETERM_IMAGE_PATH).
+    #[arg(
+        long = "image-capture-command",
+        env = "VOICETERM_IMAGE_CAPTURE_COMMAND"
+    )]
+    pub(crate) image_capture_command: Option<String>,
+
+    /// Enable guarded developer-mode surfaces (`--dev-mode` / `-D` aliases supported).
+    #[arg(long = "dev", alias = "dev-mode", short = 'D', default_value_t = false)]
+    pub(crate) dev_mode: bool,
+
+    /// Persist guarded dev-mode events to JSONL files (requires `--dev`).
+    #[arg(long = "dev-log", default_value_t = false)]
+    pub(crate) dev_log: bool,
+
+    /// Dev-mode data root directory used by `--dev-log` session JSONL files.
+    #[arg(long = "dev-path")]
+    pub(crate) dev_path: Option<PathBuf>,
+
     /// Color theme for status line (chatgpt, claude, codex, coral, catppuccin, dracula, gruvbox, nord, tokyonight, ansi, none)
     /// Defaults to the backend-specific theme if not provided.
     #[arg(long = "theme")]
@@ -268,6 +291,11 @@ mod tests {
         assert!(!cfg.wake_word);
         assert!((cfg.wake_word_sensitivity - DEFAULT_WAKE_WORD_SENSITIVITY).abs() < f32::EPSILON);
         assert_eq!(cfg.wake_word_cooldown_ms, DEFAULT_WAKE_WORD_COOLDOWN_MS);
+        assert!(!cfg.image_mode);
+        assert!(cfg.image_capture_command.is_none());
+        assert!(!cfg.dev_mode);
+        assert!(!cfg.dev_log);
+        assert!(cfg.dev_path.is_none());
     }
 
     #[test]
@@ -283,6 +311,47 @@ mod tests {
         assert!(cfg.wake_word);
         assert!((cfg.wake_word_sensitivity - 1.0).abs() < f32::EPSILON);
         assert_eq!(cfg.wake_word_cooldown_ms, 500);
+    }
+
+    #[test]
+    fn image_mode_parser_accepts_optional_capture_command() {
+        let cfg = OverlayConfig::parse_from([
+            "test-app",
+            "--image-mode",
+            "--image-capture-command",
+            "imagesnap -q \"$VOICETERM_IMAGE_PATH\"",
+        ]);
+        assert!(cfg.image_mode);
+        assert_eq!(
+            cfg.image_capture_command.as_deref(),
+            Some("imagesnap -q \"$VOICETERM_IMAGE_PATH\"")
+        );
+    }
+
+    #[test]
+    fn dev_mode_parser_accepts_guarded_aliases() {
+        let long = OverlayConfig::parse_from(["test-app", "--dev"]);
+        assert!(long.dev_mode);
+
+        let alias = OverlayConfig::parse_from(["test-app", "--dev-mode"]);
+        assert!(alias.dev_mode);
+
+        let short = OverlayConfig::parse_from(["test-app", "-D"]);
+        assert!(short.dev_mode);
+    }
+
+    #[test]
+    fn dev_log_parser_accepts_optional_path() {
+        let cfg = OverlayConfig::parse_from([
+            "test-app",
+            "--dev",
+            "--dev-log",
+            "--dev-path",
+            "/tmp/dev-events",
+        ]);
+        assert!(cfg.dev_mode);
+        assert!(cfg.dev_log);
+        assert_eq!(cfg.dev_path, Some(PathBuf::from("/tmp/dev-events")));
     }
 
     #[test]

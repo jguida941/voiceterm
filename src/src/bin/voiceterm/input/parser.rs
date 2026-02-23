@@ -48,6 +48,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::SendStagedText);
                 }
+                0x04 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::DevPanelToggle);
+                }
                 0x16 => {
                     self.flush_pending(out);
                     out.push(InputEvent::ToggleAutoVoice);
@@ -279,6 +283,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
     match key {
         'r' => Some(InputEvent::VoiceTrigger),
         'e' => Some(InputEvent::SendStagedText),
+        'd' => Some(InputEvent::DevPanelToggle),
         'v' => Some(InputEvent::ToggleAutoVoice),
         't' => Some(InputEvent::ToggleSendMode),
         'y' => Some(InputEvent::ThemePicker),
@@ -329,7 +334,7 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(
             &[
-                0x11, 0x12, 0x05, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08, 0x0e,
+                0x11, 0x12, 0x05, 0x04, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08, 0x0e,
             ],
             &mut out,
         );
@@ -340,6 +345,7 @@ mod tests {
                 InputEvent::Exit,
                 InputEvent::VoiceTrigger,
                 InputEvent::SendStagedText,
+                InputEvent::DevPanelToggle,
                 InputEvent::ToggleAutoVoice,
                 InputEvent::ToggleSendMode,
                 InputEvent::IncreaseSensitivity,
@@ -437,6 +443,16 @@ mod tests {
         parser.consume_bytes(b"\x1b[101;5u", &mut out);
         parser.flush_pending(&mut out);
         assert_eq!(out, vec![InputEvent::SendStagedText]);
+    }
+
+    #[test]
+    fn input_parser_maps_csi_u_ctrl_d_dev_panel_toggle() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Ctrl+D (kitty/CSI-u: ESC [ 100 ; 5 u)
+        parser.consume_bytes(b"\x1b[100;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::DevPanelToggle]);
     }
 
     #[test]
@@ -550,6 +566,10 @@ mod tests {
         assert_eq!(
             parse_csi_u_event(b"\x1b[116;5u"),
             Some(InputEvent::ToggleSendMode)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[100;5u"),
+            Some(InputEvent::DevPanelToggle)
         );
         assert_eq!(
             parse_csi_u_event(b"\x1b[121;5u"),

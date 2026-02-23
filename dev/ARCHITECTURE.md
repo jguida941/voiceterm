@@ -445,7 +445,7 @@ intervals to avoid corrupting the backend's screen.
 - **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
 - **Transcript history overlay** is toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
 - Optional **session memory logging** (`--session-memory`) writes newline-delimited `user`/`assistant` records to markdown for project-local conversation archives.
-- **Claude prompt safety** is enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
+- **Codex/Claude prompt safety** is enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts and reply/composer prompt markers trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
 - **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
 - **Session summary** prints on exit when activity is present.
 
@@ -497,7 +497,7 @@ intervals to avoid corrupting the backend's screen.
 - `src/src/bin/voiceterm/persistent_config.rs` - persistent runtime settings load/apply/save flow
 - `src/src/bin/voiceterm/toast.rs` - toast center model + history overlay formatter
 - `src/src/bin/voiceterm/prompt/` - prompt detection + logging modules
-- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs` - Claude interactive prompt detection + HUD suppression policy
+- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs` - Codex/Claude interactive prompt detection + HUD suppression policy
 - `src/src/bin/voiceterm/prompt/tracker.rs` - prompt tracking + idle detection
 - `src/src/bin/voiceterm/prompt/regex.rs` - prompt regex resolution
 - `src/src/bin/voiceterm/prompt/logger.rs` - prompt log writer + rotation

@@ -1,43 +1,47 @@
-# ADR 0021: History Storage and Retention
+# ADR 0021: Session Transcript History and Opt-In Memory Logging
 
-Status: Proposed
-Date: 2026-01-31
+Status: Accepted
+Date: 2026-02-23
 
 ## Context
 
-Transcript history can contain sensitive content. The UI plan calls for history
-browsing and retention controls, which require a clear storage and privacy
-policy to avoid accidental data leakage.
+VoiceTerm needs usable in-session recall (`Ctrl+H` history overlay) without
+forcing disk persistence of potentially sensitive transcript content.
 
 ## Decision
 
-Define a privacy-first history system:
+Use a split model: bounded in-memory history by default, optional disk logging.
 
-- Default retention is "none" unless explicitly enabled.
-- When enabled, store history in a local data directory with restrictive
-  permissions.
-- Provide modes: full, truncated, or metadata-only.
-- Sanitize control characters before storing or rendering.
-- Support explicit user purge and retention duration limits.
+- Keep transcript history in memory for the active session so `Ctrl+H` search and
+  review work without extra setup.
+- Track source-tagged rows (`mic`, `you`, `ai`) and allow replay only for
+  replay-safe sources (`mic`, `you`).
+- Keep persistence opt-in via `--session-memory` (default off), with optional
+  `--session-memory-path` override.
+- Sanitize/control-filter transcript input so control-sequence noise does not
+  pollute history search or replay paths.
 
 ## Consequences
 
-Positive:
+**Positive:**
 
-- Safer defaults for sensitive transcript data.
-- Clear user control over persistence and retention.
-- Reduced risk of terminal escape injection from stored data.
+- History UX works out of the box with no mandatory disk retention.
+- Privacy posture is safer for default usage (persistent logging is explicit).
+- Replay safety is clearer because assistant-output rows are non-replayable.
 
-Negative:
+**Negative:**
 
-- Extra configuration surface area.
-- Some features (search/history) are limited by strict defaults.
+- History is session-scoped unless users opt in to memory logging.
+- Full retention policy controls are still separate follow-up work.
 
 ## Alternatives Considered
 
-- Always-on history (rejected: privacy risk).
-- No history feature at all (rejected: limits usability).
+- **Always-on persisted transcript database**: rejected due privacy and surprise risk.
+- **No built-in history**: rejected because it weakens transcript debugging and reuse.
 
 ## Links
 
-- `dev/active/MASTER_PLAN.md` (MP-038)
+- `src/src/bin/voiceterm/transcript_history.rs`
+- `src/src/bin/voiceterm/session_memory.rs`
+- `src/src/config/mod.rs`
+- `dev/active/MASTER_PLAN.md` (`MP-091`, `MP-229`, `MP-235`)

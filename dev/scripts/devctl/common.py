@@ -1,18 +1,55 @@
-"""Shared helpers for process execution, env setup, and output handling."""
+"""Shared helper functions used across devctl commands."""
 
+from collections import deque
 import os
 import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Deque, List, Optional, Tuple
 
 from .config import REPO_ROOT, SRC_DIR
+
+FAILURE_OUTPUT_MAX_LINES = 60
+FAILURE_OUTPUT_MAX_CHARS = 8000
 
 
 def cmd_str(cmd: List[str]) -> str:
     """Render a command list as a printable string."""
     return " ".join(cmd)
+
+
+def _trim_failure_output(output_tail: str) -> str:
+    """Keep failure excerpts compact so reports stay readable."""
+    trimmed = output_tail.strip()
+    if len(trimmed) <= FAILURE_OUTPUT_MAX_CHARS:
+        return trimmed
+    return trimmed[-FAILURE_OUTPUT_MAX_CHARS:]
+
+
+def _run_with_live_output(
+    cmd: List[str],
+    cwd: Optional[Path],
+    env: Optional[dict],
+) -> Tuple[int, str]:
+    """Stream command output live while retaining a bounded failure excerpt."""
+    process = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    output_tail: Deque[str] = deque(maxlen=FAILURE_OUTPUT_MAX_LINES)
+    if process.stdout is None:
+        return process.wait(), ""
+    for line in process.stdout:
+        print(line, end="")
+        output_tail.append(line.rstrip("\n"))
+    process.stdout.close()
+    return process.wait(), "\n".join(output_tail)
 
 
 def run_cmd(
@@ -22,7 +59,7 @@ def run_cmd(
     env: Optional[dict] = None,
     dry_run: bool = False,
 ) -> dict:
-    """Run a command and return timing/exit metadata."""
+    """Run one command and return a result dict instead of raising exceptions."""
     start = time.time()
     if dry_run:
         print(f"[dry-run] {name}: {cmd_str(cmd)}")
@@ -35,20 +72,38 @@ def run_cmd(
             "skipped": True,
         }
 
-    result = subprocess.run(cmd, cwd=cwd, env=env)
+    try:
+        returncode, output_tail = _run_with_live_output(cmd, cwd=cwd, env=env)
+    except OSError as exc:
+        duration = time.time() - start
+        return {
+            "name": name,
+            "cmd": cmd,
+            "cwd": str(cwd or REPO_ROOT),
+            "returncode": 127,
+            "duration_s": round(duration, 2),
+            "skipped": False,
+            "error": str(exc),
+        }
+
     duration = time.time() - start
-    return {
+    result = {
         "name": name,
         "cmd": cmd,
         "cwd": str(cwd or REPO_ROOT),
-        "returncode": result.returncode,
+        "returncode": returncode,
         "duration_s": round(duration, 2),
         "skipped": False,
     }
+    if returncode != 0:
+        failure_output = _trim_failure_output(output_tail)
+        if failure_output:
+            result["failure_output"] = failure_output
+    return result
 
 
 def build_env(args) -> dict:
-    """Build an environment map honoring offline/cache args."""
+    """Build env vars from common CLI flags (offline/cargo cache options)."""
     env = os.environ.copy()
     if getattr(args, "offline", False):
         env["CARGO_NET_OFFLINE"] = "true"
@@ -60,7 +115,7 @@ def build_env(args) -> dict:
 
 
 def write_output(content: str, output_path: Optional[str]) -> None:
-    """Write output to a file or stdout."""
+    """Write report output to a file, or print it to stdout."""
     if output_path:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +126,7 @@ def write_output(content: str, output_path: Optional[str]) -> None:
 
 
 def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[List[str]]) -> int:
-    """Pipe content to another CLI that accepts stdin."""
+    """Send report output to another command through stdin."""
     if not pipe_command:
         return 0
     cmd = [pipe_command] + (pipe_args or [])
@@ -83,12 +138,12 @@ def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[L
 
 
 def should_emit_output(args) -> bool:
-    """Return True when a report should be emitted."""
+    """Return True when the caller asked for formatted/output report text."""
     return args.format != "text" or bool(args.output) or bool(getattr(args, "pipe_command", None))
 
 
 def confirm_or_abort(message: str, assume_yes: bool) -> None:
-    """Prompt for confirmation unless assume_yes is set."""
+    """Ask for yes/no confirmation unless `--yes` was provided."""
     if assume_yes:
         return
     try:
@@ -103,7 +158,7 @@ def confirm_or_abort(message: str, assume_yes: bool) -> None:
 
 
 def find_latest_outcomes_file() -> Optional[Path]:
-    """Locate the newest outcomes.json under src/mutants.out."""
+    """Find the newest mutation `outcomes.json` file under `src/mutants.out`."""
     output_dir = SRC_DIR / "mutants.out"
     primary = output_dir / "outcomes.json"
     if primary.exists():

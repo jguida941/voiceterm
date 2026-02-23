@@ -466,6 +466,42 @@ fn wake_badge_renders_theme_matched_on_and_paused_states() {
 }
 
 #[test]
+fn image_badge_is_hidden_when_image_mode_is_off() {
+    let colors = Theme::None.colors();
+    let state = StatusLineState::new();
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    assert!(!row.contains("IMG"));
+}
+
+#[test]
+fn image_badge_renders_when_image_mode_is_on() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.image_mode_enabled = true;
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    assert!(row.contains("IMG"));
+    assert!(row.contains(&format!("{}IMG{}", colors.info, colors.reset)));
+}
+
+#[test]
+fn dev_badge_is_hidden_when_dev_mode_is_off() {
+    let colors = Theme::None.colors();
+    let state = StatusLineState::new();
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    assert!(!row.contains("DEV"));
+}
+
+#[test]
+fn dev_badge_renders_when_dev_mode_is_on() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.dev_mode_enabled = true;
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    assert!(row.contains("DEV"));
+    assert!(row.contains(&format!("{}DEV{}", colors.warning, colors.reset)));
+}
+
+#[test]
 fn shortcuts_row_stays_within_banner_width() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
@@ -955,9 +991,10 @@ fn rtf_latency_severity_thresholds_are_exclusive() {
 }
 
 #[test]
-fn latency_badge_hides_during_recording_and_processing() {
+fn latency_badge_hides_during_manual_recording_and_processing() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
+    state.auto_voice_enabled = false;
     state.last_latency_ms = Some(412);
     state.last_latency_rtf_x1000 = Some(300);
 
@@ -973,6 +1010,24 @@ fn latency_badge_hides_during_recording_and_processing() {
     state.recording_state = RecordingState::Idle;
     let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(idle_row.contains("412ms"));
+}
+
+#[test]
+fn latency_badge_stays_visible_during_auto_recording_and_processing() {
+    let colors = Theme::Coral.colors();
+    let mut state = StatusLineState::new();
+    state.auto_voice_enabled = true;
+    state.last_latency_ms = Some(412);
+    state.last_latency_rtf_x1000 = Some(300);
+
+    state.recording_state = RecordingState::Recording;
+    let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(recording_row.contains("412ms"));
+
+    state.recording_state = RecordingState::Processing;
+    let (processing_row, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    assert!(processing_row.contains("412ms"));
 }
 
 #[test]
@@ -1190,4 +1245,26 @@ fn format_button_includes_non_empty_highlight_color() {
 
     assert!(highlighted.contains(colors.success));
     assert!(!plain.contains(colors.success));
+}
+
+#[test]
+fn format_button_brackets_track_highlight_color_when_unfocused() {
+    let colors = Theme::Coral.colors();
+    let highlighted = format_button(&colors, "send", colors.success, false);
+    let plain = format_button(&colors, "send", "", false);
+
+    assert!(highlighted.contains(&format!("{}[", colors.success)));
+    assert!(highlighted.contains(&format!("{}]", colors.success)));
+    assert!(plain.contains(&format!("{}[", colors.dim)));
+    assert!(plain.contains(&format!("{}]", colors.dim)));
+}
+
+#[test]
+fn focused_button_uses_info_brackets_with_bold_emphasis() {
+    let colors = Theme::Coral.colors();
+    let focused = format_button(&colors, "send", colors.success, true);
+
+    assert!(focused.contains(FOCUSED_PILL_EMPHASIS_ANSI));
+    assert!(focused.contains(&format!("{}[", colors.info)));
+    assert!(focused.contains(&format!("{}]", colors.info)));
 }

@@ -5,8 +5,9 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl.commands import ship
 from dev.scripts.devctl.commands import release_guard
+from dev.scripts.devctl.commands import ship_common
+from dev.scripts.devctl.commands import ship_steps
 
 
 def make_args() -> SimpleNamespace:
@@ -58,10 +59,10 @@ class ShipReleaseParityTests(TestCase):
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_verify(args, context)
+            result = ship_steps.run_verify_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "verify")
@@ -72,10 +73,10 @@ class ShipReleaseParityTests(TestCase):
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_pypi(args, context)
+            result = ship_steps.run_pypi_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "pypi")
@@ -86,11 +87,17 @@ class ShipReleaseParityTests(TestCase):
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_homebrew(args, context)
+            result = ship_steps.run_homebrew_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "homebrew")
         self.assertEqual(result["details"]["reason"], "release version parity check failed")
+
+    @patch("dev.scripts.devctl.commands.ship_common.subprocess.check_output", side_effect=FileNotFoundError("missing"))
+    def test_run_checked_returns_structured_error_when_binary_missing(self, _mock_check_output) -> None:
+        code, output = ship_common.run_checked(["definitely-missing-binary"])
+        self.assertEqual(code, 127)
+        self.assertIn("missing", output)

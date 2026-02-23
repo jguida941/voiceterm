@@ -16,6 +16,16 @@ pub(super) mod breakpoints {
     pub const MINIMAL: usize = 25;
 }
 
+fn effective_hud_style(hud_style: HudStyle) -> HudStyle {
+    hud_style
+}
+
+/// Return the effective HUD style after backend-specific compaction policies.
+#[must_use]
+pub fn effective_hud_style_for_state(state: &StatusLineState) -> HudStyle {
+    effective_hud_style(state.hud_style)
+}
+
 /// Return the number of rows used by the status banner for a given width and HUD style.
 #[must_use]
 pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
@@ -32,14 +42,24 @@ pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
     }
 }
 
+/// Return the status-banner row count with prompt suppression and backend layout policies.
+#[must_use]
+pub fn status_banner_height_with_policy(
+    width: usize,
+    hud_style: HudStyle,
+    claude_prompt_suppressed: bool,
+) -> usize {
+    if claude_prompt_suppressed {
+        0
+    } else {
+        status_banner_height(width, effective_hud_style(hud_style))
+    }
+}
+
 /// Return the active status-banner row count for the current runtime state.
 #[must_use]
 pub fn status_banner_height_for_state(width: usize, state: &StatusLineState) -> usize {
-    if state.claude_prompt_suppressed {
-        0
-    } else {
-        status_banner_height(width, state.hud_style)
-    }
+    status_banner_height_with_policy(width, state.hud_style, state.claude_prompt_suppressed)
 }
 
 #[cfg(test)]

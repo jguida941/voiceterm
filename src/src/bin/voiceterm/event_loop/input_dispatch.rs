@@ -48,6 +48,14 @@ pub(super) fn handle_input_event(
                 state.status_state.hud_button_focus = None;
                 open_settings_overlay(state, deps);
             }
+            InputEvent::DevPanelToggle => {
+                state.status_state.hud_button_focus = None;
+                if state.config.dev_mode {
+                    open_dev_panel_overlay(state, deps);
+                } else if !write_or_queue_pty_input(state, deps, vec![0x04]) {
+                    *running = false;
+                }
+            }
             InputEvent::TranscriptHistoryToggle => {
                 state.status_state.hud_button_focus = None;
                 open_transcript_history_overlay(state, deps);
@@ -117,8 +125,11 @@ pub(super) fn handle_input_event(
                 }
 
                 state.status_state.hud_button_focus = None;
-                // Clear Claude prompt suppression when user sends any input to PTY.
-                if state.status_state.claude_prompt_suppressed && !bytes.is_empty() {
+                // Clear prompt suppression only when this input resolves the prompt.
+                // Reply composers should stay suppressed while the user is still typing.
+                if state.status_state.claude_prompt_suppressed
+                    && state.claude_prompt_detector.should_resolve_on_input(&bytes)
+                {
                     state.claude_prompt_detector.on_user_input();
                     set_claude_prompt_suppression(state, deps, false);
                 }
@@ -301,7 +312,64 @@ fn handle_voice_trigger(
         }
         return;
     }
+    if state.config.image_mode && origin == VoiceTriggerOrigin::ManualHotkey {
+        trigger_image_capture(state, timers, deps);
+        return;
+    }
     start_capture_for_trigger(state, timers, deps, origin);
+}
+
+fn trigger_image_capture(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    let captured_path = match crate::image_mode::capture_image(&state.config) {
+        Ok(path) => path,
+        Err(err) => {
+            set_status(
+                &deps.writer_tx,
+                &mut timers.status_clear_deadline,
+                &mut state.current_status,
+                &mut state.status_state,
+                &crate::status_messages::with_log_path("Image capture failed"),
+                Some(Duration::from_secs(3)),
+            );
+            log_debug(&format!("image capture failed: {err:#}"));
+            return;
+        }
+    };
+
+    let prompt =
+        crate::image_mode::build_image_prompt(&captured_path, state.config.voice_send_mode);
+    if !write_or_queue_pty_input(state, deps, prompt.text.into_bytes()) {
+        return;
+    }
+    if prompt.auto_sent {
+        timers.last_enter_at = Some(Instant::now());
+        state.status_state.insert_pending_send = false;
+        state.status_state.recording_state = RecordingState::Responding;
+    } else {
+        state.status_state.insert_pending_send = true;
+    }
+
+    let file_name = captured_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("capture");
+    let status = if prompt.auto_sent {
+        format!("Image captured and sent ({file_name})")
+    } else {
+        format!("Image captured and staged ({file_name})")
+    };
+    set_status(
+        &deps.writer_tx,
+        &mut timers.status_clear_deadline,
+        &mut state.current_status,
+        &mut state.status_state,
+        &status,
+        Some(Duration::from_secs(3)),
+    );
 }
 
 fn start_capture_for_trigger(
@@ -369,7 +437,9 @@ fn handle_wake_word_send_intent(
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
-    if should_send_staged_text_hotkey(state) {
+    let can_submit_now = should_send_staged_text_hotkey(state)
+        || state.config.voice_send_mode == VoiceSendMode::Auto;
+    if can_submit_now {
         if write_or_queue_pty_input(state, deps, vec![0x0d]) {
             timers.last_enter_at = Some(Instant::now());
             state.status_state.insert_pending_send = false;

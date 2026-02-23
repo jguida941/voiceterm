@@ -21,6 +21,18 @@ pub(super) fn format_wake_badge(state: &StatusLineState, colors: &ThemeColors) -
     }
 }
 
+pub(super) fn format_image_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
+    state
+        .image_mode_enabled
+        .then(|| format!("{}IMG{}", colors.info, colors.reset))
+}
+
+pub(super) fn format_dev_badge(state: &StatusLineState, colors: &ThemeColors) -> Option<String> {
+    state
+        .dev_mode_enabled
+        .then(|| format!("{}DEV{}", colors.warning, colors.reset))
+}
+
 pub(super) fn format_ready_badge(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -85,7 +97,8 @@ pub(super) fn format_latency_badge(
     if matches!(
         state.recording_state,
         RecordingState::Recording | RecordingState::Processing
-    ) {
+    ) && !state.auto_voice_enabled
+    {
         return None;
     }
     let latency = state.last_latency_ms?;

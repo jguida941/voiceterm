@@ -60,22 +60,35 @@ voiceterm --login --claude
 ```
 
 First run downloads a Whisper model if missing.
-To pick a size, use `./scripts/install.sh --small` or
-`./scripts/setup.sh models --medium`.
+To choose a model at launch, use `--whisper-model`:
+
+```bash
+voiceterm --whisper-model base
+voiceterm --whisper-model medium
+```
+
+If you installed from source and want to pre-download a model:
+
+```bash
+./scripts/setup.sh models --small
+```
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
 
 ## 4) Core controls
 
-- `Ctrl+R` - toggle voice capture (start recording / stop early)
+- `Ctrl+R` - trigger capture (voice by default; image capture when `Image mode` is on)
 - `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
+- `Ctrl+D` - toggle Dev panel (`--dev` launches only)
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.
 In `insert` mode, text is typed and waits for Enter (or spoken `send`).
+When Codex/Claude approval or reply/composer prompts appear, VoiceTerm
+suppresses HUD rows until you submit/cancel so the prompt stays readable.
 
 Full controls reference:
 
@@ -119,10 +132,17 @@ If wake startup fails, Full HUD shows `Wake: ERR`. Run with `--logs` and check
 voiceterm --auto-voice
 voiceterm --wake-word
 voiceterm --voice-send-mode insert
+voiceterm --image-mode
+voiceterm --dev
+voiceterm --dev --dev-log
 voiceterm --voice-vad-threshold-db -50
 voiceterm --mic-meter
 voiceterm --logs
 ```
+
+Style-pack note:
+
+- `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays and `components.hud_border` for Full HUD when border style is `theme`.
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 

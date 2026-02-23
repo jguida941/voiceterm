@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender};
 use voiceterm::audio;
+use voiceterm::devtools::{DevEventJsonlWriter, DevModeStats};
 use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::buttons::ButtonRegistry;
@@ -43,6 +44,8 @@ pub(crate) struct EventLoopState {
     pub(crate) current_status: Option<String>,
     pub(crate) pending_transcripts: VecDeque<PendingTranscript>,
     pub(crate) session_stats: SessionStats,
+    pub(crate) dev_mode_stats: Option<DevModeStats>,
+    pub(crate) dev_event_logger: Option<DevEventJsonlWriter>,
     pub(crate) prompt_tracker: PromptTracker,
     pub(crate) terminal_rows: u16,
     pub(crate) terminal_cols: u16,
