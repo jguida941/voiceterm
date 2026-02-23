@@ -1,6 +1,6 @@
 [package]
 name = "voiceterm"
-version = "1.0.88"
+version = "1.0.89"
 edition = "2021"
 default-run = "voiceterm"
 autobins = false

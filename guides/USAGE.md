@@ -2,7 +2,7 @@
 
 VoiceTerm is a voice-first terminal overlay for AI CLIs. It transcribes speech
 locally and injects text into your terminal input.
-Current stable release: `v1.0.88` (2026-02-22). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Primary support: Codex and Claude Code.
 
@@ -219,7 +219,7 @@ Three controls define runtime behavior:
 - `Ctrl+R` stops recording without sending.
 - `Ctrl+E` sends staged text immediately; with no staged text it finalizes+submits only while recording, otherwise it shows `Nothing to send`.
 - Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
-- In Full HUD, wake state is explicit: `Wake: ON` means listener active, `Wake: PAUSED` means listener intentionally paused during active capture/transcription, and `Wake: ERR` means wake listener startup failed (status includes log-path guidance).
+- In Full HUD, wake state is explicit: `Wake: ON` means listener active (steady badge, no pulse blink), `Wake: PAUSED` means listener intentionally paused during active capture/transcription, and `Wake: ERR` means wake listener startup failed (status includes log-path guidance).
 - In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
 - If prompt detection is unusual, set `--prompt-regex`.
 

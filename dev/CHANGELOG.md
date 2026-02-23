@@ -7,6 +7,10 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+_No entries yet._
+
+## [1.0.89] - 2026-02-23
+
 ### UX
 
 - Improve wake-word alias matching for common Whisper token splits so wake phrases still trigger when transcripts come through as `code x` or `voice term`.

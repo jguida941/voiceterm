@@ -2,7 +2,7 @@
 
 All flags for the `voiceterm` command. Run `voiceterm --help` for the live
 themed, grouped output.
-Current stable release: `v1.0.88` (2026-02-22). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
 
 Docs map:
 
@@ -63,7 +63,7 @@ For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
 
 Wake status labels in Full HUD:
 
-- `Wake: ON` - listener active
+- `Wake: ON` - listener active (steady badge in Full HUD)
 - `Wake: PAUSED` - listener intentionally paused during active capture/transcription
 - `Wake: ERR` - listener startup failed; check status/log-path message
 

@@ -2,7 +2,7 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
-Current stable release: `v1.0.88` (2026-02-22). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
+Current stable release: `v1.0.89` (2026-02-23). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 See [README](README.md) for the current release.
 
 ## 1) Install Codex CLI (default backend)
@@ -90,6 +90,7 @@ Theme Studio tip:
 Wake-word tip:
 
 - If wake listener startup fails, Full HUD now shows `Wake: ERR`; run with `--logs` and check [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
+- `Wake: ON` is now a steady badge and wake-listener capture windows are longer to reduce macOS microphone-indicator flicker.
 
 In `auto` mode, text is typed and submitted. In `insert` mode, text is typed
 and you press Enter. See [Usage Guide](guides/USAGE.md) for full details.
