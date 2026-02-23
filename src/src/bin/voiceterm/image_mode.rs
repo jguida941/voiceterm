@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(target_os = "macos")]
 use voiceterm::log_debug;
 
 use crate::config::{OverlayConfig, VoiceSendMode};
