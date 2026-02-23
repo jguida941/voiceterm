@@ -404,6 +404,56 @@ Evidence:
 Inference: Maintainers now get one deterministic path to keep release snapshots
 current, and CI/local governance catches stale plan snapshots immediately.
 
+### Recent Governance Update (2026-02-23, Active-Plan Phase/Link Enforcement)
+
+Fact: Active-plan governance was tightened so mirrored spec docs must stay
+phase-structured and explicitly linked in the master tracker, and strict
+tooling docs checks now run this guard through `devctl`.
+
+Evidence:
+
+- `dev/scripts/check_active_plan_sync.py` (required mirrored spec rows now
+  include `devctl_reporting_upgrade.md`, MP-scope parsing accepts single IDs,
+  and mirrored specs must include phase headings + explicit `MASTER_PLAN`
+  links)
+- `dev/active/devctl_reporting_upgrade.md` (status marker now uses the
+  canonical mirror phrasing)
+- `dev/active/MASTER_PLAN.md` (canonical rule now links the phased devctl
+  reporting spec)
+- `dev/scripts/devctl/commands/docs_check.py` (strict-tooling path now runs
+  active-plan sync)
+- `dev/scripts/devctl/tests/test_docs_check.py` (strict-tooling failure-path
+  coverage for active-plan sync errors)
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+Inference: Tooling/process changes now fail fast when active specs drift from
+phase governance or lose master-plan traceability, reducing the chance of
+"floating" active docs outside canonical execution state.
+
+### Recent Governance Update (2026-02-23, Guarded Branch Sync Automation)
+
+Fact: `devctl` now provides a dedicated `sync` command so maintainers can
+repeatably align branch state without ad-hoc git sequences. The command enforces
+clean-tree checks by default, validates local/remote branch refs, runs
+fast-forward-only pulls, optionally pushes local-ahead branches (`--push`), and
+restores the starting branch after execution.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/sync.py`
+- `dev/scripts/devctl/cli.py` (`sync` parser + dispatch)
+- `dev/scripts/devctl/commands/listing.py` (command inventory includes `sync`)
+- `dev/scripts/devctl/tests/test_sync.py`
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+
+Inference: Branch-sync hygiene now has one guarded control-plane path, reducing
+manual drift between `develop`, `master`, and active work branches.
+
 ### Recent Governance Update (2026-02-23, Code-Shape Guidance Hardening)
 
 Fact: `check_code_shape.py` violation output now ships explicit remediation

@@ -1,6 +1,6 @@
 # Devctl Reporting Upgrade (User-Story Driven, Production-Ready)
 
-Status: Draft specification, execution tracked in `dev/active/MASTER_PLAN.md` (`MP-306`)
+Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-306)
 
 ## Purpose
 
@@ -132,6 +132,7 @@ breaking existing command behavior.
 10. `--with-voice` (include voice session metrics in output)
 11. `--trend-window <days>` (default 30, lookback for trend calculations)
 12. `--ai` (enable AI-assisted triage classification)
+13. `--desktop-mode off|pyqt6` (optional heavy desktop dashboard)
 
 ### Artifact bundle contract (target)
 
@@ -275,7 +276,7 @@ Create a shared reporting engine under `dev/scripts/devctl/reporting/`:
    security, dependency, environment, and CIHub probes.
 3. `capabilities.py`: CIHub feature detection and cache helpers.
 4. `compat.py`: legacy/modern normalization layer.
-5. `renderers/`: json, md, rich (terminal), html, png, and tui emitters.
+5. `renderers/`: json, md, rich (terminal), html, png, tui, and pyqt emitters.
 6. `bundles.py`: deterministic artifact writing and manifest generation.
 7. `dashboard.py`: command orchestration for dashboard-focused output packs.
 8. `trends.py`: metric storage, trend computation, sparkline generation.
@@ -283,6 +284,7 @@ Create a shared reporting engine under `dev/scripts/devctl/reporting/`:
 10. `doctor.py`: environment probe logic and remediation suggestions.
 11. `ai_triage.py`: log preprocessing, LLM prompt construction, failure
     knowledge base queries, and structured result parsing.
+12. `desktop.py`: PyQt6 dashboard shell (dock layout, panels, and live wiring).
 
 Command wrappers should stay thin and delegate logic to shared reporting
 modules to prevent output drift and reduce maintenance risk.
@@ -296,12 +298,43 @@ Keep base tooling dependency-light and use optional extras:
    terminal output. Lightweight single dependency.
 3. Textual extra: interactive TUI dashboard with tabbed panels, sparkline
    widgets, and live-updating Workers. Built on Rich.
-4. Plotly extra: richer interactive HTML dashboards (heavier dep).
-5. Matplotlib extra: static PNG chart generation.
+4. PyQt6 extra: heavy desktop dashboard with dockable panes, split views,
+   saved layouts, and action panels.
+5. PyQt6-WebEngine extra: embedded browser panels for rich Plotly/HTML widgets.
+6. PyQt6-Charts/PyQt6-Graphs extra: native chart widgets for 2D/3D views.
+7. Plotly extra: richer interactive HTML dashboards (heavier dep).
+8. Matplotlib extra: static PNG chart generation.
 
 Missing optional dependencies must produce actionable warnings and fallback
-outputs, not command crashes. The fallback chain is:
-`tui -> rich -> md -> text`.
+outputs, not command crashes. Fallback chains:
+
+1. CLI mode: `tui -> rich -> md -> text`.
+2. Desktop mode: `pyqt6 -> tui -> rich -> md -> text`.
+
+## PyQt6 Heavy Dashboard Concepts (discussion backlog)
+
+Use this list for roadmap discussion and prioritization:
+
+1. Dockable incident workspace (`QMainWindow` + `QDockWidget`) with movable,
+   floatable panes for triage, logs, trends, and playbooks.
+2. Persistent workspace layouts (`saveState`/`restoreState` + `QSettings`) so
+   each maintainer can keep a preferred operator layout across restarts.
+3. High-volume issue grid (`QAbstractTableModel` + `QSortFilterProxyModel`)
+   with instant filtering, sorting, and severity/owner drill-down.
+4. Embedded web analytics panels (`QWebEngineView`) for Plotly charts and
+   HTML artifacts without leaving the desktop app.
+5. Bi-directional UI actions (`Qt WebChannel`) so browser widgets can trigger
+   native Python actions like playbook execution or bundle export.
+6. Live artifact auto-refresh (`QFileSystemWatcher`) for CI artifacts and local
+   report bundles as files change.
+7. Parallel refresh workers (`QThreadPool`) so heavy data collection does not
+   freeze the UI.
+8. Playbook command center (`QProcess`) with dry-run mode, streaming logs,
+   cancellation, and captured exit status.
+9. Side-by-side run comparison mode (current vs baseline) for fast regression
+   investigation during release readiness reviews.
+10. Native graph track with Qt Graphs (preferred long-term) and compatibility
+    bridge for Qt Charts where migration is still pending.
 
 ## Devctl Doctor Command
 
@@ -390,7 +423,9 @@ Exit criteria:
 3. Add playbook remediation system with YAML-defined runbooks.
 4. Improve next-action generation with linked playbook commands.
 5. Add onboarding-oriented summaries for new maintainers.
-6. Add Textual-based interactive TUI mode for `devctl dashboard`.
+6. Add Textual-based interactive TUI viewer mode for `devctl dashboard`.
+7. Add PyQt6 heavy desktop viewer mode with dockable panes and saved layouts.
+8. Add cross-view parity checks so TUI and PyQt6 show identical core metrics.
 
 Exit criteria:
 
@@ -398,7 +433,10 @@ Exit criteria:
 2. DORA metrics are computable and displayed in team lead views.
 3. Triage issues include matched playbooks with copy-paste commands.
 4. `devctl dashboard --tui-mode viewer` launches an interactive TUI.
-5. Handoff bundles are repeatable and easy to consume.
+5. `devctl dashboard --desktop-mode pyqt6` launches a desktop dashboard when
+   extras are installed.
+6. Handoff bundles are repeatable and easy to consume.
+7. Core metric values match across TUI and PyQt6 viewer surfaces.
 
 ### Phase 3: AI triage, automation, and platform depth
 
@@ -407,7 +445,8 @@ Exit criteria:
 3. Expand modern CIHub report/dashboard integration paths.
 4. Add strict schema validation modes (`warn`/`strict`) and compat gates.
 5. Add `devctl fix <playbook-id>` for interactive remediation execution.
-6. Add Textual live mode and automation hooks.
+6. Add PyQt6 live mode with operator action panels and run-comparison views.
+7. Add Textual live mode and automation hooks as lightweight fallback.
 
 Exit criteria:
 
@@ -415,7 +454,8 @@ Exit criteria:
 2. Failure knowledge base matches repeat issues without LLM calls.
 3. Machine outputs are stable for bot/agent integrations.
 4. `devctl fix` can execute playbook remediations interactively.
-5. Optional TUI live mode works without degrading base CLI utility.
+5. Optional PyQt6 live mode supports real-time updates and playbook actions.
+6. Optional TUI live mode works without degrading base CLI utility.
 
 ## Production-Readiness Requirements
 
@@ -433,6 +473,10 @@ Exit criteria:
 9. AI triage respects token budgets and gracefully degrades when LLM is
    unavailable.
 10. Doctor probes must not modify system state (read-only checks only).
+11. PyQt6 desktop mode remains optional and degrades to TUI/Rich mode with
+    actionable warnings when extras are missing.
+12. Desktop chart paths prefer Qt Graphs for new work; Qt Charts usage must be
+    documented as migration compatibility only.
 
 ## Validation and Evidence Plan
 
@@ -467,9 +511,15 @@ Local validation bundle for this track:
 7. Risk: doctor probes break on exotic environments.
    Mitigation: each probe is isolated with try/except, partial results always
    returned, unknown environments emit warnings not errors.
-8. Risk: Rich/Textual dependency adds installation friction.
-   Mitigation: Rich is a single pure-Python dependency with no C extensions.
-   Textual is optional. Base JSON/MD/text mode requires zero extras.
+8. Risk: Rich/Textual/PyQt6 dependencies add installation friction.
+   Mitigation: Rich/Textual/PyQt6 are all optional extras; base JSON/MD/text
+   mode requires zero extras and follows explicit fallback chains.
+9. Risk: PyQt6 licensing and packaging constraints are misapplied.
+   Mitigation: document GPL/commercial licensing expectations and keep desktop
+   mode opt-in behind explicit extras.
+10. Risk: Qt Charts deprecation creates long-term maintenance debt.
+    Mitigation: use Qt Graphs for new chart surfaces and keep Qt Charts only as
+    compatibility fallback during migration.
 
 ## Iteration Protocol
 
@@ -478,13 +528,47 @@ Local validation bundle for this track:
 3. Append major strategy changes here with date-stamped notes.
 4. Preserve backward compatibility expectations as phases land.
 
+## External Reference Notes (2026-02-23)
+
+PyQt6-heavy dashboard ideas above are grounded in official Qt/PyQt sources:
+
+1. Main window and dock architecture:
+   https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QMainWindow.html
+2. Dock widgets:
+   https://doc.qt.io/qt-6/qdockwidget.html
+3. Persistent settings/layout:
+   https://doc.qt.io/qt-6/qsettings.html
+4. Large-table filtering/sorting:
+   https://doc.qt.io/qt-6/qsortfilterproxymodel.html
+5. Embedded web panels:
+   https://doc.qt.io/qtforpython-6/PySide6/QtWebEngineWidgets/QWebEngineView.html
+6. JS/native bridge:
+   https://doc.qt.io/qtforpython-6/PySide6/QtWebChannel/index.html
+7. Background worker pool:
+   https://doc.qt.io/qtforpython-6/PySide6/QtCore/QThreadPool.html
+8. Process execution controls:
+   https://doc.qt.io/qt-6/qprocess.html
+9. File watch/live refresh:
+   https://doc.qt.io/qt-6/qfilesystemwatcher.html
+10. Chart direction note:
+    Qt Charts deprecation in 6.10 and Qt Graphs direction:
+    https://doc.qt.io/qtforpython-6/overviews/qtcharts-overview.html
+11. Python package extras for desktop mode:
+    https://pypi.org/project/PyQt6/
+    https://pypi.org/project/PyQt6-WebEngine/
+    https://pypi.org/project/PyQt6-Charts/
+
 ## Change Log
 
 - 2026-02-23: Major revision. Added voice session data integration, trend
   tracking model, playbook remediation, AI-assisted triage, devctl doctor
-  and devctl health commands, DORA-inspired metrics, Rich/Textual rendering,
-  expanded data sources (coverage, perf, memory, security, dependency health,
-  unsafe ratio), new contributor persona, success metrics, failure knowledge
-  base, and restructured phases (split Phase 1 into 1a/1b). Replaced PyQt
-  with Textual for TUI rendering. Informed by codebase audit showing 16 CI
-  workflows with orphaned data and existing Dev Mode JSONL infrastructure.
+  and devctl health commands, DORA-inspired metrics, Rich/Textual/PyQt6
+  rendering strategy, expanded data sources (coverage, perf, memory, security,
+  dependency health, unsafe ratio), new contributor persona, success metrics,
+  failure knowledge base, and restructured phases (split Phase 1 into 1a/1b).
+  Informed by codebase audit showing 16 CI workflows with orphaned data and
+  existing Dev Mode JSONL infrastructure.
+- 2026-02-23: Added guarded branch-sync control-plane utility planning context
+  (`devctl sync`) under MP-306 execution slices so maintainers have one
+  repeatable path for `develop`/`master`/current-branch sync with clean-tree
+  and fast-forward safety checks before report/triage/release workflows.

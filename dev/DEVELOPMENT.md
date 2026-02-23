@@ -105,6 +105,7 @@ CI will run the same check families again.
 Use this path:
 
 1. If this is normal feature/fix/docs work:
+   - optional preflight: `python3 dev/scripts/devctl.py sync --push`
    - branch from `develop` (`feature/<topic>` or `fix/<topic>`)
    - run the right bundle (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`)
    - fix failures, then commit and push
@@ -185,6 +186,7 @@ voiceterm/
 │       └── devctl/            # Modular maintainer CLI package internals
 │           ├── process_sweep.py # Shared process parser/cleanup helpers
 │           ├── security_parser.py # Shared CLI parser wiring for security command
+│           ├── sync_parser.py # Shared CLI parser wiring for sync command
 │           ├── commands/check_profile.py # Shared check-profile normalization
 │           ├── commands/security.py # Local RustSec + optional workflow scanner gates
 │           ├── status_report.py # Shared status/report payload + markdown renderer
@@ -378,6 +380,11 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 # Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
 python3 dev/scripts/devctl.py hygiene
 
+# Branch-sync helper (sync develop/master/current with clean-tree + ff-only guards)
+python3 dev/scripts/devctl.py sync
+# Include remote push for local-ahead branches
+python3 dev/scripts/devctl.py sync --push
+
 # Security guard (RustSec policy + optional workflow scanner)
 python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
@@ -543,9 +550,9 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
 - `python3 dev/scripts/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
 - `python3 dev/scripts/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
-- `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change, and runs active-plan sync so mirrored specs cannot drift from phase/link policy.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
-- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness.
+- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, active-doc cross-link integrity, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness.
 - `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 
@@ -603,7 +610,7 @@ GitHub Actions lanes used by this repo:
 | Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC) |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution + active-plan sync enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
 | Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested |

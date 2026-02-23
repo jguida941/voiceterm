@@ -165,10 +165,15 @@ class DocsCheckCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_strict_tooling_requires_engineering_evolution_update(
         self,
         mock_collect_git_status,
+        _mock_active_plan_sync,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -199,10 +204,15 @@ class DocsCheckCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_strict_tooling_passes_with_engineering_evolution_update(
         self,
         mock_collect_git_status,
+        _mock_active_plan_sync,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -231,6 +241,37 @@ class DocsCheckCommandTests(unittest.TestCase):
         code = docs_check.run(args)
 
         self.assertEqual(code, 0)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": False, "errors": ["missing master-plan link"]},
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_active_plan_sync_fails(
+        self,
+        mock_collect_git_status,
+        _mock_active_plan_sync,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from datetime import datetime
 
 from ..collect import collect_git_status
@@ -79,6 +80,8 @@ DEPRECATED_REFERENCE_PATTERNS = [
     },
 ]
 
+ACTIVE_PLAN_SYNC_SCRIPT = REPO_ROOT / "dev/scripts/check_active_plan_sync.py"
+
 
 def _is_tooling_change(path: str) -> bool:
     if path in TOOLING_CHANGE_EXACT:
@@ -111,6 +114,50 @@ def _scan_deprecated_references() -> list[dict]:
                         }
                     )
     return violations
+
+
+def _run_active_plan_sync_gate() -> dict:
+    """Run active-plan sync guard and return parsed JSON report."""
+    if not ACTIVE_PLAN_SYNC_SCRIPT.exists():
+        return {
+            "ok": False,
+            "error": f"Missing active-plan sync script: {ACTIVE_PLAN_SYNC_SCRIPT.relative_to(REPO_ROOT)}",
+        }
+
+    try:
+        completed = subprocess.run(
+            ["python3", str(ACTIVE_PLAN_SYNC_SCRIPT), "--format", "json"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return {"ok": False, "error": f"Failed to run active-plan sync gate: {exc}"}
+
+    output = completed.stdout.strip()
+    if not output:
+        detail = completed.stderr.strip() or f"exit code {completed.returncode}"
+        return {"ok": False, "error": f"Active-plan sync gate produced no JSON output ({detail})."}
+
+    try:
+        report = json.loads(output)
+    except json.JSONDecodeError as exc:
+        snippet = output[:200].strip().replace("\n", " ")
+        return {
+            "ok": False,
+            "error": f"Active-plan sync gate returned invalid JSON ({exc}): {snippet}",
+        }
+
+    if completed.returncode not in (0, 1):
+        stderr = completed.stderr.strip()
+        report.setdefault(
+            "error",
+            f"Active-plan sync gate exited with code {completed.returncode}"
+            + (f": {stderr}" if stderr else ""),
+        )
+        report["ok"] = False
+    return report
 
 
 def run(args) -> int:
@@ -160,7 +207,13 @@ def run(args) -> int:
     deprecated_violations = _scan_deprecated_references()
     deprecated_ok = not deprecated_violations
 
-    ok = user_facing_ok and tooling_policy_ok and evolution_policy_ok and deprecated_ok
+    active_plan_sync_report = None
+    active_plan_sync_ok = True
+    if strict_tooling:
+        active_plan_sync_report = _run_active_plan_sync_gate()
+        active_plan_sync_ok = bool(active_plan_sync_report.get("ok", False))
+
+    ok = user_facing_ok and tooling_policy_ok and evolution_policy_ok and deprecated_ok and active_plan_sync_ok
 
     report = {
         "command": "docs-check",
@@ -181,6 +234,8 @@ def run(args) -> int:
         "evolution_relevant_changes": evolution_relevant_changes,
         "evolution_updated": evolution_updated,
         "evolution_policy_ok": evolution_policy_ok,
+        "active_plan_sync_ok": active_plan_sync_ok,
+        "active_plan_sync_report": active_plan_sync_report,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
         "ok": ok,
@@ -218,6 +273,15 @@ def run(args) -> int:
             lines.append(f"- tooling_policy_ok: {tooling_policy_ok}")
         if strict_tooling and evolution_relevant_changes:
             lines.append(f"- evolution_policy_ok: {evolution_policy_ok}")
+        if strict_tooling:
+            lines.append(f"- active_plan_sync_ok: {active_plan_sync_ok}")
+            if not active_plan_sync_ok and active_plan_sync_report:
+                active_sync_errors = active_plan_sync_report.get("errors", [])
+                if active_sync_errors:
+                    lines.append("- active_plan_sync_errors: " + " | ".join(active_sync_errors))
+                active_sync_error = active_plan_sync_report.get("error")
+                if active_sync_error:
+                    lines.append(f"- active_plan_sync_error: {active_sync_error}")
         lines.append(f"- deprecated_reference_ok: {deprecated_ok}")
         if deprecated_violations:
             lines.append("")

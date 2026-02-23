@@ -22,6 +22,7 @@ REQUIRED_REGISTRY_ROWS = {
     "dev/active/MASTER_PLAN.md": {"role": "tracker", "authority": "canonical"},
     "dev/active/theme_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/memory_studio.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/devctl_reporting_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
 }
 
@@ -37,15 +38,13 @@ REQUIRED_AGENT_MARKERS = [
     "Run `python3 dev/scripts/check_active_plan_sync.py`",
 ]
 
-SPEC_RANGE_PATHS = [
-    "dev/active/theme_upgrade.md",
-    "dev/active/memory_studio.md",
-]
+SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md"]
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
 EXPECTED_RELEASE_BRANCH = "master"
 CARGO_TOML_PATH = REPO_ROOT / "src/Cargo.toml"
 SEMVER_TAG_PATTERN = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
+PHASE_HEADING_PATTERN = re.compile(r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE)
 
 def _strip_code_ticks(value: str) -> str:
     value = value.strip()
@@ -78,6 +77,8 @@ def _parse_registry_rows(index_text: str) -> list[dict]:
 
 def _expand_mp_ranges(text: str) -> set[str]:
     mp_ids: set[str] = set()
+    for value_s in re.findall(r"MP-(\d{3})", text):
+        mp_ids.add(f"MP-{value_s}")
     for start_s, end_s in re.findall(r"MP-(\d{3})\.\.MP-(\d{3})", text):
         start = int(start_s)
         end = int(end_s)
@@ -290,6 +291,8 @@ def _build_report() -> dict:
     spec_range_drift: list[str] = []
     index_scope_missing: list[str] = []
     index_scope_drift: list[str] = []
+    spec_missing_phase_headings: list[str] = []
+    spec_missing_master_links: list[str] = []
     mirror_marker = "execution mirrored in `dev/active/MASTER_PLAN.md`"
 
     for relative in SPEC_RANGE_PATHS:
@@ -299,7 +302,14 @@ def _build_report() -> dict:
         spec_text = spec_path.read_text(encoding="utf-8")
         if mirror_marker not in spec_text:
             spec_missing_mirror_markers.append(relative)
-        spec_range_ids = _expand_mp_ranges(spec_text)
+        if not PHASE_HEADING_PATTERN.search(spec_text):
+            spec_missing_phase_headings.append(relative)
+        if relative not in master_plan_text:
+            spec_missing_master_links.append(relative)
+        mirror_line = next((line for line in spec_text.splitlines() if mirror_marker in line), "")
+        spec_range_ids = _expand_mp_ranges(mirror_line)
+        if not spec_range_ids:
+            spec_range_ids = _expand_mp_ranges(spec_text)
         if not spec_range_ids:
             spec_missing_ranges.append(relative)
             continue
@@ -361,11 +371,13 @@ def _build_report() -> dict:
     if required_row_mismatches:
         errors.append(f"Required row mismatches: {'; '.join(required_row_mismatches)}")
     if spec_missing_mirror_markers:
-        errors.append(
-            "Spec docs missing master-plan mirror marker: " + ", ".join(spec_missing_mirror_markers)
-        )
+        errors.append("Spec docs missing master-plan mirror marker: " + ", ".join(spec_missing_mirror_markers))
+    if spec_missing_phase_headings:
+        errors.append("Spec docs missing phase-structured headings: " + ", ".join(spec_missing_phase_headings))
+    if spec_missing_master_links:
+        errors.append("Spec docs missing explicit MASTER_PLAN links: " + ", ".join(spec_missing_master_links))
     if spec_missing_ranges:
-        warnings.append("Spec docs missing MP range declarations: " + ", ".join(spec_missing_ranges))
+        warnings.append("Spec docs missing MP scope declarations: " + ", ".join(spec_missing_ranges))
     if spec_range_drift:
         errors.append("Spec MP ranges not found in MASTER_PLAN: " + " | ".join(spec_range_drift))
     if index_scope_missing:
@@ -393,7 +405,6 @@ def _build_report() -> dict:
         "warnings": warnings,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_active_plan_sync", ""]
     lines.append(f"- ok: {report.get('ok', False)}")
@@ -404,10 +415,7 @@ def _render_md(report: dict) -> str:
     lines.append(f"- index: {report['index_path']}")
     lines.append(f"- active_markdown_files: {len(report.get('active_markdown_files', []))}")
     lines.append(f"- registry_paths: {len(report.get('registry_paths', []))}")
-    lines.append(
-        "- tracker_paths: "
-        + (", ".join(report.get("tracker_paths", [])) or "none")
-    )
+    lines.append("- tracker_paths: " + (", ".join(report.get("tracker_paths", [])) or "none"))
     snapshot = report.get("snapshot", {})
     for key in (
         "last_tagged_release",
@@ -418,22 +426,14 @@ def _render_md(report: dict) -> str:
         lines.append(f"- snapshot_{key}: {snapshot.get(key) or 'missing'}")
     lines.append("- latest_git_tag: " + (report.get("latest_git_tag") or "none"))
     lines.append("- cargo_release_tag: " + (report.get("cargo_release_tag") or "none"))
-    lines.append(
-        "- warnings: "
-        + (", ".join(report.get("warnings", [])) if report.get("warnings") else "none")
-    )
-    lines.append(
-        "- errors: "
-        + (", ".join(report.get("errors", [])) if report.get("errors") else "none")
-    )
+    lines.append("- warnings: " + (", ".join(report.get("warnings", [])) if report.get("warnings") else "none"))
+    lines.append("- errors: " + (", ".join(report.get("errors", [])) if report.get("errors") else "none"))
     return "\n".join(lines)
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()

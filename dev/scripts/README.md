@@ -52,6 +52,10 @@ python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+# Branch sync guardrail helper (develop/master/current by default)
+python3 dev/scripts/devctl.py sync
+# Also push local-ahead branches after sync
+python3 dev/scripts/devctl.py sync --push
 # Security guardrails (RustSec baseline + optional workflow scan)
 python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
@@ -67,7 +71,7 @@ rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts.
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan sync policy checks.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
@@ -121,7 +125,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output (includes outcomes source age metadata). |
 | `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
-| `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
+| `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
@@ -142,8 +146,9 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
-- `docs-check`: docs coverage + tooling/deprecated-command policy guard
+- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync)
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
+- `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
 - `security`: RustSec policy checks plus optional workflow security scanning (`--with-zizmor`)
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
@@ -163,6 +168,8 @@ consistent:
   used by both `check` and `hygiene`.
 - `dev/scripts/devctl/security_parser.py`: shared CLI parser wiring for the
   `security` command so `cli.py` stays smaller and easier to maintain.
+- `dev/scripts/devctl/sync_parser.py`: shared CLI parser wiring for the
+  `sync` command so `cli.py` stays within shape budgets.
 - `dev/scripts/devctl/triage_parser.py`: shared CLI parser wiring for the
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile

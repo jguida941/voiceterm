@@ -3,6 +3,25 @@
 Use this file as the canonical orchestration surface for parallel execution.
 All worker agents and the reviewer append evidence in this file while the cycle is active.
 
+## 0) Current Execution Mode (3 Agents, Default)
+
+This mode is authoritative for current runs with three concurrent agents.
+
+Coordination contract:
+
+1. The assignment/status board in `dev/active/MASTER_PLAN.md` is the
+   canonical "who owns what now" tracker.
+2. This runbook is the append-only command/evidence log.
+3. Every agent works from `develop` in its own worktree/branch.
+4. `master` is release-only; no feature work lands directly on `master`.
+5. Agents must not edit MP lines outside their assigned lane scope.
+
+| Agent | Lane | Primary active docs | MP scope | Worktree | Branch |
+|---|---|---|---|---|---|
+| `AGENT-1` | Runtime/Theme execution | `dev/active/theme_upgrade.md` | `MP-161`, `MP-162`, `MP-166`, `MP-167`, `MP-172`, `MP-173`, `MP-174`, `MP-177`, `MP-178`, `MP-181` | `../codex-voice-wt-a1` | `feature/a1-runtime-theme` |
+| `AGENT-2` | Tooling/control-plane and governance | `dev/active/devctl_reporting_upgrade.md` | `MP-257`, `MP-297`, `MP-298`, `MP-306` | `../codex-voice-wt-a2` | `feature/a2-tooling-control-plane` |
+| `AGENT-3` | Memory/mutation/reliability execution | `dev/active/memory_studio.md` | `MP-015`, `MP-230..MP-255`, `MP-301` | `../codex-voice-wt-a3` | `feature/a3-memory-mutation-reliability` |
+
 ## 1) Current Audit Snapshot (2026-02-19)
 
 ### Branch and release posture
@@ -95,6 +114,17 @@ Do not edit MP lines owned by another area.
 
 ## 7) Branch + Worktree Setup
 
+### 7.0 Default setup for 3-agent mode
+
+```bash
+cd /Users/jguida941/testing_upgrade/codex-voice
+python3 dev/scripts/devctl.py sync --push
+
+git worktree add -b feature/a1-runtime-theme ../codex-voice-wt-a1 develop
+git worktree add -b feature/a2-tooling-control-plane ../codex-voice-wt-a2 develop
+git worktree add -b feature/a3-memory-mutation-reliability ../codex-voice-wt-a3 develop
+```
+
 ### 7.1 Optional cleanup of prior-cycle worktrees
 
 ```bash
@@ -148,19 +178,32 @@ If risk-sensitive paths are touched, run the mapped add-on matrix from `AGENTS.m
 Worker stop token (exact):
 
 - `READY FOR REVIEW AREA-<ID>`
+- `READY FOR REVIEW AGENT-<N>`
 
 Reviewer responses (exact):
 
 - `REVIEW-OK AREA-<ID>`
 - `REVIEW-CHANGES AREA-<ID>`
+- `REVIEW-OK AGENT-<N>`
+- `REVIEW-CHANGES AGENT-<N>`
 
 Rules:
 
-1. No merge to `develop` without `REVIEW-OK AREA-<ID>`.
+1. No merge to `develop` without a matching `REVIEW-OK ...` token.
 2. If changes requested, worker patches and re-runs required checks.
 3. After merge, rebase active downstream worktrees onto `origin/develop`.
 
 ## 10) Rebase Protocol After Each Merge
+
+Default 3-agent mode:
+
+```bash
+git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a1 fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a1 rebase origin/develop
+git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a2 fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a2 rebase origin/develop
+git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a3 fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-a3 rebase origin/develop
+```
+
+Expanded-lane mode (legacy/optional):
 
 ```bash
 git -C /Users/jguida941/testing_upgrade/codex-voice-wt-t1 fetch origin && git -C /Users/jguida941/testing_upgrade/codex-voice-wt-t1 rebase origin/develop

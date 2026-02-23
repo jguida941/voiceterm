@@ -102,6 +102,11 @@ Non-release work flow:
 5. Commit and push short-lived branch.
 6. Merge short-lived branch into `develop` only after required checks pass.
 
+Routine helper:
+
+- `python3 dev/scripts/devctl.py sync --push` can audit/sync `develop` +
+  `master` + current branch with clean-tree and fast-forward guards.
+
 Release promotion flow:
 
 1. Ensure `develop` checks are green.
@@ -465,7 +470,9 @@ Core commands:
   - Includes automatic orphaned-test cleanup sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
+  - `--strict-tooling` also runs the active-plan sync gate so tooling/process changes cannot bypass active-doc phase/link governance.
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
+- `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
 - `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
 - `mutants`
@@ -483,6 +490,7 @@ Implementation note for maintainers:
 - Shared internals in `devctl` are intentional and should stay centralized:
   `dev/scripts/devctl/process_sweep.py` (process parsing/cleanup),
   `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
+  `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
   `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
   `dev/scripts/devctl/status_report.py` (status/report payload + markdown
   rendering), `dev/scripts/devctl/commands/security.py` (local security gate
@@ -509,9 +517,9 @@ Supporting scripts:
 
 `check_code_shape.py` enforces both language-level limits and path-level
 hotspot budgets for Phase 3C decomposition targets.
-`check_active_plan_sync.py` enforces active-doc index/spec parity and
-`MASTER_PLAN` Status Snapshot release freshness (branch policy + release-tag
-consistency).
+`check_active_plan_sync.py` enforces active-doc index/spec parity, mirrored-spec
+phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
+Snapshot release freshness (branch policy + release-tag consistency).
 `check_rust_lint_debt.py` enforces non-regressive growth for `#[allow(...)]`
 and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
