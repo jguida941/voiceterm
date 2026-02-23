@@ -17,6 +17,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Route style-pack component border overrides through runtime rendering: `components.overlay_border` now drives overlay frame borders (help/settings/theme-picker/theme-studio/toast plus themed CLI help output), and `components.hud_border` now drives Full-HUD borders when HUD border mode is `Theme`.
 - Route startup banner separators and explicit spinner animations through glyph-profile fallback rules so `Glyph profile: ASCII` keeps startup separators and spinner frames ASCII-safe.
 - Improve Full/Minimal HUD controls-row readability by tinting button brackets to each button's active theme color and adding stronger focused-bracket contrast in arrow-key focus mode.
+- Route transcript-history overlay borders through the style-pack overlay border resolver so `components.overlay_border` now applies consistently across help/settings/theme-picker/theme-studio/toast/history overlays.
 
 ### Documentation
 
