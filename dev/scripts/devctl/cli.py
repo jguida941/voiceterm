@@ -1,30 +1,14 @@
 """devctl CLI argument parsing and dispatch."""
-
 import argparse
 import sys
-
 from .commands import (
-    check,
-    docs_check,
-    homebrew,
-    hygiene,
-    listing,
-    mutation_score,
-    mutants,
-    pypi,
-    release,
-    release_notes,
-    report,
-    security,
-    ship,
-    status,
-    triage,
+    check, docs_check, homebrew, hygiene, listing, mutation_score, mutants,
+    pypi, release, release_notes, report, security, ship, sync, status, triage,
 )
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
 from .security_parser import add_security_parser
+from .sync_parser import add_sync_parser
 from .triage_parser import add_triage_parser
-
-
 def build_parser() -> argparse.ArgumentParser:
     """Create the top-level argparse parser for devctl."""
     parser = argparse.ArgumentParser(description="VoiceTerm Dev CLI")
@@ -299,10 +283,9 @@ def build_parser() -> argparse.ArgumentParser:
     # security
     add_security_parser(sub)
     add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
+    add_sync_parser(sub)
 
     return parser
-
-
 def main() -> int:
     """Entry point for devctl CLI."""
     parser = build_parser()
@@ -340,11 +323,11 @@ def main() -> int:
         return listing.run(args)
     if args.command == "hygiene":
         return hygiene.run(args)
+    if args.command == "sync":
+        return sync.run(args)
     if args.command == "security":
         return security.run(args)
 
     return 0
-
-
 if __name__ == "__main__":
     sys.exit(main())

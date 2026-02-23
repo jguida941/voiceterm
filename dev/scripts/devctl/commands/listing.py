@@ -11,6 +11,7 @@ COMMANDS = [
     "mutation-score",
     "docs-check",
     "hygiene",
+    "sync",
     "release",
     "ship",
     "release-notes",
