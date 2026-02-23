@@ -3,7 +3,8 @@
 //! Displays version and configuration info on startup.
 
 use crate::theme::{
-    runtime_style_pack_overrides, RuntimeBannerStyleOverride, RuntimeStartupStyleOverride, Theme,
+    inline_separator, runtime_style_pack_overrides, RuntimeBannerStyleOverride,
+    RuntimeStartupStyleOverride, Theme,
 };
 use crossterm::terminal::size as terminal_size;
 use std::env;
@@ -65,7 +66,7 @@ fn clear_screen(stdout: &mut dyn Write) -> io::Result<()> {
 }
 
 /// Format the shiny purple ASCII art banner with tagline underneath.
-pub fn format_ascii_banner(use_color: bool, terminal_width: u16) -> String {
+pub fn format_ascii_banner(use_color: bool, terminal_width: u16, separator: &str) -> String {
     let reset = "\x1b[0m";
     let dim = "\x1b[90m";
     let mut output = String::new();
@@ -99,8 +100,8 @@ pub fn format_ascii_banner(use_color: bool, terminal_width: u16) -> String {
 
     // Add tagline underneath with shortcuts
     let tagline = format!(
-        "v{} │ Ctrl+R record │ ? help │ Ctrl+O settings │ Ctrl+Q quit",
-        VERSION
+        "v{} {separator} Ctrl+R record {separator} ? help {separator} Ctrl+O settings {separator} Ctrl+Q quit",
+        VERSION,
     );
     let tagline_padding = centered_padding(terminal_width, &tagline);
 
@@ -161,6 +162,7 @@ impl Default for BannerConfig {
 /// Format a compact startup banner.
 pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
     let colors = theme.colors();
+    let separator = inline_separator(colors.glyph_set);
 
     let auto_voice_status = if config.auto_voice {
         format!("{}on{}", colors.success, colors.reset)
@@ -169,12 +171,12 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
     };
 
     let shortcuts = format!(
-        "{}Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ctrl+Q quit{}",
-        colors.dim, colors.reset
+        "{}Ctrl+R record {separator} ? help {separator} Ctrl+O settings {separator} mouse: click HUD buttons {separator} Ctrl+Q quit{}",
+        colors.dim, colors.reset,
     );
 
     format!(
-        "{}VoiceTerm{} v{} │ {} │ {} │ theme: {} │ auto-voice: {} │ {:.0}dB\n{}\n",
+        "{}VoiceTerm{} v{} {separator} {} {separator} {} {separator} theme: {} {separator} auto-voice: {} {separator} {:.0}dB\n{}\n",
         colors.info,
         colors.reset,
         VERSION,
@@ -190,8 +192,9 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
 /// Format a minimal one-line banner.
 pub fn format_minimal_banner(theme: Theme) -> String {
     let colors = theme.colors();
+    let separator = inline_separator(colors.glyph_set);
     format!(
-        "{}VoiceTerm{} v{} │ Ctrl+R rec │ ? help │ Ctrl+O settings │ Ctrl+Q quit\n",
+        "{}VoiceTerm{} v{} {separator} Ctrl+R rec {separator} ? help {separator} Ctrl+O settings {separator} Ctrl+Q quit\n",
         colors.info, colors.reset, VERSION
     )
 }
@@ -244,11 +247,14 @@ fn use_minimal_banner(cols: u16) -> bool {
 
 fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Option<u16>) -> String {
     let use_color = theme != Theme::None;
+    let separator = inline_separator(theme.colors().glyph_set);
     let runtime_overrides = runtime_style_pack_overrides();
 
     if let Some(startup_style) = runtime_overrides.startup_style_override {
         return match startup_style {
-            RuntimeStartupStyleOverride::Full => format_ascii_banner(use_color, cols.unwrap_or(80)),
+            RuntimeStartupStyleOverride::Full => {
+                format_ascii_banner(use_color, cols.unwrap_or(80), separator)
+            }
             RuntimeStartupStyleOverride::Minimal => format_minimal_banner(theme),
             RuntimeStartupStyleOverride::Hidden => String::new(),
         };
@@ -264,7 +270,7 @@ fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Opti
     }
 
     match cols {
-        Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols),
+        Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols, separator),
         Some(cols) if use_minimal_banner(cols) => format_minimal_banner(theme),
         _ => format_startup_banner(config, theme),
     }
@@ -272,13 +278,14 @@ fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Opti
 
 fn format_compact_banner(config: &BannerConfig, theme: Theme) -> String {
     let colors = theme.colors();
+    let separator = inline_separator(colors.glyph_set);
     let auto_voice_status = if config.auto_voice {
         format!("{}on{}", colors.success, colors.reset)
     } else {
         format!("{}off{}", colors.warning, colors.reset)
     };
     format!(
-        "{}VoiceTerm{} v{} │ {} │ {} │ auto-voice: {}\n",
+        "{}VoiceTerm{} v{} {separator} {} {separator} {} {separator} auto-voice: {}\n",
         colors.info, colors.reset, VERSION, config.backend, config.pipeline, auto_voice_status
     )
 }
@@ -307,7 +314,7 @@ mod tests {
     use super::*;
     use crate::theme::{
         runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBannerStyleOverride,
-        RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
+        RuntimeGlyphSetOverride, RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
     };
     use std::sync::{Mutex, OnceLock};
 
@@ -557,9 +564,26 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     }
 
     #[test]
+    fn build_startup_banner_for_cols_honors_ascii_glyph_separator_override() {
+        let config = BannerConfig::default();
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
+                banner_style_override: Some(RuntimeBannerStyleOverride::Compact),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let compact = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+                assert!(compact.contains(" | "));
+                assert!(!compact.contains(" │ "));
+            },
+        );
+    }
+
+    #[test]
     fn ascii_banner_logo_left_padding_matches_centered_formula() {
         let width = 120;
-        let banner = format_ascii_banner(false, width);
+        let banner = format_ascii_banner(false, width, "│");
         let first_logo_line = banner.lines().next().expect("logo line");
         let expected = centered_padding(width, ASCII_LOGO[0]);
         let leading_spaces = first_logo_line.chars().take_while(|c| *c == ' ').count();
@@ -569,7 +593,7 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     #[test]
     fn ascii_banner_initializing_padding_matches_centered_formula() {
         let width = 120;
-        let banner = format_ascii_banner(false, width);
+        let banner = format_ascii_banner(false, width, "│");
         let init_line = banner
             .lines()
             .find(|line| line.contains("Initializing..."))
@@ -622,14 +646,14 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn ascii_banner_contains_logo() {
-        let banner = format_ascii_banner(false, 80);
+        let banner = format_ascii_banner(false, 80, "│");
         assert!(banner.contains("██╗"));
         assert!(banner.contains("╚═╝"));
     }
 
     #[test]
     fn ascii_banner_with_color_has_ansi_codes() {
-        let banner = format_ascii_banner(true, 80);
+        let banner = format_ascii_banner(true, 80, "│");
         // Should contain truecolor ANSI codes
         assert!(banner.contains("\x1b[38;2;"));
         // Should contain reset codes
@@ -638,14 +662,14 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn ascii_banner_no_color_is_plain() {
-        let banner = format_ascii_banner(false, 80);
+        let banner = format_ascii_banner(false, 80, "│");
         // Should NOT contain any ANSI codes
         assert!(!banner.contains("\x1b["));
     }
 
     #[test]
     fn ascii_banner_contains_tagline() {
-        let banner = format_ascii_banner(false, 80);
+        let banner = format_ascii_banner(false, 80, "│");
         assert!(banner.contains("Ctrl+R record"));
         assert!(banner.contains("? help"));
         assert!(banner.contains("Ctrl+O settings"));
@@ -655,13 +679,13 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn ascii_banner_has_no_leading_blank_line() {
-        let banner = format_ascii_banner(false, 120);
+        let banner = format_ascii_banner(false, 120, "│");
         assert!(!banner.starts_with('\n'));
     }
 
     #[test]
     fn ascii_banner_centers_with_wide_terminal() {
-        let banner = format_ascii_banner(false, 120);
+        let banner = format_ascii_banner(false, 120, "│");
         // With 120 cols, there should be some leading spaces for centering
         let lines: Vec<&str> = banner.lines().collect();
         // Find a line with the logo (not empty)
@@ -672,7 +696,7 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     #[test]
     fn ascii_banner_centers_tagline_using_display_width() {
         let width = 120;
-        let banner = format_ascii_banner(false, width);
+        let banner = format_ascii_banner(false, width, "│");
         let line = banner
             .lines()
             .find(|line| line.contains("Ctrl+R record"))

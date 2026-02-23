@@ -15,6 +15,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add guarded dev-event logging controls (`--dev-log`, `--dev-path`) that require `--dev` and persist per-session JSONL event files under the configured dev data root.
 - Expand Theme Studio runtime controls with `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, and wire these rows into undo/redo/rollback history so the added style-pack fields are live-editable from the overlay.
 - Route style-pack component border overrides through runtime rendering: `components.overlay_border` now drives overlay frame borders (help/settings/theme-picker/theme-studio/toast plus themed CLI help output), and `components.hud_border` now drives Full-HUD borders when HUD border mode is `Theme`.
+- Route startup banner separators and explicit spinner animations through glyph-profile fallback rules so `Glyph profile: ASCII` keeps startup separators and spinner frames ASCII-safe.
 - Improve Full/Minimal HUD controls-row readability by tinting button brackets to each button's active theme color and adding stronger focused-bracket contrast in arrow-key focus mode.
 
 ### Documentation

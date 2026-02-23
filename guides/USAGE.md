@@ -417,6 +417,7 @@ Advanced theme options (optional):
 - Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
 - `components.overlay_border` in style-pack JSON controls overlay frame borders (help/settings/theme-picker/theme-studio/history overlays).
 - `components.hud_border` controls Full HUD borders when `--hud-border-style theme` (or Theme Studio `HUD borders` set to Theme) is active.
+- `Glyph profile: ASCII` now forces ASCII separators in startup banner variants and keeps explicit spinner-style animations ASCII-safe.
 - When a style-pack sets `base_theme`, theme switching is locked to that theme until the env var is unset.
 - Visual controls (HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast position/severity, startup splash, banner style) are all adjustable in Theme Studio.
 - For full env var and flag details, see [CLI_FLAGS.md](CLI_FLAGS.md#environment-variables).
