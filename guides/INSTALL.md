@@ -40,7 +40,7 @@ Related docs:
 | Codex (default) | `npm install -g @openai/codex` |
 | Claude Code | `bash -c "$(curl -fsSL https://claude.ai/install.sh)"` |
 
-Authenticate once after installing your CLI:
+After you install VoiceTerm (any option below), authenticate your backend once:
 
 ```bash
 voiceterm --login --codex

@@ -108,6 +108,12 @@ fn format_settings_row(
             mode_button(view.send_mode),
             width = LABEL_WIDTH
         ),
+        SettingsItem::ImageMode => format!(
+            "{marker} {:<width$} {}",
+            "Image mode",
+            toggle_button(view.image_mode_enabled),
+            width = LABEL_WIDTH
+        ),
         SettingsItem::Macros => format!(
             "{marker} {:<width$} {}",
             "Macros",
@@ -356,6 +362,9 @@ fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
         SettingsItem::WakeSensitivity => "Higher % is more sensitive to wake phrases.",
         SettingsItem::WakeCooldown => "Minimum delay between consecutive wake triggers.",
         SettingsItem::SendMode => "Auto sends transcript immediately; Edit stages text first.",
+        SettingsItem::ImageMode => {
+            "When ON, Ctrl+R and [rec] capture an image and insert a prompt."
+        }
         SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
         SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",
         SettingsItem::Theme => {
@@ -403,6 +412,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Insert,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -434,6 +444,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -463,6 +474,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -514,6 +526,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Codex,

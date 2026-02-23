@@ -1,44 +1,52 @@
-# ADR 0022: Render Guarantees and Layout Contract
+# ADR 0022: Writer Render Invariants for HUD and Overlay Safety
 
-Status: Proposed
-Date: 2026-01-31
+Status: Accepted
+Date: 2026-02-23
 
 ## Context
 
-Terminal overlays are fragile: drawing outside reserved rows, emitting newlines,
-or leaving the cursor in the wrong place can corrupt the user's shell state.
-The UI plan requires a strict render contract to prevent jank and terminal
-corruption across overlay and TUI modes.
+VoiceTerm draws HUD/overlay content in the same terminal as live backend PTY
+output. Without strict render invariants, HUD and shell output can corrupt each
+other, especially on resize and high-output workloads.
 
 ## Decision
 
-Adopt explicit render guarantees for overlay output:
+Enforce terminal-safety invariants through the serialized writer path:
 
-- Render is pure: `state -> lines`, no side effects.
-- No newlines are emitted while drawing the HUD region.
-- Output is width-bounded by display width for every line.
-- Cursor is saved/restored every frame; writes occur only within reserved rows.
-- Resize triggers a full redraw and clears the old banner region.
-- Periodic updates are coalesced to a fixed tick rate for continuous signals.
+- Route HUD/overlay writes through the writer thread (`WriterMessage`) so PTY and
+  UI output do not interleave unpredictably.
+- Wrap draw operations with cursor save/restore sequences.
+- Render by explicit row positioning in reserved rows and clear trailing stale
+  characters on each written line.
+- Recompute reserved rows and clear old-geometry HUD/overlay rows on resize
+  before redraw.
+- Truncate status text by display width (Unicode-aware) to keep line bounds.
+- Coalesce redraw timing so settings/status updates stay responsive under
+  continuous PTY output.
 
 ## Consequences
 
-Positive:
+**Positive:**
 
-- Stable, professional overlay behavior across terminals and multiplexers.
-- Fewer hard-to-debug rendering artifacts.
-- Clear testable invariants.
+- Stable HUD/overlay rendering across terminal environments.
+- Fewer resize ghost-frame and stale-row regressions.
+- Clear, testable invariants around width and draw scope.
 
-Negative:
+**Negative:**
 
-- Requires strict discipline and additional render tests.
-- Adds bookkeeping for reserved rows and cursor management.
+- More bookkeeping in writer state and resize handling.
+- Render behavior depends on strict message-path discipline.
 
 ## Alternatives Considered
 
-- Allowing render shortcuts (rejected: risk of terminal corruption).
-- Letting overlays write freely like standard CLI output (rejected: breaks shell).
+- **Direct ad hoc writes from event loop/input paths**: rejected due output
+  interleaving and race-prone redraw behavior.
+- **Free-form overlay writes with newline-based flow**: rejected because it
+  cannot preserve shell-region integrity in shared PTY rendering.
 
 ## Links
 
-- `dev/active/MASTER_PLAN.md` (MP-038)
+- `src/src/bin/voiceterm/writer/mod.rs`
+- `src/src/bin/voiceterm/writer/state.rs`
+- `src/src/bin/voiceterm/writer/render.rs`
+- `src/src/bin/voiceterm/terminal.rs`

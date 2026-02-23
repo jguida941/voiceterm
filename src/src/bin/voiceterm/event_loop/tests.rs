@@ -16,9 +16,10 @@ use crate::status_line::{
     status_banner_height, Pipeline, StatusLineState, VoiceMode, WakeWordHudState,
 };
 use crate::theme::{
-    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
-    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStylePackOverrides,
-    RuntimeVoiceSceneStyleOverride, Theme,
+    RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
+    RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride, Theme,
 };
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::VoiceManager;
@@ -337,6 +338,8 @@ fn build_harness(
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
+        dev_mode_stats: None,
+        dev_event_logger: None,
         prompt_tracker,
         terminal_rows: 24,
         terminal_cols: 80,
@@ -1151,6 +1154,110 @@ fn theme_studio_enter_on_voice_scene_row_cycles_runtime_override() {
 }
 
 #[test]
+fn theme_studio_enter_on_toast_position_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 11; // Toast position
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.toast_position_override,
+        Some(RuntimeToastPositionOverride::TopRight)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_startup_splash_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 12; // Startup splash
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.startup_style_override,
+        Some(RuntimeStartupStyleOverride::Full)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_toast_severity_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 13; // Toast severity
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.toast_severity_mode_override,
+        Some(RuntimeToastSeverityModeOverride::Icon)
+    );
+}
+
+#[test]
+fn theme_studio_enter_on_banner_style_row_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_selected = 14; // Banner style
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.banner_style_override,
+        Some(RuntimeBannerStyleOverride::Full)
+    );
+}
+
+#[test]
 fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
@@ -1173,7 +1280,7 @@ fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
     assert_eq!(state.theme_studio_undo_history.len(), 1);
     assert!(state.theme_studio_redo_history.is_empty());
 
-    state.theme_studio_selected = 11; // Undo edit
+    state.theme_studio_selected = 15; // Undo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1208,7 +1315,7 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
         InputEvent::EnterKey,
         &mut running,
     );
-    state.theme_studio_selected = 11; // Undo edit
+    state.theme_studio_selected = 15; // Undo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1217,7 +1324,7 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
         &mut running,
     );
 
-    state.theme_studio_selected = 12; // Redo edit
+    state.theme_studio_selected = 16; // Redo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1269,7 +1376,7 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
         Some(RuntimeIndicatorSetOverride::Ascii)
     );
 
-    state.theme_studio_selected = 13; // Rollback edits
+    state.theme_studio_selected = 17; // Rollback edits
     handle_input_event(
         &mut state,
         &mut timers,

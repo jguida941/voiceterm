@@ -7,11 +7,23 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### UX
+
+- Add Gemini-specific HUD compaction so `--gemini` sessions keep a single-row HUD when `Full` style is selected, reducing textbox crowding and redraw flicker while preserving existing Full HUD behavior for other backends.
+- Add `Image mode` runtime toggle for picture-assisted prompts: when enabled, `Ctrl+R`/HUD `[rec]` captures an image, saves it to `.voiceterm/captures/`, shows an `IMG` HUD badge, and injects a Codex prompt line using the saved image path.
+- Add a guarded developer launch mode (`--dev`, alias `--dev-mode` / `-D`) that keeps default runtime behavior unchanged when absent and shows a `DEV` HUD badge when active.
+- Add guarded dev-event logging controls (`--dev-log`, `--dev-path`) that require `--dev` and persist per-session JSONL event files under the configured dev data root.
+- Expand Theme Studio runtime controls with `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, and wire these rows into undo/redo/rollback history so the added style-pack fields are live-editable from the overlay.
+- Improve Full/Minimal HUD controls-row readability by tinting button brackets to each button's active theme color and adding stronger focused-bracket contrast in arrow-key focus mode.
+
 ### Documentation
 
 - Rewrite user-facing doc intros in plain language and lead with the hands-free flow (`--auto-voice --wake-word --voice-send-mode insert`) so wake mode and voice submit are immediately visible in `README.md`, `QUICK_START.md`, and guide entry points.
 - Add an explicit wake + voice send walkthrough (Alexa-style flow) with step-by-step examples and one-shot phrases (`hey codex send`, `hey claude send`) in user docs.
 - Make wake + voice send docs GUI-first (Settings + shortcuts) and keep CLI flags as optional startup shortcuts.
+- Fix README badge rendering so `Whisper` and `license` chips no longer clip text in GitHub page rendering.
+- Document image-mode controls/flags (`--image-mode`, `--image-capture-command`, `VOICETERM_IMAGE_CAPTURE_COMMAND`) in `USAGE`, `CLI_FLAGS`, and `QUICK_START`.
+- Document guarded dev-event logging flags (`--dev-log`, `--dev-path`) and JSONL log location behavior in `USAGE`, `CLI_FLAGS`, `README`, and `QUICK_START`.
 
 ## [1.0.90] - 2026-02-23
 

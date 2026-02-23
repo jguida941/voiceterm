@@ -2,7 +2,9 @@
 //!
 //! Displays version and configuration info on startup.
 
-use crate::theme::Theme;
+use crate::theme::{
+    runtime_style_pack_overrides, RuntimeBannerStyleOverride, RuntimeStartupStyleOverride, Theme,
+};
 use crossterm::terminal::size as terminal_size;
 use std::env;
 use std::io::{self, Write};
@@ -242,11 +244,43 @@ fn use_minimal_banner(cols: u16) -> bool {
 
 fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Option<u16>) -> String {
     let use_color = theme != Theme::None;
+    let runtime_overrides = runtime_style_pack_overrides();
+
+    if let Some(startup_style) = runtime_overrides.startup_style_override {
+        return match startup_style {
+            RuntimeStartupStyleOverride::Full => format_ascii_banner(use_color, cols.unwrap_or(80)),
+            RuntimeStartupStyleOverride::Minimal => format_minimal_banner(theme),
+            RuntimeStartupStyleOverride::Hidden => String::new(),
+        };
+    }
+
+    if let Some(banner_style) = runtime_overrides.banner_style_override {
+        return match banner_style {
+            RuntimeBannerStyleOverride::Full => format_startup_banner(config, theme),
+            RuntimeBannerStyleOverride::Compact => format_compact_banner(config, theme),
+            RuntimeBannerStyleOverride::Minimal => format_minimal_banner(theme),
+            RuntimeBannerStyleOverride::Hidden => String::new(),
+        };
+    }
+
     match cols {
         Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols),
         Some(cols) if use_minimal_banner(cols) => format_minimal_banner(theme),
         _ => format_startup_banner(config, theme),
     }
+}
+
+fn format_compact_banner(config: &BannerConfig, theme: Theme) -> String {
+    let colors = theme.colors();
+    let auto_voice_status = if config.auto_voice {
+        format!("{}on{}", colors.success, colors.reset)
+    } else {
+        format!("{}off{}", colors.warning, colors.reset)
+    };
+    format!(
+        "{}VoiceTerm{} v{} │ {} │ {} │ auto-voice: {}\n",
+        colors.info, colors.reset, VERSION, config.backend, config.pipeline, auto_voice_status
+    )
 }
 
 fn build_startup_banner(config: &BannerConfig, theme: Theme) -> String {
@@ -271,7 +305,28 @@ pub(crate) fn show_startup_splash(config: &BannerConfig, theme: Theme) -> io::Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::{
+        runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBannerStyleOverride,
+        RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
+    };
     use std::sync::{Mutex, OnceLock};
+
+    struct RuntimeOverridesGuard {
+        previous: RuntimeStylePackOverrides,
+    }
+
+    impl Drop for RuntimeOverridesGuard {
+        fn drop(&mut self) {
+            set_runtime_style_pack_overrides(self.previous);
+        }
+    }
+
+    fn with_runtime_overrides<T>(overrides: RuntimeStylePackOverrides, f: impl FnOnce() -> T) -> T {
+        let previous = runtime_style_pack_overrides();
+        set_runtime_style_pack_overrides(overrides);
+        let _guard = RuntimeOverridesGuard { previous };
+        f()
+    }
 
     fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
         static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
@@ -455,6 +510,50 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
         let fallback = build_startup_banner_for_cols(&config, Theme::None, None);
         assert!(fallback.contains("mouse: click HUD buttons"));
         assert!(!fallback.contains("Initializing..."));
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_honors_runtime_startup_style_override() {
+        let config = BannerConfig::default();
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                startup_style_override: Some(RuntimeStartupStyleOverride::Hidden),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let hidden = build_startup_banner_for_cols(&config, Theme::None, Some(80));
+                assert!(hidden.is_empty());
+            },
+        );
+
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                startup_style_override: Some(RuntimeStartupStyleOverride::Minimal),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let minimal = build_startup_banner_for_cols(&config, Theme::None, Some(80));
+                assert!(minimal.contains("Ctrl+R rec"));
+                assert!(!minimal.contains("Initializing..."));
+            },
+        );
+    }
+
+    #[test]
+    fn build_startup_banner_for_cols_honors_runtime_banner_style_override() {
+        let config = BannerConfig::default();
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                banner_style_override: Some(RuntimeBannerStyleOverride::Compact),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let compact = build_startup_banner_for_cols(&config, Theme::None, Some(60));
+                assert!(compact.contains("VoiceTerm"));
+                assert!(compact.contains("auto-voice"));
+                assert!(!compact.contains("mouse: click HUD buttons"));
+            },
+        );
     }
 
     #[test]

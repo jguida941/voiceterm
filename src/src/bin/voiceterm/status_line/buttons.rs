@@ -14,7 +14,7 @@ use crate::theme::VoiceSceneStyle;
 use crate::theme::{filled_indicator, BorderSet, Theme, ThemeColors};
 
 use super::animation::{get_processing_spinner, recording_pulse_on};
-use super::layout::breakpoints;
+use super::layout::{breakpoints, effective_hud_style_for_state};
 use super::right_panel::format_minimal_right_panel as minimal_right_panel;
 #[cfg(test)]
 use super::right_panel::{
@@ -24,7 +24,10 @@ use super::right_panel::{
 use super::state::WakeWordHudState;
 use super::state::{ButtonPosition, RecordingState, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display};
-use badges::{format_latency_badge, format_queue_badge, format_ready_badge, format_wake_badge};
+use badges::{
+    format_dev_badge, format_image_badge, format_latency_badge, format_queue_badge,
+    format_ready_badge, format_wake_badge,
+};
 #[cfg(test)]
 use badges::{
     rtf_latency_severity, LatencySeverity, LATENCY_RTF_ERROR_X1000, LATENCY_RTF_WARNING_X1000,
@@ -34,6 +37,7 @@ use badges::{
 const MINIMAL_DB_FLOOR: f32 = -60.0;
 // Keep hidden-launcher text/button close to terminal-native dull gray.
 const HIDDEN_LAUNCHER_MUTED_ANSI: &str = "\x1b[90m";
+const FOCUSED_PILL_EMPHASIS_ANSI: &str = "\x1b[1m";
 
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
@@ -46,7 +50,7 @@ pub fn get_button_positions(
     if state.claude_prompt_suppressed {
         return Vec::new();
     }
-    match state.hud_style {
+    match effective_hud_style_for_state(state) {
         HudStyle::Full => {
             if width < breakpoints::COMPACT {
                 return Vec::new();
@@ -594,6 +598,12 @@ fn format_button_row_with_positions(
     if let Some(wake_badge) = format_wake_badge(state, colors) {
         items.push(wake_badge);
     }
+    if let Some(image_badge) = format_image_badge(state, colors) {
+        items.push(image_badge);
+    }
+    if let Some(dev_badge) = format_dev_badge(state, colors) {
+        items.push(dev_badge);
+    }
 
     let ready_badge = format_ready_badge(state, colors, show_ready_badge);
     let latency_badge = if show_latency_badge {
@@ -657,6 +667,12 @@ fn format_button_row_with_positions(
     if let Some(wake_badge) = format_wake_badge(state, colors) {
         compact_items.push(wake_badge);
     }
+    if let Some(image_badge) = format_image_badge(state, colors) {
+        compact_items.push(image_badge);
+    }
+    if let Some(dev_badge) = format_dev_badge(state, colors) {
+        compact_items.push(dev_badge);
+    }
 
     let compact_row = truncate_display(&compact_items.join(COMPACT_ITEM_SEPARATOR), inner_width);
     (compact_row, compact_positions)
@@ -713,6 +729,12 @@ fn format_button_row_legacy(
     if let Some(wake_badge) = format_wake_badge(state, colors) {
         items.push(wake_badge);
     }
+    if let Some(image_badge) = format_image_badge(state, colors) {
+        items.push(image_badge);
+    }
+    if let Some(dev_badge) = format_dev_badge(state, colors) {
+        items.push(dev_badge);
+    }
 
     if let Some(latency_badge) = format_latency_badge(state, colors, false) {
         items.push(latency_badge);
@@ -734,6 +756,12 @@ fn format_button_row_legacy(
     if let Some(wake_badge) = format_wake_badge(state, colors) {
         compact.push(wake_badge);
     }
+    if let Some(image_badge) = format_image_badge(state, colors) {
+        compact.push(image_badge);
+    }
+    if let Some(dev_badge) = format_dev_badge(state, colors) {
+        compact.push(dev_badge);
+    }
     truncate_display(&compact.join(COMPACT_ITEM_SEPARATOR), inner_width)
 }
 
@@ -753,15 +781,28 @@ pub(super) fn format_button(
         content.push_str(highlight);
     }
     content.push_str(label);
-    format_shortcut_pill(&content, colors, focused)
+    format_shortcut_pill(
+        &content,
+        colors,
+        pill_bracket_color(colors, highlight, focused),
+        focused,
+    )
 }
 
 /// Format a button in clickable pill style with brackets.
 /// Style: `[label]` with dim (or focused) brackets.
-fn format_shortcut_pill(content: &str, colors: &ThemeColors, focused: bool) -> String {
-    let bracket_color = if focused { colors.info } else { colors.dim };
+fn format_shortcut_pill(
+    content: &str,
+    colors: &ThemeColors,
+    bracket_color: &str,
+    focused: bool,
+) -> String {
+    let emphasis = focused && !colors.reset.is_empty();
     let mut result =
         String::with_capacity(content.len() + bracket_color.len() * 3 + colors.reset.len() + 2);
+    if emphasis {
+        result.push_str(FOCUSED_PILL_EMPHASIS_ANSI);
+    }
     result.push_str(bracket_color);
     result.push('[');
     result.push_str(content);
@@ -769,6 +810,16 @@ fn format_shortcut_pill(content: &str, colors: &ThemeColors, focused: bool) -> S
     result.push(']');
     result.push_str(colors.reset);
     result
+}
+
+fn pill_bracket_color<'a>(colors: &'a ThemeColors, highlight: &'a str, focused: bool) -> &'a str {
+    if focused {
+        colors.info
+    } else if highlight.is_empty() {
+        colors.dim
+    } else {
+        highlight
+    }
 }
 
 /// Legacy format with shortcut key prefix (for help display).
@@ -794,7 +845,7 @@ fn format_shortcut_colored(
         content.push_str(label);
         content.push_str(colors.reset);
     }
-    format_shortcut_pill(&content, colors, false)
+    format_shortcut_pill(&content, colors, colors.dim, false)
 }
 
 #[cfg(test)]

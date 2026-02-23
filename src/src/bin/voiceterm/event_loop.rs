@@ -286,6 +286,8 @@ fn drain_voice_messages_once(
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
         transcript_history: &mut state.transcript_history,
+        dev_mode_stats: state.dev_mode_stats.as_mut(),
+        dev_event_logger: state.dev_event_logger.as_mut(),
     };
     #[cfg(test)]
     {
@@ -388,6 +390,10 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         progress_style_override: style_pack_overrides.progress_style_override,
         progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
         voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+        toast_position_override: style_pack_overrides.toast_position_override,
+        startup_style_override: style_pack_overrides.startup_style_override,
+        toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
+        banner_style_override: style_pack_overrides.banner_style_override,
         undo_available: !state.theme_studio_undo_history.is_empty(),
         redo_available: !state.theme_studio_redo_history.is_empty(),
         runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
@@ -505,6 +511,10 @@ fn apply_settings_item_action(
         }
         SettingsItem::SendMode => {
             settings_ctx.toggle_send_mode();
+            true
+        }
+        SettingsItem::ImageMode => {
+            settings_ctx.toggle_image_mode();
             true
         }
         SettingsItem::Macros => {

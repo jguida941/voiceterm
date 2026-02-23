@@ -77,7 +77,8 @@ Capture could not start.
 Recording or transcription failed at runtime.
 
 1. Run with logs: `voiceterm --logs`.
-2. Check `${TMPDIR}/voiceterm_tui.log` (macOS) or `/tmp/voiceterm_tui.log` (Linux).
+2. Check `${TMPDIR:-/tmp}/voiceterm_tui.log` (macOS resolves from `TMPDIR`;
+   Linux is usually `/tmp`).
 3. Restart `voiceterm`.
 
 ### Processing... (stuck)
@@ -106,7 +107,7 @@ known non-speech tags before delivery.
 If artifacts persist:
 
 1. Run with logs: `voiceterm --logs`
-2. Capture the exact emitted token from `${TMPDIR}/voiceterm_tui.log`
+2. Capture the exact emitted token from `${TMPDIR:-/tmp}/voiceterm_tui.log`
 3. Report the phrase so the non-speech filter list can be extended
 
 ### Transcript history has no entries
@@ -309,7 +310,7 @@ If prompts still look clipped or overlapped:
    ```
 
 4. Include terminal name/version + screenshot + relevant
-   `${TMPDIR}/voiceterm_tui.log` lines when reporting the issue.
+   `${TMPDIR:-/tmp}/voiceterm_tui.log` lines when reporting the issue.
 
 ### Many codex or claude processes remain after quitting
 
@@ -334,7 +335,7 @@ leftover `codex`/`claude` processes:
    - `voiceterm --version`
    - terminal/IDE name + version
    - launch command
-   - relevant `${TMPDIR}/voiceterm_tui.log` lines
+   - relevant `${TMPDIR:-/tmp}/voiceterm_tui.log` lines
 
 ### Auto-voice not triggering
 
@@ -470,7 +471,7 @@ another:
    VOICETERM_DEBUG_INPUT=1 voiceterm --logs
    ```
 
-3. Reproduce once and inspect `${TMPDIR}/voiceterm_tui.log` for `input bytes`
+3. Reproduce once and inspect `${TMPDIR:-/tmp}/voiceterm_tui.log` for `input bytes`
 and `input events` lines.
 
 ### Ctrl+G quick theme cycle does not work
@@ -479,7 +480,7 @@ and `input events` lines.
 2. If `Ctrl+Y` works but `Ctrl+G` does not, check for shell/terminal keybinding
    overrides and disable that binding.
 3. Use `VOICETERM_DEBUG_INPUT=1 voiceterm --logs` and inspect
-   `${TMPDIR}/voiceterm_tui.log` for `Ctrl+G` input events.
+   `${TMPDIR:-/tmp}/voiceterm_tui.log` for `Ctrl+G` input events.
 
 ### Settings or HUD lags during heavy backend output
 
@@ -515,7 +516,7 @@ above it, not as a full-height block across the entire lane.
    voiceterm --logs
    ```
 
-4. Share `${TMPDIR}/voiceterm_tui.log` with terminal/IDE details.
+4. Share `${TMPDIR:-/tmp}/voiceterm_tui.log` with terminal/IDE details.
 
 ### Meter looks too loud for normal speech
 
@@ -535,7 +536,7 @@ speech:
    - normal speech mostly green
    - loud transients may briefly hit yellow/red
 4. If behavior is still clearly incorrect, capture a short screen recording and
-   include logs from `${TMPDIR}/voiceterm_tui.log`.
+   include logs from `${TMPDIR:-/tmp}/voiceterm_tui.log`.
 
 ### HUD duplicates in JetBrains terminals
 
@@ -553,7 +554,7 @@ If Full HUD appears stacked/repeated:
    voiceterm --logs
    ```
 
-3. Share `${TMPDIR}/voiceterm_tui.log` if still reproducible.
+3. Share `${TMPDIR:-/tmp}/voiceterm_tui.log` if still reproducible.
 
 ### Overlay flickers in JetBrains terminals
 
@@ -736,8 +737,8 @@ voiceterm --no-logs
 
 Log paths:
 
-- Debug log: `${TMPDIR}/voiceterm_tui.log` (macOS) or `/tmp/voiceterm_tui.log` (Linux)
-- Trace log: `${TMPDIR}/voiceterm_trace.jsonl` or `/tmp/voiceterm_trace.jsonl`
+- Debug log: `${TMPDIR:-/tmp}/voiceterm_tui.log`
+- Trace log: `${TMPDIR:-/tmp}/voiceterm_trace.jsonl`
 
 </details>
 
@@ -789,7 +790,7 @@ When reporting an issue, include:
 1. `voiceterm --version`
 2. Backend (`codex` or `claude`) and launch command
 3. Terminal/IDE name and version
-4. Relevant log excerpt from `${TMPDIR}/voiceterm_tui.log`
+4. Relevant log excerpt from `${TMPDIR:-/tmp}/voiceterm_tui.log`
 
 </details>
 

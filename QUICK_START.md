@@ -60,15 +60,25 @@ voiceterm --login --claude
 ```
 
 First run downloads a Whisper model if missing.
-To pick a size, use `./scripts/install.sh --small` or
-`./scripts/setup.sh models --medium`.
+To choose a model at launch, use `--whisper-model`:
+
+```bash
+voiceterm --whisper-model base
+voiceterm --whisper-model medium
+```
+
+If you installed from source and want to pre-download a model:
+
+```bash
+./scripts/setup.sh models --small
+```
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
 
 ## 4) Core controls
 
-- `Ctrl+R` - toggle voice capture (start recording / stop early)
+- `Ctrl+R` - trigger capture (voice by default; image capture when `Image mode` is on)
 - `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
@@ -119,6 +129,9 @@ If wake startup fails, Full HUD shows `Wake: ERR`. Run with `--logs` and check
 voiceterm --auto-voice
 voiceterm --wake-word
 voiceterm --voice-send-mode insert
+voiceterm --image-mode
+voiceterm --dev
+voiceterm --dev --dev-log
 voiceterm --voice-vad-threshold-db -50
 voiceterm --mic-meter
 voiceterm --logs

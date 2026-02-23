@@ -22,6 +22,8 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0004](0004-python-fallback-chain.md) | Python Fallback Chain | Accepted |
 | [0006](0006-auto-learn-prompt-detection.md) | Auto-Learn Prompt Detection | Accepted |
 | [0011](0011-voice-send-modes.md) | Voice Send Modes (Auto vs Insert) | Accepted |
+| [0024](0024-wake-word-runtime-ownership.md) | Wake-Word Runtime Ownership and Privacy Guardrails | Accepted |
+| [0025](0025-voice-macro-precedence-and-navigation.md) | Voice Macro Precedence and Built-In Navigation Resolution | Accepted |
 
 ### Audio Processing
 
@@ -43,13 +45,12 @@ without re-litigating old context. Keep them short, factual, and specific.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0016](0016-modular-visual-styling.md) | Modular Visual Styling System | Accepted |
-| [0017](0017-focus-and-overlay-stack.md) | Focus and Overlay Stack Model | Proposed |
-| [0018](0018-selectable-menu-component.md) | SelectableMenu Component Contract | Proposed |
-| [0019](0019-preferences-and-config-migrations.md) | Preferences and Config Migrations | Proposed |
-| [0020](0020-action-registry-and-keybindings.md) | Action Registry and Keybindings | Proposed |
-| [0021](0021-history-storage-and-retention.md) | History Storage and Retention | Proposed |
-| [0022](0022-render-guarantees-and-layout-contract.md) | Render Guarantees and Layout Contract | Proposed |
+| [0017](0017-focus-and-overlay-stack.md) | Single Active Overlay Mode and Input Routing | Accepted |
+| [0019](0019-preferences-and-config-migrations.md) | Persistent Runtime Config with CLI-First Precedence | Accepted |
+| [0021](0021-history-storage-and-retention.md) | Session Transcript History and Opt-In Memory Logging | Accepted |
+| [0022](0022-render-guarantees-and-layout-contract.md) | Writer Render Invariants for HUD and Overlay Safety | Accepted |
 | [0023](0023-jetbrains-startup-handoff.md) | JetBrains Startup Handoff and Resize Ghost-Frame Cleanup | Accepted |
+| [0026](0026-claude-prompt-safe-hud-suppression.md) | Claude Prompt-Safe HUD Suppression | Accepted |
 
 ### Security and Privacy
 
@@ -87,7 +88,7 @@ Status semantics:
 
 ## Process
 
-1. Copy the template and increment the number (next: 0024)
+1. Copy the template and increment the number (next: 0027)
 2. Fill in Context, Decision, and Consequences
 3. Add links to related docs or code
 4. If replacing an older decision, set old ADR status to `Superseded` and add `Superseded-by: ADR NNNN`

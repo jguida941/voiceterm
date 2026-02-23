@@ -16,7 +16,7 @@ pub struct Shortcut {
 const RECORDING_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+R",
-        description: "Toggle voice capture (start/stop)",
+        description: "Trigger capture (voice or image mode)",
     },
     Shortcut {
         key: "Ctrl+E",

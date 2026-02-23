@@ -16,7 +16,7 @@ use super::buttons::{
     format_hidden_launcher_with_buttons, format_minimal_strip_with_button,
     format_shortcuts_row_with_positions, hidden_muted_color,
 };
-use super::layout::breakpoints;
+use super::layout::{breakpoints, effective_hud_style_for_state};
 use super::right_panel::format_right_panel;
 #[cfg(test)]
 use super::right_panel::{
@@ -188,12 +188,13 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     }
 
     let colors = theme.colors();
+    let effective_hud_style = effective_hud_style_for_state(state);
     let borders = resolve_hud_border_set(state, &colors.borders);
     let borderless =
-        state.hud_style == HudStyle::Full && state.hud_border_style == HudBorderStyle::None;
+        effective_hud_style == HudStyle::Full && state.hud_border_style == HudBorderStyle::None;
 
     // Handle HUD style
-    match state.hud_style {
+    match effective_hud_style {
         HudStyle::Hidden => {
             if state.recording_state != RecordingState::Idle {
                 let line = format_hidden_strip(state, &colors, width);

@@ -18,7 +18,9 @@ mod text;
 pub(crate) use animation::state_transition_progress;
 pub use buttons::get_button_positions;
 pub use format::format_status_banner;
-pub use layout::{status_banner_height, status_banner_height_for_state};
+#[cfg(test)]
+pub use layout::status_banner_height;
+pub use layout::{status_banner_height_for_state, status_banner_height_with_policy};
 #[allow(unused_imports)]
 pub use state::ButtonPosition;
 pub use state::{

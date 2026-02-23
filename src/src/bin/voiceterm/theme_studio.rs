@@ -7,9 +7,11 @@ use crate::overlay_frame::{
 #[cfg(test)]
 use crate::theme::StylePackFieldId;
 use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBorderStyleOverride,
-    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
-    RuntimeProgressStyleOverride, RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_separator, RuntimeBannerStyleOverride,
+    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStartupStyleOverride,
+    RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
+    Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +27,10 @@ pub(crate) enum ThemeStudioItem {
     ProgressBars,
     ThemeBorders,
     VoiceScene,
+    ToastPosition,
+    StartupSplash,
+    ToastSeverity,
+    BannerStyle,
     UndoEdit,
     RedoEdit,
     RollbackEdits,
@@ -43,6 +49,10 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
     ThemeStudioItem::ProgressBars,
     ThemeStudioItem::ThemeBorders,
     ThemeStudioItem::VoiceScene,
+    ThemeStudioItem::ToastPosition,
+    ThemeStudioItem::StartupSplash,
+    ThemeStudioItem::ToastSeverity,
+    ThemeStudioItem::BannerStyle,
     ThemeStudioItem::UndoEdit,
     ThemeStudioItem::RedoEdit,
     ThemeStudioItem::RollbackEdits,
@@ -51,7 +61,7 @@ pub(crate) const THEME_STUDIO_ITEMS: &[ThemeStudioItem] = &[
 
 pub(crate) const THEME_STUDIO_OPTION_START_ROW: usize = 4;
 #[cfg(test)]
-const STYLE_PACK_STUDIO_PARITY_COMPLETE: bool = false;
+const STYLE_PACK_STUDIO_PARITY_COMPLETE: bool = true;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ThemeStudioView {
@@ -67,6 +77,10 @@ pub(crate) struct ThemeStudioView {
     pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
     pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
     pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
+    pub(crate) toast_position_override: Option<RuntimeToastPositionOverride>,
+    pub(crate) startup_style_override: Option<RuntimeStartupStyleOverride>,
+    pub(crate) toast_severity_mode_override: Option<RuntimeToastSeverityModeOverride>,
+    pub(crate) banner_style_override: Option<RuntimeBannerStyleOverride>,
     pub(crate) undo_available: bool,
     pub(crate) redo_available: bool,
     pub(crate) runtime_overrides_dirty: bool,
@@ -230,6 +244,38 @@ fn format_theme_studio_option_line(
             ),
             false,
         ),
+        ThemeStudioItem::ToastPosition => (
+            "Toast position",
+            format!(
+                "Current: {}. Cycle toast placement (theme/top-right/bottom-right/top-center/bottom-center).",
+                toast_position_label(view.toast_position_override)
+            ),
+            false,
+        ),
+        ThemeStudioItem::StartupSplash => (
+            "Startup splash",
+            format!(
+                "Current: {}. Cycle splash style (theme/full/minimal/hidden).",
+                startup_style_label(view.startup_style_override)
+            ),
+            false,
+        ),
+        ThemeStudioItem::ToastSeverity => (
+            "Toast severity",
+            format!(
+                "Current: {}. Cycle toast severity display (theme/icon/label/icon+label).",
+                toast_severity_mode_label(view.toast_severity_mode_override)
+            ),
+            false,
+        ),
+        ThemeStudioItem::BannerStyle => (
+            "Banner style",
+            format!(
+                "Current: {}. Cycle startup banner style (theme/full/compact/minimal/hidden).",
+                banner_style_label(view.banner_style_override)
+            ),
+            false,
+        ),
         ThemeStudioItem::UndoEdit => (
             "Undo edit",
             format!(
@@ -352,6 +398,46 @@ fn voice_scene_label(override_value: Option<RuntimeVoiceSceneStyleOverride>) -> 
     }
 }
 
+fn toast_position_label(override_value: Option<RuntimeToastPositionOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeToastPositionOverride::TopRight) => "Top-right",
+        Some(RuntimeToastPositionOverride::BottomRight) => "Bottom-right",
+        Some(RuntimeToastPositionOverride::TopCenter) => "Top-center",
+        Some(RuntimeToastPositionOverride::BottomCenter) => "Bottom-center",
+    }
+}
+
+fn startup_style_label(override_value: Option<RuntimeStartupStyleOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeStartupStyleOverride::Full) => "Full",
+        Some(RuntimeStartupStyleOverride::Minimal) => "Minimal",
+        Some(RuntimeStartupStyleOverride::Hidden) => "Hidden",
+    }
+}
+
+fn toast_severity_mode_label(
+    override_value: Option<RuntimeToastSeverityModeOverride>,
+) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeToastSeverityModeOverride::Icon) => "Icon",
+        Some(RuntimeToastSeverityModeOverride::Label) => "Label",
+        Some(RuntimeToastSeverityModeOverride::IconAndLabel) => "Icon+Label",
+    }
+}
+
+fn banner_style_label(override_value: Option<RuntimeBannerStyleOverride>) -> &'static str {
+    match override_value {
+        None => "Theme",
+        Some(RuntimeBannerStyleOverride::Full) => "Full",
+        Some(RuntimeBannerStyleOverride::Compact) => "Compact",
+        Some(RuntimeBannerStyleOverride::Minimal) => "Minimal",
+        Some(RuntimeBannerStyleOverride::Hidden) => "Hidden",
+    }
+}
+
 fn edit_history_state_label(available: bool) -> &'static str {
     if available {
         "Available"
@@ -374,14 +460,14 @@ fn style_pack_field_studio_item(field: StylePackFieldId) -> Option<ThemeStudioIt
         StylePackFieldId::OverrideBorderStyle => Some(ThemeStudioItem::ThemeBorders),
         StylePackFieldId::OverrideIndicatorSet => Some(ThemeStudioItem::LayoutMotion),
         StylePackFieldId::OverrideGlyphSet => Some(ThemeStudioItem::ColorsGlyphs),
-        StylePackFieldId::SurfaceToastPosition => None,
-        StylePackFieldId::SurfaceStartupStyle => None,
+        StylePackFieldId::SurfaceToastPosition => Some(ThemeStudioItem::ToastPosition),
+        StylePackFieldId::SurfaceStartupStyle => Some(ThemeStudioItem::StartupSplash),
         StylePackFieldId::SurfaceProgressStyle => Some(ThemeStudioItem::ProgressSpinner),
         StylePackFieldId::SurfaceVoiceSceneStyle => Some(ThemeStudioItem::VoiceScene),
-        StylePackFieldId::ComponentOverlayBorder => None,
-        StylePackFieldId::ComponentHudBorder => None,
-        StylePackFieldId::ComponentToastSeverityMode => None,
-        StylePackFieldId::ComponentBannerStyle => None,
+        StylePackFieldId::ComponentOverlayBorder => Some(ThemeStudioItem::ThemeBorders),
+        StylePackFieldId::ComponentHudBorder => Some(ThemeStudioItem::HudBorders),
+        StylePackFieldId::ComponentToastSeverityMode => Some(ThemeStudioItem::ToastSeverity),
+        StylePackFieldId::ComponentBannerStyle => Some(ThemeStudioItem::BannerStyle),
         StylePackFieldId::ComponentProgressBarFamily => Some(ThemeStudioItem::ProgressBars),
     }
 }
@@ -389,17 +475,17 @@ fn style_pack_field_studio_item(field: StylePackFieldId) -> Option<ThemeStudioIt
 #[cfg(test)]
 fn style_pack_field_studio_mapping_deferred(field: StylePackFieldId) -> bool {
     match field {
-        StylePackFieldId::SurfaceToastPosition
-        | StylePackFieldId::SurfaceStartupStyle
-        | StylePackFieldId::ComponentOverlayBorder
-        | StylePackFieldId::ComponentHudBorder
-        | StylePackFieldId::ComponentToastSeverityMode
-        | StylePackFieldId::ComponentBannerStyle => true,
         StylePackFieldId::OverrideBorderStyle
         | StylePackFieldId::OverrideIndicatorSet
         | StylePackFieldId::OverrideGlyphSet
+        | StylePackFieldId::SurfaceToastPosition
+        | StylePackFieldId::SurfaceStartupStyle
         | StylePackFieldId::SurfaceProgressStyle
         | StylePackFieldId::SurfaceVoiceSceneStyle
+        | StylePackFieldId::ComponentOverlayBorder
+        | StylePackFieldId::ComponentHudBorder
+        | StylePackFieldId::ComponentToastSeverityMode
+        | StylePackFieldId::ComponentBannerStyle
         | StylePackFieldId::ComponentProgressBarFamily => false,
     }
 }
@@ -409,9 +495,10 @@ mod tests {
     use super::*;
     use crate::config::{HudBorderStyle, HudRightPanel, HudStyle};
     use crate::theme::{
-        RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
-        RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
-        RuntimeVoiceSceneStyleOverride,
+        RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+        RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
+        RuntimeProgressStyleOverride, RuntimeStartupStyleOverride, RuntimeToastPositionOverride,
+        RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
     };
 
     fn sample_view(theme: Theme) -> ThemeStudioView {
@@ -428,6 +515,10 @@ mod tests {
             progress_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
+            toast_position_override: None,
+            startup_style_override: None,
+            toast_severity_mode_override: None,
+            banner_style_override: None,
             undo_available: false,
             redo_available: false,
             runtime_overrides_dirty: false,
@@ -449,10 +540,14 @@ mod tests {
         assert!(rendered.contains("9. Progress bars"));
         assert!(rendered.contains("10. Theme borders"));
         assert!(rendered.contains("11. Voice scene"));
-        assert!(rendered.contains("12. Undo edit"));
-        assert!(rendered.contains("13. Redo edit"));
-        assert!(rendered.contains("14. Rollback edits"));
-        assert!(rendered.contains("15. Close"));
+        assert!(rendered.contains("12. Toast position"));
+        assert!(rendered.contains("13. Startup splash"));
+        assert!(rendered.contains("14. Toast severity"));
+        assert!(rendered.contains("15. Banner style"));
+        assert!(rendered.contains("16. Undo edit"));
+        assert!(rendered.contains("17. Redo edit"));
+        assert!(rendered.contains("18. Rollback edits"));
+        assert!(rendered.contains("19. Close"));
     }
 
     #[test]
@@ -478,6 +573,10 @@ mod tests {
             progress_style_override: Some(RuntimeProgressStyleOverride::Line),
             progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Blocks),
             voice_scene_style_override: Some(RuntimeVoiceSceneStyleOverride::Pulse),
+            toast_position_override: Some(RuntimeToastPositionOverride::TopCenter),
+            startup_style_override: Some(RuntimeStartupStyleOverride::Minimal),
+            toast_severity_mode_override: Some(RuntimeToastSeverityModeOverride::IconAndLabel),
+            banner_style_override: Some(RuntimeBannerStyleOverride::Compact),
             undo_available: true,
             redo_available: true,
             runtime_overrides_dirty: true,
@@ -493,19 +592,23 @@ mod tests {
         assert!(rendered.contains("Current: Blocks"));
         assert!(rendered.contains("Current: Heavy"));
         assert!(rendered.contains("Current: Pulse"));
+        assert!(rendered.contains("Current: Top-center"));
+        assert!(rendered.contains("Current: Minimal"));
+        assert!(rendered.contains("Current: Icon+Label"));
+        assert!(rendered.contains("Current: Compact"));
         assert!(rendered.contains("Current: Available"));
         assert!(rendered.contains("Current: Dirty"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 21);
+        assert_eq!(theme_studio_height(), 25);
     }
 
     #[test]
     fn theme_studio_item_lookup_defaults_to_close() {
         assert_eq!(theme_studio_item_at(0), ThemeStudioItem::ThemePicker);
-        assert_eq!(theme_studio_item_at(14), ThemeStudioItem::Close);
+        assert_eq!(theme_studio_item_at(18), ThemeStudioItem::Close);
         assert_eq!(theme_studio_item_at(999), ThemeStudioItem::Close);
     }
 

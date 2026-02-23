@@ -1026,7 +1026,7 @@ Fact:
 
 Inference:
 
-- Remaining risk is concentrated in follow-through on proposed UI ADRs `0017` to `0022` and continued latency/perf refinement.
+- Remaining risk is concentrated in Theme Studio parity follow-through and memory-governance execution, with core ADR coverage now aligned to shipped runtime behavior.
 
 ## Lessons Learned
 
@@ -1131,13 +1131,14 @@ Inference:
 | 0014 | Accepted | 2026-01-29 `b6987f5` | JSON IPC protocol |
 | 0015 | Accepted | 2026-01-29 `b6987f5` | no hotplug recovery |
 | 0016 | Accepted | 2026-01-30 `d64f075` | modular visual styling |
-| 0017 | Proposed | 2026-01-31 `7f9f585` | focus and overlay stack model |
-| 0018 | Proposed | 2026-01-31 `7f9f585` | SelectableMenu contract |
-| 0019 | Proposed | 2026-01-31 `7f9f585` | preferences/config migrations |
-| 0020 | Proposed | 2026-01-31 `7f9f585` | action registry and keybindings |
-| 0021 | Proposed | 2026-01-31 `7f9f585` | history storage/retention |
-| 0022 | Proposed | 2026-01-31 `7f9f585` | render/layout guarantees |
+| 0017 | Accepted | 2026-02-23 (working tree) | single active overlay mode and input routing |
+| 0019 | Accepted | 2026-02-23 (working tree) | persistent runtime config with CLI-first precedence |
+| 0021 | Accepted | 2026-02-23 (working tree) | session transcript history + opt-in memory logging |
+| 0022 | Accepted | 2026-02-23 (working tree) | writer render invariants for HUD/overlay safety |
 | 0023 | Accepted | 2026-02-13 `fe48120` | JetBrains startup handoff and ghost-frame cleanup |
+| 0024 | Accepted | 2026-02-23 (working tree) | wake-word runtime ownership and privacy guardrails |
+| 0025 | Accepted | 2026-02-23 (working tree) | voice macro precedence and built-in navigation resolution |
+| 0026 | Accepted | 2026-02-23 (working tree) | Claude prompt-safe HUD suppression |
 
 </details>
 

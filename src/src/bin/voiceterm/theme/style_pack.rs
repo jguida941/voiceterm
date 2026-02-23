@@ -4,6 +4,13 @@
 //! dedicated resolver surface for future Theme Studio packs.
 
 use super::{
+    runtime_overrides::{
+        RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+        RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
+        RuntimeProgressStyleOverride, RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
+        RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
+        RuntimeVoiceSceneStyleOverride,
+    },
     style_schema::{
         parse_style_schema, parse_style_schema_with_fallback, BannerStyleOverride,
         BorderStyleOverride, GlyphSetOverride, IndicatorSetOverride,
@@ -34,73 +41,15 @@ thread_local! {
             border_style_override: None,
             glyph_set_override: None,
             indicator_set_override: None,
+            toast_position_override: None,
+            startup_style_override: None,
             progress_style_override: None,
+            toast_severity_mode_override: None,
+            banner_style_override: None,
             progress_bar_family_override: None,
             voice_scene_style_override: None,
         })
     };
-}
-
-/// Runtime glyph-profile override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeGlyphSetOverride {
-    Unicode,
-    Ascii,
-}
-
-/// Runtime indicator-profile override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeIndicatorSetOverride {
-    Ascii,
-    Dot,
-    Diamond,
-}
-
-/// Runtime progress-spinner override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeProgressStyleOverride {
-    Braille,
-    Dots,
-    Line,
-    Block,
-}
-
-/// Runtime progress-bar-family override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeProgressBarFamilyOverride {
-    Bar,
-    Compact,
-    Blocks,
-    Braille,
-}
-
-/// Runtime voice-scene override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeVoiceSceneStyleOverride {
-    Pulse,
-    Static,
-    Minimal,
-}
-
-/// Runtime border-style override applied on top of resolved style-pack payloads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuntimeBorderStyleOverride {
-    Single,
-    Rounded,
-    Double,
-    Heavy,
-    None,
-}
-
-/// Runtime Theme Studio overrides applied after style-pack payload resolution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) struct RuntimeStylePackOverrides {
-    pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
-    pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
-    pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
-    pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
-    pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
-    pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
 }
 
 /// Resolved surface-level style overrides exposed to runtime rendering.
@@ -270,12 +219,42 @@ fn apply_runtime_style_pack_overrides(pack: &mut StylePack, overrides: RuntimeSt
             RuntimeIndicatorSetOverride::Diamond => IndicatorSetOverride::Diamond,
         });
     }
+    if let Some(position_override) = overrides.toast_position_override {
+        pack.surface_overrides.toast_position = Some(match position_override {
+            RuntimeToastPositionOverride::TopRight => ToastPositionOverride::TopRight,
+            RuntimeToastPositionOverride::BottomRight => ToastPositionOverride::BottomRight,
+            RuntimeToastPositionOverride::TopCenter => ToastPositionOverride::TopCenter,
+            RuntimeToastPositionOverride::BottomCenter => ToastPositionOverride::BottomCenter,
+        });
+    }
+    if let Some(startup_override) = overrides.startup_style_override {
+        pack.surface_overrides.startup_style = Some(match startup_override {
+            RuntimeStartupStyleOverride::Full => StartupStyleOverride::Full,
+            RuntimeStartupStyleOverride::Minimal => StartupStyleOverride::Minimal,
+            RuntimeStartupStyleOverride::Hidden => StartupStyleOverride::Hidden,
+        });
+    }
     if let Some(progress_override) = overrides.progress_style_override {
         pack.surface_overrides.progress_style = Some(match progress_override {
             RuntimeProgressStyleOverride::Braille => ProgressStyleOverride::Braille,
             RuntimeProgressStyleOverride::Dots => ProgressStyleOverride::Dots,
             RuntimeProgressStyleOverride::Line => ProgressStyleOverride::Line,
             RuntimeProgressStyleOverride::Block => ProgressStyleOverride::Block,
+        });
+    }
+    if let Some(toast_severity_override) = overrides.toast_severity_mode_override {
+        pack.component_overrides.toast_severity_mode = Some(match toast_severity_override {
+            RuntimeToastSeverityModeOverride::Icon => ToastSeverityMode::Icon,
+            RuntimeToastSeverityModeOverride::Label => ToastSeverityMode::Label,
+            RuntimeToastSeverityModeOverride::IconAndLabel => ToastSeverityMode::IconAndLabel,
+        });
+    }
+    if let Some(banner_override) = overrides.banner_style_override {
+        pack.component_overrides.banner_style = Some(match banner_override {
+            RuntimeBannerStyleOverride::Full => BannerStyleOverride::Full,
+            RuntimeBannerStyleOverride::Compact => BannerStyleOverride::Compact,
+            RuntimeBannerStyleOverride::Minimal => BannerStyleOverride::Minimal,
+            RuntimeBannerStyleOverride::Hidden => BannerStyleOverride::Hidden,
         });
     }
     if let Some(progress_bar_override) = overrides.progress_bar_family_override {
@@ -640,12 +619,8 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_glyph_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
-            border_style_override: None,
             glyph_set_override: Some(RuntimeGlyphSetOverride::Ascii),
-            indicator_set_override: None,
-            progress_style_override: None,
-            progress_bar_family_override: None,
-            voice_scene_style_override: None,
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.glyph_set, GlyphSet::Ascii);
@@ -654,12 +629,8 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_indicator_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
-            border_style_override: None,
-            glyph_set_override: None,
             indicator_set_override: Some(RuntimeIndicatorSetOverride::Diamond),
-            progress_style_override: None,
-            progress_bar_family_override: None,
-            voice_scene_style_override: None,
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.indicator_rec, "◆");
@@ -670,11 +641,7 @@ mod tests {
     fn resolve_theme_colors_applies_runtime_border_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
             border_style_override: Some(RuntimeBorderStyleOverride::None),
-            glyph_set_override: None,
-            indicator_set_override: None,
-            progress_style_override: None,
-            progress_bar_family_override: None,
-            voice_scene_style_override: None,
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.borders, BORDER_NONE);
@@ -683,12 +650,8 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_progress_style_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
-            border_style_override: None,
-            glyph_set_override: None,
-            indicator_set_override: None,
             progress_style_override: Some(RuntimeProgressStyleOverride::Line),
-            progress_bar_family_override: None,
-            voice_scene_style_override: None,
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.spinner_style, SpinnerStyle::Line);
@@ -697,12 +660,8 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_progress_bar_family_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
-            border_style_override: None,
-            glyph_set_override: None,
-            indicator_set_override: None,
-            progress_style_override: None,
             progress_bar_family_override: Some(RuntimeProgressBarFamilyOverride::Braille),
-            voice_scene_style_override: None,
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.progress_bar_family, ProgressBarFamily::Braille);
@@ -711,12 +670,8 @@ mod tests {
     #[test]
     fn resolve_theme_colors_applies_runtime_voice_scene_style_override() {
         let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
-            border_style_override: None,
-            glyph_set_override: None,
-            indicator_set_override: None,
-            progress_style_override: None,
-            progress_bar_family_override: None,
             voice_scene_style_override: Some(RuntimeVoiceSceneStyleOverride::Pulse),
+            ..RuntimeStylePackOverrides::default()
         });
         let colors = resolve_theme_colors(Theme::Codex);
         assert_eq!(colors.voice_scene_style, VoiceSceneStyle::Pulse);

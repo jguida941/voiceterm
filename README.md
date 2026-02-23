@@ -6,13 +6,13 @@
   <img src="https://img.shields.io/badge/Rust-stable?style=flat&logo=rust&logoColor=white&labelColor=7C422B&color=2D2F34&logoSize=auto" alt="Rust">
   <img src="https://img.shields.io/badge/macOS-supported?style=flat&logo=apple&logoColor=white&labelColor=7C422B&color=2D2F34&logoSize=auto" alt="macOS">
   <img src="https://img.shields.io/badge/Linux-supported?style=flat&logo=linux&logoColor=white&labelColor=7C422B&color=2D2F34&logoSize=auto" alt="Linux">
-  <img src="https://img.shields.io/badge/Whisper-local?style=flat&logo=openai&logoColor=white&labelColor=7C422B&color=2D2F34&logoSize=auto" alt="Whisper">
+  <img src="https://img.shields.io/static/v1?label=Whisper&message=local&style=flat&labelColor=7C422B&color=2D2F34" alt="Whisper">
   <a href="https://ratatui.rs"><img src="https://img.shields.io/badge/Ratatui-native?style=flat&logo=ratatui&logoColor=white&labelColor=7C422B&color=2D2F34&logoSize=auto" alt="Ratatui"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT?style=flat&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jguida941/voiceterm?style=flat&label=license&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="CI"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="Mutation Score"></a>
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
@@ -147,6 +147,7 @@ types the result into your AI CLI input.
 | **Terminal passthrough** | Your CLI layout and behavior stay the same |
 | **Auto-voice** | You can talk hands-free instead of typing |
 | **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` in insert mode |
+| **Image mode** | Turn on `Image mode` in Settings to have `Ctrl+R` capture picture prompts (`IMG` badge) |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
 
@@ -154,6 +155,7 @@ types the result into your AI CLI input.
 
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
+- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), and add `--dev-log` to write session JSONL diagnostics
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
 - **Saved settings**: keeps your settings in `~/.config/voiceterm/config.toml`
