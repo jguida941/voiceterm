@@ -21,8 +21,6 @@
 **VoiceTerm** gives you voice control for AI CLIs in your normal terminal.
 It supports a fully hands-free flow: say the wake phrase (`hey codex` /
 `hey claude`), speak your prompt, then say `send` or `submit`.
-You can also use one-shot commands like `hey codex send` or
-`hey claude send`.
 Completely hands-free, no keyboard needed.
 
 Whisper runs locally by default. No cloud API keys required.
