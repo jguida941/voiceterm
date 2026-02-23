@@ -52,6 +52,7 @@ def run(args) -> int:
         return 2
 
     changed = {entry["path"] for entry in git_info.get("changes", [])}
+    empty_commit_range = bool(since_ref and not changed)
     strict_tooling = getattr(args, "strict_tooling", False)
 
     updated_docs = [doc for doc in USER_DOCS if doc in changed]
@@ -60,13 +61,14 @@ def run(args) -> int:
 
     user_facing_ok = True
     if args.user_facing:
-        if not changelog_updated:
-            user_facing_ok = False
-        if args.strict:
-            if missing_docs:
+        if not empty_commit_range:
+            if not changelog_updated:
                 user_facing_ok = False
-        elif not updated_docs:
-            user_facing_ok = False
+            if args.strict:
+                if missing_docs:
+                    user_facing_ok = False
+            elif not updated_docs:
+                user_facing_ok = False
 
     tooling_changes_detected = sorted(path for path in changed if is_tooling_change(path))
     updated_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc in changed]
@@ -114,7 +116,7 @@ def run(args) -> int:
         and legacy_path_audit_ok
     )
     failure_reasons = build_failure_reasons(
-        user_facing_enabled=args.user_facing,
+        user_facing_enabled=args.user_facing and not empty_commit_range,
         strict_user_docs=args.strict,
         changelog_updated=changelog_updated,
         updated_docs=updated_docs,
@@ -135,7 +137,7 @@ def run(args) -> int:
     )
     next_actions = build_next_actions(
         failure_reasons=failure_reasons,
-        user_facing_enabled=args.user_facing,
+        user_facing_enabled=args.user_facing and not empty_commit_range,
         strict_user_docs=args.strict,
         missing_docs=missing_docs,
         tooling_changes_detected=tooling_changes_detected,
@@ -157,6 +159,7 @@ def run(args) -> int:
         "user_facing": args.user_facing,
         "strict": args.strict,
         "strict_tooling": strict_tooling,
+        "empty_commit_range": empty_commit_range,
         "changelog_updated": changelog_updated,
         "user_facing_ok": user_facing_ok,
         "updated_docs": updated_docs,

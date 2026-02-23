@@ -132,6 +132,34 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_user_facing_commit_range_no_changes_is_noop_pass(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=True,
+            strict=True,
+            strict_tooling=False,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref="origin/develop",
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 0)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertTrue(payload["empty_commit_range"])
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_json_includes_failure_reasons_and_next_actions(
         self,
         mock_collect_git_status,
