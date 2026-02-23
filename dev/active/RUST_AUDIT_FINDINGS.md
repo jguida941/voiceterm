@@ -768,4 +768,202 @@ These are things the codebase does **exceptionally well** that should be preserv
 
 ---
 
-*End of audit. Total: 8 critical, 18 high, 30 medium, 25 low findings across 206 files.*
+## 11. Continuation Pass Addendum (Post-Limit Deep Dive)
+
+This addendum captures **new opportunities** from a second full sweep.  
+These items are additive and are **not yet folded into** the original severity counts.
+
+### 11.1 Method (Second Sweep)
+
+- Ran:
+  - `cd src && cargo clippy --workspace --all-targets --all-features -- -W clippy::all`
+  - `cd src && cargo clippy --workspace --all-targets --all-features -- -W clippy::pedantic`
+- Ran repository-wide pattern scans for:
+  - queue operations (`remove(0)`, `drain(..)`), narrowing casts, `#[allow(...)]`, and large-function hotspots
+- Manually reviewed hot runtime paths in:
+  - `audio/dispatch.rs`, `audio/recorder.rs`, `config/validation.rs`, `devtools/storage.rs`, `status_line/animation.rs`, `backend/mod.rs`
+
+### 11.2 Additional Findings
+
+### ADD-1 (HIGH): `FrameDispatcher` uses front-drain in hot audio path (O(n) shifts + alloc churn)
+
+**File:** `src/src/audio/dispatch.rs:72-77`
+
+```rust
+while self.pending.len() >= self.frame_samples {
+    let frame: Vec<f32> = self.pending.drain(..self.frame_samples).collect();
+    if let Err(err) = self.sender.try_send(frame) { ... }
+}
+```
+
+`Vec::drain(..N)` from the front repeatedly shifts remaining elements. In live capture this runs continuously and adds avoidable CPU/memory pressure.
+
+**Fix:** Use `VecDeque<f32>` for `pending` (`pop_front` semantics) or maintain a start offset and compact occasionally.
+
+---
+
+### ADD-2 (HIGH): `AppConfig::validate` is a monolithic mixed-responsibility function
+
+**File:** `src/src/config/validation.rs:34-254`
+
+`validate()` currently does all of the following in one body:
+- range/policy validation
+- filesystem canonicalization
+- binary sanitization
+- model auto-discovery
+- language normalization
+
+This raises cognitive load and weakens test granularity.
+
+**Fix:** Split into staged helpers (`validate_numeric_bounds`, `validate_binary_paths`, `resolve_whisper_model`, `validate_language`, `validate_ffmpeg_device`) with a pure-validation pass separated from path-mutation side effects.
+
+---
+
+### ADD-3 (MEDIUM): `record_with_vad_impl` remains oversized after prior cleanup
+
+**File:** `src/src/audio/recorder.rs:262-401`
+
+The function still combines:
+- stream construction for multiple sample formats
+- callback dispatch wiring
+- capture/VAD loop
+- stop-reason handling
+- metrics finalization
+
+**Fix:** Decompose into three focused units:
+1. stream builder,
+2. capture loop,
+3. final metrics/result assembly.
+
+---
+
+### ADD-4 (MEDIUM): Dev-event JSONL writer flushes on every append
+
+**File:** `src/src/devtools/storage.rs:40-45`
+
+```rust
+writeln!(self.file, "{json}")?;
+self.file.flush()?;
+```
+
+Per-event flush is durable but expensive for bursty event streams.
+
+**Fix:** Add buffered policy (`flush_every_n`, timer-based flush, explicit flush on shutdown). Keep strict flush only for crash-critical modes.
+
+---
+
+### ADD-5 (MEDIUM): Integration test binary lookup uses runtime panic path
+
+**File:** `src/tests/voiceterm_cli.rs:13`
+
+```rust
+option_env!("CARGO_BIN_EXE_voiceterm").expect("voiceterm test binary not built")
+```
+
+This pattern can panic at runtime in test environments where compile-time assumptions drift.
+
+**Fix:** Use `env!("CARGO_BIN_EXE_voiceterm")` for compile-time enforcement, matching Clippy `option_env_unwrap` guidance.
+
+---
+
+### ADD-6 (MEDIUM): Boolean-field explosion still encodes many invalid state combinations
+
+**Representative files:**
+- `src/src/config/mod.rs:24` (`AppConfig`)
+- `src/src/bin/voiceterm/config/cli.rs:119` (`OverlayConfig`)
+- `src/src/bin/voiceterm/persistent_config.rs:362` (`CliExplicitFlags`)
+- `src/src/bin/voiceterm/status_line/state.rs:141` (`StatusLineState`)
+
+Multiple bool-heavy structs are still present after first-pass findings. This pattern increases illegal-state surface and branching complexity.
+
+**Fix:** Convert grouped booleans into domain enums/newtypes (for example, `LoggingMode`, `WakePolicy`, `HudVisibilityPolicy`) or typed bitflags when combinations are truly valid.
+
+---
+
+### ADD-7 (MEDIUM): Widespread narrowing casts in runtime paths rely on silent truncation semantics
+
+**Representative files:**
+- `src/src/devtools/events.rs:133-138`
+- `src/src/devtools/state.rs:105-107`
+- `src/src/bin/voiceterm/audio_meter/format.rs:35-36`
+- `src/src/bin/voiceterm/status_line/animation.rs:23-25`
+
+Many casts are clamped beforehand, but conversion intent is not consistently explicit. This makes correctness audits harder on cross-platform widths.
+
+**Fix:** Standardize with explicit conversion helpers (`try_from` + clamp/fallback + comment) and document intentional truncation where needed.
+
+---
+
+### ADD-8 (MEDIUM): Status-line animation uses wall-clock (`SystemTime`) instead of monotonic clock
+
+**File:** `src/src/bin/voiceterm/status_line/animation.rs:21-54`
+
+Animation frame selection currently keys off UNIX-epoch wall clock. Clock adjustments (NTP, manual changes, VM time jumps) can cause jittery frame jumps.
+
+**Fix:** Base animation on `Instant` deltas from startup/session anchors for monotonic behavior.
+
+---
+
+### ADD-9 (LOW): Backend lookup allocates lowercase strings per query
+
+**File:** `src/src/backend/mod.rs:86-90`
+
+```rust
+let name_lower = name.to_lowercase();
+... b.name().to_lowercase() == name_lower
+```
+
+This is small but avoidable allocation in lookup path.
+
+**Fix:** Use ASCII-insensitive comparison without allocation (`eq_ignore_ascii_case`) or pre-normalize registry keys.
+
+---
+
+### ADD-10 (LOW): Public devtools API docs still miss explicit failure contracts
+
+**File:** `src/src/devtools/storage.rs:22-57`
+
+Public `io::Result` methods (`open`, `open_session`, `append`, `flush`) currently lack explicit rustdoc `# Errors` sections.
+
+**Fix:** Add `# Errors` docs per method (path creation/open failures, serialization failures, write/flush errors) to align with API-guideline failure documentation expectations.
+
+---
+
+### ADD-11 (LOW): Rolling prompt context uses `Vec::remove(0)` instead of queue structure
+
+**File:** `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs:159-171`
+
+This is bounded (max 8 lines), so impact is low, but the data structure intent is queue-like.
+
+**Fix:** Switch `recent_lines` to `VecDeque<String>` for direct push/pop queue semantics and clearer intent.
+
+### 11.3 Source-Backed Pattern Notes (Rust References)
+
+The second sweep aligned recommendations with current Rust guidance:
+
+- Prefer monotonic timing (`Instant`) for elapsed-time behavior; `SystemTime` is non-monotonic.
+- `std::env::{set_var, remove_var}` become explicitly unsafe in Rust 2024; call sites should be audited for single-thread safety.
+- `option_env!(..).unwrap()` is flagged by Clippy; `env!` gives compile-time failure semantics when required.
+- Numeric `as` casts that may truncate are accepted by Rust but are intentionally flagged by Clippy for explicitness.
+- Public `Result` APIs should document `# Errors`.
+
+See links in the next section.
+
+## 12. Rust References Consulted (Google + Official Docs)
+
+- Rust `Instant` docs: <https://doc.rust-lang.org/std/time/struct.Instant.html>
+- Rust `SystemTime` docs: <https://doc.rust-lang.org/nightly/std/time/struct.SystemTime.html>
+- Rust 2024 newly unsafe functions (`set_var`, `remove_var`): <https://doc.rust-lang.org/nightly/edition-guide/rust-2024/newly-unsafe-functions.html>
+- `std::env::set_var` safety docs: <https://doc.rust-lang.org/std/env/fn.set_var.html>
+- `std::env::remove_var` safety docs: <https://doc.rust-lang.org/std/env/fn.remove_var.html>
+- `env!` macro (compile-time requirement): <https://doc.rust-lang.org/std/macro.env.html>
+- `option_env!` macro: <https://doc.rust-lang.org/stable/core/macro.option_env.html>
+- Clippy `option_env_unwrap`: <https://rust-lang.github.io/rust-clippy/rust-1.86.0/index.html#option_env_unwrap>
+- Clippy `cast_possible_truncation`: <https://rust-lang.github.io/rust-clippy/master/index.html#cast_possible_truncation>
+- Clippy docs index: <https://rust-lang.github.io/rust-clippy/>
+- Rust API Guidelines (documentation / failure docs): <https://rust-lang.github.io/api-guidelines/documentation.html>
+- `VecDeque` queue semantics: <https://doc.rust-lang.org/std/collections/struct.VecDeque.html>
+
+---
+
+*End of audit. Base report: 8 critical, 18 high, 30 medium, 25 low findings across 206 files. Addendum above contains additional post-limit opportunities pending triage into the main severity counts.*
