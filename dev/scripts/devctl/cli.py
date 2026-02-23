@@ -216,6 +216,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit non-zero when CI fetch fails (implies --ci)",
     )
     status_cmd.add_argument("--format", choices=["json", "md", "text"], default="text")
+    status_cmd.add_argument(
+        "--dev-logs",
+        action="store_true",
+        help="Include guarded Dev Mode JSONL session summary",
+    )
+    status_cmd.add_argument(
+        "--dev-root",
+        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
+    )
+    status_cmd.add_argument(
+        "--dev-sessions-limit",
+        type=int,
+        default=5,
+        help="Maximum recent session files to scan when --dev-logs",
+    )
     status_cmd.add_argument("--output")
     status_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     status_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
@@ -225,6 +240,21 @@ def build_parser() -> argparse.ArgumentParser:
     report_cmd.add_argument("--ci", action="store_true", help="Include recent GitHub runs")
     report_cmd.add_argument("--ci-limit", type=int, default=DEFAULT_CI_LIMIT)
     report_cmd.add_argument("--format", choices=["json", "md"], default="md")
+    report_cmd.add_argument(
+        "--dev-logs",
+        action="store_true",
+        help="Include guarded Dev Mode JSONL session summary",
+    )
+    report_cmd.add_argument(
+        "--dev-root",
+        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
+    )
+    report_cmd.add_argument(
+        "--dev-sessions-limit",
+        type=int,
+        default=5,
+        help="Maximum recent session files to scan when --dev-logs",
+    )
     report_cmd.add_argument("--output")
     report_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
     report_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")

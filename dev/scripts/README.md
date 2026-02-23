@@ -130,7 +130,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `ship`: full release/distribution orchestrator with step toggles
 - `homebrew`: Homebrew tap update flow
 - `pypi`: PyPI build/check/upload flow
-- `status` and `report`: machine-readable project status outputs
+- `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
 - `list`: command/profile inventory
 
 Historical shard artifacts from previous CI runs are useful for hotspot triage,

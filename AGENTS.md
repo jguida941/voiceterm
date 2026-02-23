@@ -461,8 +461,8 @@ Core commands:
 - `ship`
 - `pypi`
 - `homebrew`
-- `status`
-- `report`
+- `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
+- `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `list`
 
 Supporting scripts:

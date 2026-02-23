@@ -402,6 +402,10 @@ python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.j
 # Include recent GitHub Actions runs (requires gh auth)
 python3 dev/scripts/devctl.py status --ci --format md
 
+# Include guarded Dev Mode JSONL summaries (event counts + latency)
+python3 dev/scripts/devctl.py status --dev-logs --format md
+python3 dev/scripts/devctl.py report --dev-logs --dev-sessions-limit 10 --format md
+
 # Pipe report output to a CLI that accepts stdin (requires login)
 python3 dev/scripts/devctl.py report --format md --pipe-command codex
 python3 dev/scripts/devctl.py report --format md --pipe-command claude

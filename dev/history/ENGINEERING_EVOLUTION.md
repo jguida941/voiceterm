@@ -536,6 +536,29 @@ Inference: The visual execution track now has one source for design/research
 context, which reduces doc sprawl and lowers plan drift risk during Theme
 Studio implementation work.
 
+### Recent Governance Update (2026-02-23, Dev CLI Dev-Log Reporting)
+
+Fact: `devctl status` and `devctl report` gained optional guarded Dev Mode log
+summaries so maintainers can inspect recent `session-*.jsonl` telemetry without
+opening raw files by hand.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py` (`collect_dev_log_summary` aggregation for
+  session files, event-kind counts, parse errors, and latency summaries)
+- `dev/scripts/devctl/cli.py` (`--dev-logs`, `--dev-root`,
+  `--dev-sessions-limit` for `status`/`report`)
+- `dev/scripts/devctl/commands/status.py` and
+  `dev/scripts/devctl/commands/report.py` (markdown/json rendering of dev-log
+  summary blocks)
+- `dev/scripts/devctl/tests/test_collect_dev_logs.py`,
+  `dev/scripts/devctl/tests/test_status.py`, and
+  `dev/scripts/devctl/tests/test_report.py`
+- `dev/active/MASTER_PLAN.md` (`MP-290`)
+
+Inference: Guarded runtime telemetry moved from "written to disk only" to a
+repeatable maintainer inspection path in the existing control-plane CLI.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

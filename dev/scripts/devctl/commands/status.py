@@ -3,7 +3,12 @@
 import json
 from datetime import datetime
 
-from ..collect import collect_ci_runs, collect_git_status, collect_mutation_summary
+from ..collect import (
+    collect_ci_runs,
+    collect_dev_log_summary,
+    collect_git_status,
+    collect_mutation_summary,
+)
 from ..common import pipe_output, write_output
 
 
@@ -18,6 +23,11 @@ def run(args) -> int:
     }
     if ci_requested:
         report["ci"] = collect_ci_runs(args.ci_limit)
+    if getattr(args, "dev_logs", False):
+        report["dev_logs"] = collect_dev_log_summary(
+            dev_root=getattr(args, "dev_root", None),
+            session_limit=getattr(args, "dev_sessions_limit", 5),
+        )
 
     if args.format == "json":
         output = json.dumps(report, indent=2)
@@ -59,6 +69,36 @@ def run(args) -> int:
                     status = run.get("status", "unknown")
                     conclusion = run.get("conclusion") or "pending"
                     lines.append(f"  - {title}: {status}/{conclusion}")
+        if getattr(args, "dev_logs", False):
+            dev_info = report.get("dev_logs", {})
+            if "error" in dev_info:
+                lines.append(f"- Dev logs: error ({dev_info['error']})")
+            else:
+                lines.append(f"- Dev logs root: {dev_info.get('dev_root')}")
+                lines.append(
+                    "- Dev sessions scanned: "
+                    f"{dev_info.get('sessions_scanned', 0)}/"
+                    f"{dev_info.get('session_files_total', 0)}"
+                )
+                lines.append(
+                    "- Dev events: "
+                    f"{dev_info.get('events_scanned', 0)} "
+                    f"(transcript={dev_info.get('transcript_events', 0)}, "
+                    f"empty={dev_info.get('empty_events', 0)}, "
+                    f"error={dev_info.get('error_events', 0)})"
+                )
+                lines.append(f"- Dev total words: {dev_info.get('total_words', 0)}")
+                avg_latency = dev_info.get("avg_latency_ms")
+                lines.append(
+                    "- Dev avg latency: "
+                    + ("unknown" if avg_latency is None else f"{avg_latency} ms")
+                )
+                lines.append(f"- Dev parse errors: {dev_info.get('parse_errors', 0)}")
+                latest_iso = dev_info.get("latest_event_iso")
+                lines.append(
+                    "- Dev latest event: "
+                    + (latest_iso if latest_iso else "none")
+                )
         output = "\n".join(lines)
     else:
         output = json.dumps(report, indent=2)
