@@ -342,7 +342,6 @@ pub(crate) fn transcript_history_overlay_footer(colors: &ThemeColors) -> String 
     format!("[{close}] close {sep} Enter replay {sep} Up/Down browse")
 }
 
-/// Visible rows count for scroll calculations.
 pub(crate) fn transcript_history_visible_rows() -> usize {
     VISIBLE_ROWS
 }
@@ -415,7 +414,8 @@ pub(crate) fn format_transcript_history_overlay(
     theme: Theme,
     terminal_cols: usize,
 ) -> String {
-    let colors = theme.colors();
+    let mut colors = theme.colors();
+    colors.borders = crate::theme::resolved_overlay_border_set(theme);
     let borders = &colors.borders;
     let width = transcript_history_overlay_width(terminal_cols);
     let inner = width.saturating_sub(2);

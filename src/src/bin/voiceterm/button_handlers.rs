@@ -8,6 +8,7 @@ use voiceterm::VoiceCaptureTrigger;
 
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::{HudStyle, OverlayConfig};
+use crate::image_mode::{build_image_prompt, capture_image};
 use crate::log_debug;
 use crate::overlays::{
     show_help_overlay, show_settings_overlay, show_theme_studio_overlay, OverlayMode,
@@ -77,6 +78,8 @@ impl<'a> ButtonActionContext<'a> {
                             Some(Duration::from_secs(2)),
                         );
                     }
+                } else if self.config.image_mode {
+                    self.trigger_image_capture();
                 } else {
                     let trigger = if *self.auto_voice_enabled {
                         VoiceCaptureTrigger::Auto
@@ -172,6 +175,60 @@ impl<'a> ButtonActionContext<'a> {
         settings_ctx.toggle_send_mode();
     }
 
+    fn trigger_image_capture(&mut self) {
+        let captured_path = match capture_image(self.config) {
+            Ok(path) => path,
+            Err(err) => {
+                set_status(
+                    self.writer_tx,
+                    self.status_clear_deadline,
+                    self.current_status,
+                    self.status_state,
+                    &crate::status_messages::with_log_path("Image capture failed"),
+                    Some(Duration::from_secs(3)),
+                );
+                log_debug(&format!("image capture failed: {err:#}"));
+                return;
+            }
+        };
+
+        let prompt = build_image_prompt(&captured_path, self.config.voice_send_mode);
+        if let Err(err) = self.session.send_text(&prompt.text) {
+            set_status(
+                self.writer_tx,
+                self.status_clear_deadline,
+                self.current_status,
+                self.status_state,
+                &crate::status_messages::with_log_path("Image prompt inject failed"),
+                Some(Duration::from_secs(3)),
+            );
+            log_debug(&format!("image prompt inject failed: {err:#}"));
+            return;
+        }
+
+        self.status_state.insert_pending_send = !prompt.auto_sent;
+        if prompt.auto_sent {
+            self.status_state.recording_state = crate::status_line::RecordingState::Responding;
+        }
+        let file_name = captured_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("capture");
+        let status = if prompt.auto_sent {
+            format!("Image captured and sent ({file_name})")
+        } else {
+            format!("Image captured and staged ({file_name})")
+        };
+        set_status(
+            self.writer_tx,
+            self.status_clear_deadline,
+            self.current_status,
+            self.status_state,
+            &status,
+            Some(Duration::from_secs(3)),
+        );
+    }
+
     fn sync_overlay_winsize(&mut self) {
         update_pty_winsize(
             self.session,
@@ -229,6 +286,10 @@ impl<'a> ButtonActionContext<'a> {
             progress_style_override: style_pack_overrides.progress_style_override,
             progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
             voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+            toast_position_override: style_pack_overrides.toast_position_override,
+            startup_style_override: style_pack_overrides.startup_style_override,
+            toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
+            banner_style_override: style_pack_overrides.banner_style_override,
             undo_available: !self.theme_studio_undo_history.is_empty(),
             redo_available: !self.theme_studio_redo_history.is_empty(),
             runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),

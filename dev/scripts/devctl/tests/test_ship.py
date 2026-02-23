@@ -5,13 +5,16 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl.commands import ship
 from dev.scripts.devctl.commands import release_guard
+from dev.scripts.devctl.commands import ship
+from dev.scripts.devctl.commands import ship_common
+from dev.scripts.devctl.commands import ship_steps
 
 
 def make_args() -> SimpleNamespace:
     return SimpleNamespace(
         version="1.2.3",
+        prepare_release=False,
         verify=False,
         verify_docs=False,
         tag=False,
@@ -33,6 +36,13 @@ def make_args() -> SimpleNamespace:
 
 
 class ShipReleaseParityTests(TestCase):
+    def test_ship_selected_steps_puts_prepare_first(self) -> None:
+        args = make_args()
+        args.prepare_release = True
+        args.verify = True
+        args.tag = True
+        self.assertEqual(ship._selected_steps(args), ["prepare-release", "verify", "tag"])
+
     def test_check_release_version_parity_matches_requested_version(self) -> None:
         payload = {"ok": True, "versions_present": ["1.2.3"], "missing": []}
         completed = SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
@@ -58,39 +68,142 @@ class ShipReleaseParityTests(TestCase):
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_verify(args, context)
+            result = ship_steps.run_verify_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "verify")
         self.assertEqual(result["details"]["reason"], "release version parity check failed")
+
+    def test_run_verify_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+        args = make_args()
+        args.dry_run = True
+        args.prepare_release = True
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(
+                False,
+                {
+                    "reason": "requested version does not match release metadata",
+                    "requested": "1.2.3",
+                    "detected": "1.2.2",
+                },
+            ),
+        ):
+            result = ship_steps.run_verify_step(args, context)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertEqual(result["name"], "verify")
 
     def test_run_pypi_fails_when_release_parity_fails(self) -> None:
         args = make_args()
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_pypi(args, context)
+            result = ship_steps.run_pypi_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "pypi")
         self.assertEqual(result["details"]["reason"], "release version parity check failed")
+
+    def test_run_pypi_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+        args = make_args()
+        args.dry_run = True
+        args.prepare_release = True
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(
+                False,
+                {
+                    "reason": "requested version does not match release metadata",
+                    "requested": "1.2.3",
+                    "detected": "1.2.2",
+                },
+            ),
+        ):
+            result = ship_steps.run_pypi_step(args, context)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertEqual(result["name"], "pypi")
 
     def test_run_homebrew_fails_when_release_parity_fails(self) -> None:
         args = make_args()
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 
         with patch(
-            "dev.scripts.devctl.commands.ship.check_release_version_parity",
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
             return_value=(False, {"reason": "release version parity check failed"}),
         ):
-            result = ship._run_homebrew(args, context)
+            result = ship_steps.run_homebrew_step(args, context)
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "homebrew")
         self.assertEqual(result["details"]["reason"], "release version parity check failed")
+
+    def test_run_homebrew_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+        args = make_args()
+        args.dry_run = True
+        args.prepare_release = True
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(
+                False,
+                {
+                    "reason": "requested version does not match release metadata",
+                    "requested": "1.2.3",
+                    "detected": "1.2.2",
+                },
+            ),
+        ):
+            result = ship_steps.run_homebrew_step(args, context)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertEqual(result["name"], "homebrew")
+
+    @patch("dev.scripts.devctl.commands.ship_common.subprocess.check_output", side_effect=FileNotFoundError("missing"))
+    def test_run_checked_returns_structured_error_when_binary_missing(self, _mock_check_output) -> None:
+        code, output = ship_common.run_checked(["definitely-missing-binary"])
+        self.assertEqual(code, 127)
+        self.assertIn("missing", output)
+
+    @patch("dev.scripts.devctl.commands.ship_steps.prepare_release_metadata")
+    def test_run_prepare_release_step_returns_success_details(self, mock_prepare_release_metadata) -> None:
+        args = make_args()
+        args.dry_run = False
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+        mock_prepare_release_metadata.return_value = {
+            "version": "1.2.3",
+            "release_date": "2026-02-23",
+            "changed_files": ["src/Cargo.toml"],
+            "unchanged_files": [],
+            "dry_run": False,
+        }
+
+        result = ship_steps.run_prepare_release_step(args, context)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["name"], "prepare-release")
+        self.assertIn("changed_files", result["details"])
+
+    @patch("dev.scripts.devctl.commands.ship_steps.prepare_release_metadata", side_effect=RuntimeError("boom"))
+    def test_run_prepare_release_step_surfaces_failures(self, _mock_prepare_release_metadata) -> None:
+        args = make_args()
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        result = ship_steps.run_prepare_release_step(args, context)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["name"], "prepare-release")
+        self.assertEqual(result["details"]["reason"], "boom")

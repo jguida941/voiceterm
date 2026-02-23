@@ -1,11 +1,13 @@
 """Tests for devctl check profile wiring."""
 
+import time
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import check
+from dev.scripts.devctl.commands import check_steps
 
 
 def make_args(profile: str) -> SimpleNamespace:
@@ -43,6 +45,8 @@ def make_args(profile: str) -> SimpleNamespace:
         mutation_score_warn_age_hours=24.0,
         mutation_score_max_age_hours=None,
         keep_going=False,
+        no_parallel=False,
+        parallel_workers=4,
         dry_run=False,
         format="text",
         output=None,
@@ -71,7 +75,45 @@ class CheckProfileTests(TestCase):
         args = parser.parse_args(["check", "--no-process-sweep-cleanup"])
         self.assertTrue(args.no_process_sweep_cleanup)
 
-    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    def test_cli_accepts_parallel_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--no-parallel", "--parallel-workers", "2"])
+        self.assertTrue(args.no_parallel)
+        self.assertEqual(args.parallel_workers, 2)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    @patch("builtins.print")
+    def test_failed_step_prints_failure_summary(
+        self,
+        mock_print,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_run_cmd.return_value = {
+            "name": "clippy",
+            "cmd": ["cargo", "clippy"],
+            "cwd": "src",
+            "returncode": 1,
+            "duration_s": 0.0,
+            "skipped": False,
+            "failure_output": "warning: unused variable",
+        }
+        args = make_args("")
+        args.skip_fmt = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 1)
+
+        printed = "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
+        self.assertIn("[check] step failed: clippy (exit 1)", printed)
+        self.assertIn("[check] last output from clippy:", printed)
+        self.assertIn("warning: unused variable", printed)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_maintainer_lint_profile_uses_strict_clippy_subset(
         self,
@@ -107,7 +149,7 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("clippy::cast_precision_loss", clippy_cmd)
         self.assertNotIn("clippy::cast_possible_truncation", clippy_cmd)
 
-    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_with_wake_guard_adds_gate_step(
         self,
@@ -133,7 +175,7 @@ class CheckProfileTests(TestCase):
         self.assertEqual(wake_call["cmd"], ["bash", "dev/scripts/tests/wake_word_guard.sh"])
         self.assertEqual(wake_call["env"]["WAKE_WORD_SOAK_ROUNDS"], "7")
 
-    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_mutation_score_cmd")
     @patch("dev.scripts.devctl.commands.check.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -177,7 +219,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
 
-    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_prepush_profile_enables_ai_guard_steps(
         self,
@@ -206,6 +248,79 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
 
+    @patch("dev.scripts.devctl.commands.check.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_parallel_mode_uses_parallel_runner_for_setup_phase(
+        self,
+        mock_build_env,
+        mock_run_step_specs,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_run_step_specs.return_value = [
+            {
+                "name": "fmt-check",
+                "cmd": ["cargo", "fmt", "--all", "--", "--check"],
+                "cwd": "src",
+                "returncode": 0,
+                "duration_s": 0.0,
+                "skipped": False,
+            },
+            {
+                "name": "clippy",
+                "cmd": ["cargo", "clippy"],
+                "cwd": "src",
+                "returncode": 0,
+                "duration_s": 0.0,
+                "skipped": False,
+            },
+        ]
+
+        args = make_args("")
+        args.skip_tests = True
+        args.skip_build = True
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+        mock_run_step_specs.assert_called_once()
+        step_specs = mock_run_step_specs.call_args.args[0]
+        self.assertEqual([spec["name"] for spec in step_specs], ["fmt-check", "clippy"])
+        self.assertTrue(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
+
+    @patch("dev.scripts.devctl.commands.check.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_no_parallel_flag_uses_serial_runner(
+        self,
+        mock_build_env,
+        mock_run_step_specs,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_run_step_specs.return_value = [
+            {
+                "name": "fmt-check",
+                "cmd": ["cargo", "fmt"],
+                "cwd": "src",
+                "returncode": 0,
+                "duration_s": 0.0,
+                "skipped": False,
+            },
+            {
+                "name": "clippy",
+                "cmd": ["cargo", "clippy"],
+                "cwd": "src",
+                "returncode": 0,
+                "duration_s": 0.0,
+                "skipped": False,
+            },
+        ]
+        args = make_args("")
+        args.skip_tests = True
+        args.skip_build = True
+        args.no_parallel = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+        mock_run_step_specs.assert_called_once()
+        self.assertFalse(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
+
 
 class CheckProcessSweepTests(TestCase):
     def test_parse_etime_seconds_handles_mm_ss_hh_mm_ss_and_days(self) -> None:
@@ -214,38 +329,66 @@ class CheckProcessSweepTests(TestCase):
         self.assertEqual(check._parse_etime_seconds("2-01:05:30"), 176730)
         self.assertIsNone(check._parse_etime_seconds("bad"))
 
-    @patch("dev.scripts.devctl.commands.check.os.getpid", return_value=99999)
-    @patch("dev.scripts.devctl.commands.check.subprocess.run")
-    @patch("dev.scripts.devctl.commands.check.os.kill")
+    @patch("dev.scripts.devctl.commands.check.kill_processes")
+    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
     def test_cleanup_kills_only_orphaned_voiceterm_test_binaries(
         self,
+        scan_mock,
         kill_mock,
-        run_mock,
-        _getpid_mock,
     ) -> None:
-        run_mock.return_value = SimpleNamespace(
-            returncode=0,
-            stdout=(
-                "1234 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
-                "2222 777 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
-                "3333 1 05:00 /tmp/project/target/debug/deps/not-voiceterm-deadbeef\n"
-            ),
-            stderr="",
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 1234,
+                    "ppid": 1,
+                    "etime": "05:00",
+                    "elapsed_seconds": 300,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4",
+                }
+            ],
+            [],
         )
+        kill_mock.return_value = ([1234], [])
 
         result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
-        kill_mock.assert_called_once_with(1234, check.signal.SIGKILL)
+        kill_mock.assert_called_once()
         self.assertEqual(result["detected_orphans"], 1)
         self.assertEqual(result["killed_pids"], [1234])
         self.assertEqual(result["returncode"], 0)
 
-    @patch("dev.scripts.devctl.commands.check.subprocess.run", side_effect=OSError("blocked"))
-    @patch("dev.scripts.devctl.commands.check.os.kill")
-    def test_cleanup_reports_warning_when_ps_unavailable(self, kill_mock, _run_mock) -> None:
+    @patch("dev.scripts.devctl.commands.check.kill_processes")
+    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
+    def test_cleanup_reports_warning_when_ps_unavailable(self, scan_mock, kill_mock) -> None:
+        scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
+        kill_mock.return_value = ([], [])
         result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
-        kill_mock.assert_not_called()
+        kill_mock.assert_called_once_with([])
         self.assertEqual(result["detected_orphans"], 0)
         self.assertTrue(result["warnings"])
         self.assertEqual(result["returncode"], 0)
+
+
+class CheckParallelHelperTests(TestCase):
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    def test_parallel_runner_preserves_declared_step_order(self, mock_run_cmd) -> None:
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+            if name == "fmt-check":
+                time.sleep(0.05)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": str(cwd),
+                "returncode": 0,
+                "duration_s": 0.0,
+                "skipped": False,
+            }
+
+        mock_run_cmd.side_effect = fake_run_cmd
+        specs = [
+            {"name": "fmt-check", "cmd": ["cargo", "fmt"], "cwd": "src", "env": {}},
+            {"name": "clippy", "cmd": ["cargo", "clippy"], "cwd": "src", "env": {}},
+        ]
+        results = check_steps.run_step_specs_parallel(specs, dry_run=False, max_workers=2)
+        self.assertEqual([entry["name"] for entry in results], ["fmt-check", "clippy"])

@@ -1,6 +1,10 @@
 //! Overlay mouse interaction helpers extracted from input dispatch.
 
 use super::*;
+use crate::dev_panel::{
+    dev_panel_footer, dev_panel_height, dev_panel_inner_width_for_terminal,
+    dev_panel_width_for_terminal,
+};
 use crate::transcript_history::transcript_history_visible_rows;
 
 pub(super) fn handle_overlay_mouse_click(
@@ -16,6 +20,7 @@ pub(super) fn handle_overlay_mouse_click(
     }
 
     let overlay_height = match state.overlay_mode {
+        OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
@@ -46,6 +51,11 @@ pub(super) fn handle_overlay_mouse_click(
     let cols = resolved_cols(state.terminal_cols) as usize;
 
     let (overlay_width, inner_width, footer_title) = match state.overlay_mode {
+        OverlayMode::DevPanel => (
+            dev_panel_width_for_terminal(cols),
+            dev_panel_inner_width_for_terminal(cols),
+            dev_panel_footer(&state.theme.colors()),
+        ),
         OverlayMode::Help => (
             help_overlay_width_for_terminal(cols),
             help_overlay_inner_width_for_terminal(cols),

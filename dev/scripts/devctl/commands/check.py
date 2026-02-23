@@ -1,131 +1,54 @@
-"""devctl check command implementation."""
+"""`devctl check` command.
 
-import os
+This command runs local quality gates (fmt, clippy, tests, build, and optional
+extra guards). It is the main pre-push/pre-release verifier for maintainers.
+"""
+
+from __future__ import annotations
+
+import json
 import re
-import signal
 import subprocess
 import time
 from datetime import datetime
-from typing import List
 from types import SimpleNamespace
+from typing import List
 
-from ..common import build_env, pipe_output, run_cmd, should_emit_output, write_output
+from ..common import build_env, pipe_output, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
+from ..process_sweep import (
+    DEFAULT_ORPHAN_MIN_AGE_SECONDS,
+    kill_processes,
+    parse_etime_seconds,
+    scan_matching_processes,
+    split_orphaned_processes,
+)
 from ..steps import format_steps_md
+from .check_profile import resolve_profile_settings
+from .check_steps import build_step_spec, run_step_specs
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
-# Enforced maintainer-lint families (all clean at zero findings):
-#   redundant_clone, redundant_closure_for_method_calls, cast_possible_wrap, dead_code
-# Deferred (intentional DSP casts in audio pipeline; needs per-site #[allow] sweep first):
-#   cast_precision_loss, cast_possible_truncation (20+ usize<->f32/f64 casts in signal processing)
-MAINTAINER_LINT_CLIPPY_ARGS = [
-    "-W",
-    "clippy::redundant_clone",
-    "-W",
-    "clippy::redundant_closure_for_method_calls",
-    "-W",
-    "clippy::cast_possible_wrap",
-    "-W",
-    "dead_code",
-]
+# Sweep only VoiceTerm test binaries, not arbitrary test processes.
 VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
-ORPHAN_TEST_MIN_AGE_SECONDS = 60
+ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 
 
 def _parse_etime_seconds(raw: str) -> int | None:
-    trimmed = raw.strip()
-    if not trimmed:
-        return None
-
-    days = 0
-    rest = trimmed
-    if "-" in trimmed:
-        day_part, rest = trimmed.split("-", 1)
-        if not day_part.isdigit():
-            return None
-        days = int(day_part)
-
-    chunks = rest.split(":")
-    if len(chunks) == 2:
-        mm, ss = chunks
-        if not (mm.isdigit() and ss.isdigit()):
-            return None
-        seconds = int(mm) * 60 + int(ss)
-    elif len(chunks) == 3:
-        hh, mm, ss = chunks
-        if not (hh.isdigit() and mm.isdigit() and ss.isdigit()):
-            return None
-        seconds = int(hh) * 3600 + int(mm) * 60 + int(ss)
-    else:
-        return None
-
-    return days * 86400 + seconds
+    """Kept for test compatibility; delegates to shared process-sweep parsing."""
+    return parse_etime_seconds(raw)
 
 
 def _scan_orphaned_voiceterm_test_binaries() -> tuple[list[dict], list[str]]:
-    warnings: list[str] = []
-    try:
-        result = subprocess.run(
-            ["ps", "-axo", "pid=,ppid=,etime=,command="],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError as exc:
-        warnings.append(f"Process sweep skipped: unable to execute ps ({exc})")
-        return [], warnings
-
-    if result.returncode != 0:
-        stderr = result.stderr.strip() if result.stderr else "unknown ps error"
-        warnings.append(f"Process sweep skipped: ps returned {result.returncode} ({stderr})")
-        return [], warnings
-
-    this_pid = os.getpid()
-    orphaned: list[dict] = []
-    for line in result.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        parts = stripped.split(None, 3)
-        if len(parts) != 4:
-            continue
-
-        pid_raw, ppid_raw, etime, command = parts
-        if not (pid_raw.isdigit() and ppid_raw.isdigit()):
-            continue
-        if "ps -axo pid=,ppid=,etime=,command=" in command:
-            continue
-        if not VOICETERM_TEST_BIN_RE.search(command):
-            continue
-
-        pid = int(pid_raw)
-        if pid == this_pid:
-            continue
-
-        elapsed_seconds = _parse_etime_seconds(etime)
-        if elapsed_seconds is None:
-            continue
-        if int(ppid_raw) != 1:
-            continue
-        if elapsed_seconds < ORPHAN_TEST_MIN_AGE_SECONDS:
-            continue
-
-        orphaned.append(
-            {
-                "pid": pid,
-                "ppid": int(ppid_raw),
-                "etime": etime,
-                "elapsed_seconds": elapsed_seconds,
-                "command": command,
-            }
-        )
-
-    orphaned.sort(key=lambda row: row["elapsed_seconds"], reverse=True)
+    rows, warnings = scan_matching_processes(VOICETERM_TEST_BIN_RE)
+    orphaned, _active = split_orphaned_processes(
+        rows, min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS
+    )
     return orphaned, warnings
 
 
 def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> dict:
+    """Clean up detached test binaries so local runs stay stable over time."""
     start = time.time()
     if dry_run:
         return {
@@ -141,20 +64,7 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
         }
 
     orphaned, warnings = _scan_orphaned_voiceterm_test_binaries()
-    killed_pids: list[int] = []
-    errors: list[str] = []
-
-    for row in orphaned:
-        pid = row["pid"]
-        try:
-            os.kill(pid, signal.SIGKILL)
-            killed_pids.append(pid)
-        except ProcessLookupError:
-            continue
-        except PermissionError as exc:
-            errors.append(f"pid={pid} permission denied ({exc})")
-        except OSError as exc:
-            errors.append(f"pid={pid} kill failed ({exc})")
+    killed_pids, kill_warnings = kill_processes(orphaned)
 
     for warning in warnings:
         print(f"[{step_name}] warning: {warning}")
@@ -162,8 +72,8 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
         print(f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test binaries")
     if killed_pids:
         print(f"[{step_name}] killed {len(killed_pids)} orphaned voiceterm test binaries")
-    for error in errors:
-        print(f"[{step_name}] warning: {error}")
+    for warning in kill_warnings:
+        print(f"[{step_name}] warning: {warning}")
 
     return {
         "name": step_name,
@@ -172,82 +82,80 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
         "returncode": 0,
         "duration_s": round(time.time() - start, 2),
         "skipped": False,
-        "warnings": warnings + errors,
+        "warnings": warnings + kill_warnings,
         "killed_pids": killed_pids,
         "detected_orphans": len(orphaned),
     }
 
 
+def _resolve_perf_log_path() -> str:
+    """Return the expected perf log file path used by the verifier script."""
+    try:
+        return subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))",
+            ],
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(f"failed to resolve perf log path ({exc})") from exc
+
+
 def run(args) -> int:
-    """Run the configured check profile and return exit code."""
+    """Run check steps for the selected profile and return an exit code."""
     env = build_env(args)
     steps: List[dict] = []
-
-    skip_build = args.skip_build
-    skip_tests = args.skip_tests
-    with_perf = args.with_perf
-    with_mem_loop = args.with_mem_loop
-    with_mutants = args.with_mutants
-    with_mutation_score = args.with_mutation_score
-    with_wake_guard = args.with_wake_guard
-    with_ai_guard = args.with_ai_guard
+    settings, clippy_cmd = resolve_profile_settings(args)
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
-    clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
+    parallel_enabled = not getattr(args, "no_parallel", False)
+    parallel_workers = max(1, int(getattr(args, "parallel_workers", 4)))
 
-    if args.profile == "ci":
-        skip_build = True
-        with_perf = False
-        with_mem_loop = False
-        with_mutants = False
-        with_mutation_score = False
-        with_wake_guard = False
-        with_ai_guard = False
-    elif args.profile == "prepush":
-        with_perf = True
-        with_mem_loop = True
-        with_ai_guard = True
-    elif args.profile == "release":
-        with_mutation_score = True
-        with_wake_guard = True
-        with_ai_guard = True
-    elif args.profile == "ai-guard":
-        skip_build = True
-        with_perf = False
-        with_mem_loop = False
-        with_mutants = False
-        with_mutation_score = False
-        with_wake_guard = False
-        with_ai_guard = True
-    elif args.profile == "maintainer-lint":
-        skip_tests = True
-        skip_build = True
-        with_perf = False
-        with_mem_loop = False
-        with_mutants = False
-        with_mutation_score = False
-        with_wake_guard = False
-        with_ai_guard = False
-        clippy_cmd = [
-            "cargo",
-            "clippy",
-            "--workspace",
-            "--all-features",
-            "--",
-            "-D",
-            "warnings",
-            *MAINTAINER_LINT_CLIPPY_ARGS,
-        ]
-    elif args.profile == "quick":
-        skip_build = True
-        skip_tests = True
-        with_wake_guard = False
-        with_ai_guard = False
+    def emit_failure_summary(result: dict) -> None:
+        """Show a short actionable error summary after a failed step."""
+        if result["returncode"] == 0:
+            return
+        print(f"[check] step failed: {result['name']} (exit {result['returncode']})")
+        if result.get("error"):
+            print(f"[check] error: {result['error']}")
+        failure_output = result.get("failure_output")
+        if failure_output:
+            print(f"[check] last output from {result['name']}:")
+            print(failure_output)
+
+    def make_step_spec(name: str, cmd: List[str], cwd=None, step_env=None) -> dict:
+        return build_step_spec(
+            name=name,
+            cmd=cmd,
+            default_env=env,
+            cwd=cwd,
+            step_env=step_env,
+        )
+
+    def add_steps(step_specs: List[dict], allow_parallel: bool = False) -> None:
+        if not step_specs:
+            return
+        results = run_step_specs(
+            step_specs,
+            dry_run=args.dry_run,
+            parallel_enabled=allow_parallel and parallel_enabled,
+            max_workers=parallel_workers,
+        )
+
+        failed = False
+        for result in results:
+            steps.append(result)
+            if result["returncode"] != 0:
+                failed = True
+                emit_failure_summary(result)
+
+        if failed and not args.keep_going:
+            failed_steps = ", ".join(result["name"] for result in results if result["returncode"] != 0)
+            raise RuntimeError(f"check phase failed ({failed_steps})")
 
     def add_step(name: str, cmd: List[str], cwd=None, step_env=None) -> None:
-        result = run_cmd(name, cmd, cwd=cwd, env=step_env or env, dry_run=args.dry_run)
-        steps.append(result)
-        if result["returncode"] != 0 and not args.keep_going:
-            raise RuntimeError(f"{name} failed")
+        add_steps([make_step_spec(name, cmd, cwd=cwd, step_env=step_env)])
 
     if process_sweep_cleanup:
         steps.append(
@@ -258,46 +166,67 @@ def run(args) -> int:
         )
 
     try:
+        setup_phase_specs: List[dict] = []
         if not args.skip_fmt:
             if args.fix:
-                add_step("fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR)
+                setup_phase_specs.append(make_step_spec("fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR))
             else:
-                add_step(
-                    "fmt-check",
-                    ["cargo", "fmt", "--all", "--", "--check"],
+                setup_phase_specs.append(
+                    make_step_spec(
+                        "fmt-check",
+                        ["cargo", "fmt", "--all", "--", "--check"],
+                        cwd=SRC_DIR,
+                    )
+                )
+
+        if not args.skip_clippy:
+            setup_phase_specs.append(make_step_spec("clippy", clippy_cmd, cwd=SRC_DIR))
+
+        if settings["with_ai_guard"]:
+            setup_phase_specs.append(
+                make_step_spec(
+                    "code-shape-guard",
+                    ["python3", "dev/scripts/check_code_shape.py"],
+                    cwd=REPO_ROOT,
+                )
+            )
+            setup_phase_specs.append(
+                make_step_spec(
+                    "rust-lint-debt-guard",
+                    ["python3", "dev/scripts/check_rust_lint_debt.py"],
+                    cwd=REPO_ROOT,
+                )
+            )
+            setup_phase_specs.append(
+                make_step_spec(
+                    "rust-best-practices-guard",
+                    ["python3", "dev/scripts/check_rust_best_practices.py"],
+                    cwd=REPO_ROOT,
+                )
+            )
+
+        add_steps(setup_phase_specs, allow_parallel=True)
+
+        test_build_phase_specs: List[dict] = []
+        if not settings["skip_tests"]:
+            test_build_phase_specs.append(
+                make_step_spec(
+                    "test",
+                    ["cargo", "test", "--workspace", "--all-features"],
                     cwd=SRC_DIR,
                 )
-        if not args.skip_clippy:
-            add_step(
-                "clippy",
-                clippy_cmd,
-                cwd=SRC_DIR,
             )
-        if with_ai_guard:
-            add_step(
-                "code-shape-guard",
-                ["python3", "dev/scripts/check_code_shape.py"],
-                cwd=REPO_ROOT,
+        if not settings["skip_build"]:
+            test_build_phase_specs.append(
+                make_step_spec(
+                    "build-release",
+                    ["cargo", "build", "--release", "--bin", "voiceterm"],
+                    cwd=SRC_DIR,
+                )
             )
-            add_step(
-                "rust-lint-debt-guard",
-                ["python3", "dev/scripts/check_rust_lint_debt.py"],
-                cwd=REPO_ROOT,
-            )
-            add_step(
-                "rust-best-practices-guard",
-                ["python3", "dev/scripts/check_rust_best_practices.py"],
-                cwd=REPO_ROOT,
-            )
-        if not skip_tests:
-            add_step("test", ["cargo", "test", "--workspace", "--all-features"], cwd=SRC_DIR)
-        if not skip_build:
-            add_step(
-                "build-release",
-                ["cargo", "build", "--release", "--bin", "voiceterm"],
-                cwd=SRC_DIR,
-            )
-        if with_wake_guard:
+        add_steps(test_build_phase_specs, allow_parallel=True)
+
+        if settings["with_wake_guard"]:
             wake_guard_env = dict(env)
             wake_guard_env["WAKE_WORD_SOAK_ROUNDS"] = str(args.wake_soak_rounds)
             add_step(
@@ -306,7 +235,8 @@ def run(args) -> int:
                 cwd=REPO_ROOT,
                 step_env=wake_guard_env,
             )
-        if with_perf:
+
+        if settings["with_perf"]:
             add_step(
                 "perf-smoke",
                 [
@@ -320,24 +250,17 @@ def run(args) -> int:
                 cwd=SRC_DIR,
             )
             if not args.dry_run:
-                log_path = subprocess.check_output(
-                    [
-                        "python3",
-                        "-c",
-                        "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))",
-                    ],
-                    text=True,
-                ).strip()
+                log_path = _resolve_perf_log_path()
                 add_step(
                     "perf-verify",
                     ["python3", ".github/scripts/verify_perf_metrics.py", log_path],
                     cwd=REPO_ROOT,
                 )
-        if with_mem_loop:
-            iterations = args.mem_iterations
-            for i in range(iterations):
+
+        if settings["with_mem_loop"]:
+            for index in range(args.mem_iterations):
                 add_step(
-                    f"mem-guard-{i+1}",
+                    f"mem-guard-{index + 1}",
                     [
                         "cargo",
                         "test",
@@ -348,7 +271,8 @@ def run(args) -> int:
                     ],
                     cwd=SRC_DIR,
                 )
-        if with_mutants:
+
+        if settings["with_mutants"]:
             mutants_args = SimpleNamespace(
                 all=args.mutants_all,
                 module=args.mutants_module,
@@ -367,7 +291,8 @@ def run(args) -> int:
                 top=None,
             )
             add_step("mutants", build_mutants_cmd(mutants_args), cwd=REPO_ROOT)
-        if with_mutation_score:
+
+        if settings["with_mutation_score"]:
             outcomes_path = resolve_outcomes_path(args.mutation_score_path)
             if outcomes_path is None:
                 raise RuntimeError("mutation outcomes.json not found")
@@ -400,24 +325,16 @@ def run(args) -> int:
         "steps": steps,
     }
 
-    output = None
     if should_emit_output(args):
-        if args.format == "json":
-            output = json_dumps(report)
-        elif args.format == "md":
+        if args.format == "md":
             output = "# devctl check\n\n" + format_steps_md(steps)
         else:
-            output = json_dumps(report)
+            output = json.dumps(report, indent=2)
         if args.output or args.format != "text":
             write_output(output, args.output)
         if args.pipe_command:
             pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
             if pipe_rc != 0:
                 return pipe_rc
+
     return 0 if success else 1
-
-
-def json_dumps(payload: dict) -> str:
-    import json
-
-    return json.dumps(payload, indent=2)

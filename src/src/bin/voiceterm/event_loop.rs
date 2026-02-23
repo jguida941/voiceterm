@@ -28,8 +28,9 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, show_theme_studio_overlay,
-    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
+    show_dev_panel_overlay, show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
+    show_theme_studio_overlay, show_toast_history_overlay, show_transcript_history_overlay,
+    OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
@@ -67,8 +68,9 @@ use crate::writer::{set_status, WriterMessage};
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
-    close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
-    open_theme_studio_overlay, open_toast_history_overlay, open_transcript_history_overlay,
+    close_overlay, open_dev_panel_overlay, open_help_overlay, open_settings_overlay,
+    open_theme_picker_overlay, open_theme_studio_overlay, open_toast_history_overlay,
+    open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -286,6 +288,8 @@ fn drain_voice_messages_once(
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
         transcript_history: &mut state.transcript_history,
+        dev_mode_stats: state.dev_mode_stats.as_mut(),
+        dev_event_logger: state.dev_event_logger.as_mut(),
     };
     #[cfg(test)]
     {
@@ -353,6 +357,19 @@ fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     show_help_overlay(&deps.writer_tx, state.theme, cols);
 }
 
+fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    let snapshot = state.dev_mode_stats.as_ref().map(|stats| stats.snapshot());
+    show_dev_panel_overlay(
+        &deps.writer_tx,
+        state.theme,
+        snapshot,
+        state.config.dev_log,
+        state.config.dev_path.as_deref(),
+        cols,
+    );
+}
+
 fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.terminal_cols);
     let locked_theme = style_pack_theme_lock();
@@ -388,6 +405,10 @@ fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoo
         progress_style_override: style_pack_overrides.progress_style_override,
         progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
         voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+        toast_position_override: style_pack_overrides.toast_position_override,
+        startup_style_override: style_pack_overrides.startup_style_override,
+        toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
+        banner_style_override: style_pack_overrides.banner_style_override,
         undo_available: !state.theme_studio_undo_history.is_empty(),
         redo_available: !state.theme_studio_redo_history.is_empty(),
         runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
@@ -505,6 +526,10 @@ fn apply_settings_item_action(
         }
         SettingsItem::SendMode => {
             settings_ctx.toggle_send_mode();
+            true
+        }
+        SettingsItem::ImageMode => {
+            settings_ctx.toggle_image_mode();
             true
         }
         SettingsItem::Macros => {

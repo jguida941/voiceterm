@@ -181,7 +181,14 @@ voiceterm/
 │       ├── check_code_shape.py # Rust/Python God-file drift guard
 │       ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
 │       ├── check_rust_best_practices.py # Rust best-practices non-regression guard
-│       └── tests/             # Test scripts
+│       ├── tests/             # Test scripts
+│       └── devctl/            # Modular maintainer CLI package internals
+│           ├── process_sweep.py # Shared process parser/cleanup helpers
+│           ├── security_parser.py # Shared CLI parser wiring for security command
+│           ├── commands/check_profile.py # Shared check-profile normalization
+│           ├── commands/security.py # Local RustSec + optional workflow scanner gates
+│           ├── status_report.py # Shared status/report payload + markdown renderer
+│           └── commands/ship_*.py # Ship step helper modules
 ├── img/                 # Screenshots
 ├── Makefile             # Developer tasks
 ├── src/                 # Rust overlay + voice pipeline
@@ -262,7 +269,11 @@ bash dev/scripts/tests/wake_word_guard.sh
 # Memory guard (thread cleanup)
 cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
-# Security advisory policy (high/critical + yanked/unsound gate)
+# Security advisory policy (matches security_guard.yml)
+python3 dev/scripts/devctl.py security
+# Optional strict workflow scan (requires zizmor installed):
+python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
+# Manual fallback:
 cargo install cargo-audit --locked
 cd src && (cargo audit --json > ../rustsec-audit.json || true)
 python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
@@ -316,6 +327,7 @@ Unified CLI for common dev workflows:
 
 Use `AGENTS.md` as the routing policy for when to run each bundle (`normal push`, `docs-only`, `tooling/process`, `tagged release`) and use this section for exact command syntax.
 `devctl check` now runs an automatic orphaned-test process sweep before and after each run (detached `target/*/deps/voiceterm-*` binaries older than a short grace window).
+`devctl check` also runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
 
 ```bash
 # Core checks (fmt, clippy, tests, build)
@@ -323,6 +335,9 @@ python3 dev/scripts/devctl.py check
 
 # Match CI scope (fmt-check + clippy + tests)
 python3 dev/scripts/devctl.py check --profile ci
+# Optional: tune or disable parallel check batches
+python3 dev/scripts/devctl.py check --profile ci --parallel-workers 2
+python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: disable automatic orphaned-test cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
@@ -363,6 +378,10 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 # Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
 python3 dev/scripts/devctl.py hygiene
 
+# Security guard (RustSec policy + optional workflow scanner)
+python3 dev/scripts/devctl.py security
+python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
+
 # AGENTS + active-plan contract + release parity guards
 python3 dev/scripts/check_agents_contract.py
 python3 dev/scripts/check_active_plan_sync.py
@@ -385,7 +404,11 @@ python3 dev/scripts/check_rust_best_practices.py
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
+# Optional metadata prep (Cargo/PyPI/app plist/changelog)
+python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+# One-command prep + verify + tag + notes + GitHub release
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
@@ -401,6 +424,10 @@ python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.j
 
 # Include recent GitHub Actions runs (requires gh auth)
 python3 dev/scripts/devctl.py status --ci --format md
+
+# Include guarded Dev Mode JSONL summaries (event counts + latency)
+python3 dev/scripts/devctl.py status --dev-logs --format md
+python3 dev/scripts/devctl.py report --dev-logs --dev-sessions-limit 10 --format md
 
 # Pipe report output to a CLI that accepts stdin (requires login)
 python3 dev/scripts/devctl.py report --format md --pipe-command codex
@@ -611,6 +638,10 @@ python3 dev/scripts/check_rust_best_practices.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)
+python3 dev/scripts/devctl.py security
+# Optional strict workflow scan (requires zizmor installed):
+python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
+# Manual fallback:
 cargo install cargo-audit --locked
 cd src && (cargo audit --json > ../rustsec-audit.json || true)
 python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
@@ -680,6 +711,10 @@ gh secret list | rg HOMEBREW_TAP_TOKEN
 ```bash
 # Canonical control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
+# Optional: auto-prepare metadata files before release/tag
+python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
+# Optional: workflow-first one-command path
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 
 # Create release on GitHub
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md

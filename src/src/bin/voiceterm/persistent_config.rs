@@ -23,6 +23,7 @@ pub(crate) struct UserConfig {
     pub(crate) hud_right_panel_recording_only: Option<bool>,
     pub(crate) auto_voice: Option<bool>,
     pub(crate) voice_send_mode: Option<String>,
+    pub(crate) image_mode: Option<bool>,
     pub(crate) sensitivity_db: Option<f32>,
     pub(crate) wake_word: Option<bool>,
     pub(crate) wake_word_sensitivity: Option<f32>,
@@ -99,6 +100,7 @@ fn parse_user_config(contents: &str) -> UserConfig {
             }
             "auto_voice" => config.auto_voice = parse_bool(value),
             "voice_send_mode" => config.voice_send_mode = Some(value.to_string()),
+            "image_mode" => config.image_mode = parse_bool(value),
             "sensitivity_db" => config.sensitivity_db = value.parse().ok(),
             "wake_word" => config.wake_word = parse_bool(value),
             "wake_word_sensitivity" => config.wake_word_sensitivity = value.parse().ok(),
@@ -139,6 +141,9 @@ fn serialize_user_config(config: &UserConfig) -> String {
     }
     if let Some(ref v) = config.voice_send_mode {
         lines.push(format!("voice_send_mode = \"{v}\""));
+    }
+    if let Some(v) = config.image_mode {
+        lines.push(format!("image_mode = {v}"));
     }
     if let Some(v) = config.sensitivity_db {
         lines.push(format!("sensitivity_db = {v}"));
@@ -261,6 +266,11 @@ pub(crate) fn apply_user_config_to_overlay(
             };
         }
     }
+    if !cli_explicit.image_mode {
+        if let Some(v) = user_config.image_mode {
+            overlay_config.image_mode = v;
+        }
+    }
     if !cli_explicit.sensitivity_db {
         if let Some(db) = user_config.sensitivity_db {
             overlay_config.app.voice_vad_threshold_db = db;
@@ -330,6 +340,7 @@ pub(crate) fn snapshot_from_runtime(
         hud_right_panel_recording_only: Some(status_state.hud_right_panel_recording_only),
         auto_voice: Some(status_state.auto_voice_enabled),
         voice_send_mode: Some(status_state.send_mode.to_string().to_ascii_lowercase()),
+        image_mode: Some(config.image_mode),
         sensitivity_db: Some(status_state.sensitivity_db),
         wake_word: Some(config.wake_word),
         wake_word_sensitivity: Some(config.wake_word_sensitivity),
@@ -356,6 +367,7 @@ pub(crate) struct CliExplicitFlags {
     pub(crate) hud_right_panel_recording_only: bool,
     pub(crate) auto_voice: bool,
     pub(crate) voice_send_mode: bool,
+    pub(crate) image_mode: bool,
     pub(crate) sensitivity_db: bool,
     pub(crate) wake_word: bool,
     pub(crate) wake_word_sensitivity: bool,
@@ -386,6 +398,7 @@ fn detect_explicit_flags_with_args(
         cli_flag_present(args, "hud-right-panel-recording-only");
     let auto_voice_flag = cli_flag_present(args, "auto-voice");
     let voice_send_mode_flag = cli_flag_present(args, "voice-send-mode");
+    let image_mode_flag = cli_flag_present(args, "image-mode");
     let sensitivity_flag = cli_flag_present(args, "voice-vad-threshold-db");
     let wake_word_flag = cli_flag_present(args, "wake-word");
     let wake_word_sensitivity_flag = cli_flag_present(args, "wake-word-sensitivity");
@@ -403,6 +416,7 @@ fn detect_explicit_flags_with_args(
             || !config.hud_right_panel_recording_only,
         auto_voice: auto_voice_flag || config.auto_voice,
         voice_send_mode: voice_send_mode_flag || config.voice_send_mode != VoiceSendMode::Auto,
+        image_mode: image_mode_flag || config.image_mode,
         sensitivity_db: sensitivity_flag
             || (config.app.voice_vad_threshold_db - (-35.0)).abs() > 0.01,
         wake_word: wake_word_flag || config.wake_word,
@@ -444,6 +458,7 @@ hud_right_panel = "dots"
 hud_right_panel_recording_only = true
 auto_voice = false
 voice_send_mode = "insert"
+image_mode = true
 sensitivity_db = -40.0
 wake_word = true
 wake_word_sensitivity = 0.70
@@ -459,6 +474,7 @@ macros_enabled = true
         assert_eq!(config.hud_right_panel_recording_only, Some(true));
         assert_eq!(config.auto_voice, Some(false));
         assert_eq!(config.voice_send_mode.as_deref(), Some("insert"));
+        assert_eq!(config.image_mode, Some(true));
         assert_eq!(config.sensitivity_db, Some(-40.0));
         assert_eq!(config.wake_word, Some(true));
         assert_eq!(config.wake_word_sensitivity, Some(0.70));
@@ -484,6 +500,7 @@ macros_enabled = true
             hud_right_panel_recording_only: Some(false),
             auto_voice: Some(true),
             voice_send_mode: Some("auto".to_string()),
+            image_mode: Some(true),
             sensitivity_db: Some(-35.0),
             wake_word: Some(false),
             wake_word_sensitivity: Some(0.55),
@@ -504,6 +521,7 @@ macros_enabled = true
         );
         assert_eq!(config.auto_voice, reparsed.auto_voice);
         assert_eq!(config.voice_send_mode, reparsed.voice_send_mode);
+        assert_eq!(config.image_mode, reparsed.image_mode);
         assert_eq!(config.wake_word, reparsed.wake_word);
         assert_eq!(config.latency_display, reparsed.latency_display);
         assert_eq!(config.macros_enabled, reparsed.macros_enabled);
@@ -575,6 +593,7 @@ macros_enabled = true
         assert!(config.theme.is_none());
         assert!(config.hud_style.is_none());
         assert!(config.auto_voice.is_none());
+        assert!(config.image_mode.is_none());
         assert!(config.sensitivity_db.is_none());
         assert!(config.wake_word.is_none());
         assert!(config.macros_enabled.is_none());
@@ -616,6 +635,14 @@ macros_enabled = true
         assert!(explicit.voice_send_mode);
         assert!(explicit.latency_display);
         assert!(explicit.hud_style);
+    }
+
+    #[test]
+    fn detect_explicit_flags_marks_image_mode() {
+        let cfg = crate::config::OverlayConfig::parse_from(["voiceterm", "--image-mode"]);
+        let args = vec!["--image-mode".to_string()];
+        let explicit = detect_explicit_flags_with_args(&cfg, &args);
+        assert!(explicit.image_mode);
     }
 
     #[test]

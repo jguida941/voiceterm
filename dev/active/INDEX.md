@@ -11,6 +11,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/theme_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign is in scope |
 | `dev/active/memory_studio.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-230..MP-255` | only when memory/action/context-pack work is in scope |
 | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` | `runbook` | `supporting` | multi-agent worktree orchestration | only when running parallel area execution |
+| `dev/active/phase2.md` | `reference` | `reference-only` | phase-2 companion-platform research context (not active MP execution state) | only when evaluating long-range terminal companion planning |
 
 ## Load Order (Agent Bootstrap)
 

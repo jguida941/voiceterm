@@ -11,7 +11,9 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_top, truncate_display,
 };
 use crate::theme::{
-    overlay_close_symbol, overlay_separator, BorderSet, GlyphSet, Theme, ThemeColors,
+    overlay_close_symbol, overlay_separator, resolved_overlay_border_set,
+    runtime_style_pack_overrides, BorderSet, GlyphSet, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, Theme, ThemeColors,
 };
 
 /// Maximum number of toasts kept in the history ring.
@@ -267,17 +269,12 @@ impl Default for ToastCenter {
 /// Format a single toast line for inline HUD display.
 #[must_use]
 pub(crate) fn format_toast_inline(toast: &Toast, colors: &ThemeColors, max_width: usize) -> String {
-    let icon = toast.severity.icon(colors.glyph_set);
-    let severity_color = toast.severity.color(colors);
-    let prefix = format!("[{}]", toast.severity.label());
-    // Calculate visible content budget: icon + space + prefix + space + message
-    let prefix_width = display_width(icon) + 1 + display_width(&prefix) + 1;
+    let (prefix_plain, prefix_styled) = toast_prefix(toast, colors);
+    // Calculate visible content budget: prefix + space + message
+    let prefix_width = display_width(&prefix_plain) + 1;
     let msg_budget = max_width.saturating_sub(prefix_width);
     let truncated_msg = truncate_display(&toast.message, msg_budget);
-    format!(
-        "{severity_color}{icon} {prefix}{reset} {truncated_msg}",
-        reset = colors.reset,
-    )
+    format!("{prefix_styled} {truncated_msg}")
 }
 
 /// Format a toast history overlay panel for review.
@@ -311,7 +308,8 @@ pub(crate) fn format_toast_history_overlay(
     width: usize,
 ) -> String {
     let width = width.max(4);
-    let colors = theme.colors();
+    let mut colors = theme.colors();
+    colors.borders = resolved_overlay_border_set(theme);
     let borders = &colors.borders;
     let sep = overlay_separator(colors.glyph_set);
     let close_sym = overlay_close_symbol(colors.glyph_set);
@@ -344,18 +342,21 @@ pub(crate) fn format_toast_history_overlay(
     } else {
         // Show most recent entries (up to 10 visible in overlay).
         let visible_count = center.history.len().min(10);
-        let start = center.history.len().saturating_sub(visible_count);
-        for toast in center.history.iter().skip(start) {
-            let icon = toast.severity.icon(colors.glyph_set);
-            let severity_color = toast.severity.color(&colors);
-            let label = toast.severity.label();
-            let prefix = format!("{icon} [{label}]");
-            let plain_content = format!("{prefix} {}", toast.message);
+        let toasts: Vec<&Toast> = if toast_position_prefers_latest_first() {
+            center.history.iter().rev().take(visible_count).collect()
+        } else {
+            let start = center.history.len().saturating_sub(visible_count);
+            center.history.iter().skip(start).collect()
+        };
+        for toast in toasts {
+            let (prefix_plain, prefix_styled) = toast_prefix(toast, &colors);
+            let plain_content = format!("{prefix_plain} {}", toast.message);
             let clipped = truncate_display(&plain_content, body_width);
             let clipped_width = display_width(&clipped);
-            let content = if let Some(rest) = clipped.strip_prefix(&prefix) {
-                format!("{severity_color}{prefix}{}{}", colors.reset, rest)
+            let content = if let Some(rest) = clipped.strip_prefix(&prefix_plain) {
+                format!("{prefix_styled}{rest}")
             } else {
+                let severity_color = toast.severity.color(&colors);
                 format!("{severity_color}{clipped}{}", colors.reset)
             };
             lines.push(framed_toast_history_row(
@@ -391,9 +392,58 @@ pub(crate) fn toast_history_overlay_height(center: &ToastCenter) -> usize {
     content_rows + 4
 }
 
+fn toast_prefix(toast: &Toast, colors: &ThemeColors) -> (String, String) {
+    let icon = toast.severity.icon(colors.glyph_set);
+    let label = format!("[{}]", toast.severity.label());
+    let severity_color = toast.severity.color(colors);
+    match runtime_style_pack_overrides().toast_severity_mode_override {
+        Some(RuntimeToastSeverityModeOverride::Icon) => (
+            icon.to_string(),
+            format!("{severity_color}{icon}{}", colors.reset),
+        ),
+        Some(RuntimeToastSeverityModeOverride::Label) => (
+            label.clone(),
+            format!("{severity_color}{label}{}", colors.reset),
+        ),
+        Some(RuntimeToastSeverityModeOverride::IconAndLabel) | None => {
+            let plain = format!("{icon} {label}");
+            let styled = format!("{severity_color}{plain}{}", colors.reset);
+            (plain, styled)
+        }
+    }
+}
+
+fn toast_position_prefers_latest_first() -> bool {
+    matches!(
+        runtime_style_pack_overrides().toast_position_override,
+        Some(RuntimeToastPositionOverride::TopRight | RuntimeToastPositionOverride::TopCenter)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::{
+        runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeStylePackOverrides,
+        RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
+    };
+
+    struct RuntimeOverridesGuard {
+        previous: RuntimeStylePackOverrides,
+    }
+
+    impl Drop for RuntimeOverridesGuard {
+        fn drop(&mut self) {
+            set_runtime_style_pack_overrides(self.previous);
+        }
+    }
+
+    fn with_runtime_overrides<T>(overrides: RuntimeStylePackOverrides, f: impl FnOnce() -> T) -> T {
+        let previous = runtime_style_pack_overrides();
+        set_runtime_style_pack_overrides(overrides);
+        let _guard = RuntimeOverridesGuard { previous };
+        f()
+    }
 
     fn strip_ansi_sgr(input: &str) -> String {
         let mut out = String::with_capacity(input.len());
@@ -563,6 +613,26 @@ mod tests {
     }
 
     #[test]
+    fn format_toast_inline_respects_runtime_severity_mode_override() {
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                toast_severity_mode_override: Some(RuntimeToastSeverityModeOverride::Label),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let colors = Theme::None.colors();
+                let mut center = ToastCenter::new();
+                center.push(ToastSeverity::Warning, "check config");
+                let toast = &center.active_toasts()[0];
+                let formatted = format_toast_inline(toast, &colors, 80);
+                let plain = strip_ansi_sgr(&formatted);
+                assert!(plain.contains("[WARN]"));
+                assert!(!plain.contains("⚠"));
+            },
+        );
+    }
+
+    #[test]
     fn format_toast_history_overlay_empty_center() {
         let center = ToastCenter::new();
         let output = format_toast_history_overlay(&center, Theme::None, 50);
@@ -582,6 +652,30 @@ mod tests {
         assert!(output.contains("first toast"));
         assert!(output.contains("error toast"));
         assert!(output.contains("2 total"));
+    }
+
+    #[test]
+    fn format_toast_history_overlay_honors_top_position_sorting() {
+        let mut center = ToastCenter::new();
+        center.push(ToastSeverity::Info, "oldest");
+        center.push(ToastSeverity::Warning, "middle");
+        center.push(ToastSeverity::Error, "newest");
+        center.dismiss_all();
+
+        with_runtime_overrides(
+            RuntimeStylePackOverrides {
+                toast_position_override: Some(RuntimeToastPositionOverride::TopRight),
+                ..RuntimeStylePackOverrides::default()
+            },
+            || {
+                let output = format_toast_history_overlay(&center, Theme::None, 60);
+                let oldest_idx = output.find("oldest");
+                let newest_idx = output.find("newest");
+                assert!(oldest_idx.is_some());
+                assert!(newest_idx.is_some());
+                assert!(newest_idx.unwrap_or(usize::MAX) < oldest_idx.unwrap_or(0));
+            },
+        );
     }
 
     #[test]

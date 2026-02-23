@@ -18,6 +18,8 @@ COMMANDS = [
     "pypi",
     "status",
     "report",
+    "triage",
+    "security",
     "list",
 ]
 

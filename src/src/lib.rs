@@ -5,6 +5,7 @@ pub mod auth;
 pub mod backend;
 pub mod codex;
 pub mod config;
+pub mod devtools;
 pub mod doctor;
 pub mod ipc;
 pub mod legacy_ui;

@@ -188,6 +188,17 @@ impl SettingsActionContext<'_> {
         self.set_transient_status(msg, Duration::from_secs(3));
     }
 
+    pub(crate) fn toggle_image_mode(&mut self) {
+        self.config.image_mode = !self.config.image_mode;
+        self.status.status_state.image_mode_enabled = self.config.image_mode;
+        let msg = if self.config.image_mode {
+            "Image mode: ON (trigger captures image)"
+        } else {
+            "Image mode: OFF (trigger captures voice)"
+        };
+        self.set_transient_status(msg, Duration::from_secs(3));
+    }
+
     pub(crate) fn toggle_macros_enabled(&mut self) {
         self.status.status_state.macros_enabled = !self.status.status_state.macros_enabled;
         let msg = if self.status.status_state.macros_enabled {

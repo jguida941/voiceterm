@@ -19,11 +19,13 @@ mod cli_utils;
 mod color_mode;
 mod config;
 mod custom_help;
+mod dev_panel;
 mod event_loop;
 mod event_state;
 mod help;
 mod hud;
 mod icons;
+mod image_mode;
 mod input;
 #[allow(dead_code, unused_imports)]
 mod memory;
@@ -56,7 +58,7 @@ mod writer;
 
 pub(crate) use overlays::OverlayMode;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use crossbeam_channel::bounded;
 use crossterm::terminal::size as terminal_size;
@@ -68,8 +70,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 use voiceterm::pty_session::PtyOverlaySession;
 use voiceterm::{
-    auth::run_login_command, doctor::base_doctor_report, init_logging, log_debug, log_file_path,
-    terminal_restore::TerminalRestoreGuard, VoiceCaptureTrigger,
+    auth::run_login_command,
+    devtools::{default_dev_root_dir, DevEventJsonlWriter, DevModeStats},
+    doctor::base_doctor_report,
+    init_logging, log_debug, log_file_path,
+    terminal_restore::TerminalRestoreGuard,
+    VoiceCaptureTrigger,
 };
 
 use crate::banner::{should_skip_banner, show_startup_splash, BannerConfig};
@@ -82,7 +88,8 @@ use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
 use crate::hud::HudRegistry;
 use crate::input::spawn_input_thread;
 use crate::prompt::{
-    resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
+    backend_supports_prompt_occlusion_guard, resolve_prompt_log, resolve_prompt_regex,
+    ClaudePromptDetector, PromptLogger, PromptTracker,
 };
 use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::{format_session_stats, SessionStats};
@@ -163,6 +170,29 @@ fn default_session_memory_path(working_dir: &str) -> PathBuf {
     PathBuf::from(working_dir)
         .join(".voiceterm")
         .join("session-memory.md")
+}
+
+fn validate_dev_mode_flags(config: &OverlayConfig) -> Result<()> {
+    if !config.dev_mode {
+        if config.dev_log {
+            bail!("--dev-log requires --dev");
+        }
+        if config.dev_path.is_some() {
+            bail!("--dev-path requires --dev");
+        }
+    }
+
+    if config.dev_path.is_some() && !config.dev_log {
+        bail!("--dev-path requires --dev-log");
+    }
+    Ok(())
+}
+
+fn resolve_dev_root_path(config: &OverlayConfig, working_dir: &str) -> PathBuf {
+    config
+        .dev_path
+        .clone()
+        .unwrap_or_else(|| default_dev_root_dir(Path::new(working_dir)))
 }
 
 fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
@@ -256,6 +286,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    validate_dev_mode_flags(&config)?;
     config.app.validate()?;
     init_logging(&config.app);
     let log_path = log_file_path();
@@ -293,6 +324,17 @@ fn main() -> Result<()> {
         .clone()
         .unwrap_or_else(|| default_session_memory_path(&working_dir));
     let session_memory_enabled = config.app.session_memory;
+    let dev_event_logger = if config.dev_mode && config.dev_log {
+        let dev_root = resolve_dev_root_path(&config, &working_dir);
+        let logger = DevEventJsonlWriter::open_session(&dev_root)?;
+        log_debug(&format!(
+            "dev mode event logging enabled at {}",
+            logger.path().display()
+        ));
+        Some(logger)
+    } else {
+        None
+    };
 
     // Backend command and args already resolved
 
@@ -384,6 +426,8 @@ fn main() -> Result<()> {
     status_state.auto_voice_enabled = auto_voice_enabled;
     status_state.wake_word_state = WakeWordHudState::Off;
     status_state.send_mode = config.voice_send_mode;
+    status_state.image_mode_enabled = config.image_mode;
+    status_state.dev_mode_enabled = config.dev_mode;
     status_state.latency_display = config.latency_display;
     status_state.macros_enabled = false;
     persistent_config::apply_user_config_to_status_state(&user_config, &mut status_state);
@@ -399,6 +443,7 @@ fn main() -> Result<()> {
     status_state.pipeline = Pipeline::Rust;
     status_state.mouse_enabled = true; // Mouse enabled by default for clickable buttons
     let _ = writer_tx.send(WriterMessage::EnableMouse);
+    let dev_mode_stats = config.dev_mode.then(DevModeStats::default);
     let session_memory_logger = if session_memory_enabled {
         match SessionMemoryLogger::new(&session_memory_path, &backend_label, &working_dir) {
             Ok(logger) => {
@@ -436,6 +481,8 @@ fn main() -> Result<()> {
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
+        dev_mode_stats,
+        dev_event_logger,
         prompt_tracker,
         terminal_rows,
         terminal_cols,
@@ -451,9 +498,9 @@ fn main() -> Result<()> {
         transcript_history: transcript_history::TranscriptHistory::new(),
         transcript_history_state: transcript_history::TranscriptHistoryState::new(),
         session_memory_logger,
-        claude_prompt_detector: ClaudePromptDetector::new(
-            backend_label.to_ascii_lowercase().contains("claude"),
-        ),
+        claude_prompt_detector: ClaudePromptDetector::new(backend_supports_prompt_occlusion_guard(
+            &backend_label,
+        )),
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
@@ -563,6 +610,9 @@ fn main() -> Result<()> {
     if let Some(logger) = state.session_memory_logger.as_mut() {
         logger.flush_pending();
     }
+    if let Some(logger) = state.dev_event_logger.as_mut() {
+        let _ = logger.flush();
+    }
 
     let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
     let _ = deps.writer_tx.send(WriterMessage::Shutdown);
@@ -660,6 +710,33 @@ mod tests {
             "higher explicit intervals should be preserved"
         );
         assert_eq!(apply_jetbrains_meter_floor(80, false), 80);
+    }
+
+    #[test]
+    fn validate_dev_mode_flags_rejects_unguarded_dev_logging_flags() {
+        let dev_log_only = OverlayConfig::parse_from(["test-app", "--dev-log"]);
+        assert!(validate_dev_mode_flags(&dev_log_only).is_err());
+
+        let dev_path_only = OverlayConfig::parse_from(["test-app", "--dev-path", "/tmp/dev"]);
+        assert!(validate_dev_mode_flags(&dev_path_only).is_err());
+    }
+
+    #[test]
+    fn validate_dev_mode_flags_requires_dev_log_when_dev_path_is_set() {
+        let missing_log =
+            OverlayConfig::parse_from(["test-app", "--dev", "--dev-path", "/tmp/dev"]);
+        assert!(validate_dev_mode_flags(&missing_log).is_err());
+    }
+
+    #[test]
+    fn validate_dev_mode_flags_accepts_dev_log_combo() {
+        let guarded =
+            OverlayConfig::parse_from(["test-app", "--dev", "--dev-log", "--dev-path", "/tmp/dev"]);
+        assert!(validate_dev_mode_flags(&guarded).is_ok());
+        assert_eq!(
+            resolve_dev_root_path(&guarded, "/tmp/work"),
+            PathBuf::from("/tmp/dev")
+        );
     }
 
     #[test]

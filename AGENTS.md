@@ -324,9 +324,12 @@ find . -maxdepth 1 -type f -name '--*'
   - `./scripts/macros.sh validate --output ./.voiceterm/macros.yaml --project-dir .`
   - Validate `gh auth status -h github.com` behavior when GH macros are included
 - Dependency/security-hardening changes:
-  - `cargo install cargo-audit --locked`
-  - `cd src && (cargo audit --json > ../rustsec-audit.json || true)`
-  - `python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md`
+  - `python3 dev/scripts/devctl.py security`
+  - optional strict workflow scan: `python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools`
+  - fallback manual path:
+    `cargo install cargo-audit --locked`,
+    `cd src && (cargo audit --json > ../rustsec-audit.json || true)`,
+    `python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md`
 
 ## Release SOP (master only)
 
@@ -349,6 +352,8 @@ Use this exact sequence:
 5. Run release tagging and notes:
 
    ```bash
+   # Optional one-step metadata prep (Cargo/PyPI/app plist/changelog):
+   python3 dev/scripts/devctl.py ship --version <version> --prepare-release
    python3 dev/scripts/devctl.py release --version <version>
    gh release create v<version> --title "v<version>" --notes-file /tmp/voiceterm-release-v<version>.md
    # PyPI publish runs automatically via .github/workflows/publish_pypi.yml.
@@ -368,6 +373,8 @@ Unified control plane alternatives:
 ```bash
 # Workflow-first release path (recommended)
 python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --yes
+# Workflow-first release path with auto metadata prep
+python3 dev/scripts/devctl.py ship --version <version> --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 
@@ -450,10 +457,13 @@ Canonical tool: `python3 dev/scripts/devctl.py ...`
 Core commands:
 
 - `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+  - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
+  - Use `--parallel-workers <n>` to tune worker count, or `--no-parallel` to force sequential execution.
   - Includes automatic orphaned-test cleanup sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
+- `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
 - `mutants`
 - `release`
@@ -461,9 +471,22 @@ Core commands:
 - `ship`
 - `pypi`
 - `homebrew`
-- `status`
-- `report`
+- `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
+- `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `list`
+
+Implementation note for maintainers:
+
+- Shared internals in `devctl` are intentional and should stay centralized:
+  `dev/scripts/devctl/process_sweep.py` (process parsing/cleanup),
+  `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
+  `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
+  `dev/scripts/devctl/status_report.py` (status/report payload + markdown
+  rendering), `dev/scripts/devctl/commands/security.py` (local security gate
+  orchestration + optional scanner policy), and `dev/scripts/devctl/commands/ship_common.py` /
+  `dev/scripts/devctl/commands/ship_steps.py` (release-step helpers), plus
+  `dev/scripts/devctl/common.py` for shared command-execution failure handling.
+  Keep new logic in these helpers to avoid command drift.
 
 Supporting scripts:
 

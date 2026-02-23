@@ -24,7 +24,8 @@ Docs map:
 3. **Whisper transcribes** → Converts speech to text locally using a local Whisper engine
 4. **Text typed into CLI** → Transcript is injected into your AI CLI terminal
 
-The entire pipeline runs locally with ~250ms latency on modern hardware.
+The entire pipeline runs locally.
+Latency depends on model size, utterance length, and hardware.
 
 ## Choosing a Model
 
@@ -93,17 +94,15 @@ Models ending in `.en` are English-only and slightly faster/smaller:
 - `ggml-base.en.bin` - English only
 - `ggml-base.bin` - Multilingual
 
-For non-English languages, use the multilingual models (without `.en`):
-
-```bash
-./scripts/setup.sh models --base  # Downloads base.en by default
-```
-
-To download multilingual models manually:
+For non-English languages, use the multilingual models (without `.en`).
+The setup script downloads English-only `.en` models by default, so download a
+multilingual file manually:
 
 ```bash
 curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
   -o whisper_models/ggml-base.bin
+
+voiceterm --whisper-model-path whisper_models/ggml-base.bin --lang es
 ```
 
 ### Tested Languages

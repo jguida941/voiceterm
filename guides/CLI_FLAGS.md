@@ -13,6 +13,7 @@ Docs map:
 
 - [Quick Reference](#quick-reference)
 - [Voice Behavior](#voice-behavior)
+- [Developer Guard](#developer-guard)
 - [Backend Selection](#backend-selection)
 - [Microphone & Audio](#microphone--audio)
 - [Whisper STT](#whisper-stt)
@@ -37,6 +38,9 @@ voiceterm --login --codex               # Run Codex login before starting
 voiceterm --login --claude              # Run Claude login before starting
 voiceterm --auto-voice                  # Hands-free mode
 voiceterm --auto-voice --wake-word --voice-send-mode insert  # Wake + voice submit
+voiceterm --image-mode                  # Ctrl+R / [rec] captures image prompts
+voiceterm --dev                         # Enable guarded deferred dev features (`DEV` badge)
+voiceterm --dev --dev-log              # Also persist dev events to JSONL files
 voiceterm --theme dracula               # Change theme
 voiceterm --voice-vad-threshold-db -50  # Adjust mic sensitivity
 voiceterm --mic-meter                   # Calibrate mic threshold
@@ -53,10 +57,12 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 | `--auto-voice` | Start in auto-voice mode (hands-free) | off |
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
 | `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
-| `--voice-send-mode <auto\|insert>` | `auto` types text and presses Enter; `insert` types text, you press Enter | auto |
+| `--voice-send-mode <auto\|insert>` | `auto` types text and presses Enter; `insert` types text and waits for Enter (or voice `send`) | auto |
 | `--wake-word` | Enable local wake-word listening (off by default) | off |
 | `--wake-word-sensitivity <0.0-1.0>` | Wake detector sensitivity | 0.55 |
 | `--wake-word-cooldown-ms <MS>` | Cooldown between wake triggers (500-10000) | 2000 |
+| `--image-mode` | Switch `Ctrl+R` / HUD `[rec]` to image capture mode (injects image prompt text) | off |
+| `--image-capture-command <CMD>` | Custom capture command. Output path is provided via `VOICETERM_IMAGE_PATH` | auto on macOS (`imagesnap` -> `screencapture`) |
 | `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
 For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
@@ -68,6 +74,22 @@ Wake status labels in Full HUD:
 - `Wake: ERR` - listener startup failed; check status/log-path message
 - Wake phrases still work even if auto-voice is paused.
 - Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
+- In `auto` mode, wake-triggered `send`/`submit` still submits Enter even when no staged insert text is pending.
+- Image mode adds an `IMG` HUD badge when enabled.
+
+---
+
+## Developer Guard
+
+| Flag | Purpose | Default |
+|------|---------|---------|
+| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only (includes `Ctrl+D` Dev panel) | off |
+| `--dev-log` | Persist guarded dev events to session JSONL logs (requires `--dev`) | off |
+| `--dev-path <DIR>` | Root directory for `--dev-log` session files (requires `--dev --dev-log`) | `$HOME/.voiceterm/dev` (fallback: `<cwd>/.voiceterm/dev`) |
+
+When enabled, Full HUD shows a `DEV` badge so it is obvious you are in guarded mode.
+`Ctrl+D` toggles the in-session Dev panel while the guard is active.
+With `--dev-log`, VoiceTerm writes per-run JSONL files under `<dev-path>/sessions/`.
 
 ---
 
@@ -173,6 +195,8 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) | short |
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
+Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.
+
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
 
@@ -196,6 +220,10 @@ For HUD runtime behavior and theme details, see [USAGE.md](USAGE.md#hud-styles).
 
 **Session-memory location:** `<cwd>/.voiceterm/session-memory.md` by default,
 or `--session-memory-path`.
+
+**Dev-event location (`--dev --dev-log`):** `<dev-path>/sessions/session-*.jsonl`
+where `dev-path` defaults to `$HOME/.voiceterm/dev` (or `<cwd>/.voiceterm/dev`
+if `HOME` is unavailable).
 
 **Trace log (JSON):** `$TMPDIR/voiceterm_trace.jsonl` (macOS) or
 `/tmp/voiceterm_trace.jsonl` (Linux). Override with `VOICETERM_TRACE_LOG`.
@@ -239,7 +267,8 @@ without interactive approval prompts.
 | `VOICETERM_CONFIG_DIR` | Override persistent config directory (`config.toml`) | unset |
 | `VOICETERM_ONBOARDING_STATE` | Override first-run onboarding state file path | unset |
 | `VOICETERM_PROMPT_LOG` | Prompt detection log path | unset |
-| `VOICETERM_STYLE_PACK_JSON` | Runtime Theme Studio preview payload (`base_theme` lock + supported overrides) | unset |
+| `VOICETERM_IMAGE_CAPTURE_COMMAND` | Default value for `--image-capture-command` | unset |
+| `VOICETERM_STYLE_PACK_JSON` | Runtime Theme Studio preview payload (`base_theme` lock + supported overrides, including `components.overlay_border` and `components.hud_border`) | unset |
 | `VOICETERM_LOGS` | Enable logging (same as `--logs`) | unset |
 | `VOICETERM_NO_LOGS` | Disable logging | unset |
 | `VOICETERM_LOG_CONTENT` | Allow content in logs | unset |

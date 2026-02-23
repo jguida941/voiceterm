@@ -34,6 +34,15 @@ impl DisplayState {
     fn has_any(&self) -> bool {
         self.status.is_some() || self.enhanced_status.is_some() || self.overlay_panel.is_some()
     }
+
+    fn should_force_full_banner_redraw_on_output(&self) -> bool {
+        if self.overlay_panel.is_some() || self.status.is_some() {
+            return true;
+        }
+        // Force redraw if HUD is more than 1 row to stay on top of scrolling terminal output.
+        // Single-row HUDs (Minimal style) are more stable and skip this to reduce flicker.
+        self.banner_height > 1
+    }
 }
 
 #[derive(Debug, Default)]
@@ -105,8 +114,11 @@ impl WriterState {
                 self.last_output_at = now;
                 if self.display.has_any() {
                     // PTY output may scroll/overwrite the HUD rows even if banner text did not
-                    // change; force a full banner repaint on the next redraw.
-                    self.display.force_full_banner_redraw = true;
+                    // change. Gemini compact HUD reserves a stable single row, so avoid forcing
+                    // full repaint there to reduce textbox flicker while output streams.
+                    if self.display.should_force_full_banner_redraw_on_output() {
+                        self.display.force_full_banner_redraw = true;
+                    }
                     self.needs_redraw = true;
                 }
                 if now.duration_since(self.last_output_flush_at)

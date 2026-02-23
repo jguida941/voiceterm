@@ -65,6 +65,11 @@ fn test_overlay_config(send_mode: VoiceSendMode) -> OverlayConfig {
         hud_right_panel_recording_only: true,
         hud_style: crate::config::HudStyle::Full,
         latency_display: crate::config::LatencyDisplayMode::Short,
+        image_mode: false,
+        image_capture_command: None,
+        dev_mode: false,
+        dev_log: false,
+        dev_path: None,
         minimal_hud: false,
         backend: "codex".to_string(),
         codex: false,
@@ -297,6 +302,24 @@ fn update_last_latency_hides_previous_badge_when_metrics_missing() {
     assert!(status_state.last_latency_rtf_x1000.is_none());
     assert!(status_state.last_latency_updated_at.is_none());
     assert_eq!(status_state.latency_history_ms, vec![777]);
+}
+
+#[test]
+fn should_clear_latency_for_empty_depends_on_auto_mode() {
+    let empty = VoiceJobMessage::Empty {
+        source: VoiceCaptureSource::Native,
+        metrics: None,
+    };
+
+    assert!(should_clear_latency_for_message(&empty, false));
+    assert!(!should_clear_latency_for_message(&empty, true));
+}
+
+#[test]
+fn should_clear_latency_for_error_is_always_true() {
+    let error = VoiceJobMessage::Error("mic unavailable".to_string());
+    assert!(should_clear_latency_for_message(&error, false));
+    assert!(should_clear_latency_for_message(&error, true));
 }
 
 #[test]

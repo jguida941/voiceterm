@@ -4,6 +4,15 @@ use super::*;
 use crate::transcript_history::transcript_history_visible_rows;
 
 mod overlay_mouse;
+mod theme_studio_cycles;
+
+use self::theme_studio_cycles::{
+    cycle_runtime_banner_style_override, cycle_runtime_border_style_override,
+    cycle_runtime_glyph_set_override, cycle_runtime_indicator_set_override,
+    cycle_runtime_progress_bar_family_override, cycle_runtime_progress_style_override,
+    cycle_runtime_startup_style_override, cycle_runtime_toast_position_override,
+    cycle_runtime_toast_severity_mode_override, cycle_runtime_voice_scene_style_override,
+};
 
 const THEME_STUDIO_HISTORY_LIMIT: usize = 64;
 
@@ -38,6 +47,9 @@ pub(super) fn handle_overlay_input_event(
                 settings_ctx.cycle_theme(1);
             });
             match mode {
+                OverlayMode::DevPanel => {
+                    render_dev_panel_overlay_for_state(state, deps);
+                }
                 OverlayMode::Settings => {
                     render_settings_overlay_for_state(state, deps);
                 }
@@ -168,6 +180,28 @@ pub(super) fn handle_overlay_input_event(
         }
         (OverlayMode::ThemeStudio, InputEvent::ThemePicker) => {
             close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::DevPanelToggle) => {
+            close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::ThemePicker) => {
+            open_theme_studio_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            }
             None
         }
         (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {
@@ -535,6 +569,36 @@ fn apply_theme_studio_adjustment(
                 );
             })
         }
+        ThemeStudioItem::ToastPosition => {
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.toast_position_override = cycle_runtime_toast_position_override(
+                    overrides.toast_position_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::StartupSplash => {
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.startup_style_override = cycle_runtime_startup_style_override(
+                    overrides.startup_style_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::ToastSeverity => {
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.toast_severity_mode_override = cycle_runtime_toast_severity_mode_override(
+                    overrides.toast_severity_mode_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::BannerStyle => {
+            apply_theme_studio_runtime_override_edit(state, |overrides| {
+                overrides.banner_style_override =
+                    cycle_runtime_banner_style_override(overrides.banner_style_override, direction);
+            })
+        }
         ThemeStudioItem::UndoEdit => {
             if direction == 0 {
                 theme_studio_undo_runtime_override_edit(state)
@@ -618,133 +682,6 @@ fn theme_studio_rollback_runtime_override_edits(state: &mut EventLoopState) -> b
     true
 }
 
-fn cycle_runtime_glyph_set_override(
-    current: Option<crate::theme::RuntimeGlyphSetOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeGlyphSetOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeGlyphSetOverride::Unicode),
-        Some(crate::theme::RuntimeGlyphSetOverride::Ascii),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_runtime_indicator_set_override(
-    current: Option<crate::theme::RuntimeIndicatorSetOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeIndicatorSetOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeIndicatorSetOverride::Ascii),
-        Some(crate::theme::RuntimeIndicatorSetOverride::Dot),
-        Some(crate::theme::RuntimeIndicatorSetOverride::Diamond),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_runtime_border_style_override(
-    current: Option<crate::theme::RuntimeBorderStyleOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeBorderStyleOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeBorderStyleOverride::Single),
-        Some(crate::theme::RuntimeBorderStyleOverride::Rounded),
-        Some(crate::theme::RuntimeBorderStyleOverride::Double),
-        Some(crate::theme::RuntimeBorderStyleOverride::Heavy),
-        Some(crate::theme::RuntimeBorderStyleOverride::None),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_runtime_progress_style_override(
-    current: Option<crate::theme::RuntimeProgressStyleOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeProgressStyleOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeProgressStyleOverride::Braille),
-        Some(crate::theme::RuntimeProgressStyleOverride::Dots),
-        Some(crate::theme::RuntimeProgressStyleOverride::Line),
-        Some(crate::theme::RuntimeProgressStyleOverride::Block),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_runtime_progress_bar_family_override(
-    current: Option<crate::theme::RuntimeProgressBarFamilyOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeProgressBarFamilyOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeProgressBarFamilyOverride::Bar),
-        Some(crate::theme::RuntimeProgressBarFamilyOverride::Compact),
-        Some(crate::theme::RuntimeProgressBarFamilyOverride::Blocks),
-        Some(crate::theme::RuntimeProgressBarFamilyOverride::Braille),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_runtime_voice_scene_style_override(
-    current: Option<crate::theme::RuntimeVoiceSceneStyleOverride>,
-    direction: i32,
-) -> Option<crate::theme::RuntimeVoiceSceneStyleOverride> {
-    let values = [
-        None,
-        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Pulse),
-        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Static),
-        Some(crate::theme::RuntimeVoiceSceneStyleOverride::Minimal),
-    ];
-    let current_idx = values
-        .iter()
-        .position(|value| *value == current)
-        .unwrap_or(0);
-    let next_idx = cycle_override_index(current_idx, values.len(), direction);
-    values[next_idx]
-}
-
-fn cycle_override_index(current_idx: usize, len: usize, direction: i32) -> usize {
-    if len == 0 {
-        return 0;
-    }
-
-    if direction < 0 {
-        if current_idx == 0 {
-            len - 1
-        } else {
-            current_idx - 1
-        }
-    } else {
-        (current_idx + 1) % len
-    }
-}
-
 fn apply_theme_studio_selection(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -764,7 +701,11 @@ fn apply_theme_studio_selection(
         | ThemeStudioItem::ProgressSpinner
         | ThemeStudioItem::ProgressBars
         | ThemeStudioItem::ThemeBorders
-        | ThemeStudioItem::VoiceScene => {
+        | ThemeStudioItem::VoiceScene
+        | ThemeStudioItem::ToastPosition
+        | ThemeStudioItem::StartupSplash
+        | ThemeStudioItem::ToastSeverity
+        | ThemeStudioItem::BannerStyle => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
                 && state.overlay_mode == OverlayMode::ThemeStudio
             {

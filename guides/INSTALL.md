@@ -40,7 +40,7 @@ Related docs:
 | Codex (default) | `npm install -g @openai/codex` |
 | Claude Code | `bash -c "$(curl -fsSL https://claude.ai/install.sh)"` |
 
-Authenticate once after installing your CLI:
+After you install VoiceTerm (any option below), authenticate your backend once:
 
 ```bash
 voiceterm --login --codex
@@ -117,6 +117,9 @@ After upgrading, run `voiceterm --version` to confirm.
 Daily usage details are in [USAGE.md](USAGE.md). Install/runtime issues and
 terminal-specific edge cases are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+If Codex/Claude approval or reply/composer rows look clipped, use the
+occlusion guidance in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md#codex-or-claude-reply-rows-are-occluded).
 
 </details>
 
@@ -281,6 +284,7 @@ First-run control note (current behavior):
 - `Ctrl+R` starts/stops recording.
 - `Ctrl+E` finalizes active recording early in `insert` mode and stages text (it does not send Enter).
 - In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
+- If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD only when border mode is `theme`.
 
 ## Optional: Macro Wizard
 

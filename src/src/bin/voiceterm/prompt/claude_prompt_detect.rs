@@ -1,9 +1,11 @@
-//! Claude-mode interactive prompt detection so HUD suppression can prevent occlusion.
+//! Interactive prompt detection so HUD suppression can prevent occlusion.
 //!
-//! Detects Claude CLI approval prompts, sandbox permission requests, and worktree
-//! permission walls that can be obscured by VoiceTerm HUD/overlay rows.
+//! Detects Claude/Codex approval prompts, sandbox permission requests, and
+//! composer/input prompts that can be obscured by VoiceTerm HUD/overlay rows.
 
 use std::time::Instant;
+
+use super::strip::strip_ansi_preserve_controls;
 
 /// Diagnostic snapshot captured when a prompt-state transition occurs.
 #[derive(Debug, Clone)]
@@ -27,7 +29,7 @@ pub(crate) struct PromptOcclusionDiagnostic {
     pub(crate) has_tool_batch_summary: bool,
 }
 
-/// Types of Claude interactive prompts that can cause occlusion.
+/// Types of interactive prompts that can cause occlusion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PromptType {
     /// Single-command approval prompt (e.g., "Do you want to run this command?")
@@ -38,13 +40,15 @@ pub(crate) enum PromptType {
     MultiToolBatch,
     /// Generic interactive prompt detected by heuristics.
     GenericInteractive,
+    /// Composer/input prompt (for example Codex/Claude reply box markers).
+    ReplyComposer,
 }
 
-/// State machine for Claude prompt detection and HUD suppression policy.
+/// State machine for prompt detection and HUD suppression policy.
 #[derive(Debug)]
 pub(crate) struct ClaudePromptDetector {
-    /// Whether Claude is the active backend.
-    is_claude_backend: bool,
+    /// Whether prompt suppression heuristics are enabled for this backend.
+    prompt_guard_enabled: bool,
     /// Current suppression state.
     suppressed: bool,
     /// When suppression was last activated.
@@ -61,7 +65,7 @@ pub(crate) struct ClaudePromptDetector {
     last_diagnostic: Option<PromptOcclusionDiagnostic>,
 }
 
-/// Claude prompt detection patterns.
+/// Prompt detection patterns.
 const SINGLE_COMMAND_PATTERNS: &[&str] = &[
     "do you want to proceed",
     "do you want to run",
@@ -108,13 +112,25 @@ const GENERIC_INTERACTIVE_PATTERNS: &[&str] = &[
     "proceed?",
 ];
 
+const REPLY_COMPOSER_PATTERNS: &[&str] = &[
+    "to generate command",
+    "generate command",
+    "type a message",
+    "type your message",
+];
+
 /// Time before prompt suppression auto-expires (seconds).
 const PROMPT_SUPPRESSION_TIMEOUT_SECS: u64 = 30;
 
+pub(crate) fn backend_supports_prompt_occlusion_guard(backend_label: &str) -> bool {
+    let lowered = backend_label.to_ascii_lowercase();
+    lowered.contains("claude") || lowered.contains("codex")
+}
+
 impl ClaudePromptDetector {
-    pub(crate) fn new(is_claude_backend: bool) -> Self {
+    pub(crate) fn new(prompt_guard_enabled: bool) -> Self {
         Self {
-            is_claude_backend,
+            prompt_guard_enabled,
             suppressed: false,
             suppressed_at: None,
             line_buffer: Vec::with_capacity(512),
@@ -125,15 +141,16 @@ impl ClaudePromptDetector {
         }
     }
 
-    /// Feed raw PTY output bytes and detect Claude interactive prompts.
+    /// Feed raw PTY output bytes and detect interactive prompts.
     /// Returns true if a new prompt was just detected (transition to suppressed).
     pub(crate) fn feed_output(&mut self, bytes: &[u8]) -> bool {
-        if !self.is_claude_backend {
+        if !self.prompt_guard_enabled {
             return false;
         }
 
+        let cleaned = strip_ansi_preserve_controls(bytes);
         let mut newly_detected = false;
-        for &byte in bytes {
+        for &byte in &cleaned {
             match byte {
                 b'\n' => {
                     let line = String::from_utf8_lossy(&self.line_buffer).to_string();
@@ -158,7 +175,10 @@ impl ClaudePromptDetector {
                         self.line_buffer.clear();
                     }
                 }
-                byte if byte.is_ascii_graphic() || byte == b' ' => {
+                b'\t' => {
+                    self.line_buffer.push(b' ');
+                }
+                byte if !byte.is_ascii_control() => {
                     self.line_buffer.push(byte);
                 }
                 _ => {} // Skip ANSI/control bytes for detection
@@ -205,6 +225,29 @@ impl ClaudePromptDetector {
         }
     }
 
+    /// Return true when this input should resolve the active suppression.
+    ///
+    /// Reply-composer prompts stay suppressed while the user is typing text.
+    /// They only resolve on submit/cancel control keys.
+    pub(crate) fn should_resolve_on_input(&self, bytes: &[u8]) -> bool {
+        if !self.suppressed || bytes.is_empty() {
+            return false;
+        }
+        match self.last_prompt_type {
+            Some(PromptType::ReplyComposer) => bytes.iter().any(|byte| {
+                matches!(
+                    byte,
+                    b'\r'   // Enter
+                        | b'\n' // LF submit path
+                        | 0x03  // Ctrl+C cancel
+                        | 0x04  // Ctrl+D exit
+                        | 0x1b // Escape cancel
+                )
+            }),
+            _ => true,
+        }
+    }
+
     /// Capture a diagnostic snapshot for the current prompt state.
     #[allow(dead_code)]
     pub(crate) fn capture_diagnostic(
@@ -243,10 +286,10 @@ impl ClaudePromptDetector {
         self.last_diagnostic.as_ref()
     }
 
-    /// Whether the detector is tracking Claude backend.
+    /// Whether prompt-occlusion guardrails are enabled for this backend.
     #[allow(dead_code)]
-    pub(crate) fn is_claude(&self) -> bool {
-        self.is_claude_backend
+    pub(crate) fn is_enabled(&self) -> bool {
+        self.prompt_guard_enabled
     }
 
     fn combined_context(&self) -> String {
@@ -261,6 +304,13 @@ impl ClaudePromptDetector {
 }
 
 fn detect_prompt_type(current_line: &str, context: &str) -> Option<PromptType> {
+    if looks_like_reply_composer(current_line)
+        || REPLY_COMPOSER_PATTERNS
+            .iter()
+            .any(|p| context.contains(p) || current_line.contains(p))
+    {
+        return Some(PromptType::ReplyComposer);
+    }
     // Check in priority order: most specific first
     if WORKTREE_PERMISSION_PATTERNS
         .iter()
@@ -287,6 +337,14 @@ fn detect_prompt_type(current_line: &str, context: &str) -> Option<PromptType> {
         return Some(PromptType::GenericInteractive);
     }
     None
+}
+
+fn looks_like_reply_composer(current_line: &str) -> bool {
+    let trimmed = current_line.trim();
+    if trimmed.is_empty() || trimmed.len() > 240 {
+        return false;
+    }
+    trimmed.starts_with('❯') || trimmed.starts_with('›') || trimmed.starts_with('〉')
 }
 
 #[allow(dead_code)]
@@ -364,12 +422,54 @@ mod tests {
     }
 
     #[test]
+    fn detector_detects_reply_composer_marker() {
+        let mut detector = ClaudePromptDetector::new(true);
+        let detected = detector.feed_output("❯ ".as_bytes());
+        assert!(detected);
+        assert_eq!(detector.last_prompt_type, Some(PromptType::ReplyComposer));
+    }
+
+    #[test]
+    fn detector_detects_codex_generate_command_hint() {
+        let mut detector = ClaudePromptDetector::new(true);
+        let detected = detector.feed_output("⌘K to generate command".as_bytes());
+        assert!(detected);
+        assert_eq!(detector.last_prompt_type, Some(PromptType::ReplyComposer));
+    }
+
+    #[test]
     fn detector_resolves_on_user_input() {
         let mut detector = ClaudePromptDetector::new(true);
         detector.feed_output(b"Do you want to proceed? (y/n)\n");
         assert!(detector.should_suppress_hud());
         detector.on_user_input();
         assert!(!detector.should_suppress_hud());
+    }
+
+    #[test]
+    fn reply_composer_stays_suppressed_during_typing() {
+        let mut detector = ClaudePromptDetector::new(true);
+        detector.feed_output("❯ ".as_bytes());
+        assert!(detector.should_suppress_hud());
+        assert!(!detector.should_resolve_on_input(b"hello"));
+        assert!(detector.should_suppress_hud());
+    }
+
+    #[test]
+    fn reply_composer_resolves_on_submit_or_cancel_keys() {
+        let mut detector = ClaudePromptDetector::new(true);
+        detector.feed_output("❯ ".as_bytes());
+        assert!(detector.should_suppress_hud());
+        assert!(detector.should_resolve_on_input(b"\r"));
+        assert!(detector.should_resolve_on_input(b"\x1b"));
+    }
+
+    #[test]
+    fn approval_prompt_resolves_on_any_input() {
+        let mut detector = ClaudePromptDetector::new(true);
+        detector.feed_output(b"Do you want to proceed? (y/n)\n");
+        assert!(detector.should_suppress_hud());
+        assert!(detector.should_resolve_on_input(b"y"));
     }
 
     #[test]
@@ -428,10 +528,18 @@ mod tests {
     }
 
     #[test]
-    fn is_claude_flag() {
+    fn detector_enabled_flag() {
         let detector = ClaudePromptDetector::new(true);
-        assert!(detector.is_claude());
+        assert!(detector.is_enabled());
         let detector = ClaudePromptDetector::new(false);
-        assert!(!detector.is_claude());
+        assert!(!detector.is_enabled());
+    }
+
+    #[test]
+    fn backend_supports_prompt_guard_for_claude_and_codex() {
+        assert!(backend_supports_prompt_occlusion_guard("claude"));
+        assert!(backend_supports_prompt_occlusion_guard("codex"));
+        assert!(backend_supports_prompt_occlusion_guard("Claude Code"));
+        assert!(!backend_supports_prompt_occlusion_guard("gemini"));
     }
 }

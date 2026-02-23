@@ -5,7 +5,10 @@ use crate::overlay_frame::{
     centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
 };
 use crate::status_line::Pipeline;
-use crate::theme::{overlay_row_marker, overlay_slider_knob, overlay_slider_track, ThemeColors};
+use crate::theme::{
+    overlay_row_marker, overlay_slider_knob, overlay_slider_track, resolved_overlay_border_set,
+    ThemeColors,
+};
 
 use super::items::{
     settings_overlay_footer, settings_overlay_width_for_terminal, SettingsItem, SettingsView,
@@ -13,7 +16,8 @@ use super::items::{
 };
 
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
-    let colors = view.theme.colors();
+    let mut colors = view.theme.colors();
+    colors.borders = resolved_overlay_border_set(view.theme);
     let borders = &colors.borders;
     let mut lines = Vec::new();
     let content_width = settings_overlay_width_for_terminal(width);
@@ -106,6 +110,12 @@ fn format_settings_row(
             "{marker} {:<width$} {}",
             "Send mode",
             mode_button(view.send_mode),
+            width = LABEL_WIDTH
+        ),
+        SettingsItem::ImageMode => format!(
+            "{marker} {:<width$} {}",
+            "Image mode",
+            toggle_button(view.image_mode_enabled),
             width = LABEL_WIDTH
         ),
         SettingsItem::Macros => format!(
@@ -356,6 +366,9 @@ fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
         SettingsItem::WakeSensitivity => "Higher % is more sensitive to wake phrases.",
         SettingsItem::WakeCooldown => "Minimum delay between consecutive wake triggers.",
         SettingsItem::SendMode => "Auto sends transcript immediately; Edit stages text first.",
+        SettingsItem::ImageMode => {
+            "When ON, Ctrl+R and [rec] capture an image and insert a prompt."
+        }
         SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
         SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",
         SettingsItem::Theme => {
@@ -403,6 +416,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Insert,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -434,6 +448,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -463,6 +478,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
@@ -514,6 +530,7 @@ mod tests {
             wake_word_sensitivity: 0.55,
             wake_word_cooldown_ms: 2000,
             send_mode: VoiceSendMode::Auto,
+            image_mode_enabled: false,
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Codex,

@@ -143,6 +143,58 @@ fn toggle_send_mode_updates_state_and_status() {
 }
 
 #[test]
+fn toggle_image_mode_updates_config_state_and_status() {
+    let mut config = OverlayConfig::parse_from(["test-app"]);
+    let mut voice_manager = VoiceManager::new(config.app.clone());
+    let (writer_tx, writer_rx) = bounded(4);
+    let mut status_clear_deadline = None;
+    let mut current_status = None;
+    let mut status_state = StatusLineState::new();
+    let mut auto_voice_enabled = false;
+    let mut last_auto_trigger_at = None;
+    let mut recording_started_at = None;
+    let mut preview_clear_deadline = None;
+    let mut last_meter_update = Instant::now();
+    let button_registry = ButtonRegistry::new();
+    let mut terminal_rows = 24;
+    let mut terminal_cols = 80;
+    let mut theme = Theme::Coral;
+
+    {
+        let mut ctx = make_context(
+            &mut config,
+            &mut voice_manager,
+            &writer_tx,
+            &mut status_clear_deadline,
+            &mut current_status,
+            &mut status_state,
+            &mut auto_voice_enabled,
+            &mut last_auto_trigger_at,
+            &mut recording_started_at,
+            &mut preview_clear_deadline,
+            &mut last_meter_update,
+            &button_registry,
+            &mut terminal_rows,
+            &mut terminal_cols,
+            &mut theme,
+        );
+        ctx.toggle_image_mode();
+    }
+
+    assert!(config.image_mode);
+    assert!(status_state.image_mode_enabled);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("status message")
+    {
+        WriterMessage::EnhancedStatus(state) => {
+            assert!(state.message.contains("Image mode: ON"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
 fn toggle_macros_enabled_updates_state_and_status() {
     let mut config = OverlayConfig::parse_from(["test-app"]);
     let mut voice_manager = VoiceManager::new(config.app.clone());

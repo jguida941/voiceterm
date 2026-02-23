@@ -256,6 +256,172 @@ Inference: Coverage reporting moved from badge-only intent to enforceable CI
 execution, reducing drift between advertised coverage status and actual upload
 activity.
 
+### Recent Governance Update (2026-02-23, Devctl Refactor Hardening)
+
+Fact: `devctl` internals were refactored into shared helper modules to reduce
+duplicate process parsing/report rendering and to prevent command drift.
+Command execution now returns structured failures when required binaries are
+missing, instead of uncaught Python exceptions.
+
+Evidence:
+
+- `dev/scripts/devctl/process_sweep.py`
+- `dev/scripts/devctl/status_report.py`
+- `dev/scripts/devctl/commands/hygiene_audits.py`
+- `dev/scripts/devctl/commands/ship_common.py`
+- `dev/scripts/devctl/commands/ship_steps.py`
+- `dev/scripts/devctl/common.py`
+- `dev/scripts/devctl/tests/test_check.py`
+- `dev/scripts/devctl/tests/test_hygiene.py`
+- `dev/scripts/devctl/tests/test_report.py`
+- `dev/scripts/devctl/tests/test_ship.py`
+- `dev/scripts/devctl/tests/test_status.py`
+- `dev/active/MASTER_PLAN.md` (`MP-292`)
+
+Inference: The tooling control plane is now easier to maintain because repeated
+logic has one shared implementation path with direct regression coverage.
+
+### Recent Governance Update (2026-02-23, Devctl Security Gate)
+
+Fact: `devctl` now has a dedicated `security` command so maintainers can run a
+local security gate that mirrors RustSec policy enforcement used in CI, with
+an optional strict workflow-scanner path for `zizmor`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/security.py`
+- `dev/scripts/devctl/cli.py`
+- `dev/scripts/devctl/security_parser.py`
+- `dev/scripts/devctl/commands/listing.py`
+- `dev/scripts/devctl/tests/test_security.py`
+- `dev/scripts/devctl/process_sweep.py` (plain-language process-sweep context
+  expanded for interrupted/stalled test cleanup rationale)
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-293`)
+
+Inference: Security validation is now easier to run consistently in local
+maintainer workflows, while still allowing stricter optional-tool enforcement
+when teams want parity with heavier workflow scanning.
+
+### Recent Governance Update (2026-02-23, Devctl UX/Perf Intake)
+
+Fact: Maintainer review findings for `devctl` were converted into tracked
+execution scope in `MASTER_PLAN` so follow-up work lands in short, verifiable
+slices rather than ad-hoc command-level edits.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-297`, `MP-298`)
+
+Inference: Tooling hardening now has explicit sequencing and traceability for
+both UX-facing and performance-facing follow-up changes.
+
+### Recent Governance Update (2026-02-23, Devctl Failure Diagnostics Slice)
+
+Fact: The first `devctl` usability hardening slice (`MP-297 #5`) landed.
+`run_cmd` now streams subprocess output while retaining bounded failure excerpts
+for non-zero exits, `devctl check` prints explicit failed-step summaries, and
+markdown check reports now include a dedicated failure-output section.
+
+Evidence:
+
+- `dev/scripts/devctl/common.py` (live output + bounded failure excerpt capture)
+- `dev/scripts/devctl/commands/check.py` (failed-step summary emission)
+- `dev/scripts/devctl/steps.py` (markdown failure-output section)
+- `dev/scripts/devctl/tests/test_common.py` (new runner/report diagnostics tests)
+- `dev/scripts/README.md` (shared runner behavior note)
+- `dev/active/MASTER_PLAN.md` (`MP-297` slice status/evidence)
+
+Inference: Maintainers can now diagnose failed `check` steps directly from one
+run/report path instead of rerunning commands solely to recover error context.
+
+### Recent Governance Update (2026-02-23, Devctl Check Parallelism Slice)
+
+Fact: The second `devctl` usability/performance slice (`MP-297 #1`) landed.
+`devctl check` now runs independent setup gates (`fmt`, `clippy`, AI guard
+scripts) and the test/build phase in deterministic parallel batches while
+preserving declared report order and fail-fast boundaries between phases.
+Maintainers can opt out with `--no-parallel` or tune workers with
+`--parallel-workers`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check.py` (parallel batch runner + ordered aggregation)
+- `dev/scripts/devctl/cli.py` (`--no-parallel`, `--parallel-workers`)
+- `dev/scripts/devctl/tests/test_check.py` (parallel-path + ordering coverage)
+- `dev/scripts/README.md` (`check` command behavior/flag docs)
+- `dev/active/MASTER_PLAN.md` (`MP-297` slice status/evidence)
+
+Inference: Baseline `check` runs now reduce avoidable wall-clock idle while
+keeping deterministic reporting and explicit maintainer escape hatches when
+local resource constraints require sequential execution.
+
+### Recent Governance Update (2026-02-23, Devctl Release Metadata Prep)
+
+Fact: `devctl` release tooling now supports automated metadata preparation via
+`--prepare-release` so maintainers can update Cargo/PyPI/app-plist versions and
+roll changelog release headings in one control-plane step before verify/tag.
+
+Evidence:
+
+- `dev/scripts/devctl/cli.py` (`ship`/`release` parser wiring)
+- `dev/scripts/devctl/commands/release.py` (legacy release wrapper passthrough)
+- `dev/scripts/devctl/commands/ship.py` (step selection includes prepare step)
+- `dev/scripts/devctl/commands/release_prep.py` (metadata/changelog updaters)
+- `dev/scripts/devctl/commands/ship_steps.py` (`prepare-release` handler)
+- `dev/scripts/devctl/tests/test_ship.py`
+- `dev/scripts/devctl/tests/test_release_prep.py`
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-303`)
+
+Inference: Release preparation now has fewer manual edit points and lower drift
+risk between versioned metadata files, while keeping existing verification and
+publishing gates unchanged.
+
+### Recent Governance Update (2026-02-23, Devctl Triage Integration)
+
+Fact: `devctl` now includes a dedicated `triage` command that outputs both a
+human markdown view and an AI-friendly JSON payload, with optional integration
+to ingest `cihub triage` artifacts (`triage.json`, `priority.json`, `triage.md`)
+and optional bundle emission (`<prefix>.md`, `<prefix>.ai.json`).
+
+Evidence:
+
+- `dev/scripts/devctl/commands/triage.py`
+- `dev/scripts/devctl/cli.py` (`triage` parser + dispatch wiring)
+- `dev/scripts/devctl/commands/listing.py` (command inventory includes `triage`)
+- `dev/scripts/devctl/tests/test_triage.py`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-299`)
+
+Inference: Project triage can now be standardized into one reproducible artifact
+pair that works for both human maintainers and downstream AI automation flows.
+
+### Recent Governance Update (2026-02-23, Devctl Triage Routing Enrichment)
+
+Fact: `devctl triage` now enriches `cihub` artifacts into normalized issue
+records with explicit routing fields (`category`, `severity`, `owner`) and
+rollup aggregates, including optional category-owner override files and
+explicit infra warnings when the `cihub triage` command path fails.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_enrich.py`
+- `dev/scripts/devctl/triage_parser.py` (`--owner-map-file`)
+- `dev/scripts/devctl/commands/triage.py`
+- `dev/scripts/devctl/triage_support.py` (rollup + owner-aware markdown output)
+- `dev/scripts/devctl/tests/test_triage.py`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-302`)
+
+Inference: Triage output is now better suited for cross-project team workflows
+because ownership and severity routing can be consumed directly by humans, bots,
+and AI agents without ad-hoc post-processing.
+
 ### Recent Governance Update (2026-02-20, Theme Studio Settings Ownership)
 
 Fact: Theme Studio delivery tracking advanced by completing `MP-165`, which
@@ -298,6 +464,32 @@ Evidence:
 Inference: Theme Studio parity moved beyond visual-profile toggles into explicit
 voice-scene behavior controls, reducing hardcoded status-line behavior outside
 Studio ownership.
+
+### Recent Governance Update (2026-02-23, Theme Studio Border Routing)
+
+Fact: Theme Studio style-pack resolver routing was extended so component-level
+border overrides now apply at runtime for both overlay surfaces and Full HUD.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-174` in-progress note now includes
+  resolver-based routing for `components.overlay_border` and
+  `components.hud_border`)
+- `src/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
+  overlay/HUD component border sets)
+- `src/src/bin/voiceterm/help.rs`,
+  `src/src/bin/voiceterm/settings/render.rs`,
+  `src/src/bin/voiceterm/theme_picker.rs`,
+  `src/src/bin/voiceterm/theme_studio.rs`,
+  `src/src/bin/voiceterm/toast.rs`,
+  `src/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
+  overlay border set)
+- `src/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
+  HUD border set when HUD border mode is `theme`)
+
+Inference: Component-border style-pack fields moved from parse-only schema
+coverage into live renderer ownership, reducing residual visual paths outside
+Theme Studio control.
 
 ### Recent Governance Update (2026-02-20, Senior Engineering Audit Track)
 
@@ -509,6 +701,29 @@ Evidence:
 Inference: The visual execution track now has one source for design/research
 context, which reduces doc sprawl and lowers plan drift risk during Theme
 Studio implementation work.
+
+### Recent Governance Update (2026-02-23, Dev CLI Dev-Log Reporting)
+
+Fact: `devctl status` and `devctl report` gained optional guarded Dev Mode log
+summaries so maintainers can inspect recent `session-*.jsonl` telemetry without
+opening raw files by hand.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py` (`collect_dev_log_summary` aggregation for
+  session files, event-kind counts, parse errors, and latency summaries)
+- `dev/scripts/devctl/cli.py` (`--dev-logs`, `--dev-root`,
+  `--dev-sessions-limit` for `status`/`report`)
+- `dev/scripts/devctl/commands/status.py` and
+  `dev/scripts/devctl/commands/report.py` (markdown/json rendering of dev-log
+  summary blocks)
+- `dev/scripts/devctl/tests/test_collect_dev_logs.py`,
+  `dev/scripts/devctl/tests/test_status.py`, and
+  `dev/scripts/devctl/tests/test_report.py`
+- `dev/active/MASTER_PLAN.md` (`MP-290`)
+
+Inference: Guarded runtime telemetry moved from "written to disk only" to a
+repeatable maintainer inspection path in the existing control-plane CLI.
 
 ### Replay the Evidence Quickly
 
@@ -1026,7 +1241,7 @@ Fact:
 
 Inference:
 
-- Remaining risk is concentrated in follow-through on proposed UI ADRs `0017` to `0022` and continued latency/perf refinement.
+- Remaining risk is concentrated in Theme Studio parity follow-through and memory-governance execution, with core ADR coverage now aligned to shipped runtime behavior.
 
 ## Lessons Learned
 
@@ -1131,13 +1346,14 @@ Inference:
 | 0014 | Accepted | 2026-01-29 `b6987f5` | JSON IPC protocol |
 | 0015 | Accepted | 2026-01-29 `b6987f5` | no hotplug recovery |
 | 0016 | Accepted | 2026-01-30 `d64f075` | modular visual styling |
-| 0017 | Proposed | 2026-01-31 `7f9f585` | focus and overlay stack model |
-| 0018 | Proposed | 2026-01-31 `7f9f585` | SelectableMenu contract |
-| 0019 | Proposed | 2026-01-31 `7f9f585` | preferences/config migrations |
-| 0020 | Proposed | 2026-01-31 `7f9f585` | action registry and keybindings |
-| 0021 | Proposed | 2026-01-31 `7f9f585` | history storage/retention |
-| 0022 | Proposed | 2026-01-31 `7f9f585` | render/layout guarantees |
+| 0017 | Accepted | 2026-02-23 (working tree) | single active overlay mode and input routing |
+| 0019 | Accepted | 2026-02-23 (working tree) | persistent runtime config with CLI-first precedence |
+| 0021 | Accepted | 2026-02-23 (working tree) | session transcript history + opt-in memory logging |
+| 0022 | Accepted | 2026-02-23 (working tree) | writer render invariants for HUD/overlay safety |
 | 0023 | Accepted | 2026-02-13 `fe48120` | JetBrains startup handoff and ghost-frame cleanup |
+| 0024 | Accepted | 2026-02-23 (working tree) | wake-word runtime ownership and privacy guardrails |
+| 0025 | Accepted | 2026-02-23 (working tree) | voice macro precedence and built-in navigation resolution |
+| 0026 | Accepted | 2026-02-23 (working tree) | Claude prompt-safe HUD suppression |
 
 </details>
 
@@ -1201,5 +1417,553 @@ Inference:
 - `dev/active/MASTER_PLAN.md`
 - `dev/CHANGELOG.md`
 - `dev/adr/README.md`
+
+</details>
+
+## Appendix G: Technical Showcase (Consolidated)
+
+<details>
+<summary>Show Appendix G</summary>
+
+Canonical note: this appendix consolidates content previously stored in `dev/docs/TECHNICAL_SHOWCASE.md`.
+
+## How One Developer Built a Production Rust Application in Months Using AI — And Why the Secret Isn't the AI
+
+### The Thesis
+
+AI doesn't replace engineering discipline. It amplifies whatever system you feed it. Feed it chaos and you get faster chaos. Feed it a deterministic development system with executable guardrails and you get a force multiplier that lets one person operate like a team.
+
+This document explains the system behind **VoiceTerm** — a 20,000+ line Rust application with 17 CI workflows, 28 architecture decision records, mutation testing, security auditing, and automated multi-platform releases — built by a single developer who isn't even out of college yet.
+
+---
+
+### What VoiceTerm Is
+
+VoiceTerm is a voice-first terminal overlay for AI CLI tools. It wraps Codex, Claude Code, and other AI terminals with local speech-to-text (Whisper, running entirely on-device), wake-word detection, voice macros, a theme studio, and transcript history. It uses a PTY passthrough architecture — it doesn't replace the terminal UI, it overlays it.
+
+**Tech stack:** Rust (ratatui, crossterm, whisper-rs, cpal, clap), distributed via Homebrew, PyPI, and a macOS app bundle.
+
+**Scale:**
+- ~20K lines of Rust across 32 modules
+- 11 built-in themes
+- 5 backend integrations (Codex, Claude Code, Gemini, Aider, OpenCode)
+- Multi-threaded event loop with bounded channels
+- Local-first privacy model (no cloud API keys for STT)
+
+The interesting part isn't the application. It's the system that made it possible for one person to build it.
+
+---
+
+### The Core Insight: Governance Is the Bottleneck, Not Code
+
+When you use AI for development, the bottleneck shifts. Writing code becomes fast. What becomes slow — and what causes failures — is:
+
+1. **Scope drift** — AI happily builds things you didn't ask for
+2. **Documentation decay** — Code changes, docs don't
+3. **Decision amnesia** — The same architectural debate resurfaces every session
+4. **Silent regression** — Changes that break things in ways tests don't catch
+5. **Release chaos** — Version mismatches, missing changelogs, broken packages
+
+The solution isn't better prompting. It's building infrastructure that makes these failure modes structurally impossible.
+
+---
+
+### The System: Five Layers That Create a Closed Loop
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MASTER PLAN                          │
+│         (single source of truth for scope)              │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│                   AGENTS.md                             │
+│     (deterministic SOP + task routing + AI contract)    │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│                    DevCtl                               │
+│   (executable governance — checks, hygiene, security)   │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│               CI/CD Workflows                           │
+│    (17 automated guards — latency, memory, mutation,    │
+│     security, docs, code shape, parser fuzz)            │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│              ADRs + Evolution History                   │
+│      (durable memory — why decisions were made)         │
+└─────────────────────────────────────────────────────────┘
+```
+
+Each layer feeds the next. Together they create a feedback loop where every change is scoped, verified, documented, and traceable.
+
+---
+
+### Layer 1: The Master Plan — Scope Control
+
+**Problem:** AI will build whatever you describe. Without a single source of truth for "what are we building right now," scope creeps silently.
+
+**Solution:** `dev/active/MASTER_PLAN.md` is the only place where active work items live. Every feature has:
+- An MP-item ID (e.g., `MP-287`)
+- Explicit gate criteria (e.g., `TS-G01` through `TS-G15` for the Theme Studio)
+- Phase assignment (Phase 2D, 3, 3A, 3B, etc.)
+- Status tracking
+
+**How it's enforced:** `check_active_plan_sync.py` runs in CI and validates that the plan's index, registry, and cross-links are consistent. You can't merge a PR that references an MP item that doesn't exist, or skip documenting one that does.
+
+**Why it matters for AI:** When an AI agent starts a session, step 3 of the SOP is "load MASTER_PLAN.md." The agent knows exactly what's in scope and what isn't. No ambiguity, no drift.
+
+---
+
+### Layer 2: AGENTS.md — The AI Execution Contract
+
+This is the key innovation. `AGENTS.md` is not a prompt template. It's a deterministic decision tree that any agent (human or AI) follows for every task.
+
+#### What's in it:
+
+**A mandatory 12-step SOP** that every task follows:
+1. Bootstrap checks (read AGENTS.md, load index, load master plan)
+2. Scope decision (is this in the master plan?)
+3. Task classification (runtime feature? docs-only? tooling? release?)
+4. Context pack loading (only load what's relevant)
+5. Master Plan scope confirmation
+6. Implementation
+7. Run the matching test bundle
+8. Update documentation
+9. Self-review
+10. Push audit
+11. Post-push verification
+12. Handoff capture
+
+**A task router table** that maps every type of change to:
+- Which test bundle to run
+- Which docs to update
+- Which CI lanes will validate it
+
+**Context packs** — predefined sets of files to read based on task class. An AI working on voice features loads the Voice context pack. One working on tooling loads the Tooling pack. This prevents context window pollution and keeps the agent focused.
+
+**Command bundles** — not "suggestions," but exact bash commands:
+```bash
+## bundle.runtime — what to run for any runtime change
+python3 dev/scripts/devctl.py check --profile ci
+python3 dev/scripts/devctl.py docs-check --user-facing
+```
+
+**A runtime risk matrix** that maps change signals to specialized tests:
+- Changed overlay code → run CI check
+- Changed perf-sensitive code → run latency guard
+- Changed wake-word code → run wake-word soak test
+- Changed parser code → run property-based fuzz
+
+**An AI operating contract:**
+- Be autonomous by default, ask only when required
+- Stay guarded — run the verification bundle, don't skip it
+- Keep changes scoped — don't refactor adjacent code
+- Capture handoff evidence — document what you did and why
+
+#### Why this works:
+
+Traditional AI-assisted development is: "Hey AI, implement feature X." The AI makes assumptions about scope, testing, documentation, and architecture. Some assumptions are wrong. You catch some in review. Others ship.
+
+With AGENTS.md, the AI doesn't make assumptions. It follows a decision tree. It loads the right context. It runs the right tests. It updates the right docs. If it doesn't, the next layer catches it.
+
+---
+
+### Layer 3: DevCtl — Executable Governance
+
+`devctl` is a Python CLI with 14 subcommands that turns governance policies into runnable checks. It's not documentation about what you should do — it's code that verifies you did it.
+
+#### Key commands:
+
+**`devctl check --profile <profile>`** — Quality gate runner with 6 profiles:
+- `ci`: format + clippy + tests (matches what CI runs)
+- `prepush`: ci + perf smoke + memory guard + AI guard
+- `release`: full suite including mutation score + wake-word soak
+- `quick`: format + clippy only (fast iteration)
+- `maintainer-lint`: strict clippy subset for hardening
+- `ai-guard`: code shape + lint debt + best practices non-regression
+
+**`devctl docs-check`** — Documentation governance:
+- Detects what type of change you made (user-facing, tooling, evolution)
+- Verifies the matching docs were updated
+- Scans for deprecated references to old shell scripts
+- `--strict-tooling` mode requires all maintainer docs updated
+
+**`devctl hygiene`** — Process drift detection:
+- Validates archive file naming conventions
+- Validates ADR metadata (status, dates, index consistency)
+- Ensures all scripts are documented in the scripts README
+- Detects orphaned test processes from interrupted cargo runs
+
+**`devctl security`** — Dependency auditing:
+- Runs `cargo audit` with CVSS threshold (7.0+)
+- Fails on yanked or unsound dependencies
+- Supports allowlist for acknowledged vulnerabilities
+- Optional workflow security scanning with zizmor
+
+**`devctl ship`** — Release control plane:
+- Version parity validation (Cargo.toml, PyPI, macOS plist all match)
+- Git tag creation with branch/cleanliness guards
+- Release notes generation
+- GitHub release creation
+- PyPI publication with verification
+- Homebrew tap update
+- Full dry-run support
+
+**`devctl status / report`** — Project health:
+- Git state, mutation score, CI run history
+- Dev-mode session log summaries (word counts, latency, error rates)
+- Machine-readable JSON output for programmatic consumption
+
+#### Design patterns that matter:
+
+1. **Structured results, not exceptions** — Every command returns `{name, returncode, duration_s, skipped, error}`. This makes output parseable by both humans and AI.
+
+2. **Process sweep** — `devctl check` automatically kills orphaned `voiceterm-*` test binaries from interrupted cargo runs. This prevents flaky tests from zombie processes — a problem that's invisible until it wastes hours of debugging.
+
+3. **Profile-based toggling** — Expensive checks (mutation testing, wake-word soak) only run in profiles that need them. Fast iteration stays fast.
+
+4. **CI safety guards** — Publish commands refuse to run in CI without `--allow-ci`. This prevents accidental double-publication from workflow retries.
+
+---
+
+### Layer 4: CI/CD — 17 Automated Guards
+
+The CI system isn't just "run tests on push." It's a network of specialized guards, each protecting a different failure mode.
+
+#### The guards:
+
+| Guard | What It Catches | How |
+|-------|----------------|-----|
+| **Rust CI** | Format violations, lint warnings, test failures | `cargo fmt`, `clippy -D warnings`, `cargo test` |
+| **Coverage** | Untested code paths | LCOV generation + Codecov upload |
+| **Lint Hardening** | Stricter lint subset regressions | `devctl check --profile maintainer-lint` |
+| **Latency Guard** | Performance regressions | Synthetic latency measurement (3 iterations) |
+| **Memory Guard** | Thread cleanup leaks | Memory guard test repeated 20 times |
+| **Perf Smoke** | Missing voice metrics | Metric emission verification |
+| **Voice Mode Guard** | Broken voice mode controls | State toggle + label consistency tests |
+| **Wake Word Guard** | Wake detection regressions | Soak testing (4 rounds) |
+| **Parser Fuzz** | PTY parser bounds violations | Property-based tests (proptest) |
+| **Security Guard** | Vulnerable dependencies | RustSec audit with CVSS policy |
+| **Mutation Testing** | Weak test suite | 8-shard parallel mutation testing, 80% threshold |
+| **Docs Lint** | Broken markdown | markdownlint validation |
+| **Tooling Control Plane** | Governance drift | AGENTS contract, plan sync, version parity, code shape, lint debt, best practices, CLI flags parity, screenshot staleness |
+| **Release Preflight** | Broken releases | Full verification + dry-run of ship commands |
+| **Publish PyPI** | Package distribution | Automated on GitHub release |
+| **Publish Homebrew** | Formula distribution | Automated on GitHub release |
+
+#### What makes this different from "just having CI":
+
+**Layered defense.** A format check catches style issues. Clippy catches lint issues. Tests catch logic issues. Mutation testing catches *test effectiveness* issues. Security auditing catches dependency issues. The tooling control plane catches *governance* issues. Each layer catches what the previous layers miss.
+
+**Specialized guards for specialized risks.** Most projects run tests and call it done. This project has guards specifically for:
+- **Latency** — because a voice app with latency is unusable
+- **Memory** — because thread cleanup bugs are silent until they're catastrophic
+- **Wake words** — because false positive/negative detection degrades UX
+- **Parser bounds** — because PTY parsing with off-by-one errors corrupts terminal output
+- **Mutation score** — because 100% line coverage with 0% mutation coverage means your tests don't actually verify behavior
+
+**Governance as code.** The Tooling Control Plane workflow runs `check_agents_contract.py` to verify that AGENTS.md still has the required SOP sections. It runs `check_active_plan_sync.py` to verify the master plan index is consistent. It runs `check_code_shape.py` to block God-file growth. These aren't optional — they're merge-blocking CI checks.
+
+---
+
+### Layer 5: ADRs + Evolution History — Durable Memory
+
+**Problem:** AI agents have no memory between sessions. Every new session, the same architectural debates resurface. "Why don't we use streaming STT?" "Why not use a cloud API?" "Why is legacy_tui a separate module?"
+
+**Solution:** 28 Architecture Decision Records that capture context, decision, and consequences for every significant choice. Plus an Engineering Evolution document that captures the *why* behind process changes.
+
+#### ADR examples:
+
+- **ADR-0003: Non-streaming STT** — Context: Streaming STT adds complexity and latency tracking burden. Decision: Use batch transcription. Consequence: Simpler pipeline, but user must wait for full utterance.
+- **ADR-0015: Single overlay mode** — Context: Multiple overlays competing for screen space causes rendering bugs. Decision: Only one overlay active at a time. Consequence: Simpler render logic, explicit mode switching.
+- **ADR-0025: Security hard limits** — Context: Need policy for dependency vulnerabilities. Decision: CVSS 7.0+ threshold with allowlist. Consequence: Automated enforcement in CI and local checks.
+
+#### Engineering Evolution:
+
+`dev/history/ENGINEERING_EVOLUTION.md` documents five eras of the project's evolution:
+
+1. **Era 1** — Core loop proved, PTY/event-loop corrections
+2. **Era 2** — Install/overlay UX became usable at scale
+3. **Era 3** — ADR governance and HUD expansion
+4. **Era 4** — Reliability hardening and process discipline
+5. **Era 5** — Release hardening, lifecycle verification, runtime modularization
+
+Each era documents the pressure that forced change, what was learned, and what decisions resulted. This gives new agents (or the developer after a break) full historical context without re-investigation.
+
+#### How this completes the loop:
+
+When an AI agent encounters a question like "should we switch to streaming STT?", the AGENTS.md SOP directs it to check ADRs first. The agent reads ADR-0003, understands the tradeoffs that were already evaluated, and either works within the existing decision or proposes a new ADR to supersede it. The debate doesn't repeat.
+
+---
+
+### The Feedback Loop in Practice
+
+Here's what a typical development cycle looks like:
+
+```
+1. Developer identifies feature need
+   → Creates MP item in MASTER_PLAN.md
+   → Links to phase and gate criteria
+
+2. AI agent starts session
+   → Reads AGENTS.md (step 1 of SOP)
+   → Loads MASTER_PLAN.md (step 3)
+   → Classifies task type (step 4)
+   → Loads matching context pack (step 5)
+
+3. Implementation
+   → Agent writes code within scoped MP item
+   → Agent follows task-class-specific patterns from AGENTS.md
+
+4. Verification
+   → Agent runs matching command bundle (e.g., bundle.runtime)
+   → devctl check catches format, lint, test, perf issues
+   → devctl docs-check catches missing documentation updates
+   → Agent fixes issues before committing
+
+5. Push
+   → CI runs 17 guard workflows
+   → Tooling control plane validates governance compliance
+   → Any regression caught → feedback to developer
+
+6. Documentation
+   → docs-check enforcement ensures docs match code
+   → ADR captures any new architectural decision
+   → MASTER_PLAN gate criteria updated
+
+7. Release
+   → devctl ship --verify runs full preflight
+   → Version parity checked across all artifacts
+   → Automated publication to PyPI + Homebrew
+   → Post-release verification confirms packages
+
+8. Next cycle
+   → Status report shows project health
+   → MASTER_PLAN updated with completed items
+   → Engineering Evolution updated if process changed
+   → Agent reads updated state on next session start
+```
+
+Every step feeds the next. Documentation produced in step 6 becomes context loaded in step 2 of the next cycle. Regressions caught in step 5 become test cases in step 4. Decisions made in step 3 become ADRs read in future step 2s.
+
+**This is the feedback loop.** It's not a one-time setup — it's a system that gets better with each iteration because each iteration produces artifacts that improve the next one.
+
+---
+
+### Why This Matters: The Results
+
+#### What one developer accomplished:
+
+- **~20,000 lines of Rust** — multi-threaded, real-time audio, PTY management, terminal rendering
+- **17 CI workflows** — covering performance, security, mutation testing, governance
+- **28 ADRs** — every significant decision documented and discoverable
+- **14 devctl commands** — a complete maintainer control plane
+- **3 distribution channels** — Homebrew, PyPI, macOS app
+- **11 themes** — with a theme studio for customization
+- **5 backend integrations** — Codex, Claude Code, Gemini, Aider, OpenCode
+- **80%+ mutation testing threshold** — tests actually verify behavior
+- **Automated security auditing** — RustSec with CVSS policy enforcement
+- **Zero manual release steps** — full pipeline from tag to published packages
+
+#### Why this didn't require a team:
+
+The developer didn't write 20,000 lines of code by hand. They designed an architecture, built a governance system, and then used AI as an executor within that system. The key decisions were:
+
+1. **Invest in governance infrastructure first.** Before building features, build the system that makes features safe to build.
+2. **Make governance executable.** Not documents that say "you should test" — code that verifies you tested.
+3. **Give AI a deterministic contract.** Not "be helpful" — a 12-step SOP with exact commands and decision trees.
+4. **Make decisions durable.** ADRs prevent re-litigation. Evolution history prevents context loss.
+5. **Automate verification exhaustively.** 17 CI guards means regressions are caught before they compound.
+
+The developer's role shifted from "write code" to "design architecture, define scope, verify results." AI handled the implementation within guardrails. The guardrails ensured the implementation was correct, documented, and consistent.
+
+---
+
+### How to Replicate This
+
+You don't need all 17 CI workflows on day one. The system was built incrementally (documented in ENGINEERING_EVOLUTION.md). Here's the minimum viable version:
+
+#### Start with three things:
+
+1. **A scope document** — One file that says what you're building. Every feature links to an item here. This prevents drift.
+
+2. **An agent contract** — One file that tells AI agents (and yourself) exactly what to do for each type of change. Include:
+   - Task classification (what kind of change is this?)
+   - Required verification (what commands must pass?)
+   - Required documentation (what docs must be updated?)
+
+3. **One governance check** — One automated command that verifies the contract was followed. Even if it's just "did you update the changelog?" — make it executable, not aspirational.
+
+#### Then iterate:
+
+- Add CI workflows as you discover failure modes
+- Add ADRs as you make architectural decisions
+- Add devctl commands as you find yourself repeating verification steps
+- Add guards as you discover what regressions look like in your domain
+
+The system in this codebase wasn't designed upfront. It evolved through five eras of pressure, learning, and response. The Engineering Evolution document is the proof. But it started with the same three things: scope control, an execution contract, and one automated check.
+
+---
+
+### Closing
+
+The narrative around AI-assisted development is usually about prompting techniques or model capabilities. This project demonstrates that the real leverage is in the system around the AI — the governance infrastructure that turns AI from an unpredictable assistant into a reliable executor.
+
+One developer. Not yet out of college. A few months. A production Rust application with enterprise-grade CI, security auditing, mutation testing, and automated releases.
+
+The secret isn't the AI. The secret is the feedback loop.
+
+---
+
+*VoiceTerm is open source. The governance system described here — AGENTS.md, devctl, CI workflows, ADRs — is all in the repository and can be adapted for any project.*
+
+</details>
+
+## Appendix H: LinkedIn Post Draft (Consolidated)
+
+<details>
+<summary>Show Appendix H</summary>
+
+Canonical note: this appendix consolidates content previously stored in `dev/docs/LINKEDIN_POST.md`.
+
+## LinkedIn Post Draft
+
+---
+
+### Short Version (for the main post)
+
+**I built a 20,000-line production Rust application in a few months. I'm one developer and I haven't graduated college yet. Here's what actually made that possible — and it's not what you think.**
+
+Everyone talks about AI making developers faster. But faster at what? If your process is broken, AI just makes it break faster.
+
+I built VoiceTerm — a voice-first terminal overlay for AI coding tools (Codex, Claude Code). It does local speech-to-text with Whisper, wake-word detection, voice macros, a theme studio, and transcript history. All in Rust. Multi-threaded. Real-time audio processing.
+
+The codebase has:
+- 17 CI/CD workflows
+- 28 architecture decision records
+- Mutation testing at 80%+ threshold
+- Automated security auditing
+- Automated releases to Homebrew, PyPI, and macOS
+- A complete developer control plane with 14 commands
+
+One person built all of this. Here's how.
+
+**I didn't focus on writing code. I focused on building the system that makes code safe to write.**
+
+Three things made the difference:
+
+**1. A deterministic AI contract (AGENTS.md)**
+
+Not a prompt. A 12-step standard operating procedure that every AI agent follows for every task. It includes:
+- Task classification (what kind of change is this?)
+- Context packs (what files should the agent read?)
+- Command bundles (what exact commands must pass?)
+- A risk matrix (what specialized tests does this change require?)
+
+The AI doesn't guess what to do. It follows a decision tree.
+
+**2. Executable governance (devctl)**
+
+I built a CLI tool that turns policies into automated checks. "Did you update the docs?" isn't a reminder — it's a command that fails your commit if you didn't. "Are your dependencies secure?" isn't a quarterly review — it's a CI gate with a CVSS threshold.
+
+Commands like `devctl check --profile prepush` run format checks, linting, tests, performance smoke tests, memory guards, and AI-specific code shape guards. One command. Every push.
+
+**3. Durable decision records (ADRs)**
+
+AI agents have no memory between sessions. Every new session, the same questions come up. "Why don't we use streaming STT?" "Why is this module structured this way?"
+
+28 Architecture Decision Records capture the context, decision, and consequences for every significant choice. When an AI agent encounters a question, it reads the ADR first. Debates don't repeat.
+
+**The result: a feedback loop.**
+
+The master plan defines scope. AGENTS.md defines how to execute within scope. DevCtl verifies execution was correct. CI catches anything that slips through. ADRs capture what was learned. The master plan updates. Next cycle starts with better context.
+
+Each iteration produces artifacts that improve the next iteration. The system gets better every cycle.
+
+**This isn't about AI replacing developers. It's about one developer designing the architecture and governance, and AI executing within guardrails.**
+
+My role shifted from "write code" to "design systems, define scope, verify results." That's why one person could do it.
+
+The entire governance system is open source in the VoiceTerm repo. If you want to replicate it, start with three things:
+1. A scope document (what are we building?)
+2. An agent contract (how do we build it?)
+3. One automated governance check (did we build it correctly?)
+
+Then iterate. My system evolved through five documented eras. It wasn't designed upfront. It was built through pressure, learning, and response.
+
+The secret to AI-assisted development isn't better prompting. It's better systems.
+
+---
+
+### Shorter Version (if LinkedIn cuts you off)
+
+I built a 20K-line production Rust app in months. One developer. Still in college.
+
+The secret? Not AI prompting. Governance infrastructure.
+
+Three things:
+1. AGENTS.md — a deterministic 12-step SOP that AI agents follow. Not "be helpful." Exact decision trees, command bundles, and risk matrices.
+2. DevCtl — a CLI that turns policies into automated checks. Docs not updated? Build fails. Dependencies insecure? CI blocks merge.
+3. ADRs — 28 architecture decision records so AI agents don't re-litigate old debates every session.
+
+Together: a feedback loop. Plan → Execute → Verify → Document → Plan. Each cycle's output improves the next cycle's input.
+
+17 CI workflows. Mutation testing. Security auditing. Automated releases. One person.
+
+AI doesn't replace engineering discipline. It amplifies whatever system you give it.
+
+The whole system is open source. Full technical writeup in the comments.
+
+---
+
+### Comment / Follow-up for technical depth
+
+For those who want the details, here's what the system looks like under the hood:
+
+**CI/CD (17 workflows):**
+- Rust CI (fmt + clippy + tests)
+- Coverage with Codecov
+- Latency guard (synthetic measurement)
+- Memory guard (20-iteration stress test)
+- Performance smoke (metric emission verification)
+- Voice mode guard (state machine correctness)
+- Wake word guard (soak testing)
+- Parser fuzz guard (property-based testing with proptest)
+- Security guard (RustSec + CVSS policy)
+- Mutation testing (8 parallel shards, 80% threshold)
+- Documentation lint
+- Tooling control plane (AGENTS contract, plan sync, version parity, code shape, lint debt, CLI flags parity)
+- Release preflight (full verification + dry-run)
+- Publish PyPI + Publish Homebrew (automated on release)
+
+**DevCtl commands:**
+- `check` (6 profiles: ci, prepush, release, quick, maintainer-lint, ai-guard)
+- `docs-check` (user-facing and tooling doc governance)
+- `hygiene` (ADR, archive, script documentation auditing)
+- `security` (RustSec + optional workflow scanning)
+- `ship` (unified release: verify → tag → notes → GitHub → PyPI → Homebrew)
+- `status` / `report` (project health with mutation scores, CI history, dev logs)
+- Process sweep (automatic orphaned test binary cleanup)
+
+**AGENTS.md includes:**
+- 12-step mandatory SOP
+- Task router table (6 task classes → test bundles)
+- 4 context packs (Runtime, Voice, PTY, Tooling)
+- 6 command bundles with exact bash commands
+- Runtime risk matrix
+- AI operating contract
+- Engineering quality contract
+
+The full technical showcase is consolidated above in Appendix G of this document.
+
+---
+
+### Hashtag suggestions
+
+#SoftwareEngineering #AI #RustLang #DeveloperTools #OpenSource #AIAssistedDevelopment #DevOps #CICD #SoloDev
 
 </details>

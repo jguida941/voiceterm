@@ -26,7 +26,27 @@ pub(super) enum VoiceNavigationAction {
 }
 
 pub(super) fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigationAction> {
-    let normalized = text
+    let normalized_tokens = normalize_navigation_tokens(text);
+    let command_tokens = strip_assistant_address_prefix(&normalized_tokens);
+    let normalized = command_tokens.join(" ");
+    match normalized.as_str() {
+        "scroll up" | "voice scroll up" | "page up" => Some(VoiceNavigationAction::ScrollUp),
+        "scroll down" | "voice scroll down" | "page down" => {
+            Some(VoiceNavigationAction::ScrollDown)
+        }
+        "send" | "send it" | "send now" | "send message" | "sand" | "sand it" | "sand now"
+        | "sand message" | "submit" | "submit now" => Some(VoiceNavigationAction::SendStagedInput),
+        "copy last error" | "copy the last error" => Some(VoiceNavigationAction::CopyLastError),
+        "show last error" | "what was the last error" => Some(VoiceNavigationAction::ShowLastError),
+        "explain last error" | "explain the last error" => {
+            Some(VoiceNavigationAction::ExplainLastError)
+        }
+        _ => None,
+    }
+}
+
+fn normalize_navigation_tokens(text: &str) -> Vec<String> {
+    let cleaned_tokens: Vec<String> = text
         .split_whitespace()
         .filter_map(|token| {
             let cleaned = token.trim_matches(|c: char| !c.is_ascii_alphanumeric());
@@ -36,21 +56,50 @@ pub(super) fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigatio
                 Some(cleaned.to_ascii_lowercase())
             }
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    match normalized.as_str() {
-        "scroll up" | "voice scroll up" | "page up" => Some(VoiceNavigationAction::ScrollUp),
-        "scroll down" | "voice scroll down" | "page down" => {
-            Some(VoiceNavigationAction::ScrollDown)
+        .collect();
+    let mut canonical = Vec::with_capacity(cleaned_tokens.len());
+    let mut idx = 0;
+    while idx < cleaned_tokens.len() {
+        if idx + 1 < cleaned_tokens.len() {
+            if cleaned_tokens[idx] == "code" && cleaned_tokens[idx + 1] == "x" {
+                canonical.push("codex".to_string());
+                idx += 2;
+                continue;
+            }
+            if cleaned_tokens[idx] == "voice" && cleaned_tokens[idx + 1] == "term" {
+                canonical.push("voiceterm".to_string());
+                idx += 2;
+                continue;
+            }
         }
-        "send" | "send message" | "submit" => Some(VoiceNavigationAction::SendStagedInput),
-        "copy last error" | "copy the last error" => Some(VoiceNavigationAction::CopyLastError),
-        "show last error" | "what was the last error" => Some(VoiceNavigationAction::ShowLastError),
-        "explain last error" | "explain the last error" => {
-            Some(VoiceNavigationAction::ExplainLastError)
-        }
-        _ => None,
+        let token = match cleaned_tokens[idx].as_str() {
+            "codec" | "codecs" | "kodak" | "kodaks" | "kodex" => "codex",
+            "cloud" | "clod" | "clawd" | "clog" => "claude",
+            "pay" if idx == 0 => "hey",
+            "hate" if idx == 0 => "hey",
+            other => other,
+        };
+        canonical.push(token.to_string());
+        idx += 1;
     }
+    canonical
+}
+
+fn strip_assistant_address_prefix(tokens: &[String]) -> &[String] {
+    let mut start = 0;
+    if tokens
+        .first()
+        .is_some_and(|token| matches!(token.as_str(), "hey" | "ok" | "okay"))
+    {
+        start += 1;
+    }
+    if tokens
+        .get(start)
+        .is_some_and(|token| matches!(token.as_str(), "codex" | "claude" | "gemini" | "voiceterm"))
+    {
+        start += 1;
+    }
+    &tokens[start..]
 }
 
 pub(super) fn resolve_voice_navigation_action(
@@ -128,7 +177,8 @@ pub(super) fn execute_voice_navigation_action<S: TranscriptSession>(
 ) -> bool {
     match action {
         VoiceNavigationAction::SendStagedInput => {
-            if !status_state.insert_pending_send {
+            if !status_state.insert_pending_send && status_state.send_mode == VoiceSendMode::Insert
+            {
                 set_status(
                     writer_tx,
                     status_clear_deadline,
@@ -360,11 +410,55 @@ mod tests {
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(
+            parse_voice_navigation_action("send it"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("send now"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("sand now"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
             parse_voice_navigation_action("send."),
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(
             parse_voice_navigation_action("submit"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("submit now"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("codex send"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("hey claude send"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("claude sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("code x send"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("kodak sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("pay clog sand"),
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(
@@ -449,6 +543,7 @@ mod tests {
     fn execute_voice_navigation_send_without_staged_text_sets_status() {
         let mut session = StubSession::default();
         let mut status_state = StatusLineState::new();
+        status_state.send_mode = VoiceSendMode::Insert;
         let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
         let mut deadline = None;
         let mut current_status = None;
@@ -468,6 +563,32 @@ mod tests {
         assert!(!sent_newline);
         assert!(session.sent.is_empty());
         assert!(status_state.message.contains("Nothing to send"));
+    }
+
+    #[test]
+    fn execute_voice_navigation_send_without_staged_text_still_submits_in_auto_mode() {
+        let mut session = StubSession::default();
+        let mut status_state = StatusLineState::new();
+        status_state.send_mode = VoiceSendMode::Auto;
+        let (writer_tx, _writer_rx) = crossbeam_channel::unbounded();
+        let mut deadline = None;
+        let mut current_status = None;
+        let mut prompt_tracker = PromptTracker::new(None, true, PromptLogger::new(None));
+        prompt_tracker.feed_output(b"ready\n");
+
+        let sent_newline = execute_voice_navigation_action(
+            VoiceNavigationAction::SendStagedInput,
+            &prompt_tracker,
+            &mut session,
+            &writer_tx,
+            &mut deadline,
+            &mut current_status,
+            &mut status_state,
+        );
+
+        assert!(sent_newline);
+        assert_eq!(session.sent, vec!["\r".to_string()]);
+        assert!(status_state.message.contains("Voice command: send"));
     }
 
     #[test]

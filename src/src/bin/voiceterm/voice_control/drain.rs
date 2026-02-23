@@ -7,7 +7,8 @@ mod transcript_delivery;
 use crossbeam_channel::Sender;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use voiceterm::{VoiceCaptureSource, VoiceJobMessage};
+use voiceterm::devtools::{DevEventJsonlWriter, DevModeStats};
+use voiceterm::{log_debug, VoiceCaptureSource, VoiceJobMessage};
 
 use crate::config::{OverlayConfig, VoiceSendMode};
 use crate::prompt::PromptTracker;
@@ -65,6 +66,8 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub sound_on_complete: bool,
     pub sound_on_error: bool,
     pub transcript_history: &'a mut TranscriptHistory,
+    pub dev_mode_stats: Option<&'a mut DevModeStats>,
+    pub dev_event_logger: Option<&'a mut DevEventJsonlWriter>,
 }
 
 pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainContext<'_, S>) {
@@ -92,14 +95,28 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let sound_on_complete = ctx.sound_on_complete;
     let sound_on_error = ctx.sound_on_error;
     let transcript_history = &mut *ctx.transcript_history;
+    let dev_mode_stats = &mut ctx.dev_mode_stats;
+    let dev_event_logger = &mut ctx.dev_event_logger;
 
     let Some(message) = voice_manager.poll_message() else {
         return;
     };
+    let should_clear_latency = should_clear_latency_for_message(&message, auto_voice_enabled);
     let rearm_auto = matches!(
         message,
         VoiceJobMessage::Empty { .. } | VoiceJobMessage::Error(_)
     );
+    if let Some(dev_mode_stats) = dev_mode_stats.as_deref_mut() {
+        let event = dev_mode_stats.record_voice_message(&message);
+        if let Some(dev_event_logger) = dev_event_logger.as_deref_mut() {
+            if let Err(err) = dev_event_logger.append(&event) {
+                log_debug(&format!(
+                    "dev-mode event logging failed ({}): {err}",
+                    dev_event_logger.path().display()
+                ));
+            }
+        }
+    }
     match message {
         VoiceJobMessage::Transcript {
             text,
@@ -138,7 +155,9 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         VoiceJobMessage::Empty { source, metrics } => {
             *force_send_on_next_transcript = false;
-            clear_last_latency(status_state);
+            if should_clear_latency {
+                clear_last_latency(status_state);
+            }
             let mut non_transcript_ctx = NonTranscriptDispatchContext {
                 config,
                 session,
@@ -173,7 +192,9 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         }
         other => {
             *force_send_on_next_transcript = false;
-            clear_last_latency(status_state);
+            if should_clear_latency {
+                clear_last_latency(status_state);
+            }
             if sound_on_error && matches!(other, VoiceJobMessage::Error(_)) {
                 let _ = writer_tx.send(WriterMessage::Bell { count: 2 });
             }
@@ -199,6 +220,15 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
         status_state,
         recording_started_at,
     );
+}
+
+fn should_clear_latency_for_message(message: &VoiceJobMessage, auto_voice_enabled: bool) -> bool {
+    match message {
+        // Keep the latest known latency visible through auto re-arm empty captures.
+        VoiceJobMessage::Empty { .. } => !auto_voice_enabled,
+        VoiceJobMessage::Error(_) => true,
+        VoiceJobMessage::Transcript { .. } => false,
+    }
 }
 
 pub(crate) fn reset_capture_visuals(
