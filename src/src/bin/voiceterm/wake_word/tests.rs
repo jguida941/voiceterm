@@ -72,6 +72,10 @@ fn canonicalize_hotword_tokens_merges_common_split_aliases() {
     let hate_alias_tokens: Vec<&str> = hate_alias.iter().map(String::as_str).collect();
     assert_eq!(hate_alias_tokens, vec!["hey", "codex"]);
 
+    let pay_clog_alias = canonicalize_hotword_tokens(&["pay", "clog"]);
+    let pay_clog_alias_tokens: Vec<&str> = pay_clog_alias.iter().map(String::as_str).collect();
+    assert_eq!(pay_clog_alias_tokens, vec!["hey", "claude"]);
+
     let cloud_alias = canonicalize_hotword_tokens(&["okay", "cloud", "send"]);
     let cloud_alias_tokens: Vec<&str> = cloud_alias.iter().map(String::as_str).collect();
     assert_eq!(cloud_alias_tokens, vec!["okay", "claude", "send"]);
@@ -86,6 +90,7 @@ fn contains_hotword_phrase_detects_supported_aliases() {
     assert!(contains_hotword_phrase("hate codex start"));
     assert!(contains_hotword_phrase("okay claude"));
     assert!(contains_hotword_phrase("okay cloud"));
+    assert!(contains_hotword_phrase("pay clog"));
     assert!(contains_hotword_phrase("voiceterm"));
     assert!(contains_hotword_phrase("hey voice term"));
     assert!(contains_hotword_phrase("voice term start recording"));
@@ -136,6 +141,18 @@ fn detect_wake_event_maps_send_suffix_intent() {
     );
     assert_eq!(
         detect_wake_event("hey codex send it"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hey codex sand"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hey claude sand"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("pay clog sand"),
         Some(WakeWordEvent::SendStagedInput)
     );
     assert_eq!(

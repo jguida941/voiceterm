@@ -86,6 +86,17 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.add_argument("--mutants-plot-output")
     check_cmd.add_argument("--mutants-plot-show", action="store_true")
     check_cmd.add_argument("--keep-going", action="store_true")
+    check_cmd.add_argument(
+        "--no-parallel",
+        action="store_true",
+        help="Run check steps sequentially instead of parallelized phase batches",
+    )
+    check_cmd.add_argument(
+        "--parallel-workers",
+        type=int,
+        default=4,
+        help="Worker count for parallelizable check phases (default: 4)",
+    )
     check_cmd.add_argument("--dry-run", action="store_true")
     check_cmd.add_argument("--format", choices=["text", "json", "md"], default="text")
     check_cmd.add_argument("--output", help="Write report to a file")
@@ -139,6 +150,11 @@ def build_parser() -> argparse.ArgumentParser:
     # release
     release_cmd = sub.add_parser("release", help="Run tag + notes release flow (legacy-compatible)")
     release_cmd.add_argument("--version", required=True)
+    release_cmd.add_argument(
+        "--prepare-release",
+        action="store_true",
+        help="Auto-update release metadata files before tag/notes steps",
+    )
     release_cmd.add_argument("--homebrew", action="store_true")
     release_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
     release_cmd.add_argument("--allow-ci", action="store_true")
@@ -147,6 +163,11 @@ def build_parser() -> argparse.ArgumentParser:
     # ship
     ship_cmd = sub.add_parser("ship", help="Run release/distribution steps from one control-plane command")
     ship_cmd.add_argument("--version", required=True)
+    ship_cmd.add_argument(
+        "--prepare-release",
+        action="store_true",
+        help="Auto-update release metadata files before verify/tag/publish steps",
+    )
     ship_cmd.add_argument("--verify", action="store_true", help="Run release verification checks")
     ship_cmd.add_argument("--verify-docs", action="store_true", help="Include docs-check in verify step")
     ship_cmd.add_argument("--tag", action="store_true", help="Create/push git tag")

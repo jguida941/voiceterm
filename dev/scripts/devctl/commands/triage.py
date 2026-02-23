@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
+import subprocess
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -53,12 +55,45 @@ def _run_cihub_triage(args, emit_dir) -> Dict[str, Any]:
     return payload
 
 
-def _resolve_use_cihub(args) -> bool:
+def _cihub_supports_triage(cihub_bin: str) -> tuple[bool, str]:
+    try:
+        result = subprocess.run(
+            [cihub_bin, "--help"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return False, str(exc)
+
+    combined = "\n".join([result.stdout or "", result.stderr or ""])
+    match = re.search(r"\{([^}]+)\}", combined)
+    if match:
+        commands = {part.strip() for part in match.group(1).split(",")}
+        return ("triage" in commands), "parsed-help"
+
+    return ("triage" in combined), "fallback-text-search"
+
+
+def _resolve_use_cihub(args) -> tuple[bool, str | None]:
     if args.no_cihub:
-        return False
+        return False, None
     if args.cihub:
-        return True
-    return shutil.which(args.cihub_bin) is not None
+        cihub_available = shutil.which(args.cihub_bin) is not None
+    else:
+        cihub_available = shutil.which(args.cihub_bin) is not None
+    if not cihub_available:
+        return False, "cihub binary not found; skipping CIHub triage."
+
+    supports_triage, source = _cihub_supports_triage(args.cihub_bin)
+    if supports_triage:
+        return True, None
+    return (
+        False,
+        "cihub binary does not support `triage`; skipping CIHub triage "
+        f"(probe={source}).",
+    )
 
 
 def run(args) -> int:
@@ -83,8 +118,11 @@ def run(args) -> int:
     triage_report["next_actions"] = build_next_actions(triage_report["issues"])
 
     emit_dir = resolve_emit_dir(args.cihub_emit_dir)
-    use_cihub = _resolve_use_cihub(args)
+    use_cihub, cihub_warning = _resolve_use_cihub(args)
     triage_report["cihub"] = {"enabled": use_cihub, "emit_dir": str(emit_dir)}
+    if cihub_warning:
+        triage_report["cihub"]["warning"] = cihub_warning
+        triage_report["warnings"].append(cihub_warning)
     if use_cihub:
         triage_report["cihub"].update(_run_cihub_triage(args, emit_dir))
         step = triage_report["cihub"].get("step", {})
@@ -103,7 +141,8 @@ def run(args) -> int:
         triage_report["cihub"]["ingested_issues"] = len(cihub_issues)
         triage_report["issues"].extend(cihub_issues)
     else:
-        triage_report["cihub"]["warning"] = "cihub triage skipped."
+        if not triage_report["cihub"].get("warning"):
+            triage_report["cihub"]["warning"] = "cihub triage skipped."
 
     if args.require_cihub:
         step = triage_report["cihub"].get("step", {})

@@ -337,6 +337,51 @@ Evidence:
 Inference: Maintainers can now diagnose failed `check` steps directly from one
 run/report path instead of rerunning commands solely to recover error context.
 
+### Recent Governance Update (2026-02-23, Devctl Check Parallelism Slice)
+
+Fact: The second `devctl` usability/performance slice (`MP-297 #1`) landed.
+`devctl check` now runs independent setup gates (`fmt`, `clippy`, AI guard
+scripts) and the test/build phase in deterministic parallel batches while
+preserving declared report order and fail-fast boundaries between phases.
+Maintainers can opt out with `--no-parallel` or tune workers with
+`--parallel-workers`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check.py` (parallel batch runner + ordered aggregation)
+- `dev/scripts/devctl/cli.py` (`--no-parallel`, `--parallel-workers`)
+- `dev/scripts/devctl/tests/test_check.py` (parallel-path + ordering coverage)
+- `dev/scripts/README.md` (`check` command behavior/flag docs)
+- `dev/active/MASTER_PLAN.md` (`MP-297` slice status/evidence)
+
+Inference: Baseline `check` runs now reduce avoidable wall-clock idle while
+keeping deterministic reporting and explicit maintainer escape hatches when
+local resource constraints require sequential execution.
+
+### Recent Governance Update (2026-02-23, Devctl Release Metadata Prep)
+
+Fact: `devctl` release tooling now supports automated metadata preparation via
+`--prepare-release` so maintainers can update Cargo/PyPI/app-plist versions and
+roll changelog release headings in one control-plane step before verify/tag.
+
+Evidence:
+
+- `dev/scripts/devctl/cli.py` (`ship`/`release` parser wiring)
+- `dev/scripts/devctl/commands/release.py` (legacy release wrapper passthrough)
+- `dev/scripts/devctl/commands/ship.py` (step selection includes prepare step)
+- `dev/scripts/devctl/commands/release_prep.py` (metadata/changelog updaters)
+- `dev/scripts/devctl/commands/ship_steps.py` (`prepare-release` handler)
+- `dev/scripts/devctl/tests/test_ship.py`
+- `dev/scripts/devctl/tests/test_release_prep.py`
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-303`)
+
+Inference: Release preparation now has fewer manual edit points and lower drift
+risk between versioned metadata files, while keeping existing verification and
+publishing gates unchanged.
+
 ### Recent Governance Update (2026-02-23, Devctl Triage Integration)
 
 Fact: `devctl` now includes a dedicated `triage` command that outputs both a

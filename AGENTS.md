@@ -352,6 +352,8 @@ Use this exact sequence:
 5. Run release tagging and notes:
 
    ```bash
+   # Optional one-step metadata prep (Cargo/PyPI/app plist/changelog):
+   python3 dev/scripts/devctl.py ship --version <version> --prepare-release
    python3 dev/scripts/devctl.py release --version <version>
    gh release create v<version> --title "v<version>" --notes-file /tmp/voiceterm-release-v<version>.md
    # PyPI publish runs automatically via .github/workflows/publish_pypi.yml.
@@ -371,6 +373,8 @@ Unified control plane alternatives:
 ```bash
 # Workflow-first release path (recommended)
 python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --github --yes
+# Workflow-first release path with auto metadata prep
+python3 dev/scripts/devctl.py ship --version <version> --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 
@@ -453,6 +457,8 @@ Canonical tool: `python3 dev/scripts/devctl.py ...`
 Core commands:
 
 - `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+  - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
+  - Use `--parallel-workers <n>` to tune worker count, or `--no-parallel` to force sequential execution.
   - Includes automatic orphaned-test cleanup sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`

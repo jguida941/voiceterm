@@ -136,15 +136,18 @@ class TriageCommandTests(unittest.TestCase):
         self.assertTrue(any(issue["severity"] == "high" for issue in payload["issues"]))
 
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
+    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_cihub_artifacts_are_ingested_when_available(
         self,
         build_report_mock,
         write_output_mock,
+        cihub_supports_mock,
         run_cmd_mock,
     ) -> None:
         build_report_mock.return_value = minimal_project_report()
+        cihub_supports_mock.return_value = (True, "parsed-help")
         run_cmd_mock.return_value = {
             "name": "cihub-triage",
             "cmd": ["cihub", "triage", "--latest"],
@@ -185,15 +188,18 @@ class TriageCommandTests(unittest.TestCase):
             self.assertIn("rollup", payload)
 
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
+    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_priority_entries_route_to_severity_and_owner(
         self,
         build_report_mock,
         write_output_mock,
+        cihub_supports_mock,
         run_cmd_mock,
     ) -> None:
         build_report_mock.return_value = minimal_project_report()
+        cihub_supports_mock.return_value = (True, "parsed-help")
         run_cmd_mock.return_value = {
             "name": "cihub-triage",
             "cmd": ["cihub", "triage", "--latest"],
@@ -241,15 +247,18 @@ class TriageCommandTests(unittest.TestCase):
             self.assertEqual(summaries["Flaky workflow retries"]["owner"], "platform")
 
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
+    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_owner_map_file_overrides_default_owner(
         self,
         build_report_mock,
         write_output_mock,
+        cihub_supports_mock,
         run_cmd_mock,
     ) -> None:
         build_report_mock.return_value = minimal_project_report()
+        cihub_supports_mock.return_value = (True, "parsed-help")
         run_cmd_mock.return_value = {
             "name": "cihub-triage",
             "cmd": ["cihub", "triage", "--latest"],
@@ -293,15 +302,18 @@ class TriageCommandTests(unittest.TestCase):
             self.assertTrue(any("owner map loaded" in warning for warning in payload["warnings"]))
 
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
+    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_cihub_failure_adds_warning_issue(
         self,
         build_report_mock,
         write_output_mock,
+        cihub_supports_mock,
         run_cmd_mock,
     ) -> None:
         build_report_mock.return_value = minimal_project_report()
+        cihub_supports_mock.return_value = (True, "parsed-help")
         run_cmd_mock.return_value = {
             "name": "cihub-triage",
             "cmd": ["cihub", "triage", "--latest"],
@@ -323,6 +335,28 @@ class TriageCommandTests(unittest.TestCase):
                 for issue in payload["issues"]
             )
         )
+
+    @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_cihub_unsupported_subcommand_skips_without_medium_failure_issue(
+        self,
+        build_report_mock,
+        write_output_mock,
+        cihub_supports_mock,
+    ) -> None:
+        build_report_mock.return_value = minimal_project_report()
+        cihub_supports_mock.return_value = (False, "parsed-help")
+        args = make_args(cihub=True, no_cihub=False, format="json")
+
+        rc = triage.run(args)
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        summaries = [issue["summary"] for issue in payload["issues"]]
+        self.assertNotIn("cihub triage command failed; check cihub version/flags.", summaries)
+        self.assertIn("warning", payload["cihub"])
+        self.assertIn("does not support `triage`", payload["cihub"]["warning"])
 
 
 if __name__ == "__main__":

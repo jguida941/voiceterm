@@ -327,6 +327,7 @@ Unified CLI for common dev workflows:
 
 Use `AGENTS.md` as the routing policy for when to run each bundle (`normal push`, `docs-only`, `tooling/process`, `tagged release`) and use this section for exact command syntax.
 `devctl check` now runs an automatic orphaned-test process sweep before and after each run (detached `target/*/deps/voiceterm-*` binaries older than a short grace window).
+`devctl check` also runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
 
 ```bash
 # Core checks (fmt, clippy, tests, build)
@@ -334,6 +335,9 @@ python3 dev/scripts/devctl.py check
 
 # Match CI scope (fmt-check + clippy + tests)
 python3 dev/scripts/devctl.py check --profile ci
+# Optional: tune or disable parallel check batches
+python3 dev/scripts/devctl.py check --profile ci --parallel-workers 2
+python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: disable automatic orphaned-test cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
@@ -400,7 +404,11 @@ python3 dev/scripts/check_rust_best_practices.py
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
+# Optional metadata prep (Cargo/PyPI/app plist/changelog)
+python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+# One-command prep + verify + tag + notes + GitHub release
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
@@ -703,6 +711,10 @@ gh secret list | rg HOMEBREW_TAP_TOKEN
 ```bash
 # Canonical control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
+# Optional: auto-prepare metadata files before release/tag
+python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
+# Optional: workflow-first one-command path
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 
 # Create release on GitHub
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md

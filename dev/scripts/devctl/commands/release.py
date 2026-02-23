@@ -11,6 +11,7 @@ def run(args) -> int:
     confirm_or_abort(f"Run release flow for {args.version}?", args.yes or args.dry_run)
     ship_args = SimpleNamespace(
         version=args.version,
+        prepare_release=args.prepare_release,
         verify=False,
         verify_docs=False,
         tag=True,

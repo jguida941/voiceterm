@@ -14,7 +14,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import List
 
-from ..common import build_env, pipe_output, run_cmd, should_emit_output, write_output
+from ..common import build_env, pipe_output, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
@@ -25,6 +25,7 @@ from ..process_sweep import (
 )
 from ..steps import format_steps_md
 from .check_profile import resolve_profile_settings
+from .check_steps import build_step_spec, run_step_specs
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
@@ -108,6 +109,8 @@ def run(args) -> int:
     steps: List[dict] = []
     settings, clippy_cmd = resolve_profile_settings(args)
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
+    parallel_enabled = not getattr(args, "no_parallel", False)
+    parallel_workers = max(1, int(getattr(args, "parallel_workers", 4)))
 
     def emit_failure_summary(result: dict) -> None:
         """Show a short actionable error summary after a failed step."""
@@ -121,13 +124,38 @@ def run(args) -> int:
             print(f"[check] last output from {result['name']}:")
             print(failure_output)
 
+    def make_step_spec(name: str, cmd: List[str], cwd=None, step_env=None) -> dict:
+        return build_step_spec(
+            name=name,
+            cmd=cmd,
+            default_env=env,
+            cwd=cwd,
+            step_env=step_env,
+        )
+
+    def add_steps(step_specs: List[dict], allow_parallel: bool = False) -> None:
+        if not step_specs:
+            return
+        results = run_step_specs(
+            step_specs,
+            dry_run=args.dry_run,
+            parallel_enabled=allow_parallel and parallel_enabled,
+            max_workers=parallel_workers,
+        )
+
+        failed = False
+        for result in results:
+            steps.append(result)
+            if result["returncode"] != 0:
+                failed = True
+                emit_failure_summary(result)
+
+        if failed and not args.keep_going:
+            failed_steps = ", ".join(result["name"] for result in results if result["returncode"] != 0)
+            raise RuntimeError(f"check phase failed ({failed_steps})")
+
     def add_step(name: str, cmd: List[str], cwd=None, step_env=None) -> None:
-        result = run_cmd(name, cmd, cwd=cwd, env=step_env or env, dry_run=args.dry_run)
-        steps.append(result)
-        if result["returncode"] != 0:
-            emit_failure_summary(result)
-            if not args.keep_going:
-                raise RuntimeError(f"{name} failed")
+        add_steps([make_step_spec(name, cmd, cwd=cwd, step_env=step_env)])
 
     if process_sweep_cleanup:
         steps.append(
@@ -138,37 +166,65 @@ def run(args) -> int:
         )
 
     try:
+        setup_phase_specs: List[dict] = []
         if not args.skip_fmt:
             if args.fix:
-                add_step("fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR)
+                setup_phase_specs.append(make_step_spec("fmt", ["cargo", "fmt", "--all"], cwd=SRC_DIR))
             else:
-                add_step("fmt-check", ["cargo", "fmt", "--all", "--", "--check"], cwd=SRC_DIR)
+                setup_phase_specs.append(
+                    make_step_spec(
+                        "fmt-check",
+                        ["cargo", "fmt", "--all", "--", "--check"],
+                        cwd=SRC_DIR,
+                    )
+                )
 
         if not args.skip_clippy:
-            add_step("clippy", clippy_cmd, cwd=SRC_DIR)
+            setup_phase_specs.append(make_step_spec("clippy", clippy_cmd, cwd=SRC_DIR))
 
         if settings["with_ai_guard"]:
-            add_step("code-shape-guard", ["python3", "dev/scripts/check_code_shape.py"], cwd=REPO_ROOT)
-            add_step(
-                "rust-lint-debt-guard",
-                ["python3", "dev/scripts/check_rust_lint_debt.py"],
-                cwd=REPO_ROOT,
+            setup_phase_specs.append(
+                make_step_spec(
+                    "code-shape-guard",
+                    ["python3", "dev/scripts/check_code_shape.py"],
+                    cwd=REPO_ROOT,
+                )
             )
-            add_step(
-                "rust-best-practices-guard",
-                ["python3", "dev/scripts/check_rust_best_practices.py"],
-                cwd=REPO_ROOT,
+            setup_phase_specs.append(
+                make_step_spec(
+                    "rust-lint-debt-guard",
+                    ["python3", "dev/scripts/check_rust_lint_debt.py"],
+                    cwd=REPO_ROOT,
+                )
+            )
+            setup_phase_specs.append(
+                make_step_spec(
+                    "rust-best-practices-guard",
+                    ["python3", "dev/scripts/check_rust_best_practices.py"],
+                    cwd=REPO_ROOT,
+                )
             )
 
+        add_steps(setup_phase_specs, allow_parallel=True)
+
+        test_build_phase_specs: List[dict] = []
         if not settings["skip_tests"]:
-            add_step("test", ["cargo", "test", "--workspace", "--all-features"], cwd=SRC_DIR)
-
-        if not settings["skip_build"]:
-            add_step(
-                "build-release",
-                ["cargo", "build", "--release", "--bin", "voiceterm"],
-                cwd=SRC_DIR,
+            test_build_phase_specs.append(
+                make_step_spec(
+                    "test",
+                    ["cargo", "test", "--workspace", "--all-features"],
+                    cwd=SRC_DIR,
+                )
             )
+        if not settings["skip_build"]:
+            test_build_phase_specs.append(
+                make_step_spec(
+                    "build-release",
+                    ["cargo", "build", "--release", "--bin", "voiceterm"],
+                    cwd=SRC_DIR,
+                )
+            )
+        add_steps(test_build_phase_specs, allow_parallel=True)
 
         if settings["with_wake_guard"]:
             wake_guard_env = dict(env)

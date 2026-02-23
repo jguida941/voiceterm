@@ -43,6 +43,8 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py check --profile release
+# Optional: force sequential check execution (parallel phases are default)
+python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: disable automatic orphaned-test cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
@@ -86,9 +88,13 @@ gh run list --workflow coverage.yml --limit 1
 
 # Tag + notes (legacy release flow)
 python3 dev/scripts/devctl.py release --version X.Y.Z
+# Optional: auto-prepare release metadata before tag/notes
+python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 
 # Workflow-first release path (recommended)
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+# One-command prep + verify + tag + notes + GitHub release
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 
@@ -129,6 +135,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ## Devctl Command Set
 
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+  - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
+  - Tune parallelism with `--parallel-workers <n>` or force sequential execution with `--no-parallel`.
   - Runs an automatic orphaned-test sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
   - Disable only when needed with `--no-process-sweep-cleanup`.
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
@@ -139,7 +147,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `security`: RustSec policy checks plus optional workflow security scanning (`--with-zizmor`)
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
-- `ship`: full release/distribution orchestrator with step toggles
+- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`)
 - `homebrew`: Homebrew tap update flow
 - `pypi`: PyPI build/check/upload flow
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
@@ -159,6 +167,8 @@ consistent:
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
   toggles/normalization.
+- `dev/scripts/devctl/commands/check_steps.py`: shared `check` step-spec
+  builder plus serial/parallel execution helpers with stable result ordering.
 - `dev/scripts/devctl/status_report.py`: shared payload collection and markdown
   rendering used by both `status` and `report`.
 - `dev/scripts/devctl/triage_support.py`: shared triage classification,
@@ -172,6 +182,9 @@ consistent:
   used by `dev/scripts/devctl/commands/ship.py`.
 - `dev/scripts/devctl/commands/security.py`: shared local security gate runner
   (RustSec policy + optional `zizmor` scanner behavior).
+- `dev/scripts/devctl/commands/release_prep.py`: shared release metadata
+  preparation helpers used by `ship/release --prepare-release` (Cargo/PyPI/app
+  version fields plus changelog heading rollover).
 - `dev/scripts/devctl/common.py`: shared command runner returns structured
   non-zero results (including missing-binary failures) instead of uncaught
   exceptions, streams live subprocess output, and keeps bounded failure-output
@@ -194,6 +207,8 @@ Markdown lint policy files live under `dev/config/`:
 ```bash
 # 1) align release versions across Cargo/PyPI/macOS app plist + changelog
 python3 dev/scripts/check_release_version_parity.py
+# Optional: auto-prepare these files in one step
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release
 
 # 2) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
@@ -225,6 +240,8 @@ Or run unified control-plane commands directly:
 ```bash
 # Workflow-first release path
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
+# Workflow-first with auto metadata prep
+python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 

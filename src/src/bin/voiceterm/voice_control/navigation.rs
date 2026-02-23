@@ -34,9 +34,8 @@ pub(super) fn parse_voice_navigation_action(text: &str) -> Option<VoiceNavigatio
         "scroll down" | "voice scroll down" | "page down" => {
             Some(VoiceNavigationAction::ScrollDown)
         }
-        "send" | "send it" | "send now" | "send message" | "submit" | "submit now" => {
-            Some(VoiceNavigationAction::SendStagedInput)
-        }
+        "send" | "send it" | "send now" | "send message" | "sand" | "sand it" | "sand now"
+        | "sand message" | "submit" | "submit now" => Some(VoiceNavigationAction::SendStagedInput),
         "copy last error" | "copy the last error" => Some(VoiceNavigationAction::CopyLastError),
         "show last error" | "what was the last error" => Some(VoiceNavigationAction::ShowLastError),
         "explain last error" | "explain the last error" => {
@@ -75,6 +74,9 @@ fn normalize_navigation_tokens(text: &str) -> Vec<String> {
         }
         let token = match cleaned_tokens[idx].as_str() {
             "codec" | "codecs" | "kodak" | "kodaks" | "kodex" => "codex",
+            "cloud" | "clod" | "clawd" | "clog" => "claude",
+            "pay" if idx == 0 => "hey",
+            "hate" if idx == 0 => "hey",
             other => other,
         };
         canonical.push(token.to_string());
@@ -416,6 +418,14 @@ mod tests {
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(
+            parse_voice_navigation_action("sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("sand now"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
             parse_voice_navigation_action("send."),
             Some(VoiceNavigationAction::SendStagedInput)
         );
@@ -436,7 +446,19 @@ mod tests {
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(
+            parse_voice_navigation_action("claude sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
             parse_voice_navigation_action("code x send"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("kodak sand"),
+            Some(VoiceNavigationAction::SendStagedInput)
+        );
+        assert_eq!(
+            parse_voice_navigation_action("pay clog sand"),
             Some(VoiceNavigationAction::SendStagedInput)
         );
         assert_eq!(

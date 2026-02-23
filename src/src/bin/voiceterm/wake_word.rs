@@ -564,6 +564,7 @@ fn log_wake_transcript_decision(raw: &str, normalized: &str, event: Option<WakeW
             *token,
             "hey"
                 | "hate"
+                | "pay"
                 | "codex"
                 | "codec"
                 | "codecs"
@@ -571,11 +572,13 @@ fn log_wake_transcript_decision(raw: &str, normalized: &str, event: Option<WakeW
                 | "kodex"
                 | "claude"
                 | "cloud"
+                | "clog"
                 | "voiceterm"
                 | "voice"
                 | "term"
                 | "send"
                 | "sen"
+                | "sand"
                 | "sending"
                 | "submit"
         )
@@ -639,8 +642,9 @@ fn canonicalize_hotword_tokens(tokens: &[&str]) -> Vec<String> {
         }
         let token = match tokens[idx] {
             "codec" | "codecs" | "kodak" | "kodaks" | "kodex" => "codex",
-            "cloud" | "clod" | "clawd" => "claude",
+            "cloud" | "clod" | "clawd" | "clog" => "claude",
             "hate" if idx == 0 => "hey",
+            "pay" if idx == 0 => "hey",
             other => other,
         };
         canonical.push(token.to_string());
@@ -681,16 +685,21 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
         suffix_tokens,
         ["send"]
             | ["sen"]
+            | ["sand"]
             | ["sending"]
             | ["send", "it"]
             | ["sen", "it"]
+            | ["sand", "it"]
             | ["send", "this"]
             | ["sen", "this"]
+            | ["sand", "this"]
             | ["send", "message"]
             | ["sen", "message"]
+            | ["sand", "message"]
             | ["submit"]
             | ["send", "now"]
             | ["sen", "now"]
+            | ["sand", "now"]
             | ["submit", "now"]
     )
 }

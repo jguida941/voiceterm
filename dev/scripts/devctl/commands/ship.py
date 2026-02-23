@@ -13,6 +13,8 @@ from .ship_steps import STEP_HANDLERS
 
 def _selected_steps(args) -> List[str]:
     selected_steps: List[str] = []
+    if args.prepare_release:
+        selected_steps.append("prepare-release")
     if args.verify:
         selected_steps.append("verify")
     if args.tag:
@@ -39,7 +41,7 @@ def run(args) -> int:
     selected_steps = _selected_steps(args)
     if not selected_steps:
         print(
-            "Error: no steps selected. Choose one or more of --verify --tag --notes --github --pypi --homebrew --verify-pypi."
+            "Error: no steps selected. Choose one or more of --prepare-release --verify --tag --notes --github --pypi --homebrew --verify-pypi."
         )
         return 2
 
