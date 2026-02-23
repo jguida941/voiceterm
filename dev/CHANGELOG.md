@@ -14,10 +14,12 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add a guarded developer launch mode (`--dev`, alias `--dev-mode` / `-D`) that keeps default runtime behavior unchanged when absent and shows a `DEV` HUD badge when active.
 - Add guarded dev-event logging controls (`--dev-log`, `--dev-path`) that require `--dev` and persist per-session JSONL event files under the configured dev data root.
 - Expand Theme Studio runtime controls with `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, and wire these rows into undo/redo/rollback history so the added style-pack fields are live-editable from the overlay.
+- Refresh Theme Studio row rendering to settings-style `label + [ value ]` controls with selected-row highlighting, a dedicated `tip:` description row, wider panel width (`60..=82`), and explicit left/right adjustment hints in the footer so row text no longer truncates into the frame border.
 - Route style-pack component border overrides through runtime rendering: `components.overlay_border` now drives overlay frame borders (help/settings/theme-picker/theme-studio/toast plus themed CLI help output), and `components.hud_border` now drives Full-HUD borders when HUD border mode is `Theme`.
 - Route startup banner separators and explicit spinner animations through glyph-profile fallback rules so `Glyph profile: ASCII` keeps startup separators and spinner frames ASCII-safe.
 - Improve Full/Minimal HUD controls-row readability by tinting button brackets to each button's active theme color and adding stronger focused-bracket contrast in arrow-key focus mode.
 - Route transcript-history overlay borders through the style-pack overlay border resolver so `components.overlay_border` now applies consistently across help/settings/theme-picker/theme-studio/toast/history overlays.
+- Add a small manual/PTT capture grace window by applying a manual-only `+400 ms` silence-tail adjustment (clamped to max capture) so brief hesitation before speaking is less likely to auto-stop recording too early.
 
 ### Documentation
 

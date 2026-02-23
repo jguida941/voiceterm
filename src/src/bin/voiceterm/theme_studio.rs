@@ -7,11 +7,11 @@ use crate::overlay_frame::{
 #[cfg(test)]
 use crate::theme::StylePackFieldId;
 use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, resolved_overlay_border_set,
-    RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
-    RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
-    RuntimeStartupStyleOverride, RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
-    RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_row_marker, overlay_separator,
+    resolved_overlay_border_set, RuntimeBannerStyleOverride, RuntimeBorderStyleOverride,
+    RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride,
+    RuntimeProgressStyleOverride, RuntimeStartupStyleOverride, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride, Theme, ThemeColors,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,11 +91,15 @@ pub(crate) fn theme_studio_footer(colors: &ThemeColors) -> String {
     let close = overlay_close_symbol(colors.glyph_set);
     let sep = overlay_separator(colors.glyph_set);
     let move_hint = overlay_move_hint(colors.glyph_set);
-    format!("[{close}] close {sep} {move_hint} move {sep} Enter select")
+    let adjust_hint = match colors.glyph_set {
+        crate::theme::GlyphSet::Unicode => "\u{2190}/\u{2192}",
+        crate::theme::GlyphSet::Ascii => "left/right",
+    };
+    format!("[{close}] close {sep} {move_hint} move {sep} {adjust_hint} adjust {sep} Enter select")
 }
 
 pub(crate) fn theme_studio_inner_width_for_terminal(width: usize) -> usize {
-    width.clamp(54, 72)
+    width.clamp(60, 82)
 }
 
 pub(crate) fn theme_studio_total_width_for_terminal(width: usize) -> usize {
@@ -103,8 +107,8 @@ pub(crate) fn theme_studio_total_width_for_terminal(width: usize) -> usize {
 }
 
 pub(crate) fn theme_studio_height() -> usize {
-    // Top border + title + separator + options + separator + footer + bottom border
-    1 + 1 + 1 + THEME_STUDIO_ITEMS.len() + 1 + 1 + 1
+    // Top border + title + separator + options + tip + separator + footer + bottom border
+    1 + 1 + 1 + THEME_STUDIO_ITEMS.len() + 1 + 1 + 1 + 1
 }
 
 #[must_use]
@@ -137,12 +141,12 @@ pub(crate) fn format_theme_studio(view: &ThemeStudioView, width: usize) -> Strin
             view,
             &colors,
             item,
-            idx + 1,
             idx == view.selected,
             inner_width,
         ));
     }
 
+    lines.push(format_theme_studio_tip_row(view, &colors, inner_width));
     lines.push(frame_separator(&colors, borders, total_width));
     let footer = theme_studio_footer(&colors);
     lines.push(centered_title_line(&colors, borders, &footer, total_width));
@@ -155,181 +159,209 @@ fn format_theme_studio_option_line(
     view: &ThemeStudioView,
     colors: &ThemeColors,
     item: &ThemeStudioItem,
-    num: usize,
     selected: bool,
     inner_width: usize,
 ) -> String {
-    let (title, description, coming_soon): (&str, String, bool) = match item {
+    const LABEL_WIDTH: usize = 20;
+    let (label, value, _tip, read_only) = theme_studio_row(view, item);
+    let marker = if selected {
+        overlay_row_marker(colors.glyph_set)
+    } else {
+        " "
+    };
+    let row_text = format!("{marker} {:<width$} {value}", label, width = LABEL_WIDTH);
+    format_theme_studio_menu_row(colors, inner_width, &row_text, selected, read_only)
+}
+
+fn format_theme_studio_tip_row(
+    view: &ThemeStudioView,
+    colors: &ThemeColors,
+    inner_width: usize,
+) -> String {
+    let selected_item = theme_studio_item_at(view.selected);
+    let (_label, _value, tip, _read_only) = theme_studio_row(view, &selected_item);
+    let text = format!(" tip: {tip}");
+    let clipped = truncate_display(&text, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
+    format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        colors.borders.vertical,
+        colors.dim,
+        clipped,
+        pad,
+        colors.border,
+        colors.borders.vertical,
+        colors.reset
+    )
+}
+
+fn format_theme_studio_menu_row(
+    colors: &ThemeColors,
+    inner_width: usize,
+    text: &str,
+    selected: bool,
+    read_only: bool,
+) -> String {
+    let clipped = truncate_display(text, inner_width);
+    let padded = format!(
+        "{clipped}{}",
+        " ".repeat(inner_width.saturating_sub(display_width(&clipped)))
+    );
+    let styled = if selected {
+        if read_only {
+            format!("{}{}{}", colors.dim, padded, colors.reset)
+        } else {
+            format!("{}{}{}", colors.info, padded, colors.reset)
+        }
+    } else if read_only {
+        format!("{}{}{}", colors.dim, padded, colors.reset)
+    } else {
+        padded
+    };
+    format!(
+        "{}{}{}{}{}{}{}",
+        colors.border,
+        colors.borders.vertical,
+        colors.reset,
+        styled,
+        colors.border,
+        colors.borders.vertical,
+        colors.reset
+    )
+}
+
+fn theme_studio_row(
+    view: &ThemeStudioView,
+    item: &ThemeStudioItem,
+) -> (&'static str, String, String, bool) {
+    match item {
         ThemeStudioItem::ThemePicker => (
             "Theme picker",
+            button_label("Open"),
             "Open classic palette browser for quick theme apply.".to_string(),
             false,
         ),
         ThemeStudioItem::HudStyle => (
             "HUD style",
-            format!(
-                "Current: {}. Cycle HUD style (Full, Minimal, Hidden).",
-                view.hud_style
-            ),
+            button_label(&view.hud_style.to_string()),
+            "Cycle HUD style (Full, Minimal, Hidden).".to_string(),
             false,
         ),
         ThemeStudioItem::HudBorders => (
             "HUD borders",
-            format!(
-                "Current: {}. Cycle Full HUD border style presets.",
-                view.hud_border_style
-            ),
+            button_label(&view.hud_border_style.to_string()),
+            "Cycle Full HUD border style presets.".to_string(),
             false,
         ),
         ThemeStudioItem::HudPanel => (
             "Right panel",
-            format!(
-                "Current: {}. Cycle right panel mode (ribbon/dots/heartbeat/off).",
-                view.hud_right_panel
-            ),
+            button_label(&view.hud_right_panel.to_string()),
+            "Cycle right-panel mode (Ribbon, Dots, Heartbeat, Off).".to_string(),
             false,
         ),
         ThemeStudioItem::HudAnimate => (
             "Panel animation",
-            format!(
-                "Current: {}. Toggle panel animation mode (recording-only/always).",
-                panel_animation_mode_label(view.hud_right_panel_recording_only)
-            ),
+            button_label(panel_animation_mode_label(
+                view.hud_right_panel_recording_only,
+            )),
+            "Toggle panel animation mode (recording-only/always).".to_string(),
             false,
         ),
         ThemeStudioItem::ColorsGlyphs => (
             "Glyph profile",
-            format!(
-                "Current: {}. Cycle glyph profile (theme/unicode/ascii).",
-                glyph_profile_label(view.glyph_set_override)
-            ),
+            button_label(glyph_profile_label(view.glyph_set_override)),
+            "Cycle glyph profile (theme/unicode/ascii).".to_string(),
             false,
         ),
         ThemeStudioItem::LayoutMotion => (
             "Indicator set",
-            format!(
-                "Current: {}. Cycle indicator set (theme/ascii/dot/diamond).",
-                indicator_set_label(view.indicator_set_override)
-            ),
+            button_label(indicator_set_label(view.indicator_set_override)),
+            "Cycle indicator set (theme/ascii/dot/diamond).".to_string(),
             false,
         ),
         ThemeStudioItem::ProgressSpinner => (
             "Progress spinner",
-            format!(
-                "Current: {}. Cycle spinner style (theme/braille/dots/line/block).",
-                progress_spinner_label(view.progress_style_override)
-            ),
+            button_label(progress_spinner_label(view.progress_style_override)),
+            "Cycle spinner style (theme/braille/dots/line/block).".to_string(),
             false,
         ),
         ThemeStudioItem::ProgressBars => (
             "Progress bars",
-            format!(
-                "Current: {}. Cycle bar family (theme/bar/compact/blocks/braille).",
-                progress_bar_family_label(view.progress_bar_family_override)
-            ),
+            button_label(progress_bar_family_label(view.progress_bar_family_override)),
+            "Cycle bar family (theme/bar/compact/blocks/braille).".to_string(),
             false,
         ),
         ThemeStudioItem::ThemeBorders => (
             "Theme borders",
-            format!(
-                "Current: {}. Cycle theme border profile (theme/single/rounded/double/heavy/none).",
-                theme_border_label(view.border_style_override)
-            ),
+            button_label(theme_border_label(view.border_style_override)),
+            "Cycle theme border profile (theme/single/rounded/double/heavy/none).".to_string(),
             false,
         ),
         ThemeStudioItem::VoiceScene => (
             "Voice scene",
-            format!(
-                "Current: {}. Cycle scene style (theme/pulse/static/minimal).",
-                voice_scene_label(view.voice_scene_style_override)
-            ),
+            button_label(voice_scene_label(view.voice_scene_style_override)),
+            "Cycle scene style (theme/pulse/static/minimal).".to_string(),
             false,
         ),
         ThemeStudioItem::ToastPosition => (
             "Toast position",
-            format!(
-                "Current: {}. Cycle toast placement (theme/top-right/bottom-right/top-center/bottom-center).",
-                toast_position_label(view.toast_position_override)
-            ),
+            button_label(toast_position_label(view.toast_position_override)),
+            "Cycle toast placement (theme/top-right/bottom-right/top-center/bottom-center)."
+                .to_string(),
             false,
         ),
         ThemeStudioItem::StartupSplash => (
             "Startup splash",
-            format!(
-                "Current: {}. Cycle splash style (theme/full/minimal/hidden).",
-                startup_style_label(view.startup_style_override)
-            ),
+            button_label(startup_style_label(view.startup_style_override)),
+            "Cycle splash style (theme/full/minimal/hidden).".to_string(),
             false,
         ),
         ThemeStudioItem::ToastSeverity => (
             "Toast severity",
-            format!(
-                "Current: {}. Cycle toast severity display (theme/icon/label/icon+label).",
-                toast_severity_mode_label(view.toast_severity_mode_override)
-            ),
+            button_label(toast_severity_mode_label(view.toast_severity_mode_override)),
+            "Cycle toast severity display (theme/icon/label/icon+label).".to_string(),
             false,
         ),
         ThemeStudioItem::BannerStyle => (
             "Banner style",
-            format!(
-                "Current: {}. Cycle startup banner style (theme/full/compact/minimal/hidden).",
-                banner_style_label(view.banner_style_override)
-            ),
+            button_label(banner_style_label(view.banner_style_override)),
+            "Cycle startup banner style (theme/full/compact/minimal/hidden).".to_string(),
             false,
         ),
         ThemeStudioItem::UndoEdit => (
             "Undo edit",
-            format!(
-                "Current: {}. Revert the most recent style-pack override edit.",
-                edit_history_state_label(view.undo_available)
-            ),
-            false,
+            button_label(if view.undo_available { "Undo" } else { "Empty" }),
+            "Revert the most recent style-pack override edit.".to_string(),
+            !view.undo_available,
         ),
         ThemeStudioItem::RedoEdit => (
             "Redo edit",
-            format!(
-                "Current: {}. Re-apply the most recently undone override edit.",
-                edit_history_state_label(view.redo_available)
-            ),
-            false,
+            button_label(if view.redo_available { "Redo" } else { "Empty" }),
+            "Re-apply the most recently undone override edit.".to_string(),
+            !view.redo_available,
         ),
         ThemeStudioItem::RollbackEdits => (
             "Rollback edits",
-            format!(
-                "Current: {}. Reset all runtime style-pack overrides to theme defaults.",
-                runtime_override_state_label(view.runtime_overrides_dirty)
-            ),
+            button_label(if view.runtime_overrides_dirty {
+                "Rollback"
+            } else {
+                "Clean"
+            }),
+            "Reset all runtime style-pack overrides to theme defaults.".to_string(),
+            !view.runtime_overrides_dirty,
+        ),
+        ThemeStudioItem::Close => (
+            "Close",
+            button_label("Close"),
+            "Dismiss Theme Studio.".to_string(),
             false,
         ),
-        ThemeStudioItem::Close => ("Close", "Dismiss Theme Studio.".to_string(), false),
-    };
-    let marker = if selected { ">" } else { " " };
-    let label = format!("{num}. {title}");
-    let label_col = 20usize;
-    let label_padded = format!("{label:<width$}", width = label_col);
-    let fixed_visible = 1 + 1 + label_col + 1; // marker + space + label + space
-    let desc_col = inner_width.saturating_sub(fixed_visible);
-    let desc = truncate_display(&description, desc_col);
-    let desc_pad = " ".repeat(desc_col.saturating_sub(display_width(&desc)));
-    let row_prefix = if coming_soon { colors.dim } else { "" };
-    let row_suffix = if coming_soon { colors.reset } else { "" };
+    }
+}
 
-    format!(
-        "{}{}{}{}{} {} {} {}{}{}{}{}{}",
-        colors.border,
-        colors.borders.vertical,
-        colors.reset,
-        row_prefix,
-        marker,
-        label_padded,
-        desc,
-        desc_pad,
-        row_suffix,
-        colors.border,
-        colors.borders.vertical,
-        colors.reset,
-        colors.reset
-    )
+fn button_label(label: &str) -> String {
+    format!("[ {label} ]")
 }
 
 fn panel_animation_mode_label(recording_only: bool) -> &'static str {
@@ -439,22 +471,6 @@ fn banner_style_label(override_value: Option<RuntimeBannerStyleOverride>) -> &'s
     }
 }
 
-fn edit_history_state_label(available: bool) -> &'static str {
-    if available {
-        "Available"
-    } else {
-        "Empty"
-    }
-}
-
-fn runtime_override_state_label(dirty: bool) -> &'static str {
-    if dirty {
-        "Dirty"
-    } else {
-        "Clean"
-    }
-}
-
 #[cfg(test)]
 fn style_pack_field_studio_item(field: StylePackFieldId) -> Option<ThemeStudioItem> {
     match field {
@@ -530,25 +546,29 @@ mod tests {
     fn theme_studio_overlay_contains_expected_rows() {
         let rendered = format_theme_studio(&sample_view(Theme::Codex), 80);
         assert!(rendered.contains("VoiceTerm - Theme Studio"));
-        assert!(rendered.contains("1. Theme picker"));
-        assert!(rendered.contains("2. HUD style"));
-        assert!(rendered.contains("3. HUD borders"));
-        assert!(rendered.contains("4. Right panel"));
-        assert!(rendered.contains("5. Panel animation"));
-        assert!(rendered.contains("6. Glyph profile"));
-        assert!(rendered.contains("7. Indicator set"));
-        assert!(rendered.contains("8. Progress spinner"));
-        assert!(rendered.contains("9. Progress bars"));
-        assert!(rendered.contains("10. Theme borders"));
-        assert!(rendered.contains("11. Voice scene"));
-        assert!(rendered.contains("12. Toast position"));
-        assert!(rendered.contains("13. Startup splash"));
-        assert!(rendered.contains("14. Toast severity"));
-        assert!(rendered.contains("15. Banner style"));
-        assert!(rendered.contains("16. Undo edit"));
-        assert!(rendered.contains("17. Redo edit"));
-        assert!(rendered.contains("18. Rollback edits"));
-        assert!(rendered.contains("19. Close"));
+        assert!(rendered.contains("Theme picker"));
+        assert!(rendered.contains("HUD style"));
+        assert!(rendered.contains("HUD borders"));
+        assert!(rendered.contains("Right panel"));
+        assert!(rendered.contains("Panel animation"));
+        assert!(rendered.contains("Glyph profile"));
+        assert!(rendered.contains("Indicator set"));
+        assert!(rendered.contains("Progress spinner"));
+        assert!(rendered.contains("Progress bars"));
+        assert!(rendered.contains("Theme borders"));
+        assert!(rendered.contains("Voice scene"));
+        assert!(rendered.contains("Toast position"));
+        assert!(rendered.contains("Startup splash"));
+        assert!(rendered.contains("Toast severity"));
+        assert!(rendered.contains("Banner style"));
+        assert!(rendered.contains("Undo edit"));
+        assert!(rendered.contains("Redo edit"));
+        assert!(rendered.contains("Rollback edits"));
+        assert!(rendered.contains("Close"));
+        assert!(rendered.contains("[ Open ]"));
+        assert!(rendered.contains("[ Empty ]"));
+        assert!(rendered.contains("[ Clean ]"));
+        assert!(rendered.contains("tip: Open classic palette browser"));
     }
 
     #[test]
@@ -556,7 +576,17 @@ mod tests {
         let mut view = sample_view(Theme::Codex);
         view.selected = 4;
         let rendered = format_theme_studio(&view, 80);
-        assert!(rendered.contains("> 5. Panel animation"));
+        let marker = overlay_row_marker(Theme::Codex.colors().glyph_set);
+        let selected_label = format!("{marker} Panel animation");
+        assert!(rendered.contains(&selected_label));
+    }
+
+    #[test]
+    fn theme_studio_overlay_shows_selected_row_tip() {
+        let mut view = sample_view(Theme::Codex);
+        view.selected = 10;
+        let rendered = format_theme_studio(&view, 80);
+        assert!(rendered.contains("tip: Cycle scene style (theme/pulse/static/minimal)."));
     }
 
     #[test]
@@ -583,27 +613,27 @@ mod tests {
             runtime_overrides_dirty: true,
         };
         let rendered = format_theme_studio(&view, 80);
-        assert!(rendered.contains("Current: Hidden"));
-        assert!(rendered.contains("Current: Double"));
-        assert!(rendered.contains("Current: Dots"));
-        assert!(rendered.contains("Current: Always"));
-        assert!(rendered.contains("Current: Ascii"));
-        assert!(rendered.contains("Current: Diamond"));
-        assert!(rendered.contains("Current: Line"));
-        assert!(rendered.contains("Current: Blocks"));
-        assert!(rendered.contains("Current: Heavy"));
-        assert!(rendered.contains("Current: Pulse"));
-        assert!(rendered.contains("Current: Top-center"));
-        assert!(rendered.contains("Current: Minimal"));
-        assert!(rendered.contains("Current: Icon+Label"));
-        assert!(rendered.contains("Current: Compact"));
-        assert!(rendered.contains("Current: Available"));
-        assert!(rendered.contains("Current: Dirty"));
+        assert!(rendered.contains("[ Hidden ]"));
+        assert!(rendered.contains("[ Double ]"));
+        assert!(rendered.contains("[ Dots ]"));
+        assert!(rendered.contains("[ Always ]"));
+        assert!(rendered.contains("[ Ascii ]"));
+        assert!(rendered.contains("[ Diamond ]"));
+        assert!(rendered.contains("[ Line ]"));
+        assert!(rendered.contains("[ Blocks ]"));
+        assert!(rendered.contains("[ Heavy ]"));
+        assert!(rendered.contains("[ Pulse ]"));
+        assert!(rendered.contains("[ Top-center ]"));
+        assert!(rendered.contains("[ Minimal ]"));
+        assert!(rendered.contains("[ Icon+Label ]"));
+        assert!(rendered.contains("[ Compact ]"));
+        assert!(rendered.contains("[ Undo ]"));
+        assert!(rendered.contains("[ Rollback ]"));
     }
 
     #[test]
     fn theme_studio_height_matches_contract() {
-        assert_eq!(theme_studio_height(), 25);
+        assert_eq!(theme_studio_height(), 26);
     }
 
     #[test]
@@ -617,6 +647,16 @@ mod tests {
     fn theme_studio_none_theme_has_no_ansi_sequences() {
         let rendered = format_theme_studio(&sample_view(Theme::None), 80);
         assert!(!rendered.contains("\x1b["));
+    }
+
+    #[test]
+    fn theme_studio_footer_respects_ascii_glyph_set() {
+        let mut colors = Theme::None.colors();
+        colors.glyph_set = crate::theme::GlyphSet::Ascii;
+        assert_eq!(
+            theme_studio_footer(&colors),
+            "[x] close | up/down move | left/right adjust | Enter select"
+        );
     }
 
     #[test]

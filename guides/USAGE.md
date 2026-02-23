@@ -169,6 +169,7 @@ Visual controls are now in Theme Studio:
 - Press `Ctrl+Y` to open Theme Studio.
 - Use `Theme picker` (or `Ctrl+G`) to change themes.
 - Use Theme Studio rows to change HUD style, borders, right panel, animation, toast position/severity, startup splash style, and banner style.
+- Theme Studio rows use a `Label [ Value ]` layout with a bottom `tip:` line for the currently selected row.
 - Use `Undo edit`, `Redo edit`, and `Rollback edits` if you want to revert visual changes.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
@@ -577,7 +578,7 @@ Common statuses:
 | `Ready` | Idle/success state after transcript delivery |
 | `Transcript queued (N)` | Backend was busy; transcript is queued |
 | `Macros: OFF` | Raw transcript injection, no macro expansion |
-| `No speech detected` | Capture ended without enough detected speech |
+| `No speech detected` | Capture ended without enough detected speech (manual/PTT mode now includes a short extra grace window before silence stop) |
 
 You can check or change the active voice pipeline in Settings (`Ctrl+O`).
 

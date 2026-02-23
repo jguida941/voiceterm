@@ -909,10 +909,10 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
         WriterMessage::ShowOverlay { height, content } => {
             assert_eq!(height, theme_studio_height());
             assert!(content.contains("Theme Studio"));
-            assert!(content.contains("Current: Hidden"));
-            assert!(content.contains("Current: Double"));
-            assert!(content.contains("Current: Dots"));
-            assert!(content.contains("Current: Always"));
+            assert!(content.contains("[ Hidden ]"));
+            assert!(content.contains("[ Double ]"));
+            assert!(content.contains("[ Dots ]"));
+            assert!(content.contains("[ Always ]"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }
