@@ -33,13 +33,7 @@ on:
       - "AGENTS.md"
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
-      - ".github/workflows/docs_lint.yml"
-      - ".github/workflows/coverage.yml"
-      - ".github/workflows/publish_pypi.yml"
-      - ".github/workflows/publish_homebrew.yml"
-      - ".github/workflows/release_preflight.yml"
-      - ".github/workflows/tooling_control_plane.yml"
-      - ".github/workflows/orchestrator_watchdog.yml"
+      - ".github/workflows/*.yml"
   pull_request:
     paths:
       - "dev/scripts/**"
@@ -62,13 +56,7 @@ on:
       - "AGENTS.md"
       - "dev/DEVELOPMENT.md"
       - "dev/scripts/README.md"
-      - ".github/workflows/docs_lint.yml"
-      - ".github/workflows/coverage.yml"
-      - ".github/workflows/publish_pypi.yml"
-      - ".github/workflows/publish_homebrew.yml"
-      - ".github/workflows/release_preflight.yml"
-      - ".github/workflows/tooling_control_plane.yml"
-      - ".github/workflows/orchestrator_watchdog.yml"
+      - ".github/workflows/*.yml"
 
 jobs:
   devctl-tests:
@@ -102,6 +90,7 @@ jobs:
           PY
           )"
           python3 dev/scripts/devctl.py list --format md
+          python3 dev/scripts/devctl.py audit-scaffold --dry-run --force --yes --format md
           python3 dev/scripts/devctl.py pypi --dry-run
           python3 dev/scripts/devctl.py homebrew --version "${VERSION}" --dry-run
           python3 dev/scripts/devctl.py ship --version "${VERSION}" --notes --dry-run --format json
@@ -253,3 +242,23 @@ jobs:
             scripts/README.md \
             pypi/README.md \
             app/README.md
+
+      - name: Generate remediation audit scaffold on failure
+        if: ${{ failure() }}
+        run: |
+          python3 dev/scripts/devctl.py audit-scaffold \
+            --source-guards \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}" \
+            --force \
+            --yes \
+            --trigger "tooling-control-plane/docs-policy" \
+            --format md
+
+      - name: Upload remediation audit scaffold artifact on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tooling-control-plane-rust-audit-scaffold
+          path: dev/active/RUST_AUDIT_FINDINGS.md
+          if-no-files-found: warn

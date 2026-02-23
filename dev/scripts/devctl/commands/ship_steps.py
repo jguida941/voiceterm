@@ -16,6 +16,7 @@ from typing import Dict
 
 from ..common import confirm_or_abort, run_cmd
 from ..config import REPO_ROOT
+from ..script_catalog import check_script_cmd
 from .release_guard import check_release_version_parity
 from .release_prep import prepare_release_metadata
 from .ship_common import (
@@ -62,6 +63,7 @@ def run_verify_step(args, context: Dict) -> Dict:
         return make_step("verify", False, 2, details=parity_details)
 
     checks = [
+        ("coderabbit-gate", check_script_cmd("coderabbit_gate", "--format", "json")),
         ("check-release", ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"]),
         ("hygiene", ["python3", "dev/scripts/devctl.py", "hygiene", "--format", "json"]),
     ]

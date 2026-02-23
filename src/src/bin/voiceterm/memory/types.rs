@@ -4,6 +4,7 @@
 //! Derived layers (units, cards, packs) reference events by ID.
 
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 /// Schema version for forward-compatible migration checks.
@@ -365,24 +366,45 @@ pub(crate) struct ActionRunResult {
 // ID generation helpers
 // ---------------------------------------------------------------------------
 
-/// Generate a unique event ID using timestamp + random suffix.
-pub(crate) fn generate_event_id() -> String {
-    let ts = SystemTime::now()
+static EVENT_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+static SESSION_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn unix_epoch_millis() -> u128 {
+    SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_millis())
-        .unwrap_or(0);
-    let rand_suffix: u32 = (ts as u32).wrapping_mul(2654435761); // simple hash spread
-    format!("evt_{ts:013}_{rand_suffix:08x}")
+        .unwrap_or(0)
+}
+
+fn next_id_suffix(counter: &AtomicU64) -> u64 {
+    let sequence = counter.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+    let now_ns = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(sequence);
+    let pid = u64::from(std::process::id());
+    splitmix64(now_ns ^ sequence.rotate_left(13) ^ (pid << 32))
+}
+
+fn splitmix64(mut x: u64) -> u64 {
+    x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
+}
+
+/// Generate a unique event ID using timestamp + non-deterministic suffix.
+pub(crate) fn generate_event_id() -> String {
+    let ts = unix_epoch_millis();
+    let suffix = next_id_suffix(&EVENT_ID_COUNTER);
+    format!("evt_{ts:013}_{suffix:016x}")
 }
 
 /// Generate a unique session ID.
 pub(crate) fn generate_session_id() -> String {
-    let ts = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    let rand_suffix: u32 = (ts as u32).wrapping_mul(2246822519);
-    format!("sess_{ts:013}_{rand_suffix:08x}")
+    let ts = unix_epoch_millis();
+    let suffix = next_id_suffix(&SESSION_ID_COUNTER);
+    format!("sess_{ts:013}_{suffix:016x}")
 }
 
 /// Generate an ISO 8601 timestamp string.
@@ -453,7 +475,7 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 }
 
 fn is_leap(year: u64) -> bool {
-    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 // ---------------------------------------------------------------------------
@@ -515,15 +537,16 @@ mod tests {
         let id2 = generate_event_id();
         assert!(id1.starts_with("evt_"));
         assert!(id2.starts_with("evt_"));
-        // IDs should differ (may share prefix if same millisecond, but suffix differs).
-        // Accept same-ms collisions in test but verify format.
-        assert_eq!(id1.len(), id2.len());
+        assert_ne!(id1, id2);
     }
 
     #[test]
     fn session_id_format() {
-        let id = generate_session_id();
-        assert!(id.starts_with("sess_"));
+        let id1 = generate_session_id();
+        let id2 = generate_session_id();
+        assert!(id1.starts_with("sess_"));
+        assert!(id2.starts_with("sess_"));
+        assert_ne!(id1, id2);
     }
 
     #[test]

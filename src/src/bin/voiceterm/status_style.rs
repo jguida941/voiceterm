@@ -4,7 +4,6 @@
 //! in the overlay status line.
 
 use crate::theme::{Theme, ThemeColors};
-use unicode_width::UnicodeWidthChar;
 
 /// Status message categories for visual styling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,8 +86,8 @@ impl StatusType {
 
     /// Get the colored prefix for this status type using default theme.
     /// For backward compatibility.
-    #[allow(dead_code)]
-    pub fn prefix(&self) -> &'static str {
+    #[cfg(test)]
+    fn prefix(&self) -> &'static str {
         match self {
             Self::Recording => "\x1b[91m● REC\x1b[0m ",
             Self::Processing => "\x1b[93m◐\x1b[0m ",
@@ -129,22 +128,23 @@ impl StatusType {
 }
 
 /// Format a status message with colored prefix based on content (default theme).
-#[allow(dead_code)]
-pub fn format_status(text: &str) -> String {
+#[cfg(test)]
+fn format_status(text: &str) -> String {
     let status_type = StatusType::from_message(text);
     format!("{}{}", status_type.prefix(), text)
 }
 
 /// Format a status message with colored prefix using a specific theme.
-#[allow(dead_code)]
-pub fn format_status_with_theme(text: &str, theme: Theme) -> String {
+#[cfg(test)]
+fn format_status_with_theme(text: &str, theme: Theme) -> String {
     let status_type = StatusType::from_message(text);
     format!("{}{}", status_type.prefix_with_theme(theme), text)
 }
 
 /// Calculate the display width of a formatted status (excluding ANSI codes).
-#[allow(dead_code)]
-pub fn status_display_width(text: &str) -> usize {
+#[cfg(test)]
+fn status_display_width(text: &str) -> usize {
+    use unicode_width::UnicodeWidthChar;
     let status_type = StatusType::from_message(text);
     let text_width = text
         .chars()

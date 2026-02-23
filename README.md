@@ -145,7 +145,7 @@ types the result into your AI CLI input.
 | **Terminal passthrough** | Your CLI layout and behavior stay the same |
 | **Auto-voice** | You can talk hands-free instead of typing |
 | **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` in insert mode |
-| **Image mode** | Turn on `Image mode` in Settings to have `Ctrl+R` capture picture prompts (`IMG` badge) |
+| **Image prompts** | Use `Ctrl+X` for one-shot screenshot prompts, or enable persistent image mode for HUD `[rec]` (`IMG` badge) |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
 

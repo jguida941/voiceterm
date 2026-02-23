@@ -1,12 +1,10 @@
 //! Status-line animation frames so recording/processing states feel alive.
 
 use crate::theme::{processing_spinner_symbol, ThemeColors};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const HEARTBEAT_FRAMES: &[char] = &['·', '•', '●', '•'];
 const TRANSITION_PULSE_MARKERS: &[&str] = &["✦", "•"];
-#[allow(dead_code)]
-const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
 
 // Recording blink tuned to readable cadence:
 // - 0.8 Hz (1250 ms period) keeps attention without looking jittery.
@@ -60,21 +58,6 @@ fn recording_pulse_on_at(now_ms: u64) -> bool {
     (now_ms % RECORDING_PULSE_PERIOD_MS) < RECORDING_PULSE_ON_MS
 }
 
-#[allow(dead_code)]
-pub(crate) fn state_transition_progress(started_at: Option<Instant>, now: Instant) -> f32 {
-    let Some(started_at) = started_at else {
-        return 0.0;
-    };
-    let elapsed = now.saturating_duration_since(started_at);
-    if elapsed >= STATE_TRANSITION_DURATION {
-        return 0.0;
-    }
-    let t = elapsed.as_secs_f32() / STATE_TRANSITION_DURATION.as_secs_f32();
-    // Ease-out for a quick initial pulse that decays smoothly.
-    let eased = 1.0 - (1.0 - t).powf(3.0);
-    (1.0 - eased).clamp(0.0, 1.0)
-}
-
 pub(super) fn transition_marker(progress: f32) -> &'static str {
     if progress <= 0.0 {
         ""
@@ -91,6 +74,23 @@ pub(super) fn transition_marker(progress: f32) -> &'static str {
 mod tests {
     use super::*;
     use crate::theme::Theme;
+    use std::time::{Duration, Instant};
+
+    const STATE_TRANSITION_DURATION: Duration = Duration::from_millis(360);
+
+    fn state_transition_progress(started_at: Option<Instant>, now: Instant) -> f32 {
+        let Some(started_at) = started_at else {
+            return 0.0;
+        };
+        let elapsed = now.saturating_duration_since(started_at);
+        if elapsed >= STATE_TRANSITION_DURATION {
+            return 0.0;
+        }
+        let t = elapsed.as_secs_f32() / STATE_TRANSITION_DURATION.as_secs_f32();
+        // Ease-out for a quick initial pulse that decays smoothly.
+        let eased = 1.0 - (1.0 - t).powf(3.0);
+        (1.0 - eased).clamp(0.0, 1.0)
+    }
 
     #[test]
     fn processing_spinner_in_range() {

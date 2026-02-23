@@ -22,8 +22,12 @@ COMMANDS = [
     "orchestrate-watch",
     "report",
     "triage",
+    "failure-cleanup",
+    "audit-scaffold",
+    "cihub-setup",
     "security",
     "path-audit",
+    "path-rewrite",
     "list",
 ]
 

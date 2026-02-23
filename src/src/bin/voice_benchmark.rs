@@ -136,7 +136,7 @@ fn synthesize_clip(speech_ms: u64, silence_ms: u64, sample_rate: u32) -> Vec<f32
         let sample = (2.0 * PI * 440.0 * t).sin() * 0.4;
         samples.push(sample);
     }
-    samples.extend(std::iter::repeat_n(0.0, silence_samples));
+    samples.extend(std::iter::repeat(0.0).take(silence_samples));
     samples
 }
 

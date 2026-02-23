@@ -9,9 +9,15 @@ on:
         description: "Release version (X.Y.Z)"
         required: true
         type: string
+      release_branch:
+        description: "Release branch for CodeRabbit gate lookup"
+        required: false
+        default: master
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-homebrew-${{ github.event_name }}-${{ github.event.release.tag_name || github.event.inputs.version || github.run_id }}
@@ -25,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -44,10 +52,13 @@ jobs:
         id: version
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
+            TAG="${{ github.event.release.tag_name }}"
+            VERSION="${TAG#v}"
+            BRANCH="${{ github.event.release.target_commitish }}"
           else
             VERSION="${{ github.event.inputs.version }}"
+            TAG="v${VERSION}"
+            BRANCH="${{ github.event.inputs.release_branch }}"
           fi
 
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -55,7 +66,36 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${TAG}"
+            exit 1
+          fi
+
+          if [[ -z "${BRANCH}" ]]; then
+            echo "Release branch is required for CodeRabbit gate lookup."
+            exit 1
+          fi
+
+          git fetch --force --tags origin
+          SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          if [[ -z "${SHA}" ]]; then
+            echo "Failed to resolve commit SHA for tag ${TAG}."
+            exit 1
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify CodeRabbit gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --branch "${{ steps.version.outputs.branch }}" \
+            --sha "${{ steps.version.outputs.sha }}" \
+            --format md
 
       - name: Clone Homebrew tap repo
         env:

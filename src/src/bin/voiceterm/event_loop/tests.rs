@@ -9,7 +9,9 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
 use crate::config::{HudStyle, LatencyDisplayMode};
+use crate::dev_command::{DevCommandKind, DevPanelCommandState};
 use crate::dev_panel::dev_panel_height;
+use crate::memory::{MemoryIngestor, MemoryMode};
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
@@ -341,6 +343,7 @@ fn build_harness(
         session_stats: SessionStats::new(),
         dev_mode_stats: None,
         dev_event_logger: None,
+        dev_panel_commands: DevPanelCommandState::default(),
         prompt_tracker,
         terminal_rows: 24,
         terminal_cols: 80,
@@ -395,6 +398,7 @@ fn build_harness(
         auto_idle_timeout: Duration::from_millis(300),
         transcript_idle_timeout: Duration::from_millis(100),
         voice_macros: VoiceMacros::default(),
+        dev_command_broker: None,
     };
 
     (state, timers, deps, writer_rx, input_tx)
@@ -718,6 +722,77 @@ fn write_or_queue_pty_input_returns_true_for_live_session() {
 }
 
 #[test]
+fn write_or_queue_pty_input_ingests_lossy_text_for_invalid_utf8_bytes() {
+    let _hook = install_try_send_hook(hook_would_block);
+    let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.memory_ingestor = Some(
+        MemoryIngestor::new(
+            "sess_evt_loop_input".to_string(),
+            "proj_evt_loop_input".to_string(),
+            None,
+            MemoryMode::Assist,
+        )
+        .expect("memory ingestor should initialize"),
+    );
+
+    assert!(write_or_queue_pty_input(
+        &mut state,
+        &mut deps,
+        vec![0xff, 0xfe, b'a']
+    ));
+
+    let ingestor = state
+        .memory_ingestor
+        .as_ref()
+        .expect("memory ingestor should be present");
+    let recent = ingestor.index().recent(1);
+    assert_eq!(recent.len(), 1);
+    assert_eq!(
+        recent[0].source,
+        crate::memory::types::EventSource::PtyInput
+    );
+    assert!(
+        recent[0].text.contains('\u{FFFD}') || recent[0].text.contains('a'),
+        "lossy decode should retain a persisted representation for invalid utf-8 bytes"
+    );
+}
+
+#[test]
+fn handle_output_chunk_ingests_lossy_text_for_invalid_utf8_bytes() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.memory_ingestor = Some(
+        MemoryIngestor::new(
+            "sess_evt_loop_output".to_string(),
+            "proj_evt_loop_output".to_string(),
+            None,
+            MemoryMode::Assist,
+        )
+        .expect("memory ingestor should initialize"),
+    );
+    let mut running = true;
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        vec![0xff, b'o', b'k'],
+        &mut running,
+    );
+
+    assert!(running);
+    let ingestor = state
+        .memory_ingestor
+        .as_ref()
+        .expect("memory ingestor should be present");
+    let recent = ingestor.index().recent(1);
+    assert_eq!(recent.len(), 1);
+    assert_eq!(
+        recent[0].source,
+        crate::memory::types::EventSource::PtyOutput
+    );
+}
+
+#[test]
 fn run_periodic_tasks_clears_theme_digits_outside_picker_mode() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.overlay_mode = OverlayMode::None;
@@ -872,7 +947,7 @@ fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
     {
         WriterMessage::ShowOverlay { content, height } => {
             assert_eq!(height, dev_panel_height());
-            assert!(content.contains("Dev Panel"));
+            assert!(content.contains("Dev Tools"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }
@@ -925,6 +1000,85 @@ fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
     assert_eq!(state.overlay_mode, OverlayMode::None);
     assert_eq!(state.pending_pty_input_bytes, 1);
     assert_eq!(state.pending_pty_input.front(), Some(&vec![0x04]));
+}
+
+#[test]
+fn dev_panel_arrow_navigation_moves_command_selection() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::DevPanel;
+    state.dev_panel_commands.select_index(0);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(vec![0x1b, b'[', b'B']),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.dev_panel_commands.selected_command(),
+        DevCommandKind::Report
+    );
+}
+
+#[test]
+fn dev_panel_sync_requires_confirmation_before_run() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::DevPanel;
+    state.dev_panel_commands.select_index(4);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.dev_panel_commands.pending_confirmation(),
+        Some(DevCommandKind::Sync)
+    );
+    assert!(state.dev_panel_commands.running_request_id().is_none());
+}
+
+#[test]
+fn dev_panel_second_sync_enter_without_broker_reports_unavailable() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::DevPanel;
+    state.dev_panel_commands.select_index(4);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.dev_panel_commands.pending_confirmation(), None);
+    assert_eq!(state.dev_panel_commands.running_request_id(), None);
+    assert!(state
+        .current_status
+        .as_deref()
+        .is_some_and(|status| status.contains("broker unavailable")));
 }
 
 #[test]
@@ -1656,6 +1810,51 @@ fn manual_voice_trigger_does_not_log_wake_capture_marker() {
     assert!(running);
     START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
     WAKE_CAPTURE_LOG_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn manual_voice_trigger_starts_voice_capture_even_when_image_mode_enabled() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.image_mode = true;
+    state.status_state.image_mode_enabled = true;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::VoiceTrigger,
+        &mut running,
+    );
+
+    assert!(running);
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    LAST_CAPTURE_TRIGGER.with(|last| {
+        assert_eq!(last.get(), Some(VoiceCaptureTrigger::Manual));
+    });
+    assert!(state.current_status.is_none());
+}
+
+#[test]
+fn image_capture_trigger_while_recording_sets_guard_status() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.recording_state = RecordingState::Recording;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::ImageCaptureTrigger,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.current_status.as_deref(),
+        Some("Finish voice capture first")
+    );
 }
 
 #[test]
@@ -3574,31 +3773,6 @@ fn handle_input_event_bytes_marks_insert_mode_pending_send() {
 }
 
 #[test]
-fn collapse_hidden_launcher_is_noop_outside_hidden_hud_style() {
-    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    while writer_rx.try_recv().is_ok() {}
-
-    state.status_state.hud_style = HudStyle::Full;
-    state.status_state.hidden_launcher_collapsed = false;
-    let mut running = true;
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::CollapseHiddenLauncher,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.status_state.hud_style, HudStyle::Full);
-    assert!(!state.status_state.hidden_launcher_collapsed);
-    assert!(
-        writer_rx.try_recv().is_err(),
-        "non-hidden collapse should not emit a redraw"
-    );
-}
-
-#[test]
 fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
     {
         let _hook = install_try_send_hook(hook_count_writes);
@@ -4332,4 +4506,236 @@ fn periodic_tasks_status_clear_resets_toast_dedupe() {
         now + Duration::from_millis(4),
     );
     assert_eq!(state.toast_center.active_count(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Non-interference regression tests (MP-306)
+//
+// These tests prove that dev tooling surfaces (dev panel overlay, dev command
+// broker, dev mode stats) are **never** loaded or activated when `--dev` is
+// absent, ensuring the default Whisper/listen session is unchanged.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn non_interference_ctrl_d_sends_eof_byte_when_dev_mode_off() {
+    // When dev_mode is false, Ctrl+D (InputEvent::DevPanelToggle) must forward
+    // the 0x04 EOF byte to the PTY instead of opening a dev panel overlay.
+    let _guard = install_try_send_hook(hook_would_block);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = false;
+    state.overlay_mode = OverlayMode::None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DevPanelToggle,
+        &mut running,
+    );
+
+    assert!(
+        running,
+        "session must remain running after Ctrl+D in non-dev mode"
+    );
+    assert_eq!(
+        state.overlay_mode,
+        OverlayMode::None,
+        "overlay must stay None when dev_mode is off"
+    );
+    assert_eq!(
+        state.pending_pty_input.front(),
+        Some(&vec![0x04]),
+        "Ctrl+D must queue the EOF byte (0x04) to the PTY"
+    );
+    assert_eq!(
+        state.pending_pty_input_bytes, 1,
+        "exactly one byte (EOF) should be queued"
+    );
+}
+
+#[test]
+fn non_interference_overlay_never_becomes_dev_panel_when_dev_mode_off() {
+    // Exhaustively verify that no combination of normal input events can
+    // transition the overlay to DevPanel when dev_mode is disabled.
+    let _guard = install_try_send_hook(hook_non_empty_full_write);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = false;
+    let mut running = true;
+
+    let probe_events = vec![
+        InputEvent::DevPanelToggle,
+        InputEvent::HelpToggle,
+        InputEvent::SettingsToggle,
+        InputEvent::ThemePicker,
+        InputEvent::EnterKey,
+        InputEvent::Bytes(vec![0x04]),
+        InputEvent::Bytes(vec![0x1b]),
+    ];
+
+    for evt in probe_events {
+        handle_input_event(&mut state, &mut timers, &mut deps, evt, &mut running);
+        assert_ne!(
+            state.overlay_mode,
+            OverlayMode::DevPanel,
+            "overlay must never transition to DevPanel when dev_mode is off"
+        );
+    }
+}
+
+#[test]
+fn non_interference_dev_command_broker_absent_when_dev_mode_off() {
+    // The build_harness helper mirrors the default (non-dev) mode where
+    // dev_command_broker is None.  Confirm the invariant holds.
+    let (state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    assert!(
+        !state.config.dev_mode,
+        "build_harness must default to dev_mode = false"
+    );
+    assert!(
+        deps.dev_command_broker.is_none(),
+        "dev_command_broker must be None when dev_mode is off"
+    );
+}
+
+#[test]
+fn non_interference_dev_mode_stats_absent_when_dev_mode_off() {
+    // DevModeStats should only be allocated when --dev is present.
+    let (state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    assert!(
+        !state.config.dev_mode,
+        "build_harness must default to dev_mode = false"
+    );
+    assert!(
+        state.dev_mode_stats.is_none(),
+        "dev_mode_stats must be None when dev_mode is off"
+    );
+    assert!(
+        state.dev_event_logger.is_none(),
+        "dev_event_logger must be None when dev_mode is off"
+    );
+}
+
+#[test]
+fn non_interference_dev_panel_toggle_opens_panel_when_dev_mode_on() {
+    // Positive control: verify that Ctrl+D *does* open the dev panel when
+    // dev_mode is enabled, confirming the guard correctly distinguishes modes.
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DevPanelToggle,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.overlay_mode,
+        OverlayMode::DevPanel,
+        "overlay must switch to DevPanel when dev_mode is on"
+    );
+    // The overlay renderer should have emitted a ShowOverlay message.
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("dev panel render message")
+    {
+        WriterMessage::ShowOverlay { content, height } => {
+            assert_eq!(height, dev_panel_height());
+            assert!(
+                content.contains("Dev Tools"),
+                "overlay content should contain the Dev Tools header"
+            );
+        }
+        other => panic!("expected ShowOverlay, got: {other:?}"),
+    }
+    // Confirm PTY did NOT receive the EOF byte.
+    assert!(
+        state.pending_pty_input.is_empty(),
+        "PTY input queue must be empty when dev panel opens"
+    );
+}
+
+#[test]
+fn non_interference_poll_dev_commands_is_noop_when_broker_absent() {
+    // When dev_command_broker is None (non-dev mode), periodic polling
+    // should be a harmless no-op that does not mutate state.
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = false;
+    let status_before = state.current_status.clone();
+    let overlay_before = state.overlay_mode;
+
+    assert!(deps.dev_command_broker.is_none());
+    poll_dev_command_updates(&mut state, &mut timers, &mut deps);
+
+    assert_eq!(
+        state.current_status, status_before,
+        "status must not change when broker is absent"
+    );
+    assert_eq!(
+        state.overlay_mode, overlay_before,
+        "overlay must not change when broker is absent"
+    );
+}
+
+#[test]
+fn non_interference_request_dev_command_rejected_when_dev_mode_off() {
+    // request_selected_dev_panel_command must short-circuit when dev_mode is off,
+    // leaving all command state untouched.
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = false;
+    state.overlay_mode = OverlayMode::DevPanel; // force overlay open
+    state.dev_panel_commands.select_index(0);
+
+    request_selected_dev_panel_command(&mut state, &mut timers, &mut deps);
+
+    assert!(
+        state.dev_panel_commands.running_request_id().is_none(),
+        "no dev command should be launched when dev_mode is off"
+    );
+    assert!(
+        state.current_status.is_none(),
+        "no status message should appear; the function should return immediately"
+    );
+}
+
+#[test]
+fn non_interference_default_harness_mirrors_non_dev_session() {
+    // Comprehensive invariant check: the default harness (no --dev flag)
+    // must mirror the production default where all dev surfaces are inert.
+    let (state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+
+    assert!(!state.config.dev_mode, "dev_mode must default to false");
+    assert!(!state.config.dev_log, "dev_log must default to false");
+    assert!(
+        state.config.dev_path.is_none(),
+        "dev_path must default to None"
+    );
+    assert!(
+        state.dev_mode_stats.is_none(),
+        "dev_mode_stats must be None"
+    );
+    assert!(
+        state.dev_event_logger.is_none(),
+        "dev_event_logger must be None"
+    );
+    assert!(
+        deps.dev_command_broker.is_none(),
+        "dev_command_broker must be None"
+    );
+    assert_eq!(
+        state.overlay_mode,
+        OverlayMode::None,
+        "overlay must start as None"
+    );
+    assert!(
+        !state.status_state.dev_mode_enabled,
+        "status_state.dev_mode_enabled must be false"
+    );
 }

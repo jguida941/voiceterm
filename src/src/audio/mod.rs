@@ -20,6 +20,7 @@ mod tests;
 mod vad;
 
 pub use capture::{offline_capture_from_pcm, CaptureMetrics, CaptureResult, StopReason};
+pub(crate) use meter::rms_db;
 pub use meter::LiveMeter;
 pub use recorder::Recorder;
 pub use vad::{SimpleThresholdVad, VadConfig, VadDecision, VadEngine};

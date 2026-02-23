@@ -359,7 +359,7 @@ fn estimate_command_wrap_depth(context: &str, terminal_cols: usize) -> usize {
             if len == 0 {
                 1
             } else {
-                len.div_ceil(terminal_cols)
+                len / terminal_cols + usize::from(len % terminal_cols != 0)
             }
         })
         .sum()

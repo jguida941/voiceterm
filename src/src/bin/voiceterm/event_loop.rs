@@ -1,5 +1,6 @@
 //! Core runtime loop that coordinates PTY output, input events, and voice jobs.
 
+mod dev_panel_commands;
 mod input_dispatch;
 mod output_dispatch;
 mod overlay_dispatch;
@@ -65,6 +66,10 @@ use crate::voice_control::{
     VoiceDrainContext,
 };
 use crate::writer::{set_status, WriterMessage};
+use dev_panel_commands::{
+    cancel_running_dev_panel_command, move_dev_panel_selection, poll_dev_command_updates,
+    request_selected_dev_panel_command, select_dev_panel_command_by_index,
+};
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
@@ -288,6 +293,7 @@ fn drain_voice_messages_once(
         sound_on_complete: deps.sound_on_complete,
         sound_on_error: deps.sound_on_error,
         transcript_history: &mut state.transcript_history,
+        memory_ingestor: state.memory_ingestor.as_mut(),
         dev_mode_stats: state.dev_mode_stats.as_mut(),
         dev_event_logger: state.dev_event_logger.as_mut(),
     };
@@ -366,6 +372,7 @@ fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDe
         snapshot,
         state.config.dev_log,
         state.config.dev_path.as_deref(),
+        &state.dev_panel_commands,
         cols,
     );
 }
@@ -681,6 +688,10 @@ fn write_or_queue_pty_input(
     state.transcript_history.ingest_user_input_bytes(&bytes);
     if let Some(logger) = state.session_memory_logger.as_mut() {
         logger.record_user_input_bytes(&bytes);
+    }
+    if let Some(ref mut ingestor) = state.memory_ingestor {
+        let text = String::from_utf8_lossy(&bytes);
+        ingestor.ingest_user_input(text.as_ref());
     }
     if state.pending_pty_input.is_empty() {
         match try_send_pty_bytes(&mut deps.session, &bytes) {

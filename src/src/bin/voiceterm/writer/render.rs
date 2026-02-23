@@ -218,6 +218,28 @@ pub(super) fn write_status_banner(
     stdout.write_all(&sequence)
 }
 
+/// Build escape bytes that clear the bottom `height` rows of the terminal.
+///
+/// Used to pre-clear the HUD **before** PTY output is written.  When terminal
+/// scrolling pushes old HUD content upward, blank rows scroll up instead of
+/// stale frames, preventing the visible ghost-duplicate artefact.
+pub(super) fn build_clear_bottom_rows_bytes(rows: u16, height: usize) -> Vec<u8> {
+    if rows == 0 || height == 0 {
+        return Vec::new();
+    }
+    let clear_height = height.min(rows as usize);
+    let start_row = rows.saturating_sub(clear_height as u16).saturating_add(1);
+    let mut sequence = Vec::new();
+    push_cursor_prefix(&mut sequence);
+    for idx in 0..clear_height {
+        let row = start_row + idx as u16;
+        sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(b"\x1b[2K");
+    }
+    push_cursor_suffix(&mut sequence);
+    sequence
+}
+
 /// Clear a multi-line status banner.
 /// Also clears extra rows above to catch ghost content from terminal scrolling.
 pub(super) fn clear_status_banner(

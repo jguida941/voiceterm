@@ -3,21 +3,27 @@
 //! Provides predefined color palettes that can be selected via CLI flags.
 
 mod borders;
+#[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod capability_matrix;
 mod colors;
+#[cfg(feature = "theme_studio_v2")]
 pub(crate) mod component_registry;
+#[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod dependency_baseline;
 mod detect;
 mod palettes;
+#[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod rule_profile;
 mod runtime_overrides;
 mod style_pack;
 mod style_schema;
+#[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod texture_profile;
+#[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod widget_pack;
 

@@ -59,13 +59,13 @@ impl ColorMode {
     }
 
     /// Check if 256 colors are supported.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn supports_256(&self) -> bool {
         matches!(self, Self::TrueColor | Self::Color256)
     }
 
     /// Check if true color (24-bit) is supported.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn supports_truecolor(&self) -> bool {
         matches!(self, Self::TrueColor)
     }
@@ -106,7 +106,7 @@ impl std::fmt::Display for ColorMode {
 }
 
 /// Convert a 24-bit RGB color to the closest ANSI 256 color.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn rgb_to_256(r: u8, g: u8, b: u8) -> u8 {
     // Check for grayscale
     if r == g && g == b {
@@ -129,7 +129,7 @@ pub fn rgb_to_256(r: u8, g: u8, b: u8) -> u8 {
 }
 
 /// Convert a 24-bit RGB color to the closest ANSI 16 color.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn rgb_to_ansi16(r: u8, g: u8, b: u8) -> u8 {
     // Simple brightness-based conversion
     let brightness = (r as u16 + g as u16 + b as u16) / 3;

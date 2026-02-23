@@ -219,7 +219,7 @@ pub(super) fn resample_linear(input: &[f32], ratio: f32) -> Vec<f32> {
 pub(super) fn downsampling_tap_count(device_rate: u32) -> usize {
     let decimation_ratio = device_rate as f32 / TARGET_RATE as f32;
     let mut taps = (decimation_ratio * 4.0).ceil().max(11.0) as usize;
-    if taps.is_multiple_of(2) {
+    if taps % 2 == 0 {
         taps += 1;
     }
     taps.min(MAX_DOWNSAMPLING_TAPS)

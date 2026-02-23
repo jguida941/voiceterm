@@ -14,15 +14,11 @@ mod right_panel;
 mod state;
 mod text;
 
-#[allow(unused_imports)]
-pub(crate) use animation::state_transition_progress;
 pub use buttons::get_button_positions;
 pub use format::format_status_banner;
 #[cfg(test)]
 pub use layout::status_banner_height;
 pub use layout::{status_banner_height_for_state, status_banner_height_with_policy};
-#[allow(unused_imports)]
-pub use state::ButtonPosition;
 pub use state::{
     Pipeline, RecordingState, StatusBanner, StatusLineState, VoiceMode, WakeWordHudState,
     METER_HISTORY_MAX,

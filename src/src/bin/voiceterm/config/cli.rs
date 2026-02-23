@@ -168,7 +168,8 @@ pub(crate) struct OverlayConfig {
     )]
     pub(crate) wake_word_cooldown_ms: u64,
 
-    /// Enable image capture mode (Ctrl+R / [rec] captures an image instead of voice).
+    /// Enable persistent image capture mode (`[rec]` captures an image while enabled).
+    /// `Ctrl+R` stays voice capture; `Ctrl+X` is one-shot image capture.
     #[arg(long = "image-mode", default_value_t = false)]
     pub(crate) image_mode: bool,
 

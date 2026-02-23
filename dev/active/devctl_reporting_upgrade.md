@@ -180,6 +180,11 @@ breaking existing command behavior.
 9. **Environment health**: probe Rust toolchain version, required components
    (clippy, rustfmt), Python version, system audio dependencies (portaudio),
    `gh` auth status, and `cihub` version/capabilities.
+10. **AI review bot signals**: normalize PR review findings from tools like
+    CodeRabbit into the existing issue schema (`category`, `severity`,
+    `owner`, `summary`) so triage/report outputs stay unified. Emit medium/high
+    backlog artifacts in CI and feed a bounded remediation loop controller for
+    optional auto-fix retries (`run_coderabbit_ralph_loop.py`).
 
 ## Trend Tracking Model
 
@@ -266,6 +271,162 @@ Optional LLM-powered failure classification for CI log analysis:
    hard-fail by default.
 2. Strict workflows may opt into fail-fast using explicit strict flags.
 3. All fallback behavior must emit clear warnings and remediation guidance.
+
+## CIHub Security/Quality Port (MP-306 Active Slice)
+
+Port CIHUB's proven toggle model into VoiceTerm so we keep broad coverage
+without forcing every expensive scanner on every run.
+
+### Core default-on checks (fast, always practical)
+
+1. RustSec policy (`cargo audit` + policy gate)
+2. Workflow security scan (`zizmor`)
+3. CodeQL alert gate (open high/critical alert query)
+4. Python quality checks scoped to changed files (`black`, `isort`)
+5. Python security static scan scoped to repo Python paths (`bandit`)
+
+### Opt-in expensive checks (scheduled/release/security profile)
+
+1. Semgrep SAST
+2. Full CodeQL analysis workflow
+3. Dependency/license policy checks (`cargo deny`)
+4. Unsafe ratio/debt tracking (`cargo geiger`)
+5. Fuzzing/soak expansion (`cargo fuzz` targets beyond existing property tests)
+
+### Threshold policy baseline (port from CIHUB style)
+
+1. Core checks: fail on any regression/blocking finding.
+2. Expensive checks: default advisory on local runs, fail-fast in strict CI
+   profiles.
+3. Every scanner emits machine-readable output so `status/report/triage` can
+   aggregate findings consistently.
+
+## Rust Overlay Parity Boundary (Execution Contract)
+
+Do not build a full duplicate Rust+Python control plane. Use a split boundary:
+
+1. Rust overlay/runtime keeps ownership of latency-sensitive or session-critical
+   behavior (event loop, PTY lifecycle, wake/runtime guards, UI safety paths).
+2. Python `devctl` keeps ownership of CI/reporting orchestration, artifact
+   aggregation, scanner adapters, and governance workflows.
+3. When a `devctl` signal must affect runtime decisions, promote only that
+   specific contract into Rust with tests/ADR evidence (no whole-stack rewrite).
+
+## Dev-Mode Overlay Integration Track (MP-306)
+
+Use the Rust overlay as a guarded UI shell for control-plane automation while
+keeping command execution and policy logic in `devctl`.
+
+### Scope
+
+1. Add a Dev Tools panel/tab available only with `--dev`.
+2. Panel actions call allowlisted `devctl`/`cihub` commands with JSON output.
+3. Voice intents are enabled only in Dev Mode for approved control-plane tasks.
+4. Normal listen/send mode must stay behavior-identical when `--dev` is off.
+
+### Current sprint activation (2026-02-23)
+
+`MP-306` is running in 3-agent mode with strict no-overlap ownership:
+
+1. `AGENT-1` (Rust runtime lane): `src/src/bin/voiceterm/**` only for Dev Tools
+   panel/tab bridge and async command broker wiring.
+2. `AGENT-2` (control-plane lane): `dev/scripts/devctl/**` plus
+   `.github/workflows/security_guard.yml` and
+   `.github/workflows/release_preflight.yml` for scanner tiers, JSON outputs,
+   command allowlists, and CIHUB setup flow primitives.
+3. `AGENT-3` (governance/safety lane): `dev/active/**`,
+   `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, and tooling tests/docs for
+   non-interference checks, CI guard updates, and merge-readiness audit.
+
+Execution order is fixed:
+
+1. `AGENT-2` lands control-plane primitives.
+2. `AGENT-1` integrates Rust `--dev` bridge to those primitives.
+3. `AGENT-3` finalizes non-interference gates, docs, and audit pass.
+
+Coordination model for this sprint:
+
+1. Use `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` as the only instruction,
+   ACK, progress, and handoff surface.
+2. Keep `dev/active/MASTER_PLAN.md` as the execution tracker.
+3. Run orchestrator loop every 30 minutes:
+   - `python3 dev/scripts/devctl.py orchestrate-status --format md`
+   - `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md`
+   - `python3 dev/scripts/checks/check_multi_agent_sync.py --format md`
+
+## MP-306 Hardening Checklist (Temporary Execution Block)
+
+This block is the active implementation checklist for the current automation
+hardening slice. Keep it while the slice is open; retire it once all items are
+landed and reflected in `MASTER_PLAN`.
+
+Current status (2026-02-23): local implementation + verification complete;
+pending merge/push promotion.
+
+### Scope
+
+1. Security scanner-tier CI behavior must not skip Python checks due to
+   changed-file detection assumptions in CI.
+2. Failure triage automation must not execute untrusted workflow revisions from
+   forked PR contexts.
+3. Failure cleanup must be constrained to failure-artifact paths by default and
+   support CI-gated scoped cleanup decisions.
+4. AI guard failures must emit one canonical remediation scaffold so humans and
+   agents can coordinate fixes from a shared active document.
+
+### Required Acceptance Gates
+
+1. `.github/workflows/security_guard.yml` and
+   `.github/workflows/release_preflight.yml` run:
+   `python3 dev/scripts/devctl.py security --scanner-tier core --python-scope all ...`
+2. `.github/workflows/failure_triage.yml` enforces same-repo + trusted-event
+   + allowlisted-branch guards before checkout/triage, with branch policy
+   configurable via repo variable `FAILURE_TRIAGE_BRANCHES`.
+3. Failure-triage command step exports `GH_TOKEN` so CI run collection behaves
+   deterministically.
+4. `devctl failure-cleanup` deletes only within `dev/reports/failures` unless
+   an explicit override flag is used.
+5. `devctl failure-cleanup --require-green-ci` supports optional run filters
+   (`branch`, `workflow`, `event`, `sha`) and fails safe when filters produce
+   no candidate runs.
+6. Regression tests cover parser flags and command-gate behavior.
+7. Failure/security workflow jobs define explicit `timeout-minutes` budgets.
+8. `devctl check --profile ai-guard` auto-generates `dev/active/RUST_AUDIT_FINDINGS.md`
+   when AI guard steps fail, and `.github/workflows/tooling_control_plane.yml`
+   generates/uploads the same scaffold on docs-policy failure paths.
+
+### Verification Bundle For This Slice
+
+1. `python3 -m unittest dev.scripts.devctl.tests.test_security`
+2. `python3 -m unittest dev.scripts.devctl.tests.test_failure_cleanup`
+3. `python3 dev/scripts/devctl.py security --scanner-tier core --python-scope all --dry-run --format json`
+4. `python3 dev/scripts/devctl.py failure-cleanup --dry-run --require-green-ci --format md`
+5. `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+6. `python3 dev/scripts/devctl.py hygiene`
+7. `python3 -m unittest dev.scripts.devctl.tests.test_audit_scaffold dev.scripts.devctl.tests.test_check`
+8. `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md`
+
+### Command broker constraints
+
+1. No free-form shell execution from voice intents.
+2. Allowlist only explicit subcommands/flags.
+3. Run subprocesses asynchronously with timeout + cancellation.
+4. Require preview + confirm for mutating actions (repo setup, sync/push, release prep).
+5. Persist command/audit ledger entries for every action.
+
+### Repo bootstrap workflow (inside Dev Mode)
+
+1. Capability probe: detect `cihub` version and supported commands.
+2. Plan preview: show what setup steps will run for this repo.
+3. Confirmed apply: run `cihub detect/init/update/validate` wrappers.
+4. Post-check: run `devctl docs-check --strict-tooling`, `hygiene`, and key
+   sync/security guards before marking setup complete.
+
+### Compatibility note
+
+Current local baseline includes legacy CIHub variants (for example `cihub 0.2.0`).
+The bridge must degrade gracefully with explicit operator guidance instead of
+hard-failing unless strict flags are enabled.
 
 ## Architecture Plan
 
@@ -390,6 +551,8 @@ JSON and markdown formats for CI consumption.
    existing Dev Mode JSONL data.
 4. Enhance `status/report/triage` to consume shared engine paths.
 5. Add `devctl doctor` with environment probes and remediation output.
+6. Land Dev Tools read-only panel slice in Rust Dev Mode (`--dev` only) that
+   surfaces `devctl status/report/triage/security` JSON summaries.
 
 Exit criteria:
 
@@ -406,6 +569,8 @@ Exit criteria:
 4. Add deterministic bundle manifest and regression test coverage.
 5. Integrate orphaned CI workflow data (coverage, perf, memory, security)
    into the collector pipeline.
+6. Add CIHub repo bootstrap flow behind explicit confirmation in Dev Mode and
+   expose it in both keyboard and voice-triggered paths.
 
 Exit criteria:
 
@@ -426,6 +591,8 @@ Exit criteria:
 6. Add Textual-based interactive TUI viewer mode for `devctl dashboard`.
 7. Add PyQt6 heavy desktop viewer mode with dockable panes and saved layouts.
 8. Add cross-view parity checks so TUI and PyQt6 show identical core metrics.
+9. Expand dev-mode voice intents for safe control-plane orchestration with
+   confirmation and allowlist enforcement.
 
 Exit criteria:
 
@@ -447,6 +614,8 @@ Exit criteria:
 5. Add `devctl fix <playbook-id>` for interactive remediation execution.
 6. Add PyQt6 live mode with operator action panels and run-comparison views.
 7. Add Textual live mode and automation hooks as lightweight fallback.
+8. Add full non-interference certification proving default Whisper/listen mode
+   behavior remains unchanged by all Dev Tools additions.
 
 Exit criteria:
 

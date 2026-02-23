@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from datetime import datetime
 from typing import Dict, List, Tuple
 
@@ -17,13 +16,11 @@ from ..config import REPO_ROOT
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     format_process_rows,
-    scan_matching_processes,
+    scan_voiceterm_test_binaries,
     split_orphaned_processes,
 )
 from . import hygiene_audits
 
-# Match only VoiceTerm test binaries so warnings stay relevant.
-VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 8
@@ -53,7 +50,7 @@ def _format_process_rows(rows: List[Dict]) -> str:
 
 
 def _scan_voiceterm_test_processes() -> Tuple[List[Dict], List[str]]:
-    return scan_matching_processes(VOICETERM_TEST_BIN_RE)
+    return scan_voiceterm_test_binaries()
 
 
 def _audit_runtime_processes() -> Dict:

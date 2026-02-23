@@ -207,12 +207,12 @@ pub(crate) fn should_auto_trigger(
         return last_trigger_at.is_none() && prompt_tracker.idle_ready(now, idle_timeout);
     }
     if let Some(prompt_at) = prompt_tracker.last_prompt_seen_at() {
-        if last_trigger_at.is_none_or(|last| prompt_at > last) {
+        if last_trigger_at.map_or(true, |last| prompt_at > last) {
             return true;
         }
     }
     if prompt_tracker.idle_ready(now, idle_timeout)
-        && last_trigger_at.is_none_or(|last| prompt_tracker.last_output_at() > last)
+        && last_trigger_at.map_or(true, |last| prompt_tracker.last_output_at() > last)
     {
         return true;
     }

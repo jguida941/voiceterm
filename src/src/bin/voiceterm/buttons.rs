@@ -2,7 +2,6 @@
 //!
 //! Tracks button positions on the HUD and maps mouse clicks to actions.
 
-use crate::input::InputEvent;
 use std::sync::{Arc, RwLock};
 
 /// A clickable button region on the HUD.
@@ -35,18 +34,21 @@ pub enum ButtonAction {
 
 impl ButtonAction {
     /// Convert to InputEvent for dispatch.
-    #[allow(dead_code)]
-    pub fn to_input_event(self) -> InputEvent {
+    #[cfg(test)]
+    pub fn to_input_event(self) -> crate::input::InputEvent {
+        use crate::input::InputEvent;
         match self {
             ButtonAction::VoiceTrigger => InputEvent::VoiceTrigger,
             ButtonAction::ToggleAutoVoice => InputEvent::ToggleAutoVoice,
             ButtonAction::ToggleSendMode => InputEvent::ToggleSendMode,
             ButtonAction::SettingsToggle => InputEvent::SettingsToggle,
             ButtonAction::ToggleHudStyle => InputEvent::ToggleHudStyle,
-            ButtonAction::CollapseHiddenLauncher => InputEvent::CollapseHiddenLauncher,
             ButtonAction::HudBack => InputEvent::ToggleHudStyle,
             ButtonAction::HelpToggle => InputEvent::HelpToggle,
             ButtonAction::ThemePicker => InputEvent::ThemePicker,
+            ButtonAction::CollapseHiddenLauncher => {
+                panic!("CollapseHiddenLauncher is dispatched via button handlers, not InputEvent")
+            }
         }
     }
 }
@@ -120,7 +122,7 @@ impl ButtonRegistry {
     }
 
     /// Get all registered buttons (for debugging).
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn all_buttons(&self) -> Vec<Button> {
         self.buttons.read().map(|b| b.clone()).unwrap_or_default()
     }
@@ -129,6 +131,7 @@ impl ButtonRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::InputEvent;
 
     #[test]
     fn button_registry_registers_and_finds() {

@@ -72,21 +72,6 @@ pub(super) fn handle_input_event(
                 state.status_state.hud_button_focus = None;
                 refresh_button_registry_if_mouse(state, deps);
             }
-            InputEvent::CollapseHiddenLauncher => {
-                if state.status_state.hud_style == crate::config::HudStyle::Hidden {
-                    state.status_state.hidden_launcher_collapsed = true;
-                    state.status_state.hud_button_focus = None;
-                    send_enhanced_status_with_buttons(
-                        &deps.writer_tx,
-                        &deps.button_registry,
-                        &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
-                        state.theme,
-                    );
-                }
-                refresh_button_registry_if_mouse(state, deps);
-            }
             InputEvent::Bytes(bytes) => {
                 if state.suppress_startup_escape_input && is_arrow_escape_noise(&bytes) {
                     return;
@@ -143,6 +128,9 @@ pub(super) fn handle_input_event(
             }
             InputEvent::VoiceTrigger => {
                 handle_voice_trigger(state, timers, deps, VoiceTriggerOrigin::ManualHotkey);
+            }
+            InputEvent::ImageCaptureTrigger => {
+                handle_image_capture_trigger(state, timers, deps);
             }
             InputEvent::SendStagedText => {
                 if should_finalize_insert_capture_hotkey(state) {
@@ -312,11 +300,26 @@ fn handle_voice_trigger(
         }
         return;
     }
-    if state.config.image_mode && origin == VoiceTriggerOrigin::ManualHotkey {
-        trigger_image_capture(state, timers, deps);
+    start_capture_for_trigger(state, timers, deps, origin);
+}
+
+fn handle_image_capture_trigger(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    if state.status_state.recording_state != RecordingState::Idle {
+        set_status(
+            &deps.writer_tx,
+            &mut timers.status_clear_deadline,
+            &mut state.current_status,
+            &mut state.status_state,
+            "Finish voice capture first",
+            Some(Duration::from_secs(2)),
+        );
         return;
     }
-    start_capture_for_trigger(state, timers, deps, origin);
+    trigger_image_capture(state, timers, deps);
 }
 
 fn trigger_image_capture(

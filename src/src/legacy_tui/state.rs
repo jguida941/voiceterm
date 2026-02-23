@@ -31,6 +31,23 @@ pub(super) const INPUT_MAX_CHARS: usize = 8_000;
 /// Spinner cadence for Codex worker status updates.
 const CODEX_SPINNER_INTERVAL: Duration = Duration::from_millis(150);
 
+fn char_count(value: &str) -> usize {
+    value.chars().count()
+}
+
+fn truncate_to_char_limit(value: &mut String, max_chars: usize) -> bool {
+    if char_count(value) <= max_chars {
+        return false;
+    }
+    let byte_index = value
+        .char_indices()
+        .nth(max_chars)
+        .map(|(idx, _)| idx)
+        .unwrap_or(value.len());
+    value.truncate(byte_index);
+    true
+}
+
 macro_rules! state_change {
     ($self:expr, $field:ident, $value:expr) => {{
         $self.$field = $value;
@@ -632,12 +649,7 @@ impl CodexApp {
             } => {
                 log_debug("Voice capture completed successfully");
                 let mut input = text;
-                let truncated = if input.len() > INPUT_MAX_CHARS {
-                    input.truncate(INPUT_MAX_CHARS);
-                    true
-                } else {
-                    false
-                };
+                let truncated = truncate_to_char_limit(&mut input, INPUT_MAX_CHARS);
                 self.input = input;
                 let drop_note = metrics
                     .as_ref()
@@ -755,7 +767,7 @@ impl CodexApp {
     }
 
     pub(crate) fn push_input_char(&mut self, ch: char) {
-        if self.input.len() >= INPUT_MAX_CHARS {
+        if char_count(&self.input) >= INPUT_MAX_CHARS {
             let msg = format!("Input limit reached (max {INPUT_MAX_CHARS} chars).");
             if self.status != msg {
                 self.status = msg;
@@ -783,5 +795,31 @@ impl CodexApp {
     /// Drain any background Codex session output. The backend now owns PTY state so this is a no-op.
     pub(crate) fn drain_persistent_output(&mut self) {
         // Intentionally left blank until the backend exposes a PTY polling hook.
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{char_count, truncate_to_char_limit};
+
+    #[test]
+    fn truncate_to_char_limit_preserves_utf8_boundaries() {
+        let mut input = "ab😀cd".to_string();
+        let changed = truncate_to_char_limit(&mut input, 3);
+        assert!(changed);
+        assert_eq!(input, "ab😀");
+    }
+
+    #[test]
+    fn truncate_to_char_limit_noop_when_under_limit() {
+        let mut input = "hello".to_string();
+        let changed = truncate_to_char_limit(&mut input, 10);
+        assert!(!changed);
+        assert_eq!(input, "hello");
+    }
+
+    #[test]
+    fn char_count_tracks_unicode_scalar_values() {
+        assert_eq!(char_count("a😀b"), 3);
     }
 }

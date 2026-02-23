@@ -6,8 +6,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(target_os = "macos")]
-use voiceterm::log_debug;
 
 use crate::config::{OverlayConfig, VoiceSendMode};
 
@@ -78,20 +76,11 @@ fn run_custom_capture_command(command: &str, image_path: &Path) -> Result<()> {
 
 #[cfg(target_os = "macos")]
 fn run_default_capture_command(image_path: &Path) -> Result<()> {
-    let imagesnap_result = Command::new("imagesnap").arg("-q").arg(image_path).status();
-    match imagesnap_result {
-        Ok(status) if status.success() => return Ok(()),
-        Ok(status) => log_debug(&format!(
-            "imagesnap exited with status {status}; trying fallback"
-        )),
-        Err(err) => log_debug(&format!("imagesnap unavailable ({err}); trying fallback")),
-    }
-
     let status = Command::new("screencapture")
         .arg("-x")
         .arg(image_path)
         .status()
-        .context("launch screencapture fallback")?;
+        .context("launch screencapture")?;
     if status.success() {
         Ok(())
     } else {

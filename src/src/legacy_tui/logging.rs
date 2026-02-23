@@ -5,7 +5,6 @@ use crate::telemetry;
 use std::{
     env, fs,
     io::Write,
-    panic,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -140,7 +139,7 @@ pub fn log_debug_content(msg: &str) {
 }
 
 /// Write a minimal crash log entry, omitting user content unless explicitly enabled.
-pub fn log_panic(info: &panic::PanicHookInfo<'_>) {
+pub fn log_panic(location: &str, payload: &str) {
     if !CRASH_LOG_ENABLED.load(Ordering::Relaxed) {
         return;
     }
@@ -149,19 +148,8 @@ pub fn log_panic(info: &panic::PanicHookInfo<'_>) {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let location = info
-        .location()
-        .map(|loc| format!("{}:{}", loc.file(), loc.line()))
-        .unwrap_or_else(|| "unknown".to_string());
-
     let payload = if LOG_CONTENT_ENABLED.load(Ordering::Relaxed) {
-        if let Some(text) = info.payload().downcast_ref::<&str>() {
-            (*text).to_string()
-        } else if let Some(text) = info.payload().downcast_ref::<String>() {
-            text.clone()
-        } else {
-            "non-string panic payload".to_string()
-        }
+        payload.to_string()
     } else {
         "panic payload omitted (log-content disabled)".to_string()
     };

@@ -7,6 +7,23 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Persistence
+
+- Wire `MemoryIngestor` into the runtime: initialize from `main.rs` with project-scoped JSONL persistence, cross-session recovery via `recover_from_jsonl()`, and triple-write ingestion (voice transcripts, PTY input, PTY output) mirroring the existing `TranscriptHistory` + `SessionMemoryLogger` pattern. Add devctl metric appenders (`status`, `report`, `triage`) and failure knowledge-base writer to `~/.voiceterm/dev/`. (MP-230, MP-232, MP-241)
+
+### UX
+
+- Expand the guarded `--dev` panel into a `Dev Tools` command surface that can run allowlisted `devctl` actions (`status`, `report`, `triage`, `security`, `sync`) asynchronously with in-panel status and completion summaries. Mutating `sync` runs require explicit confirmation.
+- Keep `Ctrl+R` dedicated to voice capture and add `Ctrl+X` for one-shot image prompts; `--image-mode` now acts as persistent HUD `[rec]` image mode, and default macOS image capture now uses `screencapture` (screenshot-first).
+
+### Runtime Hardening
+
+- Harden dev/runtime safety boundaries: UTF-8-safe preview truncation for IPC logs, char-safe transcript/input truncation limits, multi-occurrence secret redaction, non-deterministic event/session ID suffixing, and saturating float-to-`i16` audio conversion in VAD paths.
+
+### Tooling
+
+- Add `check_rust_audit_patterns.py` and wire it into `devctl check --profile ai-guard` plus security/release CI lanes so known audit regression patterns are blocked automatically.
+
 ## [1.0.91] - 2026-02-23
 
 ### UX

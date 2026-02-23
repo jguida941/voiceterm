@@ -15,12 +15,17 @@ Why this exists:
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 from typing import Pattern
 
 PROCESS_SWEEP_CMD = ["ps", "-axo", "pid=,ppid=,etime=,command="]
 DEFAULT_ORPHAN_MIN_AGE_SECONDS = 60
+# Match both full-path and basename launch styles:
+# - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
+# - voiceterm-deadbeef --nocapture
+VOICETERM_TEST_BINARY_RE = re.compile(r"(?:^|/|\s)voiceterm-[0-9a-f]{8,}(?:\s|$)")
 
 
 def parse_etime_seconds(raw: str) -> int | None:
@@ -107,6 +112,11 @@ def scan_matching_processes(command_regex: Pattern[str], *, skip_pid: int | None
 
     rows.sort(key=lambda row: row["elapsed_seconds"], reverse=True)
     return rows, warnings
+
+
+def scan_voiceterm_test_binaries(*, skip_pid: int | None = None) -> tuple[list[dict], list[str]]:
+    """Return process rows for VoiceTerm test binaries using canonical matching."""
+    return scan_matching_processes(VOICETERM_TEST_BINARY_RE, skip_pid=skip_pid)
 
 
 def split_orphaned_processes(

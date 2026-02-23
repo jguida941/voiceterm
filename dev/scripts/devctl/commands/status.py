@@ -3,12 +3,14 @@
 import json
 
 from ..common import pipe_output, write_output
+from ..metric_writers import append_metric
 from ..status_report import build_project_report, render_project_markdown
 
 
 def run(args) -> int:
     """Render a status summary from git, CI, mutation, and optional dev logs."""
     ci_requested = bool(args.ci or getattr(args, "require_ci", False))
+    parallel_enabled = not getattr(args, "no_parallel", False)
     report = build_project_report(
         command="status",
         include_ci=ci_requested,
@@ -16,6 +18,7 @@ def run(args) -> int:
         include_dev_logs=getattr(args, "dev_logs", False),
         dev_root=getattr(args, "dev_root", None),
         dev_sessions_limit=getattr(args, "dev_sessions_limit", 5),
+        parallel=parallel_enabled,
     )
 
     if args.format == "json":
@@ -30,6 +33,10 @@ def run(args) -> int:
     else:
         output = json.dumps(report, indent=2)
 
+    try:
+        append_metric("status", report)
+    except Exception:
+        pass  # fail-soft
     write_output(output, args.output)
     if args.pipe_command:
         return pipe_output(output, args.pipe_command, args.pipe_args)

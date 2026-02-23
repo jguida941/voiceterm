@@ -14,10 +14,7 @@ use voiceterm::config::AppConfig;
 
 use crate::theme::Theme;
 
-#[allow(unused_imports)]
-pub use format::{
-    format_level_compact, format_level_meter, format_mic_meter_display, format_waveform,
-};
+pub use format::{format_mic_meter_display, format_waveform};
 
 /// Audio level in decibels.
 #[derive(Debug, Clone, Copy, Default)]

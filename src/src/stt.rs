@@ -150,7 +150,11 @@ mod platform {
             }
             params.set_temperature(config.whisper_temperature);
             // Keep one logical core free and clamp worker fanout to reduce contention spikes.
-            let n_threads = num_cpus::get().saturating_sub(1).clamp(1, 4);
+            let n_threads = std::thread::available_parallelism()
+                .map(|count| count.get())
+                .unwrap_or(1)
+                .saturating_sub(1)
+                .clamp(1, 4);
             let n_threads = i32::try_from(n_threads).unwrap_or(1);
             params.set_n_threads(n_threads);
             params.set_print_progress(false);

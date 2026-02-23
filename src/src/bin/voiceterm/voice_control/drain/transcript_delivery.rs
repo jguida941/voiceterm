@@ -29,6 +29,7 @@ pub(super) struct TranscriptDeliveryContext<'a, S: TranscriptSession> {
     pub(super) auto_voice_paused_by_user: bool,
     pub(super) sound_on_complete: bool,
     pub(super) transcript_history: &'a mut crate::transcript_history::TranscriptHistory,
+    pub(super) memory_ingestor: Option<&'a mut crate::memory::MemoryIngestor>,
 }
 
 pub(super) fn handle_transcript_message<S: TranscriptSession>(
@@ -74,6 +75,9 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         .unwrap_or(0.0);
     ctx.session_stats.record_transcript(duration_secs);
     ctx.transcript_history.push(ctx.text.clone());
+    if let Some(ref mut ingestor) = ctx.memory_ingestor {
+        ingestor.ingest_transcript(&ctx.text);
+    }
     crate::onboarding::mark_first_capture_complete();
 
     let (text, mut transcript_mode, macro_note) = super::message_processing::apply_macro_mode(

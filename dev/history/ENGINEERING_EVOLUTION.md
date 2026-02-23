@@ -532,6 +532,32 @@ Evidence:
 Inference: The shape guard now drives maintainable refactors by default instead
 of incentivizing superficial line-count minimization.
 
+### Recent Governance Update (2026-02-23, Check-Script Path Registry)
+
+Fact: Governance check scripts were reorganized under `dev/scripts/checks/`,
+and `devctl` now uses one canonical check-path registry
+(`dev/scripts/devctl/script_catalog.py`) instead of scattered hardcoded path
+strings. New `devctl path-audit` and `devctl path-rewrite` commands plus
+strict-tooling docs-check integration (`dev/scripts/devctl/path_audit.py`) now
+detect and auto-rewrite stale legacy references after script moves.
+
+Evidence:
+
+- `dev/scripts/checks/` (consolidated `check_*.py` scripts)
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/path_audit.py`
+- `dev/scripts/devctl/commands/path_audit.py`
+- `dev/scripts/devctl/commands/path_rewrite.py`
+- `dev/scripts/devctl/commands/docs_check.py` (strict-tooling stale-path gate)
+- `dev/scripts/devctl/tests/test_path_audit.py`
+- `dev/scripts/devctl/tests/test_path_rewrite.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+
+Inference: Future script reorganizations now scale as one registry change plus
+automated stale-reference detection/rewrites, instead of broad manual path
+churn.
+
 ### Recent Governance Update (2026-02-23, Devctl Triage Integration)
 
 Fact: `devctl` now includes a dedicated `triage` command that outputs both a
@@ -571,6 +597,130 @@ Evidence:
 Inference: Triage output is now better suited for cross-project team workflows
 because ownership and severity routing can be consumed directly by humans, bots,
 and AI agents without ad-hoc post-processing.
+
+### Recent Governance Update (2026-02-23, CodeRabbit Triage Bridge)
+
+Fact: CodeRabbit PR-review signals now flow into the existing `devctl triage`
+schema, with blocking policy gates that fail on unresolved medium/high findings.
+Release verification now uses one reusable check path (`check_coderabbit_gate`)
+across `devctl ship --verify`, release preflight, and release publish lanes
+(PyPI/Homebrew/attestation) for the exact tagged commit.
+
+Evidence:
+
+- `.coderabbit.yaml` (repo-level CodeRabbit review profile/path instructions)
+- `.github/workflows/coderabbit_triage.yml` (normalizes CodeRabbit
+  review/check signals into `.cihub/coderabbit/priority.json`, runs
+  `devctl triage --external-issues-file ...`, and fails on medium/high
+  severities)
+- `.github/workflows/release_preflight.yml` (requires a successful
+  `CodeRabbit Triage Bridge` run for the same commit SHA before continuing)
+- `.github/workflows/publish_pypi.yml`,
+  `.github/workflows/publish_homebrew.yml`,
+  `.github/workflows/release_attestation.yml` (all verify CodeRabbit gate
+  success for the release tag commit before distribution/attestation actions)
+- `.github/workflows/coderabbit_ralph_loop.yml` (bounded remediation loop for
+  medium/high backlog artifacts with optional auto-fix command retries)
+- `dev/scripts/checks/check_coderabbit_gate.py` (shared commit-SHA gate check
+  used by local release tooling and CI release lanes)
+- `dev/scripts/checks/run_coderabbit_ralph_loop.py` (loop controller with
+  bounded retries, backlog artifact ingestion, and new-run polling)
+- `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs the
+  CodeRabbit gate before release/governance checks)
+- `dev/scripts/devctl/triage_parser.py` (`--external-issues-file`)
+- `dev/scripts/devctl/commands/triage.py` (external issue-file ingestion path)
+- `dev/scripts/devctl/triage_enrich.py` (shared payload/file extraction helpers)
+- `dev/scripts/devctl/triage_support.py` (external-source markdown rendering)
+- `dev/scripts/devctl/tests/test_triage.py` (parser and external-ingest coverage)
+- `dev/scripts/devctl/tests/test_ship.py` (release verify gate coverage)
+- `.github/workflows/failure_triage.yml` (includes `CodeRabbit Triage Bridge`
+  in tracked workflow-run sources)
+
+Inference: AI code-review tooling now feeds one canonical triage pipeline and
+acts as an enforceable release-control signal instead of a parallel advisory
+comment stream, while default severity handling avoids blocking on purely
+informational bot comments.
+
+### Recent Governance Update (2026-02-23, CI Failure Artifact Automation)
+
+Fact: CI now has a dedicated workflow-run failure lane that captures a triage
+bundle whenever any core workflow ends non-success, and `devctl` now includes a
+guarded local cleanup command for these artifacts.
+
+Evidence:
+
+- `.github/workflows/failure_triage.yml` (workflow-run trigger for core lanes;
+  on failure writes triage/context files and uploads artifact bundle)
+- `dev/scripts/devctl/commands/failure_cleanup.py` (guarded cleanup with
+  optional `--require-green-ci` gate, dry-run, and confirmation)
+- `dev/scripts/devctl/failure_cleanup_parser.py`
+- `dev/scripts/devctl/cli.py` / `dev/scripts/devctl/commands/listing.py`
+- `dev/scripts/devctl/tests/test_failure_cleanup.py`
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
+
+Inference: Failure evidence is now standardized into one artifact path pattern
+for both humans and AI agents, while cleanup is intentionally gated so teams do
+not erase diagnostics before CI is green.
+
+### Recent Governance Update (2026-02-23, Failure Automation Trust Hardening)
+
+Fact: The failure/security automation lane added stricter trust and determinism
+ guards: CI security workflows now force full-repo Python checks, failure-triage
+ workflow execution is constrained to trusted same-repo branch contexts (with a
+ configurable branch allowlist), and
+ `devctl failure-cleanup` now enforces default cleanup-root boundaries, keeps
+ override mode constrained to `dev/reports/**`, and adds optional CI run
+ filters for auditable scoped cleanup decisions.
+
+Evidence:
+
+- `.github/workflows/security_guard.yml` (`devctl security --python-scope all`)
+- `.github/workflows/release_preflight.yml` (`devctl security --python-scope all`)
+- `.github/workflows/failure_triage.yml` (same-repo/event/branch guards and
+  explicit `GH_TOKEN` export for triage collection; branch allowlist defaults
+  to `develop,master` and can be overridden via `FAILURE_TRIAGE_BRANCHES`)
+- `dev/scripts/devctl/collect.py` (expanded `gh run list` fields plus fallback
+  behavior for older `gh` JSON field support to keep CI-gate collection
+  deterministic across mixed developer environments)
+- `dev/scripts/devctl/commands/failure_cleanup.py` (default failure-root
+  enforcement and `branch`/`workflow`/`event`/`sha` filter-aware CI gating)
+- `dev/scripts/devctl/failure_cleanup_parser.py`
+- `dev/scripts/devctl/tests/test_failure_cleanup.py`
+- `dev/scripts/devctl/tests/test_security.py`
+- `dev/active/MASTER_PLAN.md` (`MP-306` hardening sub-item)
+- `dev/active/devctl_reporting_upgrade.md` (`MP-306 Hardening Checklist`)
+
+Inference: Automation now fails safer by default: untrusted workflow-run
+contexts are skipped, Python checks in CI are deterministic, cleanup scope
+requires explicit intent before deleting anything outside failure artifacts, and
+branch policy changes can be adopted without workflow rewrites.
+
+### Recent Governance Update (2026-02-23, Supply-Chain Lane Expansion)
+
+Fact: CI supply-chain automation expanded with four dedicated lanes: PR
+dependency review, workflow linting, scheduled scorecard analysis, and release
+source provenance attestation; workflow-governance path coverage was broadened
+so any workflow edit now routes through tooling governance checks.
+
+Evidence:
+
+- `.github/workflows/dependency_review.yml` (`actions/dependency-review-action`
+  pinned SHA, high-severity PR dependency policy gate)
+- `.github/workflows/workflow_lint.yml` (actionlint execution for workflow
+  syntax/policy drift)
+- `.github/workflows/scorecard.yml` (OpenSSF scorecard SARIF generation and
+  upload to code scanning)
+- `.github/workflows/release_attestation.yml` (`actions/attest-build-provenance`
+  on release-tag source archives)
+- `.github/workflows/tooling_control_plane.yml` (workflow path scope expanded
+  to `.github/workflows/*.yml`)
+- `dev/active/MASTER_PLAN.md` (`MP-306` lane-expansion completion + deferred
+  admin backlog for PyPI Trusted Publishing and branch-protection rulesets)
+
+Inference: Supply-chain assurance moved from policy guidance to active CI lanes
+that detect dependency/workflow risk earlier and add provenance signals for
+release artifacts, while explicitly deferring admin-controlled rollout steps to
+tracked backlog items instead of ad-hoc notes.
 
 ### Recent Governance Update (2026-02-20, Theme Studio Settings Ownership)
 
@@ -874,6 +1024,52 @@ Evidence:
 
 Inference: Guarded runtime telemetry moved from "written to disk only" to a
 repeatable maintainer inspection path in the existing control-plane CLI.
+
+### Recent Governance Update (2026-02-23, AGENTS Coverage + Active-Doc Routing)
+
+Fact: Governance entry docs were tightened so autonomous agents have explicit
+coverage for command discovery, active-doc authority boundaries, and
+reference-only planning context.
+
+Evidence:
+
+- `AGENTS.md` (source-of-truth map now calls out reference-only `dev/active`
+  docs, CI workflow ownership, `devctl` command-semantics location, explicit
+  autonomous execution route contract, and full tooling inventory coverage for
+  `triage`, `cihub-setup`, and security CodeQL alert-gate flags)
+- `DEV_INDEX.md` (added discoverability links for `dev/active/phase2.md` as a
+  reference-only doc)
+- `dev/README.md` (start-path and task-routing table now include
+  reference-only active docs with clear non-execution-state framing)
+- `dev/active/MASTER_PLAN.md` (`MP-257` progress note for readability/autonomy
+  routing cleanup)
+
+Inference: The planning/process surface remains centralized, but now better
+distinguishes execution-state docs from contextual references, reducing agent
+misrouting risk during autonomous runs.
+
+### Recent Governance Update (2026-02-23, Guard-Driven Rust Remediation Scaffold)
+
+Fact: Tooling lanes now auto-generate a canonical Rust remediation scaffold when
+AI guardrails detect modularity/pattern drift, so humans and agents work from
+one active execution document instead of ad-hoc notes.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/audit_scaffold.py` (new `devctl audit-scaffold`
+  command with active-root output guard + overwrite confirmation)
+- `dev/config/templates/rust_audit_findings_template.md` (canonical scaffold
+  template carrying required sources, references, findings, and verification
+  checklist structure)
+- `dev/scripts/devctl/commands/check.py` (auto-runs scaffold generation when AI
+  guard steps fail)
+- `.github/workflows/tooling_control_plane.yml` (failure-path scaffold
+  generation + artifact upload for `dev/active/RUST_AUDIT_FINDINGS.md`)
+- `dev/scripts/devctl/tests/test_audit_scaffold.py` and
+  `dev/scripts/devctl/tests/test_check.py`
+
+Inference: Remediation now moves from "manual triage memory" to an enforceable,
+repeatable control-plane output that keeps multi-agent follow-up aligned.
 
 ### Replay the Evidence Quickly
 

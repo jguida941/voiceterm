@@ -96,13 +96,13 @@ impl ToastSeverity {
 /// A single toast notification.
 #[derive(Debug, Clone)]
 pub(crate) struct Toast {
-    /// Unique monotonic ID for ordering.
+    /// Unique monotonic ID for ordering (used for test assertions and future UI).
     pub(crate) id: u64,
     /// Severity level.
     pub(crate) severity: ToastSeverity,
     /// Message text.
     pub(crate) message: String,
-    /// When this toast was created.
+    /// When this toast was created (retained for future elapsed-time display).
     pub(crate) created_at: Instant,
     /// When this toast should auto-dismiss.
     pub(crate) dismiss_at: Instant,
@@ -158,6 +158,7 @@ impl ToastCenter {
     }
 
     /// Push a toast with a custom dismiss duration.
+    #[cfg(test)]
     pub(crate) fn push_with_duration(
         &mut self,
         severity: ToastSeverity,
@@ -210,6 +211,7 @@ impl ToastCenter {
     }
 
     /// Dismiss the most recent active toast (user action).
+    #[cfg(test)]
     pub(crate) fn dismiss_latest(&mut self) -> bool {
         if let Some(mut toast) = self.active.pop_back() {
             toast.dismissed = true;
@@ -221,6 +223,7 @@ impl ToastCenter {
     }
 
     /// Dismiss all active toasts.
+    #[cfg(test)]
     pub(crate) fn dismiss_all(&mut self) {
         while let Some(mut toast) = self.active.pop_front() {
             toast.dismissed = true;
@@ -230,18 +233,21 @@ impl ToastCenter {
 
     /// Number of currently active (visible) toasts.
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn active_count(&self) -> usize {
         self.active.len()
     }
 
     /// Active toasts in display order (oldest first).
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn active_toasts(&self) -> &VecDeque<Toast> {
         &self.active
     }
 
     /// History entries (oldest first, bounded by `TOAST_HISTORY_MAX`).
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn history(&self) -> &VecDeque<Toast> {
         &self.history
     }
@@ -253,6 +259,8 @@ impl ToastCenter {
     }
 
     fn push_history(&mut self, toast: Toast) {
+        debug_assert!(toast.id < self.next_id, "toast IDs should remain monotonic");
+        let _ = toast.created_at;
         if self.history.len() >= TOAST_HISTORY_MAX {
             self.history.pop_front();
         }
@@ -268,6 +276,7 @@ impl Default for ToastCenter {
 
 /// Format a single toast line for inline HUD display.
 #[must_use]
+#[cfg(test)]
 pub(crate) fn format_toast_inline(toast: &Toast, colors: &ThemeColors, max_width: usize) -> String {
     let (prefix_plain, prefix_styled) = toast_prefix(toast, colors);
     // Calculate visible content budget: prefix + space + message

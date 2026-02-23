@@ -10,6 +10,12 @@ from typing import Any, Dict
 
 from .config import REPO_ROOT
 
+CI_RUN_FIELDS_EXTENDED = (
+    "status,conclusion,displayTitle,name,event,headBranch,headSha,"
+    "createdAt,updatedAt,url,databaseId"
+)
+CI_RUN_FIELDS_FALLBACK = "status,conclusion,displayTitle,headSha,createdAt,updatedAt"
+
 
 def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> Dict:
     """Return branch and dirty state info from git."""
@@ -72,23 +78,76 @@ def collect_ci_runs(limit: int) -> Dict:
     """Return recent GitHub Actions runs via gh, if available."""
     if not shutil.which("gh"):
         return {"error": "gh not found"}
-    try:
-        output = subprocess.check_output(
-            [
-                "gh",
-                "run",
-                "list",
-                "--limit",
-                str(limit),
-                "--json",
-                "status,conclusion,displayTitle,headSha,createdAt,updatedAt",
-            ],
-            cwd=REPO_ROOT,
-            text=True,
-        )
-        return {"runs": json.loads(output)}
-    except Exception as exc:
-        return {"error": f"gh run list failed: {exc}"}
+    last_error: Exception | None = None
+    for fields in (CI_RUN_FIELDS_EXTENDED, CI_RUN_FIELDS_FALLBACK):
+        try:
+            output = subprocess.check_output(
+                [
+                    "gh",
+                    "run",
+                    "list",
+                    "--limit",
+                    str(limit),
+                    "--json",
+                    fields,
+                ],
+                cwd=REPO_ROOT,
+                text=True,
+                stderr=subprocess.STDOUT,
+            )
+            runs = json.loads(output)
+            if not isinstance(runs, list):
+                return {"error": "gh run list returned non-list payload"}
+            normalized_runs = _normalize_ci_runs(runs)
+            result: Dict[str, Any] = {"runs": normalized_runs}
+            if fields != CI_RUN_FIELDS_EXTENDED:
+                result["warning"] = (
+                    "gh run list fallback mode: extended fields unavailable; "
+                    "upgrade gh for full CI run metadata."
+                )
+            return result
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+            if fields == CI_RUN_FIELDS_EXTENDED and _should_retry_ci_runs_with_fallback(exc):
+                continue
+            return {"error": _format_collect_ci_error(exc)}
+        except Exception as exc:
+            last_error = exc
+            return {"error": f"gh run list failed: {exc}"}
+    return {"error": f"gh run list failed: {last_error}"}
+
+
+def _normalize_ci_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        row = dict(run)
+        # Legacy `gh` versions can omit these fields; populate stable keys for callers.
+        row.setdefault("name", row.get("displayTitle"))
+        row.setdefault("event", None)
+        row.setdefault("headBranch", None)
+        row.setdefault("url", None)
+        row.setdefault("databaseId", None)
+        normalized.append(row)
+    return normalized
+
+
+def _should_retry_ci_runs_with_fallback(exc: subprocess.CalledProcessError) -> bool:
+    output = (exc.output or "").lower()
+    fallback_markers = (
+        "unknown json field",
+        "accepts the following fields",
+        "invalid value for --json",
+    )
+    return any(marker in output for marker in fallback_markers)
+
+
+def _format_collect_ci_error(exc: subprocess.CalledProcessError) -> str:
+    output = (exc.output or "").strip()
+    if output:
+        return f"gh run list failed: {output}"
+    return f"gh run list failed: {exc}"
 
 
 def collect_mutation_summary() -> Dict:

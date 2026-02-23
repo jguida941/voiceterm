@@ -18,9 +18,13 @@ same execution path with minimal ambiguity.
 |---|---|
 | What are we executing now? | `dev/active/MASTER_PLAN.md` |
 | What active docs exist and what role does each play? | `dev/active/INDEX.md` |
+| Where is active-doc execution authority vs reference-only scope defined? | `dev/active/INDEX.md` (`Role`, `Execution authority`, `When agents read`) |
 | Where is consolidated Theme Studio + overlay visual planning context? | `dev/active/theme_upgrade.md` |
+| Where is long-range phase-2 research context? | `dev/active/phase2.md` |
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
+| Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
+| Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
@@ -28,6 +32,7 @@ same execution path with minimal ambiguity.
 | Where are clean-code and Rust-reference rules defined? | `AGENTS.md` (`Engineering quality contract`), `dev/DEVELOPMENT.md` (`Engineering quality review protocol`) |
 | What process is mandatory? | `AGENTS.md` |
 | What architecture/lifecycle is current? | `dev/ARCHITECTURE.md` |
+| Where are CI lane implementations and release publishers? | `.github/workflows/` |
 | Where is process history tracked? | `dev/history/ENGINEERING_EVOLUTION.md` |
 
 ## Instruction scope and precedence
@@ -41,6 +46,20 @@ When multiple instruction sources exist, apply this precedence:
 
 If subtrees require different workflows, add nested `AGENTS.md` files and keep
 them scoped to that subtree.
+
+## Autonomous execution route (required)
+
+Use this route to run end-to-end without ambiguity:
+
+1. Load `dev/active/INDEX.md`, then `dev/active/MASTER_PLAN.md`.
+2. Use `INDEX.md` role/authority fields to decide which active docs are required:
+   - `tracker` is execution authority.
+   - `spec` is read when matching MP scope is in play.
+   - `runbook` is read for active multi-agent cycles.
+   - `reference` is context-only; do not treat as execution state.
+3. Select task class in the router table and run the matching command bundle.
+4. Apply risk-matrix add-ons for touched runtime risk classes.
+5. Run docs-governance/self-review/end-of-session checklist before handoff.
 
 ## Mandatory 12-step SOP (always)
 
@@ -259,6 +278,7 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
@@ -365,6 +385,8 @@ Use this exact sequence:
      `Last tagged release: vX.Y.Z` and `Current release target: post-vX.Y.Z planning`
 3. Verify release prerequisites:
    - `gh auth status -h github.com`
+   - Latest `CodeRabbit Triage Bridge` run for release commit is `success` (no unresolved medium/high CodeRabbit findings)
+   - `python3 dev/scripts/checks/check_coderabbit_gate.py --branch master`
    - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
    - GitHub Actions secret `HOMEBREW_TAP_TOKEN` exists for `.github/workflows/publish_homebrew.yml`
    - Optional local fallback: Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
@@ -380,6 +402,8 @@ Use this exact sequence:
    gh run list --workflow publish_pypi.yml --limit 1
    # Homebrew publish runs automatically via .github/workflows/publish_homebrew.yml.
    gh run list --workflow publish_homebrew.yml --limit 1
+   # Release source provenance attestations run via .github/workflows/release_attestation.yml.
+   gh run list --workflow release_attestation.yml --limit 1
    # gh run watch <run-id>
    curl -fsSL https://pypi.org/pypi/voiceterm/<version>/json
    # Local fallback (if workflow is unavailable):
@@ -397,6 +421,7 @@ python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --
 python3 dev/scripts/devctl.py ship --version <version> --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
+gh run list --workflow release_attestation.yml --limit 1
 
 # Manual fallback (run PyPI/Homebrew locally)
 python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --homebrew --yes
@@ -413,6 +438,12 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Long-running worker/thread lifecycle | `memory_guard.yml` |
 | Parser/ANSI/OSC boundary logic | `parser_fuzz_guard.yml` |
 | Dependency/security policy changes | `security_guard.yml` |
+| Dependency manifest/lockfile deltas in PRs | `dependency_review.yml` |
+| Workflow syntax + policy drift | `workflow_lint.yml` |
+| AI PR review signal ingestion and owner/severity rollups | `coderabbit_triage.yml` |
+| Bounded AI remediation loop for CodeRabbit medium/high backlog | `coderabbit_ralph_loop.yml` |
+| Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `release_attestation.yml` |
+| Supply-chain posture drift | `scorecard.yml` |
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
 | Multi-agent instruction/ack timers and stale-lane accountability | `tooling_control_plane.yml`, `orchestrator_watchdog.yml` |
@@ -420,6 +451,8 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Release preflight verification bundle | `release_preflight.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
 | GitHub release publication / Homebrew distribution | `publish_homebrew.yml` |
+| Release source provenance attestation | `release_attestation.yml` |
+| Any non-success CI workflow run | `failure_triage.yml` (workflow-run triage bundle + artifact upload; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled) plus local mutation-score evidence |
 
@@ -485,10 +518,13 @@ Core commands:
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
+  - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
+- `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
-- `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`)
+- `cihub-setup` (allowlisted CIHub setup runner with preview/apply modes, capability probing, and strict unsupported-step gating)
+- `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`, optional GitHub code-scanning alert gate via `--with-codeql-alerts`, and Python scope control via `--python-scope auto|changed|all`)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
 - `mutants`
 - `release`
@@ -500,22 +536,51 @@ Core commands:
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
+- `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing)
+- `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
+- `audit-scaffold`
+  - Builds/updates `dev/active/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
+  - Auto-runs when AI-guard checks fail.
+  - Run manually when you want a fresh findings file or a commit-range scoped view.
 - `list`
+
+### Quick command intent (plain language)
+
+| Command | Run it when | Why |
+|---|---|---|
+| `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
+| `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
+| `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
+| `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 
 Implementation note for maintainers:
 
 - Shared internals in `devctl` are intentional and should stay centralized:
   `dev/scripts/devctl/process_sweep.py` (process parsing/cleanup),
   `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
+  `dev/scripts/devctl/security_codeql.py` (CodeQL alert-fetch wiring for security gate),
+  `dev/scripts/devctl/security_python_scope.py` (Python changed/all scope resolution + core scanner targets),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
+  `dev/scripts/devctl/cihub_setup_parser.py` (`cihub-setup` parser wiring),
   `dev/scripts/devctl/orchestrate_parser.py` (orchestrator CLI parser wiring),
   `dev/scripts/devctl/script_catalog.py` (canonical check-script path registry),
-  `dev/scripts/devctl/path_audit.py` (shared stale-path scanner),
+  `dev/scripts/devctl/path_audit_parser.py` (path-audit/path-rewrite parser wiring),
+  `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
+  `dev/scripts/devctl/triage_parser.py` (triage parser wiring),
+  `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
+  `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
+  `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
+  `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
+  `dev/scripts/devctl/commands/docs_check_support.py` (docs-check policy + failure-action helper builders),
+  `dev/scripts/devctl/commands/docs_check_render.py` (docs-check markdown renderer helpers),
   `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
   `dev/scripts/devctl/policy_gate.py` (shared JSON policy gate runner),
   `dev/scripts/devctl/status_report.py` (status/report payload + markdown
   rendering), `dev/scripts/devctl/commands/security.py` (local security gate
-  orchestration + optional scanner policy), and `dev/scripts/devctl/commands/ship_common.py` /
+  orchestration + optional scanner policy),
+  `dev/scripts/devctl/commands/cihub_setup.py` (allowlisted CIHub setup command implementation),
+  `dev/scripts/devctl/commands/failure_cleanup.py` (guarded failure-artifact cleanup), and `dev/scripts/devctl/commands/ship_common.py` /
   `dev/scripts/devctl/commands/ship_steps.py` (release-step helpers), plus
   `dev/scripts/devctl/common.py` for shared command-execution failure handling.
   Keep new logic in these helpers to avoid command drift.
@@ -527,6 +592,7 @@ Supporting scripts:
 - `dev/scripts/checks/check_multi_agent_sync.py`
 - `dev/scripts/checks/check_cli_flags_parity.py`
 - `dev/scripts/checks/check_release_version_parity.py`
+- `dev/scripts/checks/check_coderabbit_gate.py`
 - `dev/scripts/checks/check_screenshot_integrity.py`
 - `dev/scripts/checks/check_code_shape.py`
 - `dev/scripts/checks/check_rust_lint_debt.py`
@@ -534,6 +600,7 @@ Supporting scripts:
 - `dev/scripts/checks/check_rust_security_footguns.py`
 - `dev/scripts/checks/check_mutation_score.py`
 - `dev/scripts/checks/check_rustsec_policy.py`
+- `dev/scripts/checks/run_coderabbit_ralph_loop.py`
 - `dev/scripts/tests/measure_latency.sh`
 - `dev/scripts/tests/wake_word_guard.sh`
 - `scripts/macros.sh`
@@ -564,13 +631,20 @@ surfaces without `# Safety` docs in changed Rust files.
 - `memory_guard.yml`
 - `mutation-testing.yml`
 - `security_guard.yml`
+- `dependency_review.yml`
+- `workflow_lint.yml`
+- `coderabbit_triage.yml`
+- `scorecard.yml`
 - `parser_fuzz_guard.yml`
 - `coverage.yml`
 - `docs_lint.yml`
 - `lint_hardening.yml`
+- `coderabbit_ralph_loop.yml`
 - `release_preflight.yml`
+- `release_attestation.yml`
 - `tooling_control_plane.yml`
 - `orchestrator_watchdog.yml`
+- `failure_triage.yml`
 - `publish_pypi.yml`
 - `publish_homebrew.yml`
 
@@ -599,6 +673,7 @@ Before calling implementation done, review for:
 - Style/maintenance: clippy warnings, naming, dead code
 - API/docs alignment: Rust reference checks captured for non-trivial changes
 - CI supply chain: workflow refs pinned, permissions least-privilege, concurrency set
+- CI runtime hardening: workflows define explicit `timeout-minutes` budgets for long-running/security-sensitive jobs
 
 ## Handoff paper trail protocol
 

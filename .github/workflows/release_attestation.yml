@@ -1,0 +1,104 @@
+name: release_attestation
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-attestation-${{ github.event.release.tag_name || github.event.inputs.version || github.run_id }}
+  cancel-in-progress: false
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (X.Y.Z)"
+        required: true
+        type: string
+      release_branch:
+        description: "Release branch for CodeRabbit gate lookup"
+        required: false
+        default: master
+        type: string
+
+jobs:
+  source-provenance:
+    name: source-provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+            BRANCH="${{ github.event.release.target_commitish }}"
+          else
+            TAG="v${{ github.event.inputs.version }}"
+            BRANCH="${{ github.event.inputs.release_branch }}"
+          fi
+
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${TAG}"
+            exit 1
+          fi
+
+          if [[ -z "${BRANCH}" ]]; then
+            echo "Release branch is required for CodeRabbit gate lookup."
+            exit 1
+          fi
+
+          git fetch --force --tags origin
+          if ! git rev-parse --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag not found in repository: ${TAG}"
+            exit 1
+          fi
+          SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          if [[ -z "${SHA}" ]]; then
+            echo "Failed to resolve commit SHA for tag ${TAG}"
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          ARCHIVE="voiceterm-${VERSION}-source.tar.gz"
+          echo "TAG=${TAG}" >> "${GITHUB_ENV}"
+          echo "BRANCH=${BRANCH}" >> "${GITHUB_ENV}"
+          echo "SHA=${SHA}" >> "${GITHUB_ENV}"
+          echo "ARCHIVE=${ARCHIVE}" >> "${GITHUB_ENV}"
+
+      - name: Verify CodeRabbit gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --branch "${BRANCH}" \
+            --sha "${SHA}" \
+            --format md
+
+      - name: Build source archive
+        run: |
+          git archive --format=tar.gz --output "${ARCHIVE}" "refs/tags/${TAG}"
+          sha256sum "${ARCHIVE}" | tee "${ARCHIVE}.sha256"
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-source-archive-${{ env.TAG }}
+          path: |
+            ${{ env.ARCHIVE }}
+            ${{ env.ARCHIVE }}.sha256
+          if-no-files-found: error
+
+      - name: Attest source archive provenance
+        uses: actions/attest-build-provenance@96278af632c8f45f10463ef9158834eb711f0f00
+        with:
+          subject-path: ${{ env.ARCHIVE }}

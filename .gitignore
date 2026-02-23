@@ -106,3 +106,11 @@ dev/active/DEV_MODE_PLAN.md
 
 # Local-only testing notes
 Testing_Guide.md
+
+# Local scanner scratch artifacts (external tools)
+/cvelist
+/cvelist-html
+/cvelist-our
+/cvelist-our-html
+/cvelist.diff
+/orb.db/

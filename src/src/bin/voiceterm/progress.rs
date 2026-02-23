@@ -125,8 +125,8 @@ fn format_bar_standard(
     colors: &ThemeColors,
     glyphs: crate::theme::ProgressGlyphProfile,
 ) -> String {
-    let filled = (ratio * width as f32) as usize;
-    let empty = width - filled;
+    let filled = ((ratio * width as f32) as usize).min(width);
+    let empty = width.saturating_sub(filled);
 
     format!(
         "[{}{}{}{}]",
@@ -143,7 +143,7 @@ fn format_bar_compact(
     colors: &ThemeColors,
     glyphs: crate::theme::ProgressGlyphProfile,
 ) -> String {
-    let filled = (ratio * width as f32) as usize;
+    let filled = ((ratio * width as f32) as usize).min(width);
     let partial_idx = ((ratio * width as f32).fract() * (glyphs.partial.len() - 1) as f32) as usize;
     let empty = width.saturating_sub(filled + 1);
 
@@ -166,8 +166,8 @@ fn format_bar_blocks(
     colors: &ThemeColors,
     glyphs: crate::theme::ProgressGlyphProfile,
 ) -> String {
-    let filled = (ratio * width as f32) as usize;
-    let empty = width - filled;
+    let filled = ((ratio * width as f32) as usize).min(width);
+    let empty = width.saturating_sub(filled);
 
     format!(
         "{}{}{}{}",

@@ -192,9 +192,9 @@ impl SettingsActionContext<'_> {
         self.config.image_mode = !self.config.image_mode;
         self.status.status_state.image_mode_enabled = self.config.image_mode;
         let msg = if self.config.image_mode {
-            "Image mode: ON (trigger captures image)"
+            "Persistent image mode: ON ([rec]=image, Ctrl+R=voice, Ctrl+X=screenshot)"
         } else {
-            "Image mode: OFF (trigger captures voice)"
+            "Persistent image mode: OFF (Ctrl+R=voice, Ctrl+X=screenshot)"
         };
         self.set_transient_status(msg, Duration::from_secs(3));
     }

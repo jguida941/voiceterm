@@ -18,7 +18,11 @@ pub struct Shortcut {
 const RECORDING_SHORTCUTS: &[Shortcut] = &[
     Shortcut {
         key: "Ctrl+R",
-        description: "Trigger capture (voice or image mode)",
+        description: "Trigger voice capture",
+    },
+    Shortcut {
+        key: "Ctrl+X",
+        description: "Capture screenshot prompt",
     },
     Shortcut {
         key: "Ctrl+E",
@@ -285,8 +289,8 @@ pub fn help_overlay_height() -> usize {
 }
 
 /// Calculate the width of the help overlay.
-#[allow(dead_code)]
-pub fn help_overlay_width() -> usize {
+#[cfg(test)]
+fn help_overlay_width() -> usize {
     54 // Fixed width for consistent display
 }
 

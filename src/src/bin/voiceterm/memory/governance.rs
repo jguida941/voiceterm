@@ -44,14 +44,19 @@ pub(crate) fn redact_secrets(text: &str) -> String {
     ];
 
     for (prefix, replacement) in &patterns {
-        if let Some(pos) = redacted.find(prefix) {
+        let mut search_from = 0usize;
+        while search_from < redacted.len() {
+            let Some(relative_pos) = redacted[search_from..].find(prefix) else {
+                break;
+            };
             // Find end of the secret (typically alphanumeric + dashes).
-            let start = pos;
+            let start = search_from + relative_pos;
             let rest = &redacted[start..];
             let end = rest
                 .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == ';')
                 .unwrap_or(rest.len());
             redacted.replace_range(start..start + end, replacement);
+            search_from = start + replacement.len();
         }
     }
 
@@ -223,6 +228,16 @@ mod tests {
         let input = "key=AKIAIOSFODNN7EXAMPLE";
         let redacted = redact_secrets(input);
         assert!(redacted.contains("[REDACTED_AWS]"));
+    }
+
+    #[test]
+    fn redact_secrets_redacts_multiple_occurrences_of_same_prefix() {
+        let input = "tokens: sk-abc123 sk-def456 and sk-ghi789";
+        let redacted = redact_secrets(input);
+        assert_eq!(redacted.matches("[REDACTED_KEY]").count(), 3);
+        assert!(!redacted.contains("sk-abc123"));
+        assert!(!redacted.contains("sk-def456"));
+        assert!(!redacted.contains("sk-ghi789"));
     }
 
     #[test]

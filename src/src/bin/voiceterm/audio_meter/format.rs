@@ -71,7 +71,7 @@ fn level_color(level_db: f32, colors: &ThemeColors) -> &str {
 }
 
 /// Format a compact level display with dB value.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn format_level_compact(level: AudioLevel, theme: Theme) -> String {
     let colors = theme.colors();
     let config = MeterConfig {
@@ -157,7 +157,6 @@ pub fn format_mic_meter_display(
 
 /// Format a mini waveform from recent audio levels.
 /// Uses iterator chains to avoid Vec allocations in the hot path.
-#[allow(dead_code)]
 #[must_use]
 pub fn format_waveform(levels: &[f32], width: usize, theme: Theme) -> String {
     let colors = theme.colors();
@@ -178,8 +177,9 @@ fn format_waveform_with_colors(levels: &[f32], width: usize, colors: &ThemeColor
     let start = levels.len().saturating_sub(width);
     let pad_count = width.saturating_sub(levels.len());
     // Missing history should render as floor-level baseline, not peak bars.
-    let samples_iter =
-        std::iter::repeat_n(-60.0_f32, pad_count).chain(levels[start..].iter().copied());
+    let samples_iter = std::iter::repeat(-60.0_f32)
+        .take(pad_count)
+        .chain(levels[start..].iter().copied());
 
     for level in samples_iter {
         // Convert dB to waveform character (assuming -60 to 0 range)

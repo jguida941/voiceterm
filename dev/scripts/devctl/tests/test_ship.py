@@ -100,6 +100,57 @@ class ShipReleaseParityTests(TestCase):
         self.assertTrue(result["skipped"])
         self.assertEqual(result["name"], "verify")
 
+    @patch("dev.scripts.devctl.commands.ship_steps.run_cmd")
+    def test_run_verify_fails_when_coderabbit_gate_fails(self, run_cmd_mock) -> None:
+        args = make_args()
+        args.dry_run = False
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        run_cmd_mock.return_value = {
+            "name": "coderabbit-gate",
+            "cmd": ["python3", "dev/scripts/checks/check_coderabbit_gate.py", "--format", "json"],
+            "cwd": ".",
+            "returncode": 1,
+            "duration_s": 0.01,
+            "skipped": False,
+            "error": "gate failed",
+        }
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(True, {"version": "1.2.3"}),
+        ):
+            result = ship_steps.run_verify_step(args, context)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["name"], "verify")
+        self.assertEqual(result["details"]["failed_substep"], "coderabbit-gate")
+        self.assertEqual(result["details"]["reason"], "gate failed")
+
+    @patch("dev.scripts.devctl.commands.ship_steps.run_cmd")
+    def test_run_verify_checks_coderabbit_gate_first(self, run_cmd_mock) -> None:
+        args = make_args()
+        args.dry_run = False
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        run_cmd_mock.return_value = {
+            "name": "ok",
+            "cmd": [],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.01,
+            "skipped": False,
+        }
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(True, {"version": "1.2.3"}),
+        ):
+            result = ship_steps.run_verify_step(args, context)
+
+        self.assertTrue(result["ok"])
+        first_call = run_cmd_mock.call_args_list[0]
+        self.assertEqual(first_call.args[0], "coderabbit-gate")
+        self.assertIn("dev/scripts/checks/check_coderabbit_gate.py", first_call.args[1])
+
     def test_run_pypi_fails_when_release_parity_fails(self) -> None:
         args = make_args()
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}

@@ -4,6 +4,7 @@
 pub(crate) enum InputEvent {
     Bytes(Vec<u8>),
     VoiceTrigger,
+    ImageCaptureTrigger,
     SendStagedText,
     ToggleAutoVoice,
     ToggleSendMode,
@@ -15,7 +16,6 @@ pub(crate) enum InputEvent {
     SettingsToggle,
     DevPanelToggle,
     ToggleHudStyle,
-    CollapseHiddenLauncher,
     TranscriptHistoryToggle,
     ToastHistoryToggle,
     EnterKey,

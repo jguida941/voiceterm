@@ -188,7 +188,7 @@ fn toggle_image_mode_updates_config_state_and_status() {
         .expect("status message")
     {
         WriterMessage::EnhancedStatus(state) => {
-            assert!(state.message.contains("Image mode: ON"));
+            assert!(state.message.contains("Persistent image mode: ON"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }

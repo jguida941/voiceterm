@@ -24,13 +24,13 @@ pub(crate) fn validate_event(event: &MemoryEvent) -> Vec<String> {
     if event.text.trim().is_empty() {
         errors.push("text is empty or whitespace-only".to_string());
     }
-    if event.importance < 0.0 || event.importance > 1.0 {
+    if !(0.0..=1.0).contains(&event.importance) {
         errors.push(format!(
             "importance {} out of [0.0, 1.0] range",
             event.importance
         ));
     }
-    if event.confidence < 0.0 || event.confidence > 1.0 {
+    if !(0.0..=1.0).contains(&event.confidence) {
         errors.push(format!(
             "confidence {} out of [0.0, 1.0] range",
             event.confidence

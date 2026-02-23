@@ -244,7 +244,7 @@ impl From<RawMacroMode> for VoiceSendMode {
 
 fn parse_rules(raw: &str) -> Result<Vec<MacroRule>, String> {
     let parsed: RawMacroFile =
-        serde_yaml::from_str(raw).map_err(|err| format!("yaml parse error: {err}"))?;
+        serde_yml::from_str(raw).map_err(|err| format!("yaml parse error: {err}"))?;
     let mut rules = Vec::new();
     for (trigger, entry) in parsed.macros {
         let trigger_label = trigger.trim().to_string();

@@ -23,7 +23,7 @@ pub(super) fn run_ipc_loop(
         loop_count += 1;
         #[cfg(any(test, feature = "mutants"))]
         super::ipc_loop_count_set(loop_count);
-        if loop_count.is_multiple_of(1000) {
+        if loop_count % 1000 == 0 {
             log_debug(&format!(
                 "IPC loop iteration {}, job active: {}",
                 loop_count,

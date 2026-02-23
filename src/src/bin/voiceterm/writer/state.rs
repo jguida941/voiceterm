@@ -5,8 +5,8 @@ use voiceterm::log_debug;
 
 use super::mouse::{disable_mouse, enable_mouse};
 use super::render::{
-    clear_overlay_panel, clear_status_banner, clear_status_line, write_overlay_panel,
-    write_status_banner, write_status_line,
+    build_clear_bottom_rows_bytes, clear_overlay_panel, clear_status_banner, clear_status_line,
+    write_overlay_panel, write_status_banner, write_status_line,
 };
 use super::WriterMessage;
 use crate::status_line::{format_status_banner, StatusLineState};
@@ -106,7 +106,30 @@ impl WriterState {
     pub(super) fn handle_message(&mut self, message: WriterMessage) -> bool {
         match message {
             WriterMessage::PtyOutput(bytes) => {
-                if let Err(err) = self.stdout.write_all(&bytes) {
+                // Pre-clear the HUD before writing PTY output that contains newlines.
+                // Terminal scrolling pushes old HUD content upward, creating visible
+                // ghost duplicate frames.  By clearing first (combined into one write),
+                // the scrolled-up rows are blank instead of stale HUD content.
+                let pre_clear = if bytes.contains(&b'\n') {
+                    if let Some(panel) = self.display.overlay_panel.as_ref() {
+                        build_clear_bottom_rows_bytes(self.rows, panel.height)
+                    } else if self.display.banner_height > 1 {
+                        build_clear_bottom_rows_bytes(self.rows, self.display.banner_height)
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                let write_result = if pre_clear.is_empty() {
+                    self.stdout.write_all(&bytes)
+                } else {
+                    let mut combined = pre_clear;
+                    combined.extend_from_slice(&bytes);
+                    self.stdout.write_all(&combined)
+                };
+                if let Err(err) = write_result {
                     log_debug(&format!("stdout write_all failed: {err}"));
                     return false;
                 }

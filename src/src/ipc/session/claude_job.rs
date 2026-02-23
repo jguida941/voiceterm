@@ -7,7 +7,7 @@ use std::sync::mpsc::{self, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{ClaudeJob, ClaudeJobOutput};
+use super::{utf8_prefix, ClaudeJob, ClaudeJobOutput};
 
 pub(super) fn terminate_piped_child(child: &mut std::process::Child) {
     #[cfg(unix)]
@@ -142,7 +142,7 @@ pub(super) fn start_claude_job(
 ) -> Result<ClaudeJob, String> {
     log_debug_content(&format!(
         "Starting Claude job with prompt: {}...",
-        &prompt[..prompt.len().min(30)]
+        utf8_prefix(prompt, 30)
     ));
 
     // Use --print with --dangerously-skip-permissions for non-interactive operation.

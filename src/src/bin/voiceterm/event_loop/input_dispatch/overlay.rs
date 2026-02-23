@@ -41,7 +41,6 @@ pub(super) fn handle_overlay_input_event(
             }
             None
         }
-        (_, InputEvent::CollapseHiddenLauncher) => None,
         (mode, InputEvent::QuickThemeCycle) => {
             run_settings_action(state, timers, deps, mode, |settings_ctx| {
                 settings_ctx.cycle_theme(1);
@@ -198,9 +197,47 @@ pub(super) fn handle_overlay_input_event(
             open_theme_studio_overlay(state, deps);
             None
         }
+        (OverlayMode::DevPanel, InputEvent::EnterKey) => {
+            request_selected_dev_panel_command(state, timers, deps);
+            if state.overlay_mode == OverlayMode::DevPanel {
+                render_dev_panel_overlay_for_state(state, deps);
+            }
+            None
+        }
         (OverlayMode::DevPanel, InputEvent::Bytes(bytes)) => {
             if bytes == [0x1b] {
                 close_overlay(state, deps, false);
+            } else {
+                let mut should_redraw = false;
+                if let Some(keys) = parse_arrow_keys_only(&bytes) {
+                    for key in keys {
+                        let moved = match key {
+                            ArrowKey::Up | ArrowKey::Left => move_dev_panel_selection(state, -1),
+                            ArrowKey::Down | ArrowKey::Right => move_dev_panel_selection(state, 1),
+                        };
+                        should_redraw |= moved;
+                    }
+                } else if bytes.len() == 1 {
+                    match bytes[0] {
+                        b'1'..=b'5' => {
+                            let index = usize::from(bytes[0] - b'1');
+                            should_redraw |= select_dev_panel_command_by_index(state, index);
+                        }
+                        b'r' | b'R' => {
+                            request_selected_dev_panel_command(state, timers, deps);
+                            should_redraw = true;
+                        }
+                        b'x' | b'X' => {
+                            cancel_running_dev_panel_command(state, timers, deps);
+                            should_redraw = true;
+                        }
+                        _ => {}
+                    }
+                }
+
+                if should_redraw && state.overlay_mode == OverlayMode::DevPanel {
+                    render_dev_panel_overlay_for_state(state, deps);
+                }
             }
             None
         }

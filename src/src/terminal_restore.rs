@@ -105,11 +105,18 @@ pub fn install_terminal_panic_hook() {
         let previous = panic::take_hook();
         panic::set_hook(Box::new(move |info| {
             restore_terminal();
-            crate::log_panic(info);
             let location = info
                 .location()
                 .map(|loc| format!("{}:{}", loc.file(), loc.line()))
                 .unwrap_or_else(|| "unknown".to_string());
+            let payload = if let Some(text) = info.payload().downcast_ref::<&str>() {
+                (*text).to_string()
+            } else if let Some(text) = info.payload().downcast_ref::<String>() {
+                text.clone()
+            } else {
+                "non-string panic payload".to_string()
+            };
+            crate::log_panic(&location, &payload);
             crate::log_debug(&format!("panic at {location}"));
             crate::log_debug_content(&format!("panic: {info}"));
             previous(info);

@@ -10,6 +10,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::buttons::ButtonRegistry;
 use crate::config::OverlayConfig;
+use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
 use crate::input::InputEvent;
 use crate::memory::{ActionCenterState, MemoryIngestor};
 use crate::overlays::OverlayMode;
@@ -46,6 +47,7 @@ pub(crate) struct EventLoopState {
     pub(crate) session_stats: SessionStats,
     pub(crate) dev_mode_stats: Option<DevModeStats>,
     pub(crate) dev_event_logger: Option<DevEventJsonlWriter>,
+    pub(crate) dev_panel_commands: DevPanelCommandState,
     pub(crate) prompt_tracker: PromptTracker,
     pub(crate) terminal_rows: u16,
     pub(crate) terminal_cols: u16,
@@ -64,7 +66,6 @@ pub(crate) struct EventLoopState {
     pub(crate) claude_prompt_detector: ClaudePromptDetector,
     pub(crate) last_toast_status: Option<String>,
     pub(crate) toast_center: ToastCenter,
-    #[allow(dead_code)]
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
     #[allow(dead_code)]
     pub(crate) action_center_state: ActionCenterState,
@@ -101,4 +102,5 @@ pub(crate) struct EventLoopDeps {
     pub(crate) auto_idle_timeout: Duration,
     pub(crate) transcript_idle_timeout: Duration,
     pub(crate) voice_macros: VoiceMacros,
+    pub(crate) dev_command_broker: Option<DevCommandBroker>,
 }

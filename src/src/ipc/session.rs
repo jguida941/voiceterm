@@ -93,6 +93,10 @@ pub(super) fn send_event(event: &IpcEvent) {
     event_sink::send_event(event);
 }
 
+pub(super) fn utf8_prefix(text: &str, max_chars: usize) -> String {
+    text.chars().take(max_chars).collect()
+}
+
 #[cfg(any(test, feature = "mutants"))]
 #[allow(dead_code)]
 pub(super) fn init_event_sink() {

@@ -11,6 +11,8 @@ pub(super) fn run_periodic_tasks(
     deps: &mut EventLoopDeps,
     now: Instant,
 ) {
+    poll_dev_command_updates(state, timers, deps);
+
     if state.status_state.claude_prompt_suppressed
         && !state.claude_prompt_detector.should_suppress_hud()
     {

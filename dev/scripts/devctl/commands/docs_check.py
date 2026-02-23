@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime
 
 from ..collect import collect_git_status
@@ -12,111 +11,24 @@ from ..config import REPO_ROOT
 from ..path_audit import scan_legacy_path_references
 from ..policy_gate import run_json_policy_gate
 from ..script_catalog import check_script_path
-
-USER_DOCS = [
-    "README.md",
-    "QUICK_START.md",
-    "guides/USAGE.md",
-    "guides/CLI_FLAGS.md",
-    "guides/INSTALL.md",
-    "guides/TROUBLESHOOTING.md",
-]
-
-TOOLING_CHANGE_PREFIXES = (
-    "dev/scripts/",
-    "scripts/macro-packs/",
-    ".github/workflows/",
+from .docs_check_render import render_markdown_report
+from .docs_check_support import (
+    EVOLUTION_DOC,
+    TOOLING_REQUIRED_DOCS,
+    USER_DOCS,
+    build_failure_reasons,
+    build_next_actions,
+    is_tooling_change,
+    requires_evolution_update,
+    scan_deprecated_references,
 )
-TOOLING_CHANGE_EXACT = {
-    "Makefile",
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-}
-TOOLING_REQUIRED_DOCS = [
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "dev/active/MASTER_PLAN.md",
-]
-EVOLUTION_DOC = "dev/history/ENGINEERING_EVOLUTION.md"
-EVOLUTION_CHANGE_PREFIXES = (
-    "dev/scripts/",
-    ".github/workflows/",
-)
-EVOLUTION_CHANGE_EXACT = {
-    "AGENTS.md",
-    "dev/ARCHITECTURE.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "dev/active/MASTER_PLAN.md",
-}
-
-DEPRECATED_REFERENCE_TARGETS = [
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "scripts/macro-packs/full-dev.yaml",
-    "Makefile",
-]
-DEPRECATED_REFERENCE_PATTERNS = [
-    {
-        "name": "release-script",
-        "regex": re.compile(r"\./dev/scripts/release\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py release --version <version>",
-    },
-    {
-        "name": "homebrew-script",
-        "regex": re.compile(r"\./dev/scripts/update-homebrew\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py homebrew --version <version>",
-    },
-    {
-        "name": "pypi-script",
-        "regex": re.compile(r"\./dev/scripts/publish-pypi\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py pypi --upload",
-    },
-    {
-        "name": "notes-script",
-        "regex": re.compile(r"\./dev/scripts/generate-release-notes\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py release-notes --version <version>",
-    },
-]
 
 ACTIVE_PLAN_SYNC_SCRIPT = check_script_path("active_plan_sync")
 MULTI_AGENT_SYNC_SCRIPT = check_script_path("multi_agent_sync")
 
-
-def _is_tooling_change(path: str) -> bool:
-    if path in TOOLING_CHANGE_EXACT:
-        return True
-    return path.startswith(TOOLING_CHANGE_PREFIXES)
-
-
-def _requires_evolution_update(path: str) -> bool:
-    if path in EVOLUTION_CHANGE_EXACT:
-        return True
-    return path.startswith(EVOLUTION_CHANGE_PREFIXES)
-
-
 def _scan_deprecated_references() -> list[dict]:
-    violations = []
-    for relative in DEPRECATED_REFERENCE_TARGETS:
-        path = REPO_ROOT / relative
-        if not path.exists():
-            continue
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            for spec in DEPRECATED_REFERENCE_PATTERNS:
-                if spec["regex"].search(line):
-                    violations.append(
-                        {
-                            "file": relative,
-                            "line": lineno,
-                            "pattern": spec["name"],
-                            "line_text": line.strip(),
-                            "replacement": spec["replacement"],
-                        }
-                    )
-    return violations
+    """Wrapper kept for unit-test patch stability."""
+    return scan_deprecated_references(REPO_ROOT)
 
 
 def _run_active_plan_sync_gate() -> dict:
@@ -156,10 +68,12 @@ def run(args) -> int:
         elif not updated_docs:
             user_facing_ok = False
 
-    tooling_changes_detected = sorted(path for path in changed if _is_tooling_change(path))
+    tooling_changes_detected = sorted(path for path in changed if is_tooling_change(path))
     updated_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc in changed]
     missing_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc not in changed]
-    evolution_relevant_changes = sorted(path for path in changed if _requires_evolution_update(path))
+    evolution_relevant_changes = sorted(
+        path for path in changed if requires_evolution_update(path)
+    )
     evolution_updated = EVOLUTION_DOC in changed
 
     tooling_policy_ok = True
@@ -199,6 +113,41 @@ def run(args) -> int:
         and multi_agent_sync_ok
         and legacy_path_audit_ok
     )
+    failure_reasons = build_failure_reasons(
+        user_facing_enabled=args.user_facing,
+        strict_user_docs=args.strict,
+        changelog_updated=changelog_updated,
+        updated_docs=updated_docs,
+        missing_docs=missing_docs,
+        tooling_changes_detected=tooling_changes_detected,
+        updated_tooling_docs=updated_tooling_docs,
+        strict_tooling=strict_tooling,
+        missing_tooling_docs=missing_tooling_docs,
+        evolution_relevant_changes=evolution_relevant_changes,
+        evolution_policy_ok=evolution_policy_ok,
+        active_plan_sync_ok=active_plan_sync_ok,
+        active_plan_sync_report=active_plan_sync_report,
+        multi_agent_sync_ok=multi_agent_sync_ok,
+        multi_agent_sync_report=multi_agent_sync_report,
+        legacy_path_audit_ok=legacy_path_audit_ok,
+        legacy_path_audit_report=legacy_path_audit_report,
+        deprecated_violations=deprecated_violations,
+    )
+    next_actions = build_next_actions(
+        failure_reasons=failure_reasons,
+        user_facing_enabled=args.user_facing,
+        strict_user_docs=args.strict,
+        missing_docs=missing_docs,
+        tooling_changes_detected=tooling_changes_detected,
+        strict_tooling=strict_tooling,
+        missing_tooling_docs=missing_tooling_docs,
+        evolution_relevant_changes=evolution_relevant_changes,
+        evolution_policy_ok=evolution_policy_ok,
+        active_plan_sync_ok=active_plan_sync_ok,
+        multi_agent_sync_ok=multi_agent_sync_ok,
+        legacy_path_audit_ok=legacy_path_audit_ok,
+        deprecated_violations=deprecated_violations,
+    )
 
     report = {
         "command": "docs-check",
@@ -209,6 +158,7 @@ def run(args) -> int:
         "strict": args.strict,
         "strict_tooling": strict_tooling,
         "changelog_updated": changelog_updated,
+        "user_facing_ok": user_facing_ok,
         "updated_docs": updated_docs,
         "missing_docs": missing_docs,
         "tooling_changes_detected": tooling_changes_detected,
@@ -227,85 +177,15 @@ def run(args) -> int:
         "legacy_path_audit_report": legacy_path_audit_report,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
+        "failure_reasons": failure_reasons,
+        "next_actions": next_actions,
         "ok": ok,
     }
 
     if args.format == "json":
         output = json.dumps(report, indent=2)
     else:
-        lines = ["# devctl docs-check", ""]
-        if since_ref:
-            lines.append(f"- commit_range: {since_ref}...{head_ref}")
-        lines.append(f"- changelog_updated: {changelog_updated}")
-        lines.append(f"- updated_docs: {', '.join(updated_docs) if updated_docs else 'none'}")
-        if args.user_facing:
-            lines.append(f"- missing_docs: {', '.join(missing_docs) if missing_docs else 'none'}")
-            lines.append(f"- user_facing_ok: {user_facing_ok}")
-        lines.append(
-            "- tooling_changes_detected: "
-            + (", ".join(tooling_changes_detected) if tooling_changes_detected else "none")
-        )
-        lines.append(
-            "- updated_tooling_docs: "
-            + (", ".join(updated_tooling_docs) if updated_tooling_docs else "none")
-        )
-        lines.append(
-            "- evolution_relevant_changes: "
-            + (", ".join(evolution_relevant_changes) if evolution_relevant_changes else "none")
-        )
-        lines.append(f"- evolution_updated: {evolution_updated}")
-        if tooling_changes_detected:
-            lines.append(
-                "- missing_tooling_docs: "
-                + (", ".join(missing_tooling_docs) if missing_tooling_docs else "none")
-            )
-            lines.append(f"- tooling_policy_ok: {tooling_policy_ok}")
-        if strict_tooling and evolution_relevant_changes:
-            lines.append(f"- evolution_policy_ok: {evolution_policy_ok}")
-        if strict_tooling:
-            lines.append(f"- active_plan_sync_ok: {active_plan_sync_ok}")
-            if not active_plan_sync_ok and active_plan_sync_report:
-                active_sync_errors = active_plan_sync_report.get("errors", [])
-                if active_sync_errors:
-                    lines.append("- active_plan_sync_errors: " + " | ".join(active_sync_errors))
-                active_sync_error = active_plan_sync_report.get("error")
-                if active_sync_error:
-                    lines.append(f"- active_plan_sync_error: {active_sync_error}")
-            lines.append(f"- multi_agent_sync_ok: {multi_agent_sync_ok}")
-            if not multi_agent_sync_ok and multi_agent_sync_report:
-                multi_agent_errors = multi_agent_sync_report.get("errors", [])
-                if multi_agent_errors:
-                    lines.append("- multi_agent_sync_errors: " + " | ".join(multi_agent_errors))
-                multi_agent_error = multi_agent_sync_report.get("error")
-                if multi_agent_error:
-                    lines.append(f"- multi_agent_sync_error: {multi_agent_error}")
-            lines.append(f"- legacy_path_audit_ok: {legacy_path_audit_ok}")
-            if not legacy_path_audit_ok and legacy_path_audit_report:
-                audit_error = legacy_path_audit_report.get("error")
-                if audit_error:
-                    lines.append(f"- legacy_path_audit_error: {audit_error}")
-                violations = legacy_path_audit_report.get("violations", [])
-                if violations:
-                    lines.append("- legacy_path_audit_violations:")
-                    for violation in violations[:10]:
-                        lines.append(
-                            "  - {file}:{line} references `{legacy}` -> `{replacement}`".format(
-                                file=violation["file"],
-                                line=violation["line"],
-                                legacy=violation["legacy_path"],
-                                replacement=violation["replacement_path"],
-                            )
-                        )
-        lines.append(f"- deprecated_reference_ok: {deprecated_ok}")
-        if deprecated_violations:
-            lines.append("")
-            lines.append("## Deprecated references")
-            for violation in deprecated_violations:
-                lines.append(
-                    f"- {violation['file']}:{violation['line']} ({violation['pattern']}) -> use `{violation['replacement']}`"
-                )
-        lines.append(f"- ok: {ok}")
-        output = "\n".join(lines)
+        output = render_markdown_report(report)
 
     write_output(output, args.output)
     if args.pipe_command:

@@ -265,8 +265,12 @@ fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) ->
     let left_border_len = 2;
     let right_border_len = width.saturating_sub(left_border_len + label_width + 2); // +2 for corners
 
-    let left_segment: String = std::iter::repeat_n(borders.horizontal, left_border_len).collect();
-    let right_segment: String = std::iter::repeat_n(borders.horizontal, right_border_len).collect();
+    let left_segment: String = std::iter::repeat(borders.horizontal)
+        .take(left_border_len)
+        .collect();
+    let right_segment: String = std::iter::repeat(borders.horizontal)
+        .take(right_border_len)
+        .collect();
 
     format!(
         "{}{}{}{}{}{}{}",
@@ -532,7 +536,9 @@ fn format_transition_suffix(state: &StatusLineState, colors: &ThemeColors) -> St
 
 /// Format the bottom border.
 fn format_bottom_border(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
-    let inner: String = std::iter::repeat_n(borders.horizontal, width.saturating_sub(2)).collect();
+    let inner: String = std::iter::repeat(borders.horizontal)
+        .take(width.saturating_sub(2))
+        .collect();
 
     format!(
         "{}{}{}{}{}",

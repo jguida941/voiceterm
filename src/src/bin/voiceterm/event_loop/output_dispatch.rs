@@ -27,6 +27,10 @@ pub(super) fn handle_output_chunk(
         if let Some(logger) = state.session_memory_logger.as_mut() {
             logger.record_backend_output_bytes(&data);
         }
+        if let Some(ref mut ingestor) = state.memory_ingestor {
+            let text = String::from_utf8_lossy(&data);
+            ingestor.ingest_assistant_output(text.as_ref());
+        }
         if state.status_state.recording_state == RecordingState::Responding {
             state.status_state.recording_state = RecordingState::Idle;
             send_enhanced_status_with_buttons(

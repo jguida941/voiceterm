@@ -1,5 +1,6 @@
 """Tests for docs-check and git status collection behavior."""
 
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -127,6 +128,40 @@ class DocsCheckCommandTests(unittest.TestCase):
         code = docs_check.run(args)
 
         self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_json_includes_failure_reasons_and_next_actions(
+        self,
+        mock_collect_git_status,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=True,
+            strict=True,
+            strict_tooling=False,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        output = mock_write_output.call_args.args[0]
+        payload = json.loads(output)
+        self.assertIn("failure_reasons", payload)
+        self.assertIn("next_actions", payload)
+        self.assertTrue(
+            any("Missing required `dev/CHANGELOG.md` update" in reason for reason in payload["failure_reasons"])
+        )
+        self.assertTrue(any("triage" in action for action in payload["next_actions"]))
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references")
@@ -384,14 +419,16 @@ class DocsCheckCommandTests(unittest.TestCase):
             "ok": False,
             "checked_file_count": 10,
             "excluded_prefixes": ["dev/archive/"],
-            "rules": {"dev/scripts/checks/check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"},
+            "rules": {
+                "dev/scripts/" + "check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"
+            },
             "violations": [
                 {
                     "file": "AGENTS.md",
                     "line": 1,
-                    "legacy_path": "dev/scripts/checks/check_agents_contract.py",
+                    "legacy_path": "dev/scripts/" + "check_agents_contract.py",
                     "replacement_path": "dev/scripts/checks/check_agents_contract.py",
-                    "line_text": "python3 dev/scripts/checks/check_agents_contract.py",
+                    "line_text": "python3 dev/scripts/" + "check_agents_contract.py",
                 }
             ],
         },

@@ -11,6 +11,7 @@ use voiceterm::devtools::{DevEventJsonlWriter, DevModeStats};
 use voiceterm::{log_debug, VoiceCaptureSource, VoiceJobMessage};
 
 use crate::config::{OverlayConfig, VoiceSendMode};
+use crate::memory::MemoryIngestor;
 use crate::prompt::PromptTracker;
 use crate::session_stats::SessionStats;
 use crate::status_line::{RecordingState, StatusLineState};
@@ -66,6 +67,7 @@ pub(crate) struct VoiceDrainContext<'a, S: TranscriptSession> {
     pub sound_on_complete: bool,
     pub sound_on_error: bool,
     pub transcript_history: &'a mut TranscriptHistory,
+    pub memory_ingestor: Option<&'a mut MemoryIngestor>,
     pub dev_mode_stats: Option<&'a mut DevModeStats>,
     pub dev_event_logger: Option<&'a mut DevEventJsonlWriter>,
 }
@@ -95,6 +97,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
     let sound_on_complete = ctx.sound_on_complete;
     let sound_on_error = ctx.sound_on_error;
     let transcript_history = &mut *ctx.transcript_history;
+    let memory_ingestor = &mut ctx.memory_ingestor;
     let dev_mode_stats = &mut ctx.dev_mode_stats;
     let dev_event_logger = &mut ctx.dev_event_logger;
 
@@ -150,6 +153,7 @@ pub(crate) fn drain_voice_messages<S: TranscriptSession>(ctx: &mut VoiceDrainCon
                 auto_voice_paused_by_user,
                 sound_on_complete,
                 transcript_history,
+                memory_ingestor: memory_ingestor.as_deref_mut(),
             };
             handle_transcript_message(&mut transcript_ctx);
         }

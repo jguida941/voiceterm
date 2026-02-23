@@ -14,5 +14,7 @@ pub use logging::{
     crash_log_path, init_logging, log_debug, log_debug_content, log_file_path, log_panic,
 };
 pub use state::CodexApp;
+pub(crate) use state::{run_python_transcription, PipelineJsonResult};
+// PipelineMetrics is consumed via `crate::PipelineMetrics` in sibling modules (voice.rs, ipc/tests.rs).
 #[allow(unused_imports)]
-pub(crate) use state::{run_python_transcription, PipelineJsonResult, PipelineMetrics};
+pub(crate) use state::PipelineMetrics;

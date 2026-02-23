@@ -11,6 +11,15 @@ pub struct EarshotVad {
     scratch: Vec<i16>,
 }
 
+fn float_sample_to_i16(sample: f32) -> i16 {
+    let clamped = sample.clamp(-1.0, 1.0);
+    if clamped >= 0.0 {
+        (clamped * i16::MAX as f32).round() as i16
+    } else {
+        (clamped * 32_768.0).round() as i16
+    }
+}
+
 impl EarshotVad {
     /// Build an Earshot-backed VAD using thresholds/frame sizing from pipeline config.
     #[must_use]
@@ -39,8 +48,7 @@ impl VadEngine for EarshotVad {
         self.scratch.clear();
         self.scratch.reserve(self.frame_samples);
         for chunk in samples.iter().copied() {
-            let clamped = chunk.clamp(-1.0, 1.0);
-            self.scratch.push((clamped * 32_768.0) as i16);
+            self.scratch.push(float_sample_to_i16(chunk));
         }
         if self.scratch.len() < self.frame_samples {
             self.scratch.resize(self.frame_samples, 0);
@@ -125,6 +133,15 @@ mod tests {
         assert_eq!(vad.scratch[3], 32_767);
         assert_eq!(vad.scratch[4], 32_767);
         assert!(vad.scratch[5..].iter().all(|&s| s == 0));
+    }
+
+    #[test]
+    fn float_sample_to_i16_saturates_endpoints() {
+        assert_eq!(float_sample_to_i16(-2.0), i16::MIN);
+        assert_eq!(float_sample_to_i16(-1.0), i16::MIN);
+        assert_eq!(float_sample_to_i16(0.0), 0);
+        assert_eq!(float_sample_to_i16(1.0), i16::MAX);
+        assert_eq!(float_sample_to_i16(2.0), i16::MAX);
     }
 
     #[test]

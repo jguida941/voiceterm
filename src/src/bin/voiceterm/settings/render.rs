@@ -114,7 +114,7 @@ fn format_settings_row(
         ),
         SettingsItem::ImageMode => format!(
             "{marker} {:<width$} {}",
-            "Image mode",
+            "Image persist",
             toggle_button(view.image_mode_enabled),
             width = LABEL_WIDTH
         ),
@@ -367,7 +367,7 @@ fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
         SettingsItem::WakeCooldown => "Minimum delay between consecutive wake triggers.",
         SettingsItem::SendMode => "Auto sends transcript immediately; Edit stages text first.",
         SettingsItem::ImageMode => {
-            "When ON, Ctrl+R and [rec] capture an image and insert a prompt."
+            "When ON, [rec] uses image capture. Ctrl+R always records voice; Ctrl+X captures screenshot."
         }
         SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
         SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",

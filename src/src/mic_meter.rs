@@ -1,6 +1,6 @@
 //! Interactive mic calibration so users can tune VAD thresholds before recording.
 
-use crate::audio::Recorder;
+use crate::audio::{self, Recorder};
 use crate::config::{AppConfig, MAX_MIC_METER_SAMPLE_MS, MIN_MIC_METER_SAMPLE_MS};
 use anyhow::{anyhow, Result};
 use std::io::{self, Write};
@@ -19,9 +19,7 @@ fn rms_db(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return RECOMMENDED_FLOOR_DB;
     }
-    let energy: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    let rms = energy.sqrt().max(1e-6);
-    20.0 * rms.log10()
+    audio::rms_db(samples)
 }
 
 fn peak_db(samples: &[f32]) -> f32 {

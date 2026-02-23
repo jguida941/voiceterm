@@ -18,21 +18,12 @@ pub enum VoiceMode {
 }
 
 impl VoiceMode {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn label(&self) -> &'static str {
         match self {
             Self::Auto => "AUTO",
             Self::Manual => "MANUAL",
             Self::Idle => "IDLE",
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn indicator(&self) -> &'static str {
-        match self {
-            Self::Auto => "◉",
-            Self::Manual => "●",
-            Self::Idle => "○",
         }
     }
 }
@@ -62,7 +53,7 @@ pub enum Pipeline {
 }
 
 impl Pipeline {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn label(&self) -> &'static str {
         match self {
             Self::Rust => "Rust",
@@ -177,7 +168,7 @@ pub struct StatusLineState {
     pub latency_history_ms: Vec<u32>,
     /// Current voice send mode
     pub send_mode: VoiceSendMode,
-    /// Whether image mode is enabled (trigger captures a picture instead of voice).
+    /// Whether persistent image mode is enabled (`[rec]` captures image prompts).
     pub image_mode_enabled: bool,
     /// Whether guarded developer mode is enabled for deferred experiments.
     pub dev_mode_enabled: bool,

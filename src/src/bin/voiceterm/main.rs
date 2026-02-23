@@ -19,6 +19,7 @@ mod cli_utils;
 mod color_mode;
 mod config;
 mod custom_help;
+mod dev_command;
 mod dev_panel;
 mod event_loop;
 mod event_state;
@@ -47,7 +48,6 @@ mod theme;
 mod theme_ops;
 mod theme_picker;
 mod theme_studio;
-#[allow(dead_code)]
 mod toast;
 mod transcript;
 mod transcript_history;
@@ -83,6 +83,7 @@ use crate::button_handlers::send_enhanced_status_with_buttons;
 use crate::buttons::ButtonRegistry;
 use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stats};
 use crate::config::{HudStyle, OverlayConfig};
+use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
 use crate::event_loop::run_event_loop;
 use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
 use crate::hud::HudRegistry;
@@ -464,6 +465,40 @@ fn main() -> Result<()> {
     } else {
         None
     };
+    let mut memory_ingestor = {
+        let project_root = std::path::Path::new(&working_dir);
+        let jsonl_path = crate::memory::governance::events_jsonl_path(project_root);
+        let session_id = crate::memory::types::generate_session_id();
+        let project_id = working_dir.clone();
+        match crate::memory::MemoryIngestor::new(
+            session_id,
+            project_id,
+            Some(&jsonl_path),
+            crate::memory::MemoryMode::default(),
+        ) {
+            Ok(ingestor) => {
+                log_debug(&format!("memory ingestor ready: {}", jsonl_path.display()));
+                Some(ingestor)
+            }
+            Err(err) => {
+                log_debug(&format!("memory ingestor disabled: {err}"));
+                None
+            }
+        }
+    };
+    if let Some(ref mut ingestor) = memory_ingestor {
+        let jsonl_path =
+            crate::memory::governance::events_jsonl_path(std::path::Path::new(&working_dir));
+        let recovered = ingestor.recover_from_jsonl(&jsonl_path);
+        if recovered > 0 {
+            log_debug(&format!(
+                "memory: recovered {recovered} events from prior sessions"
+            ));
+        }
+    }
+    let dev_command_broker = config
+        .dev_mode
+        .then(|| DevCommandBroker::spawn(PathBuf::from(&working_dir)));
     let mut state = EventLoopState {
         config,
         status_state,
@@ -483,6 +518,7 @@ fn main() -> Result<()> {
         session_stats: SessionStats::new(),
         dev_mode_stats,
         dev_event_logger,
+        dev_panel_commands: DevPanelCommandState::default(),
         prompt_tracker,
         terminal_rows,
         terminal_cols,
@@ -503,7 +539,7 @@ fn main() -> Result<()> {
         )),
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
-        memory_ingestor: None,
+        memory_ingestor,
         action_center_state: memory::ActionCenterState::new(),
     };
     let mut timers = EventLoopTimers {
@@ -536,6 +572,7 @@ fn main() -> Result<()> {
         auto_idle_timeout,
         transcript_idle_timeout,
         voice_macros,
+        dev_command_broker,
     };
 
     deps.wake_word_runtime.sync(

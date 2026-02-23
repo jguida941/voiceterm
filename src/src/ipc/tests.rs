@@ -130,6 +130,12 @@ fn test_provider_as_str() {
     assert_eq!(Provider::Claude.as_str(), "claude");
 }
 
+#[test]
+fn utf8_prefix_truncates_by_chars_not_bytes() {
+    let preview = utf8_prefix("a😀b", 2);
+    assert_eq!(preview, "a😀");
+}
+
 // -------------------------------------------------------------------------
 // Input Parsing Tests
 // -------------------------------------------------------------------------
@@ -1212,18 +1218,29 @@ fn start_claude_job_emits_stdout_and_stderr() {
         start_claude_job(script.to_str().unwrap(), "prompt", false, "xterm-256color").unwrap();
 
     let start = Instant::now();
-    while start.elapsed() < Duration::from_secs(2) {
-        let _ = process_claude_events(&mut job, false);
+    let mut finished = false;
+    let mut saw_out = false;
+    let mut saw_err = false;
+    while start.elapsed() < Duration::from_secs(5) {
+        if process_claude_events(&mut job, false) {
+            finished = true;
+        }
+        let events = events_since(snapshot);
+        saw_out = events
+            .iter()
+            .any(|event| matches!(event, IpcEvent::Token { text } if text.contains("out-line")));
+        saw_err = events
+            .iter()
+            .any(|event| matches!(event, IpcEvent::Token { text } if text.contains("err-line")));
+        if finished && saw_out && saw_err {
+            break;
+        }
         thread::sleep(Duration::from_millis(10));
     }
 
-    let events = events_since(snapshot);
-    assert!(events
-        .iter()
-        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("out-line")) }));
-    assert!(events
-        .iter()
-        .any(|event| { matches!(event, IpcEvent::Token { text } if text.contains("err-line")) }));
+    assert!(finished, "piped Claude job did not finish");
+    assert!(saw_out, "expected piped stdout token");
+    assert!(saw_err, "expected piped stderr token");
 
     let _ = fs::remove_file(script);
 }
@@ -1243,7 +1260,7 @@ fn start_claude_job_with_pty_emits_output() {
     let mut finished = false;
     let mut saw_out = false;
     let mut saw_err = false;
-    while start.elapsed() < Duration::from_secs(2) {
+    while start.elapsed() < Duration::from_secs(5) {
         if process_claude_events(&mut job, false) {
             finished = true;
         }

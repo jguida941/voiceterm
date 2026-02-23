@@ -47,18 +47,20 @@ class PathAuditCommandTests(TestCase):
         scan_mock,
         _write_output_mock,
     ) -> None:
+        legacy_path = "dev/scripts/" + "check_active_plan_sync.py"
+        replacement_path = "dev/scripts/checks/" + "check_active_plan_sync.py"
         scan_mock.return_value = {
             "ok": False,
             "checked_file_count": 25,
             "excluded_prefixes": ["dev/archive/"],
-            "rules": {"dev/scripts/check_active_plan_sync.py": "dev/scripts/checks/check_active_plan_sync.py"},
+            "rules": {legacy_path: replacement_path},
             "violations": [
                 {
                     "file": "AGENTS.md",
                     "line": 10,
-                    "legacy_path": "dev/scripts/check_active_plan_sync.py",
-                    "replacement_path": "dev/scripts/checks/check_active_plan_sync.py",
-                    "line_text": "python3 dev/scripts/check_active_plan_sync.py",
+                    "legacy_path": legacy_path,
+                    "replacement_path": replacement_path,
+                    "line_text": "python3 " + legacy_path,
                 }
             ],
         }

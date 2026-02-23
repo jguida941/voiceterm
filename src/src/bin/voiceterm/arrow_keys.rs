@@ -20,7 +20,7 @@ fn map_arrow_final(byte: u8) -> Option<ArrowKey> {
 }
 
 fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)> {
-    if start.checked_add(1).is_none_or(|idx| idx >= bytes.len()) || bytes[start] != 0x1b {
+    if start.checked_add(1).map_or(true, |idx| idx >= bytes.len()) || bytes[start] != 0x1b {
         return None;
     }
     match bytes[start + 1] {

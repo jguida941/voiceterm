@@ -7,31 +7,34 @@ extra guards). It is the main pre-push/pre-release verifier for maintainers.
 from __future__ import annotations
 
 import json
-import re
-import subprocess
+import sys
 import time
 from datetime import datetime
 from types import SimpleNamespace
 from typing import List
 
-from ..common import build_env, pipe_output, should_emit_output, write_output
+from ..common import build_env, pipe_output, run_cmd, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     kill_processes,
     parse_etime_seconds,
-    scan_matching_processes,
+    scan_voiceterm_test_binaries,
     split_orphaned_processes,
 )
 from ..script_catalog import check_script_cmd
 from ..steps import format_steps_md
-from .check_profile import resolve_profile_settings
+from .check_profile import resolve_profile_settings, validate_profile_flag_conflicts
+from .check_progress import count_quality_steps, emit_progress
 from .check_steps import build_step_spec, run_step_specs
+from .check_support import (
+    AI_GUARD_CHECKS,
+    maybe_emit_ai_guard_scaffold,
+    resolve_perf_log_path,
+)
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
-# Sweep only VoiceTerm test binaries, not arbitrary test processes.
-VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 
 
@@ -41,7 +44,7 @@ def _parse_etime_seconds(raw: str) -> int | None:
 
 
 def _scan_orphaned_voiceterm_test_binaries() -> tuple[list[dict], list[str]]:
-    rows, warnings = scan_matching_processes(VOICETERM_TEST_BIN_RE)
+    rows, warnings = scan_voiceterm_test_binaries()
     orphaned, _active = split_orphaned_processes(
         rows, min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS
     )
@@ -89,29 +92,20 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
     }
 
 
-def _resolve_perf_log_path() -> str:
-    """Return the expected perf log file path used by the verifier script."""
-    try:
-        return subprocess.check_output(
-            [
-                "python3",
-                "-c",
-                "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))",
-            ],
-            text=True,
-        ).strip()
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise RuntimeError(f"failed to resolve perf log path ({exc})") from exc
-
-
 def run(args) -> int:
     """Run check steps for the selected profile and return an exit code."""
+    for warning in validate_profile_flag_conflicts(args):
+        print(f"[check] warning: {warning}", file=sys.stderr)
+
     env = build_env(args)
     steps: List[dict] = []
     settings, clippy_cmd = resolve_profile_settings(args)
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
     parallel_enabled = not getattr(args, "no_parallel", False)
     parallel_workers = max(1, int(getattr(args, "parallel_workers", 4)))
+    total_quality_steps = count_quality_steps(args, settings)
+    progress_counter = [0]  # mutable counter accessible from inner functions
+    audit_scaffold_emitted = False
 
     def emit_failure_summary(result: dict) -> None:
         """Show a short actionable error summary after a failed step."""
@@ -137,19 +131,44 @@ def run(args) -> int:
     def add_steps(step_specs: List[dict], allow_parallel: bool = False) -> None:
         if not step_specs:
             return
+        use_parallel = allow_parallel and parallel_enabled
+        if total_quality_steps > 0:
+            emit_progress(step_specs, progress_counter[0], total_quality_steps, use_parallel)
+        progress_counter[0] += len(step_specs)
+
         results = run_step_specs(
             step_specs,
             dry_run=args.dry_run,
-            parallel_enabled=allow_parallel and parallel_enabled,
+            parallel_enabled=use_parallel,
             max_workers=parallel_workers,
         )
 
         failed = False
+        failed_results = []
         for result in results:
             steps.append(result)
             if result["returncode"] != 0:
                 failed = True
+                failed_results.append(result)
                 emit_failure_summary(result)
+
+        nonlocal audit_scaffold_emitted
+        audit_scaffold_emitted, scaffold_result = maybe_emit_ai_guard_scaffold(
+            with_ai_guard=settings["with_ai_guard"],
+            already_emitted=audit_scaffold_emitted,
+            failed_results=failed_results,
+            run_cmd_fn=run_cmd,
+            repo_root=REPO_ROOT,
+            dry_run=args.dry_run,
+        )
+        if scaffold_result is not None:
+            steps.append(scaffold_result)
+            if scaffold_result["returncode"] == 0:
+                print("[check] generated remediation scaffold: dev/active/RUST_AUDIT_FINDINGS.md")
+            else:
+                print("[check] failed to generate remediation scaffold")
+                if scaffold_result.get("error"):
+                    print(f"[check] scaffold error: {scaffold_result['error']}")
 
         if failed and not args.keep_going:
             failed_steps = ", ".join(result["name"] for result in results if result["returncode"] != 0)
@@ -184,33 +203,9 @@ def run(args) -> int:
             setup_phase_specs.append(make_step_spec("clippy", clippy_cmd, cwd=SRC_DIR))
 
         if settings["with_ai_guard"]:
-            setup_phase_specs.append(
-                make_step_spec(
-                    "code-shape-guard",
-                    check_script_cmd("code_shape"),
-                    cwd=REPO_ROOT,
-                )
-            )
-            setup_phase_specs.append(
-                make_step_spec(
-                    "rust-lint-debt-guard",
-                    check_script_cmd("rust_lint_debt"),
-                    cwd=REPO_ROOT,
-                )
-            )
-            setup_phase_specs.append(
-                make_step_spec(
-                    "rust-best-practices-guard",
-                    check_script_cmd("rust_best_practices"),
-                    cwd=REPO_ROOT,
-                )
-            )
-            setup_phase_specs.append(
-                make_step_spec(
-                    "rust-security-footguns-guard",
-                    check_script_cmd("rust_security_footguns"),
-                    cwd=REPO_ROOT,
-                )
+            setup_phase_specs.extend(
+                make_step_spec(name, check_script_cmd(script_id), cwd=REPO_ROOT)
+                for name, script_id in AI_GUARD_CHECKS
             )
 
         add_steps(setup_phase_specs, allow_parallel=True)
@@ -258,7 +253,7 @@ def run(args) -> int:
                 cwd=SRC_DIR,
             )
             if not args.dry_run:
-                log_path = _resolve_perf_log_path()
+                log_path = resolve_perf_log_path()
                 add_step(
                     "perf-verify",
                     ["python3", ".github/scripts/verify_perf_metrics.py", log_path],

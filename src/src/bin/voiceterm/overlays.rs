@@ -6,6 +6,7 @@ use crossbeam_channel::Sender;
 use voiceterm::devtools::DevModeSnapshot;
 
 use crate::config::OverlayConfig;
+use crate::dev_command::DevPanelCommandState;
 use crate::dev_panel::{dev_panel_height, format_dev_panel};
 use crate::help::{format_help_overlay, help_overlay_height};
 use crate::settings::{
@@ -31,7 +32,6 @@ pub(crate) enum OverlayMode {
     ThemePicker,
     Settings,
     TranscriptHistory,
-    #[allow(dead_code)]
     ToastHistory,
     #[allow(dead_code)]
     MemoryBrowser,
@@ -82,9 +82,17 @@ pub(crate) fn show_dev_panel_overlay(
     snapshot: Option<DevModeSnapshot>,
     dev_log_enabled: bool,
     dev_path: Option<&Path>,
+    commands: &DevPanelCommandState,
     cols: u16,
 ) {
-    let content = format_dev_panel(theme, snapshot, dev_log_enabled, dev_path, cols as usize);
+    let content = format_dev_panel(
+        theme,
+        snapshot,
+        dev_log_enabled,
+        dev_path,
+        commands,
+        cols as usize,
+    );
     let height = dev_panel_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
@@ -248,19 +256,21 @@ mod tests {
     #[test]
     fn show_dev_panel_overlay_sends_overlay() {
         let (writer_tx, writer_rx) = bounded(4);
+        let command_state = DevPanelCommandState::default();
         show_dev_panel_overlay(
             &writer_tx,
             Theme::Coral,
             None,
             true,
             Some(Path::new("/tmp")),
+            &command_state,
             80,
         );
         let message = writer_rx.recv_timeout(std::time::Duration::from_millis(200));
         match message {
             Ok(WriterMessage::ShowOverlay { content, height }) => {
                 assert_eq!(height, dev_panel_height());
-                assert!(content.contains("Dev Panel"));
+                assert!(content.contains("Dev Tools"));
             }
             Ok(other) => panic!("unexpected writer message: {other:?}"),
             Err(err) => panic!("missing overlay message: {err}"),

@@ -44,6 +44,10 @@ impl InputParser {
                     self.flush_pending(out);
                     out.push(InputEvent::VoiceTrigger);
                 }
+                0x18 => {
+                    self.flush_pending(out);
+                    out.push(InputEvent::ImageCaptureTrigger);
+                }
                 0x05 => {
                     self.flush_pending(out);
                     out.push(InputEvent::SendStagedText);
@@ -282,6 +286,7 @@ fn parse_csi_u_event(buffer: &[u8]) -> Option<InputEvent> {
     let key = ch.to_ascii_lowercase();
     match key {
         'r' => Some(InputEvent::VoiceTrigger),
+        'x' => Some(InputEvent::ImageCaptureTrigger),
         'e' => Some(InputEvent::SendStagedText),
         'd' => Some(InputEvent::DevPanelToggle),
         'v' => Some(InputEvent::ToggleAutoVoice),
@@ -334,7 +339,8 @@ mod tests {
         let mut out = Vec::new();
         parser.consume_bytes(
             &[
-                0x11, 0x12, 0x05, 0x04, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08, 0x0e,
+                0x11, 0x12, 0x18, 0x05, 0x04, 0x16, 0x14, 0x1d, 0x1c, 0x1f, 0x07, 0x0f, 0x15, 0x08,
+                0x0e,
             ],
             &mut out,
         );
@@ -344,6 +350,7 @@ mod tests {
             vec![
                 InputEvent::Exit,
                 InputEvent::VoiceTrigger,
+                InputEvent::ImageCaptureTrigger,
                 InputEvent::SendStagedText,
                 InputEvent::DevPanelToggle,
                 InputEvent::ToggleAutoVoice,
@@ -436,6 +443,16 @@ mod tests {
     }
 
     #[test]
+    fn input_parser_maps_csi_u_ctrl_x_image_capture() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        // Ctrl+X (kitty/CSI-u: ESC [ 120 ; 5 u)
+        parser.consume_bytes(b"\x1b[120;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::ImageCaptureTrigger]);
+    }
+
+    #[test]
     fn input_parser_maps_csi_u_ctrl_e_send_staged_text() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
@@ -491,7 +508,7 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         let mut at_boundary = vec![0x1b, b'['];
-        at_boundary.extend(std::iter::repeat_n(b'1', 30));
+        at_boundary.extend(std::iter::repeat(b'1').take(30));
         parser.consume_bytes(&at_boundary, &mut out);
         parser.flush_pending(&mut out);
         assert!(
@@ -511,7 +528,7 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         let mut at_boundary = vec![0x1b, b'[', b'<'];
-        at_boundary.extend(std::iter::repeat_n(b'1', 29));
+        at_boundary.extend(std::iter::repeat(b'1').take(29));
         parser.consume_bytes(&at_boundary, &mut out);
         parser.flush_pending(&mut out);
         assert!(out.is_empty());
@@ -566,6 +583,10 @@ mod tests {
         assert_eq!(
             parse_csi_u_event(b"\x1b[116;5u"),
             Some(InputEvent::ToggleSendMode)
+        );
+        assert_eq!(
+            parse_csi_u_event(b"\x1b[120;5u"),
+            Some(InputEvent::ImageCaptureTrigger)
         );
         assert_eq!(
             parse_csi_u_event(b"\x1b[100;5u"),
