@@ -10,7 +10,7 @@ from pathlib import Path
 from dev.scripts.devctl.config import REPO_ROOT
 
 
-SCRIPT_PATH = REPO_ROOT / "dev/scripts/check_mutation_score.py"
+SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_mutation_score.py"
 
 
 def write_outcomes(path: Path, caught: int, missed: int, timeout: int, unviable: int) -> None:

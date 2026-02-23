@@ -29,7 +29,7 @@ Agents must read this file first before loading active planning docs.
 3. If the new file introduces execution state, wire that scope into `dev/active/MASTER_PLAN.md`.
 4. Update links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md` when discovery/navigation changes.
 5. Run sync/governance checks:
-   - `python3 dev/scripts/check_active_plan_sync.py`
+   - `python3 dev/scripts/checks/check_active_plan_sync.py`
    - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
    - `python3 dev/scripts/devctl.py hygiene`
 6. Commit docs and governance updates in the same change as the new file.

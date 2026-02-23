@@ -10,7 +10,7 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 CARGO_TOML = REPO_ROOT / "src/Cargo.toml"
 PYPROJECT_TOML = REPO_ROOT / "pypi/pyproject.toml"
 INIT_PY = REPO_ROOT / "pypi/src/voiceterm/__init__.py"

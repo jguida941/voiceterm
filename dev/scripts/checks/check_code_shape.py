@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
@@ -94,13 +94,19 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/check_code_shape.py": ShapePolicy(
+    "dev/scripts/checks/check_code_shape.py": ShapePolicy(
         soft_limit=450,
         hard_limit=650,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/check_active_plan_sync.py": ShapePolicy(
+    "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_multi_agent_sync.py": ShapePolicy(
         soft_limit=450,
         hard_limit=650,
         oversize_growth_limit=25,

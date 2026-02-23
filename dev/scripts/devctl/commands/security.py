@@ -17,6 +17,7 @@ from pathlib import Path
 
 from ..common import build_env, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT, SRC_DIR
+from ..script_catalog import check_script_cmd
 from ..steps import format_steps_md
 
 DEFAULT_FAIL_ON_KINDS = ("yanked", "unsound")
@@ -147,14 +148,13 @@ def _run_rustsec_audit_step(
 
 def _build_rustsec_policy_cmd(args, report_path: Path) -> list[str]:
     fail_on_kind = args.fail_on_kind or list(DEFAULT_FAIL_ON_KINDS)
-    cmd = [
-        "python3",
-        "dev/scripts/check_rustsec_policy.py",
+    cmd = check_script_cmd(
+        "rustsec_policy",
         "--input",
         str(report_path),
         "--min-cvss",
         str(args.min_cvss),
-    ]
+    )
     if args.allowlist_file:
         cmd.extend(["--allowlist-file", args.allowlist_file])
     for warning_kind in fail_on_kind:

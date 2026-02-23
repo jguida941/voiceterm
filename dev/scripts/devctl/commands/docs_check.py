@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from datetime import datetime
 
 from ..collect import collect_git_status
 from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
+from ..path_audit import scan_legacy_path_references
+from ..policy_gate import run_json_policy_gate
+from ..script_catalog import check_script_path
 
 USER_DOCS = [
     "README.md",
@@ -80,7 +82,8 @@ DEPRECATED_REFERENCE_PATTERNS = [
     },
 ]
 
-ACTIVE_PLAN_SYNC_SCRIPT = REPO_ROOT / "dev/scripts/check_active_plan_sync.py"
+ACTIVE_PLAN_SYNC_SCRIPT = check_script_path("active_plan_sync")
+MULTI_AGENT_SYNC_SCRIPT = check_script_path("multi_agent_sync")
 
 
 def _is_tooling_change(path: str) -> bool:
@@ -118,46 +121,12 @@ def _scan_deprecated_references() -> list[dict]:
 
 def _run_active_plan_sync_gate() -> dict:
     """Run active-plan sync guard and return parsed JSON report."""
-    if not ACTIVE_PLAN_SYNC_SCRIPT.exists():
-        return {
-            "ok": False,
-            "error": f"Missing active-plan sync script: {ACTIVE_PLAN_SYNC_SCRIPT.relative_to(REPO_ROOT)}",
-        }
+    return run_json_policy_gate(ACTIVE_PLAN_SYNC_SCRIPT, "active-plan sync gate")
 
-    try:
-        completed = subprocess.run(
-            ["python3", str(ACTIVE_PLAN_SYNC_SCRIPT), "--format", "json"],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        return {"ok": False, "error": f"Failed to run active-plan sync gate: {exc}"}
 
-    output = completed.stdout.strip()
-    if not output:
-        detail = completed.stderr.strip() or f"exit code {completed.returncode}"
-        return {"ok": False, "error": f"Active-plan sync gate produced no JSON output ({detail})."}
-
-    try:
-        report = json.loads(output)
-    except json.JSONDecodeError as exc:
-        snippet = output[:200].strip().replace("\n", " ")
-        return {
-            "ok": False,
-            "error": f"Active-plan sync gate returned invalid JSON ({exc}): {snippet}",
-        }
-
-    if completed.returncode not in (0, 1):
-        stderr = completed.stderr.strip()
-        report.setdefault(
-            "error",
-            f"Active-plan sync gate exited with code {completed.returncode}"
-            + (f": {stderr}" if stderr else ""),
-        )
-        report["ok"] = False
-    return report
+def _run_multi_agent_sync_gate() -> dict:
+    """Run multi-agent board/runbook sync guard and return parsed JSON report."""
+    return run_json_policy_gate(MULTI_AGENT_SYNC_SCRIPT, "multi-agent sync gate")
 
 
 def run(args) -> int:
@@ -209,11 +178,27 @@ def run(args) -> int:
 
     active_plan_sync_report = None
     active_plan_sync_ok = True
+    multi_agent_sync_report = None
+    multi_agent_sync_ok = True
+    legacy_path_audit_report = None
+    legacy_path_audit_ok = True
     if strict_tooling:
         active_plan_sync_report = _run_active_plan_sync_gate()
         active_plan_sync_ok = bool(active_plan_sync_report.get("ok", False))
+        multi_agent_sync_report = _run_multi_agent_sync_gate()
+        multi_agent_sync_ok = bool(multi_agent_sync_report.get("ok", False))
+        legacy_path_audit_report = scan_legacy_path_references()
+        legacy_path_audit_ok = bool(legacy_path_audit_report.get("ok", False))
 
-    ok = user_facing_ok and tooling_policy_ok and evolution_policy_ok and deprecated_ok and active_plan_sync_ok
+    ok = (
+        user_facing_ok
+        and tooling_policy_ok
+        and evolution_policy_ok
+        and deprecated_ok
+        and active_plan_sync_ok
+        and multi_agent_sync_ok
+        and legacy_path_audit_ok
+    )
 
     report = {
         "command": "docs-check",
@@ -236,6 +221,10 @@ def run(args) -> int:
         "evolution_policy_ok": evolution_policy_ok,
         "active_plan_sync_ok": active_plan_sync_ok,
         "active_plan_sync_report": active_plan_sync_report,
+        "multi_agent_sync_ok": multi_agent_sync_ok,
+        "multi_agent_sync_report": multi_agent_sync_report,
+        "legacy_path_audit_ok": legacy_path_audit_ok,
+        "legacy_path_audit_report": legacy_path_audit_report,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
         "ok": ok,
@@ -282,6 +271,31 @@ def run(args) -> int:
                 active_sync_error = active_plan_sync_report.get("error")
                 if active_sync_error:
                     lines.append(f"- active_plan_sync_error: {active_sync_error}")
+            lines.append(f"- multi_agent_sync_ok: {multi_agent_sync_ok}")
+            if not multi_agent_sync_ok and multi_agent_sync_report:
+                multi_agent_errors = multi_agent_sync_report.get("errors", [])
+                if multi_agent_errors:
+                    lines.append("- multi_agent_sync_errors: " + " | ".join(multi_agent_errors))
+                multi_agent_error = multi_agent_sync_report.get("error")
+                if multi_agent_error:
+                    lines.append(f"- multi_agent_sync_error: {multi_agent_error}")
+            lines.append(f"- legacy_path_audit_ok: {legacy_path_audit_ok}")
+            if not legacy_path_audit_ok and legacy_path_audit_report:
+                audit_error = legacy_path_audit_report.get("error")
+                if audit_error:
+                    lines.append(f"- legacy_path_audit_error: {audit_error}")
+                violations = legacy_path_audit_report.get("violations", [])
+                if violations:
+                    lines.append("- legacy_path_audit_violations:")
+                    for violation in violations[:10]:
+                        lines.append(
+                            "  - {file}:{line} references `{legacy}` -> `{replacement}`".format(
+                                file=violation["file"],
+                                line=violation["line"],
+                                legacy=violation["legacy_path"],
+                                replacement=violation["replacement_path"],
+                            )
+                        )
         lines.append(f"- deprecated_reference_ok: {deprecated_ok}")
         if deprecated_violations:
             lines.append("")

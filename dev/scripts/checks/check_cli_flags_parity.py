@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DOC_PATH = REPO_ROOT / "guides/CLI_FLAGS.md"
 DEFAULT_SCHEMA_PATHS = (
     REPO_ROOT / "src/src/config/mod.rs",

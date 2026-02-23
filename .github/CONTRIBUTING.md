@@ -74,7 +74,7 @@ cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backe
 
 # Mutation testing (heavy; usually on demand)
 cd src && cargo mutants --timeout 300 -o mutants.out
-python3 ../dev/scripts/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
+python3 ../dev/scripts/checks/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
 ```
 
 ## Pull requests

@@ -172,8 +172,9 @@ def audit_adrs(repo_root: Path) -> Dict:
 
 
 def audit_scripts(repo_root: Path) -> Dict:
-    """Check that top-level scripts are documented and cache dirs are visible."""
+    """Check script inventory docs and cache-dir hygiene."""
     scripts_dir = repo_root / "dev/scripts"
+    checks_dir = scripts_dir / "checks"
     readme_path = scripts_dir / "README.md"
     readme_text = readme_path.read_text(encoding="utf-8")
 
@@ -181,6 +182,12 @@ def audit_scripts(repo_root: Path) -> Dict:
         path.name for path in scripts_dir.iterdir() if path.is_file() and path.name != "README.md"
     )
     undocumented = [name for name in top_level_scripts if name not in readme_text]
+    check_scripts = sorted(
+        str(path.relative_to(repo_root))
+        for path in checks_dir.glob("check_*.py")
+        if path.is_file()
+    )
+    undocumented_checks = [path for path in check_scripts if path not in readme_text]
 
     pycache_dirs = sorted(
         str(path.relative_to(repo_root))
@@ -195,12 +202,19 @@ def audit_scripts(repo_root: Path) -> Dict:
             "Top-level scripts not documented in dev/scripts/README.md: "
             + ", ".join(undocumented)
         )
+    if undocumented_checks:
+        errors.append(
+            "Check scripts not documented in dev/scripts/README.md: "
+            + ", ".join(undocumented_checks)
+        )
     if pycache_dirs:
         warnings.append(f"Python cache directories present in repo tree: {', '.join(pycache_dirs)}")
 
     return {
         "top_level_scripts": top_level_scripts,
         "undocumented": undocumented,
+        "check_scripts": check_scripts,
+        "undocumented_checks": undocumented_checks,
         "pycache_dirs": pycache_dirs,
         "errors": errors,
         "warnings": warnings,

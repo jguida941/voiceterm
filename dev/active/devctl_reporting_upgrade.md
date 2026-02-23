@@ -482,13 +482,13 @@ Exit criteria:
 
 Local validation bundle for this track:
 
-1. `python3 dev/scripts/check_active_plan_sync.py`
+1. `python3 dev/scripts/checks/check_active_plan_sync.py`
 2. `python3 dev/scripts/devctl.py docs-check --strict-tooling`
 3. `python3 dev/scripts/devctl.py hygiene`
 4. `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`
-5. `python3 dev/scripts/check_code_shape.py`
-6. `python3 dev/scripts/check_rust_lint_debt.py`
-7. `python3 dev/scripts/check_rust_best_practices.py`
+5. `python3 dev/scripts/checks/check_code_shape.py`
+6. `python3 dev/scripts/checks/check_rust_lint_debt.py`
+7. `python3 dev/scripts/checks/check_rust_best_practices.py`
 8. `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`
 
 ## Risks and Mitigations

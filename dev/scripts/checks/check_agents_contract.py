@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 
 REQUIRED_H2 = [
@@ -39,8 +39,8 @@ REQUIRED_BUNDLES = [
 
 REQUIRED_MARKERS = [
     "dev/active/INDEX.md",
-    "python3 dev/scripts/check_active_plan_sync.py",
-    "python3 dev/scripts/check_release_version_parity.py",
+    "python3 dev/scripts/checks/check_active_plan_sync.py",
+    "python3 dev/scripts/checks/check_release_version_parity.py",
     "python3 dev/scripts/devctl.py docs-check --strict-tooling",
     "python3 dev/scripts/devctl.py status --ci --require-ci --format md",
 ]

@@ -18,7 +18,7 @@ on:
     paths:
       - "src/Cargo.lock"
       - "src/Cargo.toml"
-      - "dev/scripts/check_rustsec_policy.py"
+      - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/security/rustsec_allowlist.md"
       - ".github/workflows/security_guard.yml"
       - ".github/SECURITY.md"
@@ -26,7 +26,7 @@ on:
     paths:
       - "src/Cargo.lock"
       - "src/Cargo.toml"
-      - "dev/scripts/check_rustsec_policy.py"
+      - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/security/rustsec_allowlist.md"
       - ".github/workflows/security_guard.yml"
       - ".github/SECURITY.md"
@@ -68,7 +68,7 @@ jobs:
 
       - name: Enforce advisory policy thresholds
         run: |
-          python3 dev/scripts/check_rustsec_policy.py \
+          python3 dev/scripts/checks/check_rustsec_policy.py \
             --input rustsec-audit.json \
             --min-cvss 7.0 \
             --fail-on-kind yanked \

@@ -61,7 +61,7 @@ User docs entrypoint:
 | `dev/archive/` | Completed plans/audits (history only). |
 | `dev/history/` | Engineering history and timeline. |
 | `dev/adr/` | Architecture decisions and status. |
-| `dev/scripts/` | Developer automation and helper docs. |
+| `dev/scripts/` | Developer automation (`devctl`), checks (`checks/`), and helper docs. |
 
 ## Fast Workflow Commands
 
@@ -69,8 +69,9 @@ User docs entrypoint:
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/devctl.py path-audit
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/devctl.py status --ci --format md
 ```
 
@@ -79,5 +80,6 @@ Why these guardrails exist:
 - `docs-check`: stops behavior changes from shipping without matching docs.
 - `docs-check --strict-tooling`: when `dev/active/MASTER_PLAN.md` moves, record the process shift in `dev/history/ENGINEERING_EVOLUTION.md` in the same change.
 - `hygiene`: catches doc/process drift (ADR index, archive naming, scripts list).
+- `path-audit`: catches stale references when script paths are reorganized.
 - `check_cli_flags_parity.py`: keeps CLI docs in sync with clap flags.
 - `check_screenshot_integrity.py`: catches missing image links and stale screenshots.

@@ -190,7 +190,7 @@ class CheckProfileTests(TestCase):
         mock_resolve_outcomes.return_value = "/tmp/outcomes.json"
         mock_build_mutation_score_cmd.return_value = [
             "python3",
-            "dev/scripts/check_mutation_score.py",
+            "dev/scripts/checks/check_mutation_score.py",
             "--path",
             "/tmp/outcomes.json",
             "--threshold",
@@ -218,6 +218,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-security-footguns-guard", names)
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -247,6 +248,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-security-footguns-guard", names)
 
     @patch("dev.scripts.devctl.commands.check.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")

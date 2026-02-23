@@ -10,7 +10,7 @@ from unittest import TestCase
 from dev.scripts.devctl.config import REPO_ROOT
 
 
-SCRIPT_PATH = REPO_ROOT / "dev/scripts/check_code_shape.py"
+SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_code_shape.py"
 
 
 def _load_script_module():

@@ -23,6 +23,7 @@ from ..process_sweep import (
     scan_matching_processes,
     split_orphaned_processes,
 )
+from ..script_catalog import check_script_cmd
 from ..steps import format_steps_md
 from .check_profile import resolve_profile_settings
 from .check_steps import build_step_spec, run_step_specs
@@ -186,21 +187,28 @@ def run(args) -> int:
             setup_phase_specs.append(
                 make_step_spec(
                     "code-shape-guard",
-                    ["python3", "dev/scripts/check_code_shape.py"],
+                    check_script_cmd("code_shape"),
                     cwd=REPO_ROOT,
                 )
             )
             setup_phase_specs.append(
                 make_step_spec(
                     "rust-lint-debt-guard",
-                    ["python3", "dev/scripts/check_rust_lint_debt.py"],
+                    check_script_cmd("rust_lint_debt"),
                     cwd=REPO_ROOT,
                 )
             )
             setup_phase_specs.append(
                 make_step_spec(
                     "rust-best-practices-guard",
-                    ["python3", "dev/scripts/check_rust_best_practices.py"],
+                    check_script_cmd("rust_best_practices"),
+                    cwd=REPO_ROOT,
+                )
+            )
+            setup_phase_specs.append(
+                make_step_spec(
+                    "rust-security-footguns-guard",
+                    check_script_cmd("rust_security_footguns"),
                     cwd=REPO_ROOT,
                 )
             )

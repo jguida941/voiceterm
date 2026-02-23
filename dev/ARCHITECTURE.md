@@ -238,8 +238,8 @@ When workflow mechanics change (dev loop, CI lanes, release flow), update this s
 6. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
 7. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
 8. Run docs-integrity guards:
-   - `python3 dev/scripts/check_cli_flags_parity.py` (clap schema <-> `guides/CLI_FLAGS.md` parity)
-   - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` (doc image-reference integrity + stale-age visibility)
+   - `python3 dev/scripts/checks/check_cli_flags_parity.py` (clap schema <-> `guides/CLI_FLAGS.md` parity)
+   - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` (doc image-reference integrity + stale-age visibility)
 9. Confirm no accidental root `--*` artifact files before push (`find . -maxdepth 1 -type f -name '--*'`).
 
 For tooling/process/CI governance changes, `python3 dev/scripts/devctl.py docs-check --strict-tooling`
@@ -281,7 +281,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 - Backend child processes inherit the invoking user's OS privileges, so host-level least privilege remains the primary boundary.
 - Claude permission prompts are enabled by default; `--claude-skip-permissions` intentionally weakens that guard.
 - Use `--claude-skip-permissions` only in isolated/trusted environments (sandbox/container/throwaway workspace) and avoid untrusted repositories.
-- Supply-chain risk is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
+- Supply-chain risk is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/checks/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
 
 ## Overlay State Machine
 

@@ -61,7 +61,7 @@ jobs:
 
       - name: Verify release version parity and requested version
         run: |
-          python3 dev/scripts/check_release_version_parity.py --format json > /tmp/release-version-parity.json
+          python3 dev/scripts/checks/check_release_version_parity.py --format json > /tmp/release-version-parity.json
           python3 - <<'PY'
           import json
           import os
@@ -94,14 +94,14 @@ jobs:
             echo "Skipping strict user-facing docs check."
           fi
           python3 dev/scripts/devctl.py hygiene
-          python3 dev/scripts/check_agents_contract.py
-          python3 dev/scripts/check_active_plan_sync.py
-          python3 dev/scripts/check_release_version_parity.py
-          python3 dev/scripts/check_cli_flags_parity.py
-          python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-          python3 dev/scripts/check_code_shape.py
-          python3 dev/scripts/check_rust_lint_debt.py
-          python3 dev/scripts/check_rust_best_practices.py
+          python3 dev/scripts/checks/check_agents_contract.py
+          python3 dev/scripts/checks/check_active_plan_sync.py
+          python3 dev/scripts/checks/check_release_version_parity.py
+          python3 dev/scripts/checks/check_cli_flags_parity.py
+          python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+          python3 dev/scripts/checks/check_code_shape.py
+          python3 dev/scripts/checks/check_rust_lint_debt.py
+          python3 dev/scripts/checks/check_rust_best_practices.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \

@@ -139,10 +139,11 @@ When adding any new markdown file under `dev/active/`, this sequence is required
    `dev/active/MASTER_PLAN.md` (the only tracker authority).
 3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
    if navigation/ownership changed.
-4. Run `python3 dev/scripts/check_active_plan_sync.py`.
-5. Run `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
-6. Run `python3 dev/scripts/devctl.py hygiene`.
-7. Commit file + index + governance docs in one change.
+4. Run `python3 dev/scripts/checks/check_active_plan_sync.py`.
+5. Run `python3 dev/scripts/checks/check_multi_agent_sync.py`.
+6. Run `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+7. Run `python3 dev/scripts/devctl.py hygiene`.
+8. Commit file + index + governance docs in one change.
 
 ## Task router (pick one class)
 
@@ -220,12 +221,13 @@ find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -235,12 +237,13 @@ find . -maxdepth 1 -type f -name '--*'
 ```bash
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -250,14 +253,17 @@ find . -maxdepth 1 -type f -name '--*'
 ```bash
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -269,14 +275,17 @@ python3 dev/scripts/devctl.py check --profile release
 python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
 ```
@@ -287,14 +296,17 @@ find . -maxdepth 1 -type f -name '--*'
 git status
 git log --oneline --decorate -n 10
 python3 dev/scripts/devctl.py status --ci --require-ci --format md
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py --since-ref origin/develop
-python3 dev/scripts/check_rust_lint_debt.py --since-ref origin/develop
-python3 dev/scripts/check_rust_best_practices.py --since-ref origin/develop
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
+python3 dev/scripts/checks/check_rust_lint_debt.py --since-ref origin/develop
+python3 dev/scripts/checks/check_rust_best_practices.py --since-ref origin/develop
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -335,7 +347,7 @@ find . -maxdepth 1 -type f -name '--*'
   - fallback manual path:
     `cargo install cargo-audit --locked`,
     `cd src && (cargo audit --json > ../rustsec-audit.json || true)`,
-    `python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md`
+    `python3 dev/scripts/checks/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md`
 
 ## Release SOP (master only)
 
@@ -343,7 +355,7 @@ Use this exact sequence:
 
 1. Confirm `git checkout master` and clean working tree.
 2. Verify version parity:
-   - `python3 dev/scripts/check_release_version_parity.py`
+   - `python3 dev/scripts/checks/check_release_version_parity.py`
    - `src/Cargo.toml` has `version = X.Y.Z`
    - `pypi/pyproject.toml` has `[project].version = X.Y.Z`
    - `app/macos/VoiceTerm.app/Contents/Info.plist` has
@@ -403,6 +415,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Dependency/security policy changes | `security_guard.yml` |
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
+| Multi-agent instruction/ack timers and stale-lane accountability | `tooling_control_plane.yml`, `orchestrator_watchdog.yml` |
 | User docs/markdown changes | `docs_lint.yml` |
 | Release preflight verification bundle | `release_preflight.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
@@ -449,13 +462,14 @@ Enforcement commands:
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 ```
 
 ## Tooling inventory
@@ -470,8 +484,9 @@ Core commands:
   - Includes automatic orphaned-test cleanup sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
-  - `--strict-tooling` also runs the active-plan sync gate so tooling/process changes cannot bypass active-doc phase/link governance.
+  - `--strict-tooling` also runs active-plan + multi-agent sync gates plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
 - `hygiene` (archive/ADR/scripts governance plus orphaned `target/debug/deps/voiceterm-*` test-process sweep)
+- `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
 - `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
@@ -482,6 +497,8 @@ Core commands:
 - `pypi`
 - `homebrew`
 - `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
+- `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
+- `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `list`
 
@@ -491,7 +508,11 @@ Implementation note for maintainers:
   `dev/scripts/devctl/process_sweep.py` (process parsing/cleanup),
   `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
+  `dev/scripts/devctl/orchestrate_parser.py` (orchestrator CLI parser wiring),
+  `dev/scripts/devctl/script_catalog.py` (canonical check-script path registry),
+  `dev/scripts/devctl/path_audit.py` (shared stale-path scanner),
   `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
+  `dev/scripts/devctl/policy_gate.py` (shared JSON policy gate runner),
   `dev/scripts/devctl/status_report.py` (status/report payload + markdown
   rendering), `dev/scripts/devctl/commands/security.py` (local security gate
   orchestration + optional scanner policy), and `dev/scripts/devctl/commands/ship_common.py` /
@@ -501,16 +522,18 @@ Implementation note for maintainers:
 
 Supporting scripts:
 
-- `dev/scripts/check_agents_contract.py`
-- `dev/scripts/check_active_plan_sync.py`
-- `dev/scripts/check_cli_flags_parity.py`
-- `dev/scripts/check_release_version_parity.py`
-- `dev/scripts/check_screenshot_integrity.py`
-- `dev/scripts/check_code_shape.py`
-- `dev/scripts/check_rust_lint_debt.py`
-- `dev/scripts/check_rust_best_practices.py`
-- `dev/scripts/check_mutation_score.py`
-- `dev/scripts/check_rustsec_policy.py`
+- `dev/scripts/checks/check_agents_contract.py`
+- `dev/scripts/checks/check_active_plan_sync.py`
+- `dev/scripts/checks/check_multi_agent_sync.py`
+- `dev/scripts/checks/check_cli_flags_parity.py`
+- `dev/scripts/checks/check_release_version_parity.py`
+- `dev/scripts/checks/check_screenshot_integrity.py`
+- `dev/scripts/checks/check_code_shape.py`
+- `dev/scripts/checks/check_rust_lint_debt.py`
+- `dev/scripts/checks/check_rust_best_practices.py`
+- `dev/scripts/checks/check_rust_security_footguns.py`
+- `dev/scripts/checks/check_mutation_score.py`
+- `dev/scripts/checks/check_rustsec_policy.py`
 - `dev/scripts/tests/measure_latency.sh`
 - `dev/scripts/tests/wake_word_guard.sh`
 - `scripts/macros.sh`
@@ -520,6 +543,11 @@ hotspot budgets for Phase 3C decomposition targets.
 `check_active_plan_sync.py` enforces active-doc index/spec parity, mirrored-spec
 phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
 Snapshot release freshness (branch policy + release-tag consistency).
+`check_multi_agent_sync.py` enforces 3-agent coordination parity between the
+`MASTER_PLAN` board and the runbook (lane/MP/worktree/branch alignment,
+instruction/ack protocol validation, lane-lock + MP-collision handoff checks,
+status/date format checks, ledger traceability, and end-of-cycle signoff when
+all agent lanes are marked merged).
 `check_rust_lint_debt.py` enforces non-regressive growth for `#[allow(...)]`
 and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
@@ -542,6 +570,7 @@ surfaces without `# Safety` docs in changed Rust files.
 - `lint_hardening.yml`
 - `release_preflight.yml`
 - `tooling_control_plane.yml`
+- `orchestrator_watchdog.yml`
 - `publish_pypi.yml`
 - `publish_homebrew.yml`
 

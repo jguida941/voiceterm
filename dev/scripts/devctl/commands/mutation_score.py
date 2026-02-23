@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from ..common import find_latest_outcomes_file, run_cmd
 from ..config import REPO_ROOT, DEFAULT_MUTATION_THRESHOLD
+from ..script_catalog import check_script_cmd
 
 
 def build_mutation_score_cmd(
@@ -13,14 +14,7 @@ def build_mutation_score_cmd(
     warn_age_hours: float | None,
 ) -> List[str]:
     """Build the check_mutation_score.py command."""
-    cmd = [
-        "python3",
-        "dev/scripts/check_mutation_score.py",
-        "--path",
-        path,
-        "--threshold",
-        f"{threshold:.2f}",
-    ]
+    cmd = check_script_cmd("mutation_score", "--path", path, "--threshold", f"{threshold:.2f}")
     if warn_age_hours is not None:
         cmd.extend(["--warn-age-hours", str(warn_age_hours)])
     if max_age_hours is not None:

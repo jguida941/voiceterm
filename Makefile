@@ -134,7 +134,7 @@ parser-fuzz:
 security-audit:
 	cargo install cargo-audit --locked
 	cd src && (cargo audit --json > ../rustsec-audit.json || true)
-	python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
+	python3 dev/scripts/checks/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
 
 # Voice benchmark
 bench:
@@ -182,7 +182,7 @@ mutants-results:
 # Legacy: run cargo mutants directly
 mutants-raw:
 	cd src && cargo mutants --timeout 300 -o mutants.out
-	python3 dev/scripts/check_mutation_score.py --path src/mutants.out/outcomes.json --threshold 0.80
+	python3 dev/scripts/checks/check_mutation_score.py --path src/mutants.out/outcomes.json --threshold 0.80
 
 # =============================================================================
 # Dev CLI (devctl)
@@ -213,7 +213,7 @@ dev-hygiene:
 	python3 dev/scripts/devctl.py hygiene --format md
 
 dev-active-sync:
-	python3 dev/scripts/check_active_plan_sync.py
+	python3 dev/scripts/checks/check_active_plan_sync.py
 
 dev-list:
 	python3 dev/scripts/devctl.py list

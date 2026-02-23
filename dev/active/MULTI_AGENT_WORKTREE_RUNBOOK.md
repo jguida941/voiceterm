@@ -163,10 +163,10 @@ Each worker must run at least:
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 find . -maxdepth 1 -type f -name '--*'
 cd src && cargo test --bin voiceterm
 ```
@@ -262,11 +262,11 @@ python3 dev/scripts/devctl.py check --profile release
 python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 find . -maxdepth 1 -type f -name '--*'
 ```
 
@@ -282,7 +282,26 @@ python3 dev/scripts/devctl.py status --ci --require-ci --format md
 - Keep `master` as release branch; do not push feature work directly to `master`.
 - Promote `develop` to `master` only when full integration audit and required CI lanes are green.
 
-## 14) Shared Ledger (Append-Only)
+## 14) Orchestrator Instruction Log (Append-Only)
+
+All orchestrator-to-agent instructions must be logged here. This is the
+canonical MD thread for assignment + due-time + acknowledgment tracking.
+
+| UTC issued | Instruction ID | From | To | Summary | Due (UTC) | Ack token | Ack UTC | Status |
+|---|---|---|---|---|---|---|---|---|
+| `2026-02-23T00:00:00Z` | `INS-A1-BOOT` | `ORCHESTRATOR` | `AGENT-1` | bootstrap lane and post first execution update in board/ledger | `2026-02-23T00:10:00Z` | `ACK-AGENT-1-BOOT` | `2026-02-23T00:05:00Z` | `completed` |
+| `2026-02-23T00:00:00Z` | `INS-A2-BOOT` | `ORCHESTRATOR` | `AGENT-2` | bootstrap lane and post first execution update in board/ledger | `2026-02-23T00:10:00Z` | `ACK-AGENT-2-BOOT` | `2026-02-23T00:06:00Z` | `completed` |
+| `2026-02-23T00:00:00Z` | `INS-A3-BOOT` | `ORCHESTRATOR` | `AGENT-3` | bootstrap lane and post first execution update in board/ledger | `2026-02-23T00:10:00Z` | `ACK-AGENT-3-BOOT` | `2026-02-23T00:07:00Z` | `completed` |
+
+Instruction log rules:
+
+1. `Instruction ID` must be unique and immutable.
+2. `To` must be one of `AGENT-1`, `AGENT-2`, `AGENT-3`.
+3. `Due (UTC)` and `Ack UTC` must use `YYYY-MM-DDTHH:MM:SSZ`.
+4. `Status` lifecycle is `pending` -> `acked` -> `completed` (or `cancelled`).
+5. Any row in `pending`/`acked` past `Due (UTC)` is an SLA breach.
+
+## 15) Shared Ledger (Append-Only)
 
 | UTC | Actor | Area | Worktree | Branch | Commit | MP scope | Verification summary | Status | Reviewer token | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -298,7 +317,27 @@ Status values:
 - `merged`
 - `blocked`
 
-## 15) Final Cleanup (After Cycle Completes)
+## 16) End-of-Cycle Signoff (Required)
+
+Complete this table after all three agent lanes are merged. The multi-agent
+guard validates these rows when all agent statuses in `MASTER_PLAN` are
+`merged`.
+
+| Signer | Date (UTC) | Result | Isolation verified | Bundle reference | Signature |
+|---|---|---|---|---|---|
+| `AGENT-1` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-2` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-3` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `ORCHESTRATOR` | `pending` | `pending` | `pending` | `pending` | `pending` |
+
+Signoff rules:
+
+1. `Result` must be `pass` for every signer.
+2. `Isolation verified` must be `yes` for every signer.
+3. `Bundle reference` must point to the final verification run evidence.
+4. `Signature` must be a concrete initials/name token, not `pending`.
+
+## 17) Final Cleanup (After Cycle Completes)
 
 ```bash
 cd /Users/jguida941/testing_upgrade/codex-voice

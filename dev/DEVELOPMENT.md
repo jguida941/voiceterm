@@ -90,14 +90,17 @@ CI will run the same check families again.
 | Perf, latency, wake-word, parser boundaries, long-running workers, or security-sensitive code | `python3 dev/scripts/devctl.py check --profile prepush` plus risk-specific tests listed in `AGENTS.md` | `perf_smoke.yml`, `latency_guard.yml`, `wake_word_guard.yml`, `memory_guard.yml`, `parser_fuzz_guard.yml`, `security_guard.yml` |
 | User docs (`README`, `guides/*`, `QUICK_START`) | `python3 dev/scripts/devctl.py docs-check --user-facing` | conditional strict user-doc gate in `.github/workflows/tooling_control_plane.yml` |
 | Tooling/process/CI docs or scripts | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `.github/workflows/tooling_control_plane.yml` |
-| Agent/process contracts | `python3 dev/scripts/check_agents_contract.py` | `.github/workflows/tooling_control_plane.yml` |
-| Active plan/index/spec sync + snapshot freshness | `python3 dev/scripts/check_active_plan_sync.py` | `.github/workflows/tooling_control_plane.yml` |
-| Release version fields | `python3 dev/scripts/check_release_version_parity.py` | `.github/workflows/tooling_control_plane.yml` |
-| CLI docs vs clap schema | `python3 dev/scripts/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
-| Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
-| Rust/Python source-file shape drift | `python3 dev/scripts/check_code_shape.py` | `.github/workflows/tooling_control_plane.yml` |
-| Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/check_rust_lint_debt.py` | `.github/workflows/tooling_control_plane.yml` |
-| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs hygiene) | `python3 dev/scripts/check_rust_best_practices.py` | `.github/workflows/tooling_control_plane.yml` |
+| Stale script-path references after script moves | `python3 dev/scripts/devctl.py path-audit` | `.github/workflows/tooling_control_plane.yml` (via `docs-check --strict-tooling`) |
+| Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `.github/workflows/tooling_control_plane.yml` |
+| Active plan/index/spec sync + snapshot freshness | `python3 dev/scripts/checks/check_active_plan_sync.py` | `.github/workflows/tooling_control_plane.yml` |
+| Multi-agent board/runbook accountability | `python3 dev/scripts/checks/check_multi_agent_sync.py` | `.github/workflows/tooling_control_plane.yml` |
+| Orchestrator SLA timers (stale updates + overdue ACKs) | `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md` | `.github/workflows/orchestrator_watchdog.yml` |
+| Release version fields | `python3 dev/scripts/checks/check_release_version_parity.py` | `.github/workflows/tooling_control_plane.yml` |
+| CLI docs vs clap schema | `python3 dev/scripts/checks/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
+| Screenshot links/staleness | `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
+| Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `.github/workflows/tooling_control_plane.yml` |
+| Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `.github/workflows/tooling_control_plane.yml` |
+| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs hygiene) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `.github/workflows/tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `.github/workflows/tooling_control_plane.yml` |
 
 ## When to push where
@@ -176,12 +179,14 @@ voiceterm/
 │       ├── generate-release-notes.sh # Markdown notes from git diff history
 │       ├── publish-pypi.sh    # Legacy adapter -> devctl pypi
 │       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew
-│       ├── check_mutation_score.py # Mutation score helper
-│       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
-│       ├── check_screenshot_integrity.py # image reference + stale-age guard
-│       ├── check_code_shape.py # Rust/Python God-file drift guard
-│       ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
-│       ├── check_rust_best_practices.py # Rust best-practices non-regression guard
+│       ├── checks/            # Policy and governance check scripts
+│       │   ├── check_mutation_score.py # Mutation score helper
+│       │   ├── check_cli_flags_parity.py # clap/docs CLI parity guard
+│       │   ├── check_screenshot_integrity.py # image reference + stale-age guard
+│       │   ├── check_code_shape.py # Rust/Python God-file drift guard
+│       │   ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
+│       │   ├── check_rust_security_footguns.py # Rust security-footguns non-regression guard
+│       │   └── check_rust_best_practices.py # Rust best-practices non-regression guard
 │       ├── tests/             # Test scripts
 │       └── devctl/            # Modular maintainer CLI package internals
 │           ├── process_sweep.py # Shared process parser/cleanup helpers
@@ -278,7 +283,7 @@ python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 # Manual fallback:
 cargo install cargo-audit --locked
 cd src && (cargo audit --json > ../rustsec-audit.json || true)
-python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
+python3 ../dev/scripts/checks/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
 
 # Unsafe/FFI governance (for PTY/stt unsafe changes)
 # 1) update invariants checklist doc:
@@ -294,11 +299,11 @@ cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_
 
 # Mutation tests (single run; CI enforces 80% minimum score)
 cd src && cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
+python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation tests (sharded, mirrors CI approach)
 cd src && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
+python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Historical CI shard artifacts are useful for hotspot triage only.
 # Final release gating must use a fresh full-shard aggregate for the current SHA.
@@ -306,7 +311,7 @@ python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.j
 # Mutation tests (offline/sandboxed; use a writable cache)
 rsync -a ~/.cargo/ /tmp/cargo-home/
 cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
+python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation helper script (module filter + offline env)
 python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
@@ -390,24 +395,25 @@ python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 
 # AGENTS + active-plan contract + release parity guards
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_release_version_parity.py
 
 # CLI schema/docs parity check (clap long flags vs guides/CLI_FLAGS.md)
-python3 dev/scripts/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
 
 # Screenshot reference integrity + stale-age report
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 
 # Source-shape guard (blocks new Rust/Python God-file growth)
-python3 dev/scripts/check_code_shape.py
+python3 dev/scripts/checks/check_code_shape.py
 
 # Rust lint-debt non-regression guard (changed-file growth only)
-python3 dev/scripts/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
 
 # Rust best-practices non-regression guard (changed-file growth only)
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 
 # Release/distribution control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
@@ -431,6 +437,10 @@ python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.j
 
 # Include recent GitHub Actions runs (requires gh auth)
 python3 dev/scripts/devctl.py status --ci --format md
+
+# Orchestrator accountability summary (active-plan + multi-agent guards)
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md
 
 # Include guarded Dev Mode JSONL summaries (event counts + latency)
 python3 dev/scripts/devctl.py status --dev-logs --format md
@@ -480,14 +490,15 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
 - `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned `target/debug/deps/voiceterm-*` test binaries.
-- `python3 dev/scripts/check_agents_contract.py`
-- `python3 dev/scripts/check_active_plan_sync.py`
-- `python3 dev/scripts/check_release_version_parity.py`
-- `python3 dev/scripts/check_cli_flags_parity.py`
-- `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120`
-- `python3 dev/scripts/check_code_shape.py`
-- `python3 dev/scripts/check_rust_lint_debt.py`
-- `python3 dev/scripts/check_rust_best_practices.py`
+- `python3 dev/scripts/checks/check_agents_contract.py`
+- `python3 dev/scripts/checks/check_active_plan_sync.py`
+- `python3 dev/scripts/checks/check_multi_agent_sync.py`
+- `python3 dev/scripts/checks/check_release_version_parity.py`
+- `python3 dev/scripts/checks/check_cli_flags_parity.py`
+- `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`
+- `python3 dev/scripts/checks/check_code_shape.py`
+- `python3 dev/scripts/checks/check_rust_lint_debt.py`
+- `python3 dev/scripts/checks/check_rust_best_practices.py`
 
 ### Documentation decisions
 
@@ -545,15 +556,16 @@ targeted instead of ad-hoc.
 
 Docs governance guardrails:
 
-- `python3 dev/scripts/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
-- `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
-- `python3 dev/scripts/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
-- `python3 dev/scripts/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
-- `python3 dev/scripts/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
+- `python3 dev/scripts/checks/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
+- `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
+- `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
+- `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
+- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change, and runs active-plan sync so mirrored specs cannot drift from phase/link policy.
-- `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
-- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, active-doc cross-link integrity, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness.
-- `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
+- `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
+- `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, active-doc cross-link integrity, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness.
+- `python3 dev/scripts/checks/check_multi_agent_sync.py` validates 3-agent coordination parity between `MASTER_PLAN` and `MULTI_AGENT_WORKTREE_RUNBOOK.md`, including lane/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date format checks, ledger traceability, and required end-of-cycle signoff once all agent lanes are merged.
+- `python3 dev/scripts/checks/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 
 ## Engineering quality review protocol
@@ -610,7 +622,8 @@ GitHub Actions lanes used by this repo:
 | Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC) |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution + active-plan sync enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution + active-plan sync + multi-agent sync enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, multi-agent sync guard, orchestrate status/watch guards, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
+| Orchestrator Watchdog | `.github/workflows/orchestrator_watchdog.yml` | scheduled 15-minute orchestration SLA lane (`devctl orchestrate-status` + `devctl orchestrate-watch`) to catch stale agent updates and overdue instruction ACKs between pushes |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published |
 | Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested |
@@ -634,14 +647,17 @@ make prepush
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
+python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)
@@ -651,7 +667,7 @@ python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 # Manual fallback:
 cargo install cargo-audit --locked
 cd src && (cargo audit --json > ../rustsec-audit.json || true)
-python3 ../dev/scripts/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
+python3 ../dev/scripts/checks/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
 
 # Parser property-fuzz lane (matches parser_fuzz_guard.yml)
 cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
@@ -678,7 +694,7 @@ cargo test --workspace --all-features
 
 # Check mutation score (optional, CI enforces this)
 cargo mutants --timeout 300 -o mutants.out --json
-python3 ../dev/scripts/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
+python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 ```
 
 **Check CI status:** [GitHub Actions](https://github.com/jguida941/voiceterm/actions)
@@ -698,7 +714,7 @@ gating, docs governance, and post-push audit sequencing.
 3. Verify parity before tagging:
 
    ```bash
-   python3 dev/scripts/check_release_version_parity.py
+   python3 dev/scripts/checks/check_release_version_parity.py
    rg -n '^version = ' src/Cargo.toml pypi/pyproject.toml
    plutil -p app/macos/VoiceTerm.app/Contents/Info.plist | rg 'CFBundleShortVersionString|CFBundleVersion'
    ```

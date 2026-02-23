@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard against non-regressive Rust best-practice drift in changed files."""
+"""Guard against non-regressive Rust security footguns in changed files."""
 
 from __future__ import annotations
 
@@ -11,13 +11,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
-ALLOW_ATTR_RE = re.compile(r"#\s*\[\s*allow\s*\((?P<body>[^\]]*)\)\s*\]", re.DOTALL)
-ALLOW_REASON_RE = re.compile(r"\breason\s*=")
-UNSAFE_BLOCK_RE = re.compile(r"\bunsafe\s*\{")
-UNSAFE_FN_RE = re.compile(r"\bunsafe\s+fn\b")
-PUB_UNSAFE_FN_RE = re.compile(r"\bpub(?:\s*\([^\)]*\))?\s+unsafe\s+fn\b")
+TODO_MACRO_RE = re.compile(r"\btodo!\s*\(")
+UNIMPLEMENTED_MACRO_RE = re.compile(r"\bunimplemented!\s*\(")
+DBG_MACRO_RE = re.compile(r"\bdbg!\s*\(")
+SHELL_SPAWN_RE = re.compile(
+    r"""\bCommand::new\s*\(\s*"(?:sh|bash|zsh|cmd|powershell|pwsh)"\s*\)""",
+    re.IGNORECASE,
+)
+SHELL_CONTROL_FLAG_RE = re.compile(r"""\.arg\s*\(\s*"(?:-c|/C)"\s*\)""")
+PERMISSIVE_MODE_RE = re.compile(r"\b0o(?:777|666)\b")
+WEAK_CRYPTO_RE = re.compile(r"\b(?:md5|sha1)\b", re.IGNORECASE)
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -80,103 +85,38 @@ def _read_text_from_worktree(path: Path) -> str | None:
     return absolute.read_text(encoding="utf-8", errors="replace")
 
 
-def _count_allow_without_reason(text: str | None) -> int:
-    if text is None:
-        return 0
-
-    count = 0
-    for match in ALLOW_ATTR_RE.finditer(text):
-        body = match.group("body")
-        if not ALLOW_REASON_RE.search(body):
-            count += 1
-    return count
-
-
-def _has_nearby_safety_comment(lines: list[str], index: int, lookback: int = 5) -> bool:
-    min_index = max(0, index - lookback)
-    for probe in range(index - 1, min_index - 1, -1):
-        raw = lines[probe].strip()
-        if not raw:
-            continue
-        if "SAFETY:" in raw or "# Safety" in raw:
-            return True
-        if raw.startswith(("//", "/*", "*", "///", "//!", "#[")):
-            continue
-        break
-    return False
-
-
-def _count_undocumented_unsafe_blocks(text: str | None) -> int:
-    if text is None:
-        return 0
-
-    lines = text.splitlines()
-    count = 0
-
-    for index, line in enumerate(lines):
-        if not UNSAFE_BLOCK_RE.search(line):
-            continue
-        if UNSAFE_FN_RE.search(line):
-            # `unsafe fn ... {` is tracked by the missing safety-docs metric below.
-            continue
-        if not _has_nearby_safety_comment(lines, index):
-            count += 1
-
-    return count
-
-
-def _public_unsafe_fn_missing_safety_docs(lines: list[str], index: int) -> bool:
-    saw_doc = False
-    saw_safety_heading = False
-
-    probe = index - 1
-    while probe >= 0:
-        raw = lines[probe].strip()
-        if not raw:
-            if saw_doc:
-                break
-            probe -= 1
-            continue
-        if raw.startswith("#["):
-            probe -= 1
-            continue
-        if raw.startswith("///"):
-            saw_doc = True
-            if "# Safety" in raw:
-                saw_safety_heading = True
-            probe -= 1
-            continue
-        break
-
-    return not (saw_doc and saw_safety_heading)
-
-
-def _count_pub_unsafe_fn_missing_safety_docs(text: str | None) -> int:
-    if text is None:
-        return 0
-
-    lines = text.splitlines()
-    count = 0
-
-    for index, line in enumerate(lines):
-        if not PUB_UNSAFE_FN_RE.search(line):
-            continue
-        if _public_unsafe_fn_missing_safety_docs(lines, index):
-            count += 1
-
-    return count
-
-
 def _count_metrics(text: str | None) -> dict[str, int]:
+    if text is None:
+        return {
+            "todo_macro_calls": 0,
+            "unimplemented_macro_calls": 0,
+            "dbg_macro_calls": 0,
+            "shell_spawn_calls": 0,
+            "shell_control_flag_calls": 0,
+            "permissive_mode_literals": 0,
+            "weak_crypto_refs": 0,
+        }
     return {
-        "allow_without_reason": _count_allow_without_reason(text),
-        "undocumented_unsafe_blocks": _count_undocumented_unsafe_blocks(text),
-        "pub_unsafe_fn_missing_safety_docs": _count_pub_unsafe_fn_missing_safety_docs(text),
+        "todo_macro_calls": len(TODO_MACRO_RE.findall(text)),
+        "unimplemented_macro_calls": len(UNIMPLEMENTED_MACRO_RE.findall(text)),
+        "dbg_macro_calls": len(DBG_MACRO_RE.findall(text)),
+        "shell_spawn_calls": len(SHELL_SPAWN_RE.findall(text)),
+        "shell_control_flag_calls": len(SHELL_CONTROL_FLAG_RE.findall(text)),
+        "permissive_mode_literals": len(PERMISSIVE_MODE_RE.findall(text)),
+        "weak_crypto_refs": len(WEAK_CRYPTO_RE.findall(text)),
     }
 
 
+def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
+    return {key: current[key] - base[key] for key in base}
+
+
+def _has_positive_growth(growth: dict[str, int]) -> bool:
+    return any(value > 0 for value in growth.values())
+
+
 def _render_md(report: dict) -> str:
-    lines = ["# check_rust_best_practices", ""]
+    lines = ["# check_rust_security_footguns", ""]
     lines.append(f"- mode: {report['mode']}")
     lines.append(f"- ok: {report['ok']}")
     lines.append(f"- files_changed: {report['files_changed']}")
@@ -192,31 +132,30 @@ def _render_md(report: dict) -> str:
     totals = report["totals"]
     lines.append(
         "- aggregate_growth: "
-        f"allow_without_reason {totals['allow_without_reason_growth']:+d}, "
-        f"undocumented_unsafe_blocks {totals['undocumented_unsafe_blocks_growth']:+d}, "
-        "pub_unsafe_fn_missing_safety_docs "
-        f"{totals['pub_unsafe_fn_missing_safety_docs_growth']:+d}"
+        f"todo_macro_calls {totals['todo_macro_calls_growth']:+d}, "
+        f"unimplemented_macro_calls {totals['unimplemented_macro_calls_growth']:+d}, "
+        f"dbg_macro_calls {totals['dbg_macro_calls_growth']:+d}, "
+        f"shell_spawn_calls {totals['shell_spawn_calls_growth']:+d}, "
+        f"shell_control_flag_calls {totals['shell_control_flag_calls_growth']:+d}, "
+        f"permissive_mode_literals {totals['permissive_mode_literals_growth']:+d}, "
+        f"weak_crypto_refs {totals['weak_crypto_refs_growth']:+d}"
     )
 
     if report["violations"]:
         lines.append("")
         lines.append("## Violations")
+        lines.append(
+            "- Guidance: reduce risky patterns in changed files (prefer typed error paths, "
+            "avoid shell `-c` execution paths, avoid permissive modes like `0o777`/`0o666`, "
+            "and avoid weak hashes such as MD5/SHA1)."
+        )
         for item in report["violations"]:
-            growth = item["growth"]
-            lines.append(
-                f"- `{item['path']}`: allow_without_reason "
-                f"{item['base']['allow_without_reason']} -> "
-                f"{item['current']['allow_without_reason']} "
-                f"({growth['allow_without_reason']:+d}), "
-                "undocumented_unsafe_blocks "
-                f"{item['base']['undocumented_unsafe_blocks']} -> "
-                f"{item['current']['undocumented_unsafe_blocks']} "
-                f"({growth['undocumented_unsafe_blocks']:+d}), "
-                "pub_unsafe_fn_missing_safety_docs "
-                f"{item['base']['pub_unsafe_fn_missing_safety_docs']} -> "
-                f"{item['current']['pub_unsafe_fn_missing_safety_docs']} "
-                f"({growth['pub_unsafe_fn_missing_safety_docs']:+d})"
-            )
+            growth_bits = [
+                f"{key} {value:+d}"
+                for key, value in item["growth"].items()
+                if value > 0
+            ]
+            lines.append(f"- `{item['path']}`: {', '.join(growth_bits)}")
     return "\n".join(lines)
 
 
@@ -238,7 +177,7 @@ def main() -> int:
         changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
     except RuntimeError as exc:
         report = {
-            "command": "check_rust_best_practices",
+            "command": "check_rust_security_footguns",
             "timestamp": datetime.now().isoformat(),
             "ok": False,
             "error": str(exc),
@@ -246,7 +185,7 @@ def main() -> int:
         if args.format == "json":
             print(json.dumps(report, indent=2))
         else:
-            print("# check_rust_best_practices\n")
+            print("# check_rust_security_footguns\n")
             print(f"- ok: False\n- error: {report['error']}")
         return 2
 
@@ -254,10 +193,16 @@ def main() -> int:
     files_considered = 0
     files_skipped_non_rust = 0
     files_skipped_tests = 0
-    totals_allow_growth = 0
-    totals_unsafe_growth = 0
-    totals_pub_unsafe_docs_growth = 0
     violations: list[dict] = []
+    totals = {
+        "todo_macro_calls_growth": 0,
+        "unimplemented_macro_calls_growth": 0,
+        "dbg_macro_calls_growth": 0,
+        "shell_spawn_calls_growth": 0,
+        "shell_control_flag_calls_growth": 0,
+        "permissive_mode_literals_growth": 0,
+        "weak_crypto_refs_growth": 0,
+    }
 
     for path in changed_paths:
         if path.suffix != ".rs":
@@ -278,23 +223,17 @@ def main() -> int:
 
         base = _count_metrics(base_text)
         current = _count_metrics(current_text)
-        growth = {
-            "allow_without_reason": current["allow_without_reason"] - base["allow_without_reason"],
-            "undocumented_unsafe_blocks": current["undocumented_unsafe_blocks"]
-            - base["undocumented_unsafe_blocks"],
-            "pub_unsafe_fn_missing_safety_docs": current["pub_unsafe_fn_missing_safety_docs"]
-            - base["pub_unsafe_fn_missing_safety_docs"],
-        }
+        growth = _growth(base, current)
 
-        totals_allow_growth += growth["allow_without_reason"]
-        totals_unsafe_growth += growth["undocumented_unsafe_blocks"]
-        totals_pub_unsafe_docs_growth += growth["pub_unsafe_fn_missing_safety_docs"]
+        totals["todo_macro_calls_growth"] += growth["todo_macro_calls"]
+        totals["unimplemented_macro_calls_growth"] += growth["unimplemented_macro_calls"]
+        totals["dbg_macro_calls_growth"] += growth["dbg_macro_calls"]
+        totals["shell_spawn_calls_growth"] += growth["shell_spawn_calls"]
+        totals["shell_control_flag_calls_growth"] += growth["shell_control_flag_calls"]
+        totals["permissive_mode_literals_growth"] += growth["permissive_mode_literals"]
+        totals["weak_crypto_refs_growth"] += growth["weak_crypto_refs"]
 
-        if (
-            growth["allow_without_reason"] > 0
-            or growth["undocumented_unsafe_blocks"] > 0
-            or growth["pub_unsafe_fn_missing_safety_docs"] > 0
-        ):
+        if _has_positive_growth(growth):
             violations.append(
                 {
                     "path": path.as_posix(),
@@ -305,7 +244,7 @@ def main() -> int:
             )
 
     report = {
-        "command": "check_rust_best_practices",
+        "command": "check_rust_security_footguns",
         "timestamp": datetime.now().isoformat(),
         "mode": mode,
         "since_ref": args.since_ref,
@@ -315,11 +254,7 @@ def main() -> int:
         "files_considered": files_considered,
         "files_skipped_non_rust": files_skipped_non_rust,
         "files_skipped_tests": files_skipped_tests,
-        "totals": {
-            "allow_without_reason_growth": totals_allow_growth,
-            "undocumented_unsafe_blocks_growth": totals_unsafe_growth,
-            "pub_unsafe_fn_missing_safety_docs_growth": totals_pub_unsafe_docs_growth,
-        },
+        "totals": totals,
         "violations": violations,
     }
 

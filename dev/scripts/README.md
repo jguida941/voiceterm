@@ -16,6 +16,8 @@ For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
+Check scripts now live under `dev/scripts/checks/`, with centralized path
+registry wiring in `dev/scripts/devctl/script_catalog.py`.
 
 Engineering quality rule:
 
@@ -52,6 +54,7 @@ python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/devctl.py path-audit
 # Branch sync guardrail helper (develop/master/current by default)
 python3 dev/scripts/devctl.py sync
 # Also push local-ahead branches after sync
@@ -59,19 +62,23 @@ python3 dev/scripts/devctl.py sync --push
 # Security guardrails (RustSec baseline + optional workflow scan)
 python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
-python3 dev/scripts/check_agents_contract.py
-python3 dev/scripts/check_active_plan_sync.py
-python3 dev/scripts/check_release_version_parity.py
-python3 dev/scripts/check_cli_flags_parity.py
-python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-python3 dev/scripts/check_code_shape.py
-python3 dev/scripts/check_rust_lint_debt.py
-python3 dev/scripts/check_rust_best_practices.py
+python3 dev/scripts/devctl.py orchestrate-status --format md
+python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md
+python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_lint_debt.py
+python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_security_footguns.py
 rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA-F]{40}$"
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan sync policy checks.
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates plus stale-path audit.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
@@ -123,18 +130,20 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/publish-pypi.sh` | Legacy adapter | Routes to `devctl pypi`; internal mode used by devctl. |
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output (includes outcomes source age metadata). |
-| `dev/scripts/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
-| `dev/scripts/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
-| `dev/scripts/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
-| `dev/scripts/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
-| `dev/scripts/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
-| `dev/scripts/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
-| `dev/scripts/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
-| `dev/scripts/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
-| `dev/scripts/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, or public `unsafe fn` surfaces lacking `# Safety` docs. |
+| `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
+| `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
+| `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
+| `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` 3-agent board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
+| `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
+| `dev/scripts/checks/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
+| `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
+| `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
+| `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
+| `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, or public `unsafe fn` surfaces lacking `# Safety` docs. |
+| `dev/scripts/checks/check_rust_security_footguns.py` | Rust security-footguns non-regression guard | Fails when changed non-test Rust files add risky AI-prone patterns (`todo!/unimplemented!/dbg!`, shell-style process spawns, permissive `0o777/0o666` modes, weak-crypto references like MD5/SHA1). |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
-| `dev/scripts/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
+| `dev/scripts/checks/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
 
 ## Devctl Command Set
 
@@ -146,8 +155,9 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
-- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync)
+- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync)
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
+- `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
 - `security`: RustSec policy checks plus optional workflow security scanning (`--with-zizmor`)
 - `release`: tag + notes flow (legacy release behavior)
@@ -155,6 +165,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`)
 - `homebrew`: Homebrew tap update flow
 - `pypi`: PyPI build/check/upload flow
+- `orchestrate-status`: one-shot orchestrator accountability view (active-plan sync + multi-agent sync guard status with git context)
+- `orchestrate-watch`: SLA watchdog for stale lane updates and overdue instruction ACKs
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, and emits rollups for severity/category/owner counts
 - `list`: command/profile inventory
@@ -170,6 +182,12 @@ consistent:
   `security` command so `cli.py` stays smaller and easier to maintain.
 - `dev/scripts/devctl/sync_parser.py`: shared CLI parser wiring for the
   `sync` command so `cli.py` stays within shape budgets.
+- `dev/scripts/devctl/orchestrate_parser.py`: shared CLI parser wiring for
+  `orchestrate-status` and `orchestrate-watch`.
+- `dev/scripts/devctl/script_catalog.py`: canonical check-script path registry
+  used by commands to avoid ad-hoc path strings.
+- `dev/scripts/devctl/path_audit.py`: shared stale-path scanner used by
+  `path-audit` and `docs-check --strict-tooling`.
 - `dev/scripts/devctl/triage_parser.py`: shared CLI parser wiring for the
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
@@ -184,6 +202,9 @@ consistent:
 - `dev/scripts/devctl/triage_enrich.py`: normalization/routing helpers used to
   map triage issues and `cihub` artifact records into consistent severity +
   owner labels, including optional owner-map file overrides.
+- `dev/scripts/devctl/policy_gate.py`: shared JSON policy-script runner used by
+  `docs-check` strict-tooling plus orchestrator accountability summaries
+  (active-plan + multi-agent sync checks).
 - `dev/scripts/devctl/commands/ship_common.py` and
   `dev/scripts/devctl/commands/ship_steps.py`: shared ship step/runtime helpers
   used by `dev/scripts/devctl/commands/ship.py`.
@@ -214,7 +235,7 @@ Markdown lint policy files live under `dev/config/`:
 
 ```bash
 # 1) align release versions across Cargo/PyPI/macOS app plist + changelog
-python3 dev/scripts/check_release_version_parity.py
+python3 dev/scripts/checks/check_release_version_parity.py
 # Optional: auto-prepare these files in one step
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release
 

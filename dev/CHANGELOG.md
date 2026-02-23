@@ -485,7 +485,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Align `docs_lint.yml` trigger paths with the exact markdown files linted (published docs subset + `DEV_INDEX.md`).
 - Add a dedicated `Security Guard` workflow (`.github/workflows/security_guard.yml`) that runs RustSec advisory scans and enforces policy thresholds.
-- Enforce dependency risk gates via `dev/scripts/check_rustsec_policy.py` (fail on CVSS >= 7.0 plus `yanked`/`unsound` warning kinds) and upload the audit report as a CI artifact.
+- Enforce dependency risk gates via `dev/scripts/checks/check_rustsec_policy.py` (fail on CVSS >= 7.0 plus `yanked`/`unsound` warning kinds) and upload the audit report as a CI artifact.
 - Add `parser_fuzz_guard.yml` for parser/ANSI-OSC property-fuzz regression coverage.
 - Add `audit_traceability_guard.yml` to enforce hardening-traceability consistency between `dev/active/MASTER_PLAN.md` and `RUST_GUI_AUDIT_2026-02-15.md`.
 

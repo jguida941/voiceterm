@@ -140,6 +140,7 @@ def run(args) -> int:
         lines.append("")
         lines.append("## Scripts")
         lines.append(f"- top-level scripts: {len(scripts['top_level_scripts'])}")
+        lines.append(f"- check scripts: {len(scripts['check_scripts'])}")
         lines.extend(f"- error: {message}" for message in scripts["errors"])
         lines.extend(f"- warning: {message}" for message in scripts["warnings"])
         lines.append("")

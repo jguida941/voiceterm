@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 ALLOW_ATTR_RE = re.compile(r"#\s*\[\s*allow\s*\(")
 UNWRAP_EXPECT_RE = re.compile(r"\b(?:unwrap|expect)\s*\(")

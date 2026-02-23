@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 ACTIVE_DIR = REPO_ROOT / "dev/active"
 INDEX_PATH = ACTIVE_DIR / "INDEX.md"
 MASTER_PLAN_PATH = ACTIVE_DIR / "MASTER_PLAN.md"
@@ -35,7 +35,7 @@ REQUIRED_DISCOVERY_REFERENCES = [
 REQUIRED_AGENT_MARKERS = [
     "## Active-plan onboarding (adding files under `dev/active/`)",
     "Add an entry in `dev/active/INDEX.md`",
-    "Run `python3 dev/scripts/check_active_plan_sync.py`",
+    "Run `python3 dev/scripts/checks/check_active_plan_sync.py`",
 ]
 
 SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md"]

@@ -166,13 +166,29 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
         return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
     )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_strict_tooling_requires_engineering_evolution_update(
         self,
         mock_collect_git_status,
+        _mock_path_audit,
+        _mock_multi_agent_sync,
         _mock_active_plan_sync,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -205,13 +221,29 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
         return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
     )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_strict_tooling_passes_with_engineering_evolution_update(
         self,
         mock_collect_git_status,
+        _mock_path_audit,
+        _mock_multi_agent_sync,
         _mock_active_plan_sync,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -245,14 +277,132 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
         return_value={"ok": False, "errors": ["missing master-plan link"]},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
     )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_strict_tooling_fails_when_active_plan_sync_fails(
         self,
         mock_collect_git_status,
+        _mock_path_audit,
+        _mock_multi_agent_sync,
         _mock_active_plan_sync,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": False, "errors": ["AGENT-2 mismatch"]},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_multi_agent_sync_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": False,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {"dev/scripts/checks/check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"},
+            "violations": [
+                {
+                    "file": "AGENTS.md",
+                    "line": 1,
+                    "legacy_path": "dev/scripts/checks/check_agents_contract.py",
+                    "replacement_path": "dev/scripts/checks/check_agents_contract.py",
+                    "line_text": "python3 dev/scripts/checks/check_agents_contract.py",
+                }
+            ],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_legacy_path_audit_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:

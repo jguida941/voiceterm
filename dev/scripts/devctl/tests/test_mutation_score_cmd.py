@@ -14,7 +14,7 @@ class MutationScoreCommandTests(unittest.TestCase):
             cmd,
             [
                 "python3",
-                "dev/scripts/check_mutation_score.py",
+                "dev/scripts/checks/check_mutation_score.py",
                 "--path",
                 "/tmp/outcomes.json",
                 "--threshold",
@@ -30,7 +30,7 @@ class MutationScoreCommandTests(unittest.TestCase):
             cmd,
             [
                 "python3",
-                "dev/scripts/check_mutation_score.py",
+                "dev/scripts/checks/check_mutation_score.py",
                 "--path",
                 "/tmp/outcomes.json",
                 "--threshold",

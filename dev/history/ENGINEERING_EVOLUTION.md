@@ -395,7 +395,7 @@ Evidence:
 
 - `dev/scripts/devctl/commands/release_prep.py` (Status Snapshot auto-update)
 - `dev/scripts/devctl/tests/test_release_prep.py` (snapshot/idempotence coverage)
-- `dev/scripts/check_active_plan_sync.py` (snapshot policy validation)
+- `dev/scripts/checks/check_active_plan_sync.py` (snapshot policy validation)
 - `AGENTS.md` (release SOP + guard definition update)
 - `dev/DEVELOPMENT.md` (check coverage wording update)
 - `dev/scripts/README.md` (script behavior update)
@@ -412,7 +412,7 @@ tooling docs checks now run this guard through `devctl`.
 
 Evidence:
 
-- `dev/scripts/check_active_plan_sync.py` (required mirrored spec rows now
+- `dev/scripts/checks/check_active_plan_sync.py` (required mirrored spec rows now
   include `devctl_reporting_upgrade.md`, MP-scope parsing accepts single IDs,
   and mirrored specs must include phase headings + explicit `MASTER_PLAN`
   links)
@@ -454,6 +454,64 @@ Evidence:
 Inference: Branch-sync hygiene now has one guarded control-plane path, reducing
 manual drift between `develop`, `master`, and active work branches.
 
+### Recent Governance Update (2026-02-23, Multi-Agent Accountability Guard)
+
+Fact: Multi-agent execution now has enforceable coordination checks instead of
+markdown-only conventions. A new guard validates parity between the
+`MASTER_PLAN` 3-agent board and `MULTI_AGENT_WORKTREE_RUNBOOK.md`, including
+lane/MP scope/worktree/branch alignment, status/date validation, and runbook
+ledger traceability. `devctl docs-check --strict-tooling` now runs this guard.
+
+Fact: End-of-cycle signoff is now explicit and machine-checkable. The runbook
+includes a required signoff table (`AGENT-1`, `AGENT-2`, `AGENT-3`,
+`ORCHESTRATOR`) and the guard enforces populated pass/isolation/bundle/signature
+fields when all agent lanes are marked `merged` in `MASTER_PLAN`.
+
+Fact: Accountability is now explicit in both CI and local control-plane usage.
+`.github/workflows/tooling_control_plane.yml` runs
+`python3 dev/scripts/checks/check_multi_agent_sync.py` as a dedicated workflow step,
+and `devctl orchestrate-status` provides a one-command orchestrator summary
+for active-plan sync + multi-agent parity state.
+
+Fact: Orchestrator-to-agent communication now has a machine-checked instruction
+ledger contract. The runbook now includes an append-only instruction table with
+unique instruction IDs, due timestamps, and ACK tokens; the guard validates
+target-agent scope, timestamp formatting, status transitions, and ACK metadata.
+
+Fact: Lane-isolation guarantees now include collision controls. The guard now
+fails when lane branch/worktree identifiers are reused across agents or when MP
+scope overlaps appear without explicit matching handoff tokens.
+
+Fact: SLA enforcement now runs continuously between pushes. `devctl
+orchestrate-watch` evaluates stale lane updates and overdue instruction ACKs,
+and `.github/workflows/orchestrator_watchdog.yml` runs this lane every 15
+minutes (plus manual dispatch).
+
+Evidence:
+
+- `dev/scripts/checks/check_multi_agent_sync.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/orchestrator_watchdog.yml`
+- `dev/scripts/devctl/commands/orchestrate_status.py`
+- `dev/scripts/devctl/commands/orchestrate_watch.py`
+- `dev/scripts/devctl/cli.py` (`orchestrate-status` parser + dispatch)
+- `dev/scripts/devctl/orchestrate_parser.py`
+- `dev/scripts/devctl/commands/listing.py` (command inventory includes `orchestrate-status` and `orchestrate-watch`)
+- `dev/scripts/devctl/tests/test_check_multi_agent_sync.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/devctl/tests/test_orchestrate_status.py`
+- `dev/scripts/devctl/tests/test_orchestrate_watch.py`
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+Inference: The orchestration plane now has full contract coverage: board/runbook
+parity, instruction/ack protocol, lane collision controls, and scheduled SLA
+watchdog enforcement.
+
 ### Recent Governance Update (2026-02-23, Code-Shape Guidance Hardening)
 
 Fact: `check_code_shape.py` violation output now ships explicit remediation
@@ -466,7 +524,7 @@ instead of forcing readability-hostile shrink edits.
 
 Evidence:
 
-- `dev/scripts/check_code_shape.py` (audit-first guidance + docs links)
+- `dev/scripts/checks/check_code_shape.py` (audit-first guidance + docs links)
 - `dev/scripts/devctl/tests/test_check_code_shape_guidance.py`
 - `dev/scripts/README.md` (guard behavior update)
 - `dev/active/MASTER_PLAN.md` (`MP-305`)
@@ -630,7 +688,7 @@ context injection, and overlay architecture ADR work.
 
 Evidence:
 
-- `dev/scripts/check_code_shape.py` (path-level `PATH_POLICY_OVERRIDES` for
+- `dev/scripts/checks/check_code_shape.py` (path-level `PATH_POLICY_OVERRIDES` for
   Phase 3C hotspot files)
 - `dev/active/MASTER_PLAN.md` (`MP-265` in-progress note and new `MP-269` ..
   `MP-273` backlog items)
@@ -649,7 +707,7 @@ or non-test `unwrap/expect` call-sites without an explicit CI failure.
 
 Evidence:
 
-- `dev/scripts/check_rust_lint_debt.py` (working-tree + `--since-ref` /
+- `dev/scripts/checks/check_rust_lint_debt.py` (working-tree + `--since-ref` /
   `--head-ref` commit-range support)
 - `.github/workflows/tooling_control_plane.yml` (commit-range enforcement step)
 - `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
@@ -668,7 +726,7 @@ push/release.
 
 Evidence:
 
-- `dev/scripts/check_rust_best_practices.py` (working-tree + `--since-ref` /
+- `dev/scripts/checks/check_rust_best_practices.py` (working-tree + `--since-ref` /
   `--head-ref` commit-range support for reason-less `#[allow(...)]`,
   undocumented `unsafe { ... }`, and public `unsafe fn` without `# Safety`
   docs)
@@ -712,7 +770,7 @@ default and can fail on stale mutation data, so maintainers can distinguish
 
 Evidence:
 
-- `dev/scripts/check_mutation_score.py` (outcomes source path + updated-at/age
+- `dev/scripts/checks/check_mutation_score.py` (outcomes source path + updated-at/age
   reporting, stale warning threshold, and `--max-age-hours` fail gate)
 - `dev/scripts/devctl/commands/mutation_score.py`,
   `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/check.py`
@@ -787,7 +845,7 @@ Evidence:
 - `dev/active/INDEX.md` (active-doc registry updated to remove standalone
   `overlay.md` entry)
 - `dev/active/MASTER_PLAN.md` (`MP-282` completion + reference updates)
-- `dev/scripts/check_active_plan_sync.py` (required active-doc registry rows
+- `dev/scripts/checks/check_active_plan_sync.py` (required active-doc registry rows
   aligned with consolidated file set)
 
 Inference: The visual execution track now has one source for design/research
@@ -1153,11 +1211,11 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 
 - Rust hardening audit tracking consolidated into `MASTER_PLAN` and archive reference. Evidence: `fc68982`, `4194dd4`.
 - Release-notes automation shipped via script + devctl wrapper + release handoff. Evidence: `4194dd4`.
-- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/check_release_version_parity.py`, `dev/scripts/check_agents_contract.py`, `dev/scripts/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
+- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/checks/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/checks/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/checks/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/checks/check_release_version_parity.py`, `dev/scripts/checks/check_agents_contract.py`, `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
 - Tooling hygiene now includes a runtime process sweep that errors on detached `target/debug/deps/voiceterm-*` test binaries (`PPID=1`) and warns on active test runners, so leaked local test binaries are caught before governance bundles proceed. Evidence: `dev/scripts/devctl/commands/hygiene.py`, `dev/scripts/devctl/tests/test_hygiene.py`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md` (MP-256).
 - Docs readability scope now includes an explicit plain-language pass for primary `dev/` entry docs (`dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`) so new contributors can follow workflows faster while preserving command and policy accuracy. Evidence: `dev/active/MASTER_PLAN.md` (MP-257), `dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `AGENTS.md`.
 - Maintainer-facing workflow docs were rewritten for faster scanability with an end-to-end lifecycle flowchart plus quick routing sections (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) so developers can quickly choose the right local checks and push path, while keeping `AGENTS.md` as the canonical bundle/router source. Evidence: `dev/DEVELOPMENT.md`, `AGENTS.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`.
-- Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
+- Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
 - Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.

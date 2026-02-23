@@ -18,9 +18,12 @@ COMMANDS = [
     "homebrew",
     "pypi",
     "status",
+    "orchestrate-status",
+    "orchestrate-watch",
     "report",
     "triage",
     "security",
+    "path-audit",
     "list",
 ]
 

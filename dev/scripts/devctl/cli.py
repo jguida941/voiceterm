@@ -3,9 +3,12 @@ import argparse
 import sys
 from .commands import (
     check, docs_check, homebrew, hygiene, listing, mutation_score, mutants,
-    pypi, release, release_notes, report, security, ship, sync, status, triage,
+    orchestrate_status, orchestrate_watch, path_audit, pypi, release,
+    release_notes, report, security, ship, sync, status, triage,
 )
 from .config import DEFAULT_CI_LIMIT, DEFAULT_MEM_ITERATIONS, DEFAULT_MUTANTS_TIMEOUT, DEFAULT_MUTATION_THRESHOLD
+from .orchestrate_parser import add_orchestrate_parsers
+from .path_audit_parser import add_path_audit_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
 from .triage_parser import add_triage_parser
@@ -281,6 +284,8 @@ def build_parser() -> argparse.ArgumentParser:
     hygiene_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
 
     # security
+    add_orchestrate_parsers(sub)
+    add_path_audit_parser(sub)
     add_security_parser(sub)
     add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_sync_parser(sub)
@@ -315,12 +320,18 @@ def main() -> int:
         return pypi.run(args)
     if args.command == "status":
         return status.run(args)
+    if args.command == "orchestrate-status":
+        return orchestrate_status.run(args)
+    if args.command == "orchestrate-watch":
+        return orchestrate_watch.run(args)
     if args.command == "report":
         return report.run(args)
     if args.command == "triage":
         return triage.run(args)
     if args.command == "list":
         return listing.run(args)
+    if args.command == "path-audit":
+        return path_audit.run(args)
     if args.command == "hygiene":
         return hygiene.run(args)
     if args.command == "sync":

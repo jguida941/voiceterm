@@ -39,6 +39,7 @@ on:
       - ".github/workflows/publish_homebrew.yml"
       - ".github/workflows/release_preflight.yml"
       - ".github/workflows/tooling_control_plane.yml"
+      - ".github/workflows/orchestrator_watchdog.yml"
   pull_request:
     paths:
       - "dev/scripts/**"
@@ -67,6 +68,7 @@ on:
       - ".github/workflows/publish_homebrew.yml"
       - ".github/workflows/release_preflight.yml"
       - ".github/workflows/tooling_control_plane.yml"
+      - ".github/workflows/orchestrator_watchdog.yml"
 
 jobs:
   devctl-tests:
@@ -189,35 +191,44 @@ jobs:
         run: python3 dev/scripts/devctl.py hygiene --format md
 
       - name: Run AGENTS contract guard
-        run: python3 dev/scripts/check_agents_contract.py
+        run: python3 dev/scripts/checks/check_agents_contract.py
 
       - name: Run active-plan sync guard
-        run: python3 dev/scripts/check_active_plan_sync.py
+        run: python3 dev/scripts/checks/check_active_plan_sync.py
+
+      - name: Run multi-agent sync guard
+        run: python3 dev/scripts/checks/check_multi_agent_sync.py
+
+      - name: Run orchestrator status guard
+        run: python3 dev/scripts/devctl.py orchestrate-status --format md
+
+      - name: Run orchestrator SLA watchdog
+        run: python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 
       - name: Run release version parity guard
-        run: python3 dev/scripts/check_release_version_parity.py
+        run: python3 dev/scripts/checks/check_release_version_parity.py
 
       - name: Run CLI flags parity guard
-        run: python3 dev/scripts/check_cli_flags_parity.py
+        run: python3 dev/scripts/checks/check_cli_flags_parity.py
 
       - name: Run screenshot integrity guard
-        run: python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
+        run: python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 
       - name: Run code-shape guard
         run: |
-          python3 dev/scripts/check_code_shape.py \
+          python3 dev/scripts/checks/check_code_shape.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Run rust lint-debt non-regression guard
         run: |
-          python3 dev/scripts/check_rust_lint_debt.py \
+          python3 dev/scripts/checks/check_rust_lint_debt.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Run rust best-practices non-regression guard
         run: |
-          python3 dev/scripts/check_rust_best_practices.py \
+          python3 dev/scripts/checks/check_rust_best_practices.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
