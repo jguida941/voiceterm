@@ -18,6 +18,7 @@ Use this page as the canonical user documentation entrypoint.
 | Install quickly | [`../QUICK_START.md`](../QUICK_START.md) |
 | Compare install methods (Homebrew/PyPI/source/app) | [`INSTALL.md`](INSTALL.md) |
 | Learn controls and daily workflow | [`USAGE.md`](USAGE.md) |
+| Configure wake mode and hands-free send | [`USAGE.md#voice-modes`](USAGE.md#voice-modes) and [`CLI_FLAGS.md#voice-behavior`](CLI_FLAGS.md#voice-behavior) |
 | Find exact CLI flags and env vars | [`CLI_FLAGS.md`](CLI_FLAGS.md) |
 | Diagnose runtime issues | [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) |
 | Tune Whisper models/languages/performance | [`WHISPER.md`](WHISPER.md) |

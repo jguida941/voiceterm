@@ -3,7 +3,12 @@
 
 Single troubleshooting reference for VoiceTerm.
 Use the quick-fix table first, then jump into the matching section shortcuts.
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+
+Fast first checks:
+
+1. Run `voiceterm --version` to confirm you are on the build you expect.
+2. Run with logs: `voiceterm --logs`.
+3. If wake mode is involved, check the HUD wake label (`Wake: ON`, `Wake: PAUSED`, `Wake: ERR`).
 
 ## Quick Fixes
 
@@ -14,18 +19,15 @@ Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHAN
 | Voice macro not expanding | Validate macros file + toggle state | [Status Messages](#status-messages) |
 | Codex/Claude not responding | Verify install + login | [Backend Issues](#backend-issues) |
 | Claude executes actions without confirmation | Disable permission-skip mode | [Backend Issues](#backend-issues) |
-| Claude approval prompt text is occluded by HUD rows | Update and verify prompt-safe HUD suppression | [Backend Issues](#backend-issues) |
 | Full HUD shows `Wake: ERR` | Verify wake listener startup/log path details | [Status Messages](#status-messages) |
+| Wake phrase does not trigger capture | Verify wake mode and phrase match | [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet) |
 | Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| Transcript includes tags like `(siren wailing)` | Update VoiceTerm and capture a sample log | [Status Messages](#status-messages) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
-| Toast-history overlay rows look misaligned | Update to latest version | [Status Messages](#status-messages) |
-| `PTY write failed` error on exit | Usually a benign shutdown race (PTY = virtual terminal session) | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 
 ## Status Messages
 

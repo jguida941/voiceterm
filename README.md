@@ -18,31 +18,51 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-Voice input for AI CLIs. Talk instead of type.
-Runs Whisper locally with ~250ms latency. No cloud, no API keys.
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
+VoiceTerm gives you voice control for AI CLIs in your normal terminal.
 
-Recent runtime updates:
+It supports a fully hands-free flow:
 
-- Theme Studio now supports in-session style-pack override recovery via `Undo edit`, `Redo edit`, and `Rollback edits`.
-- Wake listener startup failures now show explicit HUD/state feedback (`Wake: ERR`) instead of a false-ready wake badge.
-- Full HUD `Wake: ON` now renders as a steady status badge and wake listener capture windows are longer to reduce mic indicator flapping on macOS.
-- Wake phrases now stay active even when auto-voice idle rearm is paused, and leading phrase command tails (`hey codex ...`) are matched more reliably.
-- `--input-device` values are normalized before lookup, so wrapped copy/paste device names are handled reliably.
+- wake mode (`hey codex` / `hey claude`)
+- talk your prompt
+- say `send` / `submit` in `insert` mode to send without typing
+
+Start hands-free:
+
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
+
+One-shot examples:
+
+- `hey codex send`
+- `hey claude send`
+
+Whisper runs locally by default. No cloud API keys required.
+Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
 ## Quick Nav
 
+- [Hands-Free Quick Start](#hands-free-quick-start)
 - [Install and Start](#install-and-start)
-- [How It Works](#how-it-works)
 - [Requirements](#requirements)
-- [Supported AI CLIs](#supported-ai-clis)
-- [UI Tour](#ui-tour)
+- [Features](#features)
+- [Supported Backends](#supported-ai-clis)
 - [Controls](#controls)
 - [Guides Index](guides/README.md)
-- [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
-- [Developer Index](dev/README.md)
 - [Documentation](#documentation)
 - [Support](#support)
+
+## Hands-Free Quick Start
+
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
+
+Think of this like Alexa for your terminal:
+
+1. Say the wake phrase (`hey codex` or `hey claude`)
+2. Speak your prompt
+3. Say `send` (or `submit`)
 
 ## Install and Start
 
@@ -129,18 +149,8 @@ For model options and startup/IDE tuning:
 
 ## How It Works
 
-```mermaid
-graph TD
-    A["Microphone"] --> B["Whisper Speech-to-Text"]
-    B --> C["Transcript"]
-    C --> D["Terminal Session"]
-    D --> E["AI CLI"]
-    E --> F["Terminal Output"]
-```
-
-VoiceTerm wraps your AI CLI in a virtual terminal session and adds voice input.
-You talk → Whisper transcribes locally → text gets typed into the CLI.
-All CLI output passes through unchanged.
+VoiceTerm listens to your mic, converts speech to text on your machine, and
+types the result into your AI CLI input.
 
 ![Recording](img/recording.png)
 
@@ -160,6 +170,7 @@ All CLI output passes through unchanged.
 | **Fast voice-to-text** | A local Whisper engine turns speech into text quickly |
 | **Terminal passthrough** | Your CLI layout and behavior stay the same |
 | **Auto-voice** | You can talk hands-free instead of typing |
+| **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` in insert mode |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
 
@@ -169,9 +180,7 @@ All CLI output passes through unchanged.
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
-- **Saved settings**: keeps runtime settings in `~/.config/voiceterm/config.toml` (CLI flags still override per run)
-- **Claude prompt safety**: hides the HUD during Claude approval/permission prompts so prompt lines stay readable
-- **HUD telemetry**: mic/latency chips for recording, busy, and idle states
+- **Saved settings**: keeps your settings in `~/.config/voiceterm/config.toml`
 - **Built-in themes**: 11 themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, and Gruvbox
 
 For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
@@ -179,9 +188,8 @@ For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
 ## Supported AI CLIs
 
 VoiceTerm is optimized for Codex and Claude Code.
-For canonical backend support status and experimental backend notes, see
+For full backend status and setup details, see
 [Usage Guide -> Backend Support](guides/USAGE.md#backend-support).
-For backend configuration details, see the [Usage Guide](guides/USAGE.md).
 
 ### Codex
 
@@ -196,16 +204,15 @@ For backend configuration details, see the [Usage Guide](guides/USAGE.md).
 ### Theme Picker
 
 ![Theme Picker](img/theme-picker.png)
-Use `Ctrl+Y` to open Theme Studio, then choose `Theme picker`
-(or use `Ctrl+G` to quick-cycle themes). In the picker, use
-↑/↓ to move and Enter to select, or type the theme number.
+Press `Ctrl+Y` to open Theme Studio and choose `Theme picker`.
+Use `Ctrl+G` to quick-cycle themes.
 
 ### Settings Menu
 
 ![Settings](img/settings.png)
 
 Mouse control is enabled by default. Open Settings with `Ctrl+O`.
-For full behavior and configuration details, use:
+For details, use:
 
 - [Settings Menu](guides/USAGE.md#settings-menu)
 - [Themes](guides/USAGE.md#themes)
@@ -217,8 +224,6 @@ Use `Ctrl+H` to open transcript history, type to filter, and press `Enter` to
 replay into the active CLI input. Mouse click selection is also supported.
 History rows are labeled by source (`mic`, `you`, `ai`); only `mic` and `you`
 rows are replayable, and `ai` rows are output-only.
-Use `--session-memory` (optionally `--session-memory-path`) for a persistent
-markdown session log alongside the in-app history overlay.
 Detailed behavior: [Transcript History](guides/USAGE.md#transcript-history).
 
 ### Help Overlay
@@ -229,7 +234,7 @@ terminals that support clickable links. Details: [Core Controls](guides/USAGE.md
 
 ## Controls
 
-For keybindings and runtime behavior, see:
+For shortcuts and behavior, see:
 
 - [Core Controls](guides/USAGE.md#core-controls)
 - [Settings Menu](guides/USAGE.md#settings-menu)
@@ -240,68 +245,11 @@ For CLI flags and command-line options:
 - `voiceterm --help` (or `voiceterm -h`)
 - [CLI Flags](guides/CLI_FLAGS.md)
 
-Related docs:
-
-- [Usage Guide](guides/USAGE.md)
-- [Changelog](dev/CHANGELOG.md)
-- [Development](dev/DEVELOPMENT.md)
-
 ## Voice Macros
 
-Voice macros are project-local voice shortcuts defined in
-`.voiceterm/macros.yaml`.
-
-Startup default: `Settings -> Macros` starts as `OFF` (safe mode). Turn it on
-when you want macro expansion.
-
-Quick setup:
-
-```bash
-# Interactive wizard (recommended)
-./scripts/macros.sh wizard
-
-# or generate a pack directly
-./scripts/macros.sh install --pack safe-core
-```
-
-<details>
-<summary><strong>More macro details (packs, examples, and rules)</strong></summary>
-
-Packs:
-
-- `safe-core`: low-risk git/GitHub inspection commands
-- `power-git`: write actions (commit/push/PR/issue) in `insert` mode by default
-- `full-dev`: safe-core + power-git + project checks and release helpers
-
-If you use GitHub macros, the wizard checks `gh` availability/auth and can
-prompt for `gh auth login`.
-
-Example:
-
-- You say: `run tests`
-- VoiceTerm types: `cargo test --all-features`
-
-When it runs:
-
-- `Settings -> Macros = ON`: if a spoken trigger matches, VoiceTerm expands it
-  before typing into the CLI.
-- `Settings -> Macros = OFF`: VoiceTerm skips expansion and types your
-  transcript exactly as spoken.
-
-See [Project Voice Macros](guides/USAGE.md#project-voice-macros) for the file
-format, templates, and matching rules.
-
-</details>
-
-This repository includes a starter macro pack at `.voiceterm/macros.yaml` with
-expanded git/GitHub voice workflows plus codex-voice check/release commands.
-
-## Engineering History
-
-Want the design and process timeline?
-
-- [Engineering Evolution and SDLC Timeline](dev/history/ENGINEERING_EVOLUTION.md)
-- [Developer Index](dev/README.md)
+Voice macros are project-local shortcuts in `.voiceterm/macros.yaml`.
+Turn macros on in Settings when you want phrase expansion.
+Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros).
 
 ## Documentation
 
@@ -311,17 +259,19 @@ Use this order if you're new:
 2. Use the [Guides Index](guides/README.md) for task-based navigation.
 3. Use [Troubleshooting](guides/TROUBLESHOOTING.md) as the single issue hub.
 
-| Users | Developers |
-|-------|------------|
-| [Guides Index](guides/README.md) | [Developer Index](dev/README.md) |
-| [Quick Start](QUICK_START.md) | [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) |
-| [Install Guide](guides/INSTALL.md) | [Master Plan](dev/active/MASTER_PLAN.md) |
-| [Usage Guide](guides/USAGE.md) | [Development](dev/DEVELOPMENT.md) |
-| [CLI Flags](guides/CLI_FLAGS.md) | [Architecture](dev/ARCHITECTURE.md) |
-| [Whisper & Languages](guides/WHISPER.md) | [ADRs](dev/adr/README.md) |
-| [Troubleshooting Hub](guides/TROUBLESHOOTING.md) | [Changelog](dev/CHANGELOG.md) |
-| [User Scripts](scripts/README.md) | [Dev Scripts](dev/scripts/README.md) |
-| [Contributing](.github/CONTRIBUTING.md) | [History Index](dev/history/README.md) |
+User docs:
+
+- [Guides Index](guides/README.md)
+- [Quick Start](QUICK_START.md)
+- [Install Guide](guides/INSTALL.md)
+- [Usage Guide](guides/USAGE.md)
+- [CLI Flags](guides/CLI_FLAGS.md)
+- [Troubleshooting](guides/TROUBLESHOOTING.md)
+
+Developer docs:
+
+- [Developer Index](dev/README.md)
+- [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 
 ## Support
 

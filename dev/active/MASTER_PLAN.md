@@ -4,8 +4,7 @@
 
 - This file is the single active plan for strategy, execution, and release tracking.
 - `dev/active/INDEX.md` is the canonical active-doc registry and read-order map for agents.
-- `dev/active/overlay.md` is reference research only (market/competitor + UX audit), not an execution plan.
-- `dev/active/theme_upgrade.md` is the Theme Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
+- `dev/active/theme_upgrade.md` is the consolidated Theme Studio specification + gate catalog + overlay visual research + redesign appendix, but not a separate execution tracker; implementation tasks stay in this file.
 - `dev/active/memory_studio.md` is the Memory + Action Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
@@ -40,7 +39,7 @@
 - [x] MP-077 Run release verification (`cargo build --release --bin voiceterm`, tests, docs-check).
 - [x] MP-078 Finalize release notes, bump version, tag, push, GitHub release, and Homebrew tap update.
 - [x] MP-096 Expand SDLC agent governance: post-push audit loop, testing matrix by change type, CI expansion policy, and per-push docs sync requirements.
-- [x] MP-099 Consolidate overlay research into a single reference source (`dev/active/overlay.md`) and mirror candidate execution items in this plan.
+- [x] MP-099 Consolidate overlay research into a single reference source (now consolidated under `dev/active/theme_upgrade.md`) and mirror candidate execution items in this plan.
 
 ## Phase 1 - Latency Truth and Observability
 
@@ -255,6 +254,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-259 Automate Codecov coverage uploads by adding `.github/workflows/coverage.yml` (Rust `cargo llvm-cov` LCOV generation + Codecov OIDC upload) and aligning maintainer docs/lane mapping so the README coverage badge is backed by current CI reports instead of `unknown`.
 - [x] MP-260 Add non-regressive source-shape guardrails for Rust/Python so oversized files cannot silently drift into new God-file debt: add `dev/scripts/check_code_shape.py` (working-tree + commit-range modes with soft/hard file-size limits and oversize-growth budgets), wire it into `tooling_control_plane.yml`, and add bundle/docs coverage for local maintainer runs.
 - [x] MP-261 Refresh README brand banner with a new VoiceTerm hero logo asset (`img/logo-hero.png`) based on the finalized artwork while keeping subtitle/icon identity and removing redundant platform chips from the banner artwork itself (README remains the only consumer; generation script exploration was one-off and not retained in repo tooling).
+- [x] MP-282 Consolidate visual planning docs by folding `dev/active/overlay.md` and `dev/active/theme_studio_redesign.md` into `dev/active/theme_upgrade.md`, then update active-index/sync-governance references so one canonical visual spec remains.
 - [ ] MP-257 Run a plain-language readability pass across primary `dev/` entry docs (`dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`) so new developers can follow workflows quickly without losing technical accuracy.
 
 ## Phase 3C - Codebase Best-Practice Consolidation (Active Audit Track)
@@ -424,9 +424,8 @@ documented `MS-G*` pass evidence.
 ## References
 
 - Execution + release tracking: `dev/active/MASTER_PLAN.md`
-- Theme Studio architecture + gate checklist: `dev/active/theme_upgrade.md`
+- Theme Studio architecture + gate checklist + consolidated overlay research/redesign detail: `dev/active/theme_upgrade.md`
 - Memory + Action Studio architecture + gate checklist: `dev/active/memory_studio.md`
-- Market, competitor, and UX evidence: `dev/active/overlay.md`
 - SDLC policy: `AGENTS.md`
 - Architecture: `dev/ARCHITECTURE.md`
 - Changelog: `dev/CHANGELOG.md`

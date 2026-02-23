@@ -4,11 +4,20 @@ Use this page first when working in the repo.
 It tells you where to look next based on what you are trying to do.
 Root shortcut pointer: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
+## Pick a Path
+
+| If you need to... | Read this first |
+|---|---|
+| Find active scope and execution state | [`dev/active/INDEX.md`](active/INDEX.md), then [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) |
+| Build/test/release | [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) |
+| Understand runtime architecture | [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Change tooling/process/CI | [`AGENTS.md`](../AGENTS.md) and [`dev/scripts/README.md`](scripts/README.md) |
+
 ## Start Here
 
 1. [`dev/active/INDEX.md`](active/INDEX.md) - list of active planning docs and the order to read them.
 2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - what is currently in scope and what ships next.
-3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - Theme Studio spec and test gates (`TS-G*`, `MP-148+`).
+3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - canonical Theme + Overlay Studio spec (Theme Studio architecture/gates plus consolidated visual research/redesign detail; `TS-G*`, `MP-148+`).
 4. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio spec and test gates (`MS-G*`, `MP-230+`).
 5. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) - how parallel worktrees are run this cycle.
 6. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - why major design/process choices were made.

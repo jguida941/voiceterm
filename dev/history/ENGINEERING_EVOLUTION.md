@@ -465,6 +465,26 @@ Inference: Runtime now separates "finalize capture" from "submit prompt"
 cleanly in insert mode while keeping wake detection resilient to common STT
 aliasing (`code x`, `codecs`, `kodak`) and transient no-audio capture churn.
 
+### Recent Governance Update (2026-02-23, Visual Plan Consolidation)
+
+Fact: Visual-planning documentation was consolidated into one active spec so
+Theme Studio architecture, overlay market/UX research, and active redesign
+draft details now live in a single canonical doc.
+
+Evidence:
+
+- `dev/active/theme_upgrade.md` (now includes imported overlay/research and
+  redesign appendices)
+- `dev/active/INDEX.md` (active-doc registry updated to remove standalone
+  `overlay.md` entry)
+- `dev/active/MASTER_PLAN.md` (`MP-282` completion + reference updates)
+- `dev/scripts/check_active_plan_sync.py` (required active-doc registry rows
+  aligned with consolidated file set)
+
+Inference: The visual execution track now has one source for design/research
+context, which reduces doc sprawl and lowers plan drift risk during Theme
+Studio implementation work.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`

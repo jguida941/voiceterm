@@ -19,6 +19,16 @@
 - [Testing philosophy](#testing-philosophy)
 - [CI/CD Workflow](#cicd-workflow)
 
+## Fast Path
+
+Use this when you already know the feature area and just need the core loop:
+
+1. Read `AGENTS.md`, then `dev/active/INDEX.md` and `dev/active/MASTER_PLAN.md`.
+2. Implement code/tests/docs in one scoped change.
+3. Run the matching bundle (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
+4. Run any required risk-matrix add-ons from `AGENTS.md`.
+5. Push through branch policy (`develop` for normal work, `master` for release only).
+
 ## Workflow ownership and routing
 
 - `AGENTS.md` tells you which workflow to use.
@@ -26,6 +36,8 @@
 - `dev/scripts/README.md` lists tooling and release commands.
 - `dev/active/INDEX.md` tells you which active docs exist and when to read them.
 - `dev/active/MASTER_PLAN.md` is the source of truth for current work.
+- `dev/active/theme_upgrade.md` is the consolidated visual-plan spec (Theme
+  Studio architecture + overlay visual research + redesign appendix).
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` explains parallel worktree flow for this cycle.
 
 Use `AGENTS.md` first, then come back here for the concrete command sequence.

@@ -1,8 +1,7 @@
 # Usage Guide
 
-VoiceTerm is a voice-first terminal overlay for AI CLIs. It transcribes speech
-locally and injects text into your terminal input.
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+VoiceTerm is a voice helper for AI CLIs.
+It listens to your mic, transcribes locally, and types text into your terminal.
 
 Primary support: Codex and Claude Code.
 
@@ -47,6 +46,15 @@ If you have not authenticated your backend CLI yet:
 voiceterm --login --codex
 voiceterm --login --claude
 ```
+
+Hands-free wake flow (optional):
+
+```bash
+voiceterm --auto-voice --wake-word --voice-send-mode insert
+```
+
+Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
+`send message`, or `submit` to deliver without touching the keyboard.
 
 ## Backend Support
 
@@ -157,17 +165,16 @@ Common settings:
 
 Visual controls are now in Theme Studio:
 
-- Theme: use `Ctrl+Y` (Theme Studio -> Theme picker) or `Ctrl+G` (quick cycle)
-- HUD style/borders/right panel/panel animation: use `Ctrl+Y` and select the matching Theme Studio row (each row shows its current live value)
-- Glyph/indicator/progress/theme-border/scene profiles: use `Ctrl+Y` and adjust `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, and `Voice scene` rows
-- Runtime override edit safety: in Theme Studio, use `Undo edit`, `Redo edit`, and `Rollback edits` rows to revert/reapply/reset live style-pack override changes for the current session
-- `Ctrl+U` remains a quick shortcut for cycling HUD style
-- Launch flags are still supported: `--hud-border-style`, `--hud-right-panel`, `--hud-right-panel-recording-only`
-- Theme Studio glyph/indicator/spinner/progress-bar/theme-border/voice-scene overrides apply at runtime for the current session and reset on restart.
+- Press `Ctrl+Y` to open Theme Studio.
+- Use `Theme picker` (or `Ctrl+G`) to change themes.
+- Use Theme Studio rows to change HUD style, borders, right panel, and animation.
+- Use `Undo edit`, `Redo edit`, and `Rollback edits` if you want to revert visual changes.
+- `Ctrl+U` is still the fastest way to cycle HUD styles.
+- You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 
 Settings persistence:
 
-- Runtime settings are saved to `~/.config/voiceterm/config.toml`.
+- Settings are saved to `~/.config/voiceterm/config.toml`.
 - CLI flags always override persisted values for the current launch.
 
 ## Transcript History
@@ -204,6 +211,25 @@ Three controls define runtime behavior:
 - Send mode (`Ctrl+T`)
 - Macros toggle (Settings -> Macros)
 
+### Wake + Voice Send flow (hands-free)
+
+This is the most hands-free mode and works like an Alexa-style flow:
+
+1. Enable wake + insert mode:
+
+   ```bash
+   voiceterm --auto-voice --wake-word --voice-send-mode insert
+   ```
+
+2. Say the wake phrase (`hey codex` or `hey claude`).
+3. Speak your prompt.
+4. Say `send` (or `submit`) to submit it.
+
+You can also do one-shot submit with:
+
+- `hey codex send`
+- `hey claude send`
+
 ### Auto-voice x send mode
 
 | Auto-voice | Send mode | Behavior |
@@ -215,16 +241,14 @@ Three controls define runtime behavior:
 
 ### Practical notes
 
-- In `insert` mode, Enter is submit-only for staged text.
-- In `insert` mode, saying `send`, `send message`, or `submit` submits staged text the same as pressing Enter.
-- Wake-tail submit is supported: `hey codex send` (or `hey claude send`) submits staged text in `insert` mode without a second command phrase.
+- In `insert` mode, Enter submits staged text.
+- In `insert` mode, saying `send`, `send message`, or `submit` submits staged text.
+- One-shot wake submit works: `hey codex send` or `hey claude send`.
 - `Ctrl+R` stops recording without sending.
-- `Ctrl+E` never sends; it only finalizes active recording early so transcript text lands in the input box. When idle in `insert` mode it shows status guidance.
-- Wake-word detections route through the same capture-start path as `Ctrl+R`; while wake listening is ON, detections do not force-stop an already active recording.
-- Pausing auto-voice idle rearm does not disable wake-word triggers; explicit wake phrases still start capture when wake listening is ON.
-- In Full HUD, wake state is explicit: `Wake: ON` means listener active (steady badge, no pulse blink), `Wake: PAUSED` means listener intentionally paused during active capture/transcription, and `Wake: ERR` means wake listener startup failed (status includes log-path guidance).
-- In auto-voice mode, VoiceTerm waits for prompt readiness before listening again.
-- If prompt detection is unusual, set `--prompt-regex`.
+- `Ctrl+E` finalizes only. It never sends.
+- Wake state labels in Full HUD:
+  `Wake: ON` (listening), `Wake: PAUSED` (temporarily paused), `Wake: ERR` (startup failed).
+- If auto-voice does not trigger as expected, try `--prompt-regex`.
 
 ### Built-in voice navigation commands
 
@@ -261,7 +285,6 @@ once when ready to submit, or use `Ctrl+E` while recording to stop early and sta
 | Tune auto-voice timing | `--auto-voice-idle-ms`, `--transcript-idle-ms` |
 | Configure startup splash | `VOICETERM_STARTUP_SPLASH_MS`, `VOICETERM_NO_STARTUP_BANNER` |
 | Configure sounds | `--sounds`, `--sound-on-complete`, `--sound-on-error` |
-| Validate an RC build | [Release checks in `dev/DEVELOPMENT.md`](../dev/DEVELOPMENT.md) |
 
 ### Adjust microphone sensitivity
 
@@ -344,7 +367,7 @@ Tips:
 - On `xterm-256color` terminals, selected themes are preserved; ANSI fallback
   applies only on ANSI16 terminals.
 
-Advanced theme options:
+Advanced theme options (optional):
 
 - Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
 - When a style-pack sets `base_theme`, theme switching is locked to that theme until the env var is unset.

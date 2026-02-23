@@ -22,7 +22,6 @@ REQUIRED_REGISTRY_ROWS = {
     "dev/active/theme_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/memory_studio.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
-    "dev/active/overlay.md": {"role": "reference"},
 }
 
 REQUIRED_DISCOVERY_REFERENCES = [

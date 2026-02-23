@@ -18,6 +18,7 @@ same execution path with minimal ambiguity.
 |---|---|
 | What are we executing now? | `dev/active/MASTER_PLAN.md` |
 | What active docs exist and what role does each play? | `dev/active/INDEX.md` |
+| Where is consolidated Theme Studio + overlay visual planning context? | `dev/active/theme_upgrade.md` |
 | How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |

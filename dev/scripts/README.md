@@ -10,6 +10,8 @@ Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For active-doc discovery, use `dev/active/INDEX.md`.
 For current execution scope, use `dev/active/MASTER_PLAN.md`.
+For consolidated visual planning context (Theme Studio + overlay research +
+redesign), use `dev/active/theme_upgrade.md`.
 For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 

@@ -1,8 +1,7 @@
 # Installation
 
-This doc covers install options and model setup.
-Recommended: Homebrew on macOS/Linux for a global `voiceterm` command.
-Current stable release: `v1.0.90` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+This guide shows install options and model setup.
+Recommended for most users: Homebrew on macOS/Linux.
 
 Related docs:
 [Quick Start](../QUICK_START.md) |
@@ -55,10 +54,6 @@ voiceterm --login --claude
 - Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
 - Rust toolchain (stable) only if you build from source: <https://rustup.rs>
 - Optional: `python3`, `ffmpeg`, and `whisper` CLI on PATH (used as backup if native engine is unavailable; disable with `--no-python-fallback`)
-
-Input-device note:
-
-- If you copy/paste a device name from wrapped terminal output, `--input-device` now normalizes embedded whitespace/newlines before runtime lookup.
 
 ## Choose an Install Path
 
@@ -119,8 +114,8 @@ If Homebrew still shows an older version or `voiceterm` runs an older binary, se
 
 After upgrading, run `voiceterm --version` to confirm.
 
-Detailed runtime behavior is documented in [USAGE.md](USAGE.md). Runtime issues
-and terminal-specific edge cases are documented in
+Daily usage details are in [USAGE.md](USAGE.md). Install/runtime issues and
+terminal-specific edge cases are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 </details>
@@ -176,8 +171,8 @@ cd voiceterm
 ./scripts/install.sh
 ```
 
-The installer builds the overlay, installs the `voiceterm` wrapper, and downloads
-a Whisper model to the correct path for the CLI.
+The installer builds VoiceTerm, installs the `voiceterm` command, and downloads
+the Whisper model if needed.
 
 For startup splash options, see [USAGE.md - Startup splash behavior](USAGE.md#startup-splash-behavior).
 

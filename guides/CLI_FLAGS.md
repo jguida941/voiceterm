@@ -1,8 +1,7 @@
 # CLI Flags
 
-All flags for the `voiceterm` command. Run `voiceterm --help` for the live
-themed, grouped output.
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [../dev/CHANGELOG.md](../dev/CHANGELOG.md).
+All command flags for `voiceterm`.
+If you are new, start with [Quick Reference](#quick-reference) first.
 
 Docs map:
 
@@ -37,6 +36,7 @@ voiceterm --claude                      # Use Claude Code
 voiceterm --login --codex               # Run Codex login before starting
 voiceterm --login --claude              # Run Claude login before starting
 voiceterm --auto-voice                  # Hands-free mode
+voiceterm --auto-voice --wake-word --voice-send-mode insert  # Wake + voice submit
 voiceterm --theme dracula               # Change theme
 voiceterm --voice-vad-threshold-db -50  # Adjust mic sensitivity
 voiceterm --mic-meter                   # Calibrate mic threshold
@@ -66,8 +66,8 @@ Wake status labels in Full HUD:
 - `Wake: ON` - listener active (steady badge in Full HUD)
 - `Wake: PAUSED` - listener intentionally paused during active capture/transcription
 - `Wake: ERR` - listener startup failed; check status/log-path message
-- Wake-word triggers are explicit input and remain available even if auto-voice idle rearm was paused by the user.
-- Built-in voice command phrases include `send` / `send message` / `submit` to submit staged text in `insert` send mode.
+- Wake phrases still work even if auto-voice is paused.
+- Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
 
 ---
 

@@ -2,8 +2,8 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
-Current stable release: `v1.0.89` (2026-02-23). Full release notes: [dev/CHANGELOG.md](dev/CHANGELOG.md).
-See [README](README.md) for the current release.
+For an always-listening flow, combine `--auto-voice` + `--wake-word`, then say
+`send` / `submit` in `insert` mode for hands-free delivery.
 
 ## 1) Install Codex CLI (default backend)
 
@@ -11,7 +11,11 @@ See [README](README.md) for the current release.
 npm install -g @openai/codex
 ```
 
-Or use another AI CLI: `voiceterm --claude`.
+If you use Claude instead, install Claude Code:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
 
 ## 2) Install VoiceTerm
 
@@ -36,9 +40,10 @@ cd voiceterm
 ./scripts/install.sh
 ```
 
-**macOS App:** Double-click **app/macos/VoiceTerm.app** and choose your project folder.
+**macOS App:** Double-click `app/macos/VoiceTerm.app` and choose your project folder.
 
-If `voiceterm` is not found after install, see [guides/INSTALL.md](guides/INSTALL.md) for PATH notes.
+If `voiceterm` is not found after install, see
+[guides/INSTALL.md](guides/INSTALL.md) for PATH notes.
 
 ## 3) Run from any project
 
@@ -47,7 +52,7 @@ cd ~/my-project
 voiceterm
 ```
 
-If you haven't authenticated with your backend CLI yet:
+If you have not authenticated your backend CLI yet:
 
 ```bash
 voiceterm --login --codex
@@ -58,24 +63,19 @@ First run downloads a Whisper model if missing.
 To pick a size, use `./scripts/install.sh --small` or
 `./scripts/setup.sh models --medium`.
 
-Codex is the default backend; `voiceterm --codex` is optional if you want to be explicit.
-
-To target Claude instead of Codex:
-
-```bash
-voiceterm --claude
-```
+Codex is default; `voiceterm --codex` is optional.
+Use `voiceterm --claude` to target Claude.
 
 ## 4) Core controls
 
 - `Ctrl+R` - toggle voice capture (start recording / stop early)
 - `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
-- `Ctrl+V` - toggle auto-voice (disabling cancels any running capture)
-- `Ctrl+O` - open settings menu
-- `Ctrl+H` - open transcript history (search and replay)
-- `Ctrl+N` - open notification history
-- `Ctrl+Q` - exit overlay
+- `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
+- `Ctrl+Q` - quit VoiceTerm
+
+In `auto` mode, text is typed and submitted.
+In `insert` mode, text is typed and waits for Enter (or spoken `send`).
 
 Full controls reference:
 
@@ -83,51 +83,43 @@ Full controls reference:
 - [guides/USAGE.md#settings-menu](guides/USAGE.md#settings-menu)
 - [guides/USAGE.md#voice-modes](guides/USAGE.md#voice-modes)
 
-Theme Studio tip:
-
-- Press `Ctrl+Y` and use `Undo edit`, `Redo edit`, and `Rollback edits` to recover live visual override changes for the current session.
-
-Wake-word tip:
-
-- If wake listener startup fails, Full HUD now shows `Wake: ERR`; run with `--logs` and check [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
-- `Wake: ON` is now a steady badge and wake-listener capture windows are longer to reduce macOS microphone-indicator flicker.
-- Pausing auto-voice rearm does not disable wake-word triggers; saying a wake phrase still starts capture when wake mode is ON.
-
-In `auto` mode, text is typed and submitted. In `insert` mode, text is typed
-and you press Enter (or say `send`). See [Usage Guide](guides/USAGE.md) for full details.
-
-Deep-dive guides:
-
-- Macros: [guides/USAGE.md#project-voice-macros](guides/USAGE.md#project-voice-macros)
-- HUD and themes: [guides/USAGE.md#customization](guides/USAGE.md#customization)
-- Backend support status: [guides/USAGE.md#backend-support](guides/USAGE.md#backend-support)
-- Runtime troubleshooting hub: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-
-Optional macro setup (project-local):
+## 5) Hands-free starter (optional)
 
 ```bash
-./scripts/macros.sh wizard
+voiceterm --auto-voice --wake-word --voice-send-mode insert
 ```
 
-If you install from source, `./scripts/install.sh` now prompts to run the macro
-wizard at the end of install.
+Then say your wake phrase (`hey codex` / `hey claude`), speak your prompt, and
+say `send` when you want to submit.
 
-- Startup and IDE behavior: [guides/TROUBLESHOOTING.md#terminal-and-ide-issues](guides/TROUBLESHOOTING.md#terminal-and-ide-issues)
+Example flow:
 
-## 5) Common flags
+1. `hey codex`
+2. "summarize the last 3 commits"
+3. `send`
+
+One-shot examples:
+
+- `hey codex send`
+- `hey claude send`
+
+If wake startup fails, Full HUD shows `Wake: ERR`. Run with `--logs` and check
+[guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md).
+
+## 6) Common flags
 
 ```bash
 voiceterm --auto-voice
+voiceterm --wake-word
 voiceterm --voice-send-mode insert
 voiceterm --voice-vad-threshold-db -50
 voiceterm --mic-meter
 voiceterm --logs
 ```
 
-See [CLI_FLAGS.md](guides/CLI_FLAGS.md) for all options including wake-word,
-session memory, theme, and capture tuning flags.
+See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 
-## 6) Need help?
+## 7) Need help?
 
 - Full user docs map: [guides/README.md](guides/README.md)
 - Install options: [guides/INSTALL.md](guides/INSTALL.md)

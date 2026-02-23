@@ -1,9 +1,9 @@
 # Theme + Overlay Studio Plan (No-Code, Full-Surface Customization)
 
-Date: 2026-02-17  
+Date: 2026-02-23  
 Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` MP-148..MP-151, MP-161..MP-167, MP-172..MP-182)  
-Scope: Full in-overlay editor so users can customize nearly every overlay aspect
-without writing code
+Scope: Canonical single source for Theme Studio architecture, overlay visual
+research, and active redesign details in one document.
 
 `dev/active/MASTER_PLAN.md` remains the canonical execution tracker.
 Implementation starts only through linked MP items and must preserve existing
@@ -803,3 +803,957 @@ When implemented, update:
   <https://iterm2.com/documentation-images.html>
 - WezTerm runtime config overrides:
   <https://wezterm.org/config/lua/window/set_config_overrides.html>
+
+---
+
+## Consolidated Appendix: Overlay Strategy Research (Imported 2026-02-23)
+
+This appendix was migrated from `dev/active/overlay.md` so all Theme Studio and
+overlay visual planning lives in one document. Keep execution state in
+`dev/active/MASTER_PLAN.md`.
+
+### Overlay Strategy Research (2026-02-13)
+
+This document consolidates competitor analysis and overlay enhancement research
+for VoiceTerm's "voice + AI CLI" strategy. It is intended for product positioning
+and roadmap prioritization.
+
+## Plan status
+
+- Reference research only (market/competitor + UX analysis).
+- The single active execution plan is `dev/active/MASTER_PLAN.md`.
+- Deferred work is tracked in `dev/deferred/`.
+
+## Summary
+
+- VoiceTerm is strongest when users need terminal-native workflow control:
+  PTY passthrough, transcript queueing while CLI is busy, prompt-aware auto-voice,
+  and Codex+Claude support.
+- The largest competitive pressure is from "voice everywhere" tools that also
+  work in terminals but are not deeply PTY/session aware.
+- **No competitor currently combines voice input with AI command generation
+  in the terminal.** Warp has AI but no voice; Voxtype/Wispr have voice but no
+  AI preprocessing. This is VoiceTerm's biggest expansion opportunity.
+- 2026 is trending as "Year of Voice" — OpenAI reorganizing for audio AI,
+  "vibe coding" (voice + AI) going mainstream, terminal AI agents maturing.
+- 5-10% of software engineers have RSI; accessibility-focused voice tooling
+  for terminals is an underserved niche VoiceTerm can own.
+
+## Comparison Matrix — Direct Competitors
+
+| Product | Terminal support | Engine / privacy | AI-CLI depth | Relative to VoiceTerm |
+|---|---|---|---|---|
+| VoiceTerm | Native PTY wrapper around CLI | Local Whisper; no cloud by default | Codex + Claude first-class; prompt-aware queue + send modes + HUD/settings | Deep terminal orchestration with explicit CLI-state handling |
+| Dictto | Terminal-adjacent via hotkeys + Claude workflows | Markets local/on-device processing on Mac | Strong Claude Code integration and voice-agent mode | Strong for Claude-only workflows; weaker as a multi-CLI PTY layer |
+| Fisper | Yes, includes terminal auto-submit mode | Local/on-device on Apple Silicon | System-wide dictation + cursor insertion | Lightweight and fast; less explicit CLI prompt/session orchestration |
+| Speech2Type | Yes, injects into focused terminal app | Uses external API key flow (Deepgram) | Generic voice typing across apps | Simpler OSS path but less local/private and less CLI-aware |
+| Ottex | Yes, dedicated terminal workflow page | BYO AI model/API key (cloud-first) | Broad app support + agentic shortcuts | Broader consumer workflow product; weaker local-first privacy posture |
+| Remote Coder | Yes, oriented around SSH sessions | On-device ASR/TTS claims | Focused on remote Claude Code control | Strong remote Claude niche; not a Codex+Claude local overlay |
+| Claude Quick Entry | Not terminal-native | Claude Desktop voice entry | Claude-only desktop quick actions | Useful companion, not a terminal overlay substitute |
+| Voxtype | Pastes into any focused app (incl. terminals) | Local Whisper (Rust); offline | None — pure dictation, no AI preprocessing | Single-binary competitor; push-to-talk only, no PTY awareness or CLI state |
+| Whis | CLI tool, not a terminal wrapper | Cloud (OpenAI, Mistral, Groq, Deepgram) or local Whisper | None — transcription utility | Cargo-installable but no terminal integration; useful only for one-off transcription |
+| Whispertux | Simple GUI around whisper.cpp | Local Whisper | None | Linux-only GUI; not terminal-native at all |
+
+## Comparison Matrix — Broader Landscape
+
+These are not direct competitors but occupy adjacent space and inform feature
+direction.
+
+| Product | Category | Voice? | AI? | Terminal-native? | Notes |
+|---|---|---|---|---|---|
+| Warp AI | AI-powered terminal | **No** | GPT-powered NL→command | Full terminal replacement | Biggest gap: no voice input. If Warp adds voice, it threatens VoiceTerm |
+| shell-gpt (SGPT) | CLI AI assistant | **No** | GPT-4 NL→shell commands | Shell command tool | Popular (10K+ stars); voice would make it dangerous |
+| aichat | Multi-LLM CLI | **No** | 20+ providers, RAG, agents | Chat REPL + shell assistant | Most flexible AI CLI; no voice |
+| GitHub Copilot CLI | AI CLI assistant | **No** | `gh copilot suggest/explain` | Works in any terminal | GitHub ecosystem lock-in; no voice |
+| Wispr Flow | Developer dictation | Cloud STT | AI formatting/editing | IDE plugins (Cursor, Windsurf, Replit) | 175+ WPM; strongest dev dictation tool but not terminal-specific |
+| Talon Voice | Voice coding platform | Custom STT | No | IDE-focused (VS Code + Cursorless) | Gold standard for RSI users; steep learning curve, expensive, not terminal |
+| Serenade | Voice coding | Custom STT | No | IDE-focused | Natural language commands; more accessible than Talon, still IDE-only |
+| Cursorless | Structural voice editing | Via Talon | No | VS Code only | Spoken language for code navigation; amazing but narrow scope |
+| SuperWhisper | macOS dictation | Local Whisper | Modes/formatting | System-wide | Polished UX; mode switching concept worth studying |
+
+## Market Gaps — Where VoiceTerm Can Dominate
+
+VoiceTerm sits at an unoccupied intersection. No tool today combines voice +
+AI command generation + terminal-native orchestration:
+
+```text
+                    Voice Input
+                        |
+          Voxtype ------+------- VoiceTerm  <-- current position
+          Wispr Flow    |           |
+                        |           |  (no competitor here)
+                        |           v
+                    ----+---- Voice + AI Commands  <-- expansion target
+                        |
+           Warp AI -----+------- (no voice)
+           shell-gpt    |
+           aichat       |
+                        |
+                   AI Commands
+```
+
+### Unmet needs (no tool addresses these today)
+
+1. **Voice → AI command generation in terminal** — Warp has AI (no voice);
+   dictation tools have voice (no AI). VoiceTerm can bridge both.
+2. **Voice macros for terminal workflows** — VoiceMacro (100K+ users) proves
+   demand for general apps; nothing exists for terminal-specific triggers.
+3. **Real-time voice overlay for tmux/neovim** — overlay tools exist for
+   general apps, none are terminal-aware.
+4. **Hybrid voice+keyboard terminal tool** — research shows 3-4x productivity
+   gains from hybrid input; Wispr Flow is general, not terminal-aware.
+5. **Accessibility-focused terminal voice tool** — Talon/Serenade target IDEs;
+   terminal users with RSI have no dedicated solution.
+
+### Underserved audiences
+
+- AI CLI power users (Codex, Claude Code, Aider daily drivers)
+- Developers with RSI (5-10% of engineers)
+- Terminal purists who refuse GUI IDEs
+- Privacy-conscious developers who want local-only processing
+- DevOps/SRE with repetitive terminal workflows (macro candidates)
+
+## Feature Expansion Roadmap
+
+### Phase 1 — Quick Wins (1-2 weeks)
+
+**1. Voice Macros / Custom Triggers**
+Users define voice shortcuts that expand to commands. Pattern-match against
+transcripts before PTY injection. Per-project macro files supported.
+
+```yaml
+# .voiceterm/macros.yaml
+macros:
+  "run tests": "cargo test --all-features"
+  "deploy staging": "git push origin staging"
+  "commit with message":
+    template: "git commit -m '{TRANSCRIPT}'"
+    mode: insert  # waits for remaining speech to fill template
+```
+
+**2. Command Mode vs. Dictation Mode**
+Toggle between two voice modes via hotkey (e.g., Ctrl+D):
+
+- **Command mode**: shell-aware vocabulary, auto-submit, abbreviation expansion
+  (`"git co main"` → `git checkout main`)
+- **Dictation mode**: natural language prose, full punctuation, no auto-submit
+
+Inspired by SuperWhisper's mode-switching system.
+
+**3. Transcript Preview/Edit Before Send**
+Show what Whisper heard in a small overlay before injecting into PTY. Allow
+arrow-key editing and voice corrections ("replace X with Y"). Catches errors
+before they reach the AI CLI.
+
+### Phase 2 — Differentiators (1-2 months)
+
+**4. LLM-Powered Command Generation from Voice** ← biggest opportunity
+Voice → Whisper transcription → LLM preprocessing → optimized command →
+confirmation UI → PTY injection. Example flow:
+
+```text
+User says: "find all TypeScript files changed this week with functions over 50 lines"
+VoiceTerm:
+  1. Whisper transcribes natural language
+  2. Local LLM (Ollama) or API (Claude/OpenAI) generates shell command
+  3. Preview: find . -name "*.ts" -mtime -7 -exec ...
+  4. User confirms [Y/n/edit]
+  5. Injects into PTY
+```
+
+Add `--llm-assist` flag with provider config. Optional — keeps VoiceTerm usable
+without any cloud dependency.
+
+**5. Voice Terminal Navigation**
+Go beyond dictation to actual terminal control via voice:
+
+- "scroll up" / "scroll down"
+- "copy last output"
+- "show last error"
+- "run previous command"
+- "clear screen"
+- "explain this error" (capture output + send to AI backend)
+
+Leverages existing PTY access to send control sequences.
+
+#### 6. Persistent Config & Transcript History
+
+- Save preferences to `~/.config/voiceterm/config.toml` (theme, thresholds,
+  mode, macros, default backend)
+- Searchable transcript history (`voiceterm --history` or Ctrl+H in overlay)
+- Session replay for debugging missed transcriptions
+
+### Phase 3 — Advanced Features (2-3 months)
+
+#### 7. Neovim / Tmux Integration
+
+- Neovim plugin: `:VoiceTermStart`, voice in command mode, voice nav
+- Tmux awareness: detect active pane, voice pane switching
+- VS Code integrated terminal panel support
+
+#### 8. Streaming STT / Real-Time Overlay
+
+- Show partial transcripts as Whisper processes (whisper_streaming approach)
+- Floating overlay showing live transcription above terminal
+- Per-word confidence highlighting (dim uncertain words)
+- Adaptive model selection: tiny for short commands, small/medium for long
+  dictation
+
+**9. Accessibility Suite**
+Target the 5-10% of developers with RSI:
+
+- Voice health monitoring (warn on extended/strained usage)
+- Fatigue detection (suggest breaks after X minutes)
+- Quiet/whisper capture mode (low-volume environments)
+- Shorthand vocabulary expansion (minimal syllables per command)
+- Screen reader compatibility for all overlays
+
+#### 10. Custom Vocabulary / Fine-Tuning
+
+- Per-project word lists (API names, variable naming conventions)
+- Auto-learn from project files (scan identifiers in codebase)
+- User-trainable corrections (persistent word substitution rules)
+- Context-aware punctuation (code mode vs. documentation mode)
+
+## Overlay UX Enhancement Audit (2026-02-13)
+
+### Current runtime UI coverage
+
+- 11 color themes with brand-specific palettes
+- 3 HUD styles (Full, Minimal, Hidden) with responsive layout (25-120+ chars)
+- Modular HUD system with 4 pluggable modules (Mode, Meter, Latency, Queue)
+- 3 real-time audio viz modes (Ribbon, Dots, Heartbeat)
+- 3 animations (pulsing record indicator, braille spinner, heartbeat)
+- Interactive settings overlay (11 items, keyboard + mouse navigation)
+- Clickable HUD buttons with mouse position tracking
+- Help overlay, theme picker with live preview
+- Startup splash with ASCII art + gradient treatment
+- Mic calibration wizard
+- Terminal capability auto-detection (TrueColor/256/ANSI16/None, NO_COLOR)
+
+### Current runtime UI gaps
+
+1. No streaming/live transcript preview
+2. No transcript history UI
+3. No voice macros UI
+4. No AI command generation UI
+5. No color gradients in runtime HUD rendering (splash-only treatment today)
+6. No animation easing/tweening (frame-based only)
+7. No spectrum analyzer or frequency visualization
+8. No accessibility suite (screen reader/fatigue guidance)
+9. No waveform peak detection
+10. No toast notification system (inline status text only)
+
+### Overall assessment
+
+Current polish is strong but still short of a "premium" interaction layer.
+The existing modular HUD architecture is a solid base for incremental upgrades.
+
+## Overlay UX Enhancement Candidates (Research Intake)
+
+These items are research-derived references. They are not execution authority by
+themselves; implementation priority and status are tracked in `MASTER_PLAN.md`.
+
+| Candidate | Complexity | Impact | Notes |
+|---|---|---|---|
+| TachyonFX animation system | Medium | High | Fade, dissolve, slide, color sweeps for panel/state transitions |
+| Sparkline/chart telemetry widgets | Easy-Medium | High | Ratatui-native sparkline/gauge/chart for richer HUD metrics |
+| Toast notifications | Medium | High | Auto-dismissing queue/error/success toasts with history |
+| Command palette (fzf-style) | Medium | High | Searchable overlay command/action surface for discoverability |
+| Siri/Alexa-style voice-state visuals | Medium | High | Distinct idle/listening/processing/done visuals |
+| Adaptive/contextual HUD | Medium | Medium | Expand/shrink HUD by state with contextual badges |
+| Session dashboard/stats panel | Medium | Medium | Session analytics with optional export |
+| Multi-modal input panel | Medium-Hard | High | Hybrid voice + keyboard correction workflow |
+| Fig-style autocomplete dropdown | Medium-Hard | Medium | Contextual macro/suggestion completion overlays |
+| Block-based output model | Hard | High | Warp-style command/result blocks; major architecture shift |
+
+### Priority recommendation
+
+| # | Feature | Complexity | Impact | Why |
+|---|---|---|---|---|
+| 1 | TachyonFX animations | Medium | High | Immediate perceived quality lift with ratatui-native effects |
+| 2 | Sparkline audio/latency telemetry | Easy | High | Uses built-in widgets and existing metrics streams |
+| 3 | Toast notifications | Medium | High | Improves signal delivery over transient inline text |
+| 4 | Command palette | Medium | High | High discoverability gain for growing control surface |
+| 5 | Voice state visualization | Medium | High | Makes listening/transcribe states more legible |
+| 6 | Adaptive HUD | Medium | Medium | Better information density with less idle clutter |
+| 7 | Session dashboard | Medium | Medium | Exposes already-collected signals to users |
+| 8 | Multi-modal input panel | Hard | High | Enables hybrid voice + keyboard correction flow |
+| 9 | Fig-style autocomplete | Hard | Medium | Useful but positioning constraints in PTY wrapper |
+| 10 | Block-based output | Hard | High | High upside but highest architecture risk |
+
+## VoiceTerm Current Strengths (Audit Summary, 2026-02-12)
+
+- **Architecture**: Clean PTY passthrough; bounded crossbeam channels; serialized
+  writer thread prevents output corruption; multi-backend registry.
+- **Reliability**: 409 passing tests; panic-safe terminal restore; transcript
+  queueing under busy CLI; Python fallback when native Whisper unavailable.
+- **Audio pipeline**: CPAL recording → 16kHz resampling → VAD (earshot ML or
+  simple threshold) → Whisper → text sanitization → PTY injection (~250ms).
+- **UX**: 11 themes, 3 HUD styles, interactive settings overlay, mouse support,
+  mic calibration tool, startup splash.
+- **Distribution**: Homebrew tap, CI/CD (format + clippy + tests + mutation +
+  perf + memory), macOS app launcher.
+- **Documentation**: 6 user guides, 2 dev docs, 24 ADRs, full changelog.
+
+### Known Gaps (from audit)
+
+- Mutation score 4.41% (target 80%) — MP-015 in progress
+- Gemini backend broken; Aider/OpenCode untested
+- No persistent preferences or transcript history
+- No streaming STT (full capture before transcription, ADR-0003)
+- No Windows native support (WSL2 only)
+- Legacy Codex-centric naming throughout codebase
+- event_loop.rs is oversized (~82K LOC)
+- No AI preprocessing layer for voice input
+
+## VoiceTerm Evidence (Repo)
+
+- PTY + local Whisper + unchanged CLI output: `README.md`
+- Local privacy claim and feature table: `README.md`
+- Busy-CLI queue behavior and prompt fallback notes: `guides/USAGE.md`
+- Voice mode, queue, backend, and HUD controls: `guides/CLI_FLAGS.md`
+- PTY-only write model ("does not call Codex/Claude directly"): `QUICK_START.md`
+
+## Market Evidence (External)
+
+### Direct competitors / voice-to-text tools
+
+- Dictto: <https://dictto.app/>
+- Fisper: <https://fisper.app/>
+- Speech2Type: <https://www.speech2type.com/>
+- Speech2Type repo: <https://github.com/gergomiklos/speech2type>
+- Ottex home: <https://ottex.ai/>
+- Ottex apps: <https://ottex.ai/apps/>
+- Ottex terminal page: <https://ottex.ai/apps/terminal/>
+- Remote Coder: <https://remotecoder.app/>
+- Claude Quick Entry: <https://support.claude.com/en/articles/12626668-use-quick-entry-with-claude-desktop-on-mac>
+- Voxtype: <https://voxtype.io/>
+- Whis (Cargo CLI): <https://github.com/frankdierolf/whis>
+- Whispertux: <https://github.com/cjams/whispertux>
+- SoupaWhisper (Linux SuperWhisper alt): <https://www.ksred.com/soupawhisper-how-i-replaced-superwhisper-on-linux/>
+
+### AI terminal assistants (no voice — expansion targets)
+
+- Warp AI: <https://www.warp.dev/compare-terminal-tools/github-copilot-vs-warp>
+- shell-gpt (SGPT): <https://github.com/TheR1D/shell_gpt>
+- aichat: <https://github.com/sigoden/aichat>
+- GitHub Copilot CLI: <https://leonardomontini.dev/copilot-cli-vs-warp-ai/>
+- AIAssist: <https://github.com/mehdihadeli/AIAssist>
+
+### Voice coding tools (IDE-focused, not terminal)
+
+- Talon Voice: <https://github.com/talonvoice>
+- Cursorless: <https://www.cursorless.org/docs/user/customization/>
+- Serenade: <https://serenade.ai/>
+- Wispr Flow: <https://wisprflow.ai/>
+- Oravo AI: <https://oravo.ai/blog/voice-dictation-for-developers>
+
+### Voice macro / automation references
+
+- VoiceMacro: <https://www.voicemacro.net/>
+- SuperWhisper modes: <https://superwhisper.com/docs/modes/switching-modes>
+
+### Whisper streaming / performance research
+
+- whisper_streaming: <https://github.com/ufal/whisper_streaming>
+- WhisperLive: <https://github.com/collabora/WhisperLive>
+- Deepgram on Whisper streaming limits: <https://deepgram.com/learn/why-enterprises-are-moving-to-streaming-and-why-whisper-can-t-keep-up>
+
+### Accessibility / RSI
+
+- VoiceGrip research (5-10% RSI rate): <https://www.researchgate.net/publication/44075430_VoiceGrip_A_Tool_for_Programming-by-Voice>
+- RSI voice care: <https://rsi.org.au/index.php/treating-rsi/computing-by-voice/taking-care-of-your-voice/>
+
+### 2026 trends
+
+- Year of Voice (2026): <https://www.standard.net/lifestyle/home_and_family/2026/feb/10/tech-matters-is-this-the-year-of-voice/>
+- Vibe Coding (voice + AI): <https://wisprflow.ai/vibe-coding>
+- AI terminal renaissance: <https://instil.co/blog/ai-predictions-2026>
+
+### Overlay UX / TUI references
+
+- TachyonFX crate: <https://github.com/ratatui/tachyonfx>
+- TachyonFX ecosystem page: <https://ratatui.rs/ecosystem/tachyonfx/>
+- TachyonFX docs: <https://docs.rs/tachyonfx/latest/tachyonfx/>
+- Ratatui widget showcase: <https://ratatui.rs/showcase/widgets/>
+- Sparkline example: <https://ratatui.rs/examples/widgets/sparkline/>
+- Gauge example: <https://ratatui.rs/examples/widgets/gauge/>
+- CLI viz reference: <https://github.com/sam1am/cli-viz>
+- Warp output model reference: <https://www.warp.dev/blog/2025-in-review>
+- Warp product reference: <https://www.warp.dev/terminal>
+- Warp architecture/experience analysis: <https://thenewstack.io/how-warp-went-from-terminal-to-agentic-development-environment/>
+- Fig autocomplete (historical): <https://github.com/withfig/autocomplete>
+- Fig docs: <https://fig.io/user-manual/autocomplete>
+- fzf project: <https://github.com/junegunn/fzf>
+- Command palette UX pattern: <https://uxpatterns.dev/patterns/advanced/command-palette>
+- Voice UI visual design references: <https://www.smashingmagazine.com/2021/06/alternative-voice-ui-voice-assistants/>
+- Voice UI best practices: <https://designlab.com/blog/voice-user-interface-design-best-practices>
+- Multimodal VUI design: <https://www.parallelhq.com/blog/voice-user-interface-vui-design-principles>
+- Toast UX references: <https://blog.logrocket.com/ux-design/toast-notifications/>
+- Carbon notification patterns: <https://carbondesignsystem.com/patterns/notification-pattern/>
+- Productivity dashboard references: <https://jellyfish.co/library/developer-productivity/dashboard/>
+- Productivity analytics references: <https://getdx.com/>
+
+## Notes
+
+- Some competitor details (especially CLI-state awareness) are inferred from
+  public positioning and may need direct product testing for strict validation.
+- Some overlay UX references are pattern-level inspiration and should be tested
+  directly against VoiceTerm's PTY passthrough model before implementation.
+- The broader landscape table captures tools that do not directly compete
+  today but could add voice (Warp, shell-gpt) or terminal support (Wispr,
+  Talon) and become threats. Monitor quarterly.
+- Phase 2 "LLM-Powered Command Generation" is the single highest-leverage
+  feature — it occupies white space no competitor has claimed. Prioritize
+  above all other expansion work.
+- Accessibility (Phase 3) is both a moral imperative and a market opportunity;
+  5-10% of developers is a large addressable audience with high willingness
+  to pay for tools that work.
+
+---
+
+## Consolidated Appendix: Theme Studio Redesign Draft (Imported 2026-02-23)
+
+This appendix was migrated from `dev/active/theme_studio_redesign.md` so the
+active redesign draft sits with the canonical Theme Studio plan in one file.
+Keep execution state in `dev/active/MASTER_PLAN.md`.
+
+### Theme Studio Redesign: Full-Blown Tabbed Theme Editor
+
+> **Status**: Active — Phase 4 blocker for `theme_upgrade.md` rollout
+> **Date**: 2026-02-23
+> **Scope**: Replace flat 15-item Theme Studio with 7-page tabbed editor covering every visual configuration point
+
+## Context
+
+The current Theme Studio is a flat 15-item list with truncated descriptions, no grouping, no row highlighting, and no room to grow. Meanwhile the codebase has extensive infrastructure (StylePack schema v4, 46-component registry, rule engine, capability matrix, texture profiles) with 6 deferred fields not exposed and many more visual aspects not yet controllable. The plans in `theme_upgrade.md` call for a comprehensive multi-page editor covering every visual aspect.
+
+This plan redesigns Theme Studio into a **tabbed 7-page overlay** where every visual configuration point in the app is accessible. All rows are clickable. The Settings overlay pattern (label + `[ value ]` + contextual tip) is adopted for clean, scannable rows.
+
+---
+
+## Architecture: 7-Page Tabbed Overlay
+
+### Tab Bar
+```
+ [Home]  HUD  Style  Progress  Surfaces  Animate  History
+```
+- Active tab: `colors.info` highlight + `[ brackets ]`
+- Inactive tabs: plain text, spaced evenly
+- Navigate: `Tab` / `Shift+Tab` (wraps)
+- Mouse: click any tab label to jump to that page
+
+### Consistent Height (zero-jitter tab switching)
+All pages padded to **8 item rows**. Total:
+```
+1  top border
+1  tab bar row
+1  separator
+8  item rows (blank-padded if page has fewer)
+1  separator
+1  tip row (description for selected item only)
+1  separator
+1  footer row
+1  bottom border
+───
+16 rows total
+```
+
+### Width
+Raise `theme_studio_inner_width_for_terminal()` clamp from `54..=72` to `60..=82` to fit 7-tab bar + button labels.
+
+### Footer
+```
+[×] close · Tab page · ↑/↓ move · ←/→ adjust · Enter select
+```
+
+### Row Format (Settings pattern from `settings/render.rs`)
+```
+▸ Label               [ Value ]
+```
+- `▸` marker on selected row (` ` on others)
+- Fixed label column: 20 chars
+- Value wrapped in `[ ]` brackets via `button_label()`
+- Selected row: entire row highlighted with `colors.info`
+- Read-only rows: `colors.dim` styling
+- Unavailable/future rows: dimmed with `(coming soon)` suffix
+- Separator rows: thin `─────` divider spanning inner width
+- Blank padding rows: empty content with border verticals
+
+### Tip Row
+```
+ tip: Cycle between Full, Minimal, and Hidden HUD layouts.
+```
+Shows description for currently selected item only. Uses `colors.dim`. Changes on cursor move.
+
+---
+
+## Page Definitions
+
+### Page 1: Home (overview + quick actions)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Theme | `[ Codex ]` | Current base theme. Enter to open picker. |
+| 2 | Active overrides | `3 of 18` (read-only) | Style-pack fields changed from theme defaults. |
+| 3 | _(separator)_ | | |
+| 4 | Open theme picker | `[ Open ]` | Launch the classic palette browser for quick apply. |
+| 5 | Reset all overrides | `[ Reset ]` | Rollback all runtime overrides to theme defaults. |
+| 6 | Close studio | `[ Close ]` | Dismiss Theme Studio and return to HUD. |
+| 7 | _(blank)_ | | |
+| 8 | _(blank)_ | | |
+
+### Page 2: HUD (layout, panels, display)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | HUD style | `[ Full ]` | Cycle Full / Minimal / Hidden HUD layout. |
+| 2 | HUD borders | `[ Rounded ]` | Cycle border preset for Full HUD frame. |
+| 3 | HUD border (component) | `[ Theme ]` | Component-level HUD border override. **NEW** |
+| 4 | Right panel | `[ Heartbeat ]` | Cycle Ribbon / Dots / Heartbeat / Off. |
+| 5 | Panel animation | `[ Rec-only ]` | Toggle recording-only vs always animate. |
+| 6 | Latency display | `[ Short ]` | Cycle Off / Nms / Latency: Nms. |
+| 7 | Mouse | `[ ON ]` | Toggle mouse click support for HUD and overlays. |
+| 8 | _(blank)_ | | |
+
+### Page 3: Style (glyphs, indicators, borders)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Glyph profile | `[ Unicode ]` | Cycle Theme / Unicode / ASCII glyph rendering. |
+| 2 | Indicator set | `[ Diamond ]` | Cycle Theme / ASCII / Dot / Diamond state symbols. |
+| 3 | Theme borders | `[ Rounded ]` | Cycle global border style for all components. |
+| 4 | Overlay borders | `[ Theme ]` | Cycle border style for overlay/modal frames. **NEW** |
+| 5 | _(separator)_ | | |
+| 6 | Waveform bars | `[ Unicode ]` (read-only) | Follows glyph profile. ▁▂▃▄▅▆▇█ or .:-=+\*#@ |
+| 7 | Status indicators | (read-only preview) | Preview: ◆ ◇ ▸ · ◈ ▸ (from current set). |
+| 8 | _(blank)_ | | |
+
+### Page 4: Progress (spinners, bars, voice scenes)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Spinner style | `[ Braille ]` | Cycle Theme / Braille / Dots / Line / Block. |
+| 2 | Spinner preview | (animated preview) | Live: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ |
+| 3 | Progress bars | `[ Bar ]` | Cycle Theme / Bar / Compact / Blocks / Braille. |
+| 4 | Bar preview | (static preview) | ████░░░░ 50% |
+| 5 | _(separator)_ | | |
+| 6 | Voice scene | `[ Pulse ]` | Cycle Theme / Pulse / Static / Minimal. |
+| 7 | Scene detail | (read-only) | Pulse: high motion, 5 dots, animated waveform. |
+| 8 | _(blank)_ | | |
+
+### Page 5: Surfaces (toasts, banners, startup)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Toast position | `[ TopRight ]` | Cycle Theme / TopRight / BottomRight / TopCenter / BottomCenter. **NEW** |
+| 2 | Toast severity | `[ Icon+Label ]` | Cycle Theme / Icon / Label / Icon+Label display. **NEW** |
+| 3 | Toast preview | (read-only) | ✓ OK / ⚠ WARN / ✗ ERR / ℹ INFO |
+| 4 | _(separator)_ | | |
+| 5 | Banner style | `[ Full ]` | Cycle Theme / Full / Compact / Minimal / Hidden. **NEW** |
+| 6 | Startup style | `[ Full ]` | Cycle Theme / Full / Minimal / Hidden splash. **NEW** |
+| 7 | Startup duration | `[ 1500 ms ]` | Adjust splash display duration (500-5000 ms). **NEW** |
+| 8 | _(blank)_ | | |
+
+### Page 6: Animate (timing, motion, transitions)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Spinner speed | `[ 100 ms ]` | Adjust spinner frame interval (50-200 ms). **NEW** |
+| 2 | Recording pulse | `[ 1250 ms ]` | Adjust recording indicator pulse period. **NEW** |
+| 3 | Heartbeat speed | `[ 1000 ms ]` | Adjust heartbeat animation cycle time. **NEW** |
+| 4 | Transition time | `[ 360 ms ]` | State transition animation duration. **NEW** |
+| 5 | _(separator)_ | | |
+| 6 | Reduced motion | `[ OFF ]` | One-click: disable all animations. **NEW** |
+| 7 | _(blank)_ | | |
+| 8 | _(blank)_ | | |
+
+### Page 7: History (undo/redo/rollback + persistence)
+| # | Label | Value | Tip |
+|---|-------|-------|-----|
+| 1 | Undo | `[ Undo ]` or dim `[ Empty ]` | Revert the most recent style-pack override edit. |
+| 2 | Redo | `[ Redo ]` or dim `[ Empty ]` | Re-apply the most recently undone edit. |
+| 3 | Rollback | `[ Rollback ]` or dim `[ Clean ]` | Reset ALL runtime overrides to theme defaults. |
+| 4 | _(separator)_ | | |
+| 5 | Save to file | `[ Save ]` | Persist current style-pack to ~/.config/voiceterm/. **NEW** |
+| 6 | Export JSON | `[ Export ]` | Copy style-pack JSON to clipboard. **NEW** |
+| 7 | Import JSON | `[ Import ]` | Load style-pack from clipboard. **NEW** |
+| 8 | _(blank)_ | | |
+
+---
+
+## Complete Visual Coverage Audit
+
+Every visual configuration point in the app mapped to a Studio page:
+
+| Visual Aspect | Page | Status |
+|---------------|------|--------|
+| Base theme selection | Home | Existing (reorganized) |
+| Override count | Home | New |
+| HUD layout style | HUD | Existing (reorganized) |
+| HUD border preset | HUD | Existing (reorganized) |
+| HUD component border | HUD | **New** (deferred field) |
+| Right panel mode | HUD | Existing (reorganized) |
+| Panel animation mode | HUD | Existing (reorganized) |
+| Latency display mode | HUD | **New** (from Settings) |
+| Mouse enabled | HUD | **New** (from Settings) |
+| Glyph profile | Style | Existing (reorganized) |
+| Indicator set | Style | Existing (reorganized) |
+| Theme borders | Style | Existing (reorganized) |
+| Overlay borders | Style | **New** (deferred field) |
+| Waveform bar preview | Style | New (read-only) |
+| Status indicator preview | Style | New (read-only) |
+| Spinner style | Progress | Existing (reorganized) |
+| Spinner preview | Progress | New (live preview) |
+| Progress bar family | Progress | Existing (reorganized) |
+| Bar preview | Progress | New (static preview) |
+| Voice scene style | Progress | Existing (reorganized) |
+| Scene detail | Progress | New (read-only) |
+| Toast position | Surfaces | **New** (deferred field) |
+| Toast severity mode | Surfaces | **New** (deferred field) |
+| Toast preview | Surfaces | New (read-only) |
+| Banner style | Surfaces | **New** (deferred field) |
+| Startup style | Surfaces | **New** (deferred field) |
+| Startup duration | Surfaces | **New** (new config field) |
+| Spinner speed | Animate | **New** (new config field) |
+| Recording pulse period | Animate | **New** (new config field) |
+| Heartbeat speed | Animate | **New** (new config field) |
+| Transition duration | Animate | **New** (new config field) |
+| Reduced motion toggle | Animate | **New** (one-click preset) |
+| Undo/Redo/Rollback | History | Existing (reorganized as buttons) |
+| Save/Export/Import | History | **New** (persistence) |
+
+**Total: 34 controls across 7 pages** (vs current 15 items on 1 page)
+
+---
+
+## Rendering Changes
+
+### New: `ThemeStudioPage` enum
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ThemeStudioPage {
+    Home, Hud, Style, Progress, Surfaces, Animate, History,
+}
+const THEME_STUDIO_PAGES: &[ThemeStudioPage] = &[
+    ThemeStudioPage::Home,
+    ThemeStudioPage::Hud,
+    ThemeStudioPage::Style,
+    ThemeStudioPage::Progress,
+    ThemeStudioPage::Surfaces,
+    ThemeStudioPage::Animate,
+    ThemeStudioPage::History,
+];
+```
+
+### New: `ThemeStudioItem` enum (expanded)
+Replace the current 15-variant enum with ~34 variants covering all pages. Each variant maps to a page via `page_for_item()`.
+
+### New: `format_tab_bar()` function
+Renders tab row inside frame borders. Active tab gets `colors.info` + brackets. Uses `display_width()` for correct Unicode alignment.
+
+### New: `format_studio_row()` function
+Replaces `format_theme_studio_option_line()`. Follows `settings/render.rs:format_menu_row()` pattern:
+- Marker column (1 char): `▸` selected, ` ` unselected
+- Label column (20 chars): left-aligned, padded
+- Value column (remaining): right-side `[ value ]` button
+- Full-row `colors.info` highlight on selected
+- `colors.dim` on read-only and unavailable items
+
+### New: Preview rows
+Some rows show live previews instead of `[ value ]`:
+- Spinner preview: renders current spinner frame set inline
+- Bar preview: renders a short progress bar sample
+- Toast preview: shows severity icons in current mode
+- Status indicator preview: shows 6-symbol set
+- Waveform preview: shows bar characters
+- Scene detail: shows text description of current scene mode
+
+### New: Separator rows
+Thin horizontal line `───────` spanning inner width. Used to group related items within a page.
+
+### New: `format_description_row()` for tip
+Reuse `settings/render.rs:format_description_row()` pattern. `dim` color, `tip:` prefix.
+
+### Updated: `format_theme_studio()` main function
+```
+frame_top
+format_tab_bar(page, colors, borders, width)
+frame_separator
+for each item slot 1..=8:
+    if slot has item: format_studio_row(...)
+    else if slot is separator: format_separator_row(...)
+    else: format_blank_row(...)
+frame_separator
+format_description_row(selected_item_tip)
+frame_separator
+centered_title_line(footer)
+frame_bottom
+```
+
+---
+
+## Mouse Click Support
+
+Every interactive element has a click zone:
+
+| Element | Row | Click Action |
+|---------|-----|-------------|
+| Tab labels | Row 1 (tab bar) | Switch to clicked page |
+| Item rows | Rows 3-10 | Select row (cursor moves) |
+| `[ value ]` buttons | Rows 3-10 | Cycle value (same as Enter/Right) |
+| `[×] close` in footer | Last row | Close overlay |
+| Preview/read-only rows | Rows 3-10 | No action (cursor moves but no cycle) |
+
+### Implementation in `overlay_mouse.rs`
+- Parse click column against tab label positions for tab switching
+- Parse click row offset against page item positions for selection
+- Use existing `mouse_enabled` setting to gate all interactions
+
+---
+
+## Data Model Changes
+
+### `ThemeStudioView` struct (`theme_studio.rs`)
+Add fields for ALL new controls:
+```rust
+pub(crate) struct ThemeStudioView {
+    // Existing
+    pub(crate) theme: Theme,
+    pub(crate) selected: usize,
+    pub(crate) hud_style: HudStyle,
+    pub(crate) hud_border_style: HudBorderStyle,
+    pub(crate) hud_right_panel: HudRightPanel,
+    pub(crate) hud_right_panel_recording_only: bool,
+    pub(crate) border_style_override: Option<RuntimeBorderStyleOverride>,
+    pub(crate) glyph_set_override: Option<RuntimeGlyphSetOverride>,
+    pub(crate) indicator_set_override: Option<RuntimeIndicatorSetOverride>,
+    pub(crate) progress_style_override: Option<RuntimeProgressStyleOverride>,
+    pub(crate) progress_bar_family_override: Option<RuntimeProgressBarFamilyOverride>,
+    pub(crate) voice_scene_style_override: Option<RuntimeVoiceSceneStyleOverride>,
+    pub(crate) undo_available: bool,
+    pub(crate) redo_available: bool,
+    pub(crate) runtime_overrides_dirty: bool,
+    // New: page state
+    pub(crate) page: ThemeStudioPage,
+    // New: deferred fields
+    pub(crate) toast_position_override: Option<RuntimeToastPositionOverride>,
+    pub(crate) startup_style_override: Option<RuntimeStartupStyleOverride>,
+    pub(crate) toast_severity_mode_override: Option<RuntimeToastSeverityModeOverride>,
+    pub(crate) banner_style_override: Option<RuntimeBannerStyleOverride>,
+    pub(crate) overlay_border_override: Option<RuntimeBorderStyleOverride>,
+    pub(crate) hud_component_border_override: Option<RuntimeBorderStyleOverride>,
+    // New: from Settings/config
+    pub(crate) latency_display: LatencyDisplayMode,
+    pub(crate) mouse_enabled: bool,
+    // New: animation timing
+    pub(crate) spinner_interval_ms: u32,
+    pub(crate) recording_pulse_ms: u32,
+    pub(crate) heartbeat_cycle_ms: u32,
+    pub(crate) transition_duration_ms: u32,
+    pub(crate) reduced_motion: bool,
+    // New: startup
+    pub(crate) startup_splash_ms: u32,
+    // New: override count
+    pub(crate) active_override_count: usize,
+    pub(crate) total_override_fields: usize,
+}
+```
+
+### `RuntimeStylePackOverrides` additions (`style_pack.rs`)
+Add 6 new override fields for deferred StylePack fields.
+
+### New Runtime Override Enums (`theme/mod.rs`)
+```rust
+pub enum RuntimeToastPositionOverride { TopRight, BottomRight, TopCenter, BottomCenter }
+pub enum RuntimeStartupStyleOverride { Full, Minimal, Hidden }
+pub enum RuntimeToastSeverityModeOverride { Icon, Label, IconAndLabel }
+pub enum RuntimeBannerStyleOverride { Full, Compact, Minimal, Hidden }
+// Overlay + HUD borders reuse existing RuntimeBorderStyleOverride
+```
+
+### New animation config fields (`event_state.rs` or config)
+```rust
+pub(crate) spinner_interval_ms: u32,        // default 100
+pub(crate) recording_pulse_period_ms: u32,  // default 1250
+pub(crate) heartbeat_cycle_ms: u32,         // default 1000
+pub(crate) transition_duration_ms: u32,     // default 360
+pub(crate) reduced_motion: bool,            // default false
+pub(crate) startup_splash_ms: u32,          // default 1500
+```
+
+### `EventLoopState` additions (`event_state.rs`)
+```rust
+pub(crate) theme_studio_page: ThemeStudioPage,
+pub(crate) theme_studio_page_selected: [usize; 7],  // per-page cursor
+```
+
+---
+
+## Input Handling Changes (`overlay.rs`)
+
+### Tab navigation
+- `Tab` → next page (wraps Home→Hud→...→History→Home)
+- `Shift+Tab` → previous page (wraps)
+- Per-page cursor preserved in `theme_studio_page_selected` array
+
+### Arrow keys (page-scoped)
+- `Up/Down` → move within current page's selectable items (skip separators, blanks)
+- `Left/Right` → cycle the value of current item (reverse/forward)
+- `Enter` → apply action (open picker, toggle, cycle, undo, etc.)
+
+### New cycling functions (6 for deferred fields)
+Following pattern of `cycle_runtime_*_override()` at `overlay.rs:621-730`:
+- `cycle_runtime_toast_position_override()`
+- `cycle_runtime_startup_style_override()`
+- `cycle_runtime_toast_severity_mode_override()`
+- `cycle_runtime_banner_style_override()`
+- `cycle_runtime_overlay_border_override()`
+- `cycle_runtime_hud_component_border_override()`
+
+### New adjustment functions (animation timing)
+For slider-style values (spinner speed, pulse, heartbeat, transition, startup):
+- `Left` → decrease by step (e.g. -25ms)
+- `Right` → increase by step
+- Clamp to valid range
+
+### Reduced motion toggle
+When toggled ON, sets all animation fields to their "static" equivalents and stores the previous values for restore.
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/src/bin/voiceterm/theme_studio.rs` | **Major rewrite**: `ThemeStudioPage` enum, expanded `ThemeStudioItem` (~34 variants), per-page item arrays, `format_tab_bar()`, `format_studio_row()`, preview rows, separator rows, tip descriptions, page-aware height/width, all tests updated |
+| `src/src/bin/voiceterm/theme/mod.rs` | Add 4 new `Runtime*Override` enums with `Debug/Clone/Copy/PartialEq/Eq` + `Display` impls |
+| `src/src/bin/voiceterm/theme/style_pack.rs` | Add 6 fields to `RuntimeStylePackOverrides`, add `apply_*` resolver functions, update `active_override_count()` helper |
+| `src/src/bin/voiceterm/event_state.rs` | Replace `theme_studio_selected` with `theme_studio_page` + `theme_studio_page_selected[7]`, add animation timing fields |
+| `src/src/bin/voiceterm/event_loop/input_dispatch/overlay.rs` | Tab/Shift+Tab handling, 6 new cycling functions, animation timing adjusters, reduced motion toggle, expanded `apply_theme_studio_adjustment()` |
+| `src/src/bin/voiceterm/event_loop.rs` | Update `render_theme_studio_overlay_for_state()` to populate all new view fields, `reset_theme_studio_selection()` for page-aware reset |
+| `src/src/bin/voiceterm/event_loop/input_dispatch/overlay/overlay_mouse.rs` | Tab bar click zones, per-page row click zones |
+| `src/src/bin/voiceterm/button_handlers.rs` | Update `open_theme_studio_overlay()` for page state |
+| `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs` | Update `open_theme_studio_overlay()` for page reset |
+| `src/src/bin/voiceterm/terminal.rs` | Update `reserved_rows_for_mode()` for new height (16 vs 21) |
+| `src/src/bin/voiceterm/help.rs` | Update Theme Studio shortcut hints |
+| `src/src/bin/voiceterm/status_line/animation.rs` | Read animation timing from config instead of hardcoded constants |
+| `src/src/bin/voiceterm/banner.rs` | Read `startup_splash_ms` from config instead of env var only |
+
+---
+
+## Implementation Phases
+
+### Phase 1: Tabbed Architecture + Rendering
+1. Add `ThemeStudioPage` enum and `THEME_STUDIO_PAGES` array
+2. Add page state to `EventLoopState` (`theme_studio_page`, `theme_studio_page_selected`)
+3. Rewrite `format_theme_studio()` with tab bar + page routing
+4. Implement `format_tab_bar()`, `format_studio_row()`, `format_blank_row()`, `format_separator_row()`
+5. Adopt Settings-style row format: marker + label + `[ value ]` + info highlight
+6. Add `format_description_row()` with per-item tip text
+7. Reorganize existing items into pages (Home, HUD, Style, Progress)
+8. Add `Tab`/`Shift+Tab` input handling for page navigation
+9. Update height (21→16), width (54-72 → 60-82)
+10. Update all existing tests
+
+### Phase 2: Wire All Deferred StylePack Fields
+1. Add 4 new `Runtime*Override` enums to `theme/mod.rs`
+2. Add 6 fields to `RuntimeStylePackOverrides` in `style_pack.rs`
+3. Write 6 new `cycle_runtime_*` functions in `overlay.rs`
+4. Add new `ThemeStudioItem` variants for Surfaces page items
+5. Wire `apply_theme_studio_adjustment()` for all new items
+6. Add fields to `ThemeStudioView`, populate in `render_theme_studio_overlay_for_state()`
+7. Flip `STYLE_PACK_STUDIO_PARITY_COMPLETE` to `true`
+8. Add tests for every new cycling function
+
+### Phase 3: Animation Timing + Reduced Motion
+1. Add animation config fields to `EventLoopState`
+2. Replace hardcoded constants in `animation.rs` with config reads
+3. Add Studio controls for spinner speed, pulse, heartbeat, transition timing
+4. Implement `Left/Right` adjustment for timing values (slider-style)
+5. Implement reduced-motion toggle
+6. Update `banner.rs` to read `startup_splash_ms` from config
+
+### Phase 4: Preview Rows + Read-Only Info
+1. Spinner preview row (animated current frame set)
+2. Progress bar preview row (static sample)
+3. Toast severity preview row (icon set display)
+4. Status indicator preview row (6-symbol preview)
+5. Waveform bar preview row (follows glyph profile)
+6. Voice scene detail row (text description)
+7. Active override count on Home page
+
+### Phase 5: Mouse Support + Persistence
+1. Tab bar click detection (column-based hit zones)
+2. Row click detection (row offset from page start)
+3. Footer `[×] close` click
+4. Save style-pack to `~/.config/voiceterm/style_pack.json`
+5. Export style-pack JSON to clipboard
+6. Import style-pack JSON from clipboard
+
+---
+
+## Ratatui Capabilities Available for Future Expansion
+
+Based on research of Ratatui 0.26 + Crossterm 0.27 (current dependency pins):
+
+### Additional Border Sets (could add to cycling)
+- **Dashed**: `┌ ┐ └ ┘ ╌ ╎` (light dashed) or `┏ ┓ ┗ ┛ ╍ ╏` (heavy dashed)
+- **Mixed Heavy/Light**: `┍ ┑ ┕ ┙ ━ │` (heavy horizontal, light vertical)
+- **ASCII**: `+ + + + - |` (pure ASCII fallback)
+- **Quadrant Inside/Outside**: Unicode quadrant characters for pixel-art borders
+
+### Additional Spinner Frame Sets (could add new variants)
+- **Clock**: Clock face rotation (🕛🕐🕑...)
+- **Arrows**: Rotating arrows (←↑→↓)
+- **Growing**: Growing dots (⠁⠃⠇⡇⣇⣧⣷⣿)
+- **Custom**: User-defined frame sequences via style-pack JSON
+
+### Color Customization (future — needs `&'static str` → `String` migration)
+- Per-state color overrides (recording, processing, success, warning, error, info)
+- Background color overrides (primary, secondary)
+- Border color override
+- 256-color indexed palette or RGB hex input
+- HSL slider controls
+
+### Text Modifiers (future — needs modifier override infrastructure)
+- Bold/Dim/Italic/Underline toggles per text element
+- Strikethrough, reverse video, blink (terminal-dependent)
+
+### Animation Effects (future — TachyonFX integration)
+- Fade transitions between theme changes
+- Slide/sweep effects for page switching
+- Color cycling / rainbow effects
+- Coalesce/dissolve text effects
+
+### Mouse Enhancements (future)
+- Hover highlighting (requires `MouseEventKind::Moved`)
+- Drag for slider controls
+- Scroll wheel for list navigation and value adjustment
+- Tooltip popups on hover
+
+---
+
+## Verification
+
+1. `cargo test -p voiceterm` — all existing + new tests pass
+2. `cargo clippy -p voiceterm` — no warnings
+3. Manual: open Theme Studio → tab bar renders with 7 tabs
+4. Manual: Tab/Shift+Tab cycles all pages, active tab highlighted
+5. Manual: each page shows correct items with `[ value ]` format
+6. Manual: selected row highlighted in `colors.info`, tip row updates on move
+7. Manual: Left/Right cycles values on all cycler items
+8. Manual: Left/Right adjusts timing values on Animate page
+9. Manual: Undo/Redo/Rollback work from History page (dim when unavailable)
+10. Manual: height stays consistent across all pages (no jitter)
+11. Manual: Esc closes from any page
+12. Manual: mouse click on tab switches page
+13. Manual: mouse click on row selects it
+14. Manual: all 6 deferred fields cycle correctly and persist in undo history
+15. Manual: reduced motion toggle disables all animations
+16. Manual: preview rows show correct glyphs for current settings
+
+---
+
+## Related Documents
+
+- `dev/active/theme_upgrade.md` — Full product requirements + gate definitions (TS-G01..TS-G15)
+- `dev/active/MASTER_PLAN.md` — Execution plan tasks for the Theme Studio
+  visual track (`MP-148+`)
+- `dev/ARCHITECTURE.md` — Visual system + overlay documentation
+- `.github/PULL_REQUEST_TEMPLATE/theme_studio.md` — Gate checklist for PRs
