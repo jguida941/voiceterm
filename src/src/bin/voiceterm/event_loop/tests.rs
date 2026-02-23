@@ -9,6 +9,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
 use crate::config::{HudStyle, LatencyDisplayMode};
+use crate::dev_panel::dev_panel_height;
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
@@ -846,6 +847,84 @@ fn open_help_overlay_sets_mode_and_renders_overlay() {
         WriterMessage::ShowOverlay { .. } => {}
         other => panic!("unexpected writer message: {other:?}"),
     }
+}
+
+#[test]
+fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    state.config.dev_mode = true;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DevPanelToggle,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::DevPanel);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("dev panel render")
+    {
+        WriterMessage::ShowOverlay { content, height } => {
+            assert_eq!(height, dev_panel_height());
+            assert!(content.contains("Dev Panel"));
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn dev_panel_toggle_closes_overlay_when_open() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::DevPanel;
+    while writer_rx.try_recv().is_ok() {}
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DevPanelToggle,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("clear overlay message")
+    {
+        WriterMessage::ClearOverlay => {}
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+}
+
+#[test]
+fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
+    let _guard = install_try_send_hook(hook_would_block);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::None;
+    state.config.dev_mode = false;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::DevPanelToggle,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.pending_pty_input_bytes, 1);
+    assert_eq!(state.pending_pty_input.front(), Some(&vec![0x04]));
 }
 
 #[test]

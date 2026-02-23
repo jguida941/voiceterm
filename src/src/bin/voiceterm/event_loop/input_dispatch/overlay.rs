@@ -47,6 +47,9 @@ pub(super) fn handle_overlay_input_event(
                 settings_ctx.cycle_theme(1);
             });
             match mode {
+                OverlayMode::DevPanel => {
+                    render_dev_panel_overlay_for_state(state, deps);
+                }
                 OverlayMode::Settings => {
                     render_settings_overlay_for_state(state, deps);
                 }
@@ -177,6 +180,28 @@ pub(super) fn handle_overlay_input_event(
         }
         (OverlayMode::ThemeStudio, InputEvent::ThemePicker) => {
             close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::DevPanelToggle) => {
+            close_overlay(state, deps, false);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::HelpToggle) => {
+            open_help_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::SettingsToggle) => {
+            open_settings_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::ThemePicker) => {
+            open_theme_studio_overlay(state, deps);
+            None
+        }
+        (OverlayMode::DevPanel, InputEvent::Bytes(bytes)) => {
+            if bytes == [0x1b] {
+                close_overlay(state, deps, false);
+            }
             None
         }
         (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {

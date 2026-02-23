@@ -120,6 +120,7 @@ Flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
+| `Ctrl+D` | Toggle Dev panel (`--dev` only) |
 | `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
@@ -216,6 +217,7 @@ Behavior:
 
 - Default launch stays unchanged when the flag is not present.
 - Full HUD shows `DEV` while the guard is active.
+- `Ctrl+D` toggles the in-session Dev panel (read-only session counters).
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
 

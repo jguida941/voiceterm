@@ -37,6 +37,7 @@ pub(super) fn run_periodic_tasks(
                 let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
                 refresh_button_registry_if_mouse(state, deps);
                 match state.overlay_mode {
+                    OverlayMode::DevPanel => render_dev_panel_overlay_for_state(state, deps),
                     OverlayMode::Help => render_help_overlay_for_state(state, deps),
                     OverlayMode::ThemeStudio => render_theme_studio_overlay_for_state(state, deps),
                     OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),

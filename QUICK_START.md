@@ -82,6 +82,7 @@ Use `voiceterm --claude` to target Claude.
 - `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
+- `Ctrl+D` - toggle Dev panel (`--dev` launches only)
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.

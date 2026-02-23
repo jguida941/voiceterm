@@ -7,6 +7,7 @@ use voiceterm::log_debug;
 use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::config::HudStyle;
+use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height_with_policy;
@@ -68,6 +69,7 @@ pub(crate) fn reserved_rows_for_mode(
         OverlayMode::None => {
             status_banner_height_with_policy(cols as usize, hud_style, claude_prompt_suppressed)
         }
+        OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemeStudio => theme_studio_height(),
         OverlayMode::ThemePicker => theme_picker_height(),
@@ -183,6 +185,10 @@ mod tests {
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::Help, cols, HudStyle::Full, false),
             help_overlay_height()
+        );
+        assert_eq!(
+            reserved_rows_for_mode(OverlayMode::DevPanel, cols, HudStyle::Full, false),
+            dev_panel_height()
         );
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::ThemePicker, cols, HudStyle::Full, false),

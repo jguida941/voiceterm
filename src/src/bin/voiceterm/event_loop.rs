@@ -28,8 +28,9 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_help_overlay, show_settings_overlay, show_theme_picker_overlay, show_theme_studio_overlay,
-    show_toast_history_overlay, show_transcript_history_overlay, OverlayMode,
+    show_dev_panel_overlay, show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
+    show_theme_studio_overlay, show_toast_history_overlay, show_transcript_history_overlay,
+    OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
 use crate::settings::{
@@ -67,8 +68,9 @@ use crate::writer::{set_status, WriterMessage};
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
-    close_overlay, open_help_overlay, open_settings_overlay, open_theme_picker_overlay,
-    open_theme_studio_overlay, open_toast_history_overlay, open_transcript_history_overlay,
+    close_overlay, open_dev_panel_overlay, open_help_overlay, open_settings_overlay,
+    open_theme_picker_overlay, open_theme_studio_overlay, open_toast_history_overlay,
+    open_transcript_history_overlay,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -353,6 +355,19 @@ fn refresh_button_registry_if_mouse(state: &EventLoopState, deps: &EventLoopDeps
 fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.terminal_cols);
     show_help_overlay(&deps.writer_tx, state.theme, cols);
+}
+
+fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.terminal_cols);
+    let snapshot = state.dev_mode_stats.as_ref().map(|stats| stats.snapshot());
+    show_dev_panel_overlay(
+        &deps.writer_tx,
+        state.theme,
+        snapshot,
+        state.config.dev_log,
+        state.config.dev_path.as_deref(),
+        cols,
+    );
 }
 
 fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {

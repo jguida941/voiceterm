@@ -82,11 +82,12 @@ Wake status labels in Full HUD:
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only | off |
+| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only (includes `Ctrl+D` Dev panel) | off |
 | `--dev-log` | Persist guarded dev events to session JSONL logs (requires `--dev`) | off |
 | `--dev-path <DIR>` | Root directory for `--dev-log` session files (requires `--dev --dev-log`) | `$HOME/.voiceterm/dev` (fallback: `<cwd>/.voiceterm/dev`) |
 
 When enabled, Full HUD shows a `DEV` badge so it is obvious you are in guarded mode.
+`Ctrl+D` toggles the in-session Dev panel while the guard is active.
 With `--dev-log`, VoiceTerm writes per-run JSONL files under `<dev-path>/sessions/`.
 
 ---

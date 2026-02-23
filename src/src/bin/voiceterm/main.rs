@@ -19,6 +19,7 @@ mod cli_utils;
 mod color_mode;
 mod config;
 mod custom_help;
+mod dev_panel;
 mod event_loop;
 mod event_state;
 mod help;

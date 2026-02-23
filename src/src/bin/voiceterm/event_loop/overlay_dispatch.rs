@@ -21,6 +21,12 @@ pub(super) fn open_help_overlay(state: &mut EventLoopState, deps: &mut EventLoop
     render_help_overlay_for_state(state, deps);
 }
 
+pub(super) fn open_dev_panel_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    state.overlay_mode = OverlayMode::DevPanel;
+    sync_overlay_winsize(state, deps);
+    render_dev_panel_overlay_for_state(state, deps);
+}
+
 pub(super) fn open_settings_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
     state.overlay_mode = OverlayMode::Settings;
     sync_overlay_winsize(state, deps);

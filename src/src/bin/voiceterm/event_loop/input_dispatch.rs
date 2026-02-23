@@ -48,6 +48,14 @@ pub(super) fn handle_input_event(
                 state.status_state.hud_button_focus = None;
                 open_settings_overlay(state, deps);
             }
+            InputEvent::DevPanelToggle => {
+                state.status_state.hud_button_focus = None;
+                if state.config.dev_mode {
+                    open_dev_panel_overlay(state, deps);
+                } else if !write_or_queue_pty_input(state, deps, vec![0x04]) {
+                    *running = false;
+                }
+            }
             InputEvent::TranscriptHistoryToggle => {
                 state.status_state.hud_button_focus = None;
                 open_transcript_history_overlay(state, deps);
