@@ -91,7 +91,7 @@ CI will run the same check families again.
 | User docs (`README`, `guides/*`, `QUICK_START`) | `python3 dev/scripts/devctl.py docs-check --user-facing` | conditional strict user-doc gate in `.github/workflows/tooling_control_plane.yml` |
 | Tooling/process/CI docs or scripts | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `.github/workflows/tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/check_agents_contract.py` | `.github/workflows/tooling_control_plane.yml` |
-| Active plan/index/spec sync | `python3 dev/scripts/check_active_plan_sync.py` | `.github/workflows/tooling_control_plane.yml` |
+| Active plan/index/spec sync + snapshot freshness | `python3 dev/scripts/check_active_plan_sync.py` | `.github/workflows/tooling_control_plane.yml` |
 | Release version fields | `python3 dev/scripts/check_release_version_parity.py` | `.github/workflows/tooling_control_plane.yml` |
 | CLI docs vs clap schema | `python3 dev/scripts/check_cli_flags_parity.py` | `.github/workflows/tooling_control_plane.yml` |
 | Screenshot links/staleness | `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` | `.github/workflows/tooling_control_plane.yml` |
@@ -545,7 +545,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
-- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
+- `python3 dev/scripts/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness.
 - `python3 dev/scripts/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 

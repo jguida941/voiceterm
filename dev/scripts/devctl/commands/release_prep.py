@@ -73,6 +73,29 @@ def _update_changelog_heading(text: str, version: str, release_date: str) -> str
     return updated
 
 
+def _update_master_plan_snapshot(text: str, version: str, release_date: str) -> str:
+    release_tag = f"v{version}"
+    updated = _replace_once(
+        text,
+        r"^## Status Snapshot \([0-9]{4}-[0-9]{2}-[0-9]{2}\)\s*$",
+        f"## Status Snapshot ({release_date})",
+        "dev/active/MASTER_PLAN.md status snapshot heading",
+    )
+    updated = _replace_once(
+        updated,
+        r"^-\s+Last tagged release:\s+`v[0-9]+\.[0-9]+\.[0-9]+`\s+\([0-9]{4}-[0-9]{2}-[0-9]{2}\)\s*$",
+        f"- Last tagged release: `{release_tag}` ({release_date})",
+        "dev/active/MASTER_PLAN.md last tagged release",
+    )
+    updated = _replace_once(
+        updated,
+        r"^-\s+Current release target:\s+`[^`]+`\s*$",
+        f"- Current release target: `post-{release_tag} planning`",
+        "dev/active/MASTER_PLAN.md current release target",
+    )
+    return updated
+
+
 def _update_cargo_wrapper(text: str, version: str, _release_date: str) -> str:
     return _update_cargo_version(text, version)
 
@@ -89,12 +112,17 @@ def _update_plist_wrapper(text: str, version: str, _release_date: str) -> str:
     return _update_info_plist_versions(text, version)
 
 
+def _update_master_plan_wrapper(text: str, version: str, release_date: str) -> str:
+    return _update_master_plan_snapshot(text, version, release_date)
+
+
 _RELEASE_METADATA_UPDATERS: list[tuple[str, UpdateFn]] = [
     ("src/Cargo.toml", _update_cargo_wrapper),
     ("pypi/pyproject.toml", _update_pyproject_wrapper),
     ("pypi/src/voiceterm/__init__.py", _update_python_wrapper),
     ("app/macos/VoiceTerm.app/Contents/Info.plist", _update_plist_wrapper),
     ("dev/CHANGELOG.md", _update_changelog_heading),
+    ("dev/active/MASTER_PLAN.md", _update_master_plan_wrapper),
 ]
 
 

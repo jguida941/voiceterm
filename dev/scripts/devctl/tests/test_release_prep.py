@@ -43,6 +43,17 @@ class ReleasePrepTests(TestCase):
             root / "dev/CHANGELOG.md",
             "# Changelog\n\n## [Unreleased]\n\n### UX\n\n- demo entry\n",
         )
+        _write(
+            root / "dev/active/MASTER_PLAN.md",
+            (
+                "# Master Plan (Active, Unified)\n\n"
+                "## Status Snapshot (2026-02-23)\n\n"
+                "- Last tagged release: `v1.0.90` (2026-02-23)\n"
+                "- Current release target: `post-v1.0.90 planning`\n"
+                "- Active development branch: `develop`\n"
+                "- Release branch: `master`\n"
+            ),
+        )
 
     def test_prepare_release_metadata_dry_run_reports_changes_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -58,7 +69,7 @@ class ReleasePrepTests(TestCase):
                 )
 
             self.assertTrue(report["dry_run"])
-            self.assertEqual(len(report["changed_files"]), 5)
+            self.assertEqual(len(report["changed_files"]), 6)
             self.assertEqual(
                 (root / "dev/CHANGELOG.md").read_text(encoding="utf-8"),
                 original_changelog,
@@ -81,7 +92,7 @@ class ReleasePrepTests(TestCase):
                     dry_run=False,
                 )
 
-            self.assertEqual(len(first["changed_files"]), 5)
+            self.assertEqual(len(first["changed_files"]), 6)
             self.assertEqual(second["changed_files"], [])
             self.assertIn("src/Cargo.toml", second["unchanged_files"])
 
@@ -92,3 +103,8 @@ class ReleasePrepTests(TestCase):
 
             init_py = (root / "pypi/src/voiceterm/__init__.py").read_text(encoding="utf-8")
             self.assertIn('__version__ = "1.0.91"', init_py)
+
+            master_plan = (root / "dev/active/MASTER_PLAN.md").read_text(encoding="utf-8")
+            self.assertIn("## Status Snapshot (2026-02-23)", master_plan)
+            self.assertIn("- Last tagged release: `v1.0.91` (2026-02-23)", master_plan)
+            self.assertIn("- Current release target: `post-v1.0.91 planning`", master_plan)

@@ -39,6 +39,22 @@ LANGUAGE_POLICIES: dict[str, ShapePolicy] = {
     ),
 }
 
+BEST_PRACTICE_DOCS: dict[str, tuple[str, ...]] = {
+    ".rs": (
+        "https://doc.rust-lang.org/book/",
+        "https://rust-lang.github.io/api-guidelines/",
+    ),
+    ".py": (
+        "https://docs.python.org/3/",
+        "https://peps.python.org/pep-0008/",
+    ),
+}
+
+SHAPE_AUDIT_GUIDANCE = (
+    "Run a shape audit before merge: identify modularization or consolidation opportunities. "
+    "Do not bypass shape limits with readability-reducing code-golf edits."
+)
+
 # Phase 3C hotspot budgets (MP-265): these files must not grow while staged
 # decomposition work is active.
 PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
@@ -79,6 +95,12 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/check_code_shape.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/check_active_plan_sync.py": ShapePolicy(
         soft_limit=450,
         hard_limit=650,
         oversize_growth_limit=25,
@@ -188,10 +210,17 @@ def _violation(
     current_lines: int,
 ) -> dict:
     growth = None if base_lines is None else current_lines - base_lines
+    docs_refs = BEST_PRACTICE_DOCS.get(path.suffix, ())
+    guidance_parts = [guidance]
+    if reason != "current_file_missing":
+        guidance_parts.append(SHAPE_AUDIT_GUIDANCE)
+    if docs_refs:
+        guidance_parts.append("Best-practice refs: " + ", ".join(docs_refs))
     return {
         "path": path.as_posix(),
         "reason": reason,
-        "guidance": guidance,
+        "guidance": " ".join(guidance_parts),
+        "best_practice_refs": list(docs_refs),
         "base_lines": base_lines,
         "current_lines": current_lines,
         "growth": growth,

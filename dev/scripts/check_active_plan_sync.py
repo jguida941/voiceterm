@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -41,6 +42,10 @@ SPEC_RANGE_PATHS = [
     "dev/active/memory_studio.md",
 ]
 
+EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
+EXPECTED_RELEASE_BRANCH = "master"
+CARGO_TOML_PATH = REPO_ROOT / "src/Cargo.toml"
+SEMVER_TAG_PATTERN = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
 def _strip_code_ticks(value: str) -> str:
     value = value.strip()
@@ -71,7 +76,6 @@ def _parse_registry_rows(index_text: str) -> list[dict]:
         )
     return rows
 
-
 def _expand_mp_ranges(text: str) -> set[str]:
     mp_ids: set[str] = set()
     for start_s, end_s in re.findall(r"MP-(\d{3})\.\.MP-(\d{3})", text):
@@ -82,6 +86,37 @@ def _expand_mp_ranges(text: str) -> set[str]:
         for value in range(start, end + 1):
             mp_ids.add(f"MP-{value:03d}")
     return mp_ids
+
+def _read_cargo_release_tag() -> str | None:
+    if not CARGO_TOML_PATH.exists():
+        return None
+    cargo_text = CARGO_TOML_PATH.read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', cargo_text, re.MULTILINE)
+    if not match:
+        return None
+    return f"v{match.group(1)}"
+
+def _latest_git_semver_tag() -> tuple[str | None, str | None]:
+    try:
+        completed = subprocess.run(
+            ["git", "tag", "--list", "v[0-9]*.[0-9]*.[0-9]*", "--sort=-version:refname"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return None, str(exc)
+
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or f"git exited with code {completed.returncode}"
+        return None, detail
+
+    for raw in completed.stdout.splitlines():
+        candidate = raw.strip()
+        if SEMVER_TAG_PATTERN.match(candidate):
+            return candidate, None
+    return None, None
 
 
 def _build_report() -> dict:
@@ -157,6 +192,98 @@ def _build_report() -> dict:
         master_plan_text = ""
     else:
         master_plan_text = MASTER_PLAN_PATH.read_text(encoding="utf-8")
+
+    snapshot_values = {
+        "status_date": None,
+        "last_tagged_release": None,
+        "last_tagged_release_date": None,
+        "current_release_target": None,
+        "active_development_branch": None,
+        "release_branch": None,
+    }
+    latest_git_tag = None
+    cargo_release_tag = _read_cargo_release_tag()
+    snapshot_policy_warnings: list[str] = []
+
+    if master_plan_text:
+        snapshot_patterns = [
+            (
+                "status_date",
+                r"^## Status Snapshot \(([0-9]{4}-[0-9]{2}-[0-9]{2})\)\s*$",
+                "MASTER_PLAN status snapshot heading is missing or malformed.",
+            ),
+            (
+                "last_tagged_release",
+                r"^-\s+Last tagged release:\s+`(v[0-9]+\.[0-9]+\.[0-9]+)`\s+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)\s*$",
+                "MASTER_PLAN last tagged release line is missing or malformed.",
+            ),
+            (
+                "current_release_target",
+                r"^-\s+Current release target:\s+`([^`]+)`\s*$",
+                "MASTER_PLAN current release target line is missing or malformed.",
+            ),
+            (
+                "active_development_branch",
+                r"^-\s+Active development branch:\s+`([^`]+)`\s*$",
+                "MASTER_PLAN active development branch line is missing or malformed.",
+            ),
+            (
+                "release_branch",
+                r"^-\s+Release branch:\s+`([^`]+)`\s*$",
+                "MASTER_PLAN release branch line is missing or malformed.",
+            ),
+        ]
+        for key, pattern, message in snapshot_patterns:
+            match = re.search(pattern, master_plan_text, re.MULTILINE)
+            if not match:
+                errors.append(message)
+                continue
+            snapshot_values[key] = match.group(1)
+            if key == "last_tagged_release":
+                snapshot_values["last_tagged_release_date"] = match.group(2)
+
+        release_tag = snapshot_values["last_tagged_release"]
+        if release_tag and snapshot_values["current_release_target"]:
+            expected_target = f"post-{release_tag} planning"
+            if snapshot_values["current_release_target"] != expected_target:
+                errors.append(
+                    "MASTER_PLAN current release target must match "
+                    f"`{expected_target}` for snapshot release `{release_tag}`."
+                )
+
+        if snapshot_values["active_development_branch"] and (
+            snapshot_values["active_development_branch"] != EXPECTED_ACTIVE_DEVELOPMENT_BRANCH
+        ):
+            errors.append(
+                "MASTER_PLAN active development branch must be "
+                f"`{EXPECTED_ACTIVE_DEVELOPMENT_BRANCH}`."
+            )
+        if snapshot_values["release_branch"] and snapshot_values["release_branch"] != EXPECTED_RELEASE_BRANCH:
+            errors.append(f"MASTER_PLAN release branch must be `{EXPECTED_RELEASE_BRANCH}`.")
+
+        latest_git_tag, git_tag_error = _latest_git_semver_tag()
+        if git_tag_error:
+            warnings.append(f"Unable to read latest git release tag: {git_tag_error}")
+
+        valid_snapshot_tags = {tag for tag in (latest_git_tag, cargo_release_tag) if tag}
+        if release_tag and valid_snapshot_tags and release_tag not in valid_snapshot_tags:
+            errors.append(
+                "MASTER_PLAN last tagged release must match either the latest git semver tag "
+                "or the current Cargo release version: "
+                f"snapshot={release_tag}, latest_git={latest_git_tag or 'none'}, "
+                f"cargo={cargo_release_tag or 'none'}."
+            )
+        elif (
+            release_tag
+            and latest_git_tag
+            and cargo_release_tag
+            and release_tag == cargo_release_tag
+            and release_tag != latest_git_tag
+        ):
+            snapshot_policy_warnings.append(
+                "Snapshot release matches Cargo version but is ahead of latest git tag "
+                "(expected during release prep before tagging)."
+            )
 
     spec_missing_mirror_markers: list[str] = []
     spec_missing_ranges: list[str] = []
@@ -249,6 +376,8 @@ def _build_report() -> dict:
         errors.append("Missing active-index discovery references: " + ", ".join(missing_discovery_refs))
     if agent_marker_gaps:
         errors.append("AGENTS active-plan onboarding markers missing: " + ", ".join(agent_marker_gaps))
+    if snapshot_policy_warnings:
+        warnings.extend(snapshot_policy_warnings)
 
     return {
         "command": "check_active_plan_sync",
@@ -257,6 +386,9 @@ def _build_report() -> dict:
         "active_markdown_files": active_markdown_files,
         "registry_paths": registry_paths,
         "tracker_paths": tracker_paths,
+        "snapshot": snapshot_values,
+        "latest_git_tag": latest_git_tag,
+        "cargo_release_tag": cargo_release_tag,
         "errors": errors,
         "warnings": warnings,
     }
@@ -276,6 +408,16 @@ def _render_md(report: dict) -> str:
         "- tracker_paths: "
         + (", ".join(report.get("tracker_paths", [])) or "none")
     )
+    snapshot = report.get("snapshot", {})
+    for key in (
+        "last_tagged_release",
+        "current_release_target",
+        "active_development_branch",
+        "release_branch",
+    ):
+        lines.append(f"- snapshot_{key}: {snapshot.get(key) or 'missing'}")
+    lines.append("- latest_git_tag: " + (report.get("latest_git_tag") or "none"))
+    lines.append("- cargo_release_tag: " + (report.get("cargo_release_tag") or "none"))
     lines.append(
         "- warnings: "
         + (", ".join(report.get("warnings", [])) if report.get("warnings") else "none")
@@ -301,7 +443,6 @@ def main() -> int:
         print(json.dumps(report, indent=2))
     else:
         print(_render_md(report))
-
     return 0 if report.get("ok", False) else 1
 
 

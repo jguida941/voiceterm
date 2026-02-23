@@ -382,6 +382,48 @@ Inference: Release preparation now has fewer manual edit points and lower drift
 risk between versioned metadata files, while keeping existing verification and
 publishing gates unchanged.
 
+### Recent Governance Update (2026-02-23, Master Plan Snapshot Freshness Guard)
+
+Fact: Release-governance tooling now keeps `dev/active/MASTER_PLAN.md` Status
+Snapshot metadata synchronized and enforces freshness checks so release-state
+drift fails fast. `devctl ship/release --prepare-release` now updates the
+snapshot date plus `Last tagged release` and `Current release target`, and
+`check_active_plan_sync.py` now validates snapshot structure, branch policy,
+and release-tag consistency against git/Cargo release metadata.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/release_prep.py` (Status Snapshot auto-update)
+- `dev/scripts/devctl/tests/test_release_prep.py` (snapshot/idempotence coverage)
+- `dev/scripts/check_active_plan_sync.py` (snapshot policy validation)
+- `AGENTS.md` (release SOP + guard definition update)
+- `dev/DEVELOPMENT.md` (check coverage wording update)
+- `dev/scripts/README.md` (script behavior update)
+- `dev/active/MASTER_PLAN.md` (`MP-304`)
+
+Inference: Maintainers now get one deterministic path to keep release snapshots
+current, and CI/local governance catches stale plan snapshots immediately.
+
+### Recent Governance Update (2026-02-23, Code-Shape Guidance Hardening)
+
+Fact: `check_code_shape.py` violation output now ships explicit remediation
+guidance: run a modularization/consolidation audit when limits are crossed, do
+not "solve" shape failures with readability-degrading code-golf edits, and use
+language-specific best-practice references for Python/Rust during cleanup.
+The guard also now tracks `check_active_plan_sync.py` through an explicit
+path-level budget (`soft_limit=450`) so remediation can stay refactor-first
+instead of forcing readability-hostile shrink edits.
+
+Evidence:
+
+- `dev/scripts/check_code_shape.py` (audit-first guidance + docs links)
+- `dev/scripts/devctl/tests/test_check_code_shape_guidance.py`
+- `dev/scripts/README.md` (guard behavior update)
+- `dev/active/MASTER_PLAN.md` (`MP-305`)
+
+Inference: The shape guard now drives maintainable refactors by default instead
+of incentivizing superficial line-count minimization.
+
 ### Recent Governance Update (2026-02-23, Devctl Triage Integration)
 
 Fact: `devctl` now includes a dedicated `triage` command that outputs both a

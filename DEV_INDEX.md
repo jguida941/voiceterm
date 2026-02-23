@@ -7,6 +7,7 @@ Use this root shortcut to jump into developer documentation.
 - [Master Plan](dev/active/MASTER_PLAN.md)
 - [Theme + Overlay Studio Canonical Spec](dev/active/theme_upgrade.md)
 - [Memory Studio Spec + Gates](dev/active/memory_studio.md)
+- [Devctl Reporting + CIHub Upgrade Spec](dev/active/devctl_reporting_upgrade.md)
 - [Multi-Agent Worktree Runbook](dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md)
 - [Architecture](dev/ARCHITECTURE.md)
 - [Development Workflow](dev/DEVELOPMENT.md)

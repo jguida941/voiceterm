@@ -19,13 +19,14 @@ Root shortcut pointer: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) - what is currently in scope and what ships next.
 3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) - canonical Theme + Overlay Studio spec (Theme Studio architecture/gates plus consolidated visual research/redesign detail; `TS-G*`, `MP-148+`).
 4. [`dev/active/memory_studio.md`](active/memory_studio.md) - Memory + Action Studio spec and test gates (`MS-G*`, `MP-230+`).
-5. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) - how parallel worktrees are run this cycle.
-6. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - why major design/process choices were made.
-7. [`dev/history/README.md`](history/README.md) - index for historical records.
-8. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - how the runtime is put together today.
-9. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/release commands and day-to-day workflow.
-10. [`dev/adr/README.md`](adr/README.md) - architecture decision records and status.
-11. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible changes.
+5. [`dev/active/devctl_reporting_upgrade.md`](active/devctl_reporting_upgrade.md) - phased `devctl` reporting and CIHub integration roadmap (`MP-306`).
+6. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) - how parallel worktrees are run this cycle.
+7. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) - why major design/process choices were made.
+8. [`dev/history/README.md`](history/README.md) - index for historical records.
+9. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) - how the runtime is put together today.
+10. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) - build/test/release commands and day-to-day workflow.
+11. [`dev/adr/README.md`](adr/README.md) - architecture decision records and status.
+12. [`dev/CHANGELOG.md`](CHANGELOG.md) - release history and user-visible changes.
 
 ## Three Core Docs (Developer Lens)
 

@@ -19,6 +19,7 @@ same execution path with minimal ambiguity.
 | What are we executing now? | `dev/active/MASTER_PLAN.md` |
 | What active docs exist and what role does each play? | `dev/active/INDEX.md` |
 | Where is consolidated Theme Studio + overlay visual planning context? | `dev/active/theme_upgrade.md` |
+| Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
@@ -343,6 +344,8 @@ Use this exact sequence:
    - `app/macos/VoiceTerm.app/Contents/Info.plist` has
      `CFBundleShortVersionString = X.Y.Z` and `CFBundleVersion = X.Y.Z`
    - `dev/CHANGELOG.md` has release heading for `X.Y.Z`
+   - `dev/active/MASTER_PLAN.md` Status Snapshot has
+     `Last tagged release: vX.Y.Z` and `Current release target: post-vX.Y.Z planning`
 3. Verify release prerequisites:
    - `gh auth status -h github.com`
    - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
@@ -506,6 +509,9 @@ Supporting scripts:
 
 `check_code_shape.py` enforces both language-level limits and path-level
 hotspot budgets for Phase 3C decomposition targets.
+`check_active_plan_sync.py` enforces active-doc index/spec parity and
+`MASTER_PLAN` Status Snapshot release freshness (branch policy + release-tag
+consistency).
 `check_rust_lint_debt.py` enforces non-regressive growth for `#[allow(...)]`
 and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
