@@ -47,3 +47,15 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["pid"], 223)
+
+    def test_split_stale_processes_uses_elapsed_age_threshold(self) -> None:
+        rows = [
+            {"pid": 11, "elapsed_seconds": 601},
+            {"pid": 12, "elapsed_seconds": 120},
+            {"pid": 13, "elapsed_seconds": -1},
+        ]
+
+        stale, recent = process_sweep.split_stale_processes(rows, min_age_seconds=600)
+
+        self.assertEqual([row["pid"] for row in stale], [11])
+        self.assertEqual([row["pid"] for row in recent], [12, 13])

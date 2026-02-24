@@ -957,6 +957,36 @@ Inference: Process-leak handling moved from manual triage to default-safe
 maintenance behavior in the primary verification command, reducing repeated
 CPU/disk churn incidents during heavy multi-agent test cycles.
 
+### Recent Governance Update (2026-02-23, Runaway Process Containment)
+
+Fact: `devctl` process safety was tightened so interrupted check runs now tear
+down entire subprocess trees, and stale long-running `voiceterm-*` test
+processes are now treated as actionable drift (not warning-only noise).
+
+Evidence:
+
+- `dev/scripts/devctl/common.py` (check step subprocesses now run in isolated
+  process groups/sessions; `KeyboardInterrupt` path performs best-effort tree
+  teardown and returns structured exit `130` instead of leaving detached
+  children)
+- `dev/scripts/devctl/process_sweep.py` (added stale-process splitter with
+  explicit age threshold)
+- `dev/scripts/devctl/commands/check.py` (`process-sweep-pre`/`post` now clean
+  both detached-orphan and stale active test binaries)
+- `dev/scripts/devctl/commands/hygiene.py` (stale active test binaries now fail
+  hygiene instead of warning-only)
+- `dev/scripts/devctl/tests/test_common.py`,
+  `dev/scripts/devctl/tests/test_process_sweep.py`,
+  `dev/scripts/devctl/tests/test_check.py`,
+  `dev/scripts/devctl/tests/test_hygiene.py` (regression coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (operator/governance guidance aligned to new
+  containment semantics)
+
+Inference: Process-leak prevention now covers both common failure paths
+(`Ctrl+C` interruption and stale-active leftovers), reducing repeat CPU
+saturation incidents during local hardening and multi-agent verification loops.
+
 ### Recent Governance Update (2026-02-23, Wake/Send Runtime Semantics)
 
 Fact: Wake-word and insert-mode send behavior were tightened so voice-first

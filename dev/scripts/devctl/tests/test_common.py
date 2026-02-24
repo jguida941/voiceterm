@@ -1,9 +1,11 @@
 """Tests for shared devctl command helpers."""
 
 import sys
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
+from dev.scripts.devctl import common
 from dev.scripts.devctl.common import run_cmd
 from dev.scripts.devctl.steps import format_steps_md
 
@@ -34,6 +36,44 @@ class RunCmdTests(TestCase):
         result = run_cmd("missing", ["definitely-missing-devctl-test-binary"])
         self.assertEqual(result["returncode"], 127)
         self.assertIn("error", result)
+
+    @patch("dev.scripts.devctl.common._run_with_live_output", side_effect=KeyboardInterrupt)
+    def test_run_cmd_interrupt_returns_structured_error(self, _run_mock) -> None:
+        result = run_cmd("interrupt", [sys.executable, "-c", "print('x')"])
+        self.assertEqual(result["returncode"], 130)
+        self.assertIn("interrupted", result.get("error", ""))
+
+
+class RunWithLiveOutputTests(TestCase):
+    @patch("dev.scripts.devctl.common._terminate_subprocess_tree")
+    @patch("dev.scripts.devctl.common.subprocess.Popen")
+    def test_interrupt_terminates_subprocess_tree(
+        self,
+        popen_mock,
+        terminate_mock,
+    ) -> None:
+        class InterruptingStdout:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                raise KeyboardInterrupt
+
+            def close(self):
+                return None
+
+        process = SimpleNamespace(
+            stdout=InterruptingStdout(),
+            wait=lambda timeout=None: 0,
+            poll=lambda: None,
+            pid=4242,
+        )
+        popen_mock.return_value = process
+
+        with self.assertRaises(KeyboardInterrupt):
+            common._run_with_live_output([sys.executable, "-c", "print('x')"], cwd=None, env=None)
+
+        terminate_mock.assert_called_once_with(process)
 
 
 class FormatStepsMarkdownTests(TestCase):

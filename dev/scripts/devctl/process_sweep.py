@@ -5,7 +5,8 @@ Why this exists:
 - sometimes `cargo test` appears to "hang" and people force-stop it, which has
   the same orphan-process risk as a normal interrupt
 - interrupted runs can leave detached `voiceterm-*` test binaries alive
-- those orphaned processes can keep using CPU/memory and make later runs flaky
+- both orphaned and stale long-running test processes can keep using CPU/memory
+  and make later runs flaky
 - `check` uses this to clean before/after runs; `hygiene` uses it to report leaks
 - this cleanup applies to local dev runs and AI-agent runs so one stuck test does
   not silently impact everyone else sharing the repo/worktree
@@ -22,6 +23,7 @@ from typing import Pattern
 
 PROCESS_SWEEP_CMD = ["ps", "-axo", "pid=,ppid=,etime=,command="]
 DEFAULT_ORPHAN_MIN_AGE_SECONDS = 60
+DEFAULT_STALE_MIN_AGE_SECONDS = 600
 # Match both full-path and basename launch styles:
 # - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
 # - voiceterm-deadbeef --nocapture
@@ -130,6 +132,19 @@ def split_orphaned_processes(
     ]
     active = [row for row in rows if row not in orphaned]
     return orphaned, active
+
+
+def split_stale_processes(
+    rows: list[dict], *, min_age_seconds: int = DEFAULT_STALE_MIN_AGE_SECONDS
+) -> tuple[list[dict], list[dict]]:
+    """Split rows into `stale` vs `recent` using elapsed runtime age."""
+    stale = [
+        row
+        for row in rows
+        if row["elapsed_seconds"] >= 0 and row["elapsed_seconds"] >= min_age_seconds
+    ]
+    recent = [row for row in rows if row not in stale]
+    return stale, recent
 
 
 def kill_processes(rows: list[dict], *, kill_signal: int = signal.SIGKILL) -> tuple[list[int], list[str]]:

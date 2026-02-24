@@ -114,6 +114,29 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertIn("Active voiceterm test binaries detected", report["warnings"][0])
 
     @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
+    def test_runtime_process_audit_errors_for_stale_active_test_binary(
+        self, scan_mock: mock.Mock
+    ) -> None:
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 3333,
+                    "ppid": 777,
+                    "etime": "15:00",
+                    "elapsed_seconds": 900,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-feedface",
+                }
+            ],
+            [],
+        )
+
+        report = hygiene._audit_runtime_processes()
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertTrue(report["errors"])
+        self.assertIn("Stale active voiceterm test binaries detected", report["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_warns_when_ps_unavailable(self, scan_mock: mock.Mock) -> None:
         scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
         with mock.patch.dict("os.environ", {"CI": ""}, clear=False):

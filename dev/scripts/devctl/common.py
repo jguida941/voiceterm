@@ -2,6 +2,7 @@
 
 from collections import deque
 import os
+import signal
 import shutil
 import subprocess
 import time
@@ -12,6 +13,7 @@ from .config import REPO_ROOT, SRC_DIR
 
 FAILURE_OUTPUT_MAX_LINES = 60
 FAILURE_OUTPUT_MAX_CHARS = 8000
+INTERRUPT_KILL_GRACE_SECONDS = 3.0
 
 
 def cmd_str(cmd: List[str]) -> str:
@@ -41,15 +43,71 @@ def _run_with_live_output(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        start_new_session=True,
     )
     output_tail: Deque[str] = deque(maxlen=FAILURE_OUTPUT_MAX_LINES)
     if process.stdout is None:
-        return process.wait(), ""
-    for line in process.stdout:
-        print(line, end="")
-        output_tail.append(line.rstrip("\n"))
-    process.stdout.close()
-    return process.wait(), "\n".join(output_tail)
+        try:
+            return process.wait(), ""
+        except KeyboardInterrupt:
+            _terminate_subprocess_tree(process)
+            raise
+    try:
+        for line in process.stdout:
+            print(line, end="")
+            output_tail.append(line.rstrip("\n"))
+        return process.wait(), "\n".join(output_tail)
+    except KeyboardInterrupt:
+        _terminate_subprocess_tree(process)
+        raise
+    finally:
+        process.stdout.close()
+
+
+def _terminate_subprocess_tree(
+    process: subprocess.Popen,
+    *,
+    grace_seconds: float = INTERRUPT_KILL_GRACE_SECONDS,
+) -> None:
+    """Best-effort process-group teardown used for interrupted local runs."""
+    if process.poll() is not None:
+        return
+
+    if os.name == "nt":
+        process.terminate()
+        try:
+            process.wait(timeout=grace_seconds)
+            return
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            return
+
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except OSError:
+        try:
+            process.terminate()
+        except OSError:
+            return
+    try:
+        process.wait(timeout=grace_seconds)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError:
+        try:
+            process.kill()
+        except OSError:
+            return
+    process.wait()
 
 
 def run_cmd(
@@ -74,6 +132,17 @@ def run_cmd(
 
     try:
         returncode, output_tail = _run_with_live_output(cmd, cwd=cwd, env=env)
+    except KeyboardInterrupt:
+        duration = time.time() - start
+        return {
+            "name": name,
+            "cmd": cmd,
+            "cwd": str(cwd or REPO_ROOT),
+            "returncode": 130,
+            "duration_s": round(duration, 2),
+            "skipped": False,
+            "error": "interrupted; subprocess tree terminated",
+        }
     except OSError as exc:
         duration = time.time() - start
         return {

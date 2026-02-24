@@ -15,13 +15,16 @@ from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
+    DEFAULT_STALE_MIN_AGE_SECONDS,
     format_process_rows,
     scan_voiceterm_test_binaries,
     split_orphaned_processes,
+    split_stale_processes,
 )
 from . import hygiene_audits
 
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
+STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 8
 
@@ -71,6 +74,10 @@ def _audit_runtime_processes() -> Dict:
         test_processes,
         min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
     )
+    stale_active, fresh_active = split_stale_processes(
+        active,
+        min_age_seconds=STALE_ACTIVE_TEST_MIN_AGE_SECONDS,
+    )
 
     if orphaned:
         errors.append(
@@ -78,16 +85,23 @@ def _audit_runtime_processes() -> Dict:
             "Stop leaked runners before continuing: "
             f"{_format_process_rows(orphaned)}"
         )
-    if active:
+    if stale_active:
+        errors.append(
+            "Stale active voiceterm test binaries detected. "
+            f"Any process running >= {STALE_ACTIVE_TEST_MIN_AGE_SECONDS}s should be stopped: "
+            f"{_format_process_rows(stale_active)}"
+        )
+    if fresh_active:
         warnings.append(
             "Active voiceterm test binaries detected during hygiene run: "
-            f"{_format_process_rows(active)}"
+            f"{_format_process_rows(fresh_active)}"
         )
 
     return {
         "total_detected": len(test_processes),
         "orphaned": orphaned,
-        "active": active,
+        "stale_active": stale_active,
+        "active": fresh_active,
         "errors": errors,
         "warnings": warnings,
     }

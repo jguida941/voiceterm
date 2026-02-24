@@ -47,7 +47,7 @@ python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py check --profile release
 # Optional: force sequential check execution (parallel phases are default)
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
-# Optional: disable automatic orphaned-test cleanup sweep
+# Optional: disable automatic orphaned/stale test-process cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
 # Docs + governance checks
@@ -79,6 +79,7 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
+# CodeRabbit release gate: local GitHub-connectivity outages warn-only outside CI/release lanes.
 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -198,13 +199,13 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
   - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
   - Tune parallelism with `--parallel-workers <n>` or force sequential execution with `--no-parallel`.
-  - Runs an automatic orphaned-test sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`).
+  - Runs an automatic orphaned/stale test-process sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Disable only when needed with `--no-process-sweep-cleanup`.
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + stale-path audit)
-- `hygiene`: archive/ADR/scripts governance checks plus orphaned `target/debug/deps/voiceterm-*` test-process detection
+- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`)
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)

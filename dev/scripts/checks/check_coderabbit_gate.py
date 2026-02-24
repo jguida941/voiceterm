@@ -12,6 +12,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from dev.scripts.checks.coderabbit_gate_support import (
+        is_ci_environment,
+        local_workflow_exists_by_name,
+        looks_like_connectivity_error,
+    )
+except ModuleNotFoundError:
+    from coderabbit_gate_support import (
+        is_ci_environment,
+        local_workflow_exists_by_name,
+        looks_like_connectivity_error,
+    )
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORKFLOW = "CodeRabbit Triage Bridge"
 DEFAULT_LIMIT = 50
@@ -81,33 +94,8 @@ def _current_branch_name() -> str:
     return branch
 
 
-def _workflow_name_from_file(path: Path) -> str:
-    try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
-    for line in raw.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.lower().startswith("name:"):
-            value = stripped.split(":", 1)[1].strip().strip("\"'")
-            return value
-        break
-    return ""
-
-
 def _local_workflow_exists_by_name(workflow_name: str) -> bool:
-    workflows_dir = REPO_ROOT / ".github" / "workflows"
-    if not workflows_dir.is_dir():
-        return False
-    for candidate in workflows_dir.glob("*.yml"):
-        if _workflow_name_from_file(candidate) == workflow_name:
-            return True
-    for candidate in workflows_dir.glob("*.yaml"):
-        if _workflow_name_from_file(candidate) == workflow_name:
-            return True
-    return False
+    return local_workflow_exists_by_name(REPO_ROOT, workflow_name)
 
 
 def _gh_run_list(
@@ -147,6 +135,14 @@ def _gh_run_list(
     if not isinstance(payload, list):
         return [], "unexpected_gh_run_list_payload"
     return [row for row in payload if isinstance(row, dict)], None
+
+
+def _is_ci_environment() -> bool:
+    return is_ci_environment()
+
+
+def _looks_like_connectivity_error(message: str) -> bool:
+    return looks_like_connectivity_error(message)
 
 
 def _parse_iso(value: Any) -> tuple[bool, datetime]:
@@ -223,6 +219,14 @@ def _build_report(args) -> dict:
             report["warnings"].append(
                 "workflow is defined locally but not found on the requested branch; "
                 "treated as non-blocking outside that target branch."
+            )
+            return report
+        if _looks_like_connectivity_error(run_error) and not _is_ci_environment():
+            report["ok"] = True
+            report["reason"] = "gh_unreachable_local_non_blocking"
+            report["warnings"].append(
+                "unable to reach GitHub API from local environment; "
+                "treated as non-blocking outside CI/release lanes."
             )
             return report
         report["reason"] = run_error

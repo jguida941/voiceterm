@@ -16,11 +16,11 @@ from typing import List
 from ..common import build_env, pipe_output, run_cmd, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..process_sweep import (
-    DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     kill_processes,
     parse_etime_seconds,
     scan_voiceterm_test_binaries,
     split_orphaned_processes,
+    split_stale_processes,
 )
 from ..script_catalog import check_script_cmd
 from ..steps import format_steps_md
@@ -35,24 +35,13 @@ from .check_support import (
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
-ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
-
-
 def _parse_etime_seconds(raw: str) -> int | None:
     """Kept for test compatibility; delegates to shared process-sweep parsing."""
     return parse_etime_seconds(raw)
 
 
-def _scan_orphaned_voiceterm_test_binaries() -> tuple[list[dict], list[str]]:
-    rows, warnings = scan_voiceterm_test_binaries()
-    orphaned, _active = split_orphaned_processes(
-        rows, min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS
-    )
-    return orphaned, warnings
-
-
 def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> dict:
-    """Clean up detached test binaries so local runs stay stable over time."""
+    """Clean up detached/stale test binaries so local runs stay stable over time."""
     start = time.time()
     if dry_run:
         return {
@@ -65,23 +54,31 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
             "warnings": [],
             "killed_pids": [],
             "detected_orphans": 0,
+            "detected_stale_active": 0,
         }
 
-    orphaned, warnings = _scan_orphaned_voiceterm_test_binaries()
-    killed_pids, kill_warnings = kill_processes(orphaned)
+    rows, warnings = scan_voiceterm_test_binaries()
+    orphaned, active = split_orphaned_processes(rows)
+    stale_active, _recent_active = split_stale_processes(active)
+    cleanup_targets = [*orphaned, *stale_active]
+    killed_pids, kill_warnings = kill_processes(cleanup_targets)
 
     for warning in warnings:
         print(f"[{step_name}] warning: {warning}")
     if orphaned:
         print(f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test binaries")
+    if stale_active:
+        print(
+            f"[{step_name}] detected {len(stale_active)} stale active voiceterm test binaries"
+        )
     if killed_pids:
-        print(f"[{step_name}] killed {len(killed_pids)} orphaned voiceterm test binaries")
+        print(f"[{step_name}] killed {len(killed_pids)} orphaned/stale voiceterm test binaries")
     for warning in kill_warnings:
         print(f"[{step_name}] warning: {warning}")
 
     return {
         "name": step_name,
-        "cmd": ["internal", "process-sweep", "--kill-orphans"],
+        "cmd": ["internal", "process-sweep", "--kill-orphans-or-stale"],
         "cwd": str(REPO_ROOT),
         "returncode": 0,
         "duration_s": round(time.time() - start, 2),
@@ -89,6 +86,7 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
         "warnings": warnings + kill_warnings,
         "killed_pids": killed_pids,
         "detected_orphans": len(orphaned),
+        "detected_stale_active": len(stale_active),
     }
 
 

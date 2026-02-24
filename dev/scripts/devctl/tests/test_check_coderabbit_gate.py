@@ -165,3 +165,39 @@ class CheckCodeRabbitGateTests(TestCase):
 
         self.assertFalse(report["ok"])
         self.assertIn("gh_run_list_failed", report["reason"])
+
+    def test_connectivity_error_is_non_blocking_outside_ci(self) -> None:
+        def fake_run_capture(cmd: list[str]):
+            if cmd[:3] == ["gh", "run", "list"]:
+                return 1, "", "error connecting to api.github.com"
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "develop\n", ""
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        with (
+            patch.object(self.script, "_run_capture", side_effect=fake_run_capture),
+            patch.dict("os.environ", {"CI": ""}, clear=False),
+        ):
+            report = self.script._build_report(self._args(branch="master"))
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["reason"], "gh_unreachable_local_non_blocking")
+        warnings = report.get("warnings") or []
+        self.assertTrue(any("non-blocking" in warning for warning in warnings))
+
+    def test_connectivity_error_still_fails_in_ci(self) -> None:
+        def fake_run_capture(cmd: list[str]):
+            if cmd[:3] == ["gh", "run", "list"]:
+                return 1, "", "error connecting to api.github.com"
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "develop\n", ""
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        with (
+            patch.object(self.script, "_run_capture", side_effect=fake_run_capture),
+            patch.dict("os.environ", {"CI": "true"}, clear=False),
+        ):
+            report = self.script._build_report(self._args(branch="master"))
+
+        self.assertFalse(report["ok"])
+        self.assertIn("gh_run_list_failed", report["reason"])

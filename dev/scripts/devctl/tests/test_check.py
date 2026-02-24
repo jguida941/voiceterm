@@ -394,8 +394,8 @@ class CheckProcessSweepTests(TestCase):
         self.assertIsNone(check._parse_etime_seconds("bad"))
 
     @patch("dev.scripts.devctl.commands.check.kill_processes")
-    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
-    def test_cleanup_kills_only_orphaned_voiceterm_test_binaries(
+    @patch("dev.scripts.devctl.commands.check.scan_voiceterm_test_binaries")
+    def test_cleanup_kills_orphaned_and_stale_voiceterm_test_binaries(
         self,
         scan_mock,
         kill_mock,
@@ -408,21 +408,29 @@ class CheckProcessSweepTests(TestCase):
                     "etime": "05:00",
                     "elapsed_seconds": 300,
                     "command": "/tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4",
-                }
+                },
+                {
+                    "pid": 5678,
+                    "ppid": 777,
+                    "etime": "15:00",
+                    "elapsed_seconds": 900,
+                    "command": "/tmp/project/target/debug/deps/voiceterm-feedface --nocapture",
+                },
             ],
             [],
         )
-        kill_mock.return_value = ([1234], [])
+        kill_mock.return_value = ([1234, 5678], [])
 
         result = check._cleanup_orphaned_voiceterm_test_binaries("process-sweep-test", dry_run=False)
 
         kill_mock.assert_called_once()
         self.assertEqual(result["detected_orphans"], 1)
-        self.assertEqual(result["killed_pids"], [1234])
+        self.assertEqual(result["detected_stale_active"], 1)
+        self.assertEqual(result["killed_pids"], [1234, 5678])
         self.assertEqual(result["returncode"], 0)
 
     @patch("dev.scripts.devctl.commands.check.kill_processes")
-    @patch("dev.scripts.devctl.commands.check._scan_orphaned_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.scan_voiceterm_test_binaries")
     def test_cleanup_reports_warning_when_ps_unavailable(self, scan_mock, kill_mock) -> None:
         scan_mock.return_value = ([], ["Process sweep skipped: unable to execute ps (blocked)"])
         kill_mock.return_value = ([], [])
@@ -430,6 +438,7 @@ class CheckProcessSweepTests(TestCase):
 
         kill_mock.assert_called_once_with([])
         self.assertEqual(result["detected_orphans"], 0)
+        self.assertEqual(result["detected_stale_active"], 0)
         self.assertTrue(result["warnings"])
         self.assertEqual(result["returncode"], 0)
 

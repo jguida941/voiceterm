@@ -344,7 +344,7 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 
 - See `AGENTS.md` for which bundle to run (`bundle.runtime`, `bundle.docs`, `bundle.tooling`, `bundle.release`).
 - See this section for exact command syntax.
-- `devctl check` automatically sweeps orphaned test processes before and after each run.
+- `devctl check` automatically sweeps orphaned and stale test processes before and after each run (stale active threshold: `>=600s`).
 - `devctl check` runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
 
 ```bash
@@ -356,7 +356,7 @@ python3 dev/scripts/devctl.py check --profile ci
 # Optional: tune or disable parallel check batches
 python3 dev/scripts/devctl.py check --profile ci --parallel-workers 2
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
-# Optional: disable automatic orphaned-test cleanup sweep
+# Optional: disable automatic orphaned/stale test-process cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 
 # Pre-push scope (CI + perf + mem loop)
@@ -492,7 +492,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned `target/debug/deps/voiceterm-*` test binaries.
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`).
 - `python3 dev/scripts/checks/check_agents_contract.py`
 - `python3 dev/scripts/checks/check_active_plan_sync.py`
 - `python3 dev/scripts/checks/check_release_version_parity.py`
