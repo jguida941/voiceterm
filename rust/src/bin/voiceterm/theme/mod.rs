@@ -159,7 +159,7 @@ impl Theme {
     }
 
     /// List all available theme names.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn available() -> &'static [&'static str] {
         &[
             "chatgpt",

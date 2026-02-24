@@ -1,42 +1,26 @@
 #!/usr/bin/env python3
-"""
-VoiceTerm Mutation Testing Helper
-
-Interactive script for running mutation tests on specific modules.
-Outputs results in AI-readable format (JSON/markdown).
-
-Usage:
-    python3 dev/scripts/mutants.py                 # Interactive mode
-    python3 dev/scripts/mutants.py --all           # Run all modules
-    python3 dev/scripts/mutants.py --module audio  # Specific module
-    python3 dev/scripts/mutants.py --list          # List available modules
-    python3 dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
-"""
+"""VoiceTerm mutation testing helper."""
 
 import argparse
 import json
-import math
 import os
 import re
 import subprocess
 import sys
 from collections import Counter
-from typing import Optional
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
-# Module definitions with their source paths
+from mutants_plot import plot_hotspots
+
 MODULES = {
     "audio": {
         "desc": "Audio capture, VAD, resampling",
         "files": ["src/audio/**"],
         "timeout": 120,
     },
-    "stt": {
-        "desc": "Whisper transcription",
-        "files": ["src/stt.rs"],
-        "timeout": 120,
-    },
+    "stt": {"desc": "Whisper transcription", "files": ["src/stt.rs"], "timeout": 120},
     "voice": {
         "desc": "Voice capture orchestration",
         "files": ["src/voice.rs"],
@@ -52,11 +36,7 @@ MODULES = {
         "files": ["src/pty_session/**"],
         "timeout": 120,
     },
-    "ipc": {
-        "desc": "JSON IPC protocol",
-        "files": ["src/ipc/**"],
-        "timeout": 90,
-    },
+    "ipc": {"desc": "JSON IPC protocol", "files": ["src/ipc/**"], "timeout": 90},
     "app": {
         "desc": "Legacy TUI state and logging (compat alias)",
         "files": ["src/legacy_tui/**", "src/legacy_ui.rs"],
@@ -80,12 +60,20 @@ TIMEOUT_SUMMARIES = {"Timeout"}
 UNVIABLE_SUMMARIES = {"Unviable"}
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-SRC_DIR = REPO_ROOT / "src"
+
+
+def resolve_workspace_dir(repo_root: Path) -> Path:
+    for candidate in (repo_root / "rust", repo_root / "src"):
+        if (candidate / "Cargo.toml").exists():
+            return candidate
+    return repo_root / "rust"
+
+
+SRC_DIR = resolve_workspace_dir(REPO_ROOT)
 OUTPUT_DIR = SRC_DIR / "mutants.out"
 
 
 def find_latest_outcomes_file() -> Optional[Path]:
-    """Return the newest outcomes.json under mutants.out (if any)."""
     primary = OUTPUT_DIR / "outcomes.json"
     if primary.exists():
         return primary
@@ -97,81 +85,17 @@ def find_latest_outcomes_file() -> Optional[Path]:
 
 def isoformat_utc(timestamp: float) -> str:
     """Render a POSIX timestamp in stable UTC ISO-8601 format."""
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def age_hours_from_timestamp(timestamp: float) -> float:
     """Return age in fractional hours from now for a POSIX timestamp."""
     now = datetime.now(timezone.utc).timestamp()
     return max(0.0, (now - timestamp) / 3600.0)
-
-
-def normalize_top_pct(value: float) -> float:
-    """Normalize a percentage (0-1 or 0-100) into a 0-1 float."""
-    if value <= 0:
-        return 0.0
-    if value > 1:
-        return value / 100.0
-    return min(value, 1.0)
-
-
-def top_items(counter: Counter, top_pct: float) -> list[tuple[str, int]]:
-    """Return the top N items based on a percentage of the list length."""
-    items = counter.most_common()
-    if not items:
-        return []
-    pct = normalize_top_pct(top_pct)
-    if pct <= 0:
-        return []
-    count = max(1, int(math.ceil(len(items) * pct)))
-    return items[:count]
-
-
-def plot_hotspots(results, scope: str, top_pct: float, output_path: Optional[str], show: bool) -> None:
-    """Plot survived mutant hotspots (file or dir) using matplotlib."""
-    if results is None:
-        return
-    counter = results["survived_by_file"] if scope == "file" else results["survived_by_dir"]
-    items = top_items(counter, top_pct)
-    if not items:
-        print("No survived mutants to plot.")
-        return
-
-    try:
-        import matplotlib
-        if not os.environ.get("DISPLAY") and not os.environ.get("MPLBACKEND"):
-            # Headless-friendly default for CI/sandboxed runs.
-            matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print("matplotlib not installed. Install with: pip install matplotlib")
-        return
-
-    labels = [path for path, _ in items]
-    values = [count for _, count in items]
-    y_pos = list(range(len(labels)))
-
-    fig_height = max(3.0, 0.4 * len(labels))
-    fig, ax = plt.subplots(figsize=(10, fig_height))
-    ax.barh(y_pos, values, color="#3b82f6")
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.invert_yaxis()
-    ax.set_xlabel("Survived mutants")
-    ax.set_title(f"Top {scope} hotspots (top {normalize_top_pct(top_pct) * 100:.0f}%)")
-    fig.tight_layout()
-
-    results_dir = Path(results["results_dir"])
-    if output_path:
-        output_file = Path(output_path)
-    else:
-        output_file = results_dir / f"mutants-top-{scope}.png"
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_file, dpi=150)
-    print(f"Plot saved to: {output_file}")
-    if show:
-        plt.show()
-    plt.close(fig)
 
 
 def list_modules():
@@ -295,7 +219,14 @@ def scenario_fields(outcome: dict) -> dict:
     }
 
 
-def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, offline=False, shard=None):
+def run_mutants(
+    modules,
+    timeout=300,
+    cargo_home=None,
+    cargo_target_dir=None,
+    offline=False,
+    shard=None,
+):
     """Run cargo mutants on selected modules."""
     # Build file filter args
     file_args = []
@@ -309,9 +240,12 @@ def run_mutants(modules, timeout=300, cargo_home=None, cargo_target_dir=None, of
         return None
 
     cmd = [
-        "cargo", "mutants",
-        "--timeout", str(timeout),
-        "-o", "mutants.out",
+        "cargo",
+        "mutants",
+        "--timeout",
+        str(timeout),
+        "-o",
+        "mutants.out",
         "--json",
     ] + file_args
     if shard:
@@ -394,7 +328,9 @@ def parse_results():
         stats["total"] = len(outcomes)
 
     # Backward-compat fallback when top-level counters are absent.
-    if (stats["killed"] + stats["survived"] + stats["timeout"] + stats["unviable"]) == 0:
+    if (
+        stats["killed"] + stats["survived"] + stats["timeout"] + stats["unviable"]
+    ) == 0:
         stats.update(fallback)
 
     # Calculate score
@@ -446,7 +382,8 @@ def output_results(results, format="markdown", top_n=5):
     print("MUTATION TESTING RESULTS")
     print("=" * 60)
 
-    print(f"""
+    print(
+        f"""
 ## Summary
 
 | Metric | Value |
@@ -465,14 +402,17 @@ Results dir: {results_dir}
 Outcomes: {outcomes_path}
 Outcomes updated: {outcomes_updated_at}
 Outcomes age (hours): {outcomes_age_hours if outcomes_age_hours is not None else "unknown"}
-""")
+"""
+    )
 
     if survived:
         print("## Survived Mutants (need better tests)\n")
         print("| File | Line | Function | Mutation |")
         print("|------|------|----------|----------|")
         for m in survived[:20]:  # Limit to 20
-            print(f"| {m['file']} | {m['line']} | {m['function']} | {m['mutation'][:50]} |")
+            print(
+                f"| {m['file']} | {m['line']} | {m['function']} | {m['mutation'][:50]} |"
+            )
 
         if len(survived) > 20:
             print(f"\n... and {len(survived) - 20} more")
@@ -521,16 +461,28 @@ def main():
     parser = argparse.ArgumentParser(description="VoiceTerm Mutation Testing Helper")
     parser.add_argument("--all", action="store_true", help="Test all modules")
     parser.add_argument("--module", "-m", help="Specific module to test")
-    parser.add_argument("--list", "-l", action="store_true", help="List available modules")
+    parser.add_argument(
+        "--list", "-l", action="store_true", help="List available modules"
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--timeout", "-t", type=int, default=300, help="Timeout in seconds")
-    parser.add_argument("--results-only", action="store_true", help="Just parse existing results")
-    parser.add_argument("--offline", action="store_true", help="Set CARGO_NET_OFFLINE=true")
+    parser.add_argument(
+        "--timeout", "-t", type=int, default=300, help="Timeout in seconds"
+    )
+    parser.add_argument(
+        "--results-only", action="store_true", help="Just parse existing results"
+    )
+    parser.add_argument(
+        "--offline", action="store_true", help="Set CARGO_NET_OFFLINE=true"
+    )
     parser.add_argument("--cargo-home", help="Override CARGO_HOME for cargo mutants")
-    parser.add_argument("--cargo-target-dir", help="Override CARGO_TARGET_DIR for cargo mutants")
+    parser.add_argument(
+        "--cargo-target-dir", help="Override CARGO_TARGET_DIR for cargo mutants"
+    )
     parser.add_argument("--shard", help="Run one shard, e.g. 1/8")
     parser.add_argument("--top", type=int, default=5, help="Top N paths to summarize")
-    parser.add_argument("--plot", action="store_true", help="Render a matplotlib hotspot plot")
+    parser.add_argument(
+        "--plot", action="store_true", help="Render a matplotlib hotspot plot"
+    )
     parser.add_argument(
         "--plot-scope",
         choices=["file", "dir"],
@@ -544,7 +496,9 @@ def main():
         help="Top percentage to plot (0-1 or 0-100)",
     )
     parser.add_argument("--plot-output", help="Output path for the plot image")
-    parser.add_argument("--plot-show", action="store_true", help="Display the plot window")
+    parser.add_argument(
+        "--plot-show", action="store_true", help="Display the plot window"
+    )
 
     args = parser.parse_args()
 

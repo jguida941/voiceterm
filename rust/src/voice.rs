@@ -8,10 +8,11 @@ use crate::log_debug;
 use crate::stt;
 use anyhow::{anyhow, Result};
 use regex::Regex;
+use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Shows what initiated voice capture.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -34,10 +35,32 @@ pub struct VoiceJob {
     pub stop_flag: Arc<AtomicBool>,
 }
 
+const VOICE_JOB_JOIN_POLL_MS: u64 = 5;
+const VOICE_JOB_JOIN_TIMEOUT_MS: u64 = 200;
+
 impl VoiceJob {
     /// Signal the voice capture to stop early and process what was recorded.
     pub fn request_stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
+    }
+}
+
+impl Drop for VoiceJob {
+    fn drop(&mut self) {
+        self.request_stop();
+        if let Some(handle) = self.handle.take() {
+            let deadline = Instant::now() + Duration::from_millis(VOICE_JOB_JOIN_TIMEOUT_MS);
+            while !handle.is_finished() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(VOICE_JOB_JOIN_POLL_MS));
+            }
+            if handle.is_finished() {
+                if let Err(err) = handle.join() {
+                    log_debug(&format!("voice job drop: worker panicked: {err:?}"));
+                }
+            } else {
+                log_debug("voice job drop: worker still running after timeout; detaching");
+            }
+        }
     }
 }
 
@@ -61,8 +84,61 @@ pub enum VoiceJobMessage {
         metrics: Option<audio::CaptureMetrics>,
     },
     /// Capture or transcription failed.
-    Error(String),
+    Error(VoiceError),
 }
+
+/// Typed voice capture failure classes so callers can react by category.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum VoiceError {
+    /// Generic failure message preserved for compatibility paths.
+    Message(String),
+    /// Native path failed and Python fallback was intentionally disabled.
+    PythonFallbackDisabled { native_reason: String },
+    /// Native path failed and Python fallback also failed.
+    PythonFallbackFailed {
+        native_reason: String,
+        python_reason: String,
+    },
+    /// Worker channel disconnected unexpectedly.
+    WorkerDisconnectedUnexpectedly,
+}
+
+impl VoiceError {
+    /// Stable reason code for telemetry/audit surfaces.
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Message(_) => "message",
+            Self::PythonFallbackDisabled { .. } => "python_fallback_disabled",
+            Self::PythonFallbackFailed { .. } => "python_fallback_failed",
+            Self::WorkerDisconnectedUnexpectedly => "worker_disconnected_unexpectedly",
+        }
+    }
+}
+
+impl fmt::Display for VoiceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Message(message) => write!(f, "{message}"),
+            Self::PythonFallbackDisabled { native_reason } => write!(
+                f,
+                "native pipeline failed ({native_reason}); python fallback disabled (--no-python-fallback)"
+            ),
+            Self::PythonFallbackFailed {
+                native_reason,
+                python_reason,
+            } => write!(
+                f,
+                "native pipeline failed ({native_reason}); python fallback failed ({python_reason})"
+            ),
+            Self::WorkerDisconnectedUnexpectedly => {
+                write!(f, "voice capture worker disconnected unexpectedly")
+            }
+        }
+    }
+}
+
+impl std::error::Error for VoiceError {}
 
 /// Identifies whether the Rust or Python path produced the transcript.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -155,9 +231,9 @@ fn run_python_fallback(
     meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     if config.no_python_fallback {
-        return VoiceJobMessage::Error(format!(
-            "native pipeline failed ({native_msg}); python fallback disabled (--no-python-fallback)"
-        ));
+        return VoiceJobMessage::Error(VoiceError::PythonFallbackDisabled {
+            native_reason: native_msg.to_string(),
+        });
     }
 
     log_debug(&format!(
@@ -182,9 +258,10 @@ fn run_python_fallback(
                 }
             }
         }
-        Err(python_err) => VoiceJobMessage::Error(format!(
-            "native pipeline failed ({native_msg}); python fallback failed ({python_err:#})"
-        )),
+        Err(python_err) => VoiceJobMessage::Error(VoiceError::PythonFallbackFailed {
+            native_reason: native_msg.to_string(),
+            python_reason: format!("{python_err:#}"),
+        }),
     }
 }
 
@@ -195,9 +272,9 @@ fn fallback_or_error(
     meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     if config.no_python_fallback {
-        VoiceJobMessage::Error(format!(
-            "native pipeline failed ({native_msg}); python fallback disabled (--no-python-fallback)"
-        ))
+        VoiceJobMessage::Error(VoiceError::PythonFallbackDisabled {
+            native_reason: native_msg.to_string(),
+        })
     } else {
         run_python_fallback(config, native_msg, stop_flag, meter)
     }
@@ -210,7 +287,10 @@ fn call_python_transcription(
     #[cfg(test)]
     {
         if let Some(storage) = PYTHON_TRANSCRIPTION_HOOK.get() {
-            let guard = storage.lock().unwrap_or_else(|e| e.into_inner());
+            let guard = storage.lock().unwrap_or_else(|poisoned| {
+                log_debug("voice test hook storage lock poisoned; recovering");
+                poisoned.into_inner()
+            });
             if let Some(hook) = guard.as_ref() {
                 return hook(config, stop_flag);
             }
@@ -236,7 +316,10 @@ static PYTHON_TRANSCRIPTION_HOOK: OnceLock<Mutex<Option<PythonTranscriptionHook>
 #[cfg(test)]
 pub(crate) fn set_python_transcription_hook(hook: Option<PythonTranscriptionHook>) {
     let storage = PYTHON_TRANSCRIPTION_HOOK.get_or_init(|| Mutex::new(None));
-    *storage.lock().unwrap_or_else(|e| e.into_inner()) = hook;
+    *storage.lock().unwrap_or_else(|poisoned| {
+        log_debug("voice test hook storage lock poisoned; recovering");
+        poisoned.into_inner()
+    }) = hook;
 }
 
 /// Record audio, run Whisper, and return the trimmed transcript.
@@ -406,7 +489,10 @@ mod tests {
         let _guard = TEST_HOOK_GUARD
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .unwrap_or_else(|e| e.into_inner());
+            .unwrap_or_else(|poisoned| {
+                log_debug("voice test hook guard lock poisoned; recovering");
+                poisoned.into_inner()
+            });
 
         set_python_transcription_hook(Some(hook));
 
@@ -483,10 +569,14 @@ mod tests {
         });
 
         match message {
-            VoiceJobMessage::Error(text) => {
+            VoiceJobMessage::Error(VoiceError::PythonFallbackFailed {
+                native_reason,
+                python_reason,
+            }) => {
+                assert_eq!(native_reason, "native blew up");
                 assert!(
-                    text.contains("native blew up") && text.contains("python boom"),
-                    "error should include both paths, got {text}"
+                    python_reason.contains("python boom"),
+                    "error should include python failure, got {python_reason}"
                 );
             }
             other => panic!("expected error, got {other:?}"),
@@ -567,11 +657,8 @@ mod tests {
             perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)), None);
 
         match message {
-            VoiceJobMessage::Error(text) => {
-                assert!(
-                    text.contains("python fallback disabled"),
-                    "expected disable hint, got {text}"
-                );
+            VoiceJobMessage::Error(VoiceError::PythonFallbackDisabled { native_reason }) => {
+                assert_eq!(native_reason, "native pipeline unavailable");
             }
             other => panic!("expected error, got {other:?}"),
         }

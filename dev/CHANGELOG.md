@@ -7,6 +7,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Runtime Hardening
+
+- Type `VoiceJobMessage::Error` payloads with `VoiceError` variants and bounded drop-time worker join behavior so voice thread lifecycle and downstream error handling are deterministic.
+- Harden Whisper model-load stderr suppression with an RAII restore guard so stderr is restored on every exit path.
+- Parse custom backend commands with `shell_words` (quoted-arg aware) plus fallback behavior for malformed shell syntax.
+
+### Packaging
+
+- Fix PyPI launcher bootstrap Cargo-manifest detection to support both `rust/` (current workspace layout) and legacy `src/` repositories.
+
 ## [1.0.92] - 2026-02-24
 ### Persistence
 

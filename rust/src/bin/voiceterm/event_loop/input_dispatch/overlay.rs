@@ -84,9 +84,6 @@ pub(super) fn handle_overlay_input_event(
                 OverlayMode::ToastHistory => {
                     render_toast_history_overlay_for_state(state, deps);
                 }
-                OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
-                    // Placeholder: re-render after theme cycle when overlays ship.
-                }
                 OverlayMode::None => {}
             }
             None

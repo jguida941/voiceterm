@@ -11,10 +11,12 @@ use crate::config::{HudStyle, VoiceSendMode};
 use crate::status_style::StatusType;
 #[cfg(test)]
 use crate::theme::VoiceSceneStyle;
-use crate::theme::{filled_indicator, BorderSet, Theme, ThemeColors};
+use crate::theme::{BorderSet, Theme, ThemeColors};
 
-use super::animation::{get_processing_spinner, recording_pulse_on};
 use super::layout::{breakpoints, effective_hud_style_for_state};
+use super::mode_indicator::{
+    processing_mode_indicator, recording_indicator_color, recording_mode_indicator,
+};
 use super::right_panel::format_minimal_right_panel as minimal_right_panel;
 #[cfg(test)]
 use super::right_panel::{
@@ -35,8 +37,6 @@ use badges::{
 
 // Keep the minimal dB lane stable even before the first meter sample arrives.
 const MINIMAL_DB_FLOOR: f32 = -60.0;
-// Keep hidden-launcher text/button close to terminal-native dull gray.
-const HIDDEN_LAUNCHER_MUTED_ANSI: &str = "\x1b[90m";
 const FOCUSED_PILL_EMPHASIS_ANSI: &str = "\x1b[1m";
 
 /// Get clickable button positions for the current state.
@@ -78,31 +78,12 @@ pub fn get_button_positions(
 }
 
 #[inline]
-fn base_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
-    match mode {
-        VoiceMode::Auto => colors.indicator_auto,
-        VoiceMode::Manual => colors.indicator_manual,
-        VoiceMode::Idle => colors.indicator_idle,
-    }
-}
-
-#[inline]
-fn recording_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
-    filled_indicator(base_mode_indicator(mode, colors))
-}
-
-#[inline]
 fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
     if color.is_empty() {
         text.to_string()
     } else {
         format!("{color}{text}{}", colors.reset)
     }
-}
-
-#[inline]
-fn processing_mode_indicator(colors: &ThemeColors) -> &str {
-    get_processing_spinner(colors)
 }
 
 fn minimal_strip_text(state: &StatusLineState, colors: &ThemeColors) -> String {
@@ -224,15 +205,6 @@ fn minimal_status_text(state: &StatusLineState, colors: &ThemeColors) -> Option<
     Some(colored)
 }
 
-#[inline]
-fn recording_indicator_color(colors: &ThemeColors) -> &str {
-    if recording_pulse_on() {
-        colors.recording
-    } else {
-        colors.dim
-    }
-}
-
 pub(super) fn format_minimal_strip_with_button(
     state: &StatusLineState,
     colors: &ThemeColors,
@@ -282,7 +254,7 @@ pub(super) fn hidden_muted_color(colors: &ThemeColors) -> &str {
     if colors.reset.is_empty() {
         ""
     } else {
-        HIDDEN_LAUNCHER_MUTED_ANSI
+        colors.dim
     }
 }
 
@@ -418,21 +390,6 @@ fn format_shortcuts_row(
     line
 }
 
-/// Legacy format_shortcuts_row without position tracking.
-#[cfg(test)]
-fn format_shortcuts_row_legacy(
-    state: &StatusLineState,
-    colors: &ThemeColors,
-    borders: &BorderSet,
-    inner_width: usize,
-) -> String {
-    let shortcuts_str = format_button_row(state, colors, inner_width);
-
-    // Add leading space to match main row's left margin
-    let interior = format!(" {}", shortcuts_str);
-    wrap_shortcuts_row(&interior, colors, borders, inner_width)
-}
-
 /// Button definition for position tracking.
 struct ButtonDef {
     label: &'static str,
@@ -486,8 +443,6 @@ fn get_button_defs(state: &StatusLineState) -> Vec<ButtonDef> {
 const ROW_ITEM_SEPARATOR: &str = " · ";
 const COMPACT_ITEM_SEPARATOR: &str = " ";
 const COMPACT_BUTTON_INDICES: [usize; 6] = [0, 1, 2, 3, 5, 6];
-#[cfg(test)]
-const LEGACY_COMPACT_ITEM_INDICES: [usize; 5] = [0, 1, 2, 3, 5];
 
 fn wrap_shortcuts_row(
     interior: &str,
@@ -684,87 +639,6 @@ fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width:
     row
 }
 
-#[cfg(test)]
-fn format_button_row_legacy(
-    state: &StatusLineState,
-    colors: &ThemeColors,
-    inner_width: usize,
-) -> String {
-    let mut items = Vec::new();
-
-    // rec - RED when recording, yellow when processing, dim when idle
-    let rec_color = match state.recording_state {
-        RecordingState::Recording => colors.recording,
-        RecordingState::Processing => colors.processing,
-        RecordingState::Responding => colors.info,
-        RecordingState::Idle => "",
-    };
-    items.push(format_button(colors, "rec", rec_color, false));
-
-    // auto/ptt - blue when auto-voice, dim when ptt
-    let (voice_label, voice_color) = if state.auto_voice_enabled {
-        ("auto", colors.info) // blue = auto-voice on
-    } else {
-        ("ptt", "") // dim = push-to-talk mode
-    };
-    items.push(format_button(colors, voice_label, voice_color, false));
-
-    // send mode: auto/insert - green when auto-send, yellow when insert
-    let (send_label, send_color) = match state.send_mode {
-        VoiceSendMode::Auto => ("send", colors.success), // green = auto-send
-        VoiceSendMode::Insert => ("edit", colors.warning), // yellow = insert/edit mode
-    };
-    items.push(format_button(colors, send_label, send_color, false));
-
-    // Static buttons - always dim
-    items.push(format_button(colors, "set", "", false));
-    items.push(format_button(colors, "hud", "", false));
-    items.push(format_button(colors, "help", "", false));
-    items.push(format_button(colors, "studio", "", false));
-
-    // Queue badge - modern pill style
-    if let Some(queue_badge) = format_queue_badge(state, colors) {
-        items.push(queue_badge);
-    }
-    if let Some(wake_badge) = format_wake_badge(state, colors) {
-        items.push(wake_badge);
-    }
-    if let Some(image_badge) = format_image_badge(state, colors) {
-        items.push(image_badge);
-    }
-    if let Some(dev_badge) = format_dev_badge(state, colors) {
-        items.push(dev_badge);
-    }
-
-    if let Some(latency_badge) = format_latency_badge(state, colors, false) {
-        items.push(latency_badge);
-    }
-
-    let row = items.join(ROW_ITEM_SEPARATOR);
-    if display_width(&row) <= inner_width {
-        return row;
-    }
-
-    // Compact: keep essentials (rec/auto/send/settings/help)
-    let mut compact: Vec<String> = LEGACY_COMPACT_ITEM_INDICES
-        .iter()
-        .map(|idx| items[*idx].clone())
-        .collect();
-    if let Some(queue_badge) = format_queue_badge(state, colors) {
-        compact.push(queue_badge);
-    }
-    if let Some(wake_badge) = format_wake_badge(state, colors) {
-        compact.push(wake_badge);
-    }
-    if let Some(image_badge) = format_image_badge(state, colors) {
-        compact.push(image_badge);
-    }
-    if let Some(dev_badge) = format_dev_badge(state, colors) {
-        compact.push(dev_badge);
-    }
-    truncate_display(&compact.join(COMPACT_ITEM_SEPARATOR), inner_width)
-}
-
 /// Format a clickable button - colored label when active, dim otherwise.
 /// Style: `[label]` - brackets for clickable appearance, no shortcut prefix.
 #[inline]
@@ -820,32 +694,6 @@ fn pill_bracket_color<'a>(colors: &'a ThemeColors, highlight: &'a str, focused: 
     } else {
         highlight
     }
-}
-
-/// Legacy format with shortcut key prefix (for help display).
-#[inline]
-#[allow(dead_code)]
-fn format_shortcut_colored(
-    colors: &ThemeColors,
-    key: &str,
-    label: &str,
-    highlight: &str,
-) -> String {
-    let mut content = String::with_capacity(48);
-    content.push_str(colors.dim);
-    content.push_str(key);
-    content.push_str(colors.reset);
-    content.push(' ');
-    if highlight.is_empty() {
-        content.push_str(colors.dim);
-        content.push_str(label);
-        content.push_str(colors.reset);
-    } else {
-        content.push_str(highlight);
-        content.push_str(label);
-        content.push_str(colors.reset);
-    }
-    format_shortcut_pill(&content, colors, colors.dim, false)
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use voiceterm::audio::CaptureMetrics;
 use voiceterm::config::AppConfig;
+use voiceterm::voice::VoiceError;
 
 #[derive(Default)]
 struct StubSession {
@@ -317,7 +318,7 @@ fn should_clear_latency_for_empty_depends_on_auto_mode() {
 
 #[test]
 fn should_clear_latency_for_error_is_always_true() {
-    let error = VoiceJobMessage::Error("mic unavailable".to_string());
+    let error = VoiceJobMessage::Error(VoiceError::Message("mic unavailable".to_string()));
     assert!(should_clear_latency_for_message(&error, false));
     assert!(should_clear_latency_for_message(&error, true));
 }

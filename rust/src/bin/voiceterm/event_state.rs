@@ -12,7 +12,7 @@ use crate::buttons::ButtonRegistry;
 use crate::config::OverlayConfig;
 use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
 use crate::input::InputEvent;
-use crate::memory::{ActionCenterState, MemoryIngestor};
+use crate::memory::MemoryIngestor;
 use crate::overlays::OverlayMode;
 use crate::prompt::{ClaudePromptDetector, PromptTracker};
 use crate::session_memory::SessionMemoryLogger;
@@ -28,6 +28,11 @@ use crate::voice_macros::VoiceMacros;
 use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 use crate::writer::WriterMessage;
 
+pub(crate) type ThemeStudioSelectionIndex = usize;
+pub(crate) type ThemePickerSelectionIndex = usize;
+pub(crate) type SpinnerFrameIndex = usize;
+pub(crate) type InputBufferOffset = usize;
+
 pub(crate) struct EventLoopState {
     pub(crate) config: OverlayConfig,
     pub(crate) status_state: StatusLineState,
@@ -37,10 +42,10 @@ pub(crate) struct EventLoopState {
     pub(crate) overlay_mode: OverlayMode,
     pub(crate) settings_menu: SettingsMenuState,
     pub(crate) meter_levels: VecDeque<f32>,
-    pub(crate) theme_studio_selected: usize,
+    pub(crate) theme_studio_selected: ThemeStudioSelectionIndex,
     pub(crate) theme_studio_undo_history: Vec<RuntimeStylePackOverrides>,
     pub(crate) theme_studio_redo_history: Vec<RuntimeStylePackOverrides>,
-    pub(crate) theme_picker_selected: usize,
+    pub(crate) theme_picker_selected: ThemePickerSelectionIndex,
     pub(crate) theme_picker_digits: String,
     pub(crate) current_status: Option<String>,
     pub(crate) pending_transcripts: VecDeque<PendingTranscript>,
@@ -53,10 +58,10 @@ pub(crate) struct EventLoopState {
     pub(crate) terminal_cols: u16,
     pub(crate) last_recording_duration: f32,
     pub(crate) meter_floor_started_at: Option<Instant>,
-    pub(crate) processing_spinner_index: usize,
+    pub(crate) processing_spinner_index: SpinnerFrameIndex,
     pub(crate) pending_pty_output: Option<Vec<u8>>,
     pub(crate) pending_pty_input: VecDeque<Vec<u8>>,
-    pub(crate) pending_pty_input_offset: usize,
+    pub(crate) pending_pty_input_offset: InputBufferOffset,
     pub(crate) pending_pty_input_bytes: usize,
     pub(crate) suppress_startup_escape_input: bool,
     pub(crate) force_send_on_next_transcript: bool,
@@ -67,8 +72,6 @@ pub(crate) struct EventLoopState {
     pub(crate) last_toast_status: Option<String>,
     pub(crate) toast_center: ToastCenter,
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
-    #[allow(dead_code)]
-    pub(crate) action_center_state: ActionCenterState,
 }
 
 pub(crate) struct EventLoopTimers {

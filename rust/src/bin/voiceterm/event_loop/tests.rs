@@ -365,7 +365,6 @@ fn build_harness(
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
-        action_center_state: crate::memory::ActionCenterState::new(),
     };
 
     let now = Instant::now();

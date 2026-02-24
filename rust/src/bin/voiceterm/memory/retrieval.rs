@@ -38,6 +38,7 @@ pub(crate) enum RetrievalQuery {
 
 /// Execute a retrieval query against the memory index.
 /// Returns scored results with provenance, ordered by relevance.
+#[must_use = "retrieval results should be consumed by callers"]
 pub(crate) fn execute_query<'a>(
     index: &'a MemoryIndex,
     query: &RetrievalQuery,
@@ -64,6 +65,7 @@ pub(crate) fn execute_query<'a>(
 }
 
 /// Estimate token count for a text string (simple word-based approximation).
+#[must_use = "token estimate should be used for retrieval budgeting"]
 pub(crate) fn estimate_tokens(text: &str) -> usize {
     // Rough approximation: ~4 chars per token for English text.
     let len = text.len();
@@ -71,6 +73,7 @@ pub(crate) fn estimate_tokens(text: &str) -> usize {
 }
 
 /// Trim retrieval results to fit within a token budget.
+#[must_use = "budget output should be consumed by callers"]
 pub(crate) fn trim_to_budget(
     results: &[RetrievalResult<'_>],
     max_tokens: usize,

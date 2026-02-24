@@ -7,16 +7,20 @@ use crate::config::{HudBorderStyle, HudStyle};
 use crate::hud::{HudRegistry, HudState, LatencyModule, MeterModule, Mode as HudMode, QueueModule};
 use crate::status_style::StatusType;
 use crate::theme::{
-    filled_indicator, resolved_hud_border_set, BorderSet, Theme, ThemeColors, BORDER_DOUBLE,
-    BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
+    resolved_hud_border_set, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
+    BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
-use super::animation::{get_processing_spinner, recording_pulse_on, transition_marker};
+use super::animation::transition_marker;
 use super::buttons::{
     format_hidden_launcher_with_buttons, format_minimal_strip_with_button,
     format_shortcuts_row_with_positions, hidden_muted_color,
 };
 use super::layout::{breakpoints, effective_hud_style_for_state};
+use super::mode_indicator::{
+    full_mode_voice_label, idle_mode_indicator, processing_mode_indicator,
+    recording_indicator_color, recording_mode_indicator,
+};
 use super::right_panel::format_right_panel;
 #[cfg(test)]
 use super::right_panel::{
@@ -83,50 +87,6 @@ fn resolve_hud_border_set<'a>(
 
 fn borderless_row(width: usize) -> String {
     " ".repeat(width)
-}
-
-fn full_mode_voice_label(mode: VoiceMode) -> &'static str {
-    match mode {
-        VoiceMode::Auto => "AUTO",
-        VoiceMode::Manual => "PTT",
-        VoiceMode::Idle => "IDLE",
-    }
-}
-
-fn idle_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> (&'static str, &'static str) {
-    match mode {
-        VoiceMode::Auto => (colors.indicator_auto, colors.info),
-        VoiceMode::Manual => (colors.indicator_manual, ""),
-        VoiceMode::Idle => (colors.indicator_idle, ""),
-    }
-}
-
-#[inline]
-fn base_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
-    match mode {
-        VoiceMode::Auto => colors.indicator_auto,
-        VoiceMode::Manual => colors.indicator_manual,
-        VoiceMode::Idle => colors.indicator_idle,
-    }
-}
-
-#[inline]
-fn recording_mode_indicator(mode: VoiceMode, colors: &ThemeColors) -> &'static str {
-    filled_indicator(base_mode_indicator(mode, colors))
-}
-
-#[inline]
-fn recording_indicator_color(colors: &ThemeColors) -> &str {
-    if recording_pulse_on() {
-        colors.recording
-    } else {
-        colors.dim
-    }
-}
-
-#[inline]
-fn processing_mode_indicator(colors: &ThemeColors) -> &str {
-    get_processing_spinner(colors)
 }
 
 #[inline]
@@ -265,12 +225,8 @@ fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) ->
     let left_border_len = 2;
     let right_border_len = width.saturating_sub(left_border_len + label_width + 2); // +2 for corners
 
-    let left_segment: String = std::iter::repeat(borders.horizontal)
-        .take(left_border_len)
-        .collect();
-    let right_segment: String = std::iter::repeat(borders.horizontal)
-        .take(right_border_len)
-        .collect();
+    let left_segment = horizontal_segment(borders.horizontal, left_border_len);
+    let right_segment = horizontal_segment(borders.horizontal, right_border_len);
 
     format!(
         "{}{}{}{}{}{}{}",
@@ -282,6 +238,11 @@ fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) ->
         colors.border,
         right_segment,
     ) + &format!("{}{}", borders.top_right, colors.reset)
+}
+
+#[inline]
+fn horizontal_segment(horizontal: char, len: usize) -> String {
+    std::iter::repeat(horizontal).take(len).collect()
 }
 
 fn format_brand_label(colors: &ThemeColors) -> String {
@@ -536,9 +497,7 @@ fn format_transition_suffix(state: &StatusLineState, colors: &ThemeColors) -> St
 
 /// Format the bottom border.
 fn format_bottom_border(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
-    let inner: String = std::iter::repeat(borders.horizontal)
-        .take(width.saturating_sub(2))
-        .collect();
+    let inner = horizontal_segment(borders.horizontal, width.saturating_sub(2));
 
     format!(
         "{}{}{}{}{}",

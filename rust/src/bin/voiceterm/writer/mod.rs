@@ -9,6 +9,7 @@ use crossbeam_channel::{Receiver, Sender, TrySendError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::log_debug;
 use crate::status_line::StatusLineState;
 use crate::theme::Theme;
 
@@ -103,9 +104,19 @@ pub(crate) fn send_enhanced_status(
 fn try_send_status_message(writer_tx: &Sender<WriterMessage>, message: WriterMessage) -> bool {
     match writer_tx.try_send(message) {
         Ok(()) => true,
-        Err(TrySendError::Full(message)) => writer_tx
-            .send_timeout(message, Duration::from_millis(STATUS_SEND_TIMEOUT_MS))
-            .is_ok(),
+        Err(TrySendError::Full(message)) => {
+            match writer_tx.send_timeout(message, Duration::from_millis(STATUS_SEND_TIMEOUT_MS)) {
+                Ok(()) => true,
+                Err(crossbeam_channel::SendTimeoutError::Timeout(_)) => {
+                    log_debug("writer status message dropped: queue remained full after timeout");
+                    false
+                }
+                Err(crossbeam_channel::SendTimeoutError::Disconnected(_)) => {
+                    log_debug("writer status message dropped: writer channel disconnected");
+                    false
+                }
+            }
+        }
         Err(TrySendError::Disconnected(_)) => false,
     }
 }

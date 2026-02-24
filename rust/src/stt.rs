@@ -37,10 +37,8 @@ fn append_whisper_segment(transcript: &mut String, segment: &str) {
 mod platform {
     use crate::config::AppConfig;
     use crate::log_debug;
-    use anyhow::{anyhow, Context, Result};
-    use std::io;
+    use anyhow::{Context, Result};
     use std::os::raw::{c_char, c_uint, c_void};
-    use std::os::unix::io::AsRawFd;
     use std::sync::Once;
     use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
@@ -55,69 +53,17 @@ mod platform {
     impl Transcriber {
         /// Loads the Whisper model from disk.
         ///
-        /// Temporarily redirects stderr to `/dev/null` during loading because
-        /// whisper.cpp emits verbose initialization messages.
-        ///
-        /// Note: this is a process-wide redirect; we keep it brief and expect
-        /// model loading to happen during startup before other threads log.
+        /// Whisper logging is suppressed through `set_log_callback` so model initialization
+        /// stays quiet without mutating process-global stderr state.
         ///
         /// # Errors
         ///
-        /// Returns an error if the model file cannot be loaded or stderr
-        /// redirection fails.
+        /// Returns an error if the model file cannot be loaded.
         pub fn new(model_path: &str) -> Result<Self> {
             install_whisper_log_silencer();
-
-            let null = std::fs::OpenOptions::new()
-                .write(true)
-                .open("/dev/null")
-                .context("failed to open /dev/null")?;
-            let null_fd = null.as_raw_fd();
-
-            // SAFETY: dup(2) duplicates the stderr file descriptor. We restore it
-            // after model loading completes. This is safe because we hold the only
-            // reference and restore before returning.
-            let orig_stderr = unsafe { libc::dup(2) };
-            if orig_stderr < 0 {
-                return Err(anyhow!(
-                    "failed to dup stderr: {}",
-                    io::Error::last_os_error()
-                ));
-            }
-
-            // Redirect stderr to /dev/null temporarily
-            // SAFETY: dup2 replaces stderr with /dev/null; both fds are valid.
-            let dup_result = unsafe { libc::dup2(null_fd, 2) };
-            if dup_result < 0 {
-                // SAFETY: orig_stderr is a valid fd from dup(2).
-                unsafe {
-                    libc::close(orig_stderr);
-                }
-                return Err(anyhow!(
-                    "failed to redirect stderr: {}",
-                    io::Error::last_os_error()
-                ));
-            }
-
-            // Load model (output will be suppressed)
-            let ctx_result =
-                WhisperContext::new_with_params(model_path, WhisperContextParameters::default());
-
-            // Restore original stderr
-            // SAFETY: restore stderr using the saved fd from dup(2).
-            let restore_result = unsafe { libc::dup2(orig_stderr, 2) };
-            // SAFETY: orig_stderr is a valid fd returned by dup(2).
-            unsafe {
-                libc::close(orig_stderr);
-            }
-            if restore_result < 0 {
-                return Err(anyhow!(
-                    "failed to restore stderr: {}",
-                    io::Error::last_os_error()
-                ));
-            }
-
-            let ctx = ctx_result.context("failed to load whisper model")?;
+            let ctx =
+                WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
+                    .context("failed to load whisper model")?;
             Ok(Self { ctx })
         }
 
@@ -191,9 +137,9 @@ mod platform {
 
     fn install_whisper_log_silencer() {
         static INSTALL_LOG_CALLBACK: Once = Once::new();
+        // SAFETY: whisper_rs expects a valid callback pointer; we pass a function
+        // that ignores its inputs and never dereferences raw pointers.
         INSTALL_LOG_CALLBACK.call_once(|| unsafe {
-            // SAFETY: whisper_rs expects a valid callback pointer; we pass a function
-            // that ignores its inputs and never dereferences raw pointers.
             whisper_rs::set_log_callback(Some(whisper_log_callback), std::ptr::null_mut());
         });
     }

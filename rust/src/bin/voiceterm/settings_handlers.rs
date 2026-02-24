@@ -11,6 +11,7 @@ use crate::buttons::ButtonRegistry;
 use crate::config::{
     HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, OverlayConfig, VoiceSendMode,
 };
+use crate::cycle_index::cycle_option;
 use crate::log_debug;
 use crate::overlays::OverlayMode;
 use crate::status_line::{RecordingState, StatusLineState, VoiceMode, WakeWordHudState};
@@ -308,25 +309,6 @@ impl SettingsActionContext<'_> {
             self.set_transient_status("Mouse: OFF", Duration::from_secs(2));
         }
     }
-}
-
-fn cycle_option<T>(options: &[T], current: T, direction: i32) -> T
-where
-    T: Copy + PartialEq,
-{
-    let len = options.len();
-    if len == 0 {
-        return current;
-    }
-    let idx = options
-        .iter()
-        .position(|item| *item == current)
-        .unwrap_or(0);
-    let len_i64 = i64::try_from(len).unwrap_or(1);
-    let idx_i64 = i64::try_from(idx).unwrap_or(0);
-    let next_i64 = (idx_i64 + i64::from(direction)).rem_euclid(len_i64);
-    let next = usize::try_from(next_i64).unwrap_or(0);
-    options[next]
 }
 
 fn cycle_hud_right_panel(current: HudRightPanel, direction: i32) -> HudRightPanel {

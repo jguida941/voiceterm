@@ -334,6 +334,27 @@ python3 dev/scripts/devctl.py autonomy-benchmark \
 If you use `--mode plan-then-fix` or `--mode fix-only`, you must also pass
 `--fix-command "<cmd>"`.
 
+Continuous mode (hands-off checklist progression until failure/limit):
+
+```bash
+python3 dev/scripts/devctl.py autonomy-run \
+  --plan-doc dev/active/autonomous_control_plane.md \
+  --mp-scope MP-338 \
+  --mode report-only \
+  --continuous \
+  --continuous-max-cycles 10 \
+  --run-label swarm-continuous \
+  --format md \
+  --output /tmp/autonomy-run-continuous.md \
+  --json-output /tmp/autonomy-run-continuous.json
+```
+
+Continuous runs stop when one of these happens:
+
+1. no unchecked checklist items remain in the plan doc
+2. a cycle fails swarm/governance/plan-update checks
+3. `--continuous-max-cycles` is reached
+
 Output bundle:
 
 1. `dev/reports/autonomy/benchmarks/<run-label>/summary.md`

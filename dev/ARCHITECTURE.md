@@ -18,6 +18,7 @@ system in under ten minutes.
 - [Startup Sequence](#startup-sequence)
 - [Core Flows](#core-flows)
 - [Operational Workflows (Dev/CI/Release)](#operational-workflows-devcirelease)
+- [Autonomy Swarm Workflow](#3-autonomy-swarm-workflow)
 - [Overlay State Machine](#overlay-state-machine)
 - [Whisper Integration (Rust)](#whisper-integration-rust)
 - [Voice Error and Fallback Flow](#voice-error-and-fallback-flow)
@@ -275,13 +276,51 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
 | Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded autonomy-controller orchestration (`devctl autonomy-loop`) with checkpoint packet/queue artifacts, phone-ready status snapshots, and optional guarded PR promote path |
+| Autonomy Run | `.github/workflows/autonomy_run.yml` | one-command guarded autonomy swarm pipeline (`devctl autonomy-run`) with scope checks, reviewer lane, governance gates, plan-evidence append, and artifact upload |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate -- fails on high/critical CVSS, yanked, or unsound crates |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` -- catches redundant clones/closures, risky wrap casts, and dead-code drift |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane -- runs `docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, and root artifact guard |
 
-### 3) Release Workflow (Master Branch)
+### 3) Autonomy Swarm Workflow
+
+Use `autonomy-swarm` when the operator wants bounded parallel lanes with one
+command and auditable artifacts.
+
+Use `autonomy-run` when the operator wants that swarm flow plus automatic
+governance checks and active-plan evidence append in one guarded command.
+
+Execution contract:
+
+1. Adaptive planner selects lane count from metadata (`lines/files`, complexity
+   keywords, prompt-token estimate) unless explicit `--agents` is set.
+2. Worker fanout runs bounded `autonomy-loop` lanes in parallel.
+3. Default reviewer reservation: with execution runs and selected count >1,
+   one slot is reserved for `AGENT-REVIEW`.
+4. Post-audit digest runs automatically through `autonomy-report`
+   (`--no-post-audit` disables; `--no-reviewer-lane` disables reviewer slot).
+
+Guarded pipeline contract (`autonomy-run`):
+
+1. Load active plan scope (`plan-doc`, `INDEX`, `MASTER_PLAN` token checks).
+2. Derive the next unchecked plan checklist items into one swarm prompt.
+3. Execute `autonomy-swarm` with reviewer lane + post-audit enabled.
+4. Run governance checks (`check_active_plan_sync`, `check_multi_agent_sync`,
+   `docs-check --strict-tooling`, `orchestrate-status`, `orchestrate-watch`).
+5. Append one run entry to plan-doc `Progress Log` + `Audit Evidence`.
+
+Artifact contract:
+
+- Swarm bundle: `dev/reports/autonomy/swarms/<run-label>/summary.{md,json}`
+- Per-lane outputs/logs: `dev/reports/autonomy/swarms/<run-label>/AGENT-*/`
+- Auto digest: `dev/reports/autonomy/library/<run-label>-digest/summary.{md,json}`
+- Guarded run bundle: `dev/reports/autonomy/runs/<run-label>/summary.{md,json}`
+
+This keeps execution and audit evidence coupled by default instead of requiring
+two separate operator commands.
+
+### 4) Release Workflow (Master Branch)
 
 1. Finalize release metadata (`rust/Cargo.toml`, `dev/CHANGELOG.md`).
 2. Verify release scope -- at minimum run CI-profile checks; use `devctl check --profile release` when wake/soak/mutation gates are required.
@@ -292,7 +331,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 7. Update Homebrew tap via `python3 dev/scripts/devctl.py homebrew --version X.Y.Z`.
 8. Sync release snapshot in `dev/active/MASTER_PLAN.md`.
 
-### 4) Security Posture and Risk Controls
+### 5) Security Posture and Risk Controls
 
 - VoiceTerm is **local-first** -- it runs backend CLIs on the same host and does not add hosted control planes.
 - Backend child processes inherit the invoking user's OS privileges, so host-level least privilege remains the primary boundary.

@@ -27,6 +27,8 @@ use super::{
 use std::cell::Cell;
 #[cfg(not(test))]
 use std::sync::{Mutex, OnceLock};
+#[cfg(not(test))]
+use voiceterm::log_debug;
 
 pub(crate) const STYLE_PACK_RUNTIME_VERSION: u16 = CURRENT_STYLE_SCHEMA_VERSION;
 const STYLE_PACK_SCHEMA_ENV: &str = "VOICETERM_STYLE_PACK_JSON";
@@ -159,7 +161,10 @@ pub(crate) fn runtime_style_pack_overrides() -> RuntimeStylePackOverrides {
     #[cfg(not(test))]
     match runtime_style_pack_overrides_cell().lock() {
         Ok(guard) => *guard,
-        Err(poisoned) => *poisoned.into_inner(),
+        Err(poisoned) => {
+            log_debug("runtime style-pack overrides lock poisoned; recovering read");
+            *poisoned.into_inner()
+        }
     }
 }
 
@@ -173,6 +178,7 @@ pub(crate) fn set_runtime_style_pack_overrides(overrides: RuntimeStylePackOverri
     match runtime_style_pack_overrides_cell().lock() {
         Ok(mut guard) => *guard = overrides,
         Err(poisoned) => {
+            log_debug("runtime style-pack overrides lock poisoned; recovering write");
             let mut guard = poisoned.into_inner();
             *guard = overrides;
         }

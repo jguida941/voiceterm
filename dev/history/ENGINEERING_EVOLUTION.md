@@ -277,6 +277,32 @@ Inference: Loop guidance can now flow through a visible, auditable markdown
 channel instead of ad-hoc chat-only coordination, which reduces decision drift
 before enabling higher-autonomy execution.
 
+### Recent Governance Update (2026-02-24, Guarded Plan-Scoped Swarm Pipeline)
+
+Fact: `devctl` now includes a guarded `autonomy-run` command that executes one
+plan-scoped swarm pipeline end-to-end: plan-scope load, next-step prompt
+derivation, swarm+reviewer execution, governance checks, and plan-doc evidence
+append.
+
+Evidence:
+
+- `.github/workflows/autonomy_run.yml`
+- `dev/scripts/devctl/commands/autonomy_run.py`
+- `dev/scripts/devctl/autonomy_run_parser.py`
+- `dev/scripts/devctl/autonomy_run_helpers.py`
+- `dev/scripts/devctl/autonomy_run_render.py`
+- `dev/scripts/devctl/tests/test_autonomy_run.py`
+- `dev/scripts/mutants.py` (shape-budget compaction to restore local
+  `check_code_shape` pass state in dirty-tree sessions)
+- `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md`,
+  `dev/ARCHITECTURE.md` (command inventory/workflow contract updates)
+- `dev/active/autonomous_control_plane.md`, `dev/active/MASTER_PLAN.md`
+  (`MP-338` partial evidence extension)
+
+Inference: The autonomy control plane now has a single guarded operator path
+for swarm execution that reduces manual orchestration glue and keeps plan-state
+traceability embedded in the run itself.
+
 ### Recent Governance Update (2026-02-24, Rust Guardrail Tightening)
 
 Fact: Rust guard scripts were tightened after the `src/` to `rust/` workspace
@@ -943,6 +969,82 @@ Evidence:
 Inference: Autonomy loops can now be improved like a controlled experiment:
 capture event data, quantify automation quality, and iterate scripts toward
 higher script-only coverage with lower manual intervention.
+
+### Recent Governance Update (2026-02-24, Human-Readable Autonomy Digest Bundles)
+
+Fact: The control plane now includes `devctl autonomy-report`, a dedicated
+operator digest command that converts raw loop/watch artifacts into one dated
+bundle with markdown, JSON, copied source artifacts, and chart outputs.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/autonomy_report.py`
+- `dev/scripts/devctl/autonomy_report_helpers.py`
+- `dev/scripts/devctl/autonomy_report_render.py`
+- `dev/scripts/devctl/cli_parser_reporting.py` and
+  `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
+- `dev/scripts/devctl/tests/test_autonomy_report.py` (parser + bundle
+  generation coverage)
+- `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`, `AGENTS.md`,
+  `dev/active/autonomous_control_plane.md`, `dev/active/MASTER_PLAN.md`
+
+Inference: This closes the readability gap between machine artifacts and
+operator decisions by making autonomy state reviewable in one predictable
+folder structure (`dev/reports/autonomy/library/<label>`), which also maps
+cleanly to future overlay/mobile consumption paths.
+
+### Recent Governance Update (2026-02-24, One-Command Swarm Review Loop)
+
+Fact: `devctl autonomy-swarm` now executes as a single orchestrated loop:
+bounded worker fanout, default reserved reviewer lane (`AGENT-REVIEW`) when
+lane count is greater than one, and automatic post-run digest generation.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/autonomy_swarm.py`
+  (reviewer-lane reservation + post-audit bundling path)
+- `dev/scripts/devctl/cli_parser_reporting.py`
+  (`--reviewer-lane` and post-audit argument surface)
+- `dev/scripts/devctl/autonomy_swarm_helpers.py`
+  (markdown output includes reviewer/post-audit summary fields)
+- `dev/scripts/devctl/tests/test_autonomy_swarm.py`
+  (reviewer-lane reservation + post-audit behavior coverage)
+- `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/DEVCTL_AUTOGUIDE.md`, `AGENTS.md`
+  (operator and governance contract updates)
+
+Inference: Live swarm operation no longer depends on manually chaining a second
+digest command, and every execution run now carries explicit review evidence in
+the same artifact contract by default.
+
+### Recent Governance Update (2026-02-24, Active-Plan Swarm Benchmark Matrix)
+
+Fact: The control plane now includes `devctl autonomy-benchmark`, a matrix
+runner that validates active-plan scope (`plan-doc`, `INDEX`, `MASTER_PLAN`,
+`mp-scope`) and executes swarm-count/tactic tradeoff batches through
+`autonomy-swarm` with one consolidated benchmark bundle.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/autonomy_benchmark.py`
+- `dev/scripts/devctl/autonomy_benchmark_parser.py`
+- `dev/scripts/devctl/autonomy_benchmark_helpers.py`
+- `dev/scripts/devctl/autonomy_benchmark_render.py`
+- `dev/scripts/devctl/tests/test_autonomy_benchmark.py`
+- `dev/scripts/devctl/cli.py`,
+  `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
+- `dev/active/autonomous_control_plane.md`,
+  `dev/active/MASTER_PLAN.md`,
+  `dev/scripts/README.md`,
+  `dev/DEVCTL_AUTOGUIDE.md`,
+  `AGENTS.md` (execution/doc governance updates)
+- Example matrix artifact:
+  `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224/summary.md`
+  (`20` scenarios, `460` swarms, `460` successful in dry-run mode)
+
+Inference: Swarm scale decisions can now be made from comparable evidence
+instead of ad-hoc intuition, while still enforcing active-plan scope before
+launching high-parallel execution batches.
 
 ### Recent Governance Update (2026-02-24, Text-Edit Caret Navigation Backlog Intake)
 

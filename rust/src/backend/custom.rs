@@ -1,6 +1,7 @@
 //! User-defined backend adapter so arbitrary CLIs can reuse overlay orchestration.
 
 use super::AiBackend;
+use crate::log_debug;
 
 /// Backend for custom AI CLI commands.
 ///
@@ -15,7 +16,7 @@ pub struct CustomBackend {
 impl CustomBackend {
     /// Create a new custom backend with the given command string.
     ///
-    /// The command string is parsed as a shell command (split on whitespace).
+    /// The command string is parsed using shell quoting semantics.
     /// Uses default patterns that work with most CLI tools.
     #[must_use]
     pub fn new(command_str: String) -> Self {
@@ -51,12 +52,23 @@ impl AiBackend for CustomBackend {
     }
 
     fn command(&self) -> Vec<String> {
-        // Simple whitespace splitting for the command; quoting is not parsed.
-        // Use a wrapper script if your command requires complex arguments.
-        self.command_str
-            .split_whitespace()
-            .map(String::from)
-            .collect()
+        let trimmed = self.command_str.trim();
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+        match shell_words::split(trimmed) {
+            Ok(parts) if !parts.is_empty() => parts,
+            Ok(_) => vec![trimmed.to_string()],
+            Err(err) => {
+                log_debug(&format!(
+                    "custom backend command parse failed ({err}); falling back to whitespace split"
+                ));
+                trimmed
+                    .split_whitespace()
+                    .map(ToString::to_string)
+                    .collect()
+            }
+        }
     }
 
     fn prompt_pattern(&self) -> &str {
@@ -97,5 +109,20 @@ mod tests {
     fn test_custom_no_thinking_pattern() {
         let backend = CustomBackend::with_patterns("simple-ai".to_string(), r">".to_string(), None);
         assert!(backend.thinking_pattern().is_none());
+    }
+
+    #[test]
+    fn test_custom_command_parses_shell_quotes() {
+        let backend = CustomBackend::new("my-ai --prompt 'hello world'".to_string());
+        assert_eq!(backend.command(), vec!["my-ai", "--prompt", "hello world"]);
+    }
+
+    #[test]
+    fn test_custom_command_falls_back_on_invalid_shell_syntax() {
+        let backend = CustomBackend::new("my-ai --prompt 'unterminated".to_string());
+        assert_eq!(
+            backend.command(),
+            vec!["my-ai", "--prompt", "'unterminated"]
+        );
     }
 }

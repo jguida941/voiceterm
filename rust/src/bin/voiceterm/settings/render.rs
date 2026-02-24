@@ -6,14 +6,35 @@ use crate::overlay_frame::{
 };
 use crate::status_line::Pipeline;
 use crate::theme::{
-    overlay_row_marker, overlay_slider_knob, overlay_slider_track, resolved_overlay_border_set,
-    ThemeColors,
+    overlay_close_symbol, overlay_move_hint, overlay_row_marker, overlay_separator,
+    overlay_slider_knob, overlay_slider_track, resolved_overlay_border_set, ThemeColors,
 };
 
-use super::items::{
-    settings_overlay_footer, settings_overlay_width_for_terminal, SettingsItem, SettingsView,
-    SETTINGS_ITEMS,
-};
+use super::items::{SettingsItem, SettingsView, SETTINGS_ITEMS};
+
+#[must_use]
+pub fn settings_overlay_footer(colors: &ThemeColors) -> String {
+    let close = overlay_close_symbol(colors.glyph_set);
+    let sep = overlay_separator(colors.glyph_set);
+    let move_hint = overlay_move_hint(colors.glyph_set);
+    format!("[{close}] close {sep} {move_hint} move {sep} Enter select {sep} Click/Tap select")
+}
+
+#[must_use]
+pub fn settings_overlay_width_for_terminal(width: usize) -> usize {
+    width.saturating_sub(4).clamp(24, 70)
+}
+
+#[must_use]
+pub fn settings_overlay_inner_width_for_terminal(width: usize) -> usize {
+    settings_overlay_width_for_terminal(width).saturating_sub(2)
+}
+
+#[must_use]
+pub fn settings_overlay_height() -> usize {
+    // Top border + title + separator + items + description + separator + footer + bottom border
+    SETTINGS_ITEMS.len() + 7
+}
 
 pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String {
     let mut colors = view.theme.colors();

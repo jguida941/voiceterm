@@ -156,6 +156,7 @@ PyPI launcher note:
 - The package installs a Python launcher named `voiceterm`.
 - On first run it bootstraps the native Rust binary into
   `~/.local/share/voiceterm/native/bin/voiceterm`.
+- Bootstrap auto-detects both `rust/` (current) and legacy `src/` Cargo layout paths.
 - Bootstrap requires `git` and `cargo` on PATH.
 - If you already have a native binary installed, set:
   `VOICETERM_NATIVE_BIN=/absolute/path/to/voiceterm`.

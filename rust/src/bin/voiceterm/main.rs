@@ -19,6 +19,7 @@ mod cli_utils;
 mod color_mode;
 mod config;
 mod custom_help;
+mod cycle_index;
 mod dev_command;
 mod dev_panel;
 mod event_loop;
@@ -28,7 +29,6 @@ mod hud;
 mod icons;
 mod image_mode;
 mod input;
-#[allow(dead_code, unused_imports)]
 mod memory;
 mod onboarding;
 mod overlay_frame;
@@ -540,7 +540,6 @@ fn main() -> Result<()> {
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor,
-        action_center_state: memory::ActionCenterState::new(),
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,

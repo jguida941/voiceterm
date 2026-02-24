@@ -83,20 +83,19 @@ fn hidden_launcher_text_omits_ctrl_u_hint() {
 }
 
 #[test]
-fn hidden_launcher_uses_neutral_gray_color_instead_of_theme_dim() {
+fn hidden_launcher_uses_theme_dim_color() {
     let colors = Theme::Codex.colors();
     let state = StatusLineState::new();
     let line = hidden_launcher_text(&state, &colors);
-    assert!(line.contains("\x1b[90mVoiceTerm hidden"));
-    assert!(!line.contains(&format!("{}VoiceTerm hidden", colors.dim)));
+    assert!(line.contains(&format!("{}VoiceTerm hidden", colors.dim)));
 }
 
 #[test]
-fn hidden_launcher_open_button_uses_neutral_gray_when_unfocused() {
+fn hidden_launcher_open_button_uses_theme_dim_when_unfocused() {
     let colors = Theme::Codex.colors();
     let state = StatusLineState::new();
     let (line, _) = format_hidden_launcher_with_buttons(&state, &colors, 80);
-    assert!(line.contains("\x1b[90m[open]"));
+    assert!(line.contains(&format!("{}[open]", colors.dim)));
     assert!(!line.contains(&format!("{}open", colors.info)));
 }
 
@@ -680,24 +679,7 @@ fn button_row_ready_badge_requires_idle_and_empty_queue() {
 }
 
 #[test]
-fn legacy_button_row_compact_mode_drops_hud_and_studio_entries() {
-    let colors = Theme::None.colors();
-    let mut state = StatusLineState::new();
-    state.queue_depth = 2;
-    state.last_latency_ms = Some(420);
-
-    let full = format_button_row_legacy(&state, &colors, 240);
-    let narrow_width = display_width(&full).saturating_sub(1);
-    let compact = format_button_row_legacy(&state, &colors, narrow_width);
-
-    assert!(display_width(&compact) <= narrow_width);
-    assert!(!compact.contains("hud"));
-    assert!(!compact.contains("studio"));
-    assert!(compact.contains("help"));
-}
-
-#[test]
-fn shortcuts_row_legacy_matches_positioned_renderer_when_untruncated() {
+fn shortcuts_row_positioned_renderer_geometry_when_untruncated() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
     state.queue_depth = 1;
@@ -707,9 +689,7 @@ fn shortcuts_row_legacy_matches_positioned_renderer_when_untruncated() {
     let inner_width = 200;
     let (positioned, buttons) =
         format_shortcuts_row_with_positions(&state, &colors, &colors.borders, inner_width, None);
-    let legacy = format_shortcuts_row_legacy(&state, &colors, &colors.borders, inner_width);
-
-    assert_eq!(positioned, legacy);
+    assert!(positioned.contains("rec"));
     assert_eq!(display_width(&positioned), inner_width + 2);
     assert!(!buttons.is_empty());
     assert!(buttons.iter().all(|button| button.row == 2));
@@ -925,7 +905,7 @@ fn minimal_pulse_dots_respect_activity_and_color_thresholds() {
 }
 
 #[test]
-fn latency_threshold_colors_are_correct_in_full_and_legacy_rows() {
+fn latency_threshold_colors_are_correct_in_full_row() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.recording_state = RecordingState::Idle;
@@ -937,14 +917,6 @@ fn latency_threshold_colors_are_correct_in_full_and_legacy_rows() {
     state.last_latency_ms = Some(500);
     let (row_500, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(row_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
-
-    state.last_latency_ms = Some(300);
-    let legacy_300 = format_button_row_legacy(&state, &colors, 200);
-    assert!(legacy_300.contains(&format!("{}300ms{}", colors.warning, colors.reset)));
-
-    state.last_latency_ms = Some(500);
-    let legacy_500 = format_button_row_legacy(&state, &colors, 200);
-    assert!(legacy_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
 }
 
 #[test]
@@ -1083,18 +1055,13 @@ fn recording_button_highlight_stays_recording_color_across_frames() {
 }
 
 #[test]
-fn wrappers_and_legacy_helpers_emit_structured_shortcut_text() {
+fn wrappers_emit_structured_shortcut_text() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
 
     let shortcuts = format_shortcuts_row(&state, &colors, &colors.borders, 120);
     assert!(!shortcuts.is_empty());
     assert!(shortcuts.contains("rec"));
-
-    let shortcut = format_shortcut_colored(&colors, "u", "help", colors.info);
-    assert!(shortcut.contains("u"));
-    assert!(shortcut.contains("help"));
-    assert!(shortcut.contains("["));
 }
 
 #[test]
@@ -1189,12 +1156,6 @@ fn queue_badge_zero_is_not_rendered_in_any_row_mode() {
 
     let (compact, _) = format_button_row_with_positions(&state, &colors, 20, 2, true, false);
     assert!(!compact.contains("Q:0"));
-
-    let legacy_full = format_button_row_legacy(&state, &colors, 200);
-    assert!(!legacy_full.contains("Q:0"));
-
-    let legacy_compact = format_button_row_legacy(&state, &colors, breakpoints::COMPACT);
-    assert!(!legacy_compact.contains("Q:0"));
 }
 
 #[test]
@@ -1212,27 +1173,26 @@ fn compact_row_queue_zero_not_rendered_when_untruncated() {
 }
 
 #[test]
-fn queue_badge_positive_renders_in_full_and_legacy_rows() {
+fn queue_badge_positive_renders_in_full_row() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
     state.queue_depth = 1;
 
     let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     assert!(full.contains("Q:1"));
-
-    let legacy = format_button_row_legacy(&state, &colors, 200);
-    assert!(legacy.contains("Q:1"));
 }
 
 #[test]
-fn legacy_compact_row_queue_positive_renders_when_untruncated() {
+fn compact_row_queue_positive_renders_when_untruncated() {
     let colors = Theme::None.colors();
     let mut state = StatusLineState::new();
     state.queue_depth = 1;
 
-    let full_row = format_button_row_legacy(&state, &colors, 200);
+    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
     let compact_width = display_width(&full_row).saturating_sub(1);
-    let compact_row = format_button_row_legacy(&state, &colors, compact_width);
+    let (compact_row, compact_positions) =
+        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
+    assert_eq!(compact_positions.len(), 6);
     assert!(compact_row.contains("Q:1"));
 }
 

@@ -10,7 +10,7 @@ use crate::codex::{
 };
 use crate::config::AppConfig;
 use crate::pty_session::test_pty_session;
-use crate::voice;
+use crate::voice::{self, VoiceError};
 use crate::{PipelineJsonResult, PipelineMetrics, VoiceJob, VoiceJobMessage};
 use clap::Parser;
 use crossbeam_channel::bounded;
@@ -850,7 +850,10 @@ fn process_voice_events_handles_error() {
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
     };
-    tx.send(VoiceJobMessage::Error("boom".to_string())).unwrap();
+    tx.send(VoiceJobMessage::Error(VoiceError::Message(
+        "boom".to_string(),
+    )))
+    .unwrap();
 
     assert!(process_voice_events(&job, false));
     let events = events_since(snapshot);

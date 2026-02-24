@@ -725,6 +725,7 @@ Acceptance:
 - 2026-02-24: Ran `devctl autonomy-run` (`mp340-controller-state-r1`, `MP-340`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/mp340-controller-state-r1/summary.md`.
 - 2026-02-24: Ran `devctl autonomy-run` (`mp340-controller-state-r2-10workers`, `MP-340`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/mp340-controller-state-r2-10workers/summary.md`.
 - 2026-02-24: Ran `devctl autonomy-run` (`cont-fix-20260224-110234Z`, `MP-340`); selected_agents=2, worker_agents=1, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/cont-fix-20260224-110234Z/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`mp330-swarm-20260224a`, `MP-330`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=False, status=blocked; artifacts: `dev/reports/autonomy/runs/mp330-swarm-20260224a/summary.md`.
 ## Audit Evidence
 
 | Check | Evidence | Status |
@@ -762,3 +763,4 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label mp340-controller-state-r1` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/mp340-controller-state-r1/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label mp340-controller-state-r2-10workers` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/mp340-controller-state-r2-10workers/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label cont-fix-20260224-110234Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/cont-fix-20260224-110234Z/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-330 --run-label mp330-swarm-20260224a` | swarm_ok=True, governance_ok=False, summary=`dev/reports/autonomy/runs/mp330-swarm-20260224a/summary.md` (2026-02-24 local run) | blocked |

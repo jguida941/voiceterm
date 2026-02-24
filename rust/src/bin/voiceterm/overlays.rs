@@ -33,12 +33,11 @@ pub(crate) enum OverlayMode {
     Settings,
     TranscriptHistory,
     ToastHistory,
-    #[allow(dead_code)]
-    MemoryBrowser,
-    #[allow(dead_code)]
-    ActionCenter,
 }
 
+// Overlay naming convention:
+// - format_* functions (in overlay modules) return pure string render output.
+// - show_* functions (this module) send that output to the writer channel.
 pub(crate) fn show_settings_overlay(
     writer_tx: &Sender<WriterMessage>,
     theme: Theme,

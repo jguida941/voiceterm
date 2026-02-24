@@ -23,7 +23,7 @@ struct VoiceStartInfo {
 }
 
 const VOICE_MANAGER_JOIN_POLL_MS: u64 = 5;
-const VOICE_MANAGER_JOIN_TIMEOUT_MS: u64 = 200;
+const VOICE_MANAGER_JOIN_TIMEOUT_MS: u64 = 500;
 const MANUAL_CAPTURE_SILENCE_GRACE_MS: u64 = 400;
 
 pub(crate) struct VoiceManager {
@@ -176,7 +176,9 @@ impl VoiceManager {
         match job.receiver.try_recv() {
             Ok(message) => {
                 if let Some(handle) = job.handle.take() {
-                    let _ = handle.join();
+                    if let Err(err) = handle.join() {
+                        log_debug(&format!("voice manager poll: worker panicked: {err:?}"));
+                    }
                 }
                 self.job = None;
                 self.active_source = None;
@@ -191,7 +193,11 @@ impl VoiceManager {
             Err(std::sync::mpsc::TryRecvError::Empty) => None,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 if let Some(handle) = job.handle.take() {
-                    let _ = handle.join();
+                    if let Err(err) = handle.join() {
+                        log_debug(&format!(
+                            "voice manager poll: disconnected worker panicked: {err:?}"
+                        ));
+                    }
                 }
                 self.job = None;
                 self.active_source = None;
@@ -202,7 +208,7 @@ impl VoiceManager {
                     None
                 } else {
                     Some(VoiceJobMessage::Error(
-                        "voice capture worker disconnected unexpectedly".to_string(),
+                        voice::VoiceError::WorkerDisconnectedUnexpectedly,
                     ))
                 }
             }

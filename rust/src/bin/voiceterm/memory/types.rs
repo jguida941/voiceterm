@@ -4,6 +4,7 @@
 //! Derived layers (units, cards, packs) reference events by ID.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
@@ -42,6 +43,12 @@ impl EventType {
             Self::Handoff => "handoff",
             Self::Summary => "summary",
         }
+    }
+}
+
+impl fmt::Display for EventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
