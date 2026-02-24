@@ -68,10 +68,10 @@ python3 dev/scripts/devctl.py path-rewrite
 python3 dev/scripts/devctl.py sync
 # Also push local-ahead branches after sync
 python3 dev/scripts/devctl.py sync --push
-# External integration source pins (code-link-ide + ci-cd-hub)
+# Federated repo source pins (code-link-ide + ci-cd-hub)
 python3 dev/scripts/devctl.py integrations-sync --status-only
 python3 dev/scripts/devctl.py integrations-sync --remote
-# Allowlisted selective import from pinned external sources
+# Allowlisted selective import from pinned federated sources
 python3 dev/scripts/devctl.py integrations-import --list-profiles --format md
 python3 dev/scripts/devctl.py integrations-import --source code-link-ide --profile iphone-core --format md
 python3 dev/scripts/devctl.py integrations-import --source ci-cd-hub --profile workflow-templates --apply --yes --format md
@@ -299,8 +299,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
-- `integrations-sync`: guarded submodule sync/status command for pinned external integration sources defined in `control_plane_policy.json`
-- `integrations-import`: allowlisted selective importer from pinned external sources into controlled destination roots with JSONL audit logging
+- `integrations-sync`: guarded submodule sync/status command for pinned federated integration sources defined in `control_plane_policy.json`
+- `integrations-import`: allowlisted selective importer from pinned federated sources into controlled destination roots with JSONL audit logging
 - `cihub-setup`: allowlisted CIHub repo-setup helper (`detect/init/update/validate`) with capability probing, preview/apply modes, and strict unsupported-step gating
 - `security`: RustSec policy checks plus optional workflow/code-scanning security scans (`--with-zizmor`, `--with-codeql-alerts`) and Python-scope selection (`--python-scope auto|changed|all`)
 - `release`: tag + notes flow (legacy release behavior)

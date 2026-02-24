@@ -14,6 +14,7 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-02-24)
+
 - Last tagged release: `v1.0.92` (2026-02-24)
 - Current release target: `post-v1.0.92 planning`
 - Active development branch: `develop`
@@ -22,6 +23,9 @@
 - In-flight: active 10-agent `AGENT-<N>` matrix aligned to open `MASTER_PLAN` scopes and refreshed worktree/branch lanes.
 - Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
 - Tooling docs-governance update: `devctl docs-check --strict-tooling` now enforces markdown metadata-header normalization for `Status`/`Last updated`/`Owner` blocks via `check_markdown_metadata_header.py`.
+- Loop architecture clarity update: `dev/ARCHITECTURE.md` and
+  `dev/DEVELOPMENT.md` now document the custom repo-owned Ralph/Wiggum loop
+  path and the federated-repo import model in simple flowchart form.
 
 ## Multi-Agent Coordination Board
 

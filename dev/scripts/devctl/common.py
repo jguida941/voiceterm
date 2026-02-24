@@ -2,6 +2,7 @@
 
 from collections import deque
 import os
+import shlex
 import signal
 import shutil
 import subprocess
@@ -14,11 +15,12 @@ from .config import REPO_ROOT, SRC_DIR
 FAILURE_OUTPUT_MAX_LINES = 60
 FAILURE_OUTPUT_MAX_CHARS = 8000
 INTERRUPT_KILL_GRACE_SECONDS = 3.0
+PIPE_OUTPUT_TIMEOUT_SECONDS = 120.0
 
 
 def cmd_str(cmd: List[str]) -> str:
     """Render a command list as a printable string."""
-    return " ".join(cmd)
+    return shlex.join(cmd)
 
 
 def _trim_failure_output(output_tail: str) -> str:
@@ -202,7 +204,22 @@ def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[L
     if not shutil.which(cmd[0]):
         print(f"Pipe command not found: {cmd[0]}")
         return 2
-    result = subprocess.run(cmd, input=content, text=True)
+    try:
+        result = subprocess.run(
+            cmd,
+            input=content,
+            text=True,
+            timeout=PIPE_OUTPUT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}"
+        )
+        return 124
+    except OSError as exc:
+        print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
+        return 127
     return result.returncode
 
 

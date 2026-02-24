@@ -104,7 +104,7 @@ pub(super) fn handle_send_prompt(
     // Determine which provider to use
     let provider = provider_override
         .as_ref()
-        .and_then(|s| Provider::from_str(s))
+        .and_then(|s| Provider::parse_name(s))
         .unwrap_or(state.active_provider);
 
     match parsed {
@@ -324,7 +324,7 @@ pub(super) fn handle_exit(state: &mut IpcState) {
 }
 
 pub(super) fn handle_set_provider(state: &mut IpcState, provider_str: &str) {
-    match Provider::from_str(provider_str) {
+    match Provider::parse_name(provider_str) {
         Some(provider) => {
             state.active_provider = provider;
             send_event(&IpcEvent::ProviderChanged {
@@ -358,7 +358,7 @@ pub(super) fn handle_auth_command(state: &mut IpcState, provider_override: Optio
     }
 
     let provider = match provider_override {
-        Some(ref name) => match Provider::from_str(name) {
+        Some(ref name) => match Provider::parse_name(name) {
             Some(parsed) => parsed,
             None => {
                 send_event(&IpcEvent::Error {

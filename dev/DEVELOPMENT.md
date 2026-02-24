@@ -5,6 +5,7 @@
 - [Workflow ownership and routing](#workflow-ownership-and-routing)
 - [End-to-end lifecycle flow](#end-to-end-lifecycle-flow)
 - [What checks protect us](#what-checks-protect-us)
+- [Ralph/Wiggum Loop Model](#ralphwiggum-loop-model)
 - [When to push where](#when-to-push-where)
 - [Project structure](#project-structure)
 - [Building](#building)
@@ -108,9 +109,39 @@ CI runs the same families, so catching issues locally saves round-trips.
 | Adaptive multi-agent autonomy planner/executor (Claude/Codex worker sizing up to 20 lanes) | `python3 dev/scripts/devctl.py autonomy-swarm --question-file dev/active/autonomous_control_plane.md --adaptive --min-agents 4 --max-agents 20 --plan-only --format md` | `tooling_control_plane.yml` (governance/docs checks) |
 | Live swarm execution with reserved reviewer lane + automatic audit digest | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label ops-live --format md` | `tooling_control_plane.yml` (governance/docs checks) |
 | Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
-| External repo federation links/import workflow | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
+| Federated repo links/import workflow (your other repos) | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
 | Active plan/index/spec sync | `python3 dev/scripts/checks/check_active_plan_sync.py` | `tooling_control_plane.yml` |
+
+## Ralph/Wiggum Loop Model
+
+`codex-voice` runs a custom Ralph/Wiggum implementation through `devctl`
+commands and guarded workflows.
+
+Your other repos (`code-link-ide`, `ci-cd-hub`) are federated sources for
+patterns and selective imports, not the runtime loop executor.
+
+```mermaid
+flowchart TD
+  A[CodeRabbit or mutation run completes] --> B[GitHub workflow trigger]
+  B --> C[devctl triage-loop or mutation-loop]
+  C --> D[Pin source run id and sha]
+  D --> E{Policy and bounds pass?}
+  E -->|No| F[Stop with reason code and audit output]
+  E -->|Yes| G{Mode}
+  G -->|report-only| H[Emit md/json artifacts]
+  G -->|plan-then-fix or fix-only| I[Run allowlisted fix step]
+  I --> J[Retry within max attempts]
+  J --> K[Emit summary and optional comment update]
+  H --> K
+```
+
+What is different about this model:
+
+1. Source-run correlation is explicit to avoid analyzing the wrong run.
+2. Comment publishing is idempotent to avoid spam.
+3. Fix paths are allowlisted and bounded by policy.
+4. Outputs are structured for phone/controller/report surfaces.
 
 ### Release and quality drift checks
 
@@ -216,7 +247,7 @@ voiceterm/
 │           ├── status_report.py # Shared status/report payload + markdown renderer
 │           └── commands/ship_*.py # Ship step helper modules
 ├── img/                 # Screenshots
-├── integrations/        # Pinned external repo links (code-link-ide, ci-cd-hub)
+├── integrations/        # Pinned federated repo links (code-link-ide, ci-cd-hub)
 ├── Makefile             # Developer tasks
 ├── src/                 # Rust overlay + voice pipeline
 │   └── src/

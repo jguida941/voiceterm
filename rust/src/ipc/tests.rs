@@ -111,17 +111,26 @@ fn pipe_pair() -> (RawFd, RawFd) {
 
 #[test]
 fn test_provider_from_str() {
-    assert_eq!(Provider::from_str("codex"), Some(Provider::Codex));
-    assert_eq!(Provider::from_str("CODEX"), Some(Provider::Codex));
-    assert_eq!(Provider::from_str("Codex"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("codex"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("CODEX"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("Codex"), Some(Provider::Codex));
 
-    assert_eq!(Provider::from_str("claude"), Some(Provider::Claude));
-    assert_eq!(Provider::from_str("CLAUDE"), Some(Provider::Claude));
-    assert_eq!(Provider::from_str("Claude"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("claude"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("CLAUDE"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("Claude"), Some(Provider::Claude));
 
-    assert_eq!(Provider::from_str("unknown"), None);
-    assert_eq!(Provider::from_str(""), None);
-    assert_eq!(Provider::from_str("openai"), None);
+    assert_eq!(Provider::parse_name("unknown"), None);
+    assert_eq!(Provider::parse_name(""), None);
+    assert_eq!(Provider::parse_name("openai"), None);
+}
+
+#[test]
+fn test_provider_from_str_trait() {
+    use std::str::FromStr;
+
+    assert_eq!(Provider::from_str("codex"), Ok(Provider::Codex));
+    assert_eq!(Provider::from_str("claude"), Ok(Provider::Claude));
+    assert!(Provider::from_str("unknown").is_err());
 }
 
 #[test]

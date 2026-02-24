@@ -1,6 +1,7 @@
 """devctl status command implementation."""
 
 import json
+import sys
 
 from ..common import pipe_output, write_output
 from ..metric_writers import append_metric
@@ -35,8 +36,11 @@ def run(args) -> int:
 
     try:
         append_metric("status", report)
-    except Exception:
-        pass  # fail-soft
+    except Exception as exc:  # pragma: no cover - fail-soft telemetry path
+        print(
+            f"[devctl status] warning: unable to persist metrics ({exc})",
+            file=sys.stderr,
+        )
     write_output(output, args.output)
     if args.pipe_command:
         return pipe_output(output, args.pipe_command, args.pipe_args)

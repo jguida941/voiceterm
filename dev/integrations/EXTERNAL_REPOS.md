@@ -1,11 +1,11 @@
-# External Repository Federation
+# Federated Internal Repositories
 
 **Status**: active  |  **Last updated**: 2026-02-24 | **Owner:** tooling/control-plane
 
 ## Purpose
 
-`codex-voice` now tracks two external repos as pinned integration sources so we
-can reuse components without copy-paste drift.
+`codex-voice` tracks two of your other repos as pinned federation sources so we
+can reuse proven components without copy-paste drift.
 
 ## Linked Repositories
 
@@ -16,13 +16,20 @@ can reuse components without copy-paste drift.
 
 ## Operating Model
 
-1. Treat `integrations/*` as read-only vendor inputs.
+1. Treat `integrations/*` as read-only federated source inputs.
 2. Reuse by selective import into first-party paths (for example `dev/scripts/`,
    `dev/scripts/devctl/`, `.github/workflows/`, `src/`), never by hard runtime
    dependency on submodule internals.
 3. Every import must be anchored to an active plan item in
    `dev/active/MASTER_PLAN.md` and reflected in the relevant execution spec.
 4. Capture upstream source SHA(s) in handoff/audit notes whenever importing.
+
+## Ralph/Wiggum Loop Position
+
+The Ralph/Wiggum loop in this repo is a custom `codex-voice` implementation
+(`devctl triage-loop` and `devctl mutation-loop`) with its own policy and
+workflow wiring. Your other repos are reference sources for patterns and
+targeted imports, not direct runtime executors for this loop.
 
 ## Sync Commands
 
@@ -67,4 +74,4 @@ python3 dev/scripts/devctl.py integrations-import --source ci-cd-hub --profile w
 1. No direct CI execution from `integrations/*` paths.
 2. No destructive sync operations in helper scripts.
 3. Preserve independent releaseability of `codex-voice`.
-4. Keep external links pinned and auditable (`git submodule status`).
+4. Keep federated repo links pinned and auditable (`git submodule status`).

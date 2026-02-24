@@ -307,7 +307,7 @@ pub(super) fn design_low_pass(normalized_cutoff: f32, taps: usize) -> Vec<f32> {
     }
 
     let sum: f32 = coeffs.iter().sum();
-    if sum != 0.0 {
+    if sum.abs() > f32::EPSILON {
         for coeff in coeffs.iter_mut() {
             *coeff /= sum;
         }

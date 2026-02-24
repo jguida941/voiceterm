@@ -1,5 +1,6 @@
 """Tests for shared devctl command helpers."""
 
+import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -115,3 +116,33 @@ class MutationOutcomeDiscoveryTests(TestCase):
                 resolved = common.find_latest_outcomes_file()
 
         self.assertEqual(resolved, outcomes)
+
+
+class CommandRenderingTests(TestCase):
+    def test_cmd_str_quotes_args_with_spaces(self) -> None:
+        rendered = common.cmd_str(["echo", "/tmp/has space/file.txt"])
+        self.assertEqual(rendered, "echo '/tmp/has space/file.txt'")
+
+
+class PipeOutputTests(TestCase):
+    @patch("dev.scripts.devctl.common.shutil.which", return_value="/bin/cat")
+    @patch("dev.scripts.devctl.common.subprocess.run")
+    def test_pipe_output_timeout_returns_124(
+        self,
+        run_mock,
+        _which_mock,
+    ) -> None:
+        run_mock.side_effect = subprocess.TimeoutExpired(cmd=["cat"], timeout=1)
+        rc = common.pipe_output("payload", "cat", [])
+        self.assertEqual(rc, 124)
+
+    @patch("dev.scripts.devctl.common.shutil.which", return_value="/bin/cat")
+    @patch("dev.scripts.devctl.common.subprocess.run")
+    def test_pipe_output_oserror_returns_127(
+        self,
+        run_mock,
+        _which_mock,
+    ) -> None:
+        run_mock.side_effect = OSError("boom")
+        rc = common.pipe_output("payload", "cat", [])
+        self.assertEqual(rc, 127)

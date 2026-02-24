@@ -9,7 +9,7 @@ use std::{
     io::{self, Write},
     path::Path,
     process::{Child, Command, Output, Stdio},
-    sync::mpsc::{self, TryRecvError},
+    sync::mpsc::{self, RecvTimeoutError},
     thread,
     time::{Duration, Instant},
 };
@@ -68,6 +68,7 @@ fn spawn_with_cancel(
 }
 
 fn wait_child_with_cancel(child: Child, cancel: &CancelToken) -> Result<Output, CodexCallError> {
+    const WAIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
     let pid = child.id();
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
@@ -79,27 +80,6 @@ fn wait_child_with_cancel(child: Child, cancel: &CancelToken) -> Result<Output, 
     let mut sigkill_sent = false;
 
     loop {
-        match rx.try_recv() {
-            Ok(result) => {
-                return match result {
-                    Ok(output) => {
-                        if cancel_requested_at.is_some() {
-                            Err(CodexCallError::Cancelled)
-                        } else {
-                            Ok(output)
-                        }
-                    }
-                    Err(err) => Err(CodexCallError::Failure(err.into())),
-                };
-            }
-            Err(TryRecvError::Disconnected) => {
-                return Err(CodexCallError::Failure(anyhow!(
-                    "Codex child waiter disconnected unexpectedly"
-                )));
-            }
-            Err(TryRecvError::Empty) => {}
-        }
-
         if cancel.is_cancelled() {
             if cancel_requested_at.is_none() {
                 log_debug("CodexJob: cancellation requested; sending SIGTERM");
@@ -112,7 +92,28 @@ fn wait_child_with_cancel(child: Child, cancel: &CancelToken) -> Result<Output, 
             }
         }
 
-        thread::sleep(Duration::from_millis(50));
+        match rx.recv_timeout(WAIT_POLL_INTERVAL) {
+            Ok(result) => {
+                return match result {
+                    Ok(output) => {
+                        if cancel_requested_at.is_some() {
+                            Err(CodexCallError::Cancelled)
+                        } else {
+                            Ok(output)
+                        }
+                    }
+                    Err(err) => Err(CodexCallError::Failure(err.into())),
+                };
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(CodexCallError::Failure(anyhow!(
+                    "Codex child waiter disconnected unexpectedly"
+                )));
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                // Poll interval used for cancellation checks while waiting.
+            }
+        }
     }
 }
 

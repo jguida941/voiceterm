@@ -18,7 +18,8 @@ system in under ten minutes.
 - [Startup Sequence](#startup-sequence)
 - [Core Flows](#core-flows)
 - [Operational Workflows (Dev/CI/Release)](#operational-workflows-devcirelease)
-- [Autonomy Swarm Workflow](#3-autonomy-swarm-workflow)
+- [Custom Ralph Loop Architecture](#custom-ralph-loop-architecture)
+- [Autonomy Swarm Workflow](#autonomy-swarm-workflow)
 - [Overlay State Machine](#overlay-state-machine)
 - [Whisper Integration (Rust)](#whisper-integration-rust)
 - [Voice Error and Fallback Flow](#voice-error-and-fallback-flow)
@@ -283,7 +284,67 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` -- catches redundant clones/closures, risky wrap casts, and dead-code drift |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane -- runs `docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, and root artifact guard |
 
-### 3) Autonomy Swarm Workflow
+### Custom Ralph Loop Architecture
+
+This repo owns a custom Ralph/Wiggum loop implementation.
+It is not a direct runtime dependency on code inside `integrations/*`.
+
+Core loop surfaces:
+
+1. `devctl triage-loop` for CodeRabbit backlog remediation loops.
+2. `devctl mutation-loop` for mutation score reporting/remediation loops.
+3. Policy gates in `dev/config/control_plane_policy.json`.
+4. Workflow wrappers in `.github/workflows/coderabbit_ralph_loop.yml` and
+   `.github/workflows/mutation_ralph_loop.yml`.
+
+Simple loop flow:
+
+```mermaid
+flowchart TD
+  A[Source run completes<br/>CodeRabbit or mutation workflow] --> B[Controller workflow triggers]
+  B --> C[devctl loop command starts]
+  C --> D[Resolve source run and artifacts]
+  D --> E{Policy and bounds pass?}
+  E -->|No| F[Stop with reason code and audit output]
+  E -->|Yes| G[Analyze backlog and decide mode]
+  G --> H{Mode}
+  H -->|report-only| I[Emit md/json bundle and summary]
+  H -->|plan-then-fix or fix-only| J[Run allowlisted fix path]
+  J --> K[Wait/re-check bounded by attempts and timeout]
+  K --> L[Emit final summary and optional comment update]
+  I --> L
+```
+
+Why this implementation is different from generic community loop examples:
+
+1. Source-run correlation is explicit (`source_run_id` + `source_run_sha`) to
+   avoid picking unrelated branch runs.
+2. Notify/comment behavior is deterministic (`summary-only` vs
+   `summary-and-comment`) with idempotent marker updates.
+3. Fix paths are policy-gated and bounded (mode, branch allowlist, attempt caps,
+   command-prefix allowlist, reason codes, audit traces).
+4. Outputs are structured for downstream control surfaces (packet/queue files,
+   phone-safe snapshots, and automation reports).
+
+How your other repos fit:
+
+```mermaid
+flowchart LR
+  A[code-link-ide repo] --> B[integrations/* pinned refs]
+  C[ci-cd-hub repo] --> B
+  B --> D[devctl integrations-import<br/>allowlisted mappings]
+  D --> E[codex-voice first-party paths]
+  E --> F[tests plus policy gates]
+  F --> G[active runtime and CI workflows]
+```
+
+This keeps ownership clear:
+
+1. All repos are yours.
+2. Runtime loop behavior is owned and enforced in `codex-voice`.
+3. Federated repos provide reusable patterns/components through controlled import.
+
+### Autonomy Swarm Workflow
 
 Use `autonomy-swarm` when the operator wants bounded parallel lanes with one
 command and auditable artifacts.
@@ -523,7 +584,7 @@ intervals to avoid corrupting the backend's screen.
 
 ## Visual System (Overlay)
 
-### Status line
+### Status line modules
 
 - The **enhanced status line** is driven by `StatusLineState` -- it tracks mode, pipeline, sensitivity, message, and duration.
 - `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact **sparkline** rendering.
@@ -546,7 +607,7 @@ intervals to avoid corrupting the backend's screen.
 - Runtime settings are backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (override with `VOICETERM_CONFIG_DIR`).
 - Explicit CLI flags remain authoritative for each launch.
 
-### Overlays and panels
+### Overlay and panel modules
 
 - **Help overlay** -- toggled with `?`, rendered by the writer thread above the status line.
 - **Transcript history overlay** -- toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.

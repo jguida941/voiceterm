@@ -256,6 +256,28 @@ Inference: Cross-repo reuse moved from ad-hoc cloning to an auditable,
 version-pinned federation model that supports template extraction work without
 memory-only coordination.
 
+### Recent Governance Update (2026-02-24, Loop Model Docs Clarification)
+
+Fact: Core maintainer docs now explicitly describe the custom repo-owned
+Ralph/Wiggum loop implementation and how federated internal repos are consumed
+through controlled import rather than direct runtime execution.
+
+Evidence:
+
+- `dev/ARCHITECTURE.md` (new custom-loop architecture section with simple flow
+  charts for loop execution and federated import path)
+- `dev/DEVELOPMENT.md` (new operator-focused Ralph/Wiggum model section and
+  federated-repo wording updates)
+- `AGENTS.md` and `dev/scripts/README.md` (terminology alignment for federated
+  source pins/import commands)
+- `dev/active/MASTER_PLAN.md` (status-snapshot note for documentation
+  clarification)
+- `dev/integrations/EXTERNAL_REPOS.md` (federated internal repository framing)
+
+Inference: Loop ownership and source-of-truth boundaries are now clearer for
+operators and agents, reducing ambiguity between first-party runtime logic and
+federated pattern sources.
+
 ### Recent Governance Update (2026-02-24, Loop-to-Chat Coordination Runbook)
 
 Fact: Active-plan governance now includes a dedicated loop-output-to-chat

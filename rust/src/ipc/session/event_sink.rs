@@ -1,6 +1,7 @@
 use super::super::protocol::IpcEvent;
 #[cfg(any(test, feature = "mutants"))]
 use super::test_support;
+use crate::log_debug;
 use std::io::{self, Write};
 
 pub(super) fn send_event(event: &IpcEvent) {
@@ -8,10 +9,20 @@ pub(super) fn send_event(event: &IpcEvent) {
     if test_support::capture_test_event(event) {
         return;
     }
-    if let Ok(json) = serde_json::to_string(event) {
-        let mut stdout = io::stdout().lock();
-        let _ = writeln!(stdout, "{json}");
-        let _ = stdout.flush();
+    match serde_json::to_string(event) {
+        Ok(json) => {
+            let mut stdout = io::stdout().lock();
+            if let Err(err) = writeln!(stdout, "{json}") {
+                log_debug(&format!("ipc event sink write failed: {err}"));
+                return;
+            }
+            if let Err(err) = stdout.flush() {
+                log_debug(&format!("ipc event sink flush failed: {err}"));
+            }
+        }
+        Err(err) => {
+            log_debug(&format!("ipc event serialization failed: {err}"));
+        }
     }
 }
 
