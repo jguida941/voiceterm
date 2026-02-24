@@ -8,16 +8,16 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::stream_line_buffer::StreamLineBuffer;
+
 const MAX_LINE_BYTES: usize = 2048;
 
 #[derive(Debug)]
 pub(crate) struct SessionMemoryLogger {
     path: PathBuf,
     file: File,
-    pending_user_line: String,
-    pending_user_line_truncated: bool,
-    pending_assistant_line: String,
-    pending_assistant_line_truncated: bool,
+    pending_user_line: StreamLineBuffer,
+    pending_assistant_line: StreamLineBuffer,
 }
 
 impl SessionMemoryLogger {
@@ -42,10 +42,8 @@ impl SessionMemoryLogger {
         Ok(Self {
             path: path.to_path_buf(),
             file,
-            pending_user_line: String::new(),
-            pending_user_line_truncated: false,
-            pending_assistant_line: String::new(),
-            pending_assistant_line_truncated: false,
+            pending_user_line: StreamLineBuffer::new(MAX_LINE_BYTES),
+            pending_assistant_line: StreamLineBuffer::new(MAX_LINE_BYTES),
         })
     }
 
@@ -62,19 +60,16 @@ impl SessionMemoryLogger {
         for &b in bytes {
             match b {
                 b'\r' | b'\n' => {
-                    if let Some(line) = take_stream_line(
-                        &mut self.pending_user_line,
-                        &mut self.pending_user_line_truncated,
-                    ) {
+                    if let Some(line) = self.pending_user_line.take_line() {
                         let _ = self.write_entry("user", &line);
                     }
                 }
                 0x7f | 0x08 => {
-                    self.pending_user_line.pop();
+                    self.pending_user_line.pop_char();
                 }
-                b'\t' => self.push_user_char(' '),
+                b'\t' => self.pending_user_line.push_char(' '),
                 _ if b.is_ascii_control() => {}
-                _ => self.push_user_char(b as char),
+                _ => self.pending_user_line.push_char(b as char),
             }
         }
     }
@@ -93,31 +88,22 @@ impl SessionMemoryLogger {
         for ch in cleaned.chars() {
             match ch {
                 '\n' => {
-                    if let Some(line) = take_stream_line(
-                        &mut self.pending_assistant_line,
-                        &mut self.pending_assistant_line_truncated,
-                    ) {
+                    if let Some(line) = self.pending_assistant_line.take_line() {
                         let _ = self.write_entry("assistant", &line);
                     }
                 }
                 '\r' => {}
                 _ if ch.is_control() => {}
-                _ => self.push_assistant_char(ch),
+                _ => self.pending_assistant_line.push_char(ch),
             }
         }
     }
 
     pub(crate) fn flush_pending(&mut self) {
-        if let Some(line) = take_stream_line(
-            &mut self.pending_user_line,
-            &mut self.pending_user_line_truncated,
-        ) {
+        if let Some(line) = self.pending_user_line.take_line() {
             let _ = self.write_entry("user", &line);
         }
-        if let Some(line) = take_stream_line(
-            &mut self.pending_assistant_line,
-            &mut self.pending_assistant_line_truncated,
-        ) {
+        if let Some(line) = self.pending_assistant_line.take_line() {
             let _ = self.write_entry("assistant", &line);
         }
         let _ = self.file.flush();
@@ -130,22 +116,6 @@ impl SessionMemoryLogger {
         }
         writeln!(self.file, "- [{role}] {sanitized}")?;
         self.file.flush()
-    }
-
-    fn push_user_char(&mut self, ch: char) {
-        if self.pending_user_line.len() < MAX_LINE_BYTES {
-            self.pending_user_line.push(ch);
-        } else {
-            self.pending_user_line_truncated = true;
-        }
-    }
-
-    fn push_assistant_char(&mut self, ch: char) {
-        if self.pending_assistant_line.len() < MAX_LINE_BYTES {
-            self.pending_assistant_line.push(ch);
-        } else {
-            self.pending_assistant_line_truncated = true;
-        }
     }
 }
 
@@ -160,23 +130,6 @@ fn unix_epoch_seconds() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
-}
-
-fn take_stream_line(buffer: &mut String, truncated: &mut bool) -> Option<String> {
-    let trimmed = buffer.trim();
-    if trimmed.is_empty() {
-        buffer.clear();
-        *truncated = false;
-        return None;
-    }
-
-    let mut line = trimmed.to_string();
-    if *truncated {
-        line.push_str(" ...");
-    }
-    buffer.clear();
-    *truncated = false;
-    Some(line)
 }
 
 fn sanitize_entry_text(input: &str) -> String {

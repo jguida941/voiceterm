@@ -681,13 +681,11 @@ fn format_compact(
             VoiceMode::Idle => HudMode::Insert,
         },
         is_recording: state.recording_state == RecordingState::Recording,
-        recording_duration_secs: state.recording_duration.unwrap_or(0.0),
         audio_level_db: state.meter_db.unwrap_or(-60.0),
         audio_levels: state.meter_levels.clone(),
         queue_depth: state.queue_depth,
         last_latency_ms: state.last_latency_ms,
         latency_history_ms: state.latency_history_ms.clone(),
-        backend_name: String::new(),
         glyph_set: colors.glyph_set,
     };
     let modules = registry.render_all(&hud_state, module_budget, " · ");

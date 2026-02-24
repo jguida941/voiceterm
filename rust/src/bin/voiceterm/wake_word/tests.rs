@@ -64,6 +64,10 @@ fn canonicalize_hotword_tokens_merges_common_split_aliases() {
     let codex_alias_tokens: Vec<&str> = codex_alias.iter().map(String::as_str).collect();
     assert_eq!(codex_alias_tokens, vec!["hey", "codex", "please"]);
 
+    let codec_alias = canonicalize_hotword_tokens(&["codec", "send"]);
+    let codec_alias_tokens: Vec<&str> = codec_alias.iter().map(String::as_str).collect();
+    assert_eq!(codec_alias_tokens, vec!["codex", "send"]);
+
     let voiceterm = canonicalize_hotword_tokens(&["ok", "voice", "term", "start"]);
     let voiceterm_tokens: Vec<&str> = voiceterm.iter().map(String::as_str).collect();
     assert_eq!(voiceterm_tokens, vec!["ok", "voiceterm", "start"]);
@@ -91,6 +95,8 @@ fn contains_hotword_phrase_detects_supported_aliases() {
     assert!(contains_hotword_phrase("okay claude"));
     assert!(contains_hotword_phrase("okay cloud"));
     assert!(contains_hotword_phrase("pay clog"));
+    assert!(contains_hotword_phrase("codex send"));
+    assert!(contains_hotword_phrase("claude send"));
     assert!(contains_hotword_phrase("voiceterm"));
     assert!(contains_hotword_phrase("hey voice term"));
     assert!(contains_hotword_phrase("voice term start recording"));
@@ -156,6 +162,14 @@ fn detect_wake_event_maps_send_suffix_intent() {
         Some(WakeWordEvent::SendStagedInput)
     );
     assert_eq!(
+        detect_wake_event("codex son"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("claude son now"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
         detect_wake_event("hate cloud send this"),
         Some(WakeWordEvent::SendStagedInput)
     );
@@ -169,6 +183,10 @@ fn detect_wake_event_maps_send_suffix_intent() {
 fn detect_wake_event_defaults_to_detection_for_non_send_suffix() {
     assert_eq!(
         detect_wake_event("hey codex run tests"),
+        Some(WakeWordEvent::Detected)
+    );
+    assert_eq!(
+        detect_wake_event("claude explain this"),
         Some(WakeWordEvent::Detected)
     );
     assert_eq!(

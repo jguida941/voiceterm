@@ -635,7 +635,6 @@ intervals to avoid corrupting the backend's screen.
 - `rust/src/bin/voiceterm/banner.rs` -- startup splash + banner configuration
 - `rust/src/bin/voiceterm/terminal.rs` -- terminal sizing, modes, and signal handling
 - `rust/src/bin/voiceterm/arrow_keys.rs` -- arrow key normalization helpers
-- `rust/src/bin/voiceterm/progress.rs` -- progress/ETA helpers for long-running tasks
 
 ### Writer and output
 

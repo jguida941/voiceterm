@@ -47,7 +47,9 @@ impl ButtonAction {
             ButtonAction::HelpToggle => InputEvent::HelpToggle,
             ButtonAction::ThemePicker => InputEvent::ThemePicker,
             ButtonAction::CollapseHiddenLauncher => {
-                panic!("CollapseHiddenLauncher is dispatched via button handlers, not InputEvent")
+                unreachable!(
+                    "CollapseHiddenLauncher is dispatched via button handlers, not InputEvent"
+                )
             }
         }
     }

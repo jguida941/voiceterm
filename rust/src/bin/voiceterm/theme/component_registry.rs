@@ -173,6 +173,70 @@ impl ComponentId {
             Self::DashboardPanel => "components.dashboard.panel",
         }
     }
+
+    /// Reverse lookup: parse a TOML style-ID path back to a `ComponentId`.
+    ///
+    /// Returns `None` for unrecognized paths.
+    #[must_use]
+    pub(crate) fn from_style_id(path: &str) -> Option<Self> {
+        match path {
+            "components.button.hud" => Some(Self::ButtonHud),
+            "components.button.overlay" => Some(Self::ButtonOverlay),
+            "components.button.settings" => Some(Self::ButtonSettings),
+            "components.button.theme_picker" => Some(Self::ButtonThemePicker),
+            "components.tab.studio" => Some(Self::TabStudio),
+            "components.tab.settings" => Some(Self::TabSettings),
+            "components.list.settings" => Some(Self::ListSettings),
+            "components.list.help" => Some(Self::ListHelp),
+            "components.list.theme_picker" => Some(Self::ListThemePicker),
+            "components.list.history" => Some(Self::ListHistory),
+            "components.table.shortcuts" => Some(Self::TableShortcuts),
+            "components.tree.layout" => Some(Self::TreeLayout),
+            "components.scrollbar.overlay" => Some(Self::ScrollbarOverlay),
+            "components.modal.confirm" => Some(Self::ModalConfirm),
+            "components.popup.toast" => Some(Self::PopupToast),
+            "components.tooltip.hint" => Some(Self::TooltipHint),
+            "components.input.search" => Some(Self::InputSearch),
+            "components.input.slider" => Some(Self::InputSlider),
+            "components.toast.info" => Some(Self::ToastInfo),
+            "components.toast.success" => Some(Self::ToastSuccess),
+            "components.toast.warning" => Some(Self::ToastWarning),
+            "components.toast.error" => Some(Self::ToastError),
+            "components.hud.status_line" => Some(Self::HudStatusLine),
+            "components.hud.banner" => Some(Self::HudBanner),
+            "components.hud.meter" => Some(Self::HudMeter),
+            "components.hud.latency" => Some(Self::HudLatency),
+            "components.hud.queue" => Some(Self::HudQueue),
+            "components.hud.mode" => Some(Self::HudMode),
+            "components.hud.waveform" => Some(Self::HudWaveform),
+            "components.overlay.frame" => Some(Self::OverlayFrame),
+            "components.overlay.title" => Some(Self::OverlayTitle),
+            "components.overlay.footer" => Some(Self::OverlayFooter),
+            "components.overlay.separator" => Some(Self::OverlaySeparator),
+            "components.progress.bar" => Some(Self::ProgressBar),
+            "components.progress.spinner" => Some(Self::ProgressSpinner),
+            "components.progress.bounce" => Some(Self::ProgressBounce),
+            "components.startup.splash" => Some(Self::StartupSplash),
+            "components.startup.banner" => Some(Self::StartupBanner),
+            "components.startup.tagline" => Some(Self::StartupTagline),
+            "components.help.section" => Some(Self::HelpSection),
+            "components.settings.row" => Some(Self::SettingsRow),
+            "components.theme_picker.row" => Some(Self::ThemePickerRow),
+            "components.meter.bar" => Some(Self::MeterBar),
+            "components.meter.peak" => Some(Self::MeterPeak),
+            "components.meter.threshold" => Some(Self::MeterThreshold),
+            "components.icon.pack" => Some(Self::IconPack),
+            "components.voice.idle" => Some(Self::VoiceIdle),
+            "components.voice.listening" => Some(Self::VoiceListening),
+            "components.voice.processing" => Some(Self::VoiceProcessing),
+            "components.voice.responding" => Some(Self::VoiceResponding),
+            "components.palette.frame" => Some(Self::PaletteFrame),
+            "components.palette.match" => Some(Self::PaletteMatch),
+            "components.autocomplete.row" => Some(Self::AutocompleteRow),
+            "components.dashboard.panel" => Some(Self::DashboardPanel),
+            _ => None,
+        }
+    }
 }
 
 /// Interaction / visual state variants for components.
@@ -724,5 +788,29 @@ mod tests {
                 "duplicate component style-ID detected: {style_id}"
             );
         }
+    }
+
+    #[test]
+    fn from_style_id_roundtrips_all_components() {
+        let registry = ComponentRegistry::build_default();
+        for id in registry.all_component_ids() {
+            let style_id = id.style_id();
+            let roundtripped = ComponentId::from_style_id(style_id);
+            assert_eq!(
+                roundtripped,
+                Some(id),
+                "from_style_id roundtrip failed for {style_id}"
+            );
+        }
+    }
+
+    #[test]
+    fn from_style_id_rejects_unknown_path() {
+        assert_eq!(
+            ComponentId::from_style_id("components.unknown.widget"),
+            None
+        );
+        assert_eq!(ComponentId::from_style_id(""), None);
+        assert_eq!(ComponentId::from_style_id("not.a.component"), None);
     }
 }

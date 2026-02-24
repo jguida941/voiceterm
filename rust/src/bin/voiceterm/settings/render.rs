@@ -65,7 +65,7 @@ pub fn format_settings_overlay(view: &SettingsView<'_>, width: usize) -> String 
     lines.push(format_description_row(
         &colors,
         content_width,
-        setting_description(selected_item, view.theme_locked),
+        setting_description(selected_item),
     ));
     lines.push(frame_separator(&colors, borders, content_width));
     // Footer with clickable close button
@@ -94,10 +94,7 @@ fn format_settings_row(
     } else {
         " "
     };
-    let read_only = matches!(
-        item,
-        SettingsItem::Backend | SettingsItem::Pipeline | SettingsItem::Theme
-    ) && (item != SettingsItem::Theme || view.theme_locked);
+    let read_only = matches!(item, SettingsItem::Backend | SettingsItem::Pipeline);
 
     let row_text = match item {
         SettingsItem::AutoVoice => format!(
@@ -151,19 +148,6 @@ fn format_settings_row(
                 "{marker} {:<width$} {slider} {:>4.0} dB (-80..-10)",
                 "Sensitivity",
                 view.sensitivity_db,
-                width = LABEL_WIDTH
-            )
-        }
-        SettingsItem::Theme => {
-            let theme_label = if view.theme_locked {
-                format!("{} (locked)", view.theme)
-            } else {
-                view.theme.to_string()
-            };
-            format!(
-                "{marker} {:<width$} {}",
-                "Theme",
-                button_label(&theme_label),
                 width = LABEL_WIDTH
             )
         }
@@ -245,39 +229,19 @@ fn mode_button(mode: VoiceSendMode) -> String {
 }
 
 fn hud_panel_button(panel: HudRightPanel) -> String {
-    match panel {
-        HudRightPanel::Off => button_label("Off"),
-        HudRightPanel::Ribbon => button_label("Ribbon"),
-        HudRightPanel::Dots => button_label("Dots"),
-        HudRightPanel::Heartbeat => button_label("Heartbeat"),
-    }
+    button_label(&panel.to_string())
 }
 
 fn hud_style_button(style: HudStyle) -> String {
-    match style {
-        HudStyle::Full => button_label("Full"),
-        HudStyle::Minimal => button_label("Minimal"),
-        HudStyle::Hidden => button_label("Hidden"),
-    }
+    button_label(&style.to_string())
 }
 
 fn hud_border_style_button(style: HudBorderStyle) -> String {
-    match style {
-        HudBorderStyle::Theme => button_label("Theme"),
-        HudBorderStyle::Single => button_label("Single"),
-        HudBorderStyle::Rounded => button_label("Rounded"),
-        HudBorderStyle::Double => button_label("Double"),
-        HudBorderStyle::Heavy => button_label("Heavy"),
-        HudBorderStyle::None => button_label("None"),
-    }
+    button_label(&style.to_string())
 }
 
 fn latency_mode_button(mode: LatencyDisplayMode) -> String {
-    match mode {
-        LatencyDisplayMode::Off => button_label("Off"),
-        LatencyDisplayMode::Short => button_label("Nms"),
-        LatencyDisplayMode::Label => button_label("Latency: Nms"),
-    }
+    button_label(&mode.to_string())
 }
 
 fn button_label(label: &str) -> String {
@@ -293,23 +257,16 @@ fn format_slider(value_db: f32, width: usize, colors: &ThemeColors) -> String {
     } else {
         (clamped - min_db) / (max_db - min_db)
     };
-    let pos = ((width.saturating_sub(1)) as f32 * ratio).round() as usize;
-    let mut bar = String::with_capacity(width);
-    let knob = overlay_slider_knob(colors.glyph_set);
-    let track = overlay_slider_track(colors.glyph_set);
-    for idx in 0..width {
-        if idx == pos {
-            bar.push(knob);
-        } else {
-            bar.push(track);
-        }
-    }
-    bar
+    render_slider_at_ratio(ratio, width, colors)
 }
 
 fn format_normalized_slider(value: f32, width: usize, colors: &ThemeColors) -> String {
     let clamped = value.clamp(0.0, 1.0);
-    let pos = ((width.saturating_sub(1)) as f32 * clamped).round() as usize;
+    render_slider_at_ratio(clamped, width, colors)
+}
+
+fn render_slider_at_ratio(ratio: f32, width: usize, colors: &ThemeColors) -> String {
+    let pos = ((width.saturating_sub(1)) as f32 * ratio).round() as usize;
     let mut bar = String::with_capacity(width);
     let knob = overlay_slider_knob(colors.glyph_set);
     let track = overlay_slider_track(colors.glyph_set);
@@ -337,16 +294,10 @@ fn format_menu_row(
         "{clipped}{}",
         " ".repeat(inner_width.saturating_sub(display_width(&clipped)))
     );
-    let styled = if selected {
-        if read_only {
-            format!("{}{}{}", colors.dim, padded, colors.reset)
-        } else {
-            format!("{}{}{}", colors.info, padded, colors.reset)
-        }
-    } else if read_only {
-        format!("{}{}{}", colors.dim, padded, colors.reset)
-    } else {
-        padded
+    let styled = match (selected, read_only) {
+        (true, true) | (false, true) => format!("{}{}{}", colors.dim, padded, colors.reset),
+        (true, false) => format!("{}{}{}", colors.info, padded, colors.reset),
+        (false, false) => padded,
     };
 
     format!(
@@ -380,7 +331,7 @@ fn format_description_row(colors: &ThemeColors, width: usize, description: &str)
     )
 }
 
-fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
+fn setting_description(item: SettingsItem) -> &'static str {
     match item {
         SettingsItem::AutoVoice => "Enable continuous listening and auto-rearm behavior.",
         SettingsItem::WakeWord => "Toggle always-listening wake detector.",
@@ -392,13 +343,6 @@ fn setting_description(item: SettingsItem, theme_locked: bool) -> &'static str {
         }
         SettingsItem::Macros => "Apply phrase macros before transcript delivery.",
         SettingsItem::Sensitivity => "Voice activity threshold for speech detection.",
-        SettingsItem::Theme => {
-            if theme_locked {
-                "Theme selection is locked by VOICETERM_STYLE_PACK_JSON."
-            } else {
-                "Open theme picker to choose visual palette."
-            }
-        }
         SettingsItem::HudStyle => "Switch between Full, Minimal, and Hidden HUD.",
         SettingsItem::HudBorders => "Choose HUD border style and framing.",
         SettingsItem::HudPanel => "Select right-panel telemetry widget mode.",
@@ -441,7 +385,6 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
-            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -473,7 +416,6 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
-            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -503,7 +445,6 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Coral,
-            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,
@@ -555,7 +496,6 @@ mod tests {
             macros_enabled: true,
             sensitivity_db: -35.0,
             theme: Theme::Codex,
-            theme_locked: false,
             hud_style: HudStyle::Full,
             hud_border_style: HudBorderStyle::Theme,
             hud_right_panel: HudRightPanel::Off,

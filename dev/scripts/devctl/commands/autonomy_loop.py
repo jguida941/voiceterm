@@ -34,6 +34,12 @@ try:
 except ModuleNotFoundError:
     from checks.coderabbit_ralph_loop_core import resolve_repo
 
+
+def _resolve_env_or_default(env_key: str, default_value: str) -> str:
+    resolved = str(os.getenv(env_key) or default_value).strip()
+    return resolved or default_value
+
+
 def run(args) -> int:
     """Run bounded autonomous controller rounds over triage-loop + packet emission."""
     repo = resolve_repo(args.repo)
@@ -70,7 +76,9 @@ def run(args) -> int:
 
     requested_mode = str(args.mode)
     default_autonomy_mode = str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
-    runtime_autonomy_mode = str(os.getenv("AUTONOMY_MODE") or default_autonomy_mode).strip() or default_autonomy_mode
+    runtime_autonomy_mode = _resolve_env_or_default(
+        "AUTONOMY_MODE", default_autonomy_mode
+    )
     effective_mode = requested_mode
     if requested_mode != "report-only" and runtime_autonomy_mode != "operate":
         if bool(args.dry_run):

@@ -29,14 +29,11 @@ pub(crate) fn transcript_ready(
     if prompt_tracker.last_prompt_seen_at().is_none() {
         return idle_ready;
     }
-    if let (Some(enter_at), Some(last_output_at)) =
-        (last_enter_at, prompt_tracker.last_pty_output_at())
-    {
-        if last_output_at >= enter_at && idle_ready {
-            return true;
-        }
-    }
-    false
+    let output_since_enter = matches!(
+        (last_enter_at, prompt_tracker.last_pty_output_at()),
+        (Some(enter_at), Some(last_output_at)) if last_output_at >= enter_at
+    );
+    idle_ready && output_since_enter
 }
 
 #[cfg(test)]

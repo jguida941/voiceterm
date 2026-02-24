@@ -137,6 +137,9 @@ Mouse and overlay behavior:
 
 - When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still
   works with Left/Right + Enter.
+- In Cursor terminal, Mouse can stay ON and wheel scrolling remains available.
+  Settings shows `Mouse: ON - scroll preserved in Cursor`; HUD click handling
+  auto-resumes shortly after wheel scrolling.
 - If help/settings/theme overlays are open, unmatched input closes the overlay
   and replays the key/action into normal input handling.
 - Help overlay includes clickable Docs/Troubleshooting links (terminals that

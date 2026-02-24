@@ -60,7 +60,6 @@ pub(crate) fn show_settings_overlay(
         macros_enabled: status_state.macros_enabled,
         sensitivity_db: status_state.sensitivity_db,
         theme: effective_theme,
-        theme_locked: locked_theme.is_some(),
         hud_style: status_state.hud_style,
         hud_border_style: config.hud_border_style,
         hud_right_panel: config.hud_right_panel,

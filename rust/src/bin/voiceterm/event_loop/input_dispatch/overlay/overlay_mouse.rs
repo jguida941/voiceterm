@@ -148,7 +148,7 @@ pub(super) fn handle_overlay_mouse_click(
             && rel_x < overlay_width
         {
             state.theme_studio_selected = overlay_row.saturating_sub(options_start);
-            super::apply_theme_studio_selection(state, timers, deps, running);
+            super::theme_studio_input::apply_theme_studio_selection(state, timers, deps, running);
             if state.overlay_mode == OverlayMode::ThemeStudio {
                 render_theme_studio_overlay_for_state(state, deps);
             }

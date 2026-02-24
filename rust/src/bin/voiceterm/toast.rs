@@ -102,8 +102,6 @@ pub(crate) struct Toast {
     pub(crate) severity: ToastSeverity,
     /// Message text.
     pub(crate) message: String,
-    /// When this toast was created (retained for future elapsed-time display).
-    pub(crate) created_at: Instant,
     /// When this toast should auto-dismiss.
     pub(crate) dismiss_at: Instant,
     /// Whether the user explicitly dismissed this toast.
@@ -140,21 +138,11 @@ impl ToastCenter {
             id: self.next_id,
             severity,
             message: message.into(),
-            created_at: now,
             dismiss_at,
             dismissed: false,
         };
         self.next_id += 1;
-
-        // Evict oldest active toast if at capacity.
-        if self.active.len() >= MAX_VISIBLE_TOASTS {
-            if let Some(mut evicted) = self.active.pop_front() {
-                evicted.dismissed = true;
-                self.push_history(evicted);
-            }
-        }
-
-        self.active.push_back(toast);
+        self.push_active_toast(toast);
     }
 
     /// Push a toast with a custom dismiss duration.
@@ -170,20 +158,11 @@ impl ToastCenter {
             id: self.next_id,
             severity,
             message: message.into(),
-            created_at: now,
             dismiss_at: now + dismiss_after,
             dismissed: false,
         };
         self.next_id += 1;
-
-        if self.active.len() >= MAX_VISIBLE_TOASTS {
-            if let Some(mut evicted) = self.active.pop_front() {
-                evicted.dismissed = true;
-                self.push_history(evicted);
-            }
-        }
-
-        self.active.push_back(toast);
+        self.push_active_toast(toast);
     }
 
     /// Tick the toast center: dismiss expired toasts.
@@ -260,11 +239,21 @@ impl ToastCenter {
 
     fn push_history(&mut self, toast: Toast) {
         debug_assert!(toast.id < self.next_id, "toast IDs should remain monotonic");
-        let _ = toast.created_at;
         if self.history.len() >= TOAST_HISTORY_MAX {
             self.history.pop_front();
         }
         self.history.push_back(toast);
+    }
+
+    fn push_active_toast(&mut self, toast: Toast) {
+        // Evict oldest active toast if at capacity.
+        if self.active.len() >= MAX_VISIBLE_TOASTS {
+            if let Some(mut evicted) = self.active.pop_front() {
+                evicted.dismissed = true;
+                self.push_history(evicted);
+            }
+        }
+        self.active.push_back(toast);
     }
 }
 

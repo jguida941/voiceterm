@@ -61,6 +61,82 @@ class LoopCommentUpsertTests(unittest.TestCase):
         self.assertNotIn("--repo", command)
         self.assertIn("/repos/owner/repo/issues/comments/55", command)
 
+    def test_upsert_surfaces_list_error(self) -> None:
+        def fake_gh_json(_repo: str, _cmd: list[str]) -> tuple[Any | None, str | None]:
+            return None, "gh-json failed"
+
+        def fake_run_capture(_cmd: list[str]) -> tuple[int, str, str]:
+            self.fail("run_capture_fn should not run when comment listing fails")
+
+        payload, error = upsert_comment(
+            "owner/repo",
+            {"kind": "pr", "id": 123},
+            marker="marker",
+            body="body",
+            gh_json_fn=fake_gh_json,
+            run_capture_fn=fake_run_capture,
+        )
+
+        self.assertEqual(payload, {})
+        self.assertEqual(error, "gh-json failed")
+
+    def test_upsert_rejects_existing_comment_without_numeric_id(self) -> None:
+        def fake_gh_json(_repo: str, _cmd: list[str]) -> tuple[Any | None, str | None]:
+            return [{"id": "abc", "body": "marker"}], None
+
+        def fake_run_capture(_cmd: list[str]) -> tuple[int, str, str]:
+            self.fail("run_capture_fn should not run without numeric comment id")
+
+        payload, error = upsert_comment(
+            "owner/repo",
+            {"kind": "pr", "id": 123},
+            marker="marker",
+            body="body",
+            gh_json_fn=fake_gh_json,
+            run_capture_fn=fake_run_capture,
+        )
+
+        self.assertEqual(payload, {})
+        self.assertEqual(error, "existing marker comment missing numeric id")
+
+    def test_upsert_surfaces_mutation_nonzero_exit(self) -> None:
+        def fake_gh_json(_repo: str, _cmd: list[str]) -> tuple[Any | None, str | None]:
+            return [{"id": 77, "body": "marker"}], None
+
+        def fake_run_capture(_cmd: list[str]) -> tuple[int, str, str]:
+            return 1, "", "permission denied"
+
+        payload, error = upsert_comment(
+            "owner/repo",
+            {"kind": "pr", "id": 123},
+            marker="marker",
+            body="body",
+            gh_json_fn=fake_gh_json,
+            run_capture_fn=fake_run_capture,
+        )
+
+        self.assertEqual(payload, {})
+        self.assertEqual(error, "permission denied")
+
+    def test_upsert_surfaces_unexpected_mutation_payload(self) -> None:
+        def fake_gh_json(_repo: str, _cmd: list[str]) -> tuple[Any | None, str | None]:
+            return [], None
+
+        def fake_run_capture(_cmd: list[str]) -> tuple[int, str, str]:
+            return 0, "[]", ""
+
+        payload, error = upsert_comment(
+            "owner/repo",
+            {"kind": "commit", "id": "abc123"},
+            marker="marker",
+            body="body",
+            gh_json_fn=fake_gh_json,
+            run_capture_fn=fake_run_capture,
+        )
+
+        self.assertEqual(payload, {})
+        self.assertEqual(error, "unexpected gh api response payload")
+
 
 if __name__ == "__main__":
     unittest.main()

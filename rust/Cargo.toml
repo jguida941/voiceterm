@@ -1,6 +1,6 @@
 [package]
 name = "voiceterm"
-version = "1.0.92"
+version = "1.0.93"
 edition = "2021"
 default-run = "voiceterm"
 autobins = false
@@ -36,6 +36,8 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "json", "time"] }
 cpal = { version = "0.16" }
 whisper-rs = { version = "0.14.1", default-features = false, features = [] }
 regex = "1"
+toml = "0.8"
+dirs = "5"
 gag = "1.0"
 shell-words = "1"
 rubato = { version = "0.12", optional = true }

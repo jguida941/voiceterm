@@ -38,33 +38,113 @@ pub(super) fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps
 }
 
 pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    use crate::theme_studio::{format_tab_bar, StudioPage};
+
     let cols = resolved_cols(state.terminal_cols);
-    let selected = state
-        .theme_studio_selected
-        .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
-    let style_pack_overrides = runtime_style_pack_overrides();
-    let view = ThemeStudioView {
-        theme: state.theme,
-        selected,
-        hud_style: state.status_state.hud_style,
-        hud_border_style: state.config.hud_border_style,
-        hud_right_panel: state.config.hud_right_panel,
-        hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
-        border_style_override: style_pack_overrides.border_style_override,
-        glyph_set_override: style_pack_overrides.glyph_set_override,
-        indicator_set_override: style_pack_overrides.indicator_set_override,
-        progress_style_override: style_pack_overrides.progress_style_override,
-        progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
-        voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
-        toast_position_override: style_pack_overrides.toast_position_override,
-        startup_style_override: style_pack_overrides.startup_style_override,
-        toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
-        banner_style_override: style_pack_overrides.banner_style_override,
-        undo_available: !state.theme_studio_undo_history.is_empty(),
-        redo_available: !state.theme_studio_redo_history.is_empty(),
-        runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
-    };
-    show_theme_studio_overlay(&deps.writer_tx, &view, cols);
+
+    match state.theme_studio_page {
+        StudioPage::Home => {
+            // Original home page rendering — unchanged.
+            let selected = state
+                .theme_studio_selected
+                .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+            let style_pack_overrides = runtime_style_pack_overrides();
+            let view = ThemeStudioView {
+                theme: state.theme,
+                selected,
+                hud_style: state.status_state.hud_style,
+                hud_border_style: state.config.hud_border_style,
+                hud_right_panel: state.config.hud_right_panel,
+                hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
+                border_style_override: style_pack_overrides.border_style_override,
+                glyph_set_override: style_pack_overrides.glyph_set_override,
+                indicator_set_override: style_pack_overrides.indicator_set_override,
+                progress_style_override: style_pack_overrides.progress_style_override,
+                progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
+                voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
+                toast_position_override: style_pack_overrides.toast_position_override,
+                startup_style_override: style_pack_overrides.startup_style_override,
+                toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
+                banner_style_override: style_pack_overrides.banner_style_override,
+                undo_available: !state.theme_studio_undo_history.is_empty(),
+                redo_available: !state.theme_studio_redo_history.is_empty(),
+                runtime_overrides_dirty: style_pack_overrides
+                    != RuntimeStylePackOverrides::default(),
+            };
+            show_theme_studio_overlay(&deps.writer_tx, &view, cols);
+        }
+        page => {
+            // Non-home pages: render tab bar + page content.
+            let colors = state.theme.colors();
+            let inner_width = theme_studio_inner_width_for_terminal(cols as usize);
+            let tab_bar = format_tab_bar(page, &colors, inner_width);
+
+            let page_lines: Vec<String> = match page {
+                StudioPage::Colors => {
+                    if let Some(ref editor) = state.theme_studio_colors_editor {
+                        editor.render(colors.info, colors.dim, colors.reset)
+                    } else {
+                        vec![" (open Colors page to initialize editor)".to_string()]
+                    }
+                }
+                StudioPage::Borders => {
+                    state
+                        .theme_studio_borders_page
+                        .render(colors.info, colors.dim, colors.reset)
+                }
+                StudioPage::Components => state.theme_studio_components_editor.render(
+                    colors.info,
+                    colors.dim,
+                    colors.reset,
+                ),
+                StudioPage::Preview => state.theme_studio_preview_page.render(&colors),
+                StudioPage::Export => {
+                    let ep = &state.theme_studio_export_page;
+                    let mut lines: Vec<String> = crate::theme_studio::ExportAction::ALL
+                        .iter()
+                        .enumerate()
+                        .map(|(i, action): (usize, &crate::theme_studio::ExportAction)| {
+                            let marker = if i == ep.selected { "▸" } else { " " };
+                            format!(
+                                " {} {}  {}{}{}",
+                                marker,
+                                action.label(),
+                                colors.dim,
+                                action.description(),
+                                colors.reset
+                            )
+                        })
+                        .collect();
+                    if let Some(ref status) = ep.last_status {
+                        lines.push(String::new());
+                        lines.push(format!(" {}{}{}", colors.info, status, colors.reset));
+                    }
+                    lines
+                }
+                StudioPage::Home => unreachable!(),
+            };
+
+            let mut content = String::new();
+            content.push_str(&tab_bar);
+            content.push('\n');
+            for line in &page_lines {
+                content.push_str(line);
+                content.push('\n');
+            }
+
+            // Footer hint.
+            content.push_str(&format!(
+                "\n {}Tab{}/{}Shift+Tab{} switch pages  {}Esc{} close",
+                colors.info, colors.reset, colors.info, colors.reset, colors.dim, colors.reset,
+            ));
+
+            let height = 2 + page_lines.len() + 2; // tab bar + lines + footer
+            let _ = crate::writer::try_send_message(
+                &deps.writer_tx,
+                WriterMessage::ShowOverlay { content, height },
+            );
+        }
+    }
 }
 
 pub(super) fn render_transcript_history_overlay_for_state(

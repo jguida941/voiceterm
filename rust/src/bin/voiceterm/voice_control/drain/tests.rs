@@ -77,6 +77,8 @@ fn test_overlay_config(send_mode: VoiceSendMode) -> OverlayConfig {
         claude: false,
         gemini: false,
         login: false,
+        theme_file: None,
+        export_theme: None,
     }
 }
 

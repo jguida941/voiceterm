@@ -33,6 +33,8 @@ pub struct VoiceJob {
     pub handle: Option<thread::JoinHandle<()>>,
     /// Flag to signal early stop (e.g., when Enter is pressed in insert mode)
     pub stop_flag: Arc<AtomicBool>,
+    /// True while a native capture call actively holds the microphone.
+    pub capture_active: Arc<AtomicBool>,
 }
 
 const VOICE_JOB_JOIN_POLL_MS: u64 = 5;
@@ -42,6 +44,12 @@ impl VoiceJob {
     /// Signal the voice capture to stop early and process what was recorded.
     pub fn request_stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
+    }
+
+    /// Returns true while native capture is still in-progress.
+    #[must_use]
+    pub fn is_capture_active(&self) -> bool {
+        self.capture_active.load(Ordering::Relaxed)
     }
 }
 
@@ -171,10 +179,20 @@ pub fn start_voice_job(
     let (tx, rx) = mpsc::sync_channel(1);
     let stop_flag = Arc::new(AtomicBool::new(false));
     let stop_flag_clone = stop_flag.clone();
+    let capture_active = Arc::new(AtomicBool::new(true));
+    let capture_active_clone = capture_active.clone();
 
     let handle = thread::spawn(move || {
         // Do the heavy work off the UI thread and send back one message.
-        let message = perform_voice_capture(recorder, transcriber, &config, stop_flag_clone, meter);
+        let message = perform_voice_capture(
+            recorder,
+            transcriber,
+            &config,
+            stop_flag_clone,
+            capture_active_clone.clone(),
+            meter,
+        );
+        capture_active_clone.store(false, Ordering::Relaxed);
         let _ = tx.send(message);
     });
 
@@ -182,6 +200,7 @@ pub fn start_voice_job(
         receiver: rx,
         handle: Some(handle),
         stop_flag,
+        capture_active,
     }
 }
 
@@ -191,6 +210,7 @@ fn perform_voice_capture(
     transcriber: Option<Arc<Mutex<stt::Transcriber>>>,
     config: &crate::config::AppConfig,
     stop_flag: Arc<AtomicBool>,
+    capture_active: Arc<AtomicBool>,
     meter: Option<audio::LiveMeter>,
 ) -> VoiceJobMessage {
     let (Some(recorder), Some(transcriber)) = (recorder, transcriber) else {
@@ -207,6 +227,7 @@ fn perform_voice_capture(
         transcriber,
         config,
         stop_flag.clone(),
+        capture_active.clone(),
         meter.clone(),
     ) {
         Ok((Some(transcript), metrics)) => VoiceJobMessage::Transcript {
@@ -328,19 +349,23 @@ fn capture_voice_native(
     transcriber: Arc<Mutex<stt::Transcriber>>,
     config: &crate::config::AppConfig,
     stop_flag: Arc<AtomicBool>,
+    capture_active: Arc<AtomicBool>,
     meter: Option<audio::LiveMeter>,
 ) -> Result<(Option<String>, audio::CaptureMetrics)> {
     log_debug("capture_voice_native: Starting");
     let pipeline_cfg = config.voice_pipeline_config();
     let vad_cfg: audio::VadConfig = (&pipeline_cfg).into();
     let record_start = Instant::now();
-    let capture = {
+    let capture_result = (|| -> Result<audio::CaptureResult> {
         let recorder_guard = recorder
             .lock()
             .map_err(|_| anyhow!("audio recorder lock poisoned"))?;
         let mut vad_engine = create_vad_engine(&pipeline_cfg);
         recorder_guard.record_with_vad(&vad_cfg, vad_engine.as_mut(), Some(stop_flag), meter)
-    }?;
+    })();
+    // Once record_with_vad returns, the microphone is no longer held.
+    capture_active.store(false, Ordering::Relaxed);
+    let capture = capture_result?;
     let audio::CaptureResult { audio, mut metrics } = capture;
     log_voice_metrics(&metrics);
     if audio.is_empty() {
@@ -633,7 +658,16 @@ mod tests {
         let config = test_config();
         let message = with_python_hook(
             Box::new(|_, _| Ok(pipeline_result("fallback success"))),
-            || perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)), None),
+            || {
+                perform_voice_capture(
+                    None,
+                    None,
+                    &config,
+                    Arc::new(AtomicBool::new(false)),
+                    Arc::new(AtomicBool::new(false)),
+                    None,
+                )
+            },
         );
 
         match message {
@@ -653,8 +687,14 @@ mod tests {
     fn error_when_fallback_disabled_and_native_unavailable() {
         let mut config = test_config();
         config.no_python_fallback = true;
-        let message =
-            perform_voice_capture(None, None, &config, Arc::new(AtomicBool::new(false)), None);
+        let message = perform_voice_capture(
+            None,
+            None,
+            &config,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            None,
+        );
 
         match message {
             VoiceJobMessage::Error(VoiceError::PythonFallbackDisabled { native_reason }) => {

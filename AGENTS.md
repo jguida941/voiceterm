@@ -589,6 +589,7 @@ Core commands:
   - Use `--parallel-workers <n>` to tune worker count, or `--no-parallel` to force sequential execution.
   - Includes automatic orphaned/stale test-process cleanup before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
+  - Structured `check` output timestamps are UTC for stable cross-run correlation.
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
@@ -604,14 +605,14 @@ Core commands:
 - `mutants`
 - `release`
 - `release-notes`
-- `ship`
+- `ship` (release-version reads now use TOML parsing for `[package]`/`[project]` with Python 3.10 fallback parsing)
 - `pypi`
 - `homebrew` (tap formula URL/version/checksum updates plus canonical `desc` text sync)
 - `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
-- `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing)
+- `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json bundles and optional MASTER_PLAN proposal artifacts)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates)
 - `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons; non-dry-run write modes require `AUTONOMY_MODE=operate`)

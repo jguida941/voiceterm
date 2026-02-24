@@ -97,6 +97,12 @@ Full controls reference:
 - [guides/USAGE.md#settings-menu](guides/USAGE.md#settings-menu)
 - [guides/USAGE.md#voice-modes](guides/USAGE.md#voice-modes)
 
+Mouse note:
+
+- `Mouse` is ON by default for clickable HUD controls.
+- In Cursor terminal, wheel scrolling still works while `Mouse` stays ON.
+  Settings shows `Mouse: ON - scroll preserved in Cursor`.
+
 ## 5) Hands-free starter (optional)
 
 GUI setup:

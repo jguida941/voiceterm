@@ -358,32 +358,46 @@ fn adjust_sensitivity_updates_threshold_and_message() {
 
 #[test]
 fn cycle_hud_right_panel_wraps() {
+    const OPTIONS: &[HudRightPanel] = &[
+        HudRightPanel::Ribbon,
+        HudRightPanel::Dots,
+        HudRightPanel::Heartbeat,
+        HudRightPanel::Off,
+    ];
     assert_eq!(
-        cycle_hud_right_panel(HudRightPanel::Ribbon, 1),
+        cycle_option(OPTIONS, HudRightPanel::Ribbon, 1),
         HudRightPanel::Dots
     );
     assert_eq!(
-        cycle_hud_right_panel(HudRightPanel::Ribbon, -1),
+        cycle_option(OPTIONS, HudRightPanel::Ribbon, -1),
         HudRightPanel::Off
     );
     assert_eq!(
-        cycle_hud_right_panel(HudRightPanel::Off, 1),
+        cycle_option(OPTIONS, HudRightPanel::Off, 1),
         HudRightPanel::Ribbon
     );
 }
 
 #[test]
 fn cycle_hud_border_style_wraps() {
+    const OPTIONS: &[HudBorderStyle] = &[
+        HudBorderStyle::Theme,
+        HudBorderStyle::Single,
+        HudBorderStyle::Rounded,
+        HudBorderStyle::Double,
+        HudBorderStyle::Heavy,
+        HudBorderStyle::None,
+    ];
     assert_eq!(
-        cycle_hud_border_style(HudBorderStyle::Theme, 1),
+        cycle_option(OPTIONS, HudBorderStyle::Theme, 1),
         HudBorderStyle::Single
     );
     assert_eq!(
-        cycle_hud_border_style(HudBorderStyle::Theme, -1),
+        cycle_option(OPTIONS, HudBorderStyle::Theme, -1),
         HudBorderStyle::None
     );
     assert_eq!(
-        cycle_hud_border_style(HudBorderStyle::None, 1),
+        cycle_option(OPTIONS, HudBorderStyle::None, 1),
         HudBorderStyle::Theme
     );
 }
@@ -490,23 +504,29 @@ fn cycle_hud_border_style_updates_state_and_status() {
 
 #[test]
 fn cycle_hud_style_wraps() {
-    assert_eq!(cycle_hud_style(HudStyle::Full, 1), HudStyle::Minimal);
-    assert_eq!(cycle_hud_style(HudStyle::Full, -1), HudStyle::Hidden);
-    assert_eq!(cycle_hud_style(HudStyle::Hidden, 1), HudStyle::Full);
+    const OPTIONS: &[HudStyle] = &[HudStyle::Full, HudStyle::Minimal, HudStyle::Hidden];
+    assert_eq!(cycle_option(OPTIONS, HudStyle::Full, 1), HudStyle::Minimal);
+    assert_eq!(cycle_option(OPTIONS, HudStyle::Full, -1), HudStyle::Hidden);
+    assert_eq!(cycle_option(OPTIONS, HudStyle::Hidden, 1), HudStyle::Full);
 }
 
 #[test]
 fn cycle_latency_display_wraps() {
+    const OPTIONS: &[LatencyDisplayMode] = &[
+        LatencyDisplayMode::Short,
+        LatencyDisplayMode::Label,
+        LatencyDisplayMode::Off,
+    ];
     assert_eq!(
-        cycle_latency_display(LatencyDisplayMode::Short, 1),
+        cycle_option(OPTIONS, LatencyDisplayMode::Short, 1),
         LatencyDisplayMode::Label
     );
     assert_eq!(
-        cycle_latency_display(LatencyDisplayMode::Label, 1),
+        cycle_option(OPTIONS, LatencyDisplayMode::Label, 1),
         LatencyDisplayMode::Off
     );
     assert_eq!(
-        cycle_latency_display(LatencyDisplayMode::Off, 1),
+        cycle_option(OPTIONS, LatencyDisplayMode::Off, 1),
         LatencyDisplayMode::Short
     );
 }
@@ -1117,7 +1137,6 @@ fn toggle_mouse_toggles_state_and_emits_enable_disable_messages() {
     let mut terminal_rows = 24;
     let mut terminal_cols = 80;
     let mut theme = Theme::Coral;
-
     {
         let mut ctx = make_context(
             &mut config,

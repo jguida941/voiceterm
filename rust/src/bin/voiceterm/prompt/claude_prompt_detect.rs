@@ -3,13 +3,14 @@
 //! Detects Claude/Codex approval prompts, sandbox permission requests, and
 //! composer/input prompts that can be obscured by VoiceTerm HUD/overlay rows.
 
+use std::collections::VecDeque;
 use std::time::Instant;
 
 use super::strip::strip_ansi_preserve_controls;
 
 /// Diagnostic snapshot captured when a prompt-state transition occurs.
+#[cfg(test)]
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub(crate) struct PromptOcclusionDiagnostic {
     /// Terminal rows at detection time.
     pub(crate) terminal_rows: u16,
@@ -56,12 +57,13 @@ pub(crate) struct ClaudePromptDetector {
     /// Rolling line buffer for prompt pattern matching.
     line_buffer: Vec<u8>,
     /// Accumulated lines for multi-line prompt context.
-    recent_lines: Vec<String>,
+    recent_lines: VecDeque<String>,
     /// Maximum lines to keep for context.
     max_context_lines: usize,
     /// Last detected prompt type.
     last_prompt_type: Option<PromptType>,
     /// Last diagnostic snapshot.
+    #[cfg(test)]
     last_diagnostic: Option<PromptOcclusionDiagnostic>,
 }
 
@@ -134,9 +136,10 @@ impl ClaudePromptDetector {
             suppressed: false,
             suppressed_at: None,
             line_buffer: Vec::with_capacity(512),
-            recent_lines: Vec::with_capacity(8),
+            recent_lines: VecDeque::with_capacity(8),
             max_context_lines: 8,
             last_prompt_type: None,
+            #[cfg(test)]
             last_diagnostic: None,
         }
     }
@@ -155,10 +158,7 @@ impl ClaudePromptDetector {
                 b'\n' => {
                     let line = String::from_utf8_lossy(&self.line_buffer).to_string();
                     if !line.trim().is_empty() {
-                        if self.recent_lines.len() >= self.max_context_lines {
-                            self.recent_lines.remove(0);
-                        }
-                        self.recent_lines.push(line.clone());
+                        self.push_context_line(line.clone());
                     }
                     self.line_buffer.clear();
                 }
@@ -167,10 +167,7 @@ impl ClaudePromptDetector {
                     if !self.line_buffer.is_empty() {
                         let line = String::from_utf8_lossy(&self.line_buffer).to_string();
                         if !line.trim().is_empty() {
-                            if self.recent_lines.len() >= self.max_context_lines {
-                                self.recent_lines.remove(0);
-                            }
-                            self.recent_lines.push(line);
+                            self.push_context_line(line);
                         }
                         self.line_buffer.clear();
                     }
@@ -249,7 +246,7 @@ impl ClaudePromptDetector {
     }
 
     /// Capture a diagnostic snapshot for the current prompt state.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn capture_diagnostic(
         &mut self,
         terminal_rows: u16,
@@ -281,15 +278,22 @@ impl ClaudePromptDetector {
     }
 
     /// Return the last captured diagnostic, if any.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn last_diagnostic(&self) -> Option<&PromptOcclusionDiagnostic> {
         self.last_diagnostic.as_ref()
     }
 
     /// Whether prompt-occlusion guardrails are enabled for this backend.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn is_enabled(&self) -> bool {
         self.prompt_guard_enabled
+    }
+
+    fn push_context_line(&mut self, line: String) {
+        if self.recent_lines.len() >= self.max_context_lines {
+            self.recent_lines.pop_front();
+        }
+        self.recent_lines.push_back(line);
     }
 
     fn combined_context(&self) -> String {
@@ -303,37 +307,29 @@ impl ClaudePromptDetector {
     }
 }
 
+fn context_matches_patterns(current_line: &str, context: &str, patterns: &[&str]) -> bool {
+    patterns
+        .iter()
+        .any(|pattern| context.contains(pattern) || current_line.contains(pattern))
+}
+
 fn detect_prompt_type(current_line: &str, context: &str) -> Option<PromptType> {
     if looks_like_reply_composer(current_line)
-        || REPLY_COMPOSER_PATTERNS
-            .iter()
-            .any(|p| context.contains(p) || current_line.contains(p))
+        || context_matches_patterns(current_line, context, REPLY_COMPOSER_PATTERNS)
     {
         return Some(PromptType::ReplyComposer);
     }
     // Check in priority order: most specific first
-    if WORKTREE_PERMISSION_PATTERNS
-        .iter()
-        .any(|p| context.contains(p) || current_line.contains(p))
-    {
+    if context_matches_patterns(current_line, context, WORKTREE_PERMISSION_PATTERNS) {
         return Some(PromptType::WorktreePermission);
     }
-    if MULTI_TOOL_BATCH_PATTERNS
-        .iter()
-        .any(|p| context.contains(p) || current_line.contains(p))
-    {
+    if context_matches_patterns(current_line, context, MULTI_TOOL_BATCH_PATTERNS) {
         return Some(PromptType::MultiToolBatch);
     }
-    if SINGLE_COMMAND_PATTERNS
-        .iter()
-        .any(|p| context.contains(p) || current_line.contains(p))
-    {
+    if context_matches_patterns(current_line, context, SINGLE_COMMAND_PATTERNS) {
         return Some(PromptType::SingleCommandApproval);
     }
-    if GENERIC_INTERACTIVE_PATTERNS
-        .iter()
-        .any(|p| context.contains(p) || current_line.contains(p))
-    {
+    if context_matches_patterns(current_line, context, GENERIC_INTERACTIVE_PATTERNS) {
         return Some(PromptType::GenericInteractive);
     }
     None
@@ -347,7 +343,7 @@ fn looks_like_reply_composer(current_line: &str) -> bool {
     trimmed.starts_with('❯') || trimmed.starts_with('›') || trimmed.starts_with('〉')
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn estimate_command_wrap_depth(context: &str, terminal_cols: usize) -> usize {
     if terminal_cols == 0 {
         return 0;
@@ -491,7 +487,18 @@ mod tests {
         let diag = diag.unwrap();
         assert_eq!(diag.terminal_rows, 40);
         assert_eq!(diag.terminal_cols, 120);
+        assert_eq!(diag.hud_style, "Full");
+        assert_eq!(diag.hud_mode, "banner");
         assert_eq!(diag.prompt_type, PromptType::WorktreePermission);
+        assert!(!diag.has_worktree_paths);
+        assert!(diag.command_wrap_depth >= 1);
+        assert!(!diag.has_tool_batch_summary);
+        assert_eq!(
+            detector
+                .last_diagnostic()
+                .map(|snapshot| snapshot.prompt_type),
+            Some(PromptType::WorktreePermission)
+        );
     }
 
     #[test]

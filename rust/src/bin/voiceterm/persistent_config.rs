@@ -51,6 +51,7 @@ pub(crate) fn config_file_path() -> Option<PathBuf> {
 }
 
 /// Parse a TOML-like key = value line. Handles quoted and unquoted values.
+/// This parser is intentionally simple and does not decode escaped quotes.
 fn parse_toml_value(line: &str) -> Option<(&str, &str)> {
     let line = line.trim();
     if line.is_empty() || line.starts_with('#') || line.starts_with('[') {
@@ -121,54 +122,147 @@ fn serialize_user_config(config: &UserConfig) -> String {
     lines.push("# Managed by Settings overlay; CLI flags override these values.".to_string());
     lines.push(String::new());
 
-    if let Some(ref v) = config.theme {
-        lines.push(format!("theme = \"{v}\""));
+    push_toml_string(&mut lines, "theme", config.theme.as_deref());
+    push_toml_string(&mut lines, "hud_style", config.hud_style.as_deref());
+    push_toml_string(
+        &mut lines,
+        "hud_border_style",
+        config.hud_border_style.as_deref(),
+    );
+    push_toml_string(
+        &mut lines,
+        "hud_right_panel",
+        config.hud_right_panel.as_deref(),
+    );
+    push_toml_bool(
+        &mut lines,
+        "hud_right_panel_recording_only",
+        config.hud_right_panel_recording_only,
+    );
+    push_toml_bool(&mut lines, "auto_voice", config.auto_voice);
+    push_toml_string(
+        &mut lines,
+        "voice_send_mode",
+        config.voice_send_mode.as_deref(),
+    );
+    push_toml_bool(&mut lines, "image_mode", config.image_mode);
+    push_toml_f32(&mut lines, "sensitivity_db", config.sensitivity_db);
+    push_toml_bool(&mut lines, "wake_word", config.wake_word);
+    if let Some(value) = config.wake_word_sensitivity {
+        lines.push(format!("wake_word_sensitivity = {value:.2}"));
     }
-    if let Some(ref v) = config.hud_style {
-        lines.push(format!("hud_style = \"{v}\""));
-    }
-    if let Some(ref v) = config.hud_border_style {
-        lines.push(format!("hud_border_style = \"{v}\""));
-    }
-    if let Some(ref v) = config.hud_right_panel {
-        lines.push(format!("hud_right_panel = \"{v}\""));
-    }
-    if let Some(v) = config.hud_right_panel_recording_only {
-        lines.push(format!("hud_right_panel_recording_only = {v}"));
-    }
-    if let Some(v) = config.auto_voice {
-        lines.push(format!("auto_voice = {v}"));
-    }
-    if let Some(ref v) = config.voice_send_mode {
-        lines.push(format!("voice_send_mode = \"{v}\""));
-    }
-    if let Some(v) = config.image_mode {
-        lines.push(format!("image_mode = {v}"));
-    }
-    if let Some(v) = config.sensitivity_db {
-        lines.push(format!("sensitivity_db = {v}"));
-    }
-    if let Some(v) = config.wake_word {
-        lines.push(format!("wake_word = {v}"));
-    }
-    if let Some(v) = config.wake_word_sensitivity {
-        lines.push(format!("wake_word_sensitivity = {v:.2}"));
-    }
-    if let Some(v) = config.wake_word_cooldown_ms {
-        lines.push(format!("wake_word_cooldown_ms = {v}"));
-    }
-    if let Some(ref v) = config.latency_display {
-        lines.push(format!("latency_display = \"{v}\""));
-    }
-    if let Some(v) = config.macros_enabled {
-        lines.push(format!("macros_enabled = {v}"));
-    }
-    if let Some(ref v) = config.memory_mode {
-        lines.push(format!("memory_mode = \"{v}\""));
-    }
+    push_toml_u64(
+        &mut lines,
+        "wake_word_cooldown_ms",
+        config.wake_word_cooldown_ms,
+    );
+    push_toml_string(
+        &mut lines,
+        "latency_display",
+        config.latency_display.as_deref(),
+    );
+    push_toml_bool(&mut lines, "macros_enabled", config.macros_enabled);
+    push_toml_string(&mut lines, "memory_mode", config.memory_mode.as_deref());
 
     lines.push(String::new());
     lines.join("\n")
+}
+
+fn push_toml_string(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        lines.push(format!("{key} = \"{value}\""));
+    }
+}
+
+fn push_toml_bool(lines: &mut Vec<String>, key: &str, value: Option<bool>) {
+    if let Some(value) = value {
+        lines.push(format!("{key} = {value}"));
+    }
+}
+
+fn push_toml_f32(lines: &mut Vec<String>, key: &str, value: Option<f32>) {
+    if let Some(value) = value {
+        lines.push(format!("{key} = {value}"));
+    }
+}
+
+fn push_toml_u64(lines: &mut Vec<String>, key: &str, value: Option<u64>) {
+    if let Some(value) = value {
+        lines.push(format!("{key} = {value}"));
+    }
+}
+
+fn apply_if_not_explicit<T: Copy>(is_explicit: bool, value: Option<T>, target: &mut T) {
+    if !is_explicit {
+        if let Some(value) = value {
+            *target = value;
+        }
+    }
+}
+
+fn apply_parsed_if_not_explicit<T, F>(
+    is_explicit: bool,
+    value: Option<&str>,
+    target: &mut T,
+    parse: F,
+) where
+    F: Fn(&str) -> Option<T>,
+{
+    if !is_explicit {
+        if let Some(value) = value {
+            if let Some(parsed) = parse(value) {
+                *target = parsed;
+            }
+        }
+    }
+}
+
+fn parse_hud_style(value: &str) -> Option<crate::config::HudStyle> {
+    match value.to_ascii_lowercase().as_str() {
+        "full" => Some(crate::config::HudStyle::Full),
+        "minimal" => Some(crate::config::HudStyle::Minimal),
+        "hidden" => Some(crate::config::HudStyle::Hidden),
+        _ => None,
+    }
+}
+
+fn parse_hud_border_style(value: &str) -> Option<crate::config::HudBorderStyle> {
+    match value.to_ascii_lowercase().as_str() {
+        "theme" => Some(crate::config::HudBorderStyle::Theme),
+        "single" => Some(crate::config::HudBorderStyle::Single),
+        "rounded" => Some(crate::config::HudBorderStyle::Rounded),
+        "double" => Some(crate::config::HudBorderStyle::Double),
+        "heavy" => Some(crate::config::HudBorderStyle::Heavy),
+        "none" => Some(crate::config::HudBorderStyle::None),
+        _ => None,
+    }
+}
+
+fn parse_hud_right_panel(value: &str) -> Option<crate::config::HudRightPanel> {
+    match value.to_ascii_lowercase().as_str() {
+        "ribbon" => Some(crate::config::HudRightPanel::Ribbon),
+        "dots" => Some(crate::config::HudRightPanel::Dots),
+        "heartbeat" => Some(crate::config::HudRightPanel::Heartbeat),
+        "off" => Some(crate::config::HudRightPanel::Off),
+        _ => None,
+    }
+}
+
+fn parse_voice_send_mode(value: &str) -> Option<crate::config::VoiceSendMode> {
+    match value.to_ascii_lowercase().as_str() {
+        "auto" => Some(crate::config::VoiceSendMode::Auto),
+        "insert" => Some(crate::config::VoiceSendMode::Insert),
+        _ => None,
+    }
+}
+
+fn parse_latency_display_mode(value: &str) -> Option<crate::config::LatencyDisplayMode> {
+    match value.to_ascii_lowercase().as_str() {
+        "off" => Some(crate::config::LatencyDisplayMode::Off),
+        "short" | "nms" => Some(crate::config::LatencyDisplayMode::Short),
+        "label" | "latency: nms" => Some(crate::config::LatencyDisplayMode::Label),
+        _ => None,
+    }
 }
 
 /// Save user config to `~/.config/voiceterm/config.toml`.
@@ -204,83 +298,60 @@ pub(crate) fn apply_user_config_to_overlay(
     overlay_config: &mut crate::config::OverlayConfig,
     cli_explicit: &CliExplicitFlags,
 ) {
-    use crate::config::{
-        HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode,
-    };
-
     if !cli_explicit.theme {
         if let Some(ref theme) = user_config.theme {
             overlay_config.theme_name = Some(theme.clone());
         }
     }
-    if !cli_explicit.hud_style {
-        if let Some(ref style) = user_config.hud_style {
-            overlay_config.hud_style = match style.to_ascii_lowercase().as_str() {
-                "full" => HudStyle::Full,
-                "minimal" => HudStyle::Minimal,
-                "hidden" => HudStyle::Hidden,
-                _ => overlay_config.hud_style,
-            };
-        }
-    }
-    if !cli_explicit.hud_border_style {
-        if let Some(ref style) = user_config.hud_border_style {
-            overlay_config.hud_border_style = match style.to_ascii_lowercase().as_str() {
-                "theme" => HudBorderStyle::Theme,
-                "single" => HudBorderStyle::Single,
-                "rounded" => HudBorderStyle::Rounded,
-                "double" => HudBorderStyle::Double,
-                "heavy" => HudBorderStyle::Heavy,
-                "none" => HudBorderStyle::None,
-                _ => overlay_config.hud_border_style,
-            };
-        }
-    }
-    if !cli_explicit.hud_right_panel {
-        if let Some(ref panel) = user_config.hud_right_panel {
-            overlay_config.hud_right_panel = match panel.to_ascii_lowercase().as_str() {
-                "ribbon" => HudRightPanel::Ribbon,
-                "dots" => HudRightPanel::Dots,
-                "heartbeat" => HudRightPanel::Heartbeat,
-                "off" => HudRightPanel::Off,
-                _ => overlay_config.hud_right_panel,
-            };
-        }
-    }
-    if !cli_explicit.hud_right_panel_recording_only {
-        if let Some(v) = user_config.hud_right_panel_recording_only {
-            overlay_config.hud_right_panel_recording_only = v;
-        }
-    }
-    if !cli_explicit.auto_voice {
-        if let Some(v) = user_config.auto_voice {
-            overlay_config.auto_voice = v;
-        }
-    }
-    if !cli_explicit.voice_send_mode {
-        if let Some(ref mode) = user_config.voice_send_mode {
-            overlay_config.voice_send_mode = match mode.to_ascii_lowercase().as_str() {
-                "auto" => VoiceSendMode::Auto,
-                "insert" => VoiceSendMode::Insert,
-                _ => overlay_config.voice_send_mode,
-            };
-        }
-    }
-    if !cli_explicit.image_mode {
-        if let Some(v) = user_config.image_mode {
-            overlay_config.image_mode = v;
-        }
-    }
+    apply_parsed_if_not_explicit(
+        cli_explicit.hud_style,
+        user_config.hud_style.as_deref(),
+        &mut overlay_config.hud_style,
+        parse_hud_style,
+    );
+    apply_parsed_if_not_explicit(
+        cli_explicit.hud_border_style,
+        user_config.hud_border_style.as_deref(),
+        &mut overlay_config.hud_border_style,
+        parse_hud_border_style,
+    );
+    apply_parsed_if_not_explicit(
+        cli_explicit.hud_right_panel,
+        user_config.hud_right_panel.as_deref(),
+        &mut overlay_config.hud_right_panel,
+        parse_hud_right_panel,
+    );
+    apply_if_not_explicit(
+        cli_explicit.hud_right_panel_recording_only,
+        user_config.hud_right_panel_recording_only,
+        &mut overlay_config.hud_right_panel_recording_only,
+    );
+    apply_if_not_explicit(
+        cli_explicit.auto_voice,
+        user_config.auto_voice,
+        &mut overlay_config.auto_voice,
+    );
+    apply_parsed_if_not_explicit(
+        cli_explicit.voice_send_mode,
+        user_config.voice_send_mode.as_deref(),
+        &mut overlay_config.voice_send_mode,
+        parse_voice_send_mode,
+    );
+    apply_if_not_explicit(
+        cli_explicit.image_mode,
+        user_config.image_mode,
+        &mut overlay_config.image_mode,
+    );
     if !cli_explicit.sensitivity_db {
         if let Some(db) = user_config.sensitivity_db {
             overlay_config.app.voice_vad_threshold_db = db;
         }
     }
-    if !cli_explicit.wake_word {
-        if let Some(v) = user_config.wake_word {
-            overlay_config.wake_word = v;
-        }
-    }
+    apply_if_not_explicit(
+        cli_explicit.wake_word,
+        user_config.wake_word,
+        &mut overlay_config.wake_word,
+    );
     if !cli_explicit.wake_word_sensitivity {
         if let Some(v) = user_config.wake_word_sensitivity {
             overlay_config.wake_word_sensitivity = v.clamp(0.0, 1.0);
@@ -294,16 +365,12 @@ pub(crate) fn apply_user_config_to_overlay(
             );
         }
     }
-    if !cli_explicit.latency_display {
-        if let Some(ref mode) = user_config.latency_display {
-            overlay_config.latency_display = match mode.to_ascii_lowercase().as_str() {
-                "off" => LatencyDisplayMode::Off,
-                "short" | "nms" => LatencyDisplayMode::Short,
-                "label" | "latency: nms" => LatencyDisplayMode::Label,
-                _ => overlay_config.latency_display,
-            };
-        }
-    }
+    apply_parsed_if_not_explicit(
+        cli_explicit.latency_display,
+        user_config.latency_display.as_deref(),
+        &mut overlay_config.latency_display,
+        parse_latency_display_mode,
+    );
 }
 
 /// Apply non-CLI runtime state from persistent config.

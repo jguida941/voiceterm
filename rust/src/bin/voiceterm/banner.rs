@@ -28,17 +28,9 @@ const ASCII_LOGO: &[&str] = &[
     r"  ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝",
 ];
 
-fn logo_line_color(theme: Theme, line_index: usize) -> &'static str {
-    let colors = theme.colors();
-    let palette = [
-        colors.info,
-        colors.processing,
-        colors.success,
-        colors.warning,
-        colors.recording,
-        colors.border,
-    ];
-    palette[line_index % palette.len()]
+fn logo_line_color(theme: Theme, _line_index: usize) -> &'static str {
+    // Keep a single accent so splash art matches the selected theme family.
+    theme.colors().border
 }
 
 fn centered_padding(terminal_width: u16, text: &str) -> usize {
@@ -714,9 +706,9 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     }
 
     #[test]
-    fn logo_line_color_uses_rotating_theme_palette() {
-        let first = logo_line_color(Theme::Coral, 0);
-        let seventh = logo_line_color(Theme::Coral, 6);
-        assert_eq!(first, seventh);
+    fn logo_line_color_uses_single_theme_accent() {
+        let colors = Theme::TokyoNight.colors();
+        assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
+        assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
     }
 }

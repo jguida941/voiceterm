@@ -376,6 +376,7 @@ fn reset_theme_studio_selection(state: &mut EventLoopState) {
     state.theme_studio_selected = state
         .theme_studio_selected
         .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+    state.theme_studio_page = crate::theme_studio::StudioPage::Home;
 }
 
 fn settings_action_context<'a>(
@@ -460,10 +461,6 @@ fn apply_settings_item_action(
                 settings_ctx.adjust_sensitivity(delta_db);
                 true
             }
-        }
-        SettingsItem::Theme => {
-            settings_ctx.cycle_theme(step);
-            true
         }
         SettingsItem::HudStyle => {
             settings_ctx.cycle_hud_style(step);

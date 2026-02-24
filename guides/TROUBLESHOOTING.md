@@ -178,6 +178,12 @@ the HUD parser, not forwarded to the backend.
 3. If needed as a temporary workaround, set `Settings -> Mouse` to `OFF`
 4. Report terminal/IDE + version if raw fragments still appear on latest build
 
+Note for Cursor terminal:
+
+- VoiceTerm keeps wheel scrolling available while `Mouse` remains on.
+  You will see `Mouse: ON - scroll preserved in Cursor`, and HUD clicks
+  automatically resume shortly after wheel scrolling.
+
 </details>
 
 ## Audio Setup

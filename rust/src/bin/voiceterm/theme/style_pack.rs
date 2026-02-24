@@ -36,6 +36,8 @@ const STYLE_PACK_SCHEMA_ENV: &str = "VOICETERM_STYLE_PACK_JSON";
 const STYLE_PACK_TEST_ENV_OPT_IN: &str = "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV";
 #[cfg(not(test))]
 static RUNTIME_STYLE_PACK_OVERRIDES: OnceLock<Mutex<RuntimeStylePackOverrides>> = OnceLock::new();
+#[cfg(not(test))]
+static RUNTIME_COLOR_OVERRIDE: OnceLock<Mutex<Option<ThemeColors>>> = OnceLock::new();
 #[cfg(test)]
 thread_local! {
     static RUNTIME_STYLE_PACK_OVERRIDES: Cell<RuntimeStylePackOverrides> = const {
@@ -182,6 +184,45 @@ pub(crate) fn set_runtime_style_pack_overrides(overrides: RuntimeStylePackOverri
             let mut guard = poisoned.into_inner();
             *guard = overrides;
         }
+    }
+}
+
+/// Set a full runtime color palette override from the Theme Studio Colors page.
+///
+/// Takes highest precedence when set — `resolve_theme_colors()` checks this
+/// before style-pack JSON, TOML files, or built-in themes.
+#[cfg(not(test))]
+pub(crate) fn set_runtime_color_override(colors: ThemeColors) {
+    let cell = RUNTIME_COLOR_OVERRIDE.get_or_init(|| Mutex::new(None));
+    match cell.lock() {
+        Ok(mut guard) => *guard = Some(colors),
+        Err(poisoned) => {
+            let mut guard = poisoned.into_inner();
+            *guard = Some(colors);
+        }
+    }
+}
+
+/// Clear the runtime color palette override (e.g. when studio closes).
+#[cfg(not(test))]
+#[allow(dead_code)]
+pub(crate) fn clear_runtime_color_override() {
+    let cell = RUNTIME_COLOR_OVERRIDE.get_or_init(|| Mutex::new(None));
+    match cell.lock() {
+        Ok(mut guard) => *guard = None,
+        Err(poisoned) => {
+            poisoned.into_inner().take();
+        }
+    }
+}
+
+/// Get the current runtime color override, if any.
+#[cfg(not(test))]
+fn runtime_color_override() -> Option<ThemeColors> {
+    let cell = RUNTIME_COLOR_OVERRIDE.get_or_init(|| Mutex::new(None));
+    match cell.lock() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
     }
 }
 
@@ -472,8 +513,97 @@ fn resolve_component_border_set(
     resolve_border_set(base_borders, override_value)
 }
 
+/// Try loading a TOML theme file from `VOICETERM_THEME_FILE` env var.
+///
+/// Returns `None` if the env var is unset, empty, or the file fails to load.
+/// On failure, falls through silently to the built-in theme.
+#[must_use]
+fn toml_theme_file_colors() -> Option<ThemeColors> {
+    #[cfg(test)]
+    if std::env::var_os(STYLE_PACK_TEST_ENV_OPT_IN).is_none() {
+        return None;
+    }
+
+    let path = std::env::var("VOICETERM_THEME_FILE").ok()?;
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+
+    if !path.contains('/')
+        && !path.contains('\\')
+        && !path.ends_with(".toml")
+        && !path.ends_with(".TOML")
+    {
+        match super::theme_dir::load_user_theme(path) {
+            Ok(resolved) => return Some(resolved.to_legacy_theme_colors()),
+            Err(load_err) => {
+                #[cfg(not(test))]
+                {
+                    let available = super::theme_dir::list_theme_files();
+                    if available.is_empty() {
+                        log_debug(&format!(
+                            "theme file {path}: named user theme not found ({load_err}); no user themes currently in ~/.config/voiceterm/themes/"
+                        ));
+                    } else {
+                        let names: Vec<String> = available
+                            .iter()
+                            .filter_map(|file_path| {
+                                file_path
+                                    .file_stem()
+                                    .map(|stem| stem.to_string_lossy().to_string())
+                            })
+                            .collect();
+                        log_debug(&format!(
+                            "theme file {path}: named user theme not found ({load_err}); available user themes: {}",
+                            names.join(", ")
+                        ));
+                    }
+                }
+                #[cfg(test)]
+                {
+                    let _ = load_err;
+                }
+            }
+        }
+    }
+
+    let file = super::theme_file::load_theme_file(std::path::Path::new(path)).ok()?;
+    #[cfg(not(test))]
+    for warning in super::theme_file::validate_theme_file(&file) {
+        match warning {
+            super::theme_file::ThemeFileWarning::UnusedPaletteEntry(key) => {
+                log_debug(&format!(
+                    "theme file {path}: unused palette entry (safe to remove): {key}"
+                ));
+            }
+        }
+    }
+    let resolved = super::theme_file::resolve_theme_file(&file).ok()?;
+    Some(resolved.to_legacy_theme_colors())
+}
+
 #[must_use]
 pub(crate) fn resolve_theme_colors(theme: Theme) -> ThemeColors {
+    // Precedence:
+    // 0. Runtime color override from Theme Studio (highest)
+    // 1. VOICETERM_STYLE_PACK_JSON
+    // 2. VOICETERM_THEME_FILE (TOML file path)
+    // 3. Built-in themes (fallback)
+    #[cfg(not(test))]
+    if let Some(colors) = runtime_color_override() {
+        return colors;
+    }
+
+    let payload = runtime_style_pack_payload();
+    if payload.is_some() {
+        return resolve_style_pack_colors(resolved_style_pack(theme));
+    }
+
+    if let Some(toml_colors) = toml_theme_file_colors() {
+        return toml_colors;
+    }
+
     resolve_style_pack_colors(resolved_style_pack(theme))
 }
 

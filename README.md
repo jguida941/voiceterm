@@ -204,6 +204,7 @@ Use `Ctrl+G` to quick-cycle themes.
 ![Settings](img/settings.png)
 
 Mouse control is enabled by default. Open Settings with `Ctrl+O`.
+In Cursor terminal, VoiceTerm keeps `Mouse` ON but preserves wheel scrolling.
 For details, use:
 
 - [Settings Menu](guides/USAGE.md#settings-menu)

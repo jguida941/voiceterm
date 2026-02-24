@@ -256,6 +256,34 @@ Inference: Cross-repo reuse moved from ad-hoc cloning to an auditable,
 version-pinned federation model that supports template extraction work without
 memory-only coordination.
 
+### Recent Governance Update (2026-02-24, Audit Remediation Pass)
+
+Fact: A focused post-audit remediation pass resolved the latest high-severity
+runtime/tooling findings and tightened regression coverage in shared `devctl`
+helpers.
+
+Evidence:
+
+- `rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs` (context buffer uses
+  `VecDeque` and removes O(n) `remove(0)` in prompt-detection hot path)
+- `rust/src/bin/voiceterm/transcript/delivery.rs` (merge loop now enforces the
+  `front`/`pop_front` invariant without dead-branch logic)
+- `rust/src/bin/voiceterm/persistent_config.rs` (helper-based deduplication for
+  config serialization/apply flow)
+- `rust/src/bin/voiceterm/buttons.rs` (test-only dispatch invariant now uses
+  `unreachable!` semantics)
+- `dev/scripts/devctl/commands/ship_common.py` (TOML-backed version reads with
+  Python 3.10 fallback parser)
+- `dev/scripts/devctl/commands/check.py` and
+  `dev/scripts/devctl/commands/triage.py` (UTC report timestamps)
+- `dev/scripts/devctl/tests/test_common.py`,
+  `dev/scripts/devctl/tests/test_loop_comment.py`,
+  `dev/scripts/devctl/tests/test_ship.py` (new failure-path coverage)
+
+Inference: The remediation pass reduced hidden failure modes in core loop
+tooling while improving determinism for release/report pipelines and preserving
+strict gate compatibility (`devctl check --profile ci`).
+
 ### Recent Governance Update (2026-02-24, Loop Model Docs Clarification)
 
 Fact: Core maintainer docs now explicitly describe the custom repo-owned

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import List
 
@@ -330,7 +330,7 @@ def run(args) -> int:
     success = all(step["returncode"] == 0 for step in steps)
     report = {
         "command": "check",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
         "steps": steps,
     }

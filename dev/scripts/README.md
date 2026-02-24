@@ -294,6 +294,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - Runs an automatic orphaned/stale test-process sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Disable only when needed with `--no-process-sweep-cleanup`.
   - `release` profile includes wake-word regression/soak guardrails, mutation-score gating, and strict remote release gates (`status --ci --require-ci`, CodeRabbit, Ralph).
+  - Structured `check` report timestamps are UTC for consistent CI/local correlation.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + stale-path audit)
@@ -307,13 +308,13 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `security`: RustSec policy checks plus optional workflow/code-scanning security scans (`--with-zizmor`, `--with-codeql-alerts`) and Python-scope selection (`--python-scope auto|changed|all`)
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
-- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` now includes both CodeRabbit gates (`check_coderabbit_gate` + `check_coderabbit_ralph_gate`)
+- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` now includes both CodeRabbit gates (`check_coderabbit_gate` + `check_coderabbit_ralph_gate`) and version reads from TOML roots (`[package]`/`[project]`) with Python 3.10-compatible fallback parsing
 - `homebrew`: Homebrew tap update flow (URL/version/SHA + canonical formula `desc` sync)
 - `pypi`: PyPI build/check/upload flow
 - `orchestrate-status`: one-shot orchestrator accountability view (active-plan sync + multi-agent sync guard status with git context)
 - `orchestrate-watch`: SLA watchdog for stale lane updates and overdue instruction ACKs
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
-- `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, and emits rollups for severity/category/owner counts
+- `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, emits rollups for severity/category/owner counts, and stamps reports with UTC timestamps
 - `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
 - `autonomy-loop`: bounded autonomy controller wrapper around `triage-loop` + `loop-packet` with hard caps (`--max-rounds`, `--max-hours`, `--max-tasks`), run-scoped packet artifacts, queue inbox outputs, phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.{json,md}`), and strict policy gating for write modes (`AUTONOMY_MODE=operate` required for non-dry-run fix modes; dry-run still downgrades to `report-only`)

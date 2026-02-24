@@ -56,6 +56,54 @@ pub(super) fn run_periodic_tasks(
         }
     }
 
+    // Poll theme file watcher for hot-reload (every 500ms).
+    const THEME_FILE_POLL_INTERVAL_MS: u64 = 500;
+    if state.theme_file_watcher.is_some()
+        && now.duration_since(timers.last_theme_file_poll)
+            >= Duration::from_millis(THEME_FILE_POLL_INTERVAL_MS)
+    {
+        timers.last_theme_file_poll = now;
+        if let Some(ref mut watcher) = state.theme_file_watcher {
+            if let Some(new_content) = watcher.poll() {
+                // Validate the updated file before triggering re-render.
+                if let Ok(file) =
+                    toml::from_str::<crate::theme::theme_file::ThemeFile>(&new_content)
+                {
+                    if crate::theme::theme_file::resolve_theme_file(&file).is_ok() {
+                        voiceterm::log_debug(&format!(
+                            "theme hot-reload: applying {} from {}",
+                            file.meta.name.as_deref().unwrap_or("unnamed"),
+                            watcher.path().display()
+                        ));
+                        // Theme colors are resolved on each theme.colors() call via
+                        // style_pack, which reads VOICETERM_THEME_FILE from disk.
+                        // Trigger a re-render of the active overlay and status line.
+                        send_enhanced_status_with_buttons(
+                            &deps.writer_tx,
+                            &deps.button_registry,
+                            &state.status_state,
+                            state.overlay_mode,
+                            state.terminal_cols,
+                            state.theme,
+                        );
+                        match state.overlay_mode {
+                            OverlayMode::ThemeStudio => {
+                                render_theme_studio_overlay_for_state(state, deps);
+                            }
+                            OverlayMode::ThemePicker => {
+                                render_theme_picker_overlay_for_state(state, deps);
+                            }
+                            OverlayMode::Settings => {
+                                render_settings_overlay_for_state(state, deps);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if state.overlay_mode != OverlayMode::ThemePicker {
         reset_theme_picker_digits(state, timers);
     } else if let Some(deadline) = timers.theme_picker_digit_deadline {
@@ -189,7 +237,9 @@ pub(super) fn run_periodic_tasks(
 
     drain_voice_messages_once(state, timers, deps, now);
 
-    let capture_active = !deps.voice_manager.is_idle();
+    // Keep wake listening paused only while a live native capture holds the mic;
+    // STT processing should not block wake re-arm.
+    let capture_active = deps.voice_manager.is_capture_active();
     deps.wake_word_runtime.sync(
         state.config.wake_word,
         state.config.wake_word_sensitivity,

@@ -60,6 +60,8 @@ const GROUPS: &[GroupSpec] = &[
         title: "Appearance",
         longs: &[
             "theme",
+            "theme-file",
+            "export-theme",
             "no-color",
             "hud-style",
             "minimal-hud",

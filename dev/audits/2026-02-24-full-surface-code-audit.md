@@ -416,3 +416,168 @@ Key low-severity patterns across all areas:
 - [ ] Task-class bundle and risk-matrix checks pass.
 - [ ] Docs and plan entries updated for behavior/process changes.
 - [ ] Scaffold closed or regenerated with zero open findings.
+
+---
+
+## Round 2: Follow-Up Audit (post-fix review + new coverage)
+
+**Date:** 2026-02-24 (follow-up pass)
+
+### Fix Verification Summary
+
+All 10 previously identified HIGH-severity fixes were applied correctly:
+
+| Original ID | Fix Status | Notes |
+|---|---|---|
+| RC-H1 (float equality) | FIXED | `resample.rs` uses proper comparison now. One secondary float equality at line 296 remains (safe for odd taps but undocumented precondition). |
+| RC-H2 (Provider::from_str) | FIXED | Proper `FromStr` trait impl + `parse_name` convenience method. Clean, idiomatic. |
+| RC-H3 (env::set_var unsafe) | FIXED | Wrapped in `unsafe` with SAFETY comments referencing `with_env_lock`. |
+| RC-H4 (event sink drops errors) | FIXED | Now logs via `log_debug` for serialization, write, and flush failures. |
+| RC-H5 (busy-wait loop) | FIXED | Replaced with `recv_timeout(50ms)`. SIGTERM-to-SIGKILL escalation is clean. |
+| DT-H1 (bare except) | FIXED | All three files now use `except Exception as exc` with stderr warnings. |
+| DT-H2 (dead branch) | FIXED | `_resolve_use_cihub` refactored with clean three-outcome flow + extracted `_cihub_supports_triage`. |
+| DT-H3 (cmd_str quoting) | FIXED | Now uses `shlex.join()`. Test confirms space-quoting works. |
+| DT-H4 (pipe_output) | FIXED | Three-layer defense: which check (code 2), timeout (code 124), OSError (code 127). |
+| DT-H5 (git config --local) | FIXED | Both check and set now use `--local` flag explicitly. |
+
+### Round 2: NEW HIGH Findings (5)
+
+#### R2-H1. `progress.rs`:5 -- File-level `#![allow(dead_code)]` suppresses all warnings
+
+Blanket suppression across entire file. Several pub types/functions may be genuinely dead. Each should carry its own `#[allow]` or be removed.
+
+#### R2-H2. `claude_prompt_detect.rs`:159 -- `Vec::remove(0)` in PTY output hot path
+
+O(n) operation on every byte batch. `recent_lines` should be `VecDeque` for O(1) `pop_front`. Same pattern at lines 169-173.
+
+#### R2-H3. `transcript/delivery.rs`:82-83 -- Dead `else` branch after guaranteed `.front()` success
+
+Inner `let Some(next) = pending.pop_front() else { break }` can never fail because `.front()` just succeeded. Dead code.
+
+#### R2-H4. `persistent_config.rs`:202-307 -- 105 lines of repetitive if-let chains
+
+13 nearly identical blocks for applying config fields. Macro or field-visitor pattern would halve the code.
+
+#### R2-H5. `buttons.rs`:49-53 -- `panic!` in `to_input_event` for `CollapseHiddenLauncher`
+
+Even though `#[cfg(test)]`, tests hitting this path crash with no useful diagnostic. Use `unreachable!()` with context or return `Result`.
+
+### Round 2: NEW MEDIUM Findings (13)
+
+| ID | File | Line(s) | Category | Description |
+|---|---|---|---|---|
+| R2-M1 | `settings/render.rs` | 287-324 | DUPLICATION | `format_slider` and `format_normalized_slider` share 95% identical logic. Extract shared `render_slider_at_ratio`. |
+| R2-M2 | `session_memory.rs` + `transcript_history.rs` | 165-180 / 229-244 | DUPLICATION | `take_stream_line` function duplicated verbatim across two files. |
+| R2-M3 | `session_memory.rs` + `transcript_history.rs` | 135-149 / 192-206 | DUPLICATION | `push_user_char`/`push_assistant_char` patterns duplicated. Extract shared `StreamLineBuffer`. |
+| R2-M4 | `prompt/regex.rs` | 56-127 | DUPLICATION | Full `OverlayConfig` struct constructed manually in every test. Use `make_default_config()` helper. |
+| R2-M5 | `config/theme.rs` + `banner.rs` | 100-200 / 366-400 | DUPLICATION | Env var save/restore boilerplate repeated across test functions. Generalize `with_env_vars` helper. |
+| R2-M6 | `claude_prompt_detect.rs` | 12-13 | ALLOW | `#[allow(dead_code)]` on `PromptOcclusionDiagnostic` without future-intent comment. |
+| R2-M7 | `claude_prompt_detect.rs` | 350-366 | DEAD_CODE | `estimate_command_wrap_depth` called only from dead `capture_diagnostic`. Assess for removal. |
+| R2-M8 | `toast.rs` | 263 | DEAD_CODE | `let _ = toast.created_at;` is leftover dead code. Remove. |
+| R2-M9 | `hud/mod.rs` | 39-71 | ALLOW | Multiple items (`Mode::label`, `HudRegistry::get/len/is_empty/iter`, `recording_duration_secs`, `backend_name`) carry `#[allow(dead_code)]` with no rationale. |
+| R2-M10 | `button_handlers.rs` | 28-52 | COMPLEXITY | `ButtonActionContext` has 22 reference fields. Use sub-context pattern from `SettingsActionContext`. |
+| R2-M11 | `prompt/tracker.rs` | 130-139 | BEST_PRACTICE | `matches_prompt` uses `matches \|= ` instead of short-circuit `\|\|`. Simplify to combinator chain. |
+| R2-M12 | `persistent_config.rs` | 118-172 | DUPLICATION | `serialize_user_config` is 54 lines of repetitive if-let-push. Use macro. |
+| R2-M13 | `settings_handlers.rs` | 314-348 | DUPLICATION | Four `cycle_*` wrapper functions are pure boilerplate. Inline the const arrays at callsites. |
+
+### Round 2: NEW LOW Findings (14)
+
+| ID | File | Description |
+|---|---|---|
+| R2-L1 | `config/cli.rs` | 5 Display impls follow identical pattern. Consider `strum::Display` derive or macro. |
+| R2-L2 | `config/backend.rs:52` | Variable `default_cmd` should be `registry_cmd` (name describes source, not role). |
+| R2-L3 | `transcript/idle.rs` | Deeply nested conditional in `transcript_ready`. Extract idle-fallback helper. |
+| R2-L4 | `settings/render.rs:97-100` | `read_only` condition is hard to parse. Rewrite as match expression. |
+| R2-L5 | `settings/render.rs:340-362` | Nested color-styling logic can be collapsed to `match (selected, read_only)`. |
+| R2-L6 | `onboarding.rs:33-46` | Hand-rolled TOML parser for one boolean. Fine for now, document as intentionally minimal. |
+| R2-L7 | `persistent_config.rs:54-63` | `parse_toml_value` doesn't handle escaped quotes. Document limitation. |
+| R2-L8 | `session_stats.rs:145` + `progress.rs:181` | `format_duration` duplicated across two files. Consolidate. |
+| R2-L9 | `banner.rs:44-51` | `centered_padding` name could be `center_left_padding` for clarity. |
+| R2-L10 | `transcript_history.rs:155-156` | `#[allow(dead_code)]` on `len()`/`all_newest_first()`. Use `#[cfg(test)]` instead. |
+| R2-L11 | `toast.rs:160-187` | `push_with_duration` duplicates eviction/push logic from `push`. Share internal helper. |
+| R2-L12 | `hud/mod.rs:21-23` | Local `display_width` wraps `UnicodeWidthStr::width`. Two `display_width` functions exist (hud + overlay_frame). Consolidate. |
+| R2-L13 | `claude_prompt_detect.rs:306-340` | Same `contains` pattern repeated 5 times. Extract `any_pattern_matches` helper. |
+| R2-L14 | `settings/render.rs:232-281` | Six `*_button` functions all just call `button_label(match_arm)`. Could use Display trait. |
+
+### Round 2: devctl Remaining Issues
+
+| ID | File | Severity | Description |
+|---|---|---|---|
+| R2-DT1 | `ship_common.py:67-73` | MEDIUM | `read_version()` still uses simplistic line parser. Use `tomllib` (Python 3.11+). |
+| R2-DT2 | `test_loop_comment.py` | MEDIUM | Missing tests for all error paths (gh_json error, non-numeric id, mutate error, non-zero rc). |
+| R2-DT3 | `test_common.py` | MEDIUM | Missing test for pipe_output "command not found" (which==None) path. |
+| R2-DT4 | `common.py:193` | LOW | `write_text()` without explicit `encoding="utf-8"`. |
+| R2-DT5 | `common.py:40-41` | LOW | `_run_with_live_output` Popen has no programmatic timeout. |
+| R2-DT6 | `triage.py:113` + `check.py:333` | LOW | Naive `datetime.now()` timestamps; inconsistent with UTC usage elsewhere. |
+| R2-DT7 | `autonomy_loop.py:72-73` | LOW | Dense chained `or`/`.strip()` expressions. Extract `resolve_env_or_default()` helper. |
+
+### Updated Totals (Round 1 + Round 2)
+
+| Metric | Round 1 | Round 2 New | Round 2 Fixed | Net Open |
+|---|---|---|---|---|
+| HIGH | 26 | 5 | 10 fixed | 21 |
+| MEDIUM | 62 | 13 + 3 devctl | 0 | 78 |
+| LOW | 56 | 14 + 3 devctl | 0 | 73 |
+| **TOTAL** | **144** | **38** | **10** | **172** |
+
+### Top 5 Impact Opportunities (Round 2)
+
+1. **Extract shared `StreamLineBuffer`** -- Eliminates `take_stream_line` + `push_*_char` duplication across `session_memory.rs` and `transcript_history.rs`
+2. **Use `VecDeque` in prompt detector** -- O(1) hot-path improvement for PTY output processing
+3. **Macro-ize persistent config** -- Halves `apply_user_config_to_overlay` and `serialize_user_config` (160 lines -> ~80)
+4. **Consolidate `ButtonActionContext`** using sub-context pattern -- Reduces 22-field struct to composable pieces
+5. **Audit all `#[allow(dead_code)]`** across `progress.rs`, `hud/mod.rs`, `claude_prompt_detect.rs` -- Remove genuinely dead code, `#[cfg(test)]` what's test-only
+
+---
+
+## Round 3: Remediation Pass (implemented)
+
+**Date:** 2026-02-24
+
+### Fixed in this pass
+
+#### Round 2 HIGH
+
+- [x] **R2-H1** `progress.rs` file-level dead-code suppression removed (module no longer compiled in runtime path; dead-code blanket removed).
+- [x] **R2-H2** `claude_prompt_detect.rs` switched to `VecDeque` and `pop_front()` for O(1) context eviction.
+- [x] **R2-H3** `transcript/delivery.rs` merge loop dead branch removed; front/pop invariant tightened.
+- [x] **R2-H4** `persistent_config.rs` repetitive apply chains refactored with shared helpers and enum parsers.
+- [x] **R2-H5** `buttons.rs` test-only panic path replaced with `unreachable!` invariant.
+
+#### Round 2 medium/low addressed in same patch
+
+- [x] **R2-M1** `settings/render.rs` slider rendering duplication reduced via shared `render_slider_at_ratio`.
+- [x] **R2-M2 / R2-M3** shared `StreamLineBuffer` extracted and wired into `session_memory.rs` + `transcript_history.rs`.
+- [x] **R2-M4** `prompt/regex.rs` tests now use a shared default-config helper instead of repeated full config literals.
+- [x] **R2-M8** `toast.rs` removed dead `created_at` no-op usage and cleaned struct/constructor surface.
+- [x] **R2-M11** `prompt/tracker.rs` `matches_prompt` now uses short-circuit combinators.
+- [x] **R2-M12** `persistent_config.rs` serialization deduped with shared TOML emit helpers.
+- [x] **R2-M9 / R2-L12** HUD dead-code cleanup completed (`display_width` unified; test-only helpers gated with `#[cfg(test)]`).
+- [x] **R2-L10** `transcript_history.rs` test-only helpers gated with `#[cfg(test)]` instead of `#[allow(dead_code)]`.
+- [x] **R2-L11** `toast.rs` `push_with_duration` now reuses shared active-toast insertion path.
+- [x] **R2-L13** prompt pattern checks consolidated via `context_matches_patterns`.
+- [x] **R2-L4 / R2-L5** settings row rendering conditionals simplified via direct match-style logic.
+- [x] **R2-L6 / R2-L7** onboarding + persistent-config minimal parser limitations now explicitly documented in code comments.
+- [x] **R2-L14** settings button rendering now uses enum `Display` where possible to remove repetitive match wrappers.
+- [x] **R2-L2** backend resolver local variable renamed (`default_cmd` -> `registry_cmd`) for clearer intent.
+
+#### Round 2 devctl findings
+
+- [x] **R2-DT1** `ship_common.py` version parsing now TOML-backed (`[package]`/`[project]`) with Python 3.10 fallback parser.
+- [x] **R2-DT2** `test_loop_comment.py` error-path coverage added (list failure, non-numeric ID, mutation failure, unexpected payload).
+- [x] **R2-DT3** `test_common.py` now covers missing pipe command path (`which == None` -> rc `2`).
+- [x] **R2-DT4** `common.py` report writer now uses explicit `encoding="utf-8"`.
+- [x] **R2-DT5** `_run_with_live_output` now has explicit timeout control with env override (`VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS`), timeout return code `124`, and regression tests.
+- [x] **R2-DT6** `triage.py` and `check.py` timestamps standardized to UTC.
+- [x] **R2-DT7** `autonomy_loop.py` extracted `_resolve_env_or_default()` helper to replace dense chained expression.
+
+### Validation run evidence
+
+- `python3 -m unittest dev.scripts.devctl.tests.test_common dev.scripts.devctl.tests.test_loop_comment dev.scripts.devctl.tests.test_ship` -> **PASS**
+- `cd rust && cargo test --bin voiceterm` -> **PASS**
+- `python3 dev/scripts/devctl.py check --profile ci` -> **PASS**
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling` -> **PASS**
+
+### Remaining notable open items from Round 2
+
+- [ ] Remaining Round 2 medium/low structural items not yet addressed in this pass (notably `ButtonActionContext` decomposition and broader cross-module helper consolidation such as banner/config env-test utilities and duration-format helper unification).

@@ -330,12 +330,13 @@ fn trigger_image_capture(
     let captured_path = match crate::image_mode::capture_image(&state.config) {
         Ok(path) => path,
         Err(err) => {
+            let status = crate::status_messages::image_capture_failed(&err);
             set_status(
                 &deps.writer_tx,
                 &mut timers.status_clear_deadline,
                 &mut state.current_status,
                 &mut state.status_state,
-                &crate::status_messages::with_log_path("Image capture failed"),
+                &status,
                 Some(Duration::from_secs(3)),
             );
             log_debug(&format!("image capture failed: {err:#}"));

@@ -44,9 +44,11 @@ const WAKE_VAD_DB_AT_MIN_SENSITIVITY: f32 = -24.0;
 const WAKE_VAD_DB_AT_MAX_SENSITIVITY: f32 = -56.0;
 
 const HOTWORD_PHRASES: &[&str] = &[
+    "codex",
     "hey codex",
     "ok codex",
     "okay codex",
+    "claude",
     "hey claude",
     "ok claude",
     "okay claude",
@@ -739,10 +741,12 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
         ["send"]
             | ["sen"]
             | ["sand"]
+            | ["son"]
             | ["sending"]
             | ["send", "it"]
             | ["sen", "it"]
             | ["sand", "it"]
+            | ["son", "it"]
             | ["send", "this"]
             | ["sen", "this"]
             | ["sand", "this"]
@@ -753,6 +757,7 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
             | ["send", "now"]
             | ["sen", "now"]
             | ["sand", "now"]
+            | ["son", "now"]
             | ["submit", "now"]
     )
 }

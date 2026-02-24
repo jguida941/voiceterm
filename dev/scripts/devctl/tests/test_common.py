@@ -46,6 +46,17 @@ class RunCmdTests(TestCase):
         self.assertEqual(result["returncode"], 130)
         self.assertIn("interrupted", result.get("error", ""))
 
+    @patch("builtins.print")
+    @patch(
+        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds", return_value=0.05
+    )
+    def test_run_cmd_timeout_returns_124_and_failure_excerpt(
+        self, _timeout_mock, _print_mock
+    ) -> None:
+        result = run_cmd("timeout", [sys.executable, "-c", "import time; time.sleep(0.2)"])
+        self.assertEqual(result["returncode"], 124)
+        self.assertIn("timed out", result.get("failure_output", ""))
+
 
 class RunWithLiveOutputTests(TestCase):
     @patch("dev.scripts.devctl.common._terminate_subprocess_tree")
@@ -125,6 +136,11 @@ class CommandRenderingTests(TestCase):
 
 
 class PipeOutputTests(TestCase):
+    @patch("dev.scripts.devctl.common.shutil.which", return_value=None)
+    def test_pipe_output_missing_command_returns_2(self, _which_mock) -> None:
+        rc = common.pipe_output("payload", "missing-command", [])
+        self.assertEqual(rc, 2)
+
     @patch("dev.scripts.devctl.common.shutil.which", return_value="/bin/cat")
     @patch("dev.scripts.devctl.common.subprocess.run")
     def test_pipe_output_timeout_returns_124(

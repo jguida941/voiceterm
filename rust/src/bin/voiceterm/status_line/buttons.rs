@@ -37,8 +37,6 @@ use badges::{
 
 // Keep the minimal dB lane stable even before the first meter sample arrives.
 const MINIMAL_DB_FLOOR: f32 = -60.0;
-const FOCUSED_PILL_EMPHASIS_ANSI: &str = "\x1b[1m";
-
 /// Get clickable button positions for the current state.
 /// Returns button positions for full HUD mode (row 2 from bottom) and minimal mode (row 1).
 /// Hidden mode exposes an "open" launcher and optional "hide" control while idle.
@@ -648,35 +646,26 @@ pub(super) fn format_button(
     highlight: &str,
     focused: bool,
 ) -> String {
+    let label_color = if focused { colors.info } else { highlight };
     // Keep one active color context through bracket+label to avoid transient
     // default-color flashes in terminals that repaint aggressively.
     let mut content = String::with_capacity(16 + label.len());
-    if !highlight.is_empty() {
-        content.push_str(highlight);
+    if !label_color.is_empty() {
+        content.push_str(label_color);
     }
     content.push_str(label);
     format_shortcut_pill(
         &content,
         colors,
         pill_bracket_color(colors, highlight, focused),
-        focused,
     )
 }
 
 /// Format a button in clickable pill style with brackets.
 /// Style: `[label]` with dim (or focused) brackets.
-fn format_shortcut_pill(
-    content: &str,
-    colors: &ThemeColors,
-    bracket_color: &str,
-    focused: bool,
-) -> String {
-    let emphasis = focused && !colors.reset.is_empty();
+fn format_shortcut_pill(content: &str, colors: &ThemeColors, bracket_color: &str) -> String {
     let mut result =
         String::with_capacity(content.len() + bracket_color.len() * 3 + colors.reset.len() + 2);
-    if emphasis {
-        result.push_str(FOCUSED_PILL_EMPHASIS_ANSI);
-    }
     result.push_str(bracket_color);
     result.push('[');
     result.push_str(content);

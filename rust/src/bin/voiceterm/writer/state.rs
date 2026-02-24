@@ -6,7 +6,7 @@ use voiceterm::log_debug;
 use super::mouse::{disable_mouse, enable_mouse};
 use super::render::{
     build_clear_bottom_rows_bytes, clear_overlay_panel, clear_status_banner, clear_status_line,
-    write_overlay_panel, write_status_banner, write_status_line,
+    is_jetbrains_terminal, write_overlay_panel, write_status_banner, write_status_line,
 };
 use super::WriterMessage;
 use crate::status_line::{format_status_banner, StatusLineState};
@@ -39,7 +39,7 @@ impl DisplayState {
         if self.overlay_panel.is_some() || self.status.is_some() {
             return true;
         }
-        // Force redraw if HUD is more than 1 row to stay on top of scrolling terminal output.
+        // Multi-row HUDs need full repaint after terminal row scrolling.
         // Single-row HUDs (Minimal style) are more stable and skip this to reduce flicker.
         self.banner_height > 1
     }
@@ -79,6 +79,7 @@ pub(super) struct WriterState {
     needs_redraw: bool,
     rows: u16,
     cols: u16,
+    pty_line_col_estimate: usize,
     last_output_at: Instant,
     last_output_flush_at: Instant,
     last_status_draw_at: Instant,
@@ -95,6 +96,7 @@ impl WriterState {
             needs_redraw: false,
             rows: 0,
             cols: 0,
+            pty_line_col_estimate: 0,
             last_output_at: Instant::now(),
             last_output_flush_at: Instant::now(),
             last_status_draw_at: Instant::now(),
@@ -106,11 +108,14 @@ impl WriterState {
     pub(super) fn handle_message(&mut self, message: WriterMessage) -> bool {
         match message {
             WriterMessage::PtyOutput(bytes) => {
-                // Pre-clear the HUD before writing PTY output that contains newlines.
-                // Terminal scrolling pushes old HUD content upward, creating visible
-                // ghost duplicate frames.  By clearing first (combined into one write),
-                // the scrolled-up rows are blank instead of stale HUD content.
-                let pre_clear = if bytes.contains(&b'\n') {
+                let may_scroll_rows = pty_output_may_scroll_rows(
+                    self.cols as usize,
+                    &mut self.pty_line_col_estimate,
+                    &bytes,
+                );
+                // Pre-clear can prevent ghost rows in JetBrains terminals but causes
+                // visible flash in Cursor-style terminals.
+                let pre_clear = if may_scroll_rows && is_jetbrains_terminal() {
                     if let Some(panel) = self.display.overlay_panel.as_ref() {
                         build_clear_bottom_rows_bytes(self.rows, panel.height)
                     } else if self.display.banner_height > 1 {
@@ -139,7 +144,8 @@ impl WriterState {
                     // PTY output may scroll/overwrite the HUD rows even if banner text did not
                     // change. Gemini compact HUD reserves a stable single row, so avoid forcing
                     // full repaint there to reduce textbox flicker while output streams.
-                    if self.display.should_force_full_banner_redraw_on_output() {
+                    // Only force full repaint when output can actually scroll rows.
+                    if may_scroll_rows && self.display.should_force_full_banner_redraw_on_output() {
                         self.display.force_full_banner_redraw = true;
                     }
                     self.needs_redraw = true;
@@ -227,6 +233,7 @@ impl WriterState {
                 }
                 self.rows = rows;
                 self.cols = cols;
+                self.pty_line_col_estimate = 0;
                 if self.display.has_any() || self.pending.has_any() {
                     self.needs_redraw = true;
                 }
@@ -388,6 +395,51 @@ impl WriterState {
     }
 }
 
+fn pty_output_may_scroll_rows(cols: usize, line_col_estimate: &mut usize, bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+    // Treat unknown terminal width as potentially scrolling when explicit line breaks appear.
+    if cols == 0 {
+        if bytes.contains(&b'\n') || bytes.contains(&b'\r') {
+            *line_col_estimate = 0;
+            return true;
+        }
+        return false;
+    }
+
+    let mut may_scroll = false;
+    for &byte in bytes {
+        match byte {
+            b'\n' | b'\r' => {
+                may_scroll = true;
+                *line_col_estimate = 0;
+            }
+            0x08 => {
+                *line_col_estimate = line_col_estimate.saturating_sub(1);
+            }
+            b'\t' => {
+                let next_tab = ((*line_col_estimate / 8) + 1) * 8;
+                if next_tab >= cols {
+                    may_scroll = true;
+                    *line_col_estimate = 0;
+                } else {
+                    *line_col_estimate = next_tab;
+                }
+            }
+            byte if !byte.is_ascii_control() => {
+                *line_col_estimate += 1;
+                if *line_col_estimate >= cols {
+                    may_scroll = true;
+                    *line_col_estimate = 0;
+                }
+            }
+            _ => {}
+        }
+    }
+    may_scroll
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -412,6 +464,7 @@ mod tests {
         let mut state = WriterState::new();
         state.rows = 24;
         state.cols = 80;
+        state.pty_line_col_estimate = 12;
 
         assert!(state.handle_message(WriterMessage::Resize {
             rows: 30,
@@ -419,6 +472,7 @@ mod tests {
         }));
         assert_eq!(state.rows, 30);
         assert_eq!(state.cols, 100);
+        assert_eq!(state.pty_line_col_estimate, 0);
     }
 
     #[test]
@@ -426,5 +480,49 @@ mod tests {
         assert_eq!(status_clear_height_for_redraw(4, 4), 0);
         assert_eq!(status_clear_height_for_redraw(3, 5), 0);
         assert_eq!(status_clear_height_for_redraw(5, 3), 5);
+    }
+
+    #[test]
+    fn pty_output_may_scroll_rows_tracks_wrapping_without_newline() {
+        let mut col = 0usize;
+        assert!(!pty_output_may_scroll_rows(10, &mut col, b"hello"));
+        assert_eq!(col, 5);
+
+        // Crosses terminal width boundary without an explicit newline byte.
+        assert!(pty_output_may_scroll_rows(10, &mut col, b" world"));
+        assert_eq!(col, 1);
+    }
+
+    #[test]
+    fn pty_output_may_scroll_rows_flags_newline_and_resets_column() {
+        let mut col = 7usize;
+        assert!(pty_output_may_scroll_rows(80, &mut col, b"\nnext"));
+        assert_eq!(col, 4);
+    }
+
+    #[test]
+    fn non_scrolling_output_does_not_force_full_banner_redraw() {
+        let mut state = WriterState::new();
+        state.rows = 24;
+        state.cols = 120;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.display.banner_height = 4;
+        state.display.force_full_banner_redraw = false;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'a'])));
+        assert!(!state.display.force_full_banner_redraw);
+    }
+
+    #[test]
+    fn scrolling_output_forces_full_banner_redraw_for_multi_row_hud() {
+        let mut state = WriterState::new();
+        state.rows = 24;
+        state.cols = 120;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.display.banner_height = 4;
+        state.display.force_full_banner_redraw = false;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'\n'])));
+        assert!(state.display.force_full_banner_redraw);
     }
 }

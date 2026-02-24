@@ -148,6 +148,8 @@ mod tests {
             claude: false,
             gemini: false,
             login: false,
+            theme_file: None,
+            export_theme: None,
         };
         let resolved = resolve_prompt_log(&config);
         assert_eq!(
@@ -191,6 +193,8 @@ mod tests {
             claude: false,
             gemini: false,
             login: false,
+            theme_file: None,
+            export_theme: None,
         };
         let resolved = resolve_prompt_log(&config);
         env::remove_var("VOICETERM_PROMPT_LOG");
@@ -231,6 +235,8 @@ mod tests {
             claude: false,
             gemini: false,
             login: false,
+            theme_file: None,
+            export_theme: None,
         };
         assert!(resolve_prompt_log(&config).is_none());
     }

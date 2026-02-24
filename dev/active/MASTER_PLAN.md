@@ -14,9 +14,8 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-02-24)
-
-- Last tagged release: `v1.0.92` (2026-02-24)
-- Current release target: `post-v1.0.92 planning`
+- Last tagged release: `v1.0.93` (2026-02-24)
+- Current release target: `post-v1.0.93 planning`
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: parallel execution across active Theme, Memory, Autonomy, Tooling, and runtime reliability scopes with clean worktree isolation.
@@ -29,6 +28,13 @@
 - Loop comment transport hardening update: shared workflow-loop `gh` helpers now
   avoid invalid `--repo` usage for `gh api` calls so summary-and-comment mode
   can publish and upsert commit/PR comments reliably.
+- Audit-remediation update: Round-2 high-severity audit fixes landed for prompt
+  detection hot-path queue behavior, transcript merge-loop invariants,
+  persistent-config duplication reduction, and devctl release/comment/report
+  helper hardening with expanded unit coverage.
+- Runtime cleanup update: startup splash logo coloring now uses a single
+  theme-family accent (no rainbow line rotation), and the stale orphan
+  `rust/src/bin/voiceterm/progress.rs` module has been removed.
 
 ## Multi-Agent Coordination Board
 
@@ -260,7 +266,7 @@ evidence for its mapped gates.
 
 Theme/modularization integration rule: when refactors or fixes touch visual
 runtime modules (`theme/*`, `theme_ops.rs`, `theme_picker.rs`, `status_line/*`,
-`hud/*`, `writer/*`, `help.rs`, `banner.rs`, `progress.rs`), update or add the
+`hud/*`, `writer/*`, `help.rs`, `banner.rs`), update or add the
 corresponding `MP-148+` item here in `MASTER_PLAN` and attach mapped
 `TS-G*` gate evidence from this section.
 
@@ -553,9 +559,9 @@ documented `MS-G*` pass evidence.
 - [ ] MP-033 Add benchmarks to CI for latency regression detection.
 - [ ] MP-034 Add mic-meter hotkey for calibration.
 - [ ] MP-037 Consider configurable PTY output channel capacity.
-- [ ] MP-145 Eliminate startup cursor/ANSI escape artifacts shown in Cursor (Codex and Claude backends), with focus on the splash-screen teardown to VoiceTerm HUD handoff window where artifacts appear before full load.
+- [ ] MP-145 Eliminate startup cursor/ANSI escape artifacts shown in Cursor (Codex and Claude backends), with focus on the splash-screen teardown to VoiceTerm HUD handoff window where artifacts appear before full load. (in progress: writer pre-clear is now constrained to JetBrains terminals to reduce Cursor typing-time HUD flash while preserving JetBrains scroll-ghost mitigation.)
 - [x] MP-146 Improve controls-row bracket styling so `[` `]` tokens track active theme colors and selected states use stronger contrast/readability (especially for arrow-mode focus visibility) (landed controls-row bracket tint routing so unfocused pills inherit active button highlight colors instead of always dim brackets, plus focused button emphasis via bold+info-bracket rendering for stronger keyboard focus visibility; covered by `status_line::buttons` regressions `format_button_brackets_track_highlight_color_when_unfocused`, `focused_button_uses_info_brackets_with_bold_emphasis`, and existing focus-bracket parity tests).
-- [ ] MP-147 Fix Cursor-only mouse-mode scroll conflict: with mouse mode ON, chat/conversation scroll should still work in Cursor for both Codex and Claude backends; preserve current JetBrains behavior (works today in PyCharm/JetBrains), keep architecture/change scope explicitly Cursor-specific, and require JetBrains non-regression validation so the Cursor fix does not break JetBrains scrolling.
+- [x] MP-147 Fix Cursor-only mouse-mode scroll conflict: with mouse mode ON, chat/conversation scroll should still work in Cursor for both Codex and Claude backends; preserve current JetBrains behavior (works today in PyCharm/JetBrains), keep architecture/change scope explicitly Cursor-specific, and require JetBrains non-regression validation so the Cursor fix does not break JetBrains scrolling. (landed Cursor-specific scroll-safe mouse handling in writer mouse control: Cursor keeps wheel scrollback available while settings can remain `Mouse: ON - scroll preserved in Cursor`, while JetBrains and other terminals retain existing mouse behavior.)
 - [ ] MP-227 Explore low-noise progress-animation polish for task/status rows (inspired by Claude-style subtle shimmer/accent transitions during active thinking), including optional tiny accent pulses/color sweeps with strict readability/contrast bounds and no distraction under sustained usage; keep as post-priority visual refinement (not current execution scope).
 - [x] MP-153 Add a CI docs-governance lane that runs `python3 dev/scripts/devctl.py docs-check --user-facing --strict` for user-facing behavior/doc changes so documentation drift fails early (completed via MP-230 docs-policy lane hardening in `.github/workflows/tooling_control_plane.yml`).
 - [ ] MP-154 Add a governance consistency check for active docs + macro packs so removed workflows/scripts are not referenced in non-archive content.

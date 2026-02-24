@@ -75,7 +75,6 @@ This boundary prevents control sprawl and keeps Studio as one coherent system.
 - multiple visual surfaces are still hardcoded outside a central style resolver:
   - `rust/src/bin/voiceterm/banner.rs`
   - `rust/src/bin/voiceterm/help.rs`
-  - `rust/src/bin/voiceterm/progress.rs`
   - `rust/src/bin/voiceterm/audio_meter/format.rs`
   - `rust/src/bin/voiceterm/icons.rs`
 

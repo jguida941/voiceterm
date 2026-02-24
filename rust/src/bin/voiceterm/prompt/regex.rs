@@ -51,12 +51,11 @@ mod tests {
     use clap::Parser;
     use voiceterm::config::AppConfig;
 
-    #[test]
-    fn resolve_prompt_regex_honors_config() {
-        let config = OverlayConfig {
+    fn make_default_config(prompt_regex: Option<&str>) -> OverlayConfig {
+        OverlayConfig {
             help: false,
             app: AppConfig::parse_from(["test"]),
-            prompt_regex: Some("^codex> $".to_string()),
+            prompt_regex: prompt_regex.map(str::to_string),
             prompt_log: None,
             auto_voice: false,
             auto_voice_idle_ms: 1200,
@@ -83,7 +82,14 @@ mod tests {
             claude: false,
             gemini: false,
             login: false,
-        };
+            theme_file: None,
+            export_theme: None,
+        }
+    }
+
+    #[test]
+    fn resolve_prompt_regex_honors_config() {
+        let config = make_default_config(Some("^codex> $"));
         let resolved = resolve_prompt_regex(&config, None).expect("regex should compile");
         assert!(resolved.regex.is_some());
         assert!(!resolved.allow_auto_learn);
@@ -91,37 +97,7 @@ mod tests {
 
     #[test]
     fn resolve_prompt_regex_rejects_invalid() {
-        let config = OverlayConfig {
-            help: false,
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: Some("[".to_string()),
-            prompt_log: None,
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            wake_word: false,
-            wake_word_sensitivity: 0.55,
-            wake_word_cooldown_ms: 2000,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            image_mode: false,
-            image_capture_command: None,
-            dev_mode: false,
-            dev_log: false,
-            dev_path: None,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-        };
+        let config = make_default_config(Some("["));
         assert!(resolve_prompt_regex(&config, None).is_err());
     }
 }

@@ -49,13 +49,13 @@ impl OverlayConfig {
         let registry = BackendRegistry::new();
         if let Some(backend) = registry.get(&primary_label) {
             let mut command_parts = backend.command().into_iter();
-            let default_cmd = command_parts.next().unwrap_or_else(|| primary.clone());
+            let registry_cmd = command_parts.next().unwrap_or_else(|| primary.clone());
             let mut args: Vec<String> = command_parts.collect();
             args.extend(extra_args);
             let command = if is_path_like(&primary) {
                 primary
             } else {
-                default_cmd
+                registry_cmd
             };
             let prompt_pattern = if backend.prompt_pattern().trim().is_empty() {
                 None
@@ -119,6 +119,8 @@ mod tests {
             claude: false,
             gemini: false,
             login: false,
+            theme_file: None,
+            export_theme: None,
         }
     }
 

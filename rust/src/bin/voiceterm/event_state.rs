@@ -19,7 +19,12 @@ use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
 use crate::status_line::StatusLineState;
+use crate::theme::file_watcher::ThemeFileWatcher;
 use crate::theme::{RuntimeStylePackOverrides, Theme};
+use crate::theme_studio::{
+    BordersPageState, ColorsEditorState, ComponentsEditorState, ExportPageState, PreviewPageState,
+    StudioPage,
+};
 use crate::toast::ToastCenter;
 use crate::transcript::PendingTranscript;
 use crate::transcript_history::{TranscriptHistory, TranscriptHistoryState};
@@ -43,6 +48,12 @@ pub(crate) struct EventLoopState {
     pub(crate) settings_menu: SettingsMenuState,
     pub(crate) meter_levels: VecDeque<f32>,
     pub(crate) theme_studio_selected: ThemeStudioSelectionIndex,
+    pub(crate) theme_studio_page: StudioPage,
+    pub(crate) theme_studio_colors_editor: Option<ColorsEditorState>,
+    pub(crate) theme_studio_borders_page: BordersPageState,
+    pub(crate) theme_studio_components_editor: ComponentsEditorState,
+    pub(crate) theme_studio_preview_page: PreviewPageState,
+    pub(crate) theme_studio_export_page: ExportPageState,
     pub(crate) theme_studio_undo_history: Vec<RuntimeStylePackOverrides>,
     pub(crate) theme_studio_redo_history: Vec<RuntimeStylePackOverrides>,
     pub(crate) theme_picker_selected: ThemePickerSelectionIndex,
@@ -72,6 +83,7 @@ pub(crate) struct EventLoopState {
     pub(crate) last_toast_status: Option<String>,
     pub(crate) toast_center: ToastCenter,
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
+    pub(crate) theme_file_watcher: Option<ThemeFileWatcher>,
 }
 
 pub(crate) struct EventLoopTimers {
@@ -87,6 +99,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_meter_update: Instant,
     pub(crate) last_wake_hud_tick: Instant,
     pub(crate) last_toast_tick: Instant,
+    pub(crate) last_theme_file_poll: Instant,
 }
 
 pub(crate) struct EventLoopDeps {

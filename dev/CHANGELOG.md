@@ -7,11 +7,19 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.93] - 2026-02-24
+### UX
+
+- Restore single-accent startup ASCII splash rendering so wide-terminal startup no longer rotates rainbow logo lines and instead tracks the active theme family (for example Tokyo Night purple border accents).
+- Preserve Cursor terminal mouse-wheel scrolling while leaving mouse mode ON (`Mouse: ON - scroll preserved in Cursor`) by keeping Cursor on scroll-safe mouse handling, while leaving JetBrains/other terminal mouse behavior unchanged.
+- Reduce Cursor typing-time HUD flash by limiting writer-side HUD pre-clear behavior to JetBrains terminals, while keeping scroll-ghost protection for JetBrains redraw paths.
+
 ### Runtime Hardening
 
 - Type `VoiceJobMessage::Error` payloads with `VoiceError` variants and bounded drop-time worker join behavior so voice thread lifecycle and downstream error handling are deterministic.
 - Harden Whisper model-load stderr suppression with an RAII restore guard so stderr is restored on every exit path.
 - Parse custom backend commands with `shell_words` (quoted-arg aware) plus fallback behavior for malformed shell syntax.
+- Remove orphaned `rust/src/bin/voiceterm/progress.rs` (no longer compiled) to avoid stale, out-of-sync progress helpers drifting from active runtime code paths.
 
 ### Packaging
 

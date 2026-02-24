@@ -542,6 +542,7 @@ fn run_ipc_loop_processes_active_jobs() {
         receiver: voice_rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     let (auth_tx, auth_rx) = mpsc::channel();
@@ -806,6 +807,7 @@ fn process_voice_events_handles_transcript() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
     tx.send(VoiceJobMessage::Transcript {
         text: "hello".to_string(),
@@ -836,6 +838,7 @@ fn process_voice_events_handles_empty() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
     tx.send(VoiceJobMessage::Empty {
         source: voice::VoiceCaptureSource::Native,
@@ -858,6 +861,7 @@ fn process_voice_events_handles_error() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
     tx.send(VoiceJobMessage::Error(VoiceError::Message(
         "boom".to_string(),
@@ -880,6 +884,7 @@ fn process_voice_events_handles_disconnect() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
 
     assert!(process_voice_events(&job, false));
@@ -1065,6 +1070,7 @@ fn handle_cancel_clears_voice_job() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_cancel(&mut state);
@@ -1103,6 +1109,7 @@ fn handle_start_voice_errors_when_already_running() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_start_voice(&mut state);
@@ -1184,6 +1191,7 @@ fn handle_auth_command_rejects_when_active() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_auth_command(&mut state, None);

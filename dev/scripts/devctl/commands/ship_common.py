@@ -16,6 +16,11 @@ from typing import Dict, List, Tuple
 from ..common import build_env
 from ..config import REPO_ROOT
 
+try:  # Python 3.11+
+    import tomllib  # type: ignore[attr-defined]
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
+    tomllib = None  # type: ignore[assignment]
+
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 
 
@@ -65,12 +70,49 @@ def tag_exists(tag: str) -> bool:
 
 
 def read_version(path: Path) -> str:
-    """Read `version = "...'" from a TOML-like file."""
-    text = path.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("version = "):
-            return stripped.split("=", 1)[1].strip().strip('"')
+    """Read version from known TOML roots (`[package]`/`[project]`)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+    if tomllib is None:
+        return _read_version_fallback(text)
+
+    try:
+        parsed = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return ""
+    if not isinstance(parsed, dict):
+        return ""
+
+    for section_name in ("package", "project"):
+        section = parsed.get(section_name)
+        if isinstance(section, dict):
+            value = section.get("version")
+            if isinstance(value, str):
+                return value.strip()
+    return ""
+
+
+def _read_version_fallback(text: str) -> str:
+    """Fallback parser for Python runtimes without `tomllib`."""
+    active_section = ""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            active_section = line.strip("[]").strip().split(".", 1)[0]
+            continue
+        if active_section not in {"package", "project"}:
+            continue
+        if not line.startswith("version"):
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() != "version":
+            continue
+        return value.strip().strip('"').strip("'")
     return ""
 
 

@@ -1220,11 +1220,12 @@ fn format_button_brackets_track_highlight_color_when_unfocused() {
 }
 
 #[test]
-fn focused_button_uses_info_brackets_with_bold_emphasis() {
+fn focused_button_uses_info_color_without_bold_emphasis() {
     let colors = Theme::Coral.colors();
     let focused = format_button(&colors, "send", colors.success, true);
 
-    assert!(focused.contains(FOCUSED_PILL_EMPHASIS_ANSI));
+    assert!(!focused.contains("\x1b[1m"));
+    assert!(focused.contains(&format!("[{}send", colors.info)));
     assert!(focused.contains(&format!("{}[", colors.info)));
     assert!(focused.contains(&format!("{}]", colors.info)));
 }

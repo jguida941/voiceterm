@@ -336,6 +336,12 @@ fn build_harness(
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
         theme_studio_selected: 0,
+        theme_studio_page: crate::theme_studio::StudioPage::Home,
+        theme_studio_colors_editor: None,
+        theme_studio_borders_page: crate::theme_studio::BordersPageState::new(),
+        theme_studio_components_editor: crate::theme_studio::ComponentsEditorState::new(),
+        theme_studio_preview_page: crate::theme_studio::PreviewPageState::new(),
+        theme_studio_export_page: crate::theme_studio::ExportPageState::new(),
         theme_studio_undo_history: Vec::new(),
         theme_studio_redo_history: Vec::new(),
         theme_picker_selected: theme_index_from_theme(theme),
@@ -365,6 +371,7 @@ fn build_harness(
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
+        theme_file_watcher: None,
     };
 
     let now = Instant::now();
@@ -381,6 +388,7 @@ fn build_harness(
         last_meter_update: now,
         last_wake_hud_tick: now,
         last_toast_tick: now,
+        last_theme_file_poll: now,
     };
 
     let deps = EventLoopDeps {

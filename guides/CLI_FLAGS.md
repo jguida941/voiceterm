@@ -72,6 +72,9 @@ Wake status labels in Full HUD:
 - `Wake: ON` - listener active (steady badge in Full HUD)
 - `Wake: PAUSED` - listener intentionally paused during active capture/transcription
 - `Wake: ERR` - listener startup failed; check status/log-path message
+- Mouse stays enabled for clickable HUD controls by default.
+- In Cursor terminal, wheel scrolling remains available while mouse mode is on
+  (`Mouse: ON - scroll preserved in Cursor`).
 - Wake phrases still work even if auto-voice is paused.
 - Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
 - In `auto` mode, wake-triggered `send`/`submit` still submits Enter even when no staged insert text is pending.
@@ -187,6 +190,8 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | Flag | Purpose | Default |
 |------|---------|---------|
 | `--theme <NAME>` | Theme name | backend default |
+| `--theme-file <PATH>` | Load theme from a specific TOML file path | unset |
+| `--export-theme <NAME>` | Export a built-in theme as TOML to stdout and exit | unset |
 | `--no-color` | Disable all colors | off |
 | `--hud-style <MODE>` | HUD display style: `full`, `minimal`, `hidden` | full |
 | `--minimal-hud` | Shorthand for `--hud-style minimal` | off |

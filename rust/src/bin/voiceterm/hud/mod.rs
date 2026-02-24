@@ -15,12 +15,8 @@ pub use queue_module::QueueModule;
 
 use crate::theme::GlyphSet;
 use std::time::Duration;
-use unicode_width::UnicodeWidthStr;
 
-#[inline]
-pub(super) fn display_width(text: &str) -> usize {
-    UnicodeWidthStr::width(text)
-}
+pub(super) use crate::overlay_frame::display_width;
 
 /// Voice mode for the HUD.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -36,7 +32,7 @@ pub enum Mode {
 
 impl Mode {
     /// Short label for display.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn label(&self) -> &'static str {
         match self {
             Self::Auto => "AUTO",
@@ -53,9 +49,6 @@ pub struct HudState {
     pub mode: Mode,
     /// Whether currently recording.
     pub is_recording: bool,
-    /// Recording duration in seconds (reserved for duration module).
-    #[allow(dead_code)]
-    pub recording_duration_secs: f32,
     /// Current audio level in dBFS.
     pub audio_level_db: f32,
     /// Recent audio levels in dBFS for sparkline-style telemetry.
@@ -66,9 +59,6 @@ pub struct HudState {
     pub last_latency_ms: Option<u32>,
     /// Recent latency samples in milliseconds for sparkline telemetry.
     pub latency_history_ms: Vec<u32>,
-    /// Name of the STT backend (reserved for model/status module).
-    #[allow(dead_code)]
-    pub backend_name: String,
     /// Glyph family for icon/progress rendering.
     pub glyph_set: GlyphSet,
 }
@@ -133,19 +123,19 @@ impl HudRegistry {
     }
 
     /// Get a module by ID.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn get(&self, id: &str) -> Option<&dyn HudModule> {
         self.modules.iter().find(|m| m.id() == id).map(Box::as_ref)
     }
 
     /// Number of registered modules.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.modules.len()
     }
 
     /// Check if registry is empty.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.modules.is_empty()
     }
@@ -172,6 +162,7 @@ impl HudRegistry {
             module_b
                 .priority()
                 .cmp(&module_a.priority())
+                .then_with(|| module_a.id().cmp(module_b.id()))
                 .then_with(|| idx_a.cmp(idx_b))
         });
 
@@ -220,7 +211,7 @@ impl HudRegistry {
     }
 
     /// Iterate over all registered modules.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = &dyn HudModule> {
         self.modules.iter().map(Box::as_ref)
     }

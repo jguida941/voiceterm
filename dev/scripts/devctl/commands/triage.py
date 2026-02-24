@@ -8,7 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -110,7 +110,7 @@ def run(args) -> int:
     )
     triage_report: Dict[str, Any] = {
         "command": "triage",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "project": project_report,
         "issues": apply_defaults_to_issues(classify_issues(project_report), owner_map),
         "owner_map": owner_map,
