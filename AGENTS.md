@@ -584,7 +584,7 @@ Core commands:
   - Includes automatic orphaned/stale test-process cleanup before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
 - `docs-check`
-  - `--strict-tooling` also runs active-plan + multi-agent sync gates plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
+  - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
 - `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)

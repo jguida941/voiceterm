@@ -85,6 +85,26 @@ def render_markdown_report(report: dict) -> str:
                     "- legacy_path_audit_hint: run `python3 dev/scripts/devctl.py path-rewrite --dry-run` to preview fixes, then `python3 dev/scripts/devctl.py path-rewrite` to apply."
                 )
 
+        lines.append(
+            "- markdown_metadata_header_ok: "
+            + str(report.get("markdown_metadata_header_ok"))
+        )
+        metadata_report = report.get("markdown_metadata_header_report") or {}
+        if not report.get("markdown_metadata_header_ok"):
+            metadata_error = metadata_report.get("error")
+            if metadata_error:
+                lines.append(f"- markdown_metadata_header_error: {metadata_error}")
+            changed_paths = metadata_report.get("changed_paths", [])
+            if changed_paths:
+                lines.append(
+                    "- markdown_metadata_header_changed_paths: "
+                    + ", ".join(changed_paths[:20])
+                )
+                if len(changed_paths) > 20:
+                    lines.append(
+                        f"- markdown_metadata_header_more_paths: {len(changed_paths) - 20}"
+                    )
+
     lines.append(f"- deprecated_reference_ok: {report.get('deprecated_reference_ok')}")
     deprecated_violations = report.get("deprecated_reference_violations", [])
     if deprecated_violations:

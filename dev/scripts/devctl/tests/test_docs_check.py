@@ -229,6 +229,14 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -251,8 +259,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         self,
         mock_collect_git_status,
         _mock_path_audit,
-        _mock_multi_agent_sync,
         _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -284,6 +293,14 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -306,8 +323,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         self,
         mock_collect_git_status,
         _mock_path_audit,
-        _mock_multi_agent_sync,
         _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -340,6 +358,14 @@ class DocsCheckCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -362,8 +388,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         self,
         mock_collect_git_status,
         _mock_path_audit,
-        _mock_multi_agent_sync,
         _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -386,6 +413,14 @@ class DocsCheckCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": False, "errors": ["AGENT-2 mismatch"]},
@@ -411,6 +446,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -433,6 +469,14 @@ class DocsCheckCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
     @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
@@ -468,6 +512,7 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
     ) -> None:
@@ -487,6 +532,70 @@ class DocsCheckCommandTests(unittest.TestCase):
         code = docs_check.run(args)
 
         self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": False,
+            "mode": "check",
+            "changed_paths": ["dev/integrations/EXTERNAL_REPOS.md"],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_metadata_header_gate_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(payload["markdown_metadata_header_ok"])
+        self.assertTrue(
+            any(
+                "Markdown metadata header gate failed" in reason
+                for reason in payload["failure_reasons"]
+            )
+        )
 
 
 if __name__ == "__main__":
