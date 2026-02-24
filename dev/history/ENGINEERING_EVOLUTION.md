@@ -884,6 +884,36 @@ Inference: Maintainers can clear Python cache drift with one control-plane
 command instead of manual deletion while keeping deletion scope bounded and
 auditable.
 
+### Recent Governance Update (2026-02-24, Strict-Tooling Metadata Header Gate)
+
+Fact: `devctl docs-check --strict-tooling` now runs a dedicated markdown
+metadata-header guard that enforces canonical formatting for doc metadata
+triplets (`Status`, `Last updated`, `Owner`) and surfaces fix guidance when
+drift is detected.
+
+Evidence:
+
+- `dev/scripts/checks/check_markdown_metadata_header.py`
+  (check/fix gate for metadata header normalization)
+- `dev/scripts/devctl/script_catalog.py` (new check-script registry entry)
+- `dev/scripts/devctl/commands/docs_check.py`
+  (strict-tooling gate execution + report fields)
+- `dev/scripts/devctl/commands/docs_check_support.py`
+  (failure reasons + next-action guidance)
+- `dev/scripts/devctl/commands/docs_check_render.py`
+  (markdown output visibility for metadata gate state)
+- `dev/scripts/devctl/tests/test_docs_check.py`
+  (strict-tooling metadata-gate failure-path coverage)
+- `dev/integrations/EXTERNAL_REPOS.md`
+  (normalized canonical metadata-header style)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (governance/docs routing updates)
+
+Inference: Docs-governance now has another deterministic guardrail layer, so
+metadata style drift is caught automatically in the same strict-tooling path
+that already enforces active-plan sync, multi-agent sync, and stale-path
+audits.
+
 ### Recent Governance Update (2026-02-24, Scientific Audit Metrics + Repeat-to-Automate Policy)
 
 Fact: Governance now requires repeated manual workarounds to be either

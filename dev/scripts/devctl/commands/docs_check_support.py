@@ -78,6 +78,9 @@ DEPRECATED_REFERENCE_PATTERNS = [
 
 ACTIVE_PLAN_SYNC_SCRIPT_REL = check_script_relative_path("active_plan_sync")
 MULTI_AGENT_SYNC_SCRIPT_REL = check_script_relative_path("multi_agent_sync")
+MARKDOWN_METADATA_HEADER_SCRIPT_REL = check_script_relative_path(
+    "markdown_metadata_header"
+)
 
 
 def is_tooling_change(path: str) -> bool:
@@ -145,6 +148,8 @@ def build_failure_reasons(
     multi_agent_sync_report: dict | None,
     legacy_path_audit_ok: bool,
     legacy_path_audit_report: dict | None,
+    markdown_metadata_header_ok: bool,
+    markdown_metadata_header_report: dict | None,
     deprecated_violations: list[dict],
 ) -> list[str]:
     """Build user-facing failure reasons for docs-check output."""
@@ -207,6 +212,17 @@ def build_failure_reasons(
             )
         )
 
+    if strict_tooling and not markdown_metadata_header_ok:
+        metadata_messages = collect_gate_messages(markdown_metadata_header_report)
+        reasons.append(
+            "Markdown metadata header gate failed"
+            + (
+                ": " + " | ".join(metadata_messages)
+                if metadata_messages
+                else "; run the metadata header formatter."
+            )
+        )
+
     if deprecated_violations:
         reasons.append(
             f"Deprecated script references detected in governed docs/files ({len(deprecated_violations)})."
@@ -228,6 +244,7 @@ def build_next_actions(
     active_plan_sync_ok: bool,
     multi_agent_sync_ok: bool,
     legacy_path_audit_ok: bool,
+    markdown_metadata_header_ok: bool,
     deprecated_violations: list[dict],
 ) -> list[str]:
     """Return actionable follow-up steps when docs-check fails."""
@@ -252,6 +269,11 @@ def build_next_actions(
     if strict_tooling and not legacy_path_audit_ok:
         actions.append(
             "Preview/apply path migrations: `python3 dev/scripts/devctl.py path-rewrite --dry-run` then `python3 dev/scripts/devctl.py path-rewrite`."
+        )
+    if strict_tooling and not markdown_metadata_header_ok:
+        actions.append(
+            "Normalize metadata headers: "
+            f"`python3 {MARKDOWN_METADATA_HEADER_SCRIPT_REL} --fix`."
         )
     if deprecated_violations:
         actions.append("Replace deprecated release helper paths with `devctl` equivalents.")

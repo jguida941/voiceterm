@@ -21,6 +21,7 @@
 - Strategic focus: parallel execution across active Theme, Memory, Autonomy, Tooling, and runtime reliability scopes with clean worktree isolation.
 - In-flight: active 10-agent `AGENT-<N>` matrix aligned to open `MASTER_PLAN` scopes and refreshed worktree/branch lanes.
 - Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
+- Tooling docs-governance update: `devctl docs-check --strict-tooling` now enforces markdown metadata-header normalization for `Status`/`Last updated`/`Owner` blocks via `check_markdown_metadata_header.py`.
 
 ## Multi-Agent Coordination Board
 

@@ -110,7 +110,7 @@ rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
@@ -270,7 +270,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
-- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + stale-path audit)
+- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + stale-path audit)
 - `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)

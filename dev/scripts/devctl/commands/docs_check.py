@@ -25,6 +25,7 @@ from .docs_check_support import (
 
 ACTIVE_PLAN_SYNC_SCRIPT = check_script_path("active_plan_sync")
 MULTI_AGENT_SYNC_SCRIPT = check_script_path("multi_agent_sync")
+MARKDOWN_METADATA_HEADER_SCRIPT = check_script_path("markdown_metadata_header")
 
 def _scan_deprecated_references() -> list[dict]:
     """Wrapper kept for unit-test patch stability."""
@@ -39,6 +40,14 @@ def _run_active_plan_sync_gate() -> dict:
 def _run_multi_agent_sync_gate() -> dict:
     """Run multi-agent board/runbook sync guard and return parsed JSON report."""
     return run_json_policy_gate(MULTI_AGENT_SYNC_SCRIPT, "multi-agent sync gate")
+
+
+def _run_markdown_metadata_header_gate() -> dict:
+    """Run markdown metadata-header style guard and return parsed JSON report."""
+    return run_json_policy_gate(
+        MARKDOWN_METADATA_HEADER_SCRIPT,
+        "markdown metadata header gate",
+    )
 
 
 def run(args) -> int:
@@ -98,6 +107,8 @@ def run(args) -> int:
     multi_agent_sync_ok = True
     legacy_path_audit_report = None
     legacy_path_audit_ok = True
+    markdown_metadata_header_report = None
+    markdown_metadata_header_ok = True
     if strict_tooling:
         active_plan_sync_report = _run_active_plan_sync_gate()
         active_plan_sync_ok = bool(active_plan_sync_report.get("ok", False))
@@ -105,6 +116,10 @@ def run(args) -> int:
         multi_agent_sync_ok = bool(multi_agent_sync_report.get("ok", False))
         legacy_path_audit_report = scan_legacy_path_references()
         legacy_path_audit_ok = bool(legacy_path_audit_report.get("ok", False))
+        markdown_metadata_header_report = _run_markdown_metadata_header_gate()
+        markdown_metadata_header_ok = bool(
+            markdown_metadata_header_report.get("ok", False)
+        )
 
     ok = (
         user_facing_ok
@@ -114,6 +129,7 @@ def run(args) -> int:
         and active_plan_sync_ok
         and multi_agent_sync_ok
         and legacy_path_audit_ok
+        and markdown_metadata_header_ok
     )
     failure_reasons = build_failure_reasons(
         user_facing_enabled=args.user_facing and not empty_commit_range,
@@ -133,6 +149,8 @@ def run(args) -> int:
         multi_agent_sync_report=multi_agent_sync_report,
         legacy_path_audit_ok=legacy_path_audit_ok,
         legacy_path_audit_report=legacy_path_audit_report,
+        markdown_metadata_header_ok=markdown_metadata_header_ok,
+        markdown_metadata_header_report=markdown_metadata_header_report,
         deprecated_violations=deprecated_violations,
     )
     next_actions = build_next_actions(
@@ -148,6 +166,7 @@ def run(args) -> int:
         active_plan_sync_ok=active_plan_sync_ok,
         multi_agent_sync_ok=multi_agent_sync_ok,
         legacy_path_audit_ok=legacy_path_audit_ok,
+        markdown_metadata_header_ok=markdown_metadata_header_ok,
         deprecated_violations=deprecated_violations,
     )
 
@@ -178,6 +197,8 @@ def run(args) -> int:
         "multi_agent_sync_report": multi_agent_sync_report,
         "legacy_path_audit_ok": legacy_path_audit_ok,
         "legacy_path_audit_report": legacy_path_audit_report,
+        "markdown_metadata_header_ok": markdown_metadata_header_ok,
+        "markdown_metadata_header_report": markdown_metadata_header_report,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
         "failure_reasons": failure_reasons,
