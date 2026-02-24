@@ -267,15 +267,20 @@ Developer docs:
 
 ## Support
 
-- Troubleshooting: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-- Bug reports and feature requests: [GitHub Issues](https://github.com/jguida941/voiceterm/issues)
-- Security concerns: [.github/SECURITY.md](.github/SECURITY.md)
+- Troubleshooting:
+  [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- Bug reports and feature requests:
+  [GitHub Issues](https://github.com/jguida941/voiceterm/issues)
+- Security concerns:
+  [.github/SECURITY.md](.github/SECURITY.md)
 
 ## Contributing
 
 PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
-Before opening a PR, run `python3 dev/scripts/devctl.py check --profile prepush`.
-For governance/docs consistency, also run `python3 dev/scripts/devctl.py hygiene`.
+Before opening a PR, run:
+
+- `python3 dev/scripts/devctl.py check --profile prepush`
+- `python3 dev/scripts/devctl.py hygiene`
 
 ## License
 
