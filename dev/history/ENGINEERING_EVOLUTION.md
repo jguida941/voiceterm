@@ -938,6 +938,29 @@ Inference: Ralph remediation behavior is now controllable through one canonical
 control-plane path with deterministic artifacts and stronger release promotion
 guards against unresolved CodeRabbit medium/high backlog risk.
 
+### Recent Governance Update (2026-02-24, Ralph Comment API Transport Hardening)
+
+Fact: Shared workflow-loop GitHub helpers now avoid passing `--repo` to
+`gh api` commands, which unblocks summary-and-comment upsert flows for both
+CodeRabbit and mutation loop notifications.
+
+Evidence:
+
+- `dev/scripts/checks/workflow_loop_utils.py` (`gh_json` now skips `--repo`
+  only for `api` subcommands)
+- `dev/scripts/devctl/loop_comment.py` (comment mutation path no longer appends
+  `--repo` to `gh api`)
+- `dev/scripts/devctl/tests/test_loop_comment.py` (create/update upsert
+  regression coverage for `gh api` command construction)
+- `dev/scripts/devctl/tests/test_workflow_loop_utils.py` (`gh_json` repo-flag
+  behavior coverage for `run list` vs `api`)
+- `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`,
+  `AGENTS.md` (governance/docs updates for operator expectations)
+
+Inference: Loop notification reliability is now deterministic for API-backed
+comment upserts, and future refactors have explicit tests guarding the transport
+contract.
+
 ### Recent Governance Update (2026-02-24, Hygiene Auto-Fix for Python Cache Drift)
 
 Fact: `devctl hygiene` now supports an optional `--fix` mode that removes

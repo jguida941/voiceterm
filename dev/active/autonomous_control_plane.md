@@ -734,6 +734,8 @@ Acceptance:
 - 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c01`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c01/summary.md`.
 - 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c02`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c02/summary.md`.
 - 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c03`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`swarm10-20260224-085105-c01`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`swarm10-20260224-085105-c02`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md`.
 ## Audit Evidence
 
 | Check | Evidence | Status |
@@ -780,3 +782,5 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c01/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c02/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md` (2026-02-24 local run) | done |

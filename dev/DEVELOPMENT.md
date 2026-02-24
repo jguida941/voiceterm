@@ -142,6 +142,8 @@ What is different about this model:
 2. Comment publishing is idempotent to avoid spam.
 3. Fix paths are allowlisted and bounded by policy.
 4. Outputs are structured for phone/controller/report surfaces.
+5. Shared loop `gh` helpers treat `gh api` endpoints specially and never pass
+   `--repo` for API subcommands.
 
 ### Release and quality drift checks
 

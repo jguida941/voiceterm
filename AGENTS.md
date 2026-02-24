@@ -740,6 +740,7 @@ Supporting scripts:
 - `dev/scripts/checks/check_rustsec_policy.py`
 - `dev/scripts/checks/run_coderabbit_ralph_loop.py`
 - `dev/scripts/checks/mutation_ralph_loop_core.py`
+- `dev/scripts/checks/workflow_loop_utils.py`
 - `dev/scripts/audits/audit_metrics.py`
 - `dev/scripts/tests/measure_latency.sh`
 - `dev/scripts/tests/wake_word_guard.sh`

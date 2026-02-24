@@ -156,6 +156,8 @@ python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_cont
 # the same gate before distribution/attestation steps run.
 # If your cihub binary doesn't support `triage`, devctl records an infra warning
 # and still emits local triage output.
+# Loop comment publication uses API endpoints with explicit `/repos/{owner}/{repo}`
+# paths and does not append `--repo` to `gh api` calls.
 # Clean local failure triage bundles only after CI is green
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --dry-run
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --yes

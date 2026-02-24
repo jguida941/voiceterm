@@ -26,6 +26,9 @@
 - Loop architecture clarity update: `dev/ARCHITECTURE.md` and
   `dev/DEVELOPMENT.md` now document the custom repo-owned Ralph/Wiggum loop
   path and the federated-repo import model in simple flowchart form.
+- Loop comment transport hardening update: shared workflow-loop `gh` helpers now
+  avoid invalid `--repo` usage for `gh api` calls so summary-and-comment mode
+  can publish and upsert commit/PR comments reliably.
 
 ## Multi-Agent Coordination Board
 
