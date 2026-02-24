@@ -244,26 +244,27 @@ Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros)
 
 ## Documentation
 
-Use this order if you're new:
+### New user path
 
-1. Start with [Quick Start](QUICK_START.md).
-2. Use the [Guides Index](guides/README.md) for task-based navigation.
-3. Use [Troubleshooting](guides/TROUBLESHOOTING.md) as the single issue hub.
+| Step | Document | Why |
+|---|---|---|
+| 1 | [Quick Start](QUICK_START.md) | Get VoiceTerm running fast |
+| 2 | [Guides Index](guides/README.md) | Find task-based guides |
+| 3 | [Troubleshooting](guides/TROUBLESHOOTING.md) | Resolve common issues quickly |
 
-User docs:
+### Docs map
 
-- [Guides Index](guides/README.md)
-- [Quick Start](QUICK_START.md)
-- [Install Guide](guides/INSTALL.md)
-- [Usage Guide](guides/USAGE.md)
-- [CLI Flags](guides/CLI_FLAGS.md)
-- [Troubleshooting](guides/TROUBLESHOOTING.md)
-
-Developer docs:
-
-- [Developer Index](dev/README.md)
-- [External Repo Federation Playbook](dev/integrations/EXTERNAL_REPOS.md)
-- [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
+| Audience | Document | Focus |
+|---|---|---|
+| User | [Guides Index](guides/README.md) | Guide entry point |
+| User | [Quick Start](QUICK_START.md) | Fast setup path |
+| User | [Install Guide](guides/INSTALL.md) | Install methods and prerequisites |
+| User | [Usage Guide](guides/USAGE.md) | Runtime controls and behavior |
+| User | [CLI Flags](guides/CLI_FLAGS.md) | Flag reference |
+| User | [Troubleshooting](guides/TROUBLESHOOTING.md) | Problems and fixes |
+| Developer | [Developer Index](dev/README.md) | Dev doc entry point |
+| Developer | [External Repo Federation Playbook](dev/integrations/EXTERNAL_REPOS.md) | Integration reuse workflow |
+| Developer | [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) | Architecture/process timeline |
 
 ## Support
 
