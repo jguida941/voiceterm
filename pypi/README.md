@@ -1,7 +1,7 @@
 # VoiceTerm
 
-Voice-first terminal HUD for AI CLIs.
-Talk instead of type with local Whisper transcription, then send directly to your CLI.
+Voice-first terminal overlay for Codex and Claude.
+Local Whisper speech-to-text runs on your machine by default, with PTY passthrough and a customizable HUD.
 
 Primary support: Codex and Claude Code.
 

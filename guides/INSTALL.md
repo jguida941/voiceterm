@@ -53,6 +53,7 @@ voiceterm --login --claude
 - Whisper model file downloaded on first run
 - Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
 - Rust toolchain (stable) only if you build from source: <https://rustup.rs>
+- Source builds use `serde_norway` for YAML macro parsing (maintained `serde_yaml` fork with RustSec-recommended safety posture)
 - Optional: `python3`, `ffmpeg`, and `whisper` CLI on PATH (used as backup if native engine is unavailable; disable with `--no-python-fallback`)
 
 ## Choose an Install Path

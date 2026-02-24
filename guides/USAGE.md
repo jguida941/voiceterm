@@ -223,6 +223,7 @@ Behavior:
 - `sync` is mutating and requires a second `Enter` confirmation before it runs.
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
+- Mutating commands like `sync` require explicit confirmation before execution.
 
 ## Transcript History
 

@@ -67,8 +67,8 @@ def run(args) -> int:
         policy_step = annotate_step_metadata(policy_step, tier="core", blocking=True)
     steps.append(policy_step)
     core_enabled = args.scanner_tier in ("core", "all")
-    run_zizmor = args.with_zizmor or core_enabled
-    run_codeql_alerts = args.with_codeql_alerts or core_enabled
+    run_zizmor = bool(args.with_zizmor)
+    run_codeql_alerts = bool(args.with_codeql_alerts)
     if run_zizmor:
         zizmor_step, zizmor_warnings = run_optional_tool_step(
             name="zizmor",

@@ -54,7 +54,9 @@ class SecurityPythonScopeTests(TestCase):
             self.assertEqual(resolve_python_scope(make_args()), "changed")
 
     def test_resolve_python_scope_auto_in_ci_defaults_to_all(self) -> None:
-        with patch("dev.scripts.devctl.security_python_scope.os.environ", {"CI": "true"}):
+        with patch(
+            "dev.scripts.devctl.security_python_scope.os.environ", {"CI": "true"}
+        ):
             self.assertEqual(resolve_python_scope(make_args()), "all")
 
     @patch("dev.scripts.devctl.security_python_scope.subprocess.run")
@@ -110,4 +112,43 @@ class SecurityPythonScopeTests(TestCase):
         self.assertEqual(steps[0]["cmd"], ["git", "ls-files", "--", "*.py"])
         self.assertEqual(steps[0]["details"]["scope"], "all")
         self.assertEqual(steps[3]["name"], "bandit")
-        self.assertEqual(steps[3]["cmd"], ["bandit", "-q", "-r", "dev/scripts/devctl"])
+        self.assertEqual(
+            steps[3]["cmd"], ["bandit", "-q", "-ll", "-ii", "dev/scripts/devctl/cli.py"]
+        )
+
+    @patch("dev.scripts.devctl.security_python_scope.changed_python_paths")
+    def test_run_python_core_steps_skips_bandit_when_only_tests_are_selected(
+        self,
+        changed_paths_mock,
+    ) -> None:
+        changed_paths_mock.return_value = (
+            ["dev/scripts/devctl/tests/test_ship.py"],
+            None,
+        )
+
+        def _run_optional_tool_step(**kwargs):
+            return (
+                {
+                    "name": kwargs["name"],
+                    "cmd": kwargs["cmd"],
+                    "returncode": 0,
+                    "duration_s": 0.0,
+                    "skipped": kwargs.get("dry_run", False),
+                    "details": {"tier": kwargs["tier"], "blocking": kwargs["blocking"]},
+                },
+                [],
+            )
+
+        steps, warnings = run_python_core_steps(
+            args=make_args(python_scope="changed", dry_run=True),
+            repo_root=".",
+            env={},
+            run_optional_tool_step=_run_optional_tool_step,
+            make_internal_step=_make_internal_step,
+            annotate_step_metadata=_annotate,
+        )
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(steps[3]["name"], "bandit")
+        self.assertTrue(steps[3]["skipped"])
+        self.assertEqual(steps[3]["cmd"], ["bandit", "-q", "-ll", "-ii"])

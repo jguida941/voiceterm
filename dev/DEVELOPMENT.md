@@ -99,7 +99,9 @@ CI runs the same families, so catching issues locally saves round-trips.
 | User docs (`README`, `guides/*`, `QUICK_START`) | `python3 dev/scripts/devctl.py docs-check --user-facing` | `tooling_control_plane.yml` (conditional) |
 | Tooling/process/CI docs or scripts | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `tooling_control_plane.yml` |
 | CodeRabbit review integration and backlog routing | `python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md` | `coderabbit_triage.yml` |
-| CodeRabbit medium/high backlog auto-remediation loop | `python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md` | `coderabbit_ralph_loop.yml` |
+| CodeRabbit medium/high backlog auto-remediation loop | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --format md` | `coderabbit_ralph_loop.yml` |
+| Mutation score remediation loop (report-only default) | `python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | `mutation_ralph_loop.yml` |
+| External repo federation links/import workflow | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
 | Active plan/index/spec sync | `python3 dev/scripts/checks/check_active_plan_sync.py` | `tooling_control_plane.yml` |
 
@@ -191,7 +193,7 @@ voiceterm/
 │       ├── release.sh         # Legacy adapter -> devctl release
 │       ├── generate-release-notes.sh # Markdown notes from git diff history
 │       ├── publish-pypi.sh    # Legacy adapter -> devctl pypi
-│       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew
+│       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew (+ tap formula desc sync)
 │       ├── check_mutation_score.py # Mutation score helper
 │       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
 │       ├── check_screenshot_integrity.py # image reference + stale-age guard
@@ -207,6 +209,7 @@ voiceterm/
 │           ├── status_report.py # Shared status/report payload + markdown renderer
 │           └── commands/ship_*.py # Ship step helper modules
 ├── img/                 # Screenshots
+├── integrations/        # Pinned external repo links (code-link-ide, ci-cd-hub)
 ├── Makefile             # Developer tasks
 ├── src/                 # Rust overlay + voice pipeline
 │   └── src/
@@ -344,6 +347,7 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 
 - See `AGENTS.md` for which bundle to run (`bundle.runtime`, `bundle.docs`, `bundle.tooling`, `bundle.release`).
 - See this section for exact command syntax.
+- See `dev/DEVCTL_AUTOGUIDE.md` for automation-first loop orchestration (`triage-loop`, Ralph mode controls, and proposal artifacts).
 - `devctl check` automatically sweeps orphaned and stale test processes before and after each run (stale active threshold: `>=600s`).
 - `devctl check` runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
 
@@ -395,6 +399,18 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 
 # Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
 python3 dev/scripts/devctl.py hygiene
+# Optional: remove detected dev/scripts/**/__pycache__ dirs after local test runs
+python3 dev/scripts/devctl.py hygiene --fix
+
+# Audit metrics summary + charts (scientific audit-cycle evidence)
+python3 dev/scripts/audits/audit_metrics.py \
+  --input dev/reports/audits/baseline-events.jsonl \
+  --output-md dev/reports/audits/baseline-metrics.md \
+  --output-json dev/reports/audits/baseline-metrics.json \
+  --chart-dir dev/reports/audits/charts
+# devctl now auto-emits one event row per command run (override cycle/source as needed)
+DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 DEVCTL_EXECUTION_SOURCE=script_only \
+python3 dev/scripts/devctl.py status --ci --format md
 
 # Security guard (RustSec policy + optional workflow scanner)
 python3 dev/scripts/devctl.py security
@@ -428,11 +444,13 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --gith
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
 gh workflow run publish_homebrew.yml -f version=X.Y.Z -f release_branch=master
-gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3
+gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3 -f execution_mode=plan-then-fix
+gh workflow run mutation_ralph_loop.yml -f branch=develop -f execution_mode=report-only -f threshold=0.80
 
 # Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py pypi --upload --yes
@@ -444,6 +462,11 @@ python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.j
 
 # Include recent GitHub Actions runs (requires gh auth)
 python3 dev/scripts/devctl.py status --ci --format md
+
+# Bounded CodeRabbit medium/high loop with report/fix artifacts
+python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --emit-bundle --bundle-dir .cihub/coderabbit --bundle-prefix coderabbit-ralph-loop --mp-proposal --format md --output /tmp/coderabbit-ralph-loop.md --json-output /tmp/coderabbit-ralph-loop.json
+# Bounded mutation loop with report-only default and policy-gated fix mode
+python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
 
 # Include guarded Dev Mode JSONL summaries (event counts + latency)
 python3 dev/scripts/devctl.py status --dev-logs --format md
@@ -492,7 +515,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`).
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`); `--fix` also removes detected `dev/scripts/**/__pycache__` directories.
 - `python3 dev/scripts/checks/check_agents_contract.py`
 - `python3 dev/scripts/checks/check_active_plan_sync.py`
 - `python3 dev/scripts/checks/check_release_version_parity.py`
@@ -618,17 +641,18 @@ GitHub Actions lanes used by this repo:
 | Latency Guard | `.github/workflows/latency_guard.yml` | Synthetic latency regression guardrails |
 | Memory Guard | `.github/workflows/memory_guard.yml` | 20x memory guard loop |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated 80% score gate |
+| Mutation Ralph Loop | `.github/workflows/mutation_ralph_loop.yml` | bounded follow-up mutation remediation loop with report-only default, optional policy-gated fix attempts, and artifact/comment outputs |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC) |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | CodeRabbit Triage Bridge | `.github/workflows/coderabbit_triage.yml` | normalizes CodeRabbit review/check signals into triage artifacts and blocks unresolved medium/high findings |
-| CodeRabbit Ralph Loop | `.github/workflows/coderabbit_ralph_loop.yml` | bounded retry loop for CodeRabbit medium/high backlog with optional configured auto-fix command |
+| CodeRabbit Ralph Loop | `.github/workflows/coderabbit_ralph_loop.yml` | branch-scoped always-on (configurable) medium/high backlog loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`) and optional auto-fix command |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
-| Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published (requires CodeRabbit gate success for release commit) |
-| Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested (requires CodeRabbit gate success for release commit) |
+| Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published (requires both CodeRabbit gate and Ralph gate success for release commit) |
+| Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested (requires both CodeRabbit gate and Ralph gate success for release commit) |
 
 Workflow hardening baseline:
 
@@ -648,6 +672,7 @@ make prepush
 
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/devctl.py hygiene --fix
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
@@ -751,7 +776,8 @@ python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 
 Publishing the GitHub release triggers `.github/workflows/publish_pypi.yml`,
 which publishes the matching `voiceterm` version to PyPI, and
-`.github/workflows/publish_homebrew.yml`, which updates the Homebrew tap.
+`.github/workflows/publish_homebrew.yml`, which updates the Homebrew tap
+formula metadata (URL/version/SHA and canonical description text).
 
 ### Publish PyPI package
 
@@ -788,7 +814,7 @@ Optional manual workflow trigger:
 
 ```bash
 gh workflow run publish_homebrew.yml -f version=X.Y.Z -f release_branch=master
-gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3
+gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3 -f execution_mode=plan-then-fix
 ```
 
 Legacy wrappers (`dev/scripts/release.sh`, `dev/scripts/publish-pypi.sh`,

@@ -17,6 +17,8 @@ REQUIRED_H2 = [
     "Source-of-truth map",
     "Instruction scope and precedence",
     "Mandatory 12-step SOP (always)",
+    "Execution-plan traceability (required)",
+    "Continuous improvement loop (required)",
     "Active-plan onboarding (adding files under `dev/active/`)",
     "Task router (pick one class)",
     "Context packs (load only what class needs)",
@@ -43,6 +45,11 @@ REQUIRED_MARKERS = [
     "python3 dev/scripts/checks/check_release_version_parity.py",
     "python3 dev/scripts/devctl.py docs-check --strict-tooling",
     "python3 dev/scripts/devctl.py status --ci --require-ci --format md",
+    "Execution plan contract: required",
+    "repeat-to-automate",
+    "dev/audits/AUTOMATION_DEBT_REGISTER.md",
+    "dev/audits/METRICS_SCHEMA.md",
+    "python3 dev/scripts/audits/audit_metrics.py",
 ]
 
 REQUIRED_ROUTER_SNIPPETS = [
@@ -54,7 +61,10 @@ REQUIRED_ROUTER_SNIPPETS = [
 
 
 def _extract_h2(text: str) -> list[str]:
-    return [match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)]
+    return [
+        match.group(1).strip()
+        for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
+    ]
 
 
 def _build_report() -> dict:
@@ -69,7 +79,9 @@ def _build_report() -> dict:
     h2 = _extract_h2(text)
 
     missing_h2 = [heading for heading in REQUIRED_H2 if heading not in h2]
-    missing_bundles = [bundle for bundle in REQUIRED_BUNDLES if f"`{bundle}`" not in text]
+    missing_bundles = [
+        bundle for bundle in REQUIRED_BUNDLES if f"`{bundle}`" not in text
+    ]
     missing_markers = [marker for marker in REQUIRED_MARKERS if marker not in text]
     missing_router = [row for row in REQUIRED_ROUTER_SNIPPETS if row not in text]
 
@@ -95,19 +107,32 @@ def _render_md(report: dict) -> str:
 
     lines.append(f"- path: {report['path']}")
     lines.append(
-        "- missing_h2: " + (", ".join(report["missing_h2"]) if report["missing_h2"] else "none")
+        "- missing_h2: "
+        + (", ".join(report["missing_h2"]) if report["missing_h2"] else "none")
     )
     lines.append(
         "- missing_bundles: "
-        + (", ".join(report["missing_bundles"]) if report["missing_bundles"] else "none")
+        + (
+            ", ".join(report["missing_bundles"])
+            if report["missing_bundles"]
+            else "none"
+        )
     )
     lines.append(
         "- missing_markers: "
-        + (", ".join(report["missing_markers"]) if report["missing_markers"] else "none")
+        + (
+            ", ".join(report["missing_markers"])
+            if report["missing_markers"]
+            else "none"
+        )
     )
     lines.append(
         "- missing_router_rows: "
-        + (", ".join(report["missing_router_rows"]) if report["missing_router_rows"] else "none")
+        + (
+            ", ".join(report["missing_router_rows"])
+            if report["missing_router_rows"]
+            else "none"
+        )
     )
     return "\n".join(lines)
 

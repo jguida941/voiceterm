@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] guarded to trusted same-repo push/schedule/workflow_dispatch branches in job-level if
     workflows:
       - CodeRabbit Ralph Loop
       - CodeRabbit Triage Bridge
@@ -95,18 +95,25 @@ jobs:
       - name: Capture workflow context
         env:
           ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 1 }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_HTML_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           cp "${GITHUB_EVENT_PATH}" "${ARTIFACT_DIR}/github-event.json"
           {
             echo "# Failure triage snapshot"
             echo ""
-            echo "- workflow: ${{ github.event.workflow_run.name }}"
-            echo "- run_id: ${{ github.event.workflow_run.id }}"
-            echo "- run_attempt: ${{ github.event.workflow_run.run_attempt || 1 }}"
-            echo "- conclusion: ${{ github.event.workflow_run.conclusion }}"
-            echo "- branch: ${{ github.event.workflow_run.head_branch }}"
-            echo "- sha: ${{ github.event.workflow_run.head_sha }}"
-            echo "- html_url: ${{ github.event.workflow_run.html_url }}"
+            echo "- workflow: ${WORKFLOW_NAME}"
+            echo "- run_id: ${RUN_ID}"
+            echo "- run_attempt: ${RUN_ATTEMPT}"
+            echo "- conclusion: ${CONCLUSION}"
+            echo "- branch: ${HEAD_BRANCH}"
+            echo "- sha: ${HEAD_SHA}"
+            echo "- html_url: ${RUN_HTML_URL}"
             echo ""
             echo "Use this directory with AI or local audit tooling."
             echo "Cleanup once green: \`python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --yes\`."
@@ -118,9 +125,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
           RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO_SLUG: ${{ github.repository }}
         run: |
           mkdir -p "${ARTIFACT_DIR}/source-artifacts"
-          gh run download "${RUN_ID}" --dir "${ARTIFACT_DIR}/source-artifacts" --repo "${{ github.repository }}"
+          gh run download "${RUN_ID}" --dir "${ARTIFACT_DIR}/source-artifacts" --repo "${REPO_SLUG}"
 
       - name: Run triage snapshot
         env:
@@ -148,11 +156,13 @@ jobs:
         if: always()
         env:
           ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          SOURCE_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          SOURCE_WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           echo "## Failure triage bundle" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "- source workflow: ${{ github.event.workflow_run.name }}" >> "${GITHUB_STEP_SUMMARY}"
-          echo "- source run: ${{ github.event.workflow_run.html_url }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- source workflow: ${SOURCE_WORKFLOW_NAME}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- source run: ${SOURCE_WORKFLOW_URL}" >> "${GITHUB_STEP_SUMMARY}"
           echo "- artifact_dir: \`${ARTIFACT_DIR}\`" >> "${GITHUB_STEP_SUMMARY}"
           if [[ -f "${ARTIFACT_DIR}/triage-summary.md" ]]; then
             echo "" >> "${GITHUB_STEP_SUMMARY}"

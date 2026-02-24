@@ -25,9 +25,12 @@ jobs:
 
       - name: Resolve release ref
         id: release_ref
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          BRANCH="${{ github.event.release.target_commitish }}"
+          TAG="${RELEASE_TAG}"
+          BRANCH="${RELEASE_TARGET_BRANCH}"
           if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: ${TAG}"
             exit 1
@@ -49,10 +52,23 @@ jobs:
       - name: Verify CodeRabbit gate passed for release commit
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
         run: |
           python3 dev/scripts/checks/check_coderabbit_gate.py \
-            --branch "${{ steps.release_ref.outputs.branch }}" \
-            --sha "${{ steps.release_ref.outputs.sha }}" \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
+
+      - name: Verify CodeRabbit Ralph gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
             --format md
 
       - name: Setup Python
@@ -77,7 +93,8 @@ jobs:
           PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${RELEASE_TAG}"
           VERSION="${VERSION#v}"
           python3 dev/scripts/devctl.py ship --version "${VERSION}" --pypi --verify-pypi --yes --allow-ci

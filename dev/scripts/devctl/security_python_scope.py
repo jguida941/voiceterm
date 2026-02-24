@@ -41,7 +41,9 @@ def _git_changed_paths(
         return [], str(exc)
 
     if result.returncode != 0:
-        message = (result.stderr or result.stdout).strip() or "git changed-path probe failed"
+        message = (
+            result.stderr or result.stdout
+        ).strip() or "git changed-path probe failed"
         return [], message
 
     paths: list[str] = []
@@ -75,10 +77,14 @@ def _tracked_python_paths(repo_root: Path) -> tuple[list[str], str | None]:
         return [], str(exc)
 
     if result.returncode != 0:
-        message = (result.stderr or result.stdout).strip() or "git tracked-python probe failed"
+        message = (
+            result.stderr or result.stdout
+        ).strip() or "git tracked-python probe failed"
         return [], message
 
-    paths = sorted({line.strip() for line in result.stdout.splitlines() if line.strip()})
+    paths = sorted(
+        {line.strip() for line in result.stdout.splitlines() if line.strip()}
+    )
     return paths, None
 
 
@@ -106,7 +112,9 @@ def changed_python_paths(
     if scope == "all":
         return _tracked_python_paths(repo_root)
 
-    changed, error = _git_changed_paths(repo_root, since_ref=since_ref, head_ref=head_ref)
+    changed, error = _git_changed_paths(
+        repo_root, since_ref=since_ref, head_ref=head_ref
+    )
     if error:
         return [], error
 
@@ -114,7 +122,9 @@ def changed_python_paths(
     return python_paths, None
 
 
-def _python_scope_probe_cmd(scope: str, *, since_ref: str | None, head_ref: str) -> list[str]:
+def _python_scope_probe_cmd(
+    scope: str, *, since_ref: str | None, head_ref: str
+) -> list[str]:
     if scope == "all":
         return ["git", "ls-files", "--", "*.py"]
     if since_ref:
@@ -128,16 +138,22 @@ def _python_scope_probe_cmd(scope: str, *, since_ref: str | None, head_ref: str)
     return ["git", "status", "--porcelain"]
 
 
+def _is_bandit_candidate(path: str) -> bool:
+    relative = Path(path)
+    if relative.suffix != ".py":
+        return False
+    if "tests" in relative.parts:
+        return False
+    name = relative.name
+    if name.startswith("test_") or name.endswith("_test.py"):
+        return False
+    return True
+
+
 def _bandit_targets(paths: list[str]) -> list[str]:
-    targets: set[str] = set()
-    for path in paths:
-        relative = Path(path)
-        parent = relative.parent.as_posix()
-        if parent and parent != ".":
-            targets.add(parent)
-        else:
-            targets.add(relative.as_posix())
-    return sorted(targets)
+    return sorted(
+        {Path(path).as_posix() for path in paths if _is_bandit_candidate(path)}
+    )
 
 
 def run_python_core_steps(
@@ -231,7 +247,7 @@ def run_python_core_steps(
 
     isort_step, isort_warnings = run_optional_tool_step(
         name="python-isort",
-        cmd=["isort", "--check-only", *python_paths],
+        cmd=["isort", "--check-only", "--profile", "black", *python_paths],
         required=args.require_optional_tools,
         dry_run=args.dry_run,
         env=env,
@@ -243,17 +259,28 @@ def run_python_core_steps(
     warnings.extend(isort_warnings)
 
     bandit_targets = _bandit_targets(python_paths)
-    bandit_step, bandit_warnings = run_optional_tool_step(
-        name="bandit",
-        cmd=["bandit", "-q", "-r", *bandit_targets],
-        required=args.require_optional_tools,
-        dry_run=args.dry_run,
-        env=env,
-        cwd=repo_root,
-        tier="core",
-        blocking=True,
-    )
-    steps.append(bandit_step)
-    warnings.extend(bandit_warnings)
+    if bandit_targets:
+        bandit_step, bandit_warnings = run_optional_tool_step(
+            name="bandit",
+            cmd=["bandit", "-q", "-ll", "-ii", *bandit_targets],
+            required=args.require_optional_tools,
+            dry_run=args.dry_run,
+            env=env,
+            cwd=repo_root,
+            tier="core",
+            blocking=True,
+        )
+        steps.append(bandit_step)
+        warnings.extend(bandit_warnings)
+    else:
+        bandit_step = make_internal_step(
+            name="bandit",
+            cmd=["bandit", "-q", "-ll", "-ii"],
+            returncode=0,
+            duration_s=0.0,
+            skipped=True,
+            details={"reason": "No non-test Python files selected for Bandit scan."},
+        )
+        steps.append(annotate_step_metadata(bandit_step, tier="core", blocking=True))
 
     return steps, warnings

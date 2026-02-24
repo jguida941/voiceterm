@@ -22,8 +22,14 @@ same execution path with minimal ambiguity.
 | Where is consolidated Theme Studio + overlay visual planning context? | `dev/active/theme_upgrade.md` |
 | Where is long-range phase-2 research context? | `dev/active/phase2.md` |
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
+| Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
+| Where are external repo federation links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
+| Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
+| Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
+| Where are audit metrics definitions (AI vs script share, automation coverage, charts)? | `dev/audits/METRICS_SCHEMA.md` |
 | How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
+| Where is the devctl automation playbook? | `dev/DEVCTL_AUTOGUIDE.md` |
 | Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
@@ -77,6 +83,51 @@ Run this sequence for every task. Do not skip steps.
 10. Self-review security, memory, errors, concurrency, performance, and style.
 11. Push through branch policy and run post-push audit (`bundle.post-push`).
 12. Capture handoff summary using `dev/DEVELOPMENT.md` template.
+
+## Execution-plan traceability (required)
+
+For non-trivial work (runtime/tooling/process/CI/release), execution must be
+anchored in an active tracked plan doc under `dev/active/`.
+
+1. Create or update the relevant execution-plan doc before implementation
+   (for example `dev/active/autonomous_control_plane.md`).
+2. Execution-plan docs must include the marker line:
+   `Execution plan contract: required`.
+3. Execution-plan docs must include these sections:
+   - `## Scope`
+   - `## Execution Checklist`
+   - `## Progress Log`
+   - `## Audit Evidence`
+4. The associated MP scope must be present in both `dev/active/INDEX.md` and
+   `dev/active/MASTER_PLAN.md`.
+4.1 In multi-agent runs, progress/decisions must be written into the active
+    plan markdown and/or `MASTER_PLAN` updates; hidden memory-only coordination
+    is not acceptable execution state.
+5. `python3 dev/scripts/checks/check_active_plan_sync.py` is the enforcement
+   gate and must pass before merge.
+
+## Continuous improvement loop (required)
+
+Use a repeat-to-automate loop so the toolchain gets stronger after every run.
+
+1. Record friction points in the active-plan progress log and/or handoff notes
+   for every non-trivial execution session.
+2. If the same workaround/manual step repeats 2+ times in the same MP scope,
+   resolve it before closure by:
+   - automating it as a guarded `devctl` command/workflow/check with tests, or
+   - logging it as explicit debt in `dev/audits/AUTOMATION_DEBT_REGISTER.md`
+     with owner, risk, and exit criteria.
+3. "Cannot automate yet" is acceptable only with a documented reason and a
+   guard path (checklist/runbook entry that prevents unsafe execution).
+4. When automation lands, update command/docs surfaces in the same change
+   (`AGENTS.md`, `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md` as needed).
+5. Baseline full-surface audit execution starts from
+   `dev/audits/2026-02-24-autonomy-baseline-audit.md` and should be copied
+   forward for each new audit cycle.
+6. Audit cycles should emit quantitative metrics from event logs
+   (`automation_coverage_pct`, `script_only_pct`, `ai_assisted_pct`,
+   `human_manual_pct`, `success_rate_pct`) and chart outputs via
+   `python3 dev/scripts/audits/audit_metrics.py`.
 
 ## AI operating contract (required)
 
@@ -156,6 +207,9 @@ When adding any new markdown file under `dev/active/`, this sequence is required
    - when agents should read it
 2. If the file carries execution state, reflect that scope in
    `dev/active/MASTER_PLAN.md` (the only tracker authority).
+2.1 If the file is an execution plan, include marker
+    `Execution plan contract: required` and sections `Scope`,
+    `Execution Checklist`, `Progress Log`, and `Audit Evidence`.
 3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
    if navigation/ownership changed.
 4. Run `python3 dev/scripts/checks/check_active_plan_sync.py`.
@@ -279,6 +333,7 @@ python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
@@ -301,6 +356,8 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
@@ -387,6 +444,8 @@ Use this exact sequence:
    - `gh auth status -h github.com`
    - Latest `CodeRabbit Triage Bridge` run for release commit is `success` (no unresolved medium/high CodeRabbit findings)
    - `python3 dev/scripts/checks/check_coderabbit_gate.py --branch master`
+   - Latest `CodeRabbit Ralph Loop` run for release commit is `success`
+   - `python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master`
    - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
    - GitHub Actions secret `HOMEBREW_TAP_TOKEN` exists for `.github/workflows/publish_homebrew.yml`
    - Optional local fallback: Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
@@ -442,7 +501,8 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Workflow syntax + policy drift | `workflow_lint.yml` |
 | AI PR review signal ingestion and owner/severity rollups | `coderabbit_triage.yml` |
 | Bounded AI remediation loop for CodeRabbit medium/high backlog | `coderabbit_ralph_loop.yml` |
-| Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `release_attestation.yml` |
+| Bounded mutation remediation loop (report-only default, optional policy-gated fix mode) | `mutation_ralph_loop.yml` |
+| Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `coderabbit_ralph_loop.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `release_attestation.yml` |
 | Supply-chain posture drift | `scorecard.yml` |
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
@@ -472,6 +532,10 @@ Always evaluate:
 - `dev/ARCHITECTURE.md`
 - `dev/DEVELOPMENT.md`
 - `dev/scripts/README.md`
+- `dev/audits/README.md`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md`
+- `dev/audits/METRICS_SCHEMA.md`
+- `dev/integrations/EXTERNAL_REPOS.md`
 - `dev/history/ENGINEERING_EVOLUTION.md` (required for tooling/process/CI shifts)
 
 Plain-language rule for docs updates:
@@ -519,10 +583,12 @@ Core commands:
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
-- `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep)
+- `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
+- `integrations-sync` (policy-guarded sync/status for pinned external sources under `integrations/`; supports remote update and audit logging)
+- `integrations-import` (allowlisted selective importer from pinned external sources into controlled destination roots with JSONL audit records)
 - `cihub-setup` (allowlisted CIHub setup runner with preview/apply modes, capability probing, and strict unsupported-step gating)
 - `security` (RustSec policy gate with optional workflow scan support via `--with-zizmor`, optional GitHub code-scanning alert gate via `--with-codeql-alerts`, and Python scope control via `--python-scope auto|changed|all`)
 - `mutation-score` (reports outcomes source freshness; optional stale-data gate via `--max-age-hours`)
@@ -531,12 +597,14 @@ Core commands:
 - `release-notes`
 - `ship`
 - `pypi`
-- `homebrew`
+- `homebrew` (tap formula URL/version/checksum updates plus canonical `desc` text sync)
 - `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing)
+- `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json bundles and optional MASTER_PLAN proposal artifacts)
+- `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
 - `audit-scaffold`
   - Builds/updates `dev/active/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
@@ -551,6 +619,10 @@ Core commands:
 | `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
 | `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
+| `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current external source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |
+| `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | you want to import reusable upstream surfaces safely | shows allowlisted source/profile mappings before any file writes |
+| `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop and writes actionable loop evidence |
+| `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 
@@ -561,17 +633,23 @@ Implementation note for maintainers:
   `dev/scripts/devctl/security_parser.py` (security CLI parser wiring),
   `dev/scripts/devctl/security_codeql.py` (CodeQL alert-fetch wiring for security gate),
   `dev/scripts/devctl/security_python_scope.py` (Python changed/all scope resolution + core scanner targets),
+  `dev/scripts/devctl/audit_events.py` (auto-emitted per-command audit-metrics event logging),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
+  `dev/scripts/devctl/integrations_sync_parser.py` (`integrations-sync` parser wiring),
+  `dev/scripts/devctl/integrations_import_parser.py` (`integrations-import` parser wiring),
   `dev/scripts/devctl/cihub_setup_parser.py` (`cihub-setup` parser wiring),
+  `dev/scripts/devctl/integration_federation_policy.py` (external federation policy + allowlist helpers),
   `dev/scripts/devctl/orchestrate_parser.py` (orchestrator CLI parser wiring),
   `dev/scripts/devctl/script_catalog.py` (canonical check-script path registry),
   `dev/scripts/devctl/path_audit_parser.py` (path-audit/path-rewrite parser wiring),
   `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
   `dev/scripts/devctl/triage_parser.py` (triage parser wiring),
+  `dev/scripts/devctl/triage_loop_parser.py` (triage-loop parser wiring),
   `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
   `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
   `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
   `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
+  `dev/scripts/devctl/commands/triage_loop.py` (bounded CodeRabbit loop command),
   `dev/scripts/devctl/commands/docs_check_support.py` (docs-check policy + failure-action helper builders),
   `dev/scripts/devctl/commands/docs_check_render.py` (docs-check markdown renderer helpers),
   `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
@@ -579,6 +657,8 @@ Implementation note for maintainers:
   `dev/scripts/devctl/status_report.py` (status/report payload + markdown
   rendering), `dev/scripts/devctl/commands/security.py` (local security gate
   orchestration + optional scanner policy),
+  `dev/scripts/devctl/commands/integrations_sync.py` (policy-guarded external-source sync/status command),
+  `dev/scripts/devctl/commands/integrations_import.py` (allowlisted selective external-source importer + audit log),
   `dev/scripts/devctl/commands/cihub_setup.py` (allowlisted CIHub setup command implementation),
   `dev/scripts/devctl/commands/failure_cleanup.py` (guarded failure-artifact cleanup), and `dev/scripts/devctl/commands/ship_common.py` /
   `dev/scripts/devctl/commands/ship_steps.py` (release-step helpers), plus
@@ -593,6 +673,7 @@ Supporting scripts:
 - `dev/scripts/checks/check_cli_flags_parity.py`
 - `dev/scripts/checks/check_release_version_parity.py`
 - `dev/scripts/checks/check_coderabbit_gate.py`
+- `dev/scripts/checks/check_coderabbit_ralph_gate.py`
 - `dev/scripts/checks/check_screenshot_integrity.py`
 - `dev/scripts/checks/check_code_shape.py`
 - `dev/scripts/checks/check_rust_lint_debt.py`
@@ -601,6 +682,8 @@ Supporting scripts:
 - `dev/scripts/checks/check_mutation_score.py`
 - `dev/scripts/checks/check_rustsec_policy.py`
 - `dev/scripts/checks/run_coderabbit_ralph_loop.py`
+- `dev/scripts/checks/mutation_ralph_loop_core.py`
+- `dev/scripts/audits/audit_metrics.py`
 - `dev/scripts/tests/measure_latency.sh`
 - `dev/scripts/tests/wake_word_guard.sh`
 - `scripts/macros.sh`
@@ -700,6 +783,7 @@ Include:
 - [ ] Docs updated per governance checklist.
 - [ ] `dev/CHANGELOG.md` updated if behavior is user-facing.
 - [ ] `dev/active/MASTER_PLAN.md` updated.
+- [ ] Repeat-to-automate outcomes captured (new automation or debt-register entry).
 - [ ] Follow-up work captured as MP items.
 - [ ] Handoff summary captured.
 - [ ] Root `--*` artifact check run and clean.

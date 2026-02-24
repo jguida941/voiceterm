@@ -93,6 +93,15 @@ jobs:
             --sha "${GITHUB_SHA}" \
             --format md
 
+      - name: Verify CodeRabbit Ralph gate passed for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${GITHUB_REF_NAME}" \
+            --sha "${GITHUB_SHA}" \
+            --format md
+
       - name: Run CI runtime bundle
         run: python3 dev/scripts/devctl.py check --profile ci
 

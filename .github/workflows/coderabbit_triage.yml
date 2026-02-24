@@ -488,8 +488,8 @@ jobs:
         run: |
           echo "## CodeRabbit triage bridge" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "- actor: \`${{ github.actor }}\`" >> "${GITHUB_STEP_SUMMARY}"
-          echo "- event: \`${{ github.event_name }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- actor: \`${GITHUB_ACTOR}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- event: \`${GITHUB_EVENT_NAME}\`" >> "${GITHUB_STEP_SUMMARY}"
           if [[ -f ".cihub/coderabbit/backlog-medium.json" ]]; then
             COUNT="$(python3 - <<'PY'
           import json

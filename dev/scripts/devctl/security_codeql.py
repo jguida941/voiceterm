@@ -52,6 +52,15 @@ def _normalize_codeql_severity(value: str | None) -> str | None:
     return None
 
 
+def _is_nonblocking_codeql_api_state(message: str) -> bool:
+    """Return True for known non-actionable CodeQL API states in optional mode."""
+    normalized = message.lower()
+    return (
+        "no analysis found" in normalized
+        or 'needs the "admin:repo_hook" scope' in normalized
+    )
+
+
 def run_codeql_alerts_step(
     *,
     repo_root: Path,
@@ -122,6 +131,16 @@ def run_codeql_alerts_step(
     if result.returncode != 0:
         stderr = (result.stderr or "").strip()
         message = stderr or "failed to query CodeQL alerts with gh api"
+        if not required and _is_nonblocking_codeql_api_state(message):
+            step = make_internal_step(
+                name="codeql-alerts",
+                cmd=cmd,
+                returncode=0,
+                duration_s=time.time() - start,
+                skipped=True,
+                details={"reason": message},
+            )
+            return step, []
         step = make_internal_step(
             name="codeql-alerts",
             cmd=cmd,

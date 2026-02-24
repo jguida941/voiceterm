@@ -34,6 +34,7 @@ fi
 
 TAG="v$VERSION"
 HOMEBREW_TAP_BRANCH="${HOMEBREW_TAP_BRANCH:-main}"
+FORMULA_DESC="Voice-first terminal overlay for Codex and Claude with local Whisper STT"
 TMP_TARBALL=""
 
 cleanup_tmp_tarball() {
@@ -128,6 +129,11 @@ cd "$HOMEBREW_REPO"
 sedi "s|url \"https://github.com/jguida941/voiceterm/archive/refs/tags/v[0-9.]*\.tar\.gz\"|url \"$TARBALL_URL\"|" "$FORMULA"
 sedi "s|version \"[0-9.]*\"|version \"$VERSION\"|" "$FORMULA"
 sedi "s|sha256 \"[a-f0-9]*\"|sha256 \"$SHA256\"|" "$FORMULA"
+if grep -q '^[[:space:]]*desc "' "$FORMULA"; then
+    sedi "s|^[[:space:]]*desc \".*\"|  desc \"$FORMULA_DESC\"|" "$FORMULA"
+else
+    echo "Warning: Formula desc line not found; skipping desc sync."
+fi
 
 # Keep tap README intentionally minimal and canonical.
 # The main repo hosts full docs; the tap repo should only cover brew-specific entrypoints.
@@ -136,6 +142,7 @@ if [[ -f "$README" ]]; then
 # homebrew-voiceterm
 
 Homebrew tap for [VoiceTerm](https://github.com/jguida941/voiceterm).
+Voice-first terminal overlay for Codex and Claude with local Whisper STT.
 
 This repository only contains Homebrew formula and release metadata.
 For full product docs, use the main VoiceTerm repository.

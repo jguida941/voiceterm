@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-24
 
 ## At a Glance
 
@@ -234,6 +234,27 @@ Evidence:
 Inference: The release path remains centered on one control plane (`devctl`)
 while reducing publish-time drift risk between requested tag versions,
 repository metadata, and downstream Homebrew formula updates.
+
+### Recent Governance Update (2026-02-24, External Federation Bridge)
+
+Fact: `codex-voice` now tracks `code-link-ide` and `ci-cd-hub` as pinned
+integration links under `integrations/`, with a one-command sync helper and a
+documented selective-import governance workflow.
+
+Evidence:
+
+- `.gitmodules` (`integrations/code-link-ide`, `integrations/ci-cd-hub`)
+- `dev/scripts/sync_external_integrations.sh`
+- `dev/scripts/devctl/commands/integrations_sync.py`
+- `dev/scripts/devctl/commands/integrations_import.py`
+- `dev/config/control_plane_policy.json` (`integration_federation`)
+- `dev/integrations/EXTERNAL_REPOS.md`
+- `dev/active/autonomous_control_plane.md` (`Phase 5 - External Repo Federation Bridge`)
+- `dev/active/MASTER_PLAN.md` (`MP-334`)
+
+Inference: Cross-repo reuse moved from ad-hoc cloning to an auditable,
+version-pinned federation model that supports template extraction work without
+memory-only coordination.
 
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
@@ -641,6 +662,40 @@ acts as an enforceable release-control signal instead of a parallel advisory
 comment stream, while default severity handling avoids blocking on purely
 informational bot comments.
 
+### Recent Governance Update (2026-02-24, Autonomous Loop Hardening)
+
+Fact: The bounded remediation control plane advanced from planning-only to
+implemented loop governance in three lanes: source-run pinning for CodeRabbit
+Ralph, real summary/comment upserts, and a new bounded mutation loop with
+report-only default plus policy-gated fix mode.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_loop_parser.py` (`--source-run-id`,
+  `--source-run-sha`, `--source-event`, `--comment-target`,
+  `--comment-pr-number`)
+- `dev/scripts/checks/coderabbit_ralph_loop_core.py` (authoritative source-run
+  attempt resolution, run/artifact SHA validation, explicit
+  `source_run_sha_mismatch` reasons)
+- `dev/scripts/devctl/commands/triage_loop.py` (summary/comment publication with
+  idempotent marker upsert targeting PR or commit comments)
+- `.github/workflows/coderabbit_ralph_loop.yml` (source run id/sha wiring and
+  comment target inputs/vars)
+- `dev/scripts/devctl/mutation_loop_parser.py`
+- `dev/scripts/checks/mutation_ralph_loop_core.py`
+- `dev/scripts/devctl/commands/mutation_loop.py`
+- `.github/workflows/mutation_ralph_loop.yml`
+- `dev/config/control_plane_policy.json` (`AUTONOMY_MODE` baseline, branch and
+  command-prefix allowlist policy for mutation fix mode)
+- `dev/scripts/checks/check_active_plan_sync.py` (execution-plan marker/section
+  enforcement for active autonomy docs)
+- `dev/active/autonomous_control_plane.md` and `dev/active/MASTER_PLAN.md`
+  (`MP-325` through `MP-329` + `MP-333` status updates)
+
+Inference: The repo now has an auditable, policy-bounded automation path that
+can run autonomously inside approved scope while escalating on policy/scope
+violations instead of silently mutating state.
+
 ### Recent Governance Update (2026-02-23, CI Failure Artifact Automation)
 
 Fact: CI now has a dedicated workflow-run failure lane that captures a triage
@@ -694,6 +749,106 @@ Inference: Automation now fails safer by default: untrusted workflow-run
 contexts are skipped, Python checks in CI are deterministic, cleanup scope
 requires explicit intent before deleting anything outside failure artifacts, and
 branch policy changes can be adopted without workflow rewrites.
+
+### Recent Governance Update (2026-02-24, Ralph Loop Control-Plane Integration)
+
+Fact: The CodeRabbit medium/high remediation loop is now exposed as a first-class
+`devctl triage-loop` command with mode controls (`report-only`,
+`plan-then-fix`, `fix-only`), optional bundle/proposal artifacts, and a new
+release gate (`check_coderabbit_ralph_gate.py`) enforced by local ship verify
+and release publish workflows.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_loop_parser.py` (parser wiring for `triage-loop`)
+- `dev/scripts/devctl/commands/triage_loop.py` (loop execution, md/json output,
+  bundle emission, optional MASTER_PLAN proposal artifact)
+- `dev/scripts/devctl/cli.py` /
+  `dev/scripts/devctl/commands/listing.py` (`triage-loop` command registration)
+- `dev/scripts/checks/check_coderabbit_ralph_gate.py` (commit-SHA release gate
+  for the `CodeRabbit Ralph Loop` workflow)
+- `dev/scripts/devctl/script_catalog.py` /
+  `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs both
+  CodeRabbit gates before release checks)
+- `.github/workflows/coderabbit_ralph_loop.yml` (mode-aware loop orchestration
+  via `devctl triage-loop` and repo-variable controls)
+- `.github/workflows/release_preflight.yml`,
+  `.github/workflows/publish_pypi.yml`,
+  `.github/workflows/publish_homebrew.yml`,
+  `.github/workflows/release_attestation.yml` (all enforce the Ralph gate)
+- `dev/scripts/devctl/tests/test_triage_loop.py`,
+  `dev/scripts/devctl/tests/test_check_coderabbit_ralph_gate.py`,
+  `dev/scripts/devctl/tests/test_ship.py` (parser/loop/gate/release wiring
+  coverage)
+- `dev/DEVCTL_AUTOGUIDE.md`, `AGENTS.md`, `dev/DEVELOPMENT.md`,
+  `dev/scripts/README.md` (operator docs and workflow guidance updates)
+
+Inference: Ralph remediation behavior is now controllable through one canonical
+control-plane path with deterministic artifacts and stronger release promotion
+guards against unresolved CodeRabbit medium/high backlog risk.
+
+### Recent Governance Update (2026-02-24, Hygiene Auto-Fix for Python Cache Drift)
+
+Fact: `devctl hygiene` now supports an optional `--fix` mode that removes
+detected `dev/scripts/**/__pycache__` directories after local runs, re-audits
+scripts hygiene, and reports removed/skipped/failed cache paths explicitly.
+
+Evidence:
+
+- `dev/scripts/devctl/cli_parser_reporting.py` (new `hygiene --fix` flag)
+- `dev/scripts/devctl/commands/hygiene.py` (safe cache-dir removal flow with
+  repo-root guardrails and fix report output)
+- `dev/scripts/devctl/tests/test_hygiene.py` (parser + cleanup + end-to-end fix
+  behavior coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (operator docs)
+
+Inference: Maintainers can clear Python cache drift with one control-plane
+command instead of manual deletion while keeping deletion scope bounded and
+auditable.
+
+### Recent Governance Update (2026-02-24, Scientific Audit Metrics + Repeat-to-Automate Policy)
+
+Fact: Governance now requires repeated manual workarounds to be either
+automated or logged as explicit automation debt, and the audit program now
+includes KPI+chart instrumentation to measure script-only vs AI-assisted vs
+manual execution share over time.
+
+Evidence:
+
+- `AGENTS.md` (`Continuous improvement loop (required)`, source-of-truth map
+  additions, documentation governance updates)
+- `dev/scripts/checks/check_agents_contract.py` (required markers for
+  repeat-to-automate and metrics schema/tool references)
+- `dev/audits/README.md`,
+  `dev/audits/AUTOMATION_DEBT_REGISTER.md`,
+  `dev/audits/2026-02-24-autonomy-baseline-audit.md`,
+  `dev/audits/METRICS_SCHEMA.md`,
+  `dev/audits/templates/audit_events_template.jsonl`
+- `dev/scripts/audits/audit_metrics.py` (JSONL event analysis + optional
+  matplotlib chart generation)
+- `dev/scripts/devctl/audit_events.py`,
+  `dev/scripts/devctl/cli.py`,
+  `dev/config/control_plane_policy.json` (`audit_metrics.event_log_path`) for
+  automatic per-command event emission
+- `dev/active/MASTER_PLAN.md` (`MP-337`)
+
+Inference: Autonomy loops can now be improved like a controlled experiment:
+capture event data, quantify automation quality, and iterate scripts toward
+higher script-only coverage with lower manual intervention.
+
+### Recent Governance Update (2026-02-24, Text-Edit Caret Navigation Backlog Intake)
+
+Fact: A high-impact text-editing regression was captured in the canonical
+tracker: left/right arrow-key input is being consumed by tab/button navigation
+instead of moving the caret inside staged transcript/input text, preventing
+users from correcting recognition mistakes before submit.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-323`)
+
+Inference: This closes a planning gap for a blocker-level UX issue and makes
+the input-routing fix traceable as explicit backlog scope before implementation.
 
 ### Recent Governance Update (2026-02-23, Supply-Chain Lane Expansion)
 

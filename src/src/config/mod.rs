@@ -20,7 +20,11 @@ pub use defaults::{
 
 /// CLI options for the VoiceTerm TUI. Validated values keep downstream subprocesses safe.
 #[derive(Debug, Parser, Clone)]
-#[command(about = "VoiceTerm TUI", author, version)]
+#[command(
+    about = "Voice-first terminal overlay for Codex and Claude",
+    author,
+    version
+)]
 pub struct AppConfig {
     /// Path to the Codex CLI binary
     #[arg(long, default_value = "codex")]

@@ -7,7 +7,6 @@ import os
 import shlex
 import subprocess
 import tempfile
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,146 +14,53 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORKFLOW = "CodeRabbit Triage Bridge"
 
-
-def run_capture(cmd: list[str], *, cwd: Path = REPO_ROOT) -> tuple[int, str, str]:
-    try:
-        completed = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        return 127, "", str(exc)
-    return completed.returncode, completed.stdout or "", completed.stderr or ""
-
-
-def gh_json(repo: str, args: list[str]) -> tuple[Any | None, str | None]:
-    cmd = ["gh", *args]
-    if repo:
-        cmd.extend(["--repo", repo])
-    rc, stdout, stderr = run_capture(cmd)
-    if rc != 0:
-        return None, (stderr or stdout or "gh command failed").strip()
-    try:
-        return json.loads(stdout), None
-    except json.JSONDecodeError as exc:
-        return None, f"invalid json from gh ({exc})"
-
-
-def resolve_repo(raw: str | None) -> str:
-    value = str(raw or "").strip()
-    if value:
-        return value
-    return str(os.getenv("GITHUB_REPOSITORY", "")).strip()
-
-
-def list_runs(repo: str, workflow: str, branch: str, limit: int) -> tuple[list[dict], str | None]:
-    payload, error = gh_json(
-        repo,
-        [
-            "run",
-            "list",
-            "--workflow",
-            workflow,
-            "--branch",
-            branch,
-            "--limit",
-            str(limit),
-            "--json",
-            "databaseId,status,conclusion,headSha,url,createdAt",
-        ],
+try:
+    from dev.scripts.checks.workflow_loop_utils import (
+        download_run_artifacts,
+        gh_json,
+        resolve_repo,
+        run_capture,
+        wait_for_latest_completed,
+        wait_for_new_completed_run,
+        wait_for_run_completed_by_id,
     )
-    if error:
-        return [], error
-    if not isinstance(payload, list):
-        return [], "unexpected gh run list payload"
-    return [row for row in payload if isinstance(row, dict)], None
+except ModuleNotFoundError:
+    from checks.workflow_loop_utils import (
+        download_run_artifacts,
+        gh_json,
+        resolve_repo,
+        run_capture,
+        wait_for_latest_completed,
+        wait_for_new_completed_run,
+        wait_for_run_completed_by_id,
+    )
 
 
-def latest_run(repo: str, workflow: str, branch: str, limit: int) -> tuple[dict | None, str | None]:
-    runs, error = list_runs(repo, workflow, branch, limit)
-    if error:
-        return None, error
-    if not runs:
-        return None, "no workflow runs found"
-    return runs[0], None
+def normalize_sha(value: str | None) -> str:
+    return str(value or "").strip().lower()
 
 
-def wait_for_latest_completed(
-    *,
-    repo: str,
-    workflow: str,
-    branch: str,
-    limit: int,
-    poll_seconds: int,
-    timeout_seconds: int,
-) -> tuple[dict | None, str | None]:
-    deadline = time.time() + timeout_seconds
-    last_error = ""
-    while time.time() < deadline:
-        run, error = latest_run(repo, workflow, branch, limit)
-        if error:
-            last_error = error
-            time.sleep(poll_seconds)
-            continue
-        if str(run.get("status") or "").lower() == "completed":
-            return run, None
-        time.sleep(poll_seconds)
-    return None, f"timeout waiting for completed run ({last_error or 'no completed run yet'})"
-
-
-def wait_for_new_completed_run(
-    *,
-    repo: str,
-    workflow: str,
-    branch: str,
-    previous_sha: str,
-    limit: int,
-    poll_seconds: int,
-    timeout_seconds: int,
-) -> tuple[dict | None, str | None]:
-    deadline = time.time() + timeout_seconds
-    last_seen = ""
-    while time.time() < deadline:
-        run, error = latest_run(repo, workflow, branch, limit)
-        if error:
-            time.sleep(poll_seconds)
-            continue
-        sha = str(run.get("headSha") or "").strip()
-        status = str(run.get("status") or "").lower()
-        if sha:
-            last_seen = sha
-        if sha and sha != previous_sha and status == "completed":
-            return run, None
-        time.sleep(poll_seconds)
-    return None, f"timeout waiting for new completed run (last_seen_sha={last_seen or previous_sha})"
-
-
-def download_run_artifacts(repo: str, run_id: int, out_dir: Path) -> str | None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    cmd = ["gh", "run", "download", str(run_id), "--dir", str(out_dir)]
-    if repo:
-        cmd.extend(["--repo", repo])
-    rc, stdout, stderr = run_capture(cmd)
-    if rc != 0:
-        return (stderr or stdout or "gh run download failed").strip()
-    return None
-
-
-def load_backlog_items(root: Path) -> tuple[list[dict], str | None]:
+def load_backlog_payload(root: Path) -> tuple[dict, str | None]:
     candidates = sorted(root.rglob("backlog-medium.json"))
     if not candidates:
-        return [], "missing backlog-medium.json in downloaded artifacts"
+        return {}, "missing backlog-medium.json in downloaded artifacts"
     path = candidates[0]
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        return [], str(exc)
+        return {}, str(exc)
     except json.JSONDecodeError as exc:
-        return [], f"invalid json ({exc})"
-    items = payload.get("items", []) if isinstance(payload, dict) else []
+        return {}, f"invalid json ({exc})"
+    if not isinstance(payload, dict):
+        return {}, "backlog payload is not an object"
+    return payload, None
+
+
+def load_backlog_items(root: Path) -> tuple[list[dict], str | None]:
+    payload, error = load_backlog_payload(root)
+    if error:
+        return [], error
+    items = payload.get("items", [])
     if not isinstance(items, list):
         return [], "backlog payload items is not a list"
     return [row for row in items if isinstance(row, dict)], None
@@ -197,7 +103,18 @@ def run_fix_command(
     return completed.returncode, None
 
 
-def build_report(*, repo: str, branch: str, workflow: str, max_attempts: int, fix_command: str | None) -> dict:
+def build_report(
+    *,
+    repo: str,
+    branch: str,
+    workflow: str,
+    max_attempts: int,
+    fix_command: str | None,
+    source_run_id: int | None = None,
+    source_run_sha: str | None = None,
+    source_event: str | None = None,
+) -> dict:
+    normalized_source_sha = normalize_sha(source_run_sha)
     return {
         "command": "run_coderabbit_ralph_loop",
         "timestamp": datetime.now().isoformat(),
@@ -211,6 +128,12 @@ def build_report(*, repo: str, branch: str, workflow: str, max_attempts: int, fi
         "unresolved_count": 0,
         "reason": "",
         "fix_command_configured": bool(fix_command),
+        "source_run_id": source_run_id if source_run_id and source_run_id > 0 else None,
+        "source_run_sha": normalized_source_sha or None,
+        "source_event": str(source_event or "workflow_dispatch"),
+        "source_correlation": "pending" if source_run_id else "branch_latest_fallback",
+        "backlog_pr_number": None,
+        "backlog_head_sha": None,
     }
 
 
@@ -224,6 +147,9 @@ def execute_loop(
     poll_seconds: int,
     timeout_seconds: int,
     fix_command: str | None,
+    source_run_id: int | None = None,
+    source_run_sha: str | None = None,
+    source_event: str | None = None,
 ) -> dict:
     report = build_report(
         repo=repo,
@@ -231,23 +157,39 @@ def execute_loop(
         workflow=workflow,
         max_attempts=max_attempts,
         fix_command=fix_command,
+        source_run_id=source_run_id,
+        source_run_sha=source_run_sha,
+        source_event=source_event,
     )
+    normalized_source_sha = normalize_sha(source_run_sha)
+    if source_run_id is not None and source_run_id <= 0:
+        report["reason"] = "invalid source run id"
+        report["source_correlation"] = "invalid_source_run_id"
+        return report
 
     for attempt in range(1, max_attempts + 1):
-        run, run_error = wait_for_latest_completed(
-            repo=repo,
-            workflow=workflow,
-            branch=branch,
-            limit=run_list_limit,
-            poll_seconds=poll_seconds,
-            timeout_seconds=timeout_seconds,
-        )
+        if attempt == 1 and source_run_id:
+            run, run_error = wait_for_run_completed_by_id(
+                repo=repo,
+                run_id=source_run_id,
+                poll_seconds=poll_seconds,
+                timeout_seconds=timeout_seconds,
+            )
+        else:
+            run, run_error = wait_for_latest_completed(
+                repo=repo,
+                workflow=workflow,
+                branch=branch,
+                limit=run_list_limit,
+                poll_seconds=poll_seconds,
+                timeout_seconds=timeout_seconds,
+            )
         if run_error:
             report["reason"] = run_error
             break
 
         run_id = int(run.get("databaseId") or 0)
-        run_sha = str(run.get("headSha") or "").strip()
+        run_sha = normalize_sha(str(run.get("headSha") or ""))
         attempt_row: dict[str, Any] = {
             "attempt": attempt,
             "run_id": run_id,
@@ -256,12 +198,40 @@ def execute_loop(
             "run_conclusion": str(run.get("conclusion") or "").strip().lower(),
             "status": "analyzing-backlog",
         }
+        if attempt == 1 and source_run_id:
+            attempt_row["source_run_id"] = source_run_id
+            attempt_row["source_run_sha_expected"] = normalized_source_sha or None
+
         if run_id <= 0:
             attempt_row["status"] = "failed"
             attempt_row["message"] = "latest run missing databaseId"
             report["attempts"].append(attempt_row)
             report["reason"] = "latest run missing databaseId"
             break
+        if attempt == 1 and source_run_id and run_id != source_run_id:
+            attempt_row["status"] = "failed"
+            attempt_row["message"] = (
+                f"source run mismatch: expected {source_run_id}, resolved {run_id}"
+            )
+            attempt_row["source_correlation"] = "source_run_id_mismatch"
+            report["attempts"].append(attempt_row)
+            report["reason"] = "source_run_id_mismatch"
+            report["source_correlation"] = "source_run_id_mismatch"
+            break
+        if attempt == 1 and source_run_id and normalized_source_sha:
+            if not run_sha or run_sha != normalized_source_sha:
+                attempt_row["status"] = "failed"
+                attempt_row["message"] = (
+                    "source run sha mismatch: "
+                    f"expected {normalized_source_sha}, got {run_sha or '(missing)'}"
+                )
+                attempt_row["source_correlation"] = "source_run_sha_mismatch"
+                report["attempts"].append(attempt_row)
+                report["reason"] = "source_run_sha_mismatch"
+                report["source_correlation"] = "source_run_sha_mismatch"
+                break
+            report["source_run_sha"] = run_sha
+            report["source_correlation"] = "source_run_validated"
 
         with tempfile.TemporaryDirectory(prefix="ralph-loop-") as temp_dir:
             download_root = Path(temp_dir) / f"attempt-{attempt}"
@@ -273,13 +243,42 @@ def execute_loop(
                 report["reason"] = "artifact download failed"
                 break
 
-            backlog_items, backlog_error = load_backlog_items(download_root)
+            backlog_payload, backlog_error = load_backlog_payload(download_root)
             if backlog_error:
                 attempt_row["status"] = "failed"
                 attempt_row["message"] = f"backlog parse failed: {backlog_error}"
                 report["attempts"].append(attempt_row)
                 report["reason"] = "backlog parse failed"
                 break
+            backlog_items = backlog_payload.get("items", [])
+            if not isinstance(backlog_items, list):
+                attempt_row["status"] = "failed"
+                attempt_row["message"] = "backlog parse failed: backlog items is not a list"
+                report["attempts"].append(attempt_row)
+                report["reason"] = "backlog parse failed"
+                break
+            backlog_items = [row for row in backlog_items if isinstance(row, dict)]
+            backlog_pr_number = backlog_payload.get("pr_number")
+            if isinstance(backlog_pr_number, int):
+                attempt_row["backlog_pr_number"] = backlog_pr_number
+                report["backlog_pr_number"] = backlog_pr_number
+            backlog_head_sha = normalize_sha(str(backlog_payload.get("head_sha") or ""))
+            if backlog_head_sha:
+                attempt_row["backlog_head_sha"] = backlog_head_sha
+                report["backlog_head_sha"] = backlog_head_sha
+            if attempt == 1 and source_run_id and normalized_source_sha:
+                if not backlog_head_sha or backlog_head_sha != normalized_source_sha:
+                    attempt_row["status"] = "failed"
+                    attempt_row["message"] = (
+                        "source artifact sha mismatch: "
+                        f"expected {normalized_source_sha}, got {backlog_head_sha or '(missing)'}"
+                    )
+                    attempt_row["source_correlation"] = "source_run_sha_mismatch"
+                    report["attempts"].append(attempt_row)
+                    report["reason"] = "source_run_sha_mismatch"
+                    report["source_correlation"] = "source_run_sha_mismatch"
+                    break
+                report["source_correlation"] = "source_artifact_sha_validated"
 
             backlog_count = len(backlog_items)
             attempt_row["backlog_count"] = backlog_count

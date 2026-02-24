@@ -148,7 +148,9 @@ class SecurityCommandTests(unittest.TestCase):
 
         output = write_output_mock.call_args.args[0]
         report = json.loads(output)
-        self.assertTrue(any("zizmor is not installed" in item for item in report["warnings"]))
+        self.assertTrue(
+            any("zizmor is not installed" in item for item in report["warnings"])
+        )
         zizmor_step = next(step for step in report["steps"] if step["name"] == "zizmor")
         self.assertTrue(zizmor_step["skipped"])
         self.assertEqual(zizmor_step["returncode"], 0)
@@ -212,7 +214,9 @@ class SecurityCommandTests(unittest.TestCase):
 
         output = write_output_mock.call_args.args[0]
         report = json.loads(output)
-        policy_step = next(step for step in report["steps"] if step["name"] == "rustsec-policy")
+        policy_step = next(
+            step for step in report["steps"] if step["name"] == "rustsec-policy"
+        )
         self.assertTrue(policy_step["skipped"])
 
     @patch("dev.scripts.devctl.commands.security.write_output")
@@ -251,13 +255,19 @@ class SecurityCommandTests(unittest.TestCase):
             ],
         )
 
-        rc = security.run(make_args(with_codeql_alerts=True, require_optional_tools=False))
+        rc = security.run(
+            make_args(with_codeql_alerts=True, require_optional_tools=False)
+        )
 
         self.assertEqual(rc, 0)
         output = write_output_mock.call_args.args[0]
         report = json.loads(output)
-        self.assertTrue(any("Unable to resolve GitHub repo slug" in w for w in report["warnings"]))
-        codeql_step = next(step for step in report["steps"] if step["name"] == "codeql-alerts")
+        self.assertTrue(
+            any("Unable to resolve GitHub repo slug" in w for w in report["warnings"])
+        )
+        codeql_step = next(
+            step for step in report["steps"] if step["name"] == "codeql-alerts"
+        )
         self.assertTrue(codeql_step["skipped"])
 
     @patch("dev.scripts.devctl.security_codeql.shutil.which", return_value=None)
@@ -291,12 +301,16 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         output = write_output_mock.call_args.args[0]
         report = json.loads(output)
-        codeql_step = next(step for step in report["steps"] if step["name"] == "codeql-alerts")
+        codeql_step = next(
+            step for step in report["steps"] if step["name"] == "codeql-alerts"
+        )
         self.assertEqual(codeql_step["returncode"], 127)
         self.assertIn("gh is not installed", codeql_step["error"])
 
     @patch("dev.scripts.devctl.security_codeql.subprocess.run")
-    @patch("dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh")
+    @patch(
+        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+    )
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
     @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
@@ -332,9 +346,57 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         output = write_output_mock.call_args.args[0]
         report = json.loads(output)
-        codeql_step = next(step for step in report["steps"] if step["name"] == "codeql-alerts")
+        codeql_step = next(
+            step for step in report["steps"] if step["name"] == "codeql-alerts"
+        )
         self.assertEqual(codeql_step["returncode"], 1)
         self.assertEqual(codeql_step["details"]["blocking_alerts"], 1)
+
+    @patch("dev.scripts.devctl.security_codeql.subprocess.run")
+    @patch(
+        "dev.scripts.devctl.security_codeql.shutil.which", return_value="/usr/bin/gh"
+    )
+    @patch("dev.scripts.devctl.commands.security.write_output")
+    @patch("dev.scripts.devctl.commands.security.run_cmd")
+    @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
+    def test_run_codeql_skips_nonblocking_api_state_without_warning(
+        self,
+        audit_mock,
+        run_cmd_mock,
+        write_output_mock,
+        _which_mock,
+        run_subprocess_mock,
+    ) -> None:
+        audit_mock.return_value = (rustsec_ok_step(), [])
+        run_cmd_mock.return_value = {
+            "name": "rustsec-policy",
+            "cmd": [],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.01,
+            "skipped": False,
+        }
+        run_subprocess_mock.return_value = SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr=(
+                "gh: no analysis found (HTTP 404)\n"
+                'gh: This API operation needs the "admin:repo_hook" scope.'
+            ),
+        )
+
+        rc = security.run(make_args(with_codeql_alerts=True, codeql_repo="owner/repo"))
+        self.assertEqual(rc, 0)
+        output = write_output_mock.call_args.args[0]
+        report = json.loads(output)
+        self.assertFalse(
+            any("admin:repo_hook" in warning for warning in report["warnings"])
+        )
+        codeql_step = next(
+            step for step in report["steps"] if step["name"] == "codeql-alerts"
+        )
+        self.assertTrue(codeql_step["skipped"])
+        self.assertEqual(codeql_step["returncode"], 0)
 
     @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_python_core_steps")
@@ -342,7 +404,7 @@ class SecurityCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.security.run_optional_tool_step")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
     @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
-    def test_run_core_tier_enables_core_helpers(
+    def test_run_core_tier_runs_python_helpers_only_by_default(
         self,
         audit_mock,
         run_cmd_mock,
@@ -389,8 +451,8 @@ class SecurityCommandTests(unittest.TestCase):
 
         rc = security.run(make_args(scanner_tier="core"))
         self.assertEqual(rc, 0)
-        optional_tool_mock.assert_called_once()
-        codeql_mock.assert_called_once()
+        optional_tool_mock.assert_not_called()
+        codeql_mock.assert_not_called()
         python_mock.assert_called_once()
 
     @patch("dev.scripts.devctl.commands.security.write_output")

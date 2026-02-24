@@ -24,6 +24,11 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Add `check_rust_audit_patterns.py` and wire it into `devctl check --profile ai-guard` plus security/release CI lanes so known audit regression patterns are blocked automatically.
 
+### Code Quality
+
+- Extract `dev_command` test module into `dev_command/tests.rs` to bring the file under the code-shape soft limit and eliminate `unwrap`/`expect` growth in test helpers.
+- Migrate YAML macro parsing to `serde_norway` and remove unsound `serde_yml`/`libyml` usage flagged by RustSec.
+
 ## [1.0.91] - 2026-02-23
 
 ### UX

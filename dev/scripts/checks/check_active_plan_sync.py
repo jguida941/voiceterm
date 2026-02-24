@@ -6,9 +6,18 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+try:
+    from dev.scripts.checks.active_plan_contract import validate_execution_plan_contract
+    from dev.scripts.checks.active_plan_snapshot import (
+        latest_git_semver_tag,
+        read_cargo_release_tag,
+    )
+except ModuleNotFoundError:
+    from active_plan_contract import validate_execution_plan_contract
+    from active_plan_snapshot import latest_git_semver_tag, read_cargo_release_tag
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ACTIVE_DIR = REPO_ROOT / "dev/active"
@@ -23,6 +32,7 @@ REQUIRED_REGISTRY_ROWS = {
     "dev/active/theme_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/memory_studio.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/devctl_reporting_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/autonomous_control_plane.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
 }
 
@@ -32,17 +42,11 @@ REQUIRED_DISCOVERY_REFERENCES = [
     {"path": "dev/README.md", "tokens": ["active/INDEX.md", "dev/active/INDEX.md"]},
 ]
 
-REQUIRED_AGENT_MARKERS = [
-    "## Active-plan onboarding (adding files under `dev/active/`)",
-    "Add an entry in `dev/active/INDEX.md`",
-    "Run `python3 dev/scripts/checks/check_active_plan_sync.py`",
-]
-
-SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md"]
+REQUIRED_AGENT_MARKERS = ["## Active-plan onboarding (adding files under `dev/active/`)", "Add an entry in `dev/active/INDEX.md`", "Run `python3 dev/scripts/checks/check_active_plan_sync.py`"]
+SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md", "dev/active/autonomous_control_plane.md"]
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
 EXPECTED_RELEASE_BRANCH = "master"
-CARGO_TOML_PATH = REPO_ROOT / "src/Cargo.toml"
 SEMVER_TAG_PATTERN = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 PHASE_HEADING_PATTERN = re.compile(r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE)
 
@@ -87,38 +91,6 @@ def _expand_mp_ranges(text: str) -> set[str]:
         for value in range(start, end + 1):
             mp_ids.add(f"MP-{value:03d}")
     return mp_ids
-
-def _read_cargo_release_tag() -> str | None:
-    if not CARGO_TOML_PATH.exists():
-        return None
-    cargo_text = CARGO_TOML_PATH.read_text(encoding="utf-8")
-    match = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', cargo_text, re.MULTILINE)
-    if not match:
-        return None
-    return f"v{match.group(1)}"
-
-def _latest_git_semver_tag() -> tuple[str | None, str | None]:
-    try:
-        completed = subprocess.run(
-            ["git", "tag", "--list", "v[0-9]*.[0-9]*.[0-9]*", "--sort=-version:refname"],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        return None, str(exc)
-
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"git exited with code {completed.returncode}"
-        return None, detail
-
-    for raw in completed.stdout.splitlines():
-        candidate = raw.strip()
-        if SEMVER_TAG_PATTERN.match(candidate):
-            return candidate, None
-    return None, None
-
 
 def _build_report() -> dict:
     errors: list[str] = []
@@ -203,7 +175,7 @@ def _build_report() -> dict:
         "release_branch": None,
     }
     latest_git_tag = None
-    cargo_release_tag = _read_cargo_release_tag()
+    cargo_release_tag = read_cargo_release_tag(REPO_ROOT / "src/Cargo.toml")
     snapshot_policy_warnings: list[str] = []
 
     if master_plan_text:
@@ -262,7 +234,7 @@ def _build_report() -> dict:
         if snapshot_values["release_branch"] and snapshot_values["release_branch"] != EXPECTED_RELEASE_BRANCH:
             errors.append(f"MASTER_PLAN release branch must be `{EXPECTED_RELEASE_BRANCH}`.")
 
-        latest_git_tag, git_tag_error = _latest_git_semver_tag()
+        latest_git_tag, git_tag_error = latest_git_semver_tag(REPO_ROOT, SEMVER_TAG_PATTERN)
         if git_tag_error:
             warnings.append(f"Unable to read latest git release tag: {git_tag_error}")
 
@@ -334,6 +306,16 @@ def _build_report() -> dict:
                 details.append("index_extra=" + ",".join(index_only))
             index_scope_drift.append(f"{relative} ({'; '.join(details)})")
 
+    (
+        execution_plan_missing_rows,
+        execution_plan_missing_markers,
+        execution_plan_missing_sections,
+    ) = validate_execution_plan_contract(
+        repo_root=REPO_ROOT,
+        active_markdown_files=active_markdown_files,
+        registry_by_path=registry_by_path,
+    )
+
     missing_discovery_refs: list[str] = []
     for ref in REQUIRED_DISCOVERY_REFERENCES:
         path = REPO_ROOT / ref["path"]
@@ -384,6 +366,21 @@ def _build_report() -> dict:
         errors.append("INDEX rows missing MP ranges for spec docs: " + ", ".join(index_scope_missing))
     if index_scope_drift:
         errors.append("INDEX MP scope drift vs spec docs: " + " | ".join(index_scope_drift))
+    if execution_plan_missing_rows:
+        errors.append(
+            "Required execution-plan docs missing from INDEX registry: "
+            + ", ".join(execution_plan_missing_rows)
+        )
+    if execution_plan_missing_markers:
+        errors.append(
+            "Execution-plan marker missing in required docs: "
+            + ", ".join(execution_plan_missing_markers)
+        )
+    if execution_plan_missing_sections:
+        errors.append(
+            "Execution-plan required sections missing: "
+            + " | ".join(sorted(set(execution_plan_missing_sections)))
+        )
     if missing_discovery_refs:
         errors.append("Missing active-index discovery references: " + ", ".join(missing_discovery_refs))
     if agent_marker_gaps:

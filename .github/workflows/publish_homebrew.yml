@@ -50,15 +50,21 @@ jobs:
 
       - name: Resolve release version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_RELEASE_BRANCH: ${{ github.event.inputs.release_branch }}
         run: |
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            TAG="${{ github.event.release.tag_name }}"
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            TAG="${RELEASE_TAG}"
             VERSION="${TAG#v}"
-            BRANCH="${{ github.event.release.target_commitish }}"
+            BRANCH="${RELEASE_TARGET_BRANCH}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="${INPUT_VERSION}"
             TAG="v${VERSION}"
-            BRANCH="${{ github.event.inputs.release_branch }}"
+            BRANCH="${INPUT_RELEASE_BRANCH}"
           fi
 
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -91,10 +97,23 @@ jobs:
       - name: Verify CodeRabbit gate passed for release commit
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
         run: |
           python3 dev/scripts/checks/check_coderabbit_gate.py \
-            --branch "${{ steps.version.outputs.branch }}" \
-            --sha "${{ steps.version.outputs.sha }}" \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
+
+      - name: Verify CodeRabbit Ralph gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
             --format md
 
       - name: Clone Homebrew tap repo
@@ -109,9 +128,10 @@ jobs:
           HOMEBREW_TAP_BRANCH: main
           HOMEBREW_GIT_USER_NAME: github-actions[bot]
           HOMEBREW_GIT_USER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python3 dev/scripts/devctl.py ship \
-            --version "${{ steps.version.outputs.version }}" \
+            --version "${RELEASE_VERSION}" \
             --homebrew \
             --yes \
             --allow-ci \

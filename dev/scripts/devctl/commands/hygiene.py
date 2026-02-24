@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from datetime import datetime
 from typing import Dict, List, Tuple
 
@@ -107,11 +108,67 @@ def _audit_runtime_processes() -> Dict:
     }
 
 
+def _fix_pycache_dirs(pycache_dirs: List[str]) -> Dict:
+    """Remove detected `__pycache__` dirs under repo-root-safe paths."""
+    removed: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+    repo_root_resolved = REPO_ROOT.resolve()
+
+    for relative_path in pycache_dirs:
+        candidate = REPO_ROOT / relative_path
+        if candidate.name != "__pycache__":
+            skipped.append(f"{relative_path} (name is not __pycache__)")
+            continue
+        try:
+            resolved = candidate.resolve()
+        except OSError as exc:
+            failed.append(f"{relative_path} (resolve failed: {exc})")
+            continue
+        try:
+            resolved.relative_to(repo_root_resolved)
+        except ValueError:
+            failed.append(f"{relative_path} (outside repo root)")
+            continue
+        if not candidate.exists():
+            skipped.append(f"{relative_path} (already absent)")
+            continue
+        if not candidate.is_dir():
+            failed.append(f"{relative_path} (not a directory)")
+            continue
+        if candidate.is_symlink():
+            failed.append(f"{relative_path} (symlink deletion is blocked)")
+            continue
+        try:
+            shutil.rmtree(candidate)
+        except OSError as exc:
+            failed.append(f"{relative_path} ({exc})")
+            continue
+        removed.append(relative_path)
+
+    return {
+        "requested": True,
+        "removed": removed,
+        "failed": failed,
+        "skipped": skipped,
+    }
+
+
 def run(args) -> int:
     """Audit archive/ADR/scripts hygiene and report drift."""
     archive = _audit_archive()
     adr = _audit_adrs()
     scripts = _audit_scripts()
+    fix_report = {"requested": False, "removed": [], "failed": [], "skipped": []}
+    if getattr(args, "fix", False):
+        fix_report = _fix_pycache_dirs(scripts.get("pycache_dirs", []))
+        scripts = _audit_scripts()
+        if fix_report["failed"]:
+            scripts["errors"] = [
+                *scripts.get("errors", []),
+                "Unable to remove some Python cache directories: "
+                + "; ".join(fix_report["failed"]),
+            ]
     runtime_processes = _audit_runtime_processes()
     sections = [archive, adr, scripts, runtime_processes]
 
@@ -129,6 +186,7 @@ def run(args) -> int:
         "adr": adr,
         "scripts": scripts,
         "runtime_processes": runtime_processes,
+        "fix": fix_report,
     }
 
     if args.format == "json":
@@ -156,9 +214,20 @@ def run(args) -> int:
         lines.extend(f"- warning: {message}" for message in scripts["warnings"])
         lines.append("")
         lines.append("## Runtime Processes")
-        lines.append(f"- voiceterm test binaries detected: {runtime_processes['total_detected']}")
+        lines.append(
+            f"- voiceterm test binaries detected: {runtime_processes['total_detected']}"
+        )
         lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
-        lines.extend(f"- warning: {message}" for message in runtime_processes["warnings"])
+        lines.extend(
+            f"- warning: {message}" for message in runtime_processes["warnings"]
+        )
+        if fix_report["requested"]:
+            lines.append("")
+            lines.append("## Fix")
+            lines.append(f"- removed_pycache_dirs: {len(fix_report['removed'])}")
+            lines.extend(f"- removed: {path}" for path in fix_report["removed"])
+            lines.extend(f"- skipped: {path}" for path in fix_report["skipped"])
+            lines.extend(f"- error: {path}" for path in fix_report["failed"])
         output = "\n".join(lines)
 
     write_output(output, args.output)

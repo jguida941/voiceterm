@@ -115,7 +115,12 @@ impl std::fmt::Display for LatencyDisplayMode {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[command(about = "VoiceTerm", author, version, disable_help_flag = true)]
+#[command(
+    about = "Voice-first terminal overlay for Codex and Claude",
+    author,
+    version,
+    disable_help_flag = true
+)]
 pub(crate) struct OverlayConfig {
     /// Show themed, grouped help and exit
     #[arg(long = "help", short = 'h', action = ArgAction::SetTrue)]

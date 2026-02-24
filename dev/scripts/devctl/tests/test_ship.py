@@ -5,10 +5,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from dev.scripts.devctl.commands import release_guard
-from dev.scripts.devctl.commands import ship
-from dev.scripts.devctl.commands import ship_common
-from dev.scripts.devctl.commands import ship_steps
+from dev.scripts.devctl.commands import release_guard, ship, ship_common, ship_steps
 
 
 def make_args() -> SimpleNamespace:
@@ -41,27 +38,39 @@ class ShipReleaseParityTests(TestCase):
         args.prepare_release = True
         args.verify = True
         args.tag = True
-        self.assertEqual(ship._selected_steps(args), ["prepare-release", "verify", "tag"])
+        self.assertEqual(
+            ship._selected_steps(args), ["prepare-release", "verify", "tag"]
+        )
 
     def test_check_release_version_parity_matches_requested_version(self) -> None:
         payload = {"ok": True, "versions_present": ["1.2.3"], "missing": []}
         completed = SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
-        with patch("dev.scripts.devctl.commands.release_guard.subprocess.run", return_value=completed):
+        with patch(
+            "dev.scripts.devctl.commands.release_guard.subprocess.run",
+            return_value=completed,
+        ):
             ok, details = release_guard.check_release_version_parity("1.2.3")
 
         self.assertTrue(ok)
         self.assertEqual(details["version"], "1.2.3")
 
-    def test_check_release_version_parity_rejects_mismatched_requested_version(self) -> None:
+    def test_check_release_version_parity_rejects_mismatched_requested_version(
+        self,
+    ) -> None:
         payload = {"ok": True, "versions_present": ["2.0.0"], "missing": []}
         completed = SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
-        with patch("dev.scripts.devctl.commands.release_guard.subprocess.run", return_value=completed):
+        with patch(
+            "dev.scripts.devctl.commands.release_guard.subprocess.run",
+            return_value=completed,
+        ):
             ok, details = release_guard.check_release_version_parity("1.2.3")
 
         self.assertFalse(ok)
-        self.assertEqual(details["reason"], "requested version does not match release metadata")
+        self.assertEqual(
+            details["reason"], "requested version does not match release metadata"
+        )
 
     def test_run_verify_fails_when_release_parity_fails(self) -> None:
         args = make_args()
@@ -75,9 +84,13 @@ class ShipReleaseParityTests(TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "verify")
-        self.assertEqual(result["details"]["reason"], "release version parity check failed")
+        self.assertEqual(
+            result["details"]["reason"], "release version parity check failed"
+        )
 
-    def test_run_verify_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+    def test_run_verify_dry_run_prepare_release_skips_expected_parity_mismatch(
+        self,
+    ) -> None:
         args = make_args()
         args.dry_run = True
         args.prepare_release = True
@@ -108,7 +121,12 @@ class ShipReleaseParityTests(TestCase):
 
         run_cmd_mock.return_value = {
             "name": "coderabbit-gate",
-            "cmd": ["python3", "dev/scripts/checks/check_coderabbit_gate.py", "--format", "json"],
+            "cmd": [
+                "python3",
+                "dev/scripts/checks/check_coderabbit_gate.py",
+                "--format",
+                "json",
+            ],
             "cwd": ".",
             "returncode": 1,
             "duration_s": 0.01,
@@ -150,6 +168,15 @@ class ShipReleaseParityTests(TestCase):
         first_call = run_cmd_mock.call_args_list[0]
         self.assertEqual(first_call.args[0], "coderabbit-gate")
         self.assertIn("dev/scripts/checks/check_coderabbit_gate.py", first_call.args[1])
+        self.assertIn("--branch", first_call.args[1])
+        self.assertIn("master", first_call.args[1])
+        second_call = run_cmd_mock.call_args_list[1]
+        self.assertEqual(second_call.args[0], "coderabbit-ralph-gate")
+        self.assertIn(
+            "dev/scripts/checks/check_coderabbit_ralph_gate.py", second_call.args[1]
+        )
+        self.assertIn("--branch", second_call.args[1])
+        self.assertIn("master", second_call.args[1])
 
     def test_run_pypi_fails_when_release_parity_fails(self) -> None:
         args = make_args()
@@ -163,9 +190,13 @@ class ShipReleaseParityTests(TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "pypi")
-        self.assertEqual(result["details"]["reason"], "release version parity check failed")
+        self.assertEqual(
+            result["details"]["reason"], "release version parity check failed"
+        )
 
-    def test_run_pypi_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+    def test_run_pypi_dry_run_prepare_release_skips_expected_parity_mismatch(
+        self,
+    ) -> None:
         args = make_args()
         args.dry_run = True
         args.prepare_release = True
@@ -200,9 +231,13 @@ class ShipReleaseParityTests(TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "homebrew")
-        self.assertEqual(result["details"]["reason"], "release version parity check failed")
+        self.assertEqual(
+            result["details"]["reason"], "release version parity check failed"
+        )
 
-    def test_run_homebrew_dry_run_prepare_release_skips_expected_parity_mismatch(self) -> None:
+    def test_run_homebrew_dry_run_prepare_release_skips_expected_parity_mismatch(
+        self,
+    ) -> None:
         args = make_args()
         args.dry_run = True
         args.prepare_release = True
@@ -225,14 +260,21 @@ class ShipReleaseParityTests(TestCase):
         self.assertTrue(result["skipped"])
         self.assertEqual(result["name"], "homebrew")
 
-    @patch("dev.scripts.devctl.commands.ship_common.subprocess.check_output", side_effect=FileNotFoundError("missing"))
-    def test_run_checked_returns_structured_error_when_binary_missing(self, _mock_check_output) -> None:
+    @patch(
+        "dev.scripts.devctl.commands.ship_common.subprocess.check_output",
+        side_effect=FileNotFoundError("missing"),
+    )
+    def test_run_checked_returns_structured_error_when_binary_missing(
+        self, _mock_check_output
+    ) -> None:
         code, output = ship_common.run_checked(["definitely-missing-binary"])
         self.assertEqual(code, 127)
         self.assertIn("missing", output)
 
     @patch("dev.scripts.devctl.commands.ship_steps.prepare_release_metadata")
-    def test_run_prepare_release_step_returns_success_details(self, mock_prepare_release_metadata) -> None:
+    def test_run_prepare_release_step_returns_success_details(
+        self, mock_prepare_release_metadata
+    ) -> None:
         args = make_args()
         args.dry_run = False
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
@@ -249,8 +291,13 @@ class ShipReleaseParityTests(TestCase):
         self.assertEqual(result["name"], "prepare-release")
         self.assertIn("changed_files", result["details"])
 
-    @patch("dev.scripts.devctl.commands.ship_steps.prepare_release_metadata", side_effect=RuntimeError("boom"))
-    def test_run_prepare_release_step_surfaces_failures(self, _mock_prepare_release_metadata) -> None:
+    @patch(
+        "dev.scripts.devctl.commands.ship_steps.prepare_release_metadata",
+        side_effect=RuntimeError("boom"),
+    )
+    def test_run_prepare_release_step_surfaces_failures(
+        self, _mock_prepare_release_metadata
+    ) -> None:
         args = make_args()
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
 

@@ -14,6 +14,7 @@ CHECK_SCRIPT_FILES = {
     "cli_flags_parity": "check_cli_flags_parity.py",
     "code_shape": "check_code_shape.py",
     "coderabbit_gate": "check_coderabbit_gate.py",
+    "coderabbit_ralph_gate": "check_coderabbit_ralph_gate.py",
     "multi_agent_sync": "check_multi_agent_sync.py",
     "mutation_score": "check_mutation_score.py",
     "release_version_parity": "check_release_version_parity.py",
@@ -36,7 +37,8 @@ CHECK_SCRIPT_PATHS = {
 LEGACY_CHECK_SCRIPT_REWRITES = {
     f"dev/scripts/{filename}": relative
     for filename, relative in (
-        (filename, f"{CHECKS_DIR}/{filename}") for filename in CHECK_SCRIPT_FILES.values()
+        (filename, f"{CHECKS_DIR}/{filename}")
+        for filename in CHECK_SCRIPT_FILES.values()
     )
 }
 

@@ -14,6 +14,8 @@ For consolidated visual planning context (Theme Studio + overlay research +
 redesign), use `dev/active/theme_upgrade.md`.
 For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
+For automation-first `devctl` routing and Ralph loop controls, see
+`dev/DEVCTL_AUTOGUIDE.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
 Check scripts now live under `dev/scripts/checks/`, with centralized path
@@ -54,6 +56,8 @@ python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+# Optional: automatically clear detected dev/scripts/**/__pycache__ dirs
+python3 dev/scripts/devctl.py hygiene --fix
 python3 dev/scripts/devctl.py path-audit
 python3 dev/scripts/devctl.py path-rewrite --dry-run
 python3 dev/scripts/devctl.py path-rewrite
@@ -61,6 +65,13 @@ python3 dev/scripts/devctl.py path-rewrite
 python3 dev/scripts/devctl.py sync
 # Also push local-ahead branches after sync
 python3 dev/scripts/devctl.py sync --push
+# External integration source pins (code-link-ide + ci-cd-hub)
+python3 dev/scripts/devctl.py integrations-sync --status-only
+python3 dev/scripts/devctl.py integrations-sync --remote
+# Allowlisted selective import from pinned external sources
+python3 dev/scripts/devctl.py integrations-import --list-profiles --format md
+python3 dev/scripts/devctl.py integrations-import --source code-link-ide --profile iphone-core --format md
+python3 dev/scripts/devctl.py integrations-import --source ci-cd-hub --profile workflow-templates --apply --yes --format md
 # CIHub setup helper (preview allowlisted steps + capability probe)
 python3 dev/scripts/devctl.py cihub-setup --format md
 # Strict-capability preview for selected steps
@@ -81,6 +92,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
 # CodeRabbit release gate: local GitHub-connectivity outages warn-only outside CI/release lanes.
 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
@@ -104,6 +116,10 @@ python3 dev/scripts/devctl.py triage --ci --cihub --emit-bundle --bundle-dir .ci
 python3 dev/scripts/devctl.py triage --ci --cihub --owner-map-file dev/config/triage_owner_map.json --format json
 # Optional: ingest external AI-review findings (CodeRabbit, custom bots, etc.)
 python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md --output /tmp/devctl-triage-external.md
+# Bounded CodeRabbit backlog loop (report/fix attempts + bundle evidence)
+python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --emit-bundle --bundle-dir .cihub/coderabbit --bundle-prefix coderabbit-ralph-loop --mp-proposal --format md --output /tmp/coderabbit-ralph-loop.md --json-output /tmp/coderabbit-ralph-loop.json
+# Bounded mutation remediation loop (report-only default, optional policy-gated fix mode)
+python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
 # CI note: `.github/workflows/coderabbit_triage.yml` enforces a blocking
 # medium/high severity gate for CodeRabbit findings, and `release_preflight.yml`
 # verifies that gate passed for the exact release commit. Publish workflows
@@ -118,6 +134,16 @@ python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --yes
 python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md
 # Commit-range scoped scaffold generation (useful in CI/PR review lanes)
 python3 dev/scripts/devctl.py audit-scaffold --since-ref origin/develop --head-ref HEAD --force --yes --format json
+# Audit-cycle metrics (automation coverage, AI-vs-script share, chart outputs)
+python3 dev/scripts/audits/audit_metrics.py \
+  --input dev/reports/audits/baseline-events.jsonl \
+  --output-md dev/reports/audits/baseline-metrics.md \
+  --output-json dev/reports/audits/baseline-metrics.json \
+  --chart-dir dev/reports/audits/charts
+# Auto-emitted devctl event logging (default: dev/reports/audits/devctl_events.jsonl)
+DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 \
+DEVCTL_EXECUTION_SOURCE=script_only \
+python3 dev/scripts/devctl.py check --profile ci
 # Optional: gate cleanup against a scoped CI slice
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --ci-branch develop --ci-event push --ci-workflow "Rust TUI CI" --dry-run
 # Optional: override the default cleanup root guard (still restricted to dev/reports/**)
@@ -143,6 +169,7 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --gith
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 # Optional explicit gate check (same check used by ship --verify and release CI)
 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh run list --workflow release_attestation.yml --limit 1
@@ -150,16 +177,40 @@ gh run list --workflow release_attestation.yml --limit 1
 # Optional: run release preflight workflow in CI before tagging
 gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
 
+# External integrations (pinned vendor bridges for reusable patterns)
+bash dev/scripts/sync_external_integrations.sh --status-only
+bash dev/scripts/sync_external_integrations.sh
+bash dev/scripts/sync_external_integrations.sh --remote
+
 # Optional: manually trigger Homebrew workflow for an existing tag/version
 gh workflow run publish_homebrew.yml -f version=X.Y.Z -f release_branch=master
 # Optional: manually trigger bounded CodeRabbit backlog remediation loop
-gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3
+gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3 -f execution_mode=plan-then-fix
 # Optional auto-run config (repo variables):
-# RALPH_LOOP_ENABLED=true
+# RALPH_LOOP_MODE=always              # always|failure-only|disabled
+# RALPH_EXECUTION_MODE=plan-then-fix  # report-only|plan-then-fix|fix-only
 # RALPH_LOOP_MAX_ATTEMPTS=3
 # RALPH_LOOP_POLL_SECONDS=20
 # RALPH_LOOP_TIMEOUT_SECONDS=1800
 # RALPH_LOOP_FIX_COMMAND='<your auto-fix command that commits + pushes>'
+# RALPH_NOTIFY_MODE=summary-and-comment
+# RALPH_COMMENT_TARGET=auto
+# RALPH_COMMENT_PR_NUMBER=<optional pr number>
+# Optional: manually trigger bounded Mutation remediation loop
+gh workflow run mutation_ralph_loop.yml -f branch=develop -f execution_mode=report-only -f threshold=0.80
+# Optional auto-run config (repo variables):
+# MUTATION_LOOP_MODE=always               # always|failure-only|disabled
+# MUTATION_EXECUTION_MODE=report-only     # report-only|plan-then-fix|fix-only
+# MUTATION_LOOP_MAX_ATTEMPTS=3
+# MUTATION_LOOP_POLL_SECONDS=20
+# MUTATION_LOOP_TIMEOUT_SECONDS=1800
+# MUTATION_LOOP_THRESHOLD=0.80
+# MUTATION_LOOP_FIX_COMMAND='<allowlisted fix command that commits + pushes>'
+# MUTATION_NOTIFY_MODE=summary-only
+# MUTATION_COMMENT_TARGET=auto
+# MUTATION_COMMENT_PR_NUMBER=<optional pr number>
+# AUTONOMY_MODE=read-only                 # off|read-only|operate
+# MUTATION_LOOP_ALLOWED_PREFIXES='python3 dev/scripts/devctl.py check --profile ci;python3 dev/scripts/devctl.py mutants'
 
 # Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py pypi --upload --yes
@@ -174,7 +225,8 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/generate-release-notes.sh` | Release-notes helper | Called by `devctl release-notes`/`devctl ship --notes`. |
 | `dev/scripts/release.sh` | Legacy adapter | Routes to `devctl release`. |
 | `dev/scripts/publish-pypi.sh` | Legacy adapter | Routes to `devctl pypi`; internal mode used by devctl. |
-| `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode used by devctl. |
+| `dev/scripts/sync_external_integrations.sh` | External integration sync helper | Syncs pinned `integrations/code-link-ide` and `integrations/ci-cd-hub` submodules (optional `--remote` tracking updates). |
+| `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode also syncs canonical formula `desc` copy in the tap. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output (includes outcomes source age metadata). |
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
@@ -182,7 +234,9 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` 3-agent board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/checks/check_coderabbit_gate.py` | CodeRabbit release gate | Verifies the latest `CodeRabbit Triage Bridge` run is successful for a target branch+commit SHA before release/publish steps proceed. |
+| `dev/scripts/checks/check_coderabbit_ralph_gate.py` | CodeRabbit Ralph release gate | Verifies the latest `CodeRabbit Ralph Loop` run is successful for a target branch+commit SHA before release/publish steps proceed. |
 | `dev/scripts/checks/run_coderabbit_ralph_loop.py` | CodeRabbit remediation loop | Runs a bounded retry loop over CodeRabbit medium/high backlog artifacts and optional auto-fix command hooks. |
+| `dev/scripts/checks/mutation_ralph_loop_core.py` | Mutation remediation loop core helpers | Shared run/artifact/score/hotspot logic used by `devctl mutation-loop`. |
 | `dev/scripts/checks/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
@@ -205,21 +259,25 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + stale-path audit)
-- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`)
+- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
+- `integrations-sync`: guarded submodule sync/status command for pinned external integration sources defined in `control_plane_policy.json`
+- `integrations-import`: allowlisted selective importer from pinned external sources into controlled destination roots with JSONL audit logging
 - `cihub-setup`: allowlisted CIHub repo-setup helper (`detect/init/update/validate`) with capability probing, preview/apply modes, and strict unsupported-step gating
 - `security`: RustSec policy checks plus optional workflow/code-scanning security scans (`--with-zizmor`, `--with-codeql-alerts`) and Python-scope selection (`--python-scope auto|changed|all`)
 - `release`: tag + notes flow (legacy release behavior)
 - `release-notes`: git-diff driven markdown notes generation
-- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` now includes the CodeRabbit release gate check
-- `homebrew`: Homebrew tap update flow
+- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` now includes both CodeRabbit gates (`check_coderabbit_gate` + `check_coderabbit_ralph_gate`)
+- `homebrew`: Homebrew tap update flow (URL/version/SHA + canonical formula `desc` sync)
 - `pypi`: PyPI build/check/upload flow
 - `orchestrate-status`: one-shot orchestrator accountability view (active-plan sync + multi-agent sync guard status with git context)
 - `orchestrate-watch`: SLA watchdog for stale lane updates and overdue instruction ACKs
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, and emits rollups for severity/category/owner counts
+- `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
+- `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
 - `failure-cleanup`: guarded cleanup for local failure triage bundles (`dev/reports/failures`) with default path-root enforcement, optional override constrained to `dev/reports/**` (`--allow-outside-failure-root`), optional scoped CI gate filters (`--ci-branch`, `--ci-workflow`, `--ci-event`, `--ci-sha`), plus dry-run/confirmation controls
 - `audit-scaffold`: build/update `dev/active/RUST_AUDIT_FINDINGS.md` from guard findings (with safe output path and overwrite guards)
 - `list`: command/profile inventory
@@ -232,9 +290,12 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `check --profile ai-guard` | after touching larger Rust/Python files | catches shape/lint-debt/best-practice drift |
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance and active-plan sync |
-| `hygiene` | before merge on tooling/process work | catches doc/process drift |
+| `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
+| `hygiene --fix` | after local test runs leave Python caches | clears `dev/scripts/**/__pycache__` safely and re-checks hygiene |
 | `security` | you changed dependencies or security-sensitive code | catches advisory/policy issues |
 | `triage --ci` | CI failed and you need an actionable summary | creates a clean failure summary for humans/AI |
+| `triage-loop --branch develop --mode plan-then-fix --max-attempts 3` | you want bounded automation over medium/high backlog | runs report/fix retry loop with deterministic md/json artifacts |
+| `mutation-loop --branch develop --mode report-only --threshold 0.80` | you want bounded mutation-score automation with hotspots and optional fixes | runs report/fix retry loop with deterministic md/json/playbook artifacts |
 | `audit-scaffold` | AI-guard/tooling guards failed | creates one shared fix list file |
 | `failure-cleanup --dry-run` | CI is green and you want to clean old failure artifacts | safely previews/removes stale failure bundles |
 
@@ -292,6 +353,10 @@ consistent:
   engine used by `path-audit`, `path-rewrite`, and `docs-check --strict-tooling`.
 - `dev/scripts/devctl/triage_parser.py`: shared CLI parser wiring for the
   `triage` command so `cli.py` remains under shape limits.
+- `dev/scripts/devctl/triage_loop_parser.py`: shared CLI parser wiring for the
+  `triage-loop` command.
+- `dev/scripts/devctl/mutation_loop_parser.py`: shared CLI parser wiring for
+  the `mutation-loop` command.
 - `dev/scripts/devctl/failure_cleanup_parser.py`: shared CLI parser wiring for
   the `failure-cleanup` command.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
@@ -306,6 +371,10 @@ consistent:
 - `dev/scripts/devctl/triage_enrich.py`: normalization/routing helpers used to
   map triage issues and `cihub` artifact records into consistent severity +
   owner labels, including optional owner-map file overrides.
+- `dev/scripts/devctl/commands/triage_loop.py`: bounded CodeRabbit loop command
+  with source-run correlation controls and summary/comment notification wiring.
+- `dev/scripts/devctl/commands/mutation_loop.py`: bounded mutation loop command
+  with report/fix modes, hotspot playbook output, and policy-gated fix paths.
 - `dev/scripts/devctl/policy_gate.py`: shared JSON policy-script runner used by
   `docs-check` strict-tooling plus orchestrator accountability summaries
   (active-plan + multi-agent sync checks).

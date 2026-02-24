@@ -18,10 +18,11 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-**VoiceTerm** gives you voice control for AI CLIs in your normal terminal.
-It supports a fully hands-free flow: say the wake phrase (`hey codex` /
-`hey claude`), speak your prompt, then say `send` or `submit`.
-Completely hands-free, no keyboard needed.
+**VoiceTerm** is a voice-first terminal overlay for Codex and Claude.
+It keeps your CLI in a normal PTY session, runs Whisper speech-to-text on your
+machine by default, and adds a customizable HUD.
+Use wake phrases (`hey codex` / `hey claude`) plus `send` / `submit` for fully
+hands-free prompting when needed.
 
 Whisper runs locally by default. No cloud API keys required.
 Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
@@ -153,7 +154,7 @@ types the result into your AI CLI input.
 
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
-- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel, and add `--dev-log` to write session JSONL diagnostics
+- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel with `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`), and add `--dev-log` to write session JSONL diagnostics
 - **Prompt-safe reply boxes**: Codex/Claude approval and reply/composer prompts temporarily suppress HUD rows so prompt text remains visible while you respond
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
@@ -261,6 +262,7 @@ User docs:
 Developer docs:
 
 - [Developer Index](dev/README.md)
+- [External Repo Federation Playbook](dev/integrations/EXTERNAL_REPOS.md)
 - [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 
 ## Support

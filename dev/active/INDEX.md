@@ -11,6 +11,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/theme_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign is in scope |
 | `dev/active/memory_studio.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-230..MP-255` | only when memory/action/context-pack work is in scope |
 | `dev/active/devctl_reporting_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-306` | when improving `devctl` reporting, dashboard outputs, CIHub integration, or triage utility workflows |
+| `dev/active/autonomous_control_plane.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-325..MP-337` | when implementing autonomous loop hardening, mutation remediation loop orchestration, mobile-control-plane surfaces, or autonomy policy gates |
 | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` | `runbook` | `supporting` | multi-agent worktree orchestration | only when running parallel area execution |
 | `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | guard-driven Rust remediation scaffold/findings notes (`devctl audit-scaffold`; supporting context, not execution authority) | when AI guard checks fail, when running full-codebase Rust audits, or when updating remediation findings artifacts |
 | `dev/active/phase2.md` | `reference` | `reference-only` | phase-2 companion-platform research context (not active MP execution state) | only when evaluating long-range terminal companion planning |

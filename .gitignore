@@ -52,6 +52,8 @@ whisper_models/*.onnx
 # Logs
 *.log
 logs/
+dev/reports/*.jsonl
+dev/reports/**/*.jsonl
 
 # Temporary files
 /tmp/

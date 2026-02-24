@@ -6,6 +6,8 @@
 	<string>launch</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.voiceterm.app</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Voice-first terminal overlay for Codex and Claude with local Whisper STT.</string>
 	<key>CFBundleName</key>
 	<string>VoiceTerm</string>
 	<key>CFBundlePackageType</key>

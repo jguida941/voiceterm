@@ -19,13 +19,18 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) -- current scope and what ships next.
 3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) -- Theme + Overlay Studio spec (`TS-G*`, `MP-148+`).
 4. [`dev/active/memory_studio.md`](active/memory_studio.md) -- Memory + Action Studio spec (`MS-G*`, `MP-230+`).
-5. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
-6. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-7. [`dev/history/README.md`](history/README.md) -- index for historical records.
-8. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
-9. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
-10. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-11. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+5. [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md) -- autonomous loop + mobile control-plane phased execution spec (`MP-325+`).
+6. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- linked external repos (`code-link-ide`, `ci-cd-hub`) and governed import workflow.
+7. [`dev/audits/README.md`](audits/README.md) -- audit-cycle entry points and evidence conventions.
+8. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeat-to-automate debt tracking.
+9. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- event schema and KPI/chart definitions for scientific audit runs.
+10. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
+11. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+12. [`dev/history/README.md`](history/README.md) -- index for historical records.
+13. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
+14. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
+15. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
+16. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
 
 ## Three Core Docs
 
@@ -61,6 +66,8 @@ User docs start here:
 | `dev/history/` | Engineering history and timeline |
 | `dev/adr/` | Architecture decision records |
 | `dev/scripts/` | Developer automation and tooling docs |
+| `dev/integrations/` | External repo federation playbooks and import guardrails |
+| `dev/audits/` | Audit runbooks, baseline checklists, and automation debt register |
 
 ## Fast Workflow Commands
 
