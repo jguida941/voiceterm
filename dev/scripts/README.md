@@ -10,6 +10,8 @@ Use `devctl` first for release, verification, docs-governance, and reporting.
 Legacy shell scripts remain as compatibility adapters that route into `devctl`.
 For active-doc discovery, use `dev/active/INDEX.md`.
 For current execution scope, use `dev/active/MASTER_PLAN.md`.
+For loop output to chat-suggestion coordination, use
+`dev/active/loop_chat_bridge.md`.
 For consolidated visual planning context (Theme Studio + overlay research +
 redesign), use `dev/active/theme_upgrade.md`.
 For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
@@ -118,6 +120,8 @@ python3 dev/scripts/devctl.py triage --ci --cihub --owner-map-file dev/config/tr
 python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md --output /tmp/devctl-triage-external.md
 # Bounded CodeRabbit backlog loop (report/fix attempts + bundle evidence)
 python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --emit-bundle --bundle-dir .cihub/coderabbit --bundle-prefix coderabbit-ralph-loop --mp-proposal --format md --output /tmp/coderabbit-ralph-loop.md --json-output /tmp/coderabbit-ralph-loop.json
+# Record operator-facing suggestion decisions in dev/active/loop_chat_bridge.md
+# after each dry-run/live-run loop packet.
 # Bounded mutation remediation loop (report-only default, optional policy-gated fix mode)
 python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
 # CI note: `.github/workflows/coderabbit_triage.yml` enforces a blocking

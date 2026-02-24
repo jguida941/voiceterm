@@ -23,6 +23,7 @@ same execution path with minimal ambiguity.
 | Where is long-range phase-2 research context? | `dev/active/phase2.md` |
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
+| Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where are external repo federation links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |

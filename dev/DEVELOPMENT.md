@@ -39,6 +39,7 @@ Each doc owns a specific part of the workflow:
 - **`dev/active/INDEX.md`** -- registry of active planning docs and when to read them.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
 - **`dev/active/theme_upgrade.md`** -- Theme + Overlay Studio spec (visual architecture, research, redesign).
+- **`dev/active/loop_chat_bridge.md`** -- loop artifact-to-chat suggestion coordination runbook (`MP-338`).
 - **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- parallel worktree orchestration for this cycle.
 
 Start with `AGENTS.md` to pick your task class, then come back here for commands.
@@ -101,6 +102,7 @@ CI runs the same families, so catching issues locally saves round-trips.
 | CodeRabbit review integration and backlog routing | `python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md` | `coderabbit_triage.yml` |
 | CodeRabbit medium/high backlog auto-remediation loop | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --format md` | `coderabbit_ralph_loop.yml` |
 | Mutation score remediation loop (report-only default) | `python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | `mutation_ralph_loop.yml` |
+| Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
 | External repo federation links/import workflow | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
 | Active plan/index/spec sync | `python3 dev/scripts/checks/check_active_plan_sync.py` | `tooling_control_plane.yml` |

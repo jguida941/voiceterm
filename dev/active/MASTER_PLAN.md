@@ -8,6 +8,7 @@
 - `dev/active/memory_studio.md` is the Memory + Action Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-306`.
 - `dev/active/autonomous_control_plane.md` is the autonomous loop + mobile control-plane execution spec; implementation tasks stay in this file under `MP-325..MP-337`.
+- `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
@@ -458,6 +459,7 @@ documented `MS-G*` pass evidence.
 - [ ] MP-335 Fix wake word send intent not triggering in auto mode: when VoiceTerm is in auto-listen mode and actively listening, saying "Hey Codex send" (or "Hey Claude send") does not trigger the send action — the wake word is effectively ignored while the mic is already open. Expected behavior: the wake-word detector should remain active during auto-mode listening so that saying the send wake phrase finalizes and submits the current transcript. Distinct from MP-322 (which covers "nothing to send" false negatives when the wake word does fire); this issue is that the wake word never fires at all in auto mode. Reproduce by enabling auto mode, speaking a transcript, then saying "Hey Codex send" without pausing — observe that the message is not sent. Physical testing required.
 - [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path.
 - [x] MP-337 Add repeat-to-automate governance and baseline scientific audit program: require repeated manual work to become guarded automation or explicit debt, add tracked `dev/audits/` runbook/register/schema artifacts, ship analyzer tooling (`dev/scripts/audits/audit_metrics.py`) that quantifies script-only vs AI-assisted vs manual execution share with optional chart outputs, and auto-emit per-command `devctl` audit events (`dev/reports/audits/devctl_events.jsonl`) for continuous trend data.
+- [ ] MP-338 Stand up a loop-output-to-chat coordination lane: maintain a dedicated runbook for loop suggestion handoff (`dev/active/loop_chat_bridge.md`), define dry-run/live-run evidence capture, and keep operator decisions/next actions append-only so loop guidance can be promoted safely into autonomous execution.
 
 ## Deferred Plans
 
@@ -492,6 +494,7 @@ documented `MS-G*` pass evidence.
 - Theme Studio architecture + gate checklist + consolidated overlay research/redesign detail: `dev/active/theme_upgrade.md`
 - Memory + Action Studio architecture + gate checklist: `dev/active/memory_studio.md`
 - Autonomous loop + mobile control-plane execution spec: `dev/active/autonomous_control_plane.md`
+- Loop artifact-to-chat suggestion coordination runbook: `dev/active/loop_chat_bridge.md`
 - SDLC policy: `AGENTS.md`
 - Architecture: `dev/ARCHITECTURE.md`
 - Changelog: `dev/CHANGELOG.md`

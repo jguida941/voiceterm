@@ -9,6 +9,7 @@ Use this root shortcut to jump into developer documentation.
 - [Memory Studio Spec + Gates](dev/active/memory_studio.md)
 - [Devctl Reporting + CIHub Upgrade Spec](dev/active/devctl_reporting_upgrade.md)
 - [Autonomous Loop + Mobile Control Plane Spec](dev/active/autonomous_control_plane.md)
+- [Loop Output to Chat Runbook](dev/active/loop_chat_bridge.md)
 - [External Repo Federation Playbook](dev/integrations/EXTERNAL_REPOS.md)
 - [Audit Program Index](dev/audits/README.md)
 - [Automation Debt Register](dev/audits/AUTOMATION_DEBT_REGISTER.md)

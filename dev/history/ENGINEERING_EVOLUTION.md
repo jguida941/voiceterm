@@ -256,6 +256,27 @@ Inference: Cross-repo reuse moved from ad-hoc cloning to an auditable,
 version-pinned federation model that supports template extraction work without
 memory-only coordination.
 
+### Recent Governance Update (2026-02-24, Loop-to-Chat Coordination Runbook)
+
+Fact: Active-plan governance now includes a dedicated loop-output-to-chat
+runbook so operator handoffs and loop suggestion decisions are tracked in a
+single append-only active doc.
+
+Evidence:
+
+- `dev/active/loop_chat_bridge.md` (new runbook with execution checklist,
+  progress log, and audit evidence sections)
+- `dev/active/INDEX.md` (registry entry for `loop_chat_bridge.md`, scope
+  `MP-338`)
+- `dev/active/MASTER_PLAN.md` (`MP-338` and canonical rule/reference updates)
+- `AGENTS.md`, `DEV_INDEX.md`, `dev/README.md` (discovery-link routing updates)
+- `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (maintainer workflow updates
+  for loop handoff evidence)
+
+Inference: Loop guidance can now flow through a visible, auditable markdown
+channel instead of ad-hoc chat-only coordination, which reduces decision drift
+before enabling higher-autonomy execution.
+
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
 Fact: Coverage publication is now automated through a dedicated CI lane that
