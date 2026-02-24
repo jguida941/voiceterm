@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import sys
-import time
 from datetime import datetime
 from types import SimpleNamespace
 from typing import List
@@ -17,13 +16,16 @@ from ..common import build_env, pipe_output, run_cmd, should_emit_output, write_
 from ..config import REPO_ROOT, SRC_DIR
 from ..process_sweep import (
     kill_processes,
-    parse_etime_seconds,
     scan_voiceterm_test_binaries,
     split_orphaned_processes,
     split_stale_processes,
 )
 from ..script_catalog import check_script_cmd
 from ..steps import format_steps_md
+from .check_process_sweep import (
+    cleanup_orphaned_voiceterm_test_binaries,
+    parse_etime_seconds_for_compat,
+)
 from .check_profile import resolve_profile_settings, validate_profile_flag_conflicts
 from .check_progress import count_quality_steps, emit_progress
 from .check_steps import build_step_spec, run_step_specs
@@ -35,59 +37,23 @@ from .check_support import (
 from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
 
+
 def _parse_etime_seconds(raw: str) -> int | None:
     """Kept for test compatibility; delegates to shared process-sweep parsing."""
-    return parse_etime_seconds(raw)
+    return parse_etime_seconds_for_compat(raw)
 
 
 def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> dict:
-    """Clean up detached/stale test binaries so local runs stay stable over time."""
-    start = time.time()
-    if dry_run:
-        return {
-            "name": step_name,
-            "cmd": ["internal", "process-sweep", "--dry-run"],
-            "cwd": str(REPO_ROOT),
-            "returncode": 0,
-            "duration_s": 0.0,
-            "skipped": True,
-            "warnings": [],
-            "killed_pids": [],
-            "detected_orphans": 0,
-            "detected_stale_active": 0,
-        }
-
-    rows, warnings = scan_voiceterm_test_binaries()
-    orphaned, active = split_orphaned_processes(rows)
-    stale_active, _recent_active = split_stale_processes(active)
-    cleanup_targets = [*orphaned, *stale_active]
-    killed_pids, kill_warnings = kill_processes(cleanup_targets)
-
-    for warning in warnings:
-        print(f"[{step_name}] warning: {warning}")
-    if orphaned:
-        print(f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test binaries")
-    if stale_active:
-        print(
-            f"[{step_name}] detected {len(stale_active)} stale active voiceterm test binaries"
-        )
-    if killed_pids:
-        print(f"[{step_name}] killed {len(killed_pids)} orphaned/stale voiceterm test binaries")
-    for warning in kill_warnings:
-        print(f"[{step_name}] warning: {warning}")
-
-    return {
-        "name": step_name,
-        "cmd": ["internal", "process-sweep", "--kill-orphans-or-stale"],
-        "cwd": str(REPO_ROOT),
-        "returncode": 0,
-        "duration_s": round(time.time() - start, 2),
-        "skipped": False,
-        "warnings": warnings + kill_warnings,
-        "killed_pids": killed_pids,
-        "detected_orphans": len(orphaned),
-        "detected_stale_active": len(stale_active),
-    }
+    """Compatibility wrapper so tests can patch check-module dependencies."""
+    return cleanup_orphaned_voiceterm_test_binaries(
+        step_name,
+        dry_run=dry_run,
+        repo_root=REPO_ROOT,
+        scanner=scan_voiceterm_test_binaries,
+        split_orphans=split_orphaned_processes,
+        split_stale=split_stale_processes,
+        killer=kill_processes,
+    )
 
 
 def run(args) -> int:
@@ -307,8 +273,21 @@ def run(args) -> int:
                 ),
                 cwd=REPO_ROOT,
             )
-    except RuntimeError:
-        pass
+    except RuntimeError as exc:
+        message = str(exc) or "check halted due to runtime error"
+        print(f"[check] error: {message}", file=sys.stderr)
+        if not any(step.get("returncode", 0) != 0 for step in steps):
+            steps.append(
+                {
+                    "name": "check-halt",
+                    "cmd": ["internal", "check-halt"],
+                    "cwd": str(REPO_ROOT),
+                    "returncode": 1,
+                    "duration_s": 0.0,
+                    "skipped": False,
+                    "error": message,
+                }
+            )
     finally:
         if process_sweep_cleanup:
             steps.append(

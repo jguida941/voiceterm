@@ -9,7 +9,9 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
 use crate::config::{HudStyle, LatencyDisplayMode};
-use crate::dev_command::{DevCommandKind, DevPanelCommandState};
+use crate::dev_command::{
+    DevCommandCompletion, DevCommandKind, DevCommandStatus, DevPanelCommandState, DevTerminalPacket,
+};
 use crate::dev_panel::dev_panel_height;
 use crate::memory::{MemoryIngestor, MemoryMode};
 use crate::prompt::{PromptLogger, PromptTracker};
@@ -1026,11 +1028,34 @@ fn dev_panel_arrow_navigation_moves_command_selection() {
 }
 
 #[test]
+fn dev_panel_numeric_selection_supports_extended_command_set() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.overlay_mode = OverlayMode::DevPanel;
+    state.dev_panel_commands.select_index(0);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(vec![b'4']),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.dev_panel_commands.selected_command(),
+        DevCommandKind::LoopPacket
+    );
+}
+
+#[test]
 fn dev_panel_sync_requires_confirmation_before_run() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
     state.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(4);
+    state.dev_panel_commands.select_index(5);
     let mut running = true;
 
     handle_input_event(
@@ -1050,11 +1075,87 @@ fn dev_panel_sync_requires_confirmation_before_run() {
 }
 
 #[test]
+fn apply_terminal_packet_completion_stages_draft_text() {
+    let _guard = install_try_send_hook(hook_would_block);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let completion = DevCommandCompletion {
+        request_id: 7,
+        command: DevCommandKind::LoopPacket,
+        status: DevCommandStatus::Success,
+        duration_ms: 12,
+        summary: "packet ready".to_string(),
+        stdout_excerpt: None,
+        stderr_excerpt: None,
+        terminal_packet: Some(DevTerminalPacket {
+            packet_id: "pkt-123".to_string(),
+            source_command: "triage-loop".to_string(),
+            draft_text: "propose bounded remediation".to_string(),
+            auto_send: false,
+        }),
+    };
+
+    let message = dev_panel_commands::apply_terminal_packet_completion(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        &completion,
+    )
+    .expect("packet staging message");
+
+    assert!(message.contains("staged"));
+    assert!(state.status_state.insert_pending_send);
+    assert_eq!(
+        state.pending_pty_input_bytes,
+        "propose bounded remediation".len()
+    );
+}
+
+#[test]
+fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
+    let _guard = install_try_send_hook(hook_would_block);
+    std::env::set_var("VOICETERM_DEV_PACKET_AUTOSEND", "1");
+
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    let completion = DevCommandCompletion {
+        request_id: 8,
+        command: DevCommandKind::LoopPacket,
+        status: DevCommandStatus::Success,
+        duration_ms: 12,
+        summary: "packet ready".to_string(),
+        stdout_excerpt: None,
+        stderr_excerpt: None,
+        terminal_packet: Some(DevTerminalPacket {
+            packet_id: "pkt-456".to_string(),
+            source_command: "triage".to_string(),
+            draft_text: "all clear, continue".to_string(),
+            auto_send: true,
+        }),
+    };
+
+    let message = dev_panel_commands::apply_terminal_packet_completion(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        &completion,
+    )
+    .expect("packet auto-send message");
+    std::env::remove_var("VOICETERM_DEV_PACKET_AUTOSEND");
+
+    assert!(message.contains("auto-sent"));
+    assert!(!state.status_state.insert_pending_send);
+    assert_eq!(
+        state.pending_pty_input_bytes,
+        "all clear, continue".len() + 1
+    );
+    assert!(timers.last_enter_at.is_some());
+}
+
+#[test]
 fn dev_panel_second_sync_enter_without_broker_reports_unavailable() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
     state.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(4);
+    state.dev_panel_commands.select_index(5);
     let mut running = true;
 
     handle_input_event(

@@ -51,7 +51,7 @@ class CheckCodeShapeGuidanceTests(TestCase):
 
     def test_rust_violation_guidance_includes_rust_refs(self) -> None:
         violation = self.script._violation(
-            path=Path("src/src/bin/voiceterm/example.rs"),
+            path=Path("rust/src/bin/voiceterm/example.rs"),
             reason="crossed_soft_limit",
             guidance="Refactor into smaller modules before crossing the soft limit.",
             policy=self.policy,

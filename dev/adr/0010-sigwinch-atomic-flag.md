@@ -54,6 +54,6 @@ Use an atomic boolean flag pattern:
 
 ## Links
 
-- `src/src/bin/voiceterm/main.rs:46-47` - Atomic flag definition
-- `src/src/bin/voiceterm/main.rs:55-61` - Signal handler
-- `src/src/bin/voiceterm/main.rs:329-334` - Polling logic
+- `rust/src/bin/voiceterm/main.rs:46-47` - Atomic flag definition
+- `rust/src/bin/voiceterm/main.rs:55-61` - Signal handler
+- `rust/src/bin/voiceterm/main.rs:329-334` - Polling logic

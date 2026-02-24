@@ -43,8 +43,8 @@ Adopt backend-specific prompt-safe suppression for Claude sessions:
 
 ## Links
 
-- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs`
-- `src/src/bin/voiceterm/event_loop/output_dispatch.rs`
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs`
-- `src/src/bin/voiceterm/terminal.rs`
+- `rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs`
+- `rust/src/bin/voiceterm/event_loop/output_dispatch.rs`
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs`
+- `rust/src/bin/voiceterm/terminal.rs`
 - `dev/active/MASTER_PLAN.md` (`MP-226`)

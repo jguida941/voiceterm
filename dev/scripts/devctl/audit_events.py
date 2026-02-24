@@ -17,6 +17,8 @@ SOURCE_BUCKETS = {"script_only", "ai_assisted", "human_manual", "other"}
 AREA_BY_COMMAND = {
     "triage-loop": "loops",
     "mutation-loop": "loops",
+    "loop-packet": "loops",
+    "autonomy-loop": "loops",
     "integrations-sync": "federation",
     "integrations-import": "federation",
     "orchestrate-status": "orchestration",

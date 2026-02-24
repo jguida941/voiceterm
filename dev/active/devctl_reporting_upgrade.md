@@ -217,8 +217,8 @@ Attach executable remediation to triage issue categories:
        pattern: "Cargo.lock conflict"
      summary: "Regenerate Cargo.lock after dependency update"
      commands:
-       - "cd src && cargo update"
-       - "cd src && cargo check"
+       - "cd rust && cargo update"
+       - "cd rust && cargo check"
      auto_fixable: true
    ```
 
@@ -328,7 +328,7 @@ keeping command execution and policy logic in `devctl`.
 
 `MP-306` is running in 3-agent mode with strict no-overlap ownership:
 
-1. `AGENT-1` (Rust runtime lane): `src/src/bin/voiceterm/**` only for Dev Tools
+1. `AGENT-1` (Rust runtime lane): `rust/src/bin/voiceterm/**` only for Dev Tools
    panel/tab bridge and async command broker wiring.
 2. `AGENT-2` (control-plane lane): `dev/scripts/devctl/**` plus
    `.github/workflows/security_guard.yml` and

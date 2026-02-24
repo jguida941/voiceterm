@@ -13,7 +13,7 @@ dist/
 build/
 
 # Rust
-/src/target/
+/rust/target/
 **/*.rs.bk
 *.pdb
 
@@ -95,7 +95,7 @@ dev/BACKLOG.md
 # dev/archive/ is tracked
 **/PROJECT_OVERVIEW.md
 **/master_index.md
-src/mutants.out*
+rust/mutants.out*
 claudeaudit.md
 
 # AI tooling (local only)

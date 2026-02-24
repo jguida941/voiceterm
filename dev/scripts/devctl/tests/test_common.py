@@ -1,6 +1,8 @@
 """Tests for shared devctl command helpers."""
 
 import sys
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -98,3 +100,18 @@ class FormatStepsMarkdownTests(TestCase):
         self.assertIn("## Failure Output", markdown)
         self.assertIn("`clippy`", markdown)
         self.assertIn("warning: unused variable", markdown)
+
+
+class MutationOutcomeDiscoveryTests(TestCase):
+    def test_find_latest_outcomes_file_discovers_nested_outcomes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            nested = src_dir / "mutants.out" / "mutants.out"
+            nested.mkdir(parents=True)
+            outcomes = nested / "outcomes.json"
+            outcomes.write_text('{"score": 80}', encoding="utf-8")
+
+            with patch.object(common, "SRC_DIR", src_dir):
+                resolved = common.find_latest_outcomes_file()
+
+        self.assertEqual(resolved, outcomes)

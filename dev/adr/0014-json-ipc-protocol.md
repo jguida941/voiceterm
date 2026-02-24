@@ -60,6 +60,6 @@ Protocol supports:
 
 ## Links
 
-- `src/src/ipc/protocol.rs` - Protocol types
-- `src/src/ipc/session.rs` - Session state machine
-- `src/src/ipc/router.rs` - Command routing
+- `rust/src/ipc/protocol.rs` - Protocol types
+- `rust/src/ipc/session.rs` - Session state machine
+- `rust/src/ipc/router.rs` - Command routing

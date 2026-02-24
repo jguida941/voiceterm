@@ -57,6 +57,6 @@ Frame dispatcher behavior:
 
 ## Links
 
-- `src/src/config/defaults.rs:10` - Default capacity
-- `src/src/audio/dispatch.rs:40-84` - Frame dispatcher
-- `src/src/audio/capture.rs:10-18` - Metrics struct
+- `rust/src/config/defaults.rs:10` - Default capacity
+- `rust/src/audio/dispatch.rs:40-84` - Frame dispatcher
+- `rust/src/audio/capture.rs:10-18` - Metrics struct

@@ -1,8 +1,6 @@
 # External Repository Federation
 
-Status: active
-Last updated: 2026-02-24
-Owner: tooling/control-plane
+**Status**: active  |  **Last updated**: 2026-02-24 | **Owner:** tooling/control-plane
 
 ## Purpose
 

@@ -17,8 +17,8 @@ on:
       - master
       - develop
     paths:
-      - "src/Cargo.lock"
-      - "src/Cargo.toml"
+      - "rust/Cargo.lock"
+      - "rust/Cargo.toml"
       - "dev/scripts/checks/check_rust_audit_patterns.py"
       - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/scripts/devctl/commands/check.py"
@@ -37,8 +37,8 @@ on:
       - ".github/SECURITY.md"
   pull_request:
     paths:
-      - "src/Cargo.lock"
-      - "src/Cargo.toml"
+      - "rust/Cargo.lock"
+      - "rust/Cargo.toml"
       - "dev/scripts/checks/check_rust_audit_patterns.py"
       - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/scripts/devctl/commands/check.py"
@@ -79,8 +79,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-            src/target
-          key: ${{ runner.os }}-security-cargo-${{ hashFiles('src/Cargo.lock') }}
+            rust/target
+          key: ${{ runner.os }}-security-cargo-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-security-cargo-
 

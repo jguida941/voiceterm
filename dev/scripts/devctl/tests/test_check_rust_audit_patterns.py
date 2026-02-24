@@ -63,3 +63,7 @@ fn sample(prompt: &str, line: &str, mut input: String) {
                 }
             )
         )
+
+    def test_source_roots_include_rust_workspace(self) -> None:
+        roots = [path.relative_to(REPO_ROOT).as_posix() for path in self.script._source_roots()]
+        self.assertIn("rust/src", roots)

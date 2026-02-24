@@ -314,7 +314,7 @@ mod tests {
             0.8,
             &["testing", "rust"],
             &["MP-230"],
-            &["src/Cargo.toml"],
+            &["rust/Cargo.toml"],
         );
         assert_eq!(ing.events_ingested(), 1);
 

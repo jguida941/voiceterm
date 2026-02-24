@@ -122,7 +122,7 @@ class AuditScaffoldCommandTests(TestCase):
                     "ok": False,
                     "skipped": False,
                     "violations": [
-                        {"path": "src/src/bin/voiceterm/event_loop.rs", "reason": "crossed_soft_limit"}
+                        {"path": "rust/src/bin/voiceterm/event_loop.rs", "reason": "crossed_soft_limit"}
                     ],
                     "error": None,
                     "stderr_tail": "",
@@ -206,7 +206,7 @@ class AuditScaffoldCommandTests(TestCase):
 
         self.assertEqual(rc, 0)
         self.assertIn("code-shape-guard", generated_text)
-        self.assertIn("src/src/bin/voiceterm/event_loop.rs", generated_text)
+        self.assertIn("rust/src/bin/voiceterm/event_loop.rs", generated_text)
         self.assertIn("origin/develop..HEAD", generated_text)
         self.assertIn("check-ai-guard", generated_text)
         self.assertIn("code-shape-guard", generated_text)

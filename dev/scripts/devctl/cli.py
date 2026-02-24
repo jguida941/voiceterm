@@ -9,6 +9,7 @@ import time
 from .cihub_setup_parser import add_cihub_setup_parser
 from .cli_parser_builders import add_standard_parsers
 from .commands import (
+    autonomy_loop,
     audit_scaffold,
     check,
     cihub_setup,
@@ -19,6 +20,7 @@ from .commands import (
     integrations_import,
     integrations_sync,
     listing,
+    loop_packet,
     mutants,
     mutation_loop,
     mutation_score,
@@ -49,6 +51,8 @@ from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
+from .loop_packet_parser import add_loop_packet_parser
+from .autonomy_loop_parser import add_autonomy_loop_parser
 from .mutation_loop_parser import add_mutation_loop_parser
 from .triage_loop_parser import add_triage_loop_parser
 from .triage_parser import add_triage_parser
@@ -75,6 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_security_parser(sub)
     add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_triage_loop_parser(sub)
+    add_loop_packet_parser(sub)
+    add_autonomy_loop_parser(sub)
     add_mutation_loop_parser(sub)
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_sync_parser(sub)
@@ -99,6 +105,8 @@ COMMAND_HANDLERS = {
     "report": report.run,
     "triage": triage.run,
     "triage-loop": triage_loop.run,
+    "loop-packet": loop_packet.run,
+    "autonomy-loop": autonomy_loop.run,
     "mutation-loop": mutation_loop.run,
     "list": listing.run,
     "path-audit": path_audit.run,

@@ -12,21 +12,25 @@ use serde_json::Value;
 const DEV_COMMAND_POLL_INTERVAL: Duration = Duration::from_millis(25);
 const DEV_COMMAND_TIMEOUT: Duration = Duration::from_secs(90);
 const OUTPUT_EXCERPT_MAX_CHARS: usize = 180;
+const TERMINAL_PACKET_ID_MAX_CHARS: usize = 64;
+const TERMINAL_PACKET_DRAFT_MAX_CHARS: usize = 1600;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DevCommandKind {
     Status,
     Report,
     Triage,
+    LoopPacket,
     Security,
     Sync,
 }
 
 impl DevCommandKind {
-    pub(crate) const ALL: [Self; 5] = [
+    pub(crate) const ALL: [Self; 6] = [
         Self::Status,
         Self::Report,
         Self::Triage,
+        Self::LoopPacket,
         Self::Security,
         Self::Sync,
     ];
@@ -36,6 +40,7 @@ impl DevCommandKind {
             Self::Status => "status",
             Self::Report => "report",
             Self::Triage => "triage",
+            Self::LoopPacket => "loop-packet",
             Self::Security => "security",
             Self::Sync => "sync",
         }
@@ -50,6 +55,7 @@ impl DevCommandKind {
             Self::Status => &["status", "--ci", "--format", "json"],
             Self::Report => &["report", "--ci", "--format", "json"],
             Self::Triage => &["triage", "--ci", "--format", "json", "--no-cihub"],
+            Self::LoopPacket => &["loop-packet", "--format", "json"],
             Self::Security => &["security", "--format", "json", "--offline"],
             Self::Sync => &["sync", "--format", "json"],
         }
@@ -90,6 +96,15 @@ pub(crate) struct DevCommandCompletion {
     pub(crate) summary: String,
     pub(crate) stdout_excerpt: Option<String>,
     pub(crate) stderr_excerpt: Option<String>,
+    pub(crate) terminal_packet: Option<DevTerminalPacket>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DevTerminalPacket {
+    pub(crate) packet_id: String,
+    pub(crate) source_command: String,
+    pub(crate) draft_text: String,
+    pub(crate) auto_send: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -361,6 +376,7 @@ fn broker_worker(
                             summary: format!("busy: '{busy_label}' still running"),
                             stdout_excerpt: None,
                             stderr_excerpt: None,
+                            terminal_packet: None,
                         };
                         let _ = update_tx.send(DevCommandUpdate::Completed(completion));
                     }
@@ -452,6 +468,7 @@ fn broker_worker(
                         summary: format!("spawn failed: {err}"),
                         stdout_excerpt: None,
                         stderr_excerpt: None,
+                        terminal_packet: None,
                     };
                     let _ = update_tx.send(DevCommandUpdate::Completed(completion));
                 }
@@ -524,15 +541,19 @@ fn completion_from_exit_status(
 
     if status.success() {
         return match serde_json::from_str::<Value>(&stdout) {
-            Ok(json) => DevCommandCompletion {
-                request_id: process.request_id,
-                command: process.command,
-                status: DevCommandStatus::Success,
-                duration_ms,
-                summary: summarize_json_payload(&json),
-                stdout_excerpt: excerpt(&stdout),
-                stderr_excerpt: excerpt(&stderr),
-            },
+            Ok(json) => {
+                let terminal_packet = parse_terminal_packet(&json);
+                DevCommandCompletion {
+                    request_id: process.request_id,
+                    command: process.command,
+                    status: DevCommandStatus::Success,
+                    duration_ms,
+                    summary: summarize_json_payload(&json),
+                    stdout_excerpt: excerpt(&stdout),
+                    stderr_excerpt: excerpt(&stderr),
+                    terminal_packet,
+                }
+            }
             Err(err) => DevCommandCompletion {
                 request_id: process.request_id,
                 command: process.command,
@@ -541,6 +562,7 @@ fn completion_from_exit_status(
                 summary: format!("invalid JSON output: {err}"),
                 stdout_excerpt: excerpt(&stdout),
                 stderr_excerpt: excerpt(&stderr),
+                terminal_packet: None,
             },
         };
     }
@@ -559,6 +581,7 @@ fn completion_from_exit_status(
         summary,
         stdout_excerpt: excerpt(&stdout),
         stderr_excerpt: excerpt(&stderr),
+        terminal_packet: None,
     }
 }
 
@@ -580,6 +603,7 @@ fn completion_for_terminated_process(
         summary: summary.to_string(),
         stdout_excerpt: excerpt(&stdout),
         stderr_excerpt: excerpt(&stderr),
+        terminal_packet: None,
     }
 }
 
@@ -596,6 +620,7 @@ fn completion_for_error(process: RunningProcess, error: String) -> DevCommandCom
         summary: format!("process status error: {error}"),
         stdout_excerpt: excerpt(&stdout),
         stderr_excerpt: excerpt(&stderr),
+        terminal_packet: None,
     }
 }
 
@@ -732,6 +757,42 @@ fn summarize_ci_block(ci_value: Option<&Value>) -> Option<String> {
         return Some(format!("CI running: {running} in progress"));
     }
     Some(format!("CI green: {passing}/{total} passed"))
+}
+
+fn parse_terminal_packet(json: &Value) -> Option<DevTerminalPacket> {
+    let packet = json.get("terminal_packet")?.as_object()?;
+    let draft_text = packet
+        .get("draft_text")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if draft_text.is_empty() {
+        return None;
+    }
+
+    let packet_id = packet
+        .get("packet_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("packet");
+    let source_command = packet
+        .get("source_command")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("unknown");
+    let auto_send = packet
+        .get("auto_send")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    Some(DevTerminalPacket {
+        packet_id: truncate_chars(packet_id, TERMINAL_PACKET_ID_MAX_CHARS),
+        source_command: truncate_chars(source_command, OUTPUT_EXCERPT_MAX_CHARS),
+        draft_text: truncate_chars(draft_text, TERMINAL_PACKET_DRAFT_MAX_CHARS),
+        auto_send,
+    })
 }
 
 fn excerpt(value: &str) -> Option<String> {

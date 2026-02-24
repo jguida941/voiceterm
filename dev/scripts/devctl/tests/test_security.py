@@ -93,6 +93,38 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertEqual(args.cargo_home, "/tmp/cargo-home")
 
     @patch("dev.scripts.devctl.commands.security.write_output")
+    @patch("dev.scripts.devctl.commands.security.run_expensive_steps")
+    @patch("dev.scripts.devctl.commands.security.run_python_core_steps")
+    @patch("dev.scripts.devctl.commands.security.run_cmd")
+    @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
+    def test_run_uses_resolved_src_dir_for_expensive_scanners(
+        self,
+        audit_mock,
+        run_cmd_mock,
+        python_steps_mock,
+        run_expensive_steps_mock,
+        _write_output_mock,
+    ) -> None:
+        audit_mock.return_value = (rustsec_ok_step(), [])
+        run_cmd_mock.return_value = {
+            "name": "rustsec-policy",
+            "cmd": [],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.02,
+            "skipped": False,
+        }
+        python_steps_mock.return_value = ([], [])
+        run_expensive_steps_mock.return_value = ([], [])
+
+        rc = security.run(make_args(scanner_tier="all"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            run_expensive_steps_mock.call_args.kwargs["src_dir"],
+            security.SRC_DIR,
+        )
+
+    @patch("dev.scripts.devctl.commands.security.write_output")
     @patch("dev.scripts.devctl.commands.security.run_cmd")
     @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
     def test_run_uses_default_fail_on_kinds_for_policy(

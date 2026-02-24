@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate 3-agent coordination parity between MASTER_PLAN and runbook."""
+"""Validate multi-agent coordination parity between MASTER_PLAN and runbook."""
 
 from __future__ import annotations
 
@@ -14,14 +14,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MASTER_PLAN_PATH = REPO_ROOT / "dev/active/MASTER_PLAN.md"
 RUNBOOK_PATH = REPO_ROOT / "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md"
 
-MASTER_BOARD_HEADING = "## Multi-Agent Coordination Board (3-Agent Mode)"
-RUNBOOK_BOARD_HEADING = "## 0) Current Execution Mode (3 Agents, Default)"
+MASTER_BOARD_HEADING = "## Multi-Agent Coordination Board"
+RUNBOOK_BOARD_HEADING = "## 0) Current Execution Mode"
 RUNBOOK_INSTRUCTION_HEADING = "## 14) Orchestrator Instruction Log (Append-Only)"
 RUNBOOK_LEDGER_HEADING = "## 15) Shared Ledger (Append-Only)"
 RUNBOOK_SIGNOFF_HEADING = "## 16) End-of-Cycle Signoff (Required)"
 
-REQUIRED_AGENTS = ("AGENT-1", "AGENT-2", "AGENT-3")
-REQUIRED_SIGNERS = REQUIRED_AGENTS + ("ORCHESTRATOR",)
 ALLOWED_MASTER_STATUSES = {
     "planned",
     "in-progress",
@@ -40,23 +38,16 @@ SIGNOFF_DATE_PATTERN = re.compile(
 MP_RANGE_PATTERN = re.compile(r"MP-(\d{3})\.\.MP-(\d{3})")
 MP_SINGLE_PATTERN = re.compile(r"MP-(\d{3})")
 HANDOFF_TOKEN_PATTERN = re.compile(r"handoff[:=]([A-Za-z0-9_-]+)", re.IGNORECASE)
-
-
+AGENT_NAME_PATTERN = re.compile(r"AGENT-(\d+)$")
 def _strip_code_ticks(value: str) -> str:
     text = value.strip()
     if text.startswith("`") and text.endswith("`"):
         return text[1:-1]
     return text
-
-
 def _normalize(value: str) -> str:
     return " ".join(_strip_code_ticks(value).split())
-
-
 def _split_table_row(line: str) -> list[str]:
     return [_strip_code_ticks(col.strip()) for col in line.strip().split("|")[1:-1]]
-
-
 def _extract_table_rows(markdown: str, heading: str) -> tuple[list[dict], str | None]:
     lines = markdown.splitlines()
     heading_index = -1
@@ -100,8 +91,6 @@ def _extract_table_rows(markdown: str, heading: str) -> tuple[list[dict], str | 
             return [], f"Malformed row under heading: {heading}"
         rows.append({headers[i]: columns[i] for i in range(len(headers))})
     return rows, None
-
-
 def _rows_by_key(rows: list[dict], field: str) -> dict[str, dict]:
     mapping: dict[str, dict] = {}
     for row in rows:
@@ -109,8 +98,6 @@ def _rows_by_key(rows: list[dict], field: str) -> dict[str, dict]:
         if key:
             mapping[key] = row
     return mapping
-
-
 def _ledger_row_matches_agent(row: dict, agent: str, branch: str) -> bool:
     area = _normalize(str(row.get("Area", ""))).upper()
     actor = _normalize(str(row.get("Actor", ""))).upper()
@@ -118,8 +105,6 @@ def _ledger_row_matches_agent(row: dict, agent: str, branch: str) -> bool:
     if area == agent or actor == agent:
         return True
     return bool(branch and ledger_branch == branch)
-
-
 def _expand_mp_scope_ids(value: str) -> set[str]:
     text = _normalize(value)
     ids = {f"MP-{num}" for num in MP_SINGLE_PATTERN.findall(text)}
@@ -131,15 +116,24 @@ def _expand_mp_scope_ids(value: str) -> set[str]:
         for number in range(start, end + 1):
             ids.add(f"MP-{number:03d}")
     return ids
-
-
 def _handoff_token(value: str) -> str | None:
     match = HANDOFF_TOKEN_PATTERN.search(value)
     if not match:
         return None
     return match.group(1).strip().lower() or None
-
-
+def _sorted_agents(agents: set[str]) -> list[str]:
+    return sorted(
+        agents,
+        key=lambda agent: (
+            0,
+            int(match.group(1)),
+        )
+        if (match := AGENT_NAME_PATTERN.fullmatch(agent))
+        else (1, agent),
+    )
+def _sorted_signers(signers: set[str]) -> list[str]:
+    agents = _sorted_agents({signer for signer in signers if signer != "ORCHESTRATOR"})
+    return agents + (["ORCHESTRATOR"] if "ORCHESTRATOR" in signers else [])
 def _build_report() -> dict:
     errors: list[str] = []
     warnings: list[str] = []
@@ -172,42 +166,47 @@ def _build_report() -> dict:
 
     master_by_agent = _rows_by_key(master_rows, "Agent")
     runbook_by_agent = _rows_by_key(runbook_rows, "Agent")
-    required = set(REQUIRED_AGENTS)
     master_agents = set(master_by_agent)
     runbook_agents = set(runbook_by_agent)
+    required = set(master_agents)
 
-    if required - master_agents:
-        errors.append(
-            "MASTER_PLAN missing agent rows: " + ", ".join(sorted(required - master_agents))
-        )
+    if not master_agents:
+        errors.append("MASTER_PLAN board must include at least one agent row.")
+    if not runbook_agents:
+        errors.append("Runbook board must include at least one agent row.")
+
+    for table_name, agents in (("MASTER_PLAN", master_agents), ("Runbook", runbook_agents)):
+        invalid_agents = sorted(agent for agent in agents if not AGENT_NAME_PATTERN.fullmatch(agent))
+        if invalid_agents:
+            errors.append(
+                f"{table_name} contains invalid agent names (expected AGENT-<number>): "
+                + ", ".join(invalid_agents)
+            )
+
     if required - runbook_agents:
         errors.append(
-            "Runbook missing agent rows: " + ", ".join(sorted(required - runbook_agents))
-        )
-    if master_agents - required:
-        errors.append(
-            "MASTER_PLAN has unexpected agent rows: " + ", ".join(sorted(master_agents - required))
+            "Runbook missing agent rows: " + ", ".join(_sorted_agents(required - runbook_agents))
         )
     if runbook_agents - required:
         errors.append(
-            "Runbook has unexpected agent rows: " + ", ".join(sorted(runbook_agents - required))
+            "Runbook has unexpected agent rows: " + ", ".join(_sorted_agents(runbook_agents - required))
         )
 
     signoff_by_signer = _rows_by_key(signoff_rows, "Signer")
     signoff_signers = set(signoff_by_signer)
-    expected_signers = set(REQUIRED_SIGNERS)
+    expected_signers = required | {"ORCHESTRATOR"}
     if expected_signers - signoff_signers:
         errors.append(
             "Runbook signoff table missing signers: "
-            + ", ".join(sorted(expected_signers - signoff_signers))
+            + ", ".join(_sorted_signers(expected_signers - signoff_signers))
         )
     if signoff_signers - expected_signers:
         errors.append(
             "Runbook signoff table has unexpected signers: "
-            + ", ".join(sorted(signoff_signers - expected_signers))
+            + ", ".join(_sorted_signers(signoff_signers - expected_signers))
         )
 
-    for agent in sorted(required & master_agents & runbook_agents):
+    for agent in _sorted_agents(required & runbook_agents):
         master_row = master_by_agent[agent]
         runbook_row = runbook_by_agent[agent]
         for master_field, runbook_field in (
@@ -216,9 +215,7 @@ def _build_report() -> dict:
             ("Worktree", "Worktree"),
             ("Branch", "Branch"),
         ):
-            if _normalize(str(master_row.get(master_field, ""))) != _normalize(
-                str(runbook_row.get(runbook_field, ""))
-            ):
+            if _normalize(str(master_row.get(master_field, ""))) != _normalize(str(runbook_row.get(runbook_field, ""))):
                 errors.append(
                     f"{agent} mismatch: MASTER_PLAN {master_field!r} != runbook {runbook_field!r}."
                 )
@@ -232,18 +229,13 @@ def _build_report() -> dict:
 
         last_update = _normalize(str(master_row.get("Last update (UTC)", "")))
         if not UTC_Z_PATTERN.match(last_update):
-            errors.append(
-                f"{agent} has invalid Last update (UTC) value {last_update!r}; "
-                "expected YYYY-MM-DDTHH:MM:SSZ."
-            )
+            errors.append(f"{agent} has invalid Last update (UTC) value {last_update!r}; expected YYYY-MM-DDTHH:MM:SSZ.")
 
         if status != "planned":
             branch = _normalize(str(master_row.get("Branch", "")))
             matches = [row for row in ledger_rows if _ledger_row_matches_agent(row, agent, branch)]
             if not matches:
-                errors.append(
-                    f"{agent} status is {status!r} but runbook ledger has no matching entries."
-                )
+                errors.append(f"{agent} status is {status!r} but runbook ledger has no matching entries.")
 
     # Lane lock guard: each agent lane must keep unique branch/worktree in both tables.
     for field in ("Branch", "Worktree"):
@@ -252,7 +244,7 @@ def _build_report() -> dict:
             ("runbook", runbook_by_agent),
         ):
             seen: dict[str, list[str]] = {}
-            for agent in sorted(required & set(mapping)):
+            for agent in _sorted_agents(required & set(mapping)):
                 value = _normalize(str(mapping[agent].get(field, "")))
                 if value:
                     seen.setdefault(value, []).append(agent)
@@ -263,7 +255,7 @@ def _build_report() -> dict:
                 )
 
     # MP collision guard: overlapping MP scopes require matching handoff token in Notes.
-    for left, right in combinations(sorted(required & set(master_by_agent)), 2):
+    for left, right in combinations(_sorted_agents(required & set(master_by_agent)), 2):
         left_row = master_by_agent[left]
         right_row = master_by_agent[right]
         overlap = sorted(
@@ -302,9 +294,7 @@ def _build_report() -> dict:
         if target not in required:
             errors.append(f"Instruction {instruction_id or '<missing>'} has invalid target {target!r}.")
         if due_utc and due_utc.lower() != "pending" and not UTC_Z_PATTERN.match(due_utc):
-            errors.append(
-                f"Instruction {instruction_id or '<missing>'} has invalid Due (UTC) {due_utc!r}."
-            )
+            errors.append(f"Instruction {instruction_id or '<missing>'} has invalid Due (UTC) {due_utc!r}.")
         if status not in ALLOWED_INSTRUCTION_STATUSES:
             errors.append(
                 f"Instruction {instruction_id or '<missing>'} has invalid status {status!r}; "
@@ -313,17 +303,11 @@ def _build_report() -> dict:
 
         acked = bool(ack_token and ack_token.lower() != "pending")
         if status in {"acked", "completed"} and not acked:
-            errors.append(
-                f"Instruction {instruction_id or '<missing>'} status {status!r} requires Ack token."
-            )
+            errors.append(f"Instruction {instruction_id or '<missing>'} status {status!r} requires Ack token.")
         if acked and not ack_token.upper().startswith("ACK-"):
-            warnings.append(
-                f"Instruction {instruction_id or '<missing>'} Ack token should start with ACK-."
-            )
+            warnings.append(f"Instruction {instruction_id or '<missing>'} Ack token should start with ACK-.")
         if acked and (not ack_utc or ack_utc.lower() == "pending" or not UTC_Z_PATTERN.match(ack_utc)):
-            errors.append(
-                f"Instruction {instruction_id or '<missing>'} Ack UTC must be populated in UTC timestamp form."
-            )
+            errors.append(f"Instruction {instruction_id or '<missing>'} Ack UTC must be populated in UTC timestamp form.")
 
     unknown_ledger_statuses = sorted(
         {
@@ -337,12 +321,12 @@ def _build_report() -> dict:
             "Runbook ledger includes unknown statuses: " + ", ".join(unknown_ledger_statuses)
         )
 
-    cycle_complete_for_signoff = bool(required & master_agents) and all(
+    cycle_complete_for_signoff = bool(required) and all(
         _normalize(str(master_by_agent[agent].get("Status", ""))).lower() == "merged"
-        for agent in sorted(required & master_agents)
+        for agent in _sorted_agents(required)
     )
     if cycle_complete_for_signoff:
-        for signer in REQUIRED_SIGNERS:
+        for signer in _sorted_signers(expected_signers):
             row = signoff_by_signer.get(signer)
             if not row:
                 continue
@@ -371,12 +355,12 @@ def _build_report() -> dict:
         "ok": not errors,
         "master_plan_path": str(MASTER_PLAN_PATH.relative_to(REPO_ROOT)),
         "runbook_path": str(RUNBOOK_PATH.relative_to(REPO_ROOT)),
-        "required_agents": list(REQUIRED_AGENTS),
-        "master_agents": sorted(master_agents),
-        "runbook_agents": sorted(runbook_agents),
+        "required_agents": _sorted_agents(required),
+        "master_agents": _sorted_agents(master_agents),
+        "runbook_agents": _sorted_agents(runbook_agents),
         "instruction_entries": len(instruction_rows),
         "ledger_entries": len(ledger_rows),
-        "signoff_signers": sorted(signoff_signers),
+        "signoff_signers": _sorted_signers(signoff_signers),
         "cycle_complete_for_signoff": cycle_complete_for_signoff,
         "errors": errors,
         "warnings": warnings,

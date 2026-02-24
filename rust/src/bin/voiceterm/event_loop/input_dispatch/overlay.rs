@@ -16,6 +16,22 @@ use self::theme_studio_cycles::{
 
 const THEME_STUDIO_HISTORY_LIMIT: usize = 64;
 
+fn dev_panel_index_from_ascii(byte: u8) -> Option<usize> {
+    if !byte.is_ascii_digit() {
+        return None;
+    }
+    let digit = usize::from(byte.saturating_sub(b'0'));
+    if digit == 0 {
+        return None;
+    }
+    let index = digit.saturating_sub(1);
+    if index < crate::dev_command::DevCommandKind::ALL.len() {
+        Some(index)
+    } else {
+        None
+    }
+}
+
 pub(super) fn handle_overlay_input_event(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -219,9 +235,10 @@ pub(super) fn handle_overlay_input_event(
                     }
                 } else if bytes.len() == 1 {
                     match bytes[0] {
-                        b'1'..=b'5' => {
-                            let index = usize::from(bytes[0] - b'1');
-                            should_redraw |= select_dev_panel_command_by_index(state, index);
+                        b'0'..=b'9' => {
+                            if let Some(index) = dev_panel_index_from_ascii(bytes[0]) {
+                                should_redraw |= select_dev_panel_command_by_index(state, index);
+                            }
                         }
                         b'r' | b'R' => {
                             request_selected_dev_panel_command(state, timers, deps);

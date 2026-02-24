@@ -56,6 +56,6 @@ Validation happens at config parse time; invalid configs fail fast with clear er
 
 ## Links
 
-- `src/src/config/defaults.rs:20-32` - Limit constants
-- `src/src/config/validation.rs` - Validation logic
+- `rust/src/config/defaults.rs:20-32` - Limit constants
+- `rust/src/config/validation.rs` - Validation logic
 - [CLI flags reference](../../guides/CLI_FLAGS.md) - Documented limits

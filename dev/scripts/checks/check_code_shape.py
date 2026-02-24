@@ -58,37 +58,37 @@ SHAPE_AUDIT_GUIDANCE = (
 # Phase 3C hotspot budgets (MP-265): these files must not grow while staged
 # decomposition work is active.
 PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
-    "src/src/bin/voiceterm/event_loop/input_dispatch.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/event_loop/input_dispatch.rs": ShapePolicy(
         soft_limit=1200,
         hard_limit=1561,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "src/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
         soft_limit=1000,
         hard_limit=1200,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "src/src/bin/voiceterm/status_line/buttons.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/status_line/buttons.rs": ShapePolicy(
         soft_limit=1000,
         hard_limit=1200,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "src/src/bin/voiceterm/theme/rule_profile.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/theme/rule_profile.rs": ShapePolicy(
         soft_limit=1000,
         hard_limit=1200,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "src/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
         soft_limit=750,
         hard_limit=950,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "src/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
+    "rust/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
         soft_limit=750,
         hard_limit=950,
         oversize_growth_limit=0,

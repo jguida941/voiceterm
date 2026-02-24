@@ -111,7 +111,7 @@ pub fn format_dev_panel(
         value_line(
             &colors,
             "Controls",
-            "Up/Down select | Enter run | X cancel",
+            "1-9 select | Up/Down move | Enter run | X cancel",
             content_width,
         ),
     ];

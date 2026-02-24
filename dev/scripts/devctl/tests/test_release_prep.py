@@ -18,7 +18,7 @@ def _write(path: Path, content: str) -> None:
 class ReleasePrepTests(TestCase):
     def _seed_repo_tree(self, root: Path) -> None:
         _write(
-            root / "src/Cargo.toml",
+            root / "rust/Cargo.toml",
             '[package]\nname = "voiceterm"\nversion = "1.0.90"\nedition = "2021"\n',
         )
         _write(
@@ -94,7 +94,7 @@ class ReleasePrepTests(TestCase):
 
             self.assertEqual(len(first["changed_files"]), 6)
             self.assertEqual(second["changed_files"], [])
-            self.assertIn("src/Cargo.toml", second["unchanged_files"])
+            self.assertIn("rust/Cargo.toml", second["unchanged_files"])
 
             changelog = (root / "dev/CHANGELOG.md").read_text(encoding="utf-8")
             self.assertIn("## [Unreleased]", changelog)

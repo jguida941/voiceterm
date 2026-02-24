@@ -97,6 +97,9 @@ python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
+python3 dev/scripts/checks/check_markdown_metadata_header.py
+# Auto-fix markdown metadata header style where Status/Last updated/Owner blocks exist
+python3 dev/scripts/checks/check_markdown_metadata_header.py --fix
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
@@ -124,6 +127,8 @@ python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --m
 # after each dry-run/live-run loop packet.
 # Bounded mutation remediation loop (report-only default, optional policy-gated fix mode)
 python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
+# Bounded autonomy controller loop (triage-loop + loop-packet + checkpoint queue + phone-status artifacts)
+python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --checkpoint-every 1 --loop-max-attempts 1 --packet-out dev/reports/autonomy/packets --queue-out dev/reports/autonomy/queue --format json --output /tmp/autonomy-controller.json
 # CI note: `.github/workflows/coderabbit_triage.yml` enforces a blocking
 # medium/high severity gate for CodeRabbit findings, and `release_preflight.yml`
 # verifies that gate passed for the exact release commit. Publish workflows
@@ -159,7 +164,7 @@ python3 dev/scripts/devctl.py failure-cleanup --directory dev/reports/archive-fa
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 
 # Coverage workflow (mirrors .github/workflows/coverage.yml)
-cd src && cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+cd rust && cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 gh run list --workflow coverage.yml --limit 1
 
 # Tag + notes (legacy release flow)
@@ -202,6 +207,8 @@ gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3 -f
 # RALPH_COMMENT_PR_NUMBER=<optional pr number>
 # Optional: manually trigger bounded Mutation remediation loop
 gh workflow run mutation_ralph_loop.yml -f branch=develop -f execution_mode=report-only -f threshold=0.80
+# Optional: manually trigger bounded autonomy controller loop
+gh workflow run autonomy_controller.yml -f plan_id=acp-poc-001 -f branch_base=develop -f mode=report-only -f max_rounds=6 -f max_hours=4 -f max_tasks=24 -f checkpoint_every=1 -f loop_max_attempts=1 -f notify_mode=summary-only -f promote_pr=false
 # Optional auto-run config (repo variables):
 # MUTATION_LOOP_MODE=always               # always|failure-only|disabled
 # MUTATION_EXECUTION_MODE=report-only     # report-only|plan-then-fix|fix-only
@@ -235,18 +242,19 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
-| `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` 3-agent board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
+| `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/checks/check_coderabbit_gate.py` | CodeRabbit release gate | Verifies the latest `CodeRabbit Triage Bridge` run is successful for a target branch+commit SHA before release/publish steps proceed. |
 | `dev/scripts/checks/check_coderabbit_ralph_gate.py` | CodeRabbit Ralph release gate | Verifies the latest `CodeRabbit Ralph Loop` run is successful for a target branch+commit SHA before release/publish steps proceed. |
 | `dev/scripts/checks/run_coderabbit_ralph_loop.py` | CodeRabbit remediation loop | Runs a bounded retry loop over CodeRabbit medium/high backlog artifacts and optional auto-fix command hooks. |
 | `dev/scripts/checks/mutation_ralph_loop_core.py` | Mutation remediation loop core helpers | Shared run/artifact/score/hotspot logic used by `devctl mutation-loop`. |
 | `dev/scripts/checks/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
+| `dev/scripts/checks/check_markdown_metadata_header.py` | Markdown metadata header style gate | Normalizes `Status`/`Last updated`/`Owner` doc metadata to one canonical line style. |
 | `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
 | `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
-| `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, or public `unsafe fn` surfaces lacking `# Safety` docs. |
-| `dev/scripts/checks/check_rust_audit_patterns.py` | Rust audit regression guard | Fails when known critical audit anti-patterns reappear (UTF-8-unsafe prefix slicing, byte-limit truncation via `INPUT_MAX_CHARS`, single-pass `redacted.find(...)` secret redaction, deterministic timestamp-hash ID suffixes, and lossy `clamped * 32_768.0 as i16` VAD casts). |
+| `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces lacking `# Safety` docs, or `std::mem::forget`/`mem::forget` usage. |
+| `dev/scripts/checks/check_rust_audit_patterns.py` | Rust audit regression guard | Scans active Rust source roots (`rust/src`, legacy fallbacks) and fails when known critical audit anti-patterns reappear (UTF-8-unsafe prefix slicing, byte-limit truncation via `INPUT_MAX_CHARS`, single-pass `redacted.find(...)` secret redaction, deterministic timestamp-hash ID suffixes, and lossy `clamped * 32_768.0 as i16` VAD casts). |
 | `dev/scripts/checks/check_rust_security_footguns.py` | Rust security-footguns non-regression guard | Fails when changed non-test Rust files add risky AI-prone patterns (`todo!/unimplemented!/dbg!`, shell-style process spawns, permissive `0o777/0o666` modes, weak-crypto references like MD5/SHA1). |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
@@ -282,6 +290,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, and emits rollups for severity/category/owner counts
 - `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
+- `autonomy-loop`: bounded autonomy controller wrapper around `triage-loop` + `loop-packet` with hard caps (`--max-rounds`, `--max-hours`, `--max-tasks`), run-scoped packet artifacts, queue inbox outputs, phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.{json,md}`), and policy-gated mode downgrade when `AUTONOMY_MODE != operate`
 - `failure-cleanup`: guarded cleanup for local failure triage bundles (`dev/reports/failures`) with default path-root enforcement, optional override constrained to `dev/reports/**` (`--allow-outside-failure-root`), optional scoped CI gate filters (`--ci-branch`, `--ci-workflow`, `--ci-event`, `--ci-sha`), plus dry-run/confirmation controls
 - `audit-scaffold`: build/update `dev/active/RUST_AUDIT_FINDINGS.md` from guard findings (with safe output path and overwrite guards)
 - `list`: command/profile inventory
@@ -300,6 +309,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `triage --ci` | CI failed and you need an actionable summary | creates a clean failure summary for humans/AI |
 | `triage-loop --branch develop --mode plan-then-fix --max-attempts 3` | you want bounded automation over medium/high backlog | runs report/fix retry loop with deterministic md/json artifacts |
 | `mutation-loop --branch develop --mode report-only --threshold 0.80` | you want bounded mutation-score automation with hotspots and optional fixes | runs report/fix retry loop with deterministic md/json/playbook artifacts |
+| `autonomy-loop --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --format json` | you want one bounded controller run that emits queue-ready checkpoint packets | orchestrates triage-loop/loop-packet rounds, writes run-scoped packet artifacts, and refreshes phone-ready `latest.json`/`latest.md` status snapshots |
 | `audit-scaffold` | AI-guard/tooling guards failed | creates one shared fix list file |
 | `failure-cleanup --dry-run` | CI is green and you want to clean old failure artifacts | safely previews/removes stale failure bundles |
 
@@ -359,6 +369,12 @@ consistent:
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/triage_loop_parser.py`: shared CLI parser wiring for the
   `triage-loop` command.
+- `dev/scripts/devctl/autonomy_loop_parser.py`: shared CLI parser wiring for
+  the `autonomy-loop` controller command.
+- `dev/scripts/devctl/autonomy_loop_helpers.py`: shared autonomy-loop
+  policy/schema helpers (caps, packet refs, trace extraction, markdown render).
+- `dev/scripts/devctl/autonomy_phone_status.py`: phone-status payload + markdown
+  helpers used by `autonomy-loop` queue snapshots.
 - `dev/scripts/devctl/mutation_loop_parser.py`: shared CLI parser wiring for
   the `mutation-loop` command.
 - `dev/scripts/devctl/failure_cleanup_parser.py`: shared CLI parser wiring for
@@ -377,6 +393,14 @@ consistent:
   owner labels, including optional owner-map file overrides.
 - `dev/scripts/devctl/commands/triage_loop.py`: bounded CodeRabbit loop command
   with source-run correlation controls and summary/comment notification wiring.
+- `dev/scripts/devctl/commands/autonomy_loop.py`: bounded autonomy controller
+  command that runs triage-loop/loop-packet rounds and emits packet/queue
+  artifacts for phone/chat handoff paths.
+- `dev/scripts/devctl/commands/autonomy_loop_support.py`: validation and
+  policy-deny report helpers used by `autonomy-loop`.
+- `dev/scripts/devctl/commands/autonomy_loop_rounds.py`: per-round controller
+  execution helper for `autonomy-loop` (triage-loop/loop-packet/checkpoint +
+  phone snapshot emission).
 - `dev/scripts/devctl/commands/mutation_loop.py`: bounded mutation loop command
   with report/fix modes, hotspot playbook output, and policy-gated fix paths.
 - `dev/scripts/devctl/policy_gate.py`: shared JSON policy-script runner used by

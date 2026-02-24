@@ -24,6 +24,7 @@ same execution path with minimal ambiguity.
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
+| Where is the Rust workspace path/layout migration execution plan? | `dev/active/rust_workspace_layout_migration.md` |
 | Where are external repo federation links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
@@ -33,7 +34,7 @@ same execution path with minimal ambiguity.
 | Where is the devctl automation playbook? | `dev/DEVCTL_AUTOGUIDE.md` |
 | Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
-| What flags are actually supported? | `src/src/bin/voiceterm/config/cli.rs`, `src/src/config/mod.rs` |
+| What flags are actually supported? | `rust/src/bin/voiceterm/config/cli.rs`, `rust/src/config/mod.rs` |
 | How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
 | Where is the developer lifecycle quick guide? | `dev/DEVELOPMENT.md` (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) |
 | Where are clean-code and Rust-reference rules defined? | `AGENTS.md` (`Engineering quality contract`), `dev/DEVELOPMENT.md` (`Engineering quality review protocol`) |
@@ -234,27 +235,27 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 
 ### Runtime pack
 
-- `src/src/bin/voiceterm/main.rs`
-- `src/src/bin/voiceterm/event_loop.rs`
-- `src/src/bin/voiceterm/event_state.rs`
-- `src/src/bin/voiceterm/status_line/`
-- `src/src/bin/voiceterm/hud/`
+- `rust/src/bin/voiceterm/main.rs`
+- `rust/src/bin/voiceterm/event_loop.rs`
+- `rust/src/bin/voiceterm/event_state.rs`
+- `rust/src/bin/voiceterm/status_line/`
+- `rust/src/bin/voiceterm/hud/`
 - `dev/ARCHITECTURE.md`
 - `guides/USAGE.md`
 - `guides/CLI_FLAGS.md`
 
 ### Voice pack
 
-- `src/src/bin/voiceterm/voice_control/`
-- `src/src/audio/`
-- `src/src/stt.rs`
-- `src/src/bin/voiceterm/wake_word.rs`
+- `rust/src/bin/voiceterm/voice_control/`
+- `rust/src/audio/`
+- `rust/src/stt.rs`
+- `rust/src/bin/voiceterm/wake_word.rs`
 
 ### PTY/lifecycle pack
 
-- `src/src/pty_session/`
-- `src/src/ipc/`
-- `src/src/terminal_restore.rs`
+- `rust/src/pty_session/`
+- `rust/src/ipc/`
+- `rust/src/terminal_restore.rs`
 
 ### Tooling/process pack
 
@@ -269,7 +270,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 
 ### Release pack
 
-- `src/Cargo.toml`
+- `rust/Cargo.toml`
 - `pypi/pyproject.toml`
 - `app/macos/VoiceTerm.app/Contents/Info.plist`
 - `dev/CHANGELOG.md`
@@ -392,7 +393,7 @@ find . -maxdepth 1 -type f -name '--*'
 
 - Overlay/input/status/HUD changes:
   - `python3 dev/scripts/devctl.py check --profile ci`
-  - `cd src && cargo test --bin voiceterm`
+  - `cd rust && cargo test --bin voiceterm`
 - Performance/latency-sensitive changes:
   - `python3 dev/scripts/devctl.py check --profile prepush`
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
@@ -401,16 +402,16 @@ find . -maxdepth 1 -type f -name '--*'
   - `bash dev/scripts/tests/wake_word_guard.sh`
   - `python3 dev/scripts/devctl.py check --profile release`
 - Threading/lifecycle/memory changes:
-  - `cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
+  - `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
 - Unsafe/FFI lifecycle changes:
   - Update `dev/security/unsafe_governance.md`
-  - `cd src && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture`
-  - `cd src && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture`
-  - `cd src && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture`
+  - `cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture`
+  - `cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture`
+  - `cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture`
 - Parser/ANSI boundary hardening changes:
-  - `cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture`
-  - `cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture`
-  - `cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture`
+  - `cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture`
+  - `cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture`
+  - `cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture`
 - Mutation-hardening work:
   - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72`
   - optional: `python3 dev/scripts/devctl.py mutants --module overlay`
@@ -424,7 +425,7 @@ find . -maxdepth 1 -type f -name '--*'
   - optional strict workflow scan: `python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools`
   - fallback manual path:
     `cargo install cargo-audit --locked`,
-    `cd src && (cargo audit --json > ../rustsec-audit.json || true)`,
+    `cd rust && (cargo audit --json > ../rustsec-audit.json || true)`,
     `python3 dev/scripts/checks/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md`
 
 ## Release SOP (master only)
@@ -434,7 +435,7 @@ Use this exact sequence:
 1. Confirm `git checkout master` and clean working tree.
 2. Verify version parity:
    - `python3 dev/scripts/checks/check_release_version_parity.py`
-   - `src/Cargo.toml` has `version = X.Y.Z`
+   - `rust/Cargo.toml` has `version = X.Y.Z`
    - `pypi/pyproject.toml` has `[project].version = X.Y.Z`
    - `app/macos/VoiceTerm.app/Contents/Info.plist` has
      `CFBundleShortVersionString = X.Y.Z` and `CFBundleVersion = X.Y.Z`
@@ -502,6 +503,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Workflow syntax + policy drift | `workflow_lint.yml` |
 | AI PR review signal ingestion and owner/severity rollups | `coderabbit_triage.yml` |
 | Bounded AI remediation loop for CodeRabbit medium/high backlog | `coderabbit_ralph_loop.yml` |
+| Bounded autonomous controller loop (checkpoint packets + queue artifacts + optional promote PR) | `autonomy_controller.yml` |
 | Bounded mutation remediation loop (report-only default, optional policy-gated fix mode) | `mutation_ralph_loop.yml` |
 | Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `coderabbit_ralph_loop.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `release_attestation.yml` |
 | Supply-chain posture drift | `scorecard.yml` |
@@ -605,6 +607,8 @@ Core commands:
 - `report` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json bundles and optional MASTER_PLAN proposal artifacts)
+- `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates)
+- `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
 - `audit-scaffold`
@@ -623,6 +627,8 @@ Core commands:
 | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current external source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |
 | `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | you want to import reusable upstream surfaces safely | shows allowlisted source/profile mappings before any file writes |
 | `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop and writes actionable loop evidence |
+| `python3 dev/scripts/devctl.py loop-packet --format json` | you want one guarded packet for terminal draft injection from loop/triage evidence | builds a risk-scored packet with draft text and auto-send eligibility metadata |
+| `python3 dev/scripts/devctl.py autonomy-loop --plan-id <id> --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --format json` | you want a bounded autonomy-controller run with checkpoint packets and queue artifacts | orchestrates triage-loop/loop-packet rounds with policy-gated stop reasons, run-scoped outputs, and phone-ready `latest.json`/`latest.md` status snapshots |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
@@ -635,6 +641,8 @@ Implementation note for maintainers:
   `dev/scripts/devctl/security_codeql.py` (CodeQL alert-fetch wiring for security gate),
   `dev/scripts/devctl/security_python_scope.py` (Python changed/all scope resolution + core scanner targets),
   `dev/scripts/devctl/audit_events.py` (auto-emitted per-command audit-metrics event logging),
+  `dev/scripts/devctl/autonomy_loop_helpers.py` (shared autonomy-loop packet/policy/render helper logic),
+  `dev/scripts/devctl/autonomy_phone_status.py` (phone-ready autonomy status payload/render helpers),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
   `dev/scripts/devctl/integrations_sync_parser.py` (`integrations-sync` parser wiring),
   `dev/scripts/devctl/integrations_import_parser.py` (`integrations-import` parser wiring),
@@ -646,11 +654,17 @@ Implementation note for maintainers:
   `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
   `dev/scripts/devctl/triage_parser.py` (triage parser wiring),
   `dev/scripts/devctl/triage_loop_parser.py` (triage-loop parser wiring),
+  `dev/scripts/devctl/loop_packet_parser.py` (loop-packet parser wiring),
+  `dev/scripts/devctl/autonomy_loop_parser.py` (autonomy-loop parser wiring),
   `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
   `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
   `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
   `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
   `dev/scripts/devctl/commands/triage_loop.py` (bounded CodeRabbit loop command),
+  `dev/scripts/devctl/commands/loop_packet.py` (guarded loop-to-terminal packet builder),
+  `dev/scripts/devctl/commands/autonomy_loop.py` (bounded autonomy controller loop command + checkpoint queue artifacts),
+  `dev/scripts/devctl/commands/autonomy_loop_support.py` (autonomy-loop validation + policy-deny report helpers),
+  `dev/scripts/devctl/commands/autonomy_loop_rounds.py` (autonomy-loop round executor helper),
   `dev/scripts/devctl/commands/docs_check_support.py` (docs-check policy + failure-action helper builders),
   `dev/scripts/devctl/commands/docs_check_render.py` (docs-check markdown renderer helpers),
   `dev/scripts/devctl/commands/check_profile.py` (check profile normalization),
@@ -694,16 +708,17 @@ hotspot budgets for Phase 3C decomposition targets.
 `check_active_plan_sync.py` enforces active-doc index/spec parity, mirrored-spec
 phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
 Snapshot release freshness (branch policy + release-tag consistency).
-`check_multi_agent_sync.py` enforces 3-agent coordination parity between the
-`MASTER_PLAN` board and the runbook (lane/MP/worktree/branch alignment,
+`check_multi_agent_sync.py` enforces dynamic multi-agent coordination parity
+between the `MASTER_PLAN` board and the runbook (lane/MP/worktree/branch alignment,
 instruction/ack protocol validation, lane-lock + MP-collision handoff checks,
 status/date format checks, ledger traceability, and end-of-cycle signoff when
 all agent lanes are marked merged).
 `check_rust_lint_debt.py` enforces non-regressive growth for `#[allow(...)]`
 and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
-`#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn`
-surfaces without `# Safety` docs in changed Rust files.
+`#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn`
+surfaces without `# Safety` docs, and `std::mem::forget`/`mem::forget` usage
+in changed Rust files.
 
 ## CI workflows (reference)
 

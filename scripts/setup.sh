@@ -328,7 +328,7 @@ check_codex() {
 build_rust_overlay() {
     print_step "Building Rust overlay..."
 
-    cd "$PROJECT_ROOT/src"
+    cd "$PROJECT_ROOT/rust"
 
     if cargo build --release --bin voiceterm; then
         print_success "Rust overlay built successfully"

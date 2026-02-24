@@ -11,6 +11,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from git_change_paths import list_changed_paths_with_base_map
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 ALLOW_ATTR_RE = re.compile(r"#\s*\[\s*allow\s*\((?P<body>[^\]]*)\)\s*\]", re.DOTALL)
@@ -18,6 +23,7 @@ ALLOW_REASON_RE = re.compile(r"\breason\s*=")
 UNSAFE_BLOCK_RE = re.compile(r"\bunsafe\s*\{")
 UNSAFE_FN_RE = re.compile(r"\bunsafe\s+fn\b")
 PUB_UNSAFE_FN_RE = re.compile(r"\bpub(?:\s*\([^\)]*\))?\s+unsafe\s+fn\b")
+MEM_FORGET_RE = re.compile(r"\b(?:std::mem::forget|mem::forget)\s*\(")
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -41,23 +47,6 @@ def _is_test_path(path: Path) -> bool:
     normalized = f"/{path.as_posix()}/"
     name = path.name
     return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
-
-
-def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
-    if since_ref:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", since_ref, head_ref]
-    else:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
-
-    changed = {Path(line.strip()) for line in _run_git(diff_cmd).stdout.splitlines() if line.strip()}
-
-    if since_ref is None:
-        untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"])
-        for line in untracked.stdout.splitlines():
-            if line.strip():
-                changed.add(Path(line.strip()))
-
-    return sorted(changed)
 
 
 def _read_text_from_ref(path: Path, ref: str) -> str | None:
@@ -167,11 +156,18 @@ def _count_pub_unsafe_fn_missing_safety_docs(text: str | None) -> int:
     return count
 
 
+def _count_mem_forget_calls(text: str | None) -> int:
+    if text is None:
+        return 0
+    return len(MEM_FORGET_RE.findall(text))
+
+
 def _count_metrics(text: str | None) -> dict[str, int]:
     return {
         "allow_without_reason": _count_allow_without_reason(text),
         "undocumented_unsafe_blocks": _count_undocumented_unsafe_blocks(text),
         "pub_unsafe_fn_missing_safety_docs": _count_pub_unsafe_fn_missing_safety_docs(text),
+        "mem_forget_calls": _count_mem_forget_calls(text),
     }
 
 
@@ -195,7 +191,8 @@ def _render_md(report: dict) -> str:
         f"allow_without_reason {totals['allow_without_reason_growth']:+d}, "
         f"undocumented_unsafe_blocks {totals['undocumented_unsafe_blocks_growth']:+d}, "
         "pub_unsafe_fn_missing_safety_docs "
-        f"{totals['pub_unsafe_fn_missing_safety_docs_growth']:+d}"
+        f"{totals['pub_unsafe_fn_missing_safety_docs_growth']:+d}, "
+        f"mem_forget_calls {totals['mem_forget_calls_growth']:+d}"
     )
 
     if report["violations"]:
@@ -215,7 +212,10 @@ def _render_md(report: dict) -> str:
                 "pub_unsafe_fn_missing_safety_docs "
                 f"{item['base']['pub_unsafe_fn_missing_safety_docs']} -> "
                 f"{item['current']['pub_unsafe_fn_missing_safety_docs']} "
-                f"({growth['pub_unsafe_fn_missing_safety_docs']:+d})"
+                f"({growth['pub_unsafe_fn_missing_safety_docs']:+d}), "
+                f"mem_forget_calls {item['base']['mem_forget_calls']} -> "
+                f"{item['current']['mem_forget_calls']} "
+                f"({growth['mem_forget_calls']:+d})"
             )
     return "\n".join(lines)
 
@@ -235,7 +235,11 @@ def main() -> int:
         if args.since_ref:
             _validate_ref(args.since_ref)
             _validate_ref(args.head_ref)
-        changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
+        changed_paths, base_map = list_changed_paths_with_base_map(
+            _run_git,
+            args.since_ref,
+            args.head_ref,
+        )
     except RuntimeError as exc:
         report = {
             "command": "check_rust_best_practices",
@@ -257,6 +261,7 @@ def main() -> int:
     totals_allow_growth = 0
     totals_unsafe_growth = 0
     totals_pub_unsafe_docs_growth = 0
+    totals_mem_forget_growth = 0
     violations: list[dict] = []
 
     for path in changed_paths:
@@ -269,11 +274,12 @@ def main() -> int:
 
         files_considered += 1
 
+        base_path = base_map.get(path, path)
         if args.since_ref:
-            base_text = _read_text_from_ref(path, args.since_ref)
+            base_text = _read_text_from_ref(base_path, args.since_ref)
             current_text = _read_text_from_ref(path, args.head_ref)
         else:
-            base_text = _read_text_from_ref(path, "HEAD")
+            base_text = _read_text_from_ref(base_path, "HEAD")
             current_text = _read_text_from_worktree(path)
 
         base = _count_metrics(base_text)
@@ -284,16 +290,19 @@ def main() -> int:
             - base["undocumented_unsafe_blocks"],
             "pub_unsafe_fn_missing_safety_docs": current["pub_unsafe_fn_missing_safety_docs"]
             - base["pub_unsafe_fn_missing_safety_docs"],
+            "mem_forget_calls": current["mem_forget_calls"] - base["mem_forget_calls"],
         }
 
         totals_allow_growth += growth["allow_without_reason"]
         totals_unsafe_growth += growth["undocumented_unsafe_blocks"]
         totals_pub_unsafe_docs_growth += growth["pub_unsafe_fn_missing_safety_docs"]
+        totals_mem_forget_growth += growth["mem_forget_calls"]
 
         if (
             growth["allow_without_reason"] > 0
             or growth["undocumented_unsafe_blocks"] > 0
             or growth["pub_unsafe_fn_missing_safety_docs"] > 0
+            or growth["mem_forget_calls"] > 0
         ):
             violations.append(
                 {
@@ -319,6 +328,7 @@ def main() -> int:
             "allow_without_reason_growth": totals_allow_growth,
             "undocumented_unsafe_blocks_growth": totals_unsafe_growth,
             "pub_unsafe_fn_missing_safety_docs_growth": totals_pub_unsafe_docs_growth,
+            "mem_forget_calls_growth": totals_mem_forget_growth,
         },
         "violations": violations,
     }

@@ -31,7 +31,7 @@ speech-to-text integration where FFI and raw file descriptors are involved.
 
 ## Unsafe Hotspot Inventory And Test Expectations
 
-### PTY lifecycle and process control (`src/src/pty_session/`)
+### PTY lifecycle and process control (`rust/src/pty_session/`)
 
 - `pty.rs` -> `spawn_pty_child`, `child_exec`
   - Invariants:
@@ -67,7 +67,7 @@ speech-to-text integration where FFI and raw file descriptors are involved.
     - `pty_session::tests::current_terminal_size_falls_back_when_dimension_zero`
     - `pty_session::tests::current_terminal_size_falls_back_when_ioctl_dimensions_zero`
 
-### Whisper/stderr FFI handling (`src/src/stt.rs`)
+### Whisper/stderr FFI handling (`rust/src/stt.rs`)
 
 - `Transcriber::new` stderr redirect/restore (`dup`, `dup2`, `close`)
   - Invariants:
@@ -92,8 +92,8 @@ Use these minimum checks before merge:
 
 ```bash
 python3 dev/scripts/devctl.py check --profile ci
-cd src && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture
-cd src && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture
-cd src && cargo test pty_session::tests::pty_overlay_session_set_winsize_updates_and_minimums
-cd src && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture
+cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd rust && cargo test pty_session::tests::pty_overlay_session_set_winsize_updates_and_minimums
+cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture
 ```

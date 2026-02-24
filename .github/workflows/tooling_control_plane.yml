@@ -24,8 +24,8 @@ on:
       - "pypi/README.md"
       - "app/README.md"
       - "img/**"
-      - "src/src/bin/voiceterm/config/cli.rs"
-      - "src/src/config/mod.rs"
+      - "rust/src/bin/voiceterm/config/cli.rs"
+      - "rust/src/config/mod.rs"
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
       - "scripts/macro-packs/**"
@@ -47,8 +47,8 @@ on:
       - "pypi/README.md"
       - "app/README.md"
       - "img/**"
-      - "src/src/bin/voiceterm/config/cli.rs"
-      - "src/src/config/mod.rs"
+      - "rust/src/bin/voiceterm/config/cli.rs"
+      - "rust/src/config/mod.rs"
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
       - "scripts/macro-packs/**"
@@ -82,10 +82,10 @@ jobs:
           import re
           from pathlib import Path
 
-          text = Path("src/Cargo.toml").read_text(encoding="utf-8")
+          text = Path("rust/Cargo.toml").read_text(encoding="utf-8")
           match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
           if not match:
-              raise SystemExit("Failed to resolve version from src/Cargo.toml")
+              raise SystemExit("Failed to resolve version from rust/Cargo.toml")
           print(match.group(1))
           PY
           )"
@@ -166,7 +166,7 @@ jobs:
       - name: Run docs-check user-facing strict gate (conditional)
         run: |
           USER_DOC_CHANGE_COUNT="$(grep -Ec '^(README\.md|QUICK_START\.md|guides/USAGE\.md|guides/CLI_FLAGS\.md|guides/INSTALL\.md|guides/TROUBLESHOOTING\.md)$' /tmp/docs-policy-changed-files.txt || true)"
-          if grep -Eq '^(src/src/bin/voiceterm/config/cli\.rs|src/src/config/mod\.rs)$' /tmp/docs-policy-changed-files.txt || [[ "${USER_DOC_CHANGE_COUNT}" -ge 3 ]]; then
+          if grep -Eq '^(rust/src/bin/voiceterm/config/cli\.rs|rust/src/config/mod\.rs)$' /tmp/docs-policy-changed-files.txt || [[ "${USER_DOC_CHANGE_COUNT}" -ge 3 ]]; then
             echo "Running strict user-facing docs-check gate."
             python3 dev/scripts/devctl.py docs-check \
               --since-ref "${{ steps.range.outputs.since }}" \

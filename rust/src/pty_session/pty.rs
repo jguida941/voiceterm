@@ -10,7 +10,6 @@ use anyhow::{anyhow, Context, Result};
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::ffi::CString;
 use std::io::{self};
-use std::mem;
 use std::os::unix::io::RawFd;
 use std::os::unix::process::ExitStatusExt;
 use std::ptr;
@@ -367,12 +366,12 @@ impl PtyOverlaySession {
     ///
     /// Returns an error if the window-size ioctl fails.
     pub fn set_winsize(&self, rows: u16, cols: u16) -> Result<()> {
-        // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
-        let mut ws: libc::winsize = unsafe { mem::zeroed() };
-        ws.ws_row = rows.max(1);
-        ws.ws_col = cols.max(1);
-        ws.ws_xpixel = 0;
-        ws.ws_ypixel = 0;
+        let ws = libc::winsize {
+            ws_row: rows.max(1),
+            ws_col: cols.max(1),
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
         // SAFETY: ioctl writes to ws and reads master_fd; ws is initialized.
         let result = unsafe { libc::ioctl(self.master_fd, libc::TIOCSWINSZ, &ws) };
         if result != 0 {
@@ -465,13 +464,13 @@ pub(super) unsafe fn spawn_pty_child(
     let mut slave_fd: RawFd = -1;
     let mut lifeline_fds = [-1; 2];
 
-    // Set a proper terminal size - some backends check this for terminal detection
-    // SAFETY: libc::winsize is a plain C struct; zeroed is a valid baseline.
-    let mut winsize: libc::winsize = mem::zeroed();
-    winsize.ws_row = 24;
-    winsize.ws_col = 80;
-    winsize.ws_xpixel = 0;
-    winsize.ws_ypixel = 0;
+    // Set a proper terminal size - some backends check this for terminal detection.
+    let mut winsize = libc::winsize {
+        ws_row: 24,
+        ws_col: 80,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
 
     #[allow(clippy::unnecessary_mut_passed)]
     // SAFETY: openpty expects valid pointers for master/slave/winsize; we pass stack locals.

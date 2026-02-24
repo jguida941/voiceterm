@@ -25,6 +25,8 @@ COMMANDS = [
     "report",
     "triage",
     "triage-loop",
+    "loop-packet",
+    "autonomy-loop",
     "mutation-loop",
     "failure-cleanup",
     "audit-scaffold",

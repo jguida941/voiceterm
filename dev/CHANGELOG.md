@@ -7,6 +7,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.92] - 2026-02-24
 ### Persistence
 
 - Wire `MemoryIngestor` into the runtime: initialize from `main.rs` with project-scoped JSONL persistence, cross-session recovery via `recover_from_jsonl()`, and triple-write ingestion (voice transcripts, PTY input, PTY output) mirroring the existing `TranscriptHistory` + `SessionMemoryLogger` pattern. Add devctl metric appenders (`status`, `report`, `triage`) and failure knowledge-base writer to `~/.voiceterm/dev/`. (MP-230, MP-232, MP-241)
@@ -23,6 +24,8 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Tooling
 
 - Add `check_rust_audit_patterns.py` and wire it into `devctl check --profile ai-guard` plus security/release CI lanes so known audit regression patterns are blocked automatically.
+- Rename the repository Rust workspace root from `src/` to `rust/` and migrate path contracts across scripts, guard checks, CI workflows, and developer docs.
+- Add `devctl autonomy-loop` plus `.github/workflows/autonomy_controller.yml` for bounded controller orchestration (round/hour/task caps), run-scoped checkpoint packet + queue artifacts, phone-ready `latest.json`/`latest.md` status snapshots (terminal trace + draft + run context), and optional PR promote flow guarded by remote branch existence checks.
 
 ### Code Quality
 
@@ -548,7 +551,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Branding
 
 - Complete project rebrand to **VoiceTerm** across the codebase, CLI help text, startup banner/UI copy, docs, scripts, and macOS app bundle path (`app/macos/VoiceTerm.app`).
-- Rename Rust package/binary defaults to `voiceterm` and move overlay source path to `src/src/bin/voiceterm/`.
+- Rename Rust package/binary defaults to `voiceterm` and move overlay source path to `rust/src/bin/voiceterm/`.
 
 ### Packaging
 

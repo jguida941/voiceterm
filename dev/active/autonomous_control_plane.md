@@ -143,6 +143,27 @@ Acceptance:
 1. Mutation lane is non-blocking by default until explicit promotion.
 2. Optional auto-fix mode is bounded and auditable.
 
+### 2.3 Autonomy Controller Loop (Bounded)
+
+- [x] Add `devctl autonomy-loop` command:
+  - [x] bounded rounds/hours/tasks controls
+  - [x] nested `triage-loop` + `loop-packet` orchestration
+  - [x] run-scoped checkpoint packet artifacts
+  - [x] queue inbox outputs (`dev/reports/autonomy/queue/inbox`)
+  - [x] terminal/action trace lines for phone-forwardable status payloads
+  - [x] phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.json` + `latest.md`)
+  - [x] policy-aware mode downgrade when `AUTONOMY_MODE != operate`
+- [x] Add `.github/workflows/autonomy_controller.yml`:
+  - [x] `workflow_dispatch` + schedule triggers
+  - [x] guarded `devctl autonomy-loop` execution
+  - [x] summary + artifact upload (`packets` + `queue`)
+  - [x] optional PR promote step (PR create/update + auto-merge request) when
+        source branch exists remotely
+- [ ] Full branch lifecycle enforcement remains follow-up:
+  - [ ] hard fail when branch does not enter merge queue
+  - [ ] branch-protection/required-check introspection before promote
+  - [ ] phone approval handshake before release-publish actions
+
 ## Phase 3 - Rust Containerized Mobile Control Plane
 
 ### 3.1 New Service: `voiceterm-control` (Rust)
@@ -257,6 +278,107 @@ Scope for MVP:
 2. Phone can trigger only `report-only` loop dispatch and receive status push.
 3. Every remote action and notify attempt is traceable in audit logs.
 4. No uncontrolled shell execution paths are introduced.
+
+### 3.5 Unified Architect Controller Plan (Ralph + Agents + Rust TUI + iPhone)
+
+Target outcome:
+
+1. Architect can run and steer the autonomous loop from either Rust TUI Dev
+   mode or iPhone controller with the same underlying state model.
+2. Loop can execute bounded multi-agent remediation cycles (plan -> implement
+   -> review -> verify -> retry) until acceptance criteria are met or policy
+   limits stop execution.
+3. Every decision/action remains policy-gated, replay-safe, and audit-traceable.
+
+Execution model:
+
+1. Loop producer:
+   - `triage-loop` + `mutation-loop` + `autonomy-loop` emit canonical state and
+     checkpoint packets.
+2. Agent relay:
+   - reviewer/secondary-agent suggestions are ingested as structured packets,
+     never free-form hidden state.
+3. Operator surfaces:
+   - Rust TUI `--dev` panel consumes local control-plane snapshots.
+   - iPhone controller consumes the same snapshots via SSH/API adapters.
+4. Policy enforcement:
+   - all write actions flow through command/workflow allowlists + bounded
+     attempt/hour/task caps + `AUTONOMY_MODE` gating.
+
+Unified data contract backlog:
+
+- [ ] Add canonical `controller_state` payload schema with stable fields for:
+  - run identity (`plan_id`, `controller_run_id`, branch, mode),
+  - loop status (`phase`, `reason`, unresolved/hotspot score state),
+  - agent relay messages (`from_agent`, `to_agent`, `recommendation`,
+    `evidence_refs`, `confidence`),
+  - operator actions (`requested_action`, `policy_result`, `approval_required`),
+  - audit refs (`event_id`, `idempotency_key`, `nonce`, `expires_at`).
+- [ ] Emit multi-view projections from one source state:
+  - `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`.
+- [ ] Add chart-ready metric snapshots:
+  - loop throughput, cycle success rate, unresolved-count trend, mutation-score
+    trend, script-only vs AI-assisted vs manual mix.
+
+Operator experience backlog:
+
+- [ ] Add `devctl phone-status` command (`--view full|compact|trace|actions`)
+      for iPhone SSH-first usage.
+- [ ] Add `devctl controller-action` command with safe subset first:
+  - `dispatch-report-only`
+  - `pause-loop`
+  - `resume-loop`
+  - `refresh-status`
+- [ ] Add Rust TUI Dev panel widgets for:
+  - current controller phase/reason,
+  - latest source run URL/SHA,
+  - recent agent relay packets,
+  - policy denials and required approvals.
+- [ ] Add iPhone controller read-first surface parity with Rust Dev panel
+      fields, then stage guarded write controls.
+
+Autonomous loop orchestration backlog:
+
+- [ ] Add explicit loop stage machine:
+  - `triage` -> `plan` -> `fix` -> `verify` -> `review` -> `promote` ->
+    `report`.
+- [ ] Add reviewer-agent feedback packet lane so reviewer output can be consumed
+      by the running loop without chat-copy/manual glue.
+- [ ] Add stop/retry policy by stage:
+  - max retries per stage,
+  - escalation to architect on repeated deny/failure,
+  - required green CI + gate checks before promote.
+
+Acceptance criteria for this unified plan:
+
+1. Same run state and action history is visible from Rust Dev panel and iPhone.
+2. Architect can safely trigger/stop bounded loops from phone without shelling
+   into ad-hoc commands.
+3. Agent-review feedback is packetized and consumed by loop automation with no
+   hidden memory-only handoff.
+4. Audit output can reconstruct every loop stage transition and operator action.
+
+### 3.6 ADR Backlog (Required for Scope Control)
+
+These ADRs are required to keep AI + dev execution aligned as autonomy grows.
+
+- [ ] `ADR-0027` Unified controller state contract (schema + projections).
+- [ ] `ADR-0028` Agent relay packet protocol (reviewer/assistant loop handoff).
+- [ ] `ADR-0029` Operator action policy model (approval + replay + deny semantics).
+- [ ] `ADR-0030` Phone adapter architecture (SSH-first + push/SMS/chat layering).
+- [ ] `ADR-0031` Rust Dev panel control-plane boundary (non-interference contract).
+- [ ] `ADR-0032` Autonomy stage machine (triage/plan/fix/verify/review/promote).
+- [ ] `ADR-0033` Metrics + scientific audit method (KPI definitions + promotion gates).
+- [ ] `ADR-0034` Template extraction contract (what must be standardized before reuse).
+
+ADR delivery rule for this track:
+
+1. No major autonomy/mobile feature is marked complete without the corresponding
+   ADR landing (or an explicit temporary waiver entry in this file + MASTER_PLAN).
+2. ADRs must include guardrails, failure modes, rollback path, and test evidence
+   requirements.
+3. ADR IDs and MP scope linkage must be reflected in both this file and
+   `dev/active/MASTER_PLAN.md`.
 
 ## Phase 4 - Guardrails and Data Quality
 
@@ -433,6 +555,17 @@ Acceptance:
 - 2026-02-24: Added automatic `devctl` event emission into
   `dev/reports/audits/devctl_events.jsonl` (policy/env configurable) so every
   control-plane run contributes to KPI trend analysis by default.
+- 2026-02-24: Added bounded autonomy controller surfaces (`devctl autonomy-loop`
+  + `.github/workflows/autonomy_controller.yml`) with checkpoint packet queue
+  artifacts, terminal/action trace payloads for phone-forwardable status, and
+  optional guarded PR promote flow when working branch refs exist remotely.
+- 2026-02-24: Added first-pass phone-status feed emission to `autonomy-loop`
+  (`dev/reports/autonomy/queue/phone/latest.json` + `latest.md`) including
+  terminal trace lines, loop draft text, run URL/SHA context, and next-action
+  summaries for iPhone/SMS/push adapter consumption.
+- 2026-02-24: Added explicit unified architect-controller phase map + required
+  ADR backlog (`ADR-0027..ADR-0034`) so autonomy/mobile execution has a
+  tracked architectural decision path and does not drift into memory-only scope.
 
 ## Audit Evidence
 
@@ -449,5 +582,10 @@ Acceptance:
 | `python3 -m unittest dev.scripts.devctl.tests.test_integrations_sync dev.scripts.devctl.tests.test_integrations_import` | `Ran 7 tests ... OK` (2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_audit_metrics_script` | `Ran 2 tests ... OK` (2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_audit_events dev.scripts.devctl.tests.test_cli_audit_events` | `Ran 5 tests ... OK` (2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_loop dev.scripts.devctl.tests.test_loop_packet dev.scripts.devctl.tests.test_triage_loop dev.scripts.devctl.tests.test_mutation_loop` | `Ran 18 tests ... OK` (2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_loop` | updated phone-status artifact assertions passed (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-loop --repo jguida941/voiceterm --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 1 --max-hours 1 --max-tasks 1 --checkpoint-every 1 --loop-max-attempts 1 --dry-run --format md --output /tmp/autonomy-controller-smoke.md` | dry-run controller emitted round packet + queue artifacts and summary markdown (2026-02-24 local run) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after autonomy-loop helper split (2026-02-24 local run) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` | autonomy-loop files now satisfy new-file shape limits after round/snapshot helper extraction; current gate still reports one unrelated pre-existing violation in `dev/scripts/checks/check_multi_agent_sync.py` growth (`423 -> 455`) | blocked (unrelated) |
 | `python3 dev/scripts/audits/audit_metrics.py --input dev/audits/templates/audit_events_template.jsonl --output-md /tmp/audit-metrics.md --output-json /tmp/audit-metrics.json --chart-dir /tmp/audit-metrics-charts` | summary + JSON + chart outputs emitted (2026-02-24 local run) | done |
 | `DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 DEVCTL_EXECUTION_SOURCE=script_only python3 dev/scripts/devctl.py list` | event row appended to `dev/reports/audits/devctl_events.jsonl` (2026-02-24 local run) | done |

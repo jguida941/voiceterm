@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-RUST_BINARY="$PROJECT_ROOT/src/target/release/voiceterm"
+RUST_BINARY="$PROJECT_ROOT/rust/target/release/voiceterm"
 
 # Colors
 RED='\033[0;31m'
@@ -51,7 +51,7 @@ echo ""
 # Check Rust binary exists
 if [ ! -f "$RUST_BINARY" ]; then
     echo -e "${RED}Error:${NC} Rust binary not found at $RUST_BINARY"
-    echo "       Run: cd src && cargo build --release"
+    echo "       Run: cd rust && cargo build --release"
     exit 1
 fi
 

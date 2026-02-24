@@ -10,8 +10,8 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "src/Cargo.lock"
-      - "src/Cargo.toml"
+      - "rust/Cargo.lock"
+      - "rust/Cargo.toml"
       - "pypi/pyproject.toml"
       - ".github/dependabot.yml"
       - ".github/workflows/*.yml"

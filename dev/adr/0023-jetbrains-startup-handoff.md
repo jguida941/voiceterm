@@ -47,6 +47,6 @@ Adopt a JetBrains-specific startup/render hardening strategy:
 
 ## Links
 
-- `src/src/bin/voiceterm/banner.rs`
-- `src/src/bin/voiceterm/writer/state.rs`
+- `rust/src/bin/voiceterm/banner.rs`
+- `rust/src/bin/voiceterm/writer/state.rs`
 - `guides/TROUBLESHOOTING.md`

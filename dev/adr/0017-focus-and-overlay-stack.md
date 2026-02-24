@@ -43,7 +43,7 @@ Use one active overlay state (`OverlayMode`) instead of a nested overlay stack:
 
 ## Links
 
-- `src/src/bin/voiceterm/event_state.rs`
-- `src/src/bin/voiceterm/overlays.rs`
-- `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs`
-- `src/src/bin/voiceterm/terminal.rs`
+- `rust/src/bin/voiceterm/event_state.rs`
+- `rust/src/bin/voiceterm/overlays.rs`
+- `rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs`
+- `rust/src/bin/voiceterm/terminal.rs`

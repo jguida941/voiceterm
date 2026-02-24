@@ -11,6 +11,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from git_change_paths import list_changed_paths_with_base_map
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 ALLOW_ATTR_RE = re.compile(r"#\s*\[\s*allow\s*\(")
@@ -38,23 +43,6 @@ def _is_test_path(path: Path) -> bool:
     normalized = f"/{path.as_posix()}/"
     name = path.name
     return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
-
-
-def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
-    if since_ref:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", since_ref, head_ref]
-    else:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
-
-    changed = {Path(line.strip()) for line in _run_git(diff_cmd).stdout.splitlines() if line.strip()}
-
-    if since_ref is None:
-        untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"])
-        for line in untracked.stdout.splitlines():
-            if line.strip():
-                changed.add(Path(line.strip()))
-
-    return sorted(changed)
 
 
 def _read_text_from_ref(path: Path, ref: str) -> str | None:
@@ -136,7 +124,11 @@ def main() -> int:
         if args.since_ref:
             _validate_ref(args.since_ref)
             _validate_ref(args.head_ref)
-        changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
+        changed_paths, base_map = list_changed_paths_with_base_map(
+            _run_git,
+            args.since_ref,
+            args.head_ref,
+        )
     except RuntimeError as exc:
         report = {
             "command": "check_rust_lint_debt",
@@ -169,11 +161,12 @@ def main() -> int:
 
         files_considered += 1
 
+        base_path = base_map.get(path, path)
         if args.since_ref:
-            base_text = _read_text_from_ref(path, args.since_ref)
+            base_text = _read_text_from_ref(base_path, args.since_ref)
             current_text = _read_text_from_ref(path, args.head_ref)
         else:
-            base_text = _read_text_from_ref(path, "HEAD")
+            base_text = _read_text_from_ref(base_path, "HEAD")
             current_text = _read_text_from_worktree(path)
 
         base = _count_metrics(base_text)

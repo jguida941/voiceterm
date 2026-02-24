@@ -1,6 +1,7 @@
 """Tests for devctl check profile wiring."""
 
 import io
+import json
 import time
 from types import SimpleNamespace
 from unittest import TestCase
@@ -223,6 +224,36 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-best-practices-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+
+    @patch("dev.scripts.devctl.commands.check.write_output")
+    @patch("dev.scripts.devctl.commands.check.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_with_mutation_score_missing_outcomes_fails(
+        self,
+        mock_build_env,
+        mock_resolve_outcomes,
+        mock_write_output,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_resolve_outcomes.return_value = None
+        args = make_args("")
+        args.with_mutation_score = True
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+        args.format = "json"
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 1)
+        report = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(report["success"])
+        check_halt = next(
+            step for step in report["steps"] if step["name"] == "check-halt"
+        )
+        self.assertEqual(check_halt["returncode"], 1)
+        self.assertIn("mutation outcomes.json not found", check_halt["error"])
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")

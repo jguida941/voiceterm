@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CARGO_TOML = REPO_ROOT / "src/Cargo.toml"
+CARGO_TOML = REPO_ROOT / "rust/Cargo.toml"
 PYPROJECT_TOML = REPO_ROOT / "pypi/pyproject.toml"
 INIT_PY = REPO_ROOT / "pypi/src/voiceterm/__init__.py"
 INFO_PLIST = REPO_ROOT / "app/macos/VoiceTerm.app/Contents/Info.plist"
@@ -72,7 +72,7 @@ def _build_report() -> dict:
     plist_short, plist_bundle = _read_plist_versions(INFO_PLIST)
 
     values = {
-        "src/Cargo.toml": cargo_version,
+        "rust/Cargo.toml": cargo_version,
         "pypi/pyproject.toml": pyproject_version,
         "pypi/src/voiceterm/__init__.py": init_version,
         "app/macos/VoiceTerm.app/Contents/Info.plist:CFBundleShortVersionString": plist_short,

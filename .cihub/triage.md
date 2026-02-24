@@ -20,7 +20,7 @@
 - Master plan updated: False
 - Changed files: 0
 - Mutation score: 69.35%
-- Mutation outcomes: /Users/jguida941/testing_upgrade/codex-voice/src/mutants.out/mutants.out/outcomes.json
+- Mutation outcomes: /Users/jguida941/testing_upgrade/codex-voice/rust/mutants.out/mutants.out/outcomes.json
 - Mutation outcomes updated: 2026-02-20T09:45:48.454007Z (79.29h old)
 - CI: error (gh run list failed: Command '['gh', 'run', 'list', '--limit', '5', '--json', 'status,conclusion,displayTitle,headSha,createdAt,updatedAt']' returned non-zero exit status 1.)
 

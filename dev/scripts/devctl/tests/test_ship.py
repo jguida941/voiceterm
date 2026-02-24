@@ -281,7 +281,7 @@ class ShipReleaseParityTests(TestCase):
         mock_prepare_release_metadata.return_value = {
             "version": "1.2.3",
             "release_date": "2026-02-23",
-            "changed_files": ["src/Cargo.toml"],
+            "changed_files": ["rust/Cargo.toml"],
             "unchanged_files": [],
             "dry_run": False,
         }

@@ -138,7 +138,7 @@ Inference: These screenshots improve readability for users. They show current UI
 - Architecture and lifecycle: `dev/ARCHITECTURE.md`
 - Verification workflow: `dev/DEVELOPMENT.md`
 - Decision records: `dev/adr/README.md`
-- Latency display logic path: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs`
+- Latency display logic path: `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs`
 
 ### Developer Fast Start
 
@@ -181,11 +181,11 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-175`, `MP-176`, `MP-179`, `MP-180`,
   `MP-182` status and gate-evidence notes)
-- `src/src/bin/voiceterm/theme/capability_matrix.rs`
-- `src/src/bin/voiceterm/theme/texture_profile.rs`
-- `src/src/bin/voiceterm/theme/dependency_baseline.rs`
-- `src/src/bin/voiceterm/theme/widget_pack.rs`
-- `src/src/bin/voiceterm/theme/rule_profile.rs`
+- `rust/src/bin/voiceterm/theme/capability_matrix.rs`
+- `rust/src/bin/voiceterm/theme/texture_profile.rs`
+- `rust/src/bin/voiceterm/theme/dependency_baseline.rs`
+- `rust/src/bin/voiceterm/theme/widget_pack.rs`
+- `rust/src/bin/voiceterm/theme/rule_profile.rs`
 
 Inference: The Theme Studio track moved from prerequisite definition to
 evidence-backed gate completion, reducing release risk for future Studio
@@ -276,6 +276,32 @@ Evidence:
 Inference: Loop guidance can now flow through a visible, auditable markdown
 channel instead of ad-hoc chat-only coordination, which reduces decision drift
 before enabling higher-autonomy execution.
+
+### Recent Governance Update (2026-02-24, Rust Guardrail Tightening)
+
+Fact: Rust guard scripts were tightened after the `src/` to `rust/` workspace
+migration audit to prevent silent check bypass and enforce stricter memory-safety
+policy for changed Rust files.
+
+Evidence:
+
+- `dev/scripts/checks/check_rust_audit_patterns.py` (active source-root discovery
+  with `rust/src` priority and fail-fast behavior when no Rust files are found)
+- `dev/scripts/checks/check_rust_security_footguns.py` (rename-aware baseline
+  mapping via `git_change_paths.py` to avoid rename-only false positives)
+- `dev/scripts/checks/check_rust_best_practices.py` (new non-regressive
+  `std::mem::forget`/`mem::forget` growth guard)
+- `dev/scripts/devctl/tests/test_check_rust_best_practices.py`,
+  `dev/scripts/devctl/tests/test_check_rust_audit_patterns.py`,
+  `dev/scripts/devctl/tests/test_check_rust_security_footguns.py`
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (policy/docs
+  wording updated for the tightened best-practices guard)
+- `dev/active/rust_workspace_layout_migration.md`, `dev/active/MASTER_PLAN.md`
+  (`MP-339` follow-up evidence and scope notes)
+
+Inference: The post-migration toolchain now fails louder when Rust source paths
+drift and blocks additional `mem::forget` debt in touched Rust files, reducing
+the chance of hidden safety regressions slipping through rename-heavy changes.
 
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
@@ -717,6 +743,37 @@ Inference: The repo now has an auditable, policy-bounded automation path that
 can run autonomously inside approved scope while escalating on policy/scope
 violations instead of silently mutating state.
 
+### Recent Governance Update (2026-02-24, Autonomy Controller + Queue Packets)
+
+Fact: The autonomy plan now includes a first-pass bounded controller command and
+workflow that coordinate repeated `triage-loop` + `loop-packet` rounds, emit
+run-scoped checkpoint packets, and write queue-ready artifacts for phone/chat
+handoff paths, including a continuously refreshed phone-ready status feed.
+
+Evidence:
+
+- `dev/scripts/devctl/autonomy_loop_parser.py`
+- `dev/scripts/devctl/commands/autonomy_loop.py` (round/hour/task caps,
+  policy-aware mode gating via `AUTONOMY_MODE`, checkpoint packet schema with
+  terminal/action trace payloads, queue inbox artifacts, phone-status snapshots
+  at `dev/reports/autonomy/queue/phone/latest.{json,md}`)
+- `dev/scripts/devctl/autonomy_loop_helpers.py` (phone-status payload builder +
+  markdown renderer with run URL/SHA context and next-action summaries)
+- `dev/scripts/devctl/tests/test_autonomy_loop.py` (parser + controller command
+  behavior coverage including phone-status artifact assertions)
+- `.github/workflows/autonomy_controller.yml` (dispatch/schedule entrypoints,
+  controller artifact upload, optional PR promote path gated on remote branch
+  existence)
+- `dev/config/control_plane_policy.json` (autonomy-loop branch/cap/packet/queue
+  policy defaults)
+- `dev/active/autonomous_control_plane.md`, `dev/active/MASTER_PLAN.md`,
+  `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md` (governance and
+  operator flow updates)
+
+Inference: The repo now has a concrete controller orchestration lane that can
+run bounded autonomous cycles with auditable packetized handoffs, while keeping
+promotion/release actions behind explicit guards and follow-up hardening gates.
+
 ### Recent Governance Update (2026-02-23, CI Failure Artifact Automation)
 
 Fact: CI now has a dedicated workflow-run failure lane that captures a triage
@@ -907,7 +964,7 @@ remains focused on non-theme runtime controls.
 Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-165` marked complete with landed note)
-- `src/src/bin/voiceterm/settings/items.rs` (`SETTINGS_ITEMS` no longer
+- `rust/src/bin/voiceterm/settings/items.rs` (`SETTINGS_ITEMS` no longer
   includes `Theme`, `HudStyle`, `HudBorders`, `HudPanel`, `HudAnimate`)
 - `guides/USAGE.md` and `guides/TROUBLESHOOTING.md` (updated operator guidance
   for `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` and HUD panel launch flags)
@@ -926,13 +983,13 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-166` in-progress note now includes
   `Voice scene` control coverage)
-- `src/src/bin/voiceterm/theme_studio.rs` (new `Voice scene` row + live value
+- `rust/src/bin/voiceterm/theme_studio.rs` (new `Voice scene` row + live value
   label)
-- `src/src/bin/voiceterm/theme/style_pack.rs` and
-  `src/src/bin/voiceterm/theme/colors.rs` (runtime `voice_scene_style`
+- `rust/src/bin/voiceterm/theme/style_pack.rs` and
+  `rust/src/bin/voiceterm/theme/colors.rs` (runtime `voice_scene_style`
   overrides wired through resolver)
-- `src/src/bin/voiceterm/status_line/format.rs` and
-  `src/src/bin/voiceterm/status_line/buttons.rs` (scene-style-aware
+- `rust/src/bin/voiceterm/status_line/format.rs` and
+  `rust/src/bin/voiceterm/status_line/buttons.rs` (scene-style-aware
   animation/density behavior in full/minimal right panel rendering)
 - `guides/USAGE.md` and `dev/CHANGELOG.md` (user-facing control and behavior
   updates)
@@ -951,16 +1008,16 @@ Evidence:
 - `dev/active/MASTER_PLAN.md` (`MP-174` in-progress note now includes
   resolver-based routing for `components.overlay_border` and
   `components.hud_border`)
-- `src/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
+- `rust/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
   overlay/HUD component border sets)
-- `src/src/bin/voiceterm/help.rs`,
-  `src/src/bin/voiceterm/settings/render.rs`,
-  `src/src/bin/voiceterm/theme_picker.rs`,
-  `src/src/bin/voiceterm/theme_studio.rs`,
-  `src/src/bin/voiceterm/toast.rs`,
-  `src/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
+- `rust/src/bin/voiceterm/help.rs`,
+  `rust/src/bin/voiceterm/settings/render.rs`,
+  `rust/src/bin/voiceterm/theme_picker.rs`,
+  `rust/src/bin/voiceterm/theme_studio.rs`,
+  `rust/src/bin/voiceterm/toast.rs`,
+  `rust/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
   overlay border set)
-- `src/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
+- `rust/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
   HUD border set when HUD border mode is `theme`)
 
 Inference: Component-border style-pack fields moved from parse-only schema
@@ -1078,9 +1135,9 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-265` note updated with concrete extraction
   evidence and line-count reduction)
-- `src/src/bin/voiceterm/status_line/buttons.rs` (reduced module footprint and
+- `rust/src/bin/voiceterm/status_line/buttons.rs` (reduced module footprint and
   imports rewired to helper module)
-- `src/src/bin/voiceterm/status_line/buttons/badges.rs` (new queue/wake/ready/
+- `rust/src/bin/voiceterm/status_line/buttons/badges.rs` (new queue/wake/ready/
   latency badge helper module)
 - `dev/CHANGELOG.md` (unreleased code-quality note documenting the extraction)
 
@@ -1172,13 +1229,13 @@ conditions.
 Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-280`, `MP-281` completed)
-- `src/src/bin/voiceterm/wake_word.rs` and
-  `src/src/bin/voiceterm/wake_word/tests.rs` (alias normalization expansion,
+- `rust/src/bin/voiceterm/wake_word.rs` and
+  `rust/src/bin/voiceterm/wake_word/tests.rs` (alias normalization expansion,
   wake-event classification, no-audio retry backoff)
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` (wake-trigger handling
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs` (wake-trigger handling
   decoupled from auto-voice pause latch, insert-mode `Ctrl+E` finalize-only
   semantics, wake-tail send intent routing)
-- `src/src/bin/voiceterm/voice_control/navigation.rs` (built-in voice submit
+- `rust/src/bin/voiceterm/voice_control/navigation.rs` (built-in voice submit
   intents: `send`, `send message`, `submit`)
 - User docs updated for control behavior: `README.md`, `QUICK_START.md`,
   `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`,
@@ -1282,7 +1339,7 @@ repeatable control-plane output that keeps multi-agent follow-up aligned.
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
 2. `git log --merges --date=short --pretty=format:'%ad %h %s'`
 3. `git show <hash>`
-4. `git log -- <path>` (example: `git log -- src/src/bin/voiceterm/voice_control/drain/message_processing.rs`)
+4. `git log -- <path>` (example: `git log -- rust/src/bin/voiceterm/voice_control/drain/message_processing.rs`)
 5. `git tag --sort=creatordate`
 
 ### Visual Guide
@@ -1296,13 +1353,13 @@ repeatable control-plane output that keeps multi-agent follow-up aligned.
 
 ```mermaid
 flowchart LR
-  MIC[Mic Input] --> STT[src/src/stt.rs]
-  STT --> VOICE[src/src/bin/voiceterm/voice_control]
-  VOICE --> HUD[src/src/bin/voiceterm/event_loop and writer]
-  HUD <--> PTY[src/src/pty_session/pty.rs]
+  MIC[Mic Input] --> STT[rust/src/stt.rs]
+  STT --> VOICE[rust/src/bin/voiceterm/voice_control]
+  VOICE --> HUD[rust/src/bin/voiceterm/event_loop and writer]
+  HUD <--> PTY[rust/src/pty_session/pty.rs]
   PTY <--> CLI[Codex or Claude CLI via PTY]
-  HUD <--> IPC[src/src/ipc]
-  IPCS[src/src/ipc/session.rs] --> PTY
+  HUD <--> IPC[rust/src/ipc]
+  IPCS[rust/src/ipc/session.rs] --> PTY
   DOCS[SDLC docs and ADRs] --> HUD
   DOCS --> VOICE
 ```
@@ -1398,9 +1455,9 @@ Prove the voice-to-CLI loop quickly while resolving low-level PTY and event-loop
 
 ### Where to Inspect in Repo
 
-- `src/src/pty_session/pty.rs` (PTY behavior and lifecycle mechanics)
-- `src/src/stt.rs` (STT model/runtime behavior)
-- `src/src/bin/voiceterm/main.rs` (runtime wiring and control loop entrypoint)
+- `rust/src/pty_session/pty.rs` (PTY behavior and lifecycle mechanics)
+- `rust/src/stt.rs` (STT model/runtime behavior)
+- `rust/src/bin/voiceterm/main.rs` (runtime wiring and control loop entrypoint)
 
 ### Key Decisions + Evidence
 
@@ -1449,7 +1506,7 @@ Move from internal utility behavior to predictable install and launch behavior f
 
 - `README.md` and `QUICK_START.md` (user install/startup framing)
 - `guides/INSTALL.md` and `guides/USAGE.md` (distribution and usage behavior)
-- `src/src/bin/voiceterm/main.rs` (startup/status behavior)
+- `rust/src/bin/voiceterm/main.rs` (startup/status behavior)
 
 ### Key Decisions + Evidence
 
@@ -1543,7 +1600,7 @@ Terminal edge cases, heavy PTY output, and high release frequency exposed reliab
 
 - `.github/workflows/latency_guard.yml` and `.github/workflows/voice_mode_guard.yml`
 - `dev/scripts/tests/measure_latency.sh` and `dev/scripts/devctl.py`
-- `src/src/pty_session/pty.rs` and `src/src/bin/voiceterm/voice_control/drain/`
+- `rust/src/pty_session/pty.rs` and `rust/src/bin/voiceterm/voice_control/drain/`
 
 ### Key Decisions + Evidence
 
@@ -1603,11 +1660,11 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `.github/workflows/mutation-testing.yml`
 - `dev/scripts/render_mutation_badge.py`
 - `.github/badges/mutation-score.json`
-- `src/src/pty_session/pty.rs` and `src/src/pty_session/tests.rs`
-- `src/src/pty_session/session_guard.rs`
-- `src/src/bin/voiceterm/event_loop.rs` and `src/src/bin/voiceterm/event_loop/`
-- `src/src/bin/voiceterm/voice_control/drain.rs` and `src/src/bin/voiceterm/voice_control/drain/`
-- `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, and `src/src/ipc/session/event_processing/`
+- `rust/src/pty_session/pty.rs` and `rust/src/pty_session/tests.rs`
+- `rust/src/pty_session/session_guard.rs`
+- `rust/src/bin/voiceterm/event_loop.rs` and `rust/src/bin/voiceterm/event_loop/`
+- `rust/src/bin/voiceterm/voice_control/drain.rs` and `rust/src/bin/voiceterm/voice_control/drain/`
+- `rust/src/ipc/session.rs`, `rust/src/ipc/session/loop_runtime.rs`, and `rust/src/ipc/session/event_processing/`
 
 ### Key Decisions + Evidence
 
@@ -1620,12 +1677,12 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
-- Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.
-- IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, `src/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
+- Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `rust/src/bin/voiceterm/event_loop/`, `rust/src/bin/voiceterm/voice_control/drain/`.
+- IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `rust/src/ipc/session.rs`, `rust/src/ipc/session/loop_runtime.rs`, `rust/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
 - Process churn / CPU leak validation was formalized in release-test guidance so long-run backend process cleanup regressions are caught before tagging. Evidence: `dev/CHANGELOG.md` (`v1.0.71`), `dev/DEVELOPMENT.md` (`Testing` section).
 - PTY session-lease guard added to reap stale VoiceTerm-owned process groups before new backend spawn. Evidence: `5d77a59`.
-- Secondary detached-orphan sweep fail-safe added for backend CLIs (`PPID=1`) not tied to active leases and no longer sharing a TTY with a live shell process. Evidence: `src/src/pty_session/session_guard.rs`, `dev/CHANGELOG.md`, `dev/ARCHITECTURE.md`.
-- Session-guard hardening added deterministic coverage for elapsed-time parsing and detached-orphan candidate filtering to keep cleanup heuristics testable. Evidence: `src/src/pty_session/session_guard.rs` tests.
+- Secondary detached-orphan sweep fail-safe added for backend CLIs (`PPID=1`) not tied to active leases and no longer sharing a TTY with a live shell process. Evidence: `rust/src/pty_session/session_guard.rs`, `dev/CHANGELOG.md`, `dev/ARCHITECTURE.md`.
+- Session-guard hardening added deterministic coverage for elapsed-time parsing and detached-orphan candidate filtering to keep cleanup heuristics testable. Evidence: `rust/src/pty_session/session_guard.rs` tests.
 - HUD responsiveness/layout wave shipped with right-panel anchoring restoration and high-output non-blocking behavior hardening. Evidence: `10f0b49`, `28424bb`, `5d77a59`.
 - Insert-mode `Ctrl+R`/`Ctrl+E` semantics were aligned and documented through rapid patch releases. Evidence: `e4170b7`, `4cfc2c2`, `7bd4c2b`, `fd0a5c6`.
 - Homebrew launcher path handling was fixed for both `Cellar` and `opt` prefixes to preserve model cache across upgrades. Evidence: `8530132`.
@@ -1734,7 +1791,7 @@ Concrete example:
 
 Fact: HUD latency is a post-capture processing metric, not full speak-to-final-response time.
 
-Fact: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` uses this logic:
+Fact: `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs` uses this logic:
 
 - `display_ms = stt_ms` when STT timing exists.
 - Else `display_ms = elapsed_ms - capture_ms` when only capture timing exists.

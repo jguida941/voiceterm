@@ -52,5 +52,5 @@ Serialize all terminal output through a dedicated writer thread:
 
 ## Links
 
-- `src/src/bin/voiceterm/main.rs:50` - Channel capacity constant
-- `src/src/bin/voiceterm/writer.rs` - Writer thread implementation
+- `rust/src/bin/voiceterm/main.rs:50` - Channel capacity constant
+- `rust/src/bin/voiceterm/writer.rs` - Writer thread implementation

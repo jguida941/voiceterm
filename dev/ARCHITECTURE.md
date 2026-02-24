@@ -52,7 +52,7 @@ system in under ten minutes.
 
 **Primary supported backends:** Codex and Claude Code.
 
-- **Backend selection** is handled by `src/src/backend/`, which provides preset configurations for Codex and Claude.
+- **Backend selection** is handled by `rust/src/backend/`, which provides preset configurations for Codex and Claude.
 - Additional presets (Gemini, Aider, OpenCode) exist but are experimental and outside the primary support matrix.
 - Gemini is currently nonfunctional. Aider and OpenCode are untested.
 
@@ -60,7 +60,7 @@ system in under ten minutes.
 
 - Use `backend`/`provider` for generic, multi-backend code.
 - Use `codex`/`claude`/`gemini` only for provider-specific code and assets.
-- The overlay binary lives under `src/src/bin/voiceterm/` -- the directory name matches the shipped binary.
+- The overlay binary lives under `rust/src/bin/voiceterm/` -- the directory name matches the shipped binary.
 - Legacy names that were Codex-specific but generic in purpose were migrated under Track G in `dev/archive/2026-02-06-modularization-plan.md`.
 
 ## Architecture Decision Records (ADRs)
@@ -97,14 +97,14 @@ graph LR
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Rust Overlay | `src/src/bin/voiceterm/main.rs` | PTY passthrough UI with voice overlay |
-| Voice Pipeline | `src/src/voice.rs` | Audio capture orchestration + STT |
-| PTY Session | `src/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
-| IPC Mode | `src/src/ipc/` | JSON IPC integration mode |
-| Auth Helpers | `src/src/auth.rs` | Backend authentication helpers |
-| Diagnostics | `src/src/doctor.rs` | `--doctor` environment report |
-| Terminal Restore | `src/src/terminal_restore.rs` | Panic-safe terminal cleanup |
-| Telemetry | `src/src/telemetry.rs` | Structured trace logging |
+| Rust Overlay | `rust/src/bin/voiceterm/main.rs` | PTY passthrough UI with voice overlay |
+| Voice Pipeline | `rust/src/voice.rs` | Audio capture orchestration + STT |
+| PTY Session | `rust/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
+| IPC Mode | `rust/src/ipc/` | JSON IPC integration mode |
+| Auth Helpers | `rust/src/auth.rs` | Backend authentication helpers |
+| Diagnostics | `rust/src/doctor.rs` | `--doctor` environment report |
+| Terminal Restore | `rust/src/terminal_restore.rs` | Panic-safe terminal cleanup |
+| Telemetry | `rust/src/telemetry.rs` | Structured trace logging |
 | Python fallback | `scripts/python_fallback.py` | Optional fallback STT pipeline |
 
 ## Threads and Channels
@@ -274,6 +274,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
+| Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded autonomy-controller orchestration (`devctl autonomy-loop`) with checkpoint packet/queue artifacts, phone-ready status snapshots, and optional guarded PR promote path |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate -- fails on high/critical CVSS, yanked, or unsound crates |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
@@ -282,7 +283,7 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 
 ### 3) Release Workflow (Master Branch)
 
-1. Finalize release metadata (`src/Cargo.toml`, `dev/CHANGELOG.md`).
+1. Finalize release metadata (`rust/Cargo.toml`, `dev/CHANGELOG.md`).
 2. Verify release scope -- at minimum run CI-profile checks; use `devctl check --profile release` when wake/soak/mutation gates are required.
 3. Create and push release tag/notes via `python3 dev/scripts/devctl.py release --version X.Y.Z`.
 4. Publish GitHub release using generated notes (`gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md`).
@@ -519,147 +520,147 @@ intervals to avoid corrupting the backend's screen.
 
 ### Event loop and main binary
 
-- `src/src/bin/voiceterm/main.rs` -- main loop, input handling, prompt detection (binary: `voiceterm`)
-- `src/src/bin/voiceterm/event_loop.rs` -- event loop orchestration + select-loop coordination
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` -- keyboard/mouse dispatch + settings/hotkey actions
-- `src/src/bin/voiceterm/event_loop/output_dispatch.rs` -- PTY output handling + redraw-safe output routing
-- `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs` -- overlay open/close transitions + overlay mode state updates
-- `src/src/bin/voiceterm/event_loop/periodic_tasks.rs` -- timer-driven tasks (spinner, status expiry, meter cadence)
-- `src/src/bin/voiceterm/event_loop/tests.rs` -- event-loop regression coverage for overlay/input/output behavior
-- `src/src/bin/voiceterm/event_state.rs` -- event loop state, deps, and timers shared by the main loop
+- `rust/src/bin/voiceterm/main.rs` -- main loop, input handling, prompt detection (binary: `voiceterm`)
+- `rust/src/bin/voiceterm/event_loop.rs` -- event loop orchestration + select-loop coordination
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs` -- keyboard/mouse dispatch + settings/hotkey actions
+- `rust/src/bin/voiceterm/event_loop/output_dispatch.rs` -- PTY output handling + redraw-safe output routing
+- `rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs` -- overlay open/close transitions + overlay mode state updates
+- `rust/src/bin/voiceterm/event_loop/periodic_tasks.rs` -- timer-driven tasks (spinner, status expiry, meter cadence)
+- `rust/src/bin/voiceterm/event_loop/tests.rs` -- event-loop regression coverage for overlay/input/output behavior
+- `rust/src/bin/voiceterm/event_state.rs` -- event loop state, deps, and timers shared by the main loop
 
 ### Wake word and startup
 
-- `src/src/bin/voiceterm/wake_word.rs` -- wake listener runtime ownership, local detector lifecycle, and wake event channel wiring
-- `src/src/bin/voiceterm/banner.rs` -- startup splash + banner configuration
-- `src/src/bin/voiceterm/terminal.rs` -- terminal sizing, modes, and signal handling
-- `src/src/bin/voiceterm/arrow_keys.rs` -- arrow key normalization helpers
-- `src/src/bin/voiceterm/progress.rs` -- progress/ETA helpers for long-running tasks
+- `rust/src/bin/voiceterm/wake_word.rs` -- wake listener runtime ownership, local detector lifecycle, and wake event channel wiring
+- `rust/src/bin/voiceterm/banner.rs` -- startup splash + banner configuration
+- `rust/src/bin/voiceterm/terminal.rs` -- terminal sizing, modes, and signal handling
+- `rust/src/bin/voiceterm/arrow_keys.rs` -- arrow key normalization helpers
+- `rust/src/bin/voiceterm/progress.rs` -- progress/ETA helpers for long-running tasks
 
 ### Writer and output
 
-- `src/src/bin/voiceterm/writer/` -- serialized output, status line, help overlay
-- `src/src/bin/voiceterm/writer/state.rs` -- writer state + message handling
-- `src/src/bin/voiceterm/writer/render.rs` -- status/overlay rendering + clear helpers
-- `src/src/bin/voiceterm/writer/mouse.rs` -- mouse enable/disable output
-- `src/src/bin/voiceterm/writer/sanitize.rs` -- status text sanitization + truncation
+- `rust/src/bin/voiceterm/writer/` -- serialized output, status line, help overlay
+- `rust/src/bin/voiceterm/writer/state.rs` -- writer state + message handling
+- `rust/src/bin/voiceterm/writer/render.rs` -- status/overlay rendering + clear helpers
+- `rust/src/bin/voiceterm/writer/mouse.rs` -- mouse enable/disable output
+- `rust/src/bin/voiceterm/writer/sanitize.rs` -- status text sanitization + truncation
 
 ### Status line
 
-- `src/src/bin/voiceterm/status_line/` -- status line layout + formatting modules
-- `src/src/bin/voiceterm/status_line/format.rs` -- status banner/line formatting
-- `src/src/bin/voiceterm/status_line/buttons.rs` -- button layout + click positions
-- `src/src/bin/voiceterm/status_line/layout.rs` -- breakpoints + banner height
-- `src/src/bin/voiceterm/status_line/animation.rs` -- status animation helpers
-- `src/src/bin/voiceterm/status_line/state.rs` -- status line state enums + structs
-- `src/src/bin/voiceterm/status_line/text.rs` -- display width + truncation helpers
-- `src/src/bin/voiceterm/status_style.rs` -- status message categorization + styling
+- `rust/src/bin/voiceterm/status_line/` -- status line layout + formatting modules
+- `rust/src/bin/voiceterm/status_line/format.rs` -- status banner/line formatting
+- `rust/src/bin/voiceterm/status_line/buttons.rs` -- button layout + click positions
+- `rust/src/bin/voiceterm/status_line/layout.rs` -- breakpoints + banner height
+- `rust/src/bin/voiceterm/status_line/animation.rs` -- status animation helpers
+- `rust/src/bin/voiceterm/status_line/state.rs` -- status line state enums + structs
+- `rust/src/bin/voiceterm/status_line/text.rs` -- display width + truncation helpers
+- `rust/src/bin/voiceterm/status_style.rs` -- status message categorization + styling
 
 ### HUD and visuals
 
-- `src/src/bin/voiceterm/hud/` -- HUD modules (ribbon/dots/heartbeat/meter/latency)
-- `src/src/bin/voiceterm/icons.rs` -- status line icons/glyphs
-- `src/src/bin/voiceterm/color_mode.rs` -- color mode detection + overrides
+- `rust/src/bin/voiceterm/hud/` -- HUD modules (ribbon/dots/heartbeat/meter/latency)
+- `rust/src/bin/voiceterm/icons.rs` -- status line icons/glyphs
+- `rust/src/bin/voiceterm/color_mode.rs` -- color mode detection + overrides
 
 ### Theme system
 
-- `src/src/bin/voiceterm/theme/` -- color palettes and theme selection
-- `src/src/bin/voiceterm/theme/style_pack.rs` -- runtime style-pack resolution + fallback policy
-- `src/src/bin/voiceterm/theme/style_schema.rs` -- versioned style-pack schema parse/migration helpers
-- `src/src/bin/voiceterm/theme/capability_matrix.rs` -- framework capability matrix + parity helpers
-- `src/src/bin/voiceterm/theme/texture_profile.rs` -- terminal texture tier detection + fallback policy
-- `src/src/bin/voiceterm/theme/dependency_baseline.rs` -- ecosystem dependency pin/compat baseline
-- `src/src/bin/voiceterm/theme/widget_pack.rs` -- curated widget-pack registry + maturity gates
-- `src/src/bin/voiceterm/theme/rule_profile.rs` -- conditional style-rule profile engine + deterministic merge
-- `src/src/bin/voiceterm/theme_ops.rs` -- theme picker selection + theme cycling helpers
-- `src/src/bin/voiceterm/theme_picker.rs` -- interactive theme picker overlay
+- `rust/src/bin/voiceterm/theme/` -- color palettes and theme selection
+- `rust/src/bin/voiceterm/theme/style_pack.rs` -- runtime style-pack resolution + fallback policy
+- `rust/src/bin/voiceterm/theme/style_schema.rs` -- versioned style-pack schema parse/migration helpers
+- `rust/src/bin/voiceterm/theme/capability_matrix.rs` -- framework capability matrix + parity helpers
+- `rust/src/bin/voiceterm/theme/texture_profile.rs` -- terminal texture tier detection + fallback policy
+- `rust/src/bin/voiceterm/theme/dependency_baseline.rs` -- ecosystem dependency pin/compat baseline
+- `rust/src/bin/voiceterm/theme/widget_pack.rs` -- curated widget-pack registry + maturity gates
+- `rust/src/bin/voiceterm/theme/rule_profile.rs` -- conditional style-rule profile engine + deterministic merge
+- `rust/src/bin/voiceterm/theme_ops.rs` -- theme picker selection + theme cycling helpers
+- `rust/src/bin/voiceterm/theme_picker.rs` -- interactive theme picker overlay
 
 ### Overlays and panels
 
-- `src/src/bin/voiceterm/help.rs` -- shortcut help overlay rendering
-- `src/src/bin/voiceterm/overlays.rs` -- overlay rendering helpers
-- `src/src/bin/voiceterm/transcript_history.rs` -- transcript history model + searchable overlay renderer
-- `src/src/bin/voiceterm/session_memory.rs` -- opt-in markdown conversation memory logger
-- `src/src/bin/voiceterm/persistent_config.rs` -- persistent runtime settings load/apply/save flow
-- `src/src/bin/voiceterm/toast.rs` -- toast center model + history overlay formatter
+- `rust/src/bin/voiceterm/help.rs` -- shortcut help overlay rendering
+- `rust/src/bin/voiceterm/overlays.rs` -- overlay rendering helpers
+- `rust/src/bin/voiceterm/transcript_history.rs` -- transcript history model + searchable overlay renderer
+- `rust/src/bin/voiceterm/session_memory.rs` -- opt-in markdown conversation memory logger
+- `rust/src/bin/voiceterm/persistent_config.rs` -- persistent runtime settings load/apply/save flow
+- `rust/src/bin/voiceterm/toast.rs` -- toast center model + history overlay formatter
 
 ### Prompt detection
 
-- `src/src/bin/voiceterm/prompt/` -- prompt detection + logging modules
-- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs` -- Codex/Claude interactive prompt detection + HUD suppression policy
-- `src/src/bin/voiceterm/prompt/tracker.rs` -- prompt tracking + idle detection
-- `src/src/bin/voiceterm/prompt/regex.rs` -- prompt regex resolution
-- `src/src/bin/voiceterm/prompt/logger.rs` -- prompt log writer + rotation
-- `src/src/bin/voiceterm/prompt/strip.rs` -- ANSI stripping for prompt matching
+- `rust/src/bin/voiceterm/prompt/` -- prompt detection + logging modules
+- `rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs` -- Codex/Claude interactive prompt detection + HUD suppression policy
+- `rust/src/bin/voiceterm/prompt/tracker.rs` -- prompt tracking + idle detection
+- `rust/src/bin/voiceterm/prompt/regex.rs` -- prompt regex resolution
+- `rust/src/bin/voiceterm/prompt/logger.rs` -- prompt log writer + rotation
+- `rust/src/bin/voiceterm/prompt/strip.rs` -- ANSI stripping for prompt matching
 
 ### Voice capture
 
-- `src/src/bin/voiceterm/voice_control/` -- voice capture manager + drain logic
-- `src/src/bin/voiceterm/voice_control/manager.rs` -- voice capture lifecycle + start helpers
-- `src/src/bin/voiceterm/voice_control/drain.rs` -- voice-drain orchestration + message fanout
-- `src/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs` -- transcript transform/queue/send flow
-- `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` -- status updates, latency display, and preview lifecycle
-- `src/src/bin/voiceterm/voice_control/drain/auto_rearm.rs` -- auto-voice rearm/finalize behavior after drain outcomes
-- `src/src/bin/voiceterm/voice_control/drain/tests.rs` -- drain-path regression coverage
-- `src/src/bin/voiceterm/voice_control/pipeline.rs` -- pipeline selection helpers
-- `src/src/bin/voiceterm/voice_macros.rs` -- project macro loader + transcript trigger expansion
+- `rust/src/bin/voiceterm/voice_control/` -- voice capture manager + drain logic
+- `rust/src/bin/voiceterm/voice_control/manager.rs` -- voice capture lifecycle + start helpers
+- `rust/src/bin/voiceterm/voice_control/drain.rs` -- voice-drain orchestration + message fanout
+- `rust/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs` -- transcript transform/queue/send flow
+- `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs` -- status updates, latency display, and preview lifecycle
+- `rust/src/bin/voiceterm/voice_control/drain/auto_rearm.rs` -- auto-voice rearm/finalize behavior after drain outcomes
+- `rust/src/bin/voiceterm/voice_control/drain/tests.rs` -- drain-path regression coverage
+- `rust/src/bin/voiceterm/voice_control/pipeline.rs` -- pipeline selection helpers
+- `rust/src/bin/voiceterm/voice_macros.rs` -- project macro loader + transcript trigger expansion
 
 ### Transcript and session
 
-- `src/src/bin/voiceterm/transcript/` -- transcript queue + delivery helpers
-- `src/src/bin/voiceterm/session_stats.rs` -- session counters + summary output
-- `src/src/bin/voiceterm/cli_utils.rs` -- CLI helper utilities
+- `rust/src/bin/voiceterm/transcript/` -- transcript queue + delivery helpers
+- `rust/src/bin/voiceterm/session_stats.rs` -- session counters + summary output
+- `rust/src/bin/voiceterm/cli_utils.rs` -- CLI helper utilities
 
 ### Input handling
 
-- `src/src/bin/voiceterm/input/` -- input parsing + event mapping
-- `src/src/bin/voiceterm/input/event.rs` -- input event enum
-- `src/src/bin/voiceterm/input/parser.rs` -- input parser + CSI handling
-- `src/src/bin/voiceterm/input/mouse.rs` -- SGR mouse parsing
-- `src/src/bin/voiceterm/input/spawn.rs` -- input thread loop
+- `rust/src/bin/voiceterm/input/` -- input parsing + event mapping
+- `rust/src/bin/voiceterm/input/event.rs` -- input event enum
+- `rust/src/bin/voiceterm/input/parser.rs` -- input parser + CSI handling
+- `rust/src/bin/voiceterm/input/mouse.rs` -- SGR mouse parsing
+- `rust/src/bin/voiceterm/input/spawn.rs` -- input thread loop
 
 ### Configuration
 
-- `src/src/bin/voiceterm/config/` -- overlay CLI config + backend resolution
-- `src/src/bin/voiceterm/config/cli.rs` -- overlay CLI flags + enums
-- `src/src/bin/voiceterm/config/backend.rs` -- backend resolution + prompt patterns
-- `src/src/bin/voiceterm/config/theme.rs` -- theme/color-mode resolution
-- `src/src/bin/voiceterm/config/util.rs` -- backend command helpers
+- `rust/src/bin/voiceterm/config/` -- overlay CLI config + backend resolution
+- `rust/src/bin/voiceterm/config/cli.rs` -- overlay CLI flags + enums
+- `rust/src/bin/voiceterm/config/backend.rs` -- backend resolution + prompt patterns
+- `rust/src/bin/voiceterm/config/theme.rs` -- theme/color-mode resolution
+- `rust/src/bin/voiceterm/config/util.rs` -- backend command helpers
 
 ### Settings and buttons
 
-- `src/src/bin/voiceterm/settings_handlers.rs` -- settings actions + toggles
-- `src/src/bin/voiceterm/settings/` -- settings overlay layout + menu state
-- `src/src/bin/voiceterm/buttons.rs` -- HUD button layout + registry
-- `src/src/bin/voiceterm/button_handlers.rs` -- HUD button registry + action handling
-- `src/src/bin/voiceterm/audio_meter/` -- mic meter visuals (`--mic-meter`)
+- `rust/src/bin/voiceterm/settings_handlers.rs` -- settings actions + toggles
+- `rust/src/bin/voiceterm/settings/` -- settings overlay layout + menu state
+- `rust/src/bin/voiceterm/buttons.rs` -- HUD button layout + registry
+- `rust/src/bin/voiceterm/button_handlers.rs` -- HUD button registry + action handling
+- `rust/src/bin/voiceterm/audio_meter/` -- mic meter visuals (`--mic-meter`)
 
 ### Shared library modules
 
-- `src/src/backend/` -- provider registry + backend presets (Codex/Claude/Gemini/etc.)
-- `src/src/codex/` -- Codex CLI runtime (CodexJobRunner + CodexCliBackend)
-- `src/src/legacy_tui/` -- Codex-specific TUI state + logging (legacy path)
-- `src/src/legacy_ui.rs` -- Codex-specific TUI renderer (legacy path)
-- `src/src/pty_session/` -- raw PTY passthrough + query replies
-- `src/src/voice.rs` -- voice capture job orchestration
-- `src/src/audio/` -- CPAL recorder + VAD
-- `src/src/stt.rs` -- Whisper transcription
-- `src/src/config/` -- CLI flags + validation
-- `src/src/ipc/` -- JSON IPC mode + protocol/router entrypoints
-- `src/src/ipc/session.rs` -- IPC loop orchestration + command dispatch
-- `src/src/ipc/session/loop_runtime.rs` -- command dispatch + active-job draining helpers for the IPC loop
-- `src/src/ipc/session/event_processing/` -- non-blocking Codex/Claude/voice/auth event processors
-- `src/src/auth.rs` -- backend auth helpers
-- `src/src/doctor.rs` -- diagnostics report
-- `src/src/telemetry.rs` -- tracing/JSON logs
-- `src/src/terminal_restore.rs` -- terminal restore guard
+- `rust/src/backend/` -- provider registry + backend presets (Codex/Claude/Gemini/etc.)
+- `rust/src/codex/` -- Codex CLI runtime (CodexJobRunner + CodexCliBackend)
+- `rust/src/legacy_tui/` -- Codex-specific TUI state + logging (legacy path)
+- `rust/src/legacy_ui.rs` -- Codex-specific TUI renderer (legacy path)
+- `rust/src/pty_session/` -- raw PTY passthrough + query replies
+- `rust/src/voice.rs` -- voice capture job orchestration
+- `rust/src/audio/` -- CPAL recorder + VAD
+- `rust/src/stt.rs` -- Whisper transcription
+- `rust/src/config/` -- CLI flags + validation
+- `rust/src/ipc/` -- JSON IPC mode + protocol/router entrypoints
+- `rust/src/ipc/session.rs` -- IPC loop orchestration + command dispatch
+- `rust/src/ipc/session/loop_runtime.rs` -- command dispatch + active-job draining helpers for the IPC loop
+- `rust/src/ipc/session/event_processing/` -- non-blocking Codex/Claude/voice/auth event processors
+- `rust/src/auth.rs` -- backend auth helpers
+- `rust/src/doctor.rs` -- diagnostics report
+- `rust/src/telemetry.rs` -- tracing/JSON logs
+- `rust/src/terminal_restore.rs` -- terminal restore guard
 
 ## Other Binaries
 
-- `src/src/bin/voice_benchmark.rs` -- voice pipeline benchmark harness
-- `src/src/bin/latency_measurement.rs` -- latency measurement tool
-- `src/src/bin/test_crash.rs` -- crash logger test binary
-- `src/src/bin/test_utf8_bug.rs` -- UTF-8 regression test binary
+- `rust/src/bin/voice_benchmark.rs` -- voice pipeline benchmark harness
+- `rust/src/bin/latency_measurement.rs` -- latency measurement tool
+- `rust/src/bin/test_crash.rs` -- crash logger test binary
+- `rust/src/bin/test_utf8_bug.rs` -- UTF-8 regression test binary
 
 ## Cargo Features
 

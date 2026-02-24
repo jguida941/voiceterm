@@ -57,6 +57,6 @@ Mode affects auto-voice re-arming:
 
 ## Links
 
-- `src/src/bin/voiceterm/config/cli.rs` - `VoiceSendMode` enum
-- `src/src/bin/voiceterm/main.rs:220-236` - Toggle handling
-- `src/src/bin/voiceterm/transcript/delivery.rs` - Mode-specific send paths
+- `rust/src/bin/voiceterm/config/cli.rs` - `VoiceSendMode` enum
+- `rust/src/bin/voiceterm/main.rs:220-236` - Toggle handling
+- `rust/src/bin/voiceterm/transcript/delivery.rs` - Mode-specific send paths

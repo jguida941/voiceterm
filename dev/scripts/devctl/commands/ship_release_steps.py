@@ -50,14 +50,14 @@ def run_tag_step(args, context: Dict) -> Dict:
             "tag", False, 2, details={"reason": "working tree is not clean"}
         )
 
-    cargo_version = read_version(REPO_ROOT / "src/Cargo.toml")
+    cargo_version = read_version(REPO_ROOT / "rust/Cargo.toml")
     if cargo_version != version:
         return make_step(
             "tag",
             False,
             2,
             details={
-                "reason": "src/Cargo.toml version mismatch",
+                "reason": "rust/Cargo.toml version mismatch",
                 "cargo_version": cargo_version,
                 "expected": version,
             },

@@ -711,7 +711,7 @@ hash -r
 Verify Homebrew binary directly:
 
 ```bash
-$(brew --prefix)/opt/voiceterm/libexec/src/target/release/voiceterm --version
+$(brew --prefix)/opt/voiceterm/libexec/rust/target/release/voiceterm --version
 ```
 
 <details>

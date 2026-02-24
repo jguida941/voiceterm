@@ -2,6 +2,60 @@
 
 use super::*;
 
+fn dev_packet_auto_send_runtime_enabled() -> bool {
+    let raw = std::env::var("VOICETERM_DEV_PACKET_AUTOSEND").unwrap_or_default();
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+pub(super) fn apply_terminal_packet_completion(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    completion: &crate::dev_command::DevCommandCompletion,
+) -> Option<String> {
+    let packet = completion.terminal_packet.as_ref()?;
+    if packet.draft_text.trim().is_empty() {
+        return Some(format!(
+            "Dev {} {} (empty packet draft)",
+            completion.command.label(),
+            completion.status.label()
+        ));
+    }
+    if !write_or_queue_pty_input(state, deps, packet.draft_text.clone().into_bytes()) {
+        return Some("Packet injection failed (PTY write error)".to_string());
+    }
+
+    let auto_send_requested = packet.auto_send;
+    let auto_send_enabled = auto_send_requested && dev_packet_auto_send_runtime_enabled();
+    if auto_send_enabled {
+        if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
+            return Some("Packet auto-send failed (PTY write error)".to_string());
+        }
+        timers.last_enter_at = Some(Instant::now());
+        state.status_state.insert_pending_send = false;
+        state.status_state.recording_state = RecordingState::Responding;
+        return Some(format!(
+            "Packet {} auto-sent ({})",
+            packet.packet_id, packet.source_command
+        ));
+    }
+
+    state.status_state.insert_pending_send = true;
+    if auto_send_requested {
+        return Some(format!(
+            "Packet {} staged from {} (auto-send requested but runtime guard is OFF)",
+            packet.packet_id, packet.source_command
+        ));
+    }
+    Some(format!(
+        "Packet {} staged from {} (press Enter to send)",
+        packet.packet_id, packet.source_command
+    ))
+}
+
 pub(super) fn move_dev_panel_selection(state: &mut EventLoopState, delta: i32) -> bool {
     let previous = state.dev_panel_commands.selected_command();
     state.dev_panel_commands.move_selection(delta);
@@ -162,11 +216,14 @@ pub(super) fn poll_dev_command_updates(
 
     for update in updates {
         if let crate::dev_command::DevCommandUpdate::Completed(completion) = &update {
-            let message = format!(
-                "Dev {} {}",
-                completion.command.label(),
-                completion.status.label()
-            );
+            let message = apply_terminal_packet_completion(state, timers, deps, completion)
+                .unwrap_or_else(|| {
+                    format!(
+                        "Dev {} {}",
+                        completion.command.label(),
+                        completion.status.label()
+                    )
+                });
             set_status(
                 &deps.writer_tx,
                 &mut timers.status_clear_deadline,

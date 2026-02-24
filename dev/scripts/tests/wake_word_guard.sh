@@ -5,7 +5,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 SOAK_ROUNDS="${WAKE_WORD_SOAK_ROUNDS:-4}"
 
-cd "${REPO_ROOT}/src"
+RUST_DIR="${REPO_ROOT}/rust"
+if [[ ! -d "${RUST_DIR}" ]]; then
+  RUST_DIR="${REPO_ROOT}/src"
+fi
+
+cd "${RUST_DIR}"
 
 echo "Running wake-word regression guard tests..."
 cargo test --bin voiceterm wake_word::tests::contains_hotword_phrase_detects_supported_aliases -- --nocapture

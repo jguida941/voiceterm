@@ -35,7 +35,7 @@ You need Rust stable (latest). Install from <https://rustup.rs>.
 Install prerequisites listed in `guides/INSTALL.md`, then build:
 
 ```bash
-cd src && cargo build --release --bin voiceterm
+cd rust && cargo build --release --bin voiceterm
 ```
 
 ## Code style
@@ -54,26 +54,26 @@ cd src && cargo build --release --bin voiceterm
 Start with the basic test suite:
 
 ```bash
-cd src && cargo test
+cd rust && cargo test
 ```
 
 For overlay-only changes:
 
 ```bash
-cd src && cargo test --bin voiceterm
+cd rust && cargo test --bin voiceterm
 ```
 
 Targeted checks mirrored in CI (run when relevant):
 
 ```bash
 # Perf smoke (voice metrics)
-cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
+cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
 
 # Memory guard (thread cleanup)
-cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
+cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
 # Mutation testing (heavy; usually on demand)
-cd src && cargo mutants --timeout 300 -o mutants.out
+cd rust && cargo mutants --timeout 300 -o mutants.out
 python3 ../dev/scripts/checks/check_mutation_score.py --path mutants.out/outcomes.json --threshold 0.80
 ```
 

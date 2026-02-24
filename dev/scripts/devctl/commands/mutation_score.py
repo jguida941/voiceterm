@@ -36,7 +36,7 @@ def run(args) -> int:
     """Run mutation score validation."""
     outcomes_path = resolve_outcomes_path(args.path)
     if outcomes_path is None:
-        print("No mutation outcomes.json found under src/mutants.out")
+        print("No mutation outcomes.json found under rust/mutants.out")
         return 2
     threshold = args.threshold if args.threshold is not None else DEFAULT_MUTATION_THRESHOLD
     cmd = build_mutation_score_cmd(

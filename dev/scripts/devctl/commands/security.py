@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 
 from ..common import build_env, pipe_output, run_cmd, write_output
-from ..config import REPO_ROOT
+from ..config import REPO_ROOT, SRC_DIR
 from ..security_tiers import (
     CORE_SCANNER_IDS,
     EXPENSIVE_SCANNER_IDS,
@@ -104,7 +104,7 @@ def run(args) -> int:
         expensive_steps, expensive_warnings = run_expensive_steps(
             args=args,
             repo_root=REPO_ROOT,
-            src_dir=REPO_ROOT / "src",
+            src_dir=SRC_DIR,
             env=env,
             run_optional_tool_step=run_optional_tool_step,
         )

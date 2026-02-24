@@ -175,7 +175,7 @@ def _build_report() -> dict:
         "release_branch": None,
     }
     latest_git_tag = None
-    cargo_release_tag = read_cargo_release_tag(REPO_ROOT / "src/Cargo.toml")
+    cargo_release_tag = read_cargo_release_tag(REPO_ROOT / "rust/Cargo.toml")
     snapshot_policy_warnings: list[str] = []
 
     if master_plan_text:

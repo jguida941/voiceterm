@@ -35,8 +35,9 @@ fn write_devctl_stub(repo_root: &Path) -> Result<(), Box<dyn std::error::Error>>
 
 #[test]
 fn command_allowlist_is_stable() {
-    assert_eq!(DevCommandKind::ALL.len(), 5);
+    assert_eq!(DevCommandKind::ALL.len(), 6);
     assert_eq!(DevCommandKind::Status.label(), "status");
+    assert_eq!(DevCommandKind::LoopPacket.label(), "loop-packet");
     assert!(!DevCommandKind::Status.is_mutating());
     assert!(DevCommandKind::Sync.is_mutating());
     assert_eq!(
@@ -51,6 +52,10 @@ fn command_allowlist_is_stable() {
         DevCommandKind::Triage.devctl_args(),
         &["triage", "--ci", "--format", "json", "--no-cihub"]
     );
+    assert_eq!(
+        DevCommandKind::LoopPacket.devctl_args(),
+        &["loop-packet", "--format", "json"]
+    );
 }
 
 #[test]
@@ -61,7 +66,7 @@ fn panel_state_tracks_selection_and_confirmations() {
     state.move_selection(1);
     assert_eq!(state.selected_command(), DevCommandKind::Report);
 
-    state.select_index(4);
+    state.select_index(5);
     assert_eq!(state.selected_command(), DevCommandKind::Sync);
 
     state.request_confirmation(DevCommandKind::Sync);
@@ -111,6 +116,24 @@ fn summary_for_triage_payload_prefers_next_action() {
         summarize_json_payload(&payload),
         "next: Run status --ci to inspect failed workflows."
     );
+}
+
+#[test]
+fn parse_terminal_packet_extracts_draft_and_guard_flags() {
+    let payload: Value = serde_json::json!({
+        "summary": "packet ready",
+        "terminal_packet": {
+            "packet_id": "abc123",
+            "source_command": "triage-loop",
+            "draft_text": "review backlog and propose bounded fix",
+            "auto_send": false
+        }
+    });
+    let packet = parse_terminal_packet(&payload).expect("packet should parse");
+    assert_eq!(packet.packet_id, "abc123");
+    assert_eq!(packet.source_command, "triage-loop");
+    assert_eq!(packet.draft_text, "review backlog and propose bounded fix");
+    assert!(!packet.auto_send);
 }
 
 #[test]

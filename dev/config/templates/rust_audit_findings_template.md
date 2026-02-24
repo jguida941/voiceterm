@@ -20,8 +20,8 @@ planning and implementation, not a historical archive.
 - `dev/ARCHITECTURE.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/INDEX.md`
-- `src/Cargo.toml`
-- `src/src/**`
+- `rust/Cargo.toml`
+- `rust/src/**`
 
 ## Standards References
 

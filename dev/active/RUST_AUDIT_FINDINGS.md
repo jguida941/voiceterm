@@ -1,8 +1,8 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-02-23T20:49:08.942189
-**Trigger:** manual
-**Trigger steps:** n/a
+**Generated:** 2026-02-24T02:14:03.445673  
+**Trigger:** check-ai-guard  
+**Trigger steps:** code-shape-guard  
 **Diff range:** working-tree vs HEAD
 
 ---
@@ -20,8 +20,8 @@ planning and implementation, not a historical archive.
 - `dev/ARCHITECTURE.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/INDEX.md`
-- `src/Cargo.toml`
-- `src/src/**`
+- `rust/Cargo.toml`
+- `rust/src/**`
 
 ## Standards References
 
@@ -36,7 +36,7 @@ planning and implementation, not a historical archive.
 
 | Guard | Focus | Severity | Return | Violations | Status |
 |---|---|---|---:|---:|---|
-| `code-shape-guard` | modularity | high | 0 | 0 | clean |
+| `code-shape-guard` | modularity | high | 1 | 1 | needs remediation |
 | `rust-lint-debt-guard` | lint debt | high | 0 | 0 | clean |
 | `rust-best-practices-guard` | best practices | high | 0 | 0 | clean |
 | `rust-audit-patterns-guard` | known audit regressions | critical | 0 | 0 | clean |
@@ -44,11 +44,16 @@ planning and implementation, not a historical archive.
 
 ## Findings
 
-_No findings captured._
+### code-shape-guard
+- Focus: modularity
+- Severity: high
+- Return code: 1
+- Violations:
+- `dev/scripts/devctl/commands/check.py` (crossed_soft_limit)
 
 ## Remediation Actions
 
-- [ ] No guard violations were detected in this run.
+- [ ] Refactor oversized or growth-violating files listed by `code-shape-guard` into narrower modules/helpers.
 
 ## Verification Checklist
 

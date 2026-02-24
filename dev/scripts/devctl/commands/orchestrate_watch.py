@@ -108,7 +108,10 @@ def run(args) -> int:
     stale_agent_count = 0
     if not master_error:
         master_by_agent = check_multi_agent_sync._rows_by_key(master_rows, "Agent")
-        for agent in check_multi_agent_sync.REQUIRED_AGENTS:
+        required_agents = check_multi_agent_sync._sorted_agents(set(master_by_agent))
+        if not required_agents:
+            errors.append("MASTER_PLAN board has no agent rows to watch.")
+        for agent in required_agents:
             row = master_by_agent.get(agent)
             if not row:
                 continue

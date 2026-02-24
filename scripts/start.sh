@@ -62,8 +62,8 @@ fi
 
 # Get version from Cargo.toml
 VERSION="1.0.33"
-if [ -f "$SCRIPT_DIR/src/Cargo.toml" ]; then
-    VERSION=$(grep '^version' "$SCRIPT_DIR/src/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+if [ -f "$SCRIPT_DIR/rust/Cargo.toml" ]; then
+    VERSION=$(grep '^version' "$SCRIPT_DIR/rust/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 fi
 
 BACKEND_LABEL="codex"
@@ -117,20 +117,20 @@ fi
 
 # Resolve binary (prefer local build; avoid wrapper recursion)
 OVERLAY_BIN=""
-if [ -x "$SCRIPT_DIR/src/target/release/voiceterm" ]; then
-    OVERLAY_BIN="$SCRIPT_DIR/src/target/release/voiceterm"
+if [ -x "$SCRIPT_DIR/rust/target/release/voiceterm" ]; then
+    OVERLAY_BIN="$SCRIPT_DIR/rust/target/release/voiceterm"
 fi
 
 # Check if Rust overlay exists
 if [ -z "$OVERLAY_BIN" ]; then
     echo -e "${YELLOW}Building VoiceTerm (first time setup)...${NC}"
-    cd src && cargo build --release --bin voiceterm
+    cd rust && cargo build --release --bin voiceterm
     if [ $? -ne 0 ]; then
         echo -e "${RED}Build failed. Please check the error above.${NC}"
         exit 1
     fi
     cd ..
-    OVERLAY_BIN="$SCRIPT_DIR/src/target/release/voiceterm"
+    OVERLAY_BIN="$SCRIPT_DIR/rust/target/release/voiceterm"
 fi
 
 # Check if whisper model exists

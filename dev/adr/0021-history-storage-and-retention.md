@@ -41,7 +41,7 @@ Use a split model: bounded in-memory history by default, optional disk logging.
 
 ## Links
 
-- `src/src/bin/voiceterm/transcript_history.rs`
-- `src/src/bin/voiceterm/session_memory.rs`
-- `src/src/config/mod.rs`
+- `rust/src/bin/voiceterm/transcript_history.rs`
+- `rust/src/bin/voiceterm/session_memory.rs`
+- `rust/src/config/mod.rs`
 - `dev/active/MASTER_PLAN.md` (`MP-091`, `MP-229`, `MP-235`)

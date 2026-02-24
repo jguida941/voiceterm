@@ -16,6 +16,7 @@ CHECK_SCRIPT_FILES = {
     "coderabbit_gate": "check_coderabbit_gate.py",
     "coderabbit_ralph_gate": "check_coderabbit_ralph_gate.py",
     "multi_agent_sync": "check_multi_agent_sync.py",
+    "markdown_metadata_header": "check_markdown_metadata_header.py",
     "mutation_score": "check_mutation_score.py",
     "release_version_parity": "check_release_version_parity.py",
     "rust_best_practices": "check_rust_best_practices.py",

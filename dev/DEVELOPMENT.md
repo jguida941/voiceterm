@@ -102,6 +102,7 @@ CI runs the same families, so catching issues locally saves round-trips.
 | CodeRabbit review integration and backlog routing | `python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md` | `coderabbit_triage.yml` |
 | CodeRabbit medium/high backlog auto-remediation loop | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --format md` | `coderabbit_ralph_loop.yml` |
 | Mutation score remediation loop (report-only default) | `python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | `mutation_ralph_loop.yml` |
+| Autonomous controller loop (bounded rounds/hours/tasks + queue packets + phone status snapshots) | `python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --checkpoint-every 1 --format json` | `autonomy_controller.yml` |
 | Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
 | External repo federation links/import workflow | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
@@ -116,7 +117,7 @@ CI runs the same families, so catching issues locally saves round-trips.
 | Screenshot links/staleness | `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` | `tooling_control_plane.yml` |
 | Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` |
 | Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `tooling_control_plane.yml` |
-| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
+| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `mem::forget`) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
 ## When to push where
@@ -260,36 +261,36 @@ voiceterm/
 └── bin/                 # Install wrapper (created by install.sh)
 ```
 
-Note: `src/` is the Rust workspace root and the crate lives under `src/src/`. This layout is intentional (workspace + crate separation).
+Note: `rust/` is the Rust workspace root and the crate lives under `rust/src/`.
 `dev/active/MASTER_PLAN.md` is the canonical execution tracker.
 
 ## Building
 
 ```bash
 # Rust overlay
-cd src && cargo build --release --bin voiceterm
+cd rust && cargo build --release --bin voiceterm
 
 # Rust backend (optional dev binary)
-cd src && cargo build --release
+cd rust && cargo build --release
 ```
 
 ## Testing
 
 ```bash
 # Rust tests
-cd src && cargo test
+cd rust && cargo test
 
 # Overlay tests
-cd src && cargo test --bin voiceterm
+cd rust && cargo test --bin voiceterm
 
 # Perf smoke (voice metrics)
-cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
+cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
 
 # Wake-word regression + soak guardrails
 bash dev/scripts/tests/wake_word_guard.sh
 
 # Memory guard (thread cleanup)
-cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
+cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
 # Security advisory policy (matches security_guard.yml)
 python3 dev/scripts/devctl.py security
@@ -297,27 +298,27 @@ python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 # Manual fallback:
 cargo install cargo-audit --locked
-cd src && (cargo audit --json > ../rustsec-audit.json || true)
+cd rust && (cargo audit --json > ../rustsec-audit.json || true)
 python3 ../dev/scripts/checks/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
 
 # Unsafe/FFI governance (for PTY/stt unsafe changes)
 # 1) update invariants checklist doc:
 #    dev/security/unsafe_governance.md
-cd src && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture
-cd src && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture
-cd src && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture
+cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture
+cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture
 
 # Parser/ANSI boundary property-fuzz coverage
-cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
-cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
-cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
 # Mutation tests (single run; CI enforces 80% minimum score)
-cd src && cargo mutants --timeout 300 -o mutants.out --json
+cd rust && cargo mutants --timeout 300 -o mutants.out --json
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation tests (sharded, mirrors CI approach)
-cd src && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
+cd rust && cargo mutants --baseline skip --timeout 180 --shard 1/8 -o mutants.out --json
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Historical CI shard artifacts are useful for hotspot triage only.
@@ -325,7 +326,7 @@ python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/out
 
 # Mutation tests (offline/sandboxed; use a writable cache)
 rsync -a ~/.cargo/ /tmp/cargo-home/
-cd src && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
+cd rust && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
 # Mutation helper script (module filter + offline env)
@@ -338,7 +339,7 @@ python3 ../dev/scripts/mutants.py --results-only --top 10
 python3 ../dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-top-pct 25
 ```
 
-`--results-only` auto-detects the most recent `outcomes.json` under `src/mutants.out/`.
+`--results-only` auto-detects the most recent `outcomes.json` under `rust/mutants.out/`.
 `check_mutation_score.py` now prints the source path + age and supports
 `--max-age-hours` to fail on stale outcomes.
 Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if needed.
@@ -469,6 +470,9 @@ python3 dev/scripts/devctl.py status --ci --format md
 python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --emit-bundle --bundle-dir .cihub/coderabbit --bundle-prefix coderabbit-ralph-loop --mp-proposal --format md --output /tmp/coderabbit-ralph-loop.md --json-output /tmp/coderabbit-ralph-loop.json
 # Bounded mutation loop with report-only default and policy-gated fix mode
 python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
+# Bounded autonomy controller loop with checkpoint packet + queue artifacts
+# (also refreshes phone-ready status snapshots under dev/reports/autonomy/queue/phone/)
+python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --checkpoint-every 1 --loop-max-attempts 1 --packet-out dev/reports/autonomy/packets --queue-out dev/reports/autonomy/queue --format json --output /tmp/autonomy-controller.json
 
 # Include guarded Dev Mode JSONL summaries (event counts + latency)
 python3 dev/scripts/devctl.py status --dev-logs --format md
@@ -587,7 +591,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
 - `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
-- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, and public `unsafe fn` surfaces without `# Safety` docs in changed Rust files.
+- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, and `std::mem::forget`/`mem::forget` usage in changed Rust files.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
@@ -651,6 +655,7 @@ GitHub Actions lanes used by this repo:
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | CodeRabbit Triage Bridge | `.github/workflows/coderabbit_triage.yml` | normalizes CodeRabbit review/check signals into triage artifacts and blocks unresolved medium/high findings |
 | CodeRabbit Ralph Loop | `.github/workflows/coderabbit_ralph_loop.yml` | branch-scoped always-on (configurable) medium/high backlog loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`) and optional auto-fix command |
+| Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded controller orchestration (`autonomy-loop`) with checkpoint packet/queue artifacts and optional PR promote step under protected merge flow |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published (requires both CodeRabbit gate and Ralph gate success for release commit) |
@@ -692,13 +697,13 @@ python3 dev/scripts/devctl.py security
 python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 # Manual fallback:
 cargo install cargo-audit --locked
-cd src && (cargo audit --json > ../rustsec-audit.json || true)
+cd rust && (cargo audit --json > ../rustsec-audit.json || true)
 python3 ../dev/scripts/checks/check_rustsec_policy.py --input ../rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file ../dev/security/rustsec_allowlist.md
 
 # Parser property-fuzz lane (matches parser_fuzz_guard.yml)
-cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
-cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
-cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
 # Markdown style/readability checks for key docs
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
@@ -707,7 +712,7 @@ markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore R
 **Manual equivalents (if you prefer direct cargo commands):**
 
 ```bash
-cd src
+cd rust
 
 # Format code
 cargo fmt
@@ -733,7 +738,7 @@ gating, docs governance, and post-push audit sequencing.
 ### Version bump
 
 1. Keep version parity across all release surfaces:
-   - `src/Cargo.toml`
+   - `rust/Cargo.toml`
    - `pypi/pyproject.toml`
    - `app/macos/VoiceTerm.app/Contents/Info.plist` (`CFBundleShortVersionString`, `CFBundleVersion`)
 2. Update `dev/CHANGELOG.md` with release notes for `X.Y.Z`.
@@ -741,7 +746,7 @@ gating, docs governance, and post-push audit sequencing.
 
    ```bash
    python3 dev/scripts/checks/check_release_version_parity.py
-   rg -n '^version = ' src/Cargo.toml pypi/pyproject.toml
+   rg -n '^version = ' rust/Cargo.toml pypi/pyproject.toml
    plutil -p app/macos/VoiceTerm.app/Contents/Info.plist | rg 'CFBundleShortVersionString|CFBundleVersion'
    ```
 

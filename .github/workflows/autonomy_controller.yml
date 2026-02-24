@@ -1,0 +1,401 @@
+name: Autonomy Controller
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  issues: write
+
+concurrency:
+  group: autonomy-controller-${{ github.event_name == 'workflow_dispatch' && inputs.plan_id || 'scheduled' }}-${{ github.event_name == 'workflow_dispatch' && inputs.branch_base || 'develop' }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_id:
+        description: Stable plan identifier (maps to active-plan markdown + MASTER_PLAN scope)
+        required: true
+        type: string
+      branch_base:
+        description: Integration branch to monitor/promote against
+        required: false
+        default: develop
+        type: string
+      mode:
+        description: Nested triage-loop mode
+        required: false
+        default: report-only
+        type: choice
+        options:
+          - report-only
+          - plan-then-fix
+          - fix-only
+      max_rounds:
+        description: Controller hard cap for rounds
+        required: false
+        default: "6"
+        type: string
+      max_hours:
+        description: Controller hard cap in hours
+        required: false
+        default: "4"
+        type: string
+      max_tasks:
+        description: Controller hard cap for task units
+        required: false
+        default: "24"
+        type: string
+      checkpoint_every:
+        description: Emit queue checkpoint every N rounds
+        required: false
+        default: "1"
+        type: string
+      loop_max_attempts:
+        description: Nested triage-loop max attempts per round
+        required: false
+        default: "1"
+        type: string
+      notify_mode:
+        description: Nested triage-loop notify mode
+        required: false
+        default: summary-only
+        type: choice
+        options:
+          - summary-only
+          - summary-and-comment
+      comment_target:
+        description: Nested triage-loop comment target
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - pr
+          - commit
+      comment_pr_number:
+        description: Optional explicit PR number for notify mode
+        required: false
+        type: string
+      allow_auto_send:
+        description: Allow low-risk packet auto-send eligibility
+        required: false
+        default: false
+        type: boolean
+      promote_pr:
+        description: Attempt PR + auto-merge for latest working branch (if branch exists remotely)
+        required: false
+        default: false
+        type: boolean
+      fix_command:
+        description: Optional nested fix command for plan-then-fix/fix-only
+        required: false
+        type: string
+  schedule:
+    - cron: "0 */6 * * *"
+
+jobs:
+  controller:
+    if: ${{ vars.AUTONOMY_MODE != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      summary_json: ${{ steps.export.outputs.summary_json }}
+      latest_working_branch: ${{ steps.export.outputs.latest_working_branch }}
+      branch_base: ${{ steps.export.outputs.branch_base }}
+      resolved: ${{ steps.export.outputs.resolved }}
+      controller_run_id: ${{ steps.export.outputs.controller_run_id }}
+      reason: ${{ steps.export.outputs.reason }}
+      phone_status_latest_json: ${{ steps.export.outputs.phone_status_latest_json }}
+      phone_status_latest_md: ${{ steps.export.outputs.phone_status_latest_md }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch_base || github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Resolve controller configuration
+        id: cfg
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PLAN_ID: ${{ inputs.plan_id }}
+          INPUT_BRANCH_BASE: ${{ inputs.branch_base }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MAX_ROUNDS: ${{ inputs.max_rounds }}
+          INPUT_MAX_HOURS: ${{ inputs.max_hours }}
+          INPUT_MAX_TASKS: ${{ inputs.max_tasks }}
+          INPUT_CHECKPOINT_EVERY: ${{ inputs.checkpoint_every }}
+          INPUT_LOOP_MAX_ATTEMPTS: ${{ inputs.loop_max_attempts }}
+          INPUT_NOTIFY_MODE: ${{ inputs.notify_mode }}
+          INPUT_COMMENT_TARGET: ${{ inputs.comment_target }}
+          INPUT_COMMENT_PR_NUMBER: ${{ inputs.comment_pr_number }}
+          INPUT_ALLOW_AUTO_SEND: ${{ inputs.allow_auto_send }}
+          INPUT_FIX_COMMAND: ${{ inputs.fix_command }}
+          DEFAULT_MODE: report-only
+          DEFAULT_MAX_ROUNDS: "2"
+          DEFAULT_MAX_HOURS: "2"
+          DEFAULT_MAX_TASKS: "8"
+          DEFAULT_CHECKPOINT_EVERY: "1"
+          DEFAULT_LOOP_MAX_ATTEMPTS: "1"
+          DEFAULT_NOTIFY_MODE: summary-only
+          DEFAULT_COMMENT_TARGET: auto
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            PLAN_ID="${INPUT_PLAN_ID}"
+            BRANCH_BASE="${INPUT_BRANCH_BASE:-develop}"
+            MODE="${INPUT_MODE:-${DEFAULT_MODE}}"
+            MAX_ROUNDS="${INPUT_MAX_ROUNDS:-${DEFAULT_MAX_ROUNDS}}"
+            MAX_HOURS="${INPUT_MAX_HOURS:-${DEFAULT_MAX_HOURS}}"
+            MAX_TASKS="${INPUT_MAX_TASKS:-${DEFAULT_MAX_TASKS}}"
+            CHECKPOINT_EVERY="${INPUT_CHECKPOINT_EVERY:-${DEFAULT_CHECKPOINT_EVERY}}"
+            LOOP_MAX_ATTEMPTS="${INPUT_LOOP_MAX_ATTEMPTS:-${DEFAULT_LOOP_MAX_ATTEMPTS}}"
+            NOTIFY_MODE="${INPUT_NOTIFY_MODE:-${DEFAULT_NOTIFY_MODE}}"
+            COMMENT_TARGET="${INPUT_COMMENT_TARGET:-${DEFAULT_COMMENT_TARGET}}"
+            COMMENT_PR_NUMBER="${INPUT_COMMENT_PR_NUMBER}"
+            ALLOW_AUTO_SEND="${INPUT_ALLOW_AUTO_SEND}"
+            FIX_COMMAND="${INPUT_FIX_COMMAND}"
+          else
+            PLAN_ID="scheduled-autonomy"
+            BRANCH_BASE="develop"
+            MODE="${DEFAULT_MODE}"
+            MAX_ROUNDS="${DEFAULT_MAX_ROUNDS}"
+            MAX_HOURS="${DEFAULT_MAX_HOURS}"
+            MAX_TASKS="${DEFAULT_MAX_TASKS}"
+            CHECKPOINT_EVERY="${DEFAULT_CHECKPOINT_EVERY}"
+            LOOP_MAX_ATTEMPTS="${DEFAULT_LOOP_MAX_ATTEMPTS}"
+            NOTIFY_MODE="${DEFAULT_NOTIFY_MODE}"
+            COMMENT_TARGET="${DEFAULT_COMMENT_TARGET}"
+            COMMENT_PR_NUMBER=""
+            ALLOW_AUTO_SEND="false"
+            FIX_COMMAND=""
+          fi
+
+          if [[ -z "${PLAN_ID}" ]]; then
+            echo "plan_id is required"
+            exit 1
+          fi
+          if [[ -z "${BRANCH_BASE}" ]]; then
+            echo "branch_base is required"
+            exit 1
+          fi
+          if [[ ! "${MAX_ROUNDS}" =~ ^[0-9]+$ || "${MAX_ROUNDS}" -lt 1 ]]; then
+            echo "Invalid max_rounds: ${MAX_ROUNDS}"
+            exit 1
+          fi
+          if [[ ! "${MAX_TASKS}" =~ ^[0-9]+$ || "${MAX_TASKS}" -lt 1 ]]; then
+            echo "Invalid max_tasks: ${MAX_TASKS}"
+            exit 1
+          fi
+          if [[ ! "${CHECKPOINT_EVERY}" =~ ^[0-9]+$ || "${CHECKPOINT_EVERY}" -lt 1 ]]; then
+            echo "Invalid checkpoint_every: ${CHECKPOINT_EVERY}"
+            exit 1
+          fi
+          if [[ ! "${LOOP_MAX_ATTEMPTS}" =~ ^[0-9]+$ || "${LOOP_MAX_ATTEMPTS}" -lt 1 ]]; then
+            echo "Invalid loop_max_attempts: ${LOOP_MAX_ATTEMPTS}"
+            exit 1
+          fi
+          if ! [[ "${MAX_HOURS}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "Invalid max_hours: ${MAX_HOURS}"
+            exit 1
+          fi
+
+          {
+            echo "plan_id=${PLAN_ID}"
+            echo "branch_base=${BRANCH_BASE}"
+            echo "mode=${MODE}"
+            echo "max_rounds=${MAX_ROUNDS}"
+            echo "max_hours=${MAX_HOURS}"
+            echo "max_tasks=${MAX_TASKS}"
+            echo "checkpoint_every=${CHECKPOINT_EVERY}"
+            echo "loop_max_attempts=${LOOP_MAX_ATTEMPTS}"
+            echo "notify_mode=${NOTIFY_MODE}"
+            echo "comment_target=${COMMENT_TARGET}"
+            echo "comment_pr_number=${COMMENT_PR_NUMBER}"
+            echo "allow_auto_send=${ALLOW_AUTO_SEND}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "fix_command<<EOF"
+            echo "${FIX_COMMAND}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Run autonomy controller loop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTONOMY_MODE: ${{ vars.AUTONOMY_MODE }}
+          TARGET_REPO: ${{ github.repository }}
+          PLAN_ID: ${{ steps.cfg.outputs.plan_id }}
+          BRANCH_BASE: ${{ steps.cfg.outputs.branch_base }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+          MAX_ROUNDS: ${{ steps.cfg.outputs.max_rounds }}
+          MAX_HOURS: ${{ steps.cfg.outputs.max_hours }}
+          MAX_TASKS: ${{ steps.cfg.outputs.max_tasks }}
+          CHECKPOINT_EVERY: ${{ steps.cfg.outputs.checkpoint_every }}
+          LOOP_MAX_ATTEMPTS: ${{ steps.cfg.outputs.loop_max_attempts }}
+          NOTIFY_MODE: ${{ steps.cfg.outputs.notify_mode }}
+          COMMENT_TARGET: ${{ steps.cfg.outputs.comment_target }}
+          COMMENT_PR_NUMBER: ${{ steps.cfg.outputs.comment_pr_number }}
+          ALLOW_AUTO_SEND: ${{ steps.cfg.outputs.allow_auto_send }}
+          FIX_COMMAND: ${{ steps.cfg.outputs.fix_command }}
+        run: |
+          set +e
+          CMD=(
+            python3 dev/scripts/devctl.py autonomy-loop
+            --repo "${TARGET_REPO}"
+            --plan-id "${PLAN_ID}"
+            --branch-base "${BRANCH_BASE}"
+            --mode "${MODE}"
+            --max-rounds "${MAX_ROUNDS}"
+            --max-hours "${MAX_HOURS}"
+            --max-tasks "${MAX_TASKS}"
+            --checkpoint-every "${CHECKPOINT_EVERY}"
+            --loop-max-attempts "${LOOP_MAX_ATTEMPTS}"
+            --notify "${NOTIFY_MODE}"
+            --comment-target "${COMMENT_TARGET}"
+            --format json
+            --output /tmp/autonomy-controller.json
+            --json-output /tmp/autonomy-controller.json
+          )
+          if [[ "${ALLOW_AUTO_SEND}" == "true" ]]; then
+            CMD+=(--allow-auto-send)
+          fi
+          if [[ -n "${COMMENT_PR_NUMBER}" ]]; then
+            CMD+=(--comment-pr-number "${COMMENT_PR_NUMBER}")
+          fi
+          if [[ "${MODE}" != "report-only" && -n "${FIX_COMMAND}" ]]; then
+            CMD+=(--fix-command "${FIX_COMMAND}")
+          fi
+          "${CMD[@]}"
+          RC=$?
+          echo "${RC}" > /tmp/autonomy-controller.exit
+          if [[ ! -f /tmp/autonomy-controller.json ]]; then
+            cat <<'JSON' > /tmp/autonomy-controller.json
+            {"ok": false, "reason": "controller_output_missing"}
+            JSON
+          fi
+          exit 0
+
+      - name: Export controller outputs
+        id: export
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path('/tmp/autonomy-controller.json').read_text(encoding='utf-8'))
+          output_path = Path(os.environ['GITHUB_OUTPUT'])
+          with output_path.open('a', encoding='utf-8') as handle:
+              handle.write(f"summary_json={payload.get('summary_json','')}\n")
+              handle.write(f"latest_working_branch={payload.get('latest_working_branch','')}\n")
+              handle.write(f"branch_base={payload.get('branch_base','')}\n")
+              handle.write(f"resolved={'true' if payload.get('resolved') else 'false'}\n")
+              handle.write(f"controller_run_id={payload.get('controller_run_id','')}\n")
+              handle.write(f"reason={payload.get('reason','')}\n")
+              handle.write(f"phone_status_latest_json={payload.get('phone_status_latest_json','')}\n")
+              handle.write(f"phone_status_latest_md={payload.get('phone_status_latest_md','')}\n")
+          PY
+
+      - name: Publish controller summary
+        if: always()
+        env:
+          PLAN_ID: ${{ steps.cfg.outputs.plan_id }}
+          BRANCH_BASE: ${{ steps.cfg.outputs.branch_base }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+          REASON: ${{ steps.export.outputs.reason }}
+          RESOLVED: ${{ steps.export.outputs.resolved }}
+          RUN_ID: ${{ steps.export.outputs.controller_run_id }}
+          PHONE_STATUS_JSON: ${{ steps.export.outputs.phone_status_latest_json }}
+          PHONE_STATUS_MD: ${{ steps.export.outputs.phone_status_latest_md }}
+        run: |
+          echo "## Autonomy Controller" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- plan_id: \`${PLAN_ID}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- branch_base: \`${BRANCH_BASE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- mode: \`${MODE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- resolved: \`${RESOLVED}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- reason: \`${REASON}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- controller_run_id: \`${RUN_ID}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- phone_status_latest_json: \`${PHONE_STATUS_JSON}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- phone_status_latest_md: \`${PHONE_STATUS_MD}\`" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -f /tmp/autonomy-controller.json ]]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### Report" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```json' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,160p' /tmp/autonomy-controller.json >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload autonomy controller artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: autonomy-controller-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/autonomy-controller.json
+            /tmp/autonomy-controller.exit
+            dev/reports/autonomy/packets
+            dev/reports/autonomy/queue
+          if-no-files-found: error
+          retention-days: 21
+
+      - name: Enforce controller exit code
+        if: always()
+        run: |
+          RC="$(cat /tmp/autonomy-controller.exit 2>/dev/null || echo 1)"
+          if [[ "${RC}" != "0" ]]; then
+            echo "autonomy-loop exited with ${RC}"
+            exit "${RC}"
+          fi
+
+  promote:
+    needs: controller
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' &&
+        inputs.promote_pr == true &&
+        needs.controller.outputs.resolved == 'true'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Promote latest working branch through PR + auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKING_BRANCH: ${{ needs.controller.outputs.latest_working_branch }}
+          BASE_BRANCH: ${{ needs.controller.outputs.branch_base }}
+          PLAN_ID: ${{ inputs.plan_id }}
+        run: |
+          if [[ -z "${WORKING_BRANCH}" ]]; then
+            echo "No working branch emitted by controller; skipping promote step."
+            exit 0
+          fi
+          if ! git ls-remote --exit-code --heads origin "${WORKING_BRANCH}" >/dev/null 2>&1; then
+            echo "Working branch '${WORKING_BRANCH}' not present on remote; skipping promote step."
+            exit 0
+          fi
+
+          PR_NUMBER="$(gh pr list --state open --head "${WORKING_BRANCH}" --base "${BASE_BRANCH}" --json number --jq '.[0].number')"
+          if [[ -z "${PR_NUMBER}" ]]; then
+            gh pr create \
+              --head "${WORKING_BRANCH}" \
+              --base "${BASE_BRANCH}" \
+              --title "autonomy(${PLAN_ID}): promote ${WORKING_BRANCH}" \
+              --body "Automated autonomy-controller promotion. Merge only after all required checks are green."
+            PR_NUMBER="$(gh pr list --state open --head "${WORKING_BRANCH}" --base "${BASE_BRANCH}" --json number --jq '.[0].number')"
+          fi
+
+          if [[ -n "${PR_NUMBER}" ]]; then
+            gh pr merge "${PR_NUMBER}" --auto --merge || true
+            echo "Promote PR #${PR_NUMBER} prepared for protected merge flow."
+          fi

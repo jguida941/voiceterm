@@ -12,8 +12,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DOC_PATH = REPO_ROOT / "guides/CLI_FLAGS.md"
 DEFAULT_SCHEMA_PATHS = (
-    REPO_ROOT / "src/src/config/mod.rs",
-    REPO_ROOT / "src/src/bin/voiceterm/config/cli.rs",
+    REPO_ROOT / "rust/src/config/mod.rs",
+    REPO_ROOT / "rust/src/bin/voiceterm/config/cli.rs",
 )
 
 DOC_FLAG_RE = re.compile(r"^\|\s*`--([a-z0-9][a-z0-9-]*)\b")

@@ -44,6 +44,6 @@ precedence:
 
 ## Links
 
-- `src/src/bin/voiceterm/persistent_config.rs`
-- `src/src/config/mod.rs`
+- `rust/src/bin/voiceterm/persistent_config.rs`
+- `rust/src/config/mod.rs`
 - `dev/active/MASTER_PLAN.md` (`MP-088`)

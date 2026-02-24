@@ -24,7 +24,7 @@ def _update_cargo_version(text: str, version: str) -> str:
         text,
         r'^version\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*$',
         f'version = "{version}"',
-        "src/Cargo.toml version",
+        "rust/Cargo.toml version",
     )
 
 
@@ -117,7 +117,7 @@ def _update_master_plan_wrapper(text: str, version: str, release_date: str) -> s
 
 
 _RELEASE_METADATA_UPDATERS: list[tuple[str, UpdateFn]] = [
-    ("src/Cargo.toml", _update_cargo_wrapper),
+    ("rust/Cargo.toml", _update_cargo_wrapper),
     ("pypi/pyproject.toml", _update_pyproject_wrapper),
     ("pypi/src/voiceterm/__init__.py", _update_python_wrapper),
     ("app/macos/VoiceTerm.app/Contents/Info.plist", _update_plist_wrapper),

@@ -120,6 +120,39 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
         self.assertTrue(any("signoff Signature must be populated" in err for err in report["errors"]))
 
     @patch("dev.scripts.checks.check_multi_agent_sync._extract_table_rows")
+    def test_dynamic_agent_count_is_supported(self, extract_mock) -> None:
+        agents = ("AGENT-1", "AGENT-2", "AGENT-3", "AGENT-4")
+        master_rows = []
+        runbook_rows = []
+        for idx, agent in enumerate(agents):
+            scope = f"MP-{101 + idx:03d}"
+            master_row = _master_row(agent, f"feature/{agent.lower()}", "planned")
+            master_row["MP scope (authoritative)"] = scope
+            runbook_row = _runbook_row(agent, f"feature/{agent.lower()}")
+            runbook_row["MP scope"] = scope
+            master_rows.append(master_row)
+            runbook_rows.append(runbook_row)
+        instruction_rows = [
+            _instruction_row(agent, f"INS-{idx + 1}", "completed")
+            for idx, agent in enumerate(agents)
+        ]
+        signoff_rows = [_signoff_row(agent, pending=True) for agent in agents] + [
+            _signoff_row("ORCHESTRATOR", pending=True)
+        ]
+        extract_mock.side_effect = [
+            (master_rows, None),
+            (runbook_rows, None),
+            (instruction_rows, None),
+            ([], None),
+            (signoff_rows, None),
+        ]
+
+        report = check_multi_agent_sync._build_report()
+
+        self.assertTrue(report["ok"], report.get("errors"))
+        self.assertEqual(report["required_agents"], list(agents))
+
+    @patch("dev.scripts.checks.check_multi_agent_sync._extract_table_rows")
     def test_mp_scope_overlap_requires_handoff_token(self, extract_mock) -> None:
         master_rows = [
             _master_row("AGENT-1", "feature/a1-runtime-theme", "planned"),

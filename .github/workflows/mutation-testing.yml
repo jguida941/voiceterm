@@ -32,7 +32,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: src
+        working-directory: rust
 
     steps:
       - name: Checkout
@@ -50,8 +50,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src/Cargo.lock') }}
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -93,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mutation-outcomes-shard-${{ matrix.shard.display }}
-          path: src/mutants.out/shard-${{ matrix.shard.display }}-outcomes.json
+          path: rust/mutants.out/shard-${{ matrix.shard.display }}-outcomes.json
           if-no-files-found: error
 
   mutation-score:

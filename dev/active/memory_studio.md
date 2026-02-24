@@ -195,12 +195,12 @@ All memory ingestion must normalize to one event schema:
   "role": "assistant",
   "text": "I updated transcript history rendering and tests.",
   "topic_tags": ["overlay", "transcript-history", "tests"],
-  "entities": ["src/src/bin/voiceterm/transcript_history.rs"],
+  "entities": ["rust/src/bin/voiceterm/transcript_history.rs"],
   "task_refs": ["MP-229"],
   "artifacts": [
     {
       "kind": "file",
-      "ref": "src/src/bin/voiceterm/transcript_history.rs"
+      "ref": "rust/src/bin/voiceterm/transcript_history.rs"
     }
   ],
   "importance": 0.72,
@@ -622,7 +622,7 @@ Acceleration is optimization, not a quality bypass:
 
 ## Rust Implementation Architecture (Modular + Clean)
 
-Proposed module tree under `src/src/bin/voiceterm/`:
+Proposed module tree under `rust/src/bin/voiceterm/`:
 
 - `memory/mod.rs`
 - `memory/schema.rs`
@@ -656,18 +656,18 @@ Rust best-practice constraints:
 Initial integration points:
 
 - ingest hooks:
-  - `src/src/bin/voiceterm/event_loop.rs`
-  - `src/src/bin/voiceterm/event_loop/output_dispatch.rs`
-  - `src/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs`
+  - `rust/src/bin/voiceterm/event_loop.rs`
+  - `rust/src/bin/voiceterm/event_loop/output_dispatch.rs`
+  - `rust/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs`
 - current memory/history:
-  - `src/src/bin/voiceterm/transcript_history.rs`
-  - `src/src/bin/voiceterm/session_memory.rs`
+  - `rust/src/bin/voiceterm/transcript_history.rs`
+  - `rust/src/bin/voiceterm/session_memory.rs`
 - overlays/input:
-  - `src/src/bin/voiceterm/overlays.rs`
-  - `src/src/bin/voiceterm/input/event.rs`
-  - `src/src/bin/voiceterm/input/parser.rs`
+  - `rust/src/bin/voiceterm/overlays.rs`
+  - `rust/src/bin/voiceterm/input/event.rs`
+  - `rust/src/bin/voiceterm/input/parser.rs`
 - config flags:
-  - `src/src/config/mod.rs`
+  - `rust/src/config/mod.rs`
 
 ## Dev Tool + Git Intelligence Audit (2026-02-19)
 
@@ -990,14 +990,14 @@ Required adapter properties:
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
-cd src && cargo test --bin voiceterm
+cd rust && cargo test --bin voiceterm
 ```
 
 Additional memory gates (to add with implementation):
 
 ```bash
-cd src && cargo test memory::
-cd src && cargo test action_center::
+cd rust && cargo test memory::
+cd rust && cargo test action_center::
 ```
 
 ## Open Decisions (Track Early)

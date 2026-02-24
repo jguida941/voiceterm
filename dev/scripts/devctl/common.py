@@ -227,7 +227,7 @@ def confirm_or_abort(message: str, assume_yes: bool) -> None:
 
 
 def find_latest_outcomes_file() -> Optional[Path]:
-    """Find the newest mutation `outcomes.json` file under `src/mutants.out`."""
+    """Find the newest mutation `outcomes.json` file under `rust/mutants.out`."""
     output_dir = SRC_DIR / "mutants.out"
     primary = output_dir / "outcomes.json"
     if primary.exists():
