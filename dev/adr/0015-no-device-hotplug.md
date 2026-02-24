@@ -72,4 +72,4 @@ Document this limitation clearly in:
 
 - [Architecture docs](../ARCHITECTURE.md#audio-device-behavior)
 - [Troubleshooting](../../guides/TROUBLESHOOTING.md)
-- `src/src/audio/capture.rs` - Capture implementation
+- `rust/src/audio/capture.rs` - Capture implementation

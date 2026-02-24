@@ -47,7 +47,7 @@ For any gate marked not passed or `N/A`, explain why and link the tracking MP/ta
 - [ ] `python3 dev/scripts/devctl.py check --profile ci`
 - [ ] `python3 dev/scripts/devctl.py docs-check --user-facing`
 - [ ] `python3 dev/scripts/devctl.py hygiene`
-- [ ] `cd src && cargo test --bin voiceterm`
+- [ ] `cd rust && cargo test --bin voiceterm`
 
 ### Evidence Artifacts
 

@@ -2,6 +2,7 @@ name: Security Guard
 
 permissions:
   contents: read
+  security-events: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,27 +17,57 @@ on:
       - master
       - develop
     paths:
-      - "src/Cargo.lock"
-      - "src/Cargo.toml"
-      - "dev/scripts/check_rustsec_policy.py"
+      - "rust/Cargo.lock"
+      - "rust/Cargo.toml"
+      - "dev/scripts/checks/check_rust_audit_patterns.py"
+      - "dev/scripts/checks/check_rustsec_policy.py"
+      - "dev/scripts/devctl/commands/check.py"
+      - "dev/scripts/devctl/commands/check_profile.py"
+      - "dev/scripts/devctl/commands/security.py"
+      - "dev/scripts/devctl/script_catalog.py"
+      - "dev/scripts/devctl/security_codeql.py"
+      - "dev/scripts/devctl/security_parser.py"
+      - "dev/scripts/devctl/security_python_scope.py"
+      - "dev/scripts/devctl/security_tiers.py"
+      - "dev/scripts/devctl/tests/test_check.py"
+      - "dev/scripts/devctl/tests/test_security.py"
+      - "dev/scripts/devctl/tests/test_security_python_scope.py"
       - "dev/security/rustsec_allowlist.md"
       - ".github/workflows/security_guard.yml"
       - ".github/SECURITY.md"
   pull_request:
     paths:
-      - "src/Cargo.lock"
-      - "src/Cargo.toml"
-      - "dev/scripts/check_rustsec_policy.py"
+      - "rust/Cargo.lock"
+      - "rust/Cargo.toml"
+      - "dev/scripts/checks/check_rust_audit_patterns.py"
+      - "dev/scripts/checks/check_rustsec_policy.py"
+      - "dev/scripts/devctl/commands/check.py"
+      - "dev/scripts/devctl/commands/check_profile.py"
+      - "dev/scripts/devctl/commands/security.py"
+      - "dev/scripts/devctl/script_catalog.py"
+      - "dev/scripts/devctl/security_codeql.py"
+      - "dev/scripts/devctl/security_parser.py"
+      - "dev/scripts/devctl/security_python_scope.py"
+      - "dev/scripts/devctl/security_tiers.py"
+      - "dev/scripts/devctl/tests/test_check.py"
+      - "dev/scripts/devctl/tests/test_security.py"
+      - "dev/scripts/devctl/tests/test_security_python_scope.py"
       - "dev/security/rustsec_allowlist.md"
       - ".github/workflows/security_guard.yml"
       - ".github/SECURITY.md"
 
 jobs:
-  rustsec:
+  core-security:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
@@ -48,37 +79,78 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-            src/target
-          key: ${{ runner.os }}-security-cargo-${{ hashFiles('src/Cargo.lock') }}
+            rust/target
+          key: ${{ runner.os }}-security-cargo-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-security-cargo-
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked --force
 
-      - name: Generate RustSec report
-        id: audit
-        working-directory: src
+      - name: Run Rust audit-pattern guard
         run: |
-          set +e
-          cargo audit --json > ../rustsec-audit.json
-          status=$?
-          set -e
-          echo "cargo_audit_exit_code=${status}" >> "$GITHUB_OUTPUT"
+          python3 dev/scripts/devctl.py check \
+            --profile ai-guard \
+            --skip-fmt \
+            --skip-clippy \
+            --format json \
+            --output security-ai-guard-report.json
 
-      - name: Enforce advisory policy thresholds
+      - name: Run core security tier
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 dev/scripts/check_rustsec_policy.py \
-            --input rustsec-audit.json \
-            --min-cvss 7.0 \
-            --fail-on-kind yanked \
-            --fail-on-kind unsound \
-            --allowlist-file dev/security/rustsec_allowlist.md
+          python3 dev/scripts/devctl.py security \
+            --scanner-tier core \
+            --python-scope all \
+            --with-codeql-alerts \
+            --codeql-repo "${{ github.repository }}" \
+            --codeql-min-severity high \
+            --format json \
+            --output security-core-report.json
 
-      - name: Upload RustSec report
+      - name: Upload security core report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: rustsec-audit-report
-          path: rustsec-audit.json
+          name: security-core-report
+          path: |
+            security-ai-guard-report.json
+            security-core-report.json
           if-no-files-found: error
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Run zizmor workflow security scan
+        uses: woodruffw/zizmor-action@e639dbb30f0f5f1b5776b6921e7001715262b4e4
+
+  codeql:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
+        with:
+          languages: rust
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@89a39a4ef9108d8f37853ddfda8d7010eaf5b894

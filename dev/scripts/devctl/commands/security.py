@@ -3,203 +3,33 @@
 Why this exists:
 - local runs should catch serious security issues before CI does
 - RustSec policy checks are our baseline dependency security gate
-- optional scanners (like `zizmor`) can be enabled for stricter workflow checks
+- scanner tiers split core checks from expensive optional scanners
 """
 
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
-import time
 from datetime import datetime
-from pathlib import Path
 
 from ..common import build_env, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT, SRC_DIR
+from ..security_tiers import (
+    CORE_SCANNER_IDS,
+    EXPENSIVE_SCANNER_IDS,
+    annotate_step_metadata,
+    run_codeql_core_step,
+    run_expensive_steps,
+    run_python_core_steps,
+    step_is_blocking_failure,
+)
 from ..steps import format_steps_md
-
-DEFAULT_FAIL_ON_KINDS = ("yanked", "unsound")
-DEFAULT_RUSTSEC_OUTPUT = "rustsec-audit.json"
-
-
-def _make_internal_step(
-    *,
-    name: str,
-    cmd: list[str],
-    returncode: int,
-    duration_s: float,
-    skipped: bool = False,
-    error: str | None = None,
-    details: dict | None = None,
-) -> dict:
-    step = {
-        "name": name,
-        "cmd": cmd,
-        "cwd": str(REPO_ROOT),
-        "returncode": returncode,
-        "duration_s": round(duration_s, 2),
-        "skipped": skipped,
-    }
-    if error:
-        step["error"] = error
-    if details:
-        step["details"] = details
-    return step
-
-
-def _resolve_rustsec_output(path_value: str | None) -> Path:
-    if not path_value:
-        return REPO_ROOT / DEFAULT_RUSTSEC_OUTPUT
-    path = Path(path_value).expanduser()
-    if not path.is_absolute():
-        path = REPO_ROOT / path
-    return path
-
-
-def _run_rustsec_audit_step(
-    report_path: Path,
-    *,
-    dry_run: bool,
-    env: dict,
-) -> tuple[dict, list[str]]:
-    """Run `cargo audit --json` and write the raw report to disk."""
-    cmd = ["cargo", "audit", "--json"]
-    if dry_run:
-        return (
-            _make_internal_step(
-                name="rustsec-audit",
-                cmd=cmd,
-                returncode=0,
-                duration_s=0.0,
-                skipped=True,
-                details={"report_path": str(report_path), "reason": "dry-run"},
-            ),
-            [],
-        )
-
-    start = time.time()
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=SRC_DIR,
-            env=env,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError as exc:
-        step = _make_internal_step(
-            name="rustsec-audit",
-            cmd=cmd,
-            returncode=127,
-            duration_s=time.time() - start,
-            error=str(exc),
-        )
-        return step, []
-
-    stdout = result.stdout or ""
-    if not stdout.strip():
-        stderr = (result.stderr or "").strip()
-        message = "cargo audit produced no JSON output"
-        if stderr:
-            message = f"{message}: {stderr}"
-        step = _make_internal_step(
-            name="rustsec-audit",
-            cmd=cmd,
-            returncode=result.returncode or 1,
-            duration_s=time.time() - start,
-            error=message,
-        )
-        return step, []
-
-    try:
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(stdout, encoding="utf-8")
-    except OSError as exc:
-        step = _make_internal_step(
-            name="rustsec-audit",
-            cmd=cmd,
-            returncode=2,
-            duration_s=time.time() - start,
-            error=f"failed to write RustSec report: {exc}",
-        )
-        return step, []
-
-    warnings: list[str] = []
-    if result.returncode != 0:
-        warnings.append(
-            "cargo audit returned non-zero; continuing because policy check decides pass/fail."
-        )
-
-    step = _make_internal_step(
-        name="rustsec-audit",
-        cmd=cmd,
-        returncode=0,
-        duration_s=time.time() - start,
-        details={
-            "report_path": str(report_path),
-            "cargo_audit_exit_code": result.returncode,
-        },
-    )
-    return step, warnings
-
-
-def _build_rustsec_policy_cmd(args, report_path: Path) -> list[str]:
-    fail_on_kind = args.fail_on_kind or list(DEFAULT_FAIL_ON_KINDS)
-    cmd = [
-        "python3",
-        "dev/scripts/check_rustsec_policy.py",
-        "--input",
-        str(report_path),
-        "--min-cvss",
-        str(args.min_cvss),
-    ]
-    if args.allowlist_file:
-        cmd.extend(["--allowlist-file", args.allowlist_file])
-    for warning_kind in fail_on_kind:
-        cmd.extend(["--fail-on-kind", warning_kind])
-    if args.allow_unknown_severity:
-        cmd.append("--allow-unknown-severity")
-    return cmd
-
-
-def _run_optional_tool_step(
-    *,
-    name: str,
-    cmd: list[str],
-    required: bool,
-    dry_run: bool,
-    env: dict,
-) -> tuple[dict, list[str]]:
-    """Run an optional scanner with CI-Hub-style missing-tool behavior."""
-    if dry_run:
-        return run_cmd(name, cmd, cwd=REPO_ROOT, env=env, dry_run=True), []
-
-    tool = cmd[0]
-    if shutil.which(tool) is None:
-        message = f"{tool} is not installed. Install it to run this check."
-        if required:
-            step = _make_internal_step(
-                name=name,
-                cmd=cmd,
-                returncode=127,
-                duration_s=0.0,
-                error=message,
-            )
-            return step, []
-
-        step = _make_internal_step(
-            name=name,
-            cmd=cmd,
-            returncode=0,
-            duration_s=0.0,
-            skipped=True,
-            details={"reason": message},
-        )
-        return step, [message]
-
-    return run_cmd(name, cmd, cwd=REPO_ROOT, env=env, dry_run=False), []
+from .security_steps import (
+    build_rustsec_policy_cmd,
+    make_internal_step,
+    resolve_rustsec_output,
+    run_optional_tool_step,
+    run_rustsec_audit_step,
+)
 
 
 def run(args) -> int:
@@ -207,17 +37,15 @@ def run(args) -> int:
     steps: list[dict] = []
     warnings: list[str] = []
     env = build_env(args)
-
-    rustsec_output = _resolve_rustsec_output(args.rustsec_output)
-    rustsec_step, rustsec_warnings = _run_rustsec_audit_step(
+    rustsec_output = resolve_rustsec_output(args.rustsec_output)
+    rustsec_step, rustsec_warnings = run_rustsec_audit_step(
         rustsec_output,
         dry_run=args.dry_run,
         env=env,
     )
     steps.append(rustsec_step)
     warnings.extend(rustsec_warnings)
-
-    rustsec_policy_cmd = _build_rustsec_policy_cmd(args, rustsec_output)
+    rustsec_policy_cmd = build_rustsec_policy_cmd(args, rustsec_output)
     if rustsec_step["returncode"] == 0:
         policy_step = run_cmd(
             "rustsec-policy",
@@ -226,8 +54,9 @@ def run(args) -> int:
             env=env,
             dry_run=args.dry_run,
         )
+        policy_step = annotate_step_metadata(policy_step, tier="core", blocking=True)
     else:
-        policy_step = _make_internal_step(
+        policy_step = make_internal_step(
             name="rustsec-policy",
             cmd=rustsec_policy_cmd,
             returncode=0,
@@ -235,35 +64,77 @@ def run(args) -> int:
             skipped=True,
             details={"reason": "rustsec-audit step failed"},
         )
+        policy_step = annotate_step_metadata(policy_step, tier="core", blocking=True)
     steps.append(policy_step)
-
-    if args.with_zizmor:
-        zizmor_step, zizmor_warnings = _run_optional_tool_step(
+    core_enabled = args.scanner_tier in ("core", "all")
+    run_zizmor = bool(args.with_zizmor)
+    run_codeql_alerts = bool(args.with_codeql_alerts)
+    if run_zizmor:
+        zizmor_step, zizmor_warnings = run_optional_tool_step(
             name="zizmor",
             cmd=["zizmor", ".github/workflows", "--min-severity", "high"],
             required=args.require_optional_tools,
             dry_run=args.dry_run,
             env=env,
+            tier="core",
+            blocking=True,
         )
         steps.append(zizmor_step)
         warnings.extend(zizmor_warnings)
-
-    success = all(step["returncode"] == 0 for step in steps)
+    if run_codeql_alerts:
+        codeql_step, codeql_warnings = run_codeql_core_step(
+            args=args,
+            repo_root=REPO_ROOT,
+            env=env,
+            make_internal_step=make_internal_step,
+        )
+        steps.append(codeql_step)
+        warnings.extend(codeql_warnings)
+    if core_enabled:
+        python_steps, python_warnings = run_python_core_steps(
+            args=args,
+            repo_root=REPO_ROOT,
+            env=env,
+            run_optional_tool_step=run_optional_tool_step,
+            make_internal_step=make_internal_step,
+        )
+        steps.extend(python_steps)
+        warnings.extend(python_warnings)
+    if args.scanner_tier == "all":
+        expensive_steps, expensive_warnings = run_expensive_steps(
+            args=args,
+            repo_root=REPO_ROOT,
+            src_dir=SRC_DIR,
+            env=env,
+            run_optional_tool_step=run_optional_tool_step,
+        )
+        steps.extend(expensive_steps)
+        warnings.extend(expensive_warnings)
+    success = not any(step_is_blocking_failure(step) for step in steps)
     report = {
         "command": "security",
         "timestamp": datetime.now().isoformat(),
         "ok": success,
         "rustsec_output": str(rustsec_output),
+        "scanner_tier": args.scanner_tier,
+        "python_scope": getattr(args, "python_scope", "auto"),
+        "since_ref": getattr(args, "since_ref", None),
+        "head_ref": getattr(args, "head_ref", "HEAD"),
+        "expensive_policy": args.expensive_policy,
+        "core_scanners": list(CORE_SCANNER_IDS),
+        "expensive_scanners": list(EXPENSIVE_SCANNER_IDS),
         "warnings": warnings,
         "steps": steps,
     }
-
     if args.format == "json":
         output = json.dumps(report, indent=2)
     elif args.format == "md":
         lines = ["# devctl security", ""]
         lines.append(f"- ok: {success}")
         lines.append(f"- rustsec_output: {rustsec_output}")
+        lines.append(f"- scanner_tier: {args.scanner_tier}")
+        lines.append(f"- python_scope: {getattr(args, 'python_scope', 'auto')}")
+        lines.append(f"- expensive_policy: {args.expensive_policy}")
         if warnings:
             lines.append("- warnings:")
             lines.extend(f"  - {warning}" for warning in warnings)
@@ -274,9 +145,22 @@ def run(args) -> int:
         lines = [
             f"devctl security rustsec_output={rustsec_output}",
             "",
+            (
+                f"scanner_tier={args.scanner_tier} "
+                f"python_scope={getattr(args, 'python_scope', 'auto')} "
+                f"expensive_policy={args.expensive_policy}"
+            ),
         ]
         for step in steps:
-            status = "SKIP" if step.get("skipped") else ("OK" if step["returncode"] == 0 else "FAIL")
+            blocking_failure = step_is_blocking_failure(step)
+            if step.get("skipped"):
+                status = "SKIP"
+            elif step["returncode"] == 0:
+                status = "OK"
+            elif blocking_failure:
+                status = "FAIL"
+            else:
+                status = "WARN"
             lines.append(f"[{status}] {step['name']} (exit={step['returncode']})")
             if step.get("error"):
                 lines.append(f"  reason: {step['error']}")
@@ -287,7 +171,6 @@ def run(args) -> int:
         lines.append("")
         lines.append(f"overall={success} exit_code={0 if success else 1}")
         output = "\n".join(lines)
-
     write_output(output, args.output)
     if args.pipe_command:
         return pipe_output(output, args.pipe_command, args.pipe_args)

@@ -68,6 +68,15 @@ def add_triage_parser(sub, default_ci_limit: int) -> None:
         "--owner-map-file",
         help="Optional JSON file mapping issue categories to owner labels",
     )
+    triage_cmd.add_argument(
+        "--external-issues-file",
+        action="append",
+        default=[],
+        help=(
+            "Optional JSON file with additional issue-like records "
+            "(repeat flag for multiple files)"
+        ),
+    )
     triage_cmd.add_argument("--dry-run", action="store_true")
     triage_cmd.add_argument("--format", choices=["text", "json", "md"], default="md")
     triage_cmd.add_argument("--output")

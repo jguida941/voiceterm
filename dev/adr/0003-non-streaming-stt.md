@@ -61,5 +61,5 @@ Use non-streaming STT:
 ## Links
 
 - [Architecture docs](../ARCHITECTURE.md#stt-behavior-non-streaming)
-- `src/src/stt.rs` - Whisper transcription
-- `src/src/audio/vad.rs` - Voice activity detection
+- `rust/src/stt.rs` - Whisper transcription
+- `rust/src/audio/vad.rs` - Voice activity detection

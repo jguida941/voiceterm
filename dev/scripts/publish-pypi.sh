@@ -26,7 +26,7 @@ fi
 
 PYPI_DIR="$REPO_ROOT/pypi"
 DIST_DIR="$PYPI_DIR/dist"
-CARGO_TOML="$REPO_ROOT/src/Cargo.toml"
+CARGO_TOML="$REPO_ROOT/rust/Cargo.toml"
 PYPROJECT="$PYPI_DIR/pyproject.toml"
 
 if [[ ! -f "$PYPROJECT" ]]; then
@@ -44,7 +44,7 @@ PYPI_VERSION="$(grep '^version = ' "$PYPROJECT" | head -1 | sed 's/version = "\(
 
 if [[ "$CARGO_VERSION" != "$PYPI_VERSION" ]]; then
     echo "Error: version mismatch"
-    echo "  src/Cargo.toml: $CARGO_VERSION"
+    echo "  rust/Cargo.toml: $CARGO_VERSION"
     echo "  pypi/pyproject.toml: $PYPI_VERSION"
     exit 1
 fi

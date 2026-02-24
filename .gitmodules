@@ -1,0 +1,6 @@
+[submodule "integrations/code-link-ide"]
+	path = integrations/code-link-ide
+	url = https://github.com/jguida941/code-link-ide.git
+[submodule "integrations/ci-cd-hub"]
+	path = integrations/ci-cd-hub
+	url = https://github.com/jguida941/ci-cd-hub.git

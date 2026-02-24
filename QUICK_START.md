@@ -78,11 +78,12 @@ Use `voiceterm --claude` to target Claude.
 
 ## 4) Core controls
 
-- `Ctrl+R` - trigger capture (voice by default; image capture when `Image mode` is on)
+- `Ctrl+R` - trigger voice capture
+- `Ctrl+X` - one-shot screenshot prompt capture
 - `Ctrl+E` - finalize active recording early (stages text only, does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
-- `Ctrl+D` - toggle Dev panel (`--dev` launches only)
+- `Ctrl+D` - toggle Dev panel with Dev Tools commands (`--dev` launches only)
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.
@@ -132,7 +133,7 @@ If wake startup fails, Full HUD shows `Wake: ERR`. Run with `--logs` and check
 voiceterm --auto-voice
 voiceterm --wake-word
 voiceterm --voice-send-mode insert
-voiceterm --image-mode
+voiceterm --image-mode    # persistent image capture for HUD [rec]
 voiceterm --dev
 voiceterm --dev --dev-log
 voiceterm --voice-vad-threshold-db -50

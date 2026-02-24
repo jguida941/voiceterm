@@ -46,7 +46,7 @@ Enforce terminal-safety invariants through the serialized writer path:
 
 ## Links
 
-- `src/src/bin/voiceterm/writer/mod.rs`
-- `src/src/bin/voiceterm/writer/state.rs`
-- `src/src/bin/voiceterm/writer/render.rs`
-- `src/src/bin/voiceterm/terminal.rs`
+- `rust/src/bin/voiceterm/writer/mod.rs`
+- `rust/src/bin/voiceterm/writer/state.rs`
+- `rust/src/bin/voiceterm/writer/render.rs`
+- `rust/src/bin/voiceterm/terminal.rs`

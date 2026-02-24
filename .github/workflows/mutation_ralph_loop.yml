@@ -1,0 +1,306 @@
+name: Mutation Ralph Loop
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: mutation-ralph-loop-${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: false
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] guarded to same-repo trusted branch events in job-level if
+    workflows:
+      - Mutation Testing
+    branches:
+      - develop
+      - master
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to monitor for mutation outcomes
+        required: true
+        default: develop
+        type: string
+      max_attempts:
+        description: Maximum bounded remediation attempts
+        required: false
+        default: "3"
+        type: string
+      poll_seconds:
+        description: Poll interval in seconds when waiting for new runs
+        required: false
+        default: "20"
+        type: string
+      timeout_seconds:
+        description: Timeout in seconds per wait window
+        required: false
+        default: "1800"
+        type: string
+      execution_mode:
+        description: Loop behavior (report-only, plan-then-fix, or fix-only)
+        required: false
+        default: report-only
+        type: choice
+        options:
+          - report-only
+          - plan-then-fix
+          - fix-only
+      threshold:
+        description: Mutation score threshold
+        required: false
+        default: "0.80"
+        type: string
+      notify_mode:
+        description: Notification mode for loop output
+        required: false
+        default: summary-only
+        type: choice
+        options:
+          - summary-only
+          - summary-and-comment
+      comment_target:
+        description: Comment target selection for summary-and-comment
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - pr
+          - commit
+      comment_pr_number:
+        description: Optional explicit PR number for comment-target=pr/auto
+        required: false
+        type: string
+      fix_command:
+        description: Optional auto-fix command (must commit/push a new SHA)
+        required: false
+        type: string
+
+jobs:
+  loop:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          vars.MUTATION_LOOP_MODE != 'disabled' &&
+          (
+            vars.MUTATION_LOOP_MODE == '' ||
+            vars.MUTATION_LOOP_MODE == 'always' ||
+            (
+              vars.MUTATION_LOOP_MODE == 'failure-only' &&
+              github.event.workflow_run.conclusion != 'success'
+            )
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.event.workflow_run.head_sha }}
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Resolve loop configuration
+        id: cfg
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_BRANCH: ${{ inputs.branch }}
+          DISPATCH_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
+          DISPATCH_POLL_SECONDS: ${{ inputs.poll_seconds }}
+          DISPATCH_TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+          DISPATCH_EXECUTION_MODE: ${{ inputs.execution_mode }}
+          DISPATCH_THRESHOLD: ${{ inputs.threshold }}
+          DISPATCH_NOTIFY_MODE: ${{ inputs.notify_mode }}
+          DISPATCH_COMMENT_TARGET: ${{ inputs.comment_target }}
+          DISPATCH_COMMENT_PR_NUMBER: ${{ inputs.comment_pr_number }}
+          DISPATCH_FIX_COMMAND: ${{ inputs.fix_command }}
+          WORKFLOW_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          LOOP_MAX_ATTEMPTS: ${{ vars.MUTATION_LOOP_MAX_ATTEMPTS }}
+          LOOP_POLL_SECONDS: ${{ vars.MUTATION_LOOP_POLL_SECONDS }}
+          LOOP_TIMEOUT_SECONDS: ${{ vars.MUTATION_LOOP_TIMEOUT_SECONDS }}
+          LOOP_EXECUTION_MODE: ${{ vars.MUTATION_EXECUTION_MODE }}
+          LOOP_THRESHOLD: ${{ vars.MUTATION_LOOP_THRESHOLD }}
+          LOOP_NOTIFY_MODE: ${{ vars.MUTATION_NOTIFY_MODE }}
+          LOOP_COMMENT_TARGET: ${{ vars.MUTATION_COMMENT_TARGET }}
+          LOOP_COMMENT_PR_NUMBER: ${{ vars.MUTATION_COMMENT_PR_NUMBER }}
+          LOOP_FIX_COMMAND: ${{ vars.MUTATION_LOOP_FIX_COMMAND }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            BRANCH="${DISPATCH_BRANCH}"
+            MAX_ATTEMPTS="${DISPATCH_MAX_ATTEMPTS:-3}"
+            POLL_SECONDS="${DISPATCH_POLL_SECONDS:-20}"
+            TIMEOUT_SECONDS="${DISPATCH_TIMEOUT_SECONDS:-1800}"
+            EXECUTION_MODE="${DISPATCH_EXECUTION_MODE:-report-only}"
+            THRESHOLD="${DISPATCH_THRESHOLD:-0.80}"
+            NOTIFY_MODE="${DISPATCH_NOTIFY_MODE:-summary-only}"
+            COMMENT_TARGET="${DISPATCH_COMMENT_TARGET:-auto}"
+            COMMENT_PR_NUMBER="${DISPATCH_COMMENT_PR_NUMBER}"
+            FIX_COMMAND="${DISPATCH_FIX_COMMAND}"
+          else
+            BRANCH="${WORKFLOW_BRANCH}"
+            MAX_ATTEMPTS="${LOOP_MAX_ATTEMPTS:-3}"
+            POLL_SECONDS="${LOOP_POLL_SECONDS:-20}"
+            TIMEOUT_SECONDS="${LOOP_TIMEOUT_SECONDS:-1800}"
+            EXECUTION_MODE="${LOOP_EXECUTION_MODE:-report-only}"
+            THRESHOLD="${LOOP_THRESHOLD:-0.80}"
+            NOTIFY_MODE="${LOOP_NOTIFY_MODE:-summary-only}"
+            COMMENT_TARGET="${LOOP_COMMENT_TARGET:-auto}"
+            COMMENT_PR_NUMBER="${LOOP_COMMENT_PR_NUMBER}"
+            FIX_COMMAND="${LOOP_FIX_COMMAND}"
+          fi
+
+          if [[ -z "${BRANCH}" ]]; then
+            echo "Branch is required."
+            exit 1
+          fi
+          if [[ ! "${MAX_ATTEMPTS}" =~ ^[0-9]+$ || "${MAX_ATTEMPTS}" -lt 1 ]]; then
+            echo "Invalid max attempts: ${MAX_ATTEMPTS}"
+            exit 1
+          fi
+          if [[ ! "${POLL_SECONDS}" =~ ^[0-9]+$ || "${POLL_SECONDS}" -lt 5 ]]; then
+            echo "Invalid poll seconds: ${POLL_SECONDS}"
+            exit 1
+          fi
+          if [[ ! "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ || "${TIMEOUT_SECONDS}" -lt 60 ]]; then
+            echo "Invalid timeout seconds: ${TIMEOUT_SECONDS}"
+            exit 1
+          fi
+          if ! python3 -c "value=float('${THRESHOLD}');import sys;sys.exit(0 if 0 < value <= 1 else 1)"; then
+            echo "Invalid threshold: ${THRESHOLD}"
+            exit 1
+          fi
+          case "${EXECUTION_MODE}" in
+            report-only|plan-then-fix|fix-only) ;;
+            *)
+              echo "Invalid execution mode: ${EXECUTION_MODE}"
+              exit 1
+              ;;
+          esac
+          case "${NOTIFY_MODE}" in
+            summary-only|summary-and-comment) ;;
+            *)
+              echo "Invalid notify mode: ${NOTIFY_MODE}"
+              exit 1
+              ;;
+          esac
+          case "${COMMENT_TARGET}" in
+            auto|pr|commit) ;;
+            *)
+              echo "Invalid comment target: ${COMMENT_TARGET}"
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "branch=${BRANCH}"
+            echo "max_attempts=${MAX_ATTEMPTS}"
+            echo "poll_seconds=${POLL_SECONDS}"
+            echo "timeout_seconds=${TIMEOUT_SECONDS}"
+            echo "execution_mode=${EXECUTION_MODE}"
+            echo "threshold=${THRESHOLD}"
+            echo "notify_mode=${NOTIFY_MODE}"
+            echo "comment_target=${COMMENT_TARGET}"
+            echo "comment_pr_number=${COMMENT_PR_NUMBER}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "fix_command<<EOF"
+            echo "${FIX_COMMAND}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Run Mutation Ralph loop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTONOMY_MODE: ${{ vars.AUTONOMY_MODE }}
+          MUTATION_LOOP_ALLOWED_PREFIXES: ${{ vars.MUTATION_LOOP_ALLOWED_PREFIXES }}
+          FIX_COMMAND: ${{ steps.cfg.outputs.fix_command }}
+          MODE: ${{ steps.cfg.outputs.execution_mode }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_BRANCH: ${{ steps.cfg.outputs.branch }}
+          MAX_ATTEMPTS: ${{ steps.cfg.outputs.max_attempts }}
+          POLL_SECONDS: ${{ steps.cfg.outputs.poll_seconds }}
+          TIMEOUT_SECONDS: ${{ steps.cfg.outputs.timeout_seconds }}
+          THRESHOLD: ${{ steps.cfg.outputs.threshold }}
+          NOTIFY_MODE: ${{ steps.cfg.outputs.notify_mode }}
+          COMMENT_TARGET: ${{ steps.cfg.outputs.comment_target }}
+          COMMENT_PR_NUMBER: ${{ steps.cfg.outputs.comment_pr_number }}
+        run: |
+          CMD=(
+            python3 dev/scripts/devctl.py mutation-loop
+            --repo "${TARGET_REPO}"
+            --branch "${TARGET_BRANCH}"
+            --workflow "Mutation Testing"
+            --max-attempts "${MAX_ATTEMPTS}"
+            --poll-seconds "${POLL_SECONDS}"
+            --timeout-seconds "${TIMEOUT_SECONDS}"
+            --mode "${MODE}"
+            --threshold "${THRESHOLD}"
+            --notify "${NOTIFY_MODE}"
+            --comment-target "${COMMENT_TARGET}"
+            --emit-bundle
+            --bundle-dir /tmp
+            --bundle-prefix mutation-ralph-loop
+            --json-output /tmp/mutation-ralph-loop.json
+            --format md
+            --output /tmp/mutation-ralph-loop.md
+          )
+          if [[ -n "${COMMENT_PR_NUMBER}" ]]; then
+            CMD+=(--comment-pr-number "${COMMENT_PR_NUMBER}")
+          fi
+          if [[ "${MODE}" != "report-only" && -n "${FIX_COMMAND}" ]]; then
+            CMD+=(--fix-command "${FIX_COMMAND}")
+          fi
+          "${CMD[@]}"
+
+      - name: Publish loop summary
+        if: always()
+        env:
+          SUMMARY_BRANCH: ${{ steps.cfg.outputs.branch }}
+          SUMMARY_MODE: ${{ steps.cfg.outputs.execution_mode }}
+          SUMMARY_THRESHOLD: ${{ steps.cfg.outputs.threshold }}
+        run: |
+          echo "## Mutation Ralph Loop" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- branch: \`${SUMMARY_BRANCH}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- mode: \`${SUMMARY_MODE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- threshold: \`${SUMMARY_THRESHOLD}\`" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -f /tmp/mutation-ralph-loop.md ]]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### Report" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```md' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,120p' /tmp/mutation-ralph-loop.md >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          if [[ -f /tmp/mutation-ralph-loop-playbook.md ]]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### Playbook preview" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```md' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,80p' /tmp/mutation-ralph-loop-playbook.md >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload Mutation loop artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mutation-ralph-loop-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/mutation-ralph-loop.md
+            /tmp/mutation-ralph-loop.json
+            /tmp/mutation-ralph-loop-playbook.md
+          if-no-files-found: error
+          retention-days: 21

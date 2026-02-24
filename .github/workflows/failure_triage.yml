@@ -1,0 +1,182 @@
+name: Failure Triage
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: failure-triage-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+  cancel-in-progress: false
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] guarded to trusted same-repo push/schedule/workflow_dispatch branches in job-level if
+    workflows:
+      - CodeRabbit Ralph Loop
+      - CodeRabbit Triage Bridge
+      - Coverage Upload
+      - dependency_review
+      - docs_lint
+      - Latency Guardrails
+      - lint_hardening
+      - Memory Guard
+      - Mutation Testing
+      - Orchestrator Watchdog
+      - Parser Fuzz Guard
+      - Perf Smoke
+      - publish_homebrew
+      - publish_pypi
+      - release_attestation
+      - release_preflight
+      - Rust TUI CI
+      - scorecard
+      - Security Guard
+      - Tooling Control Plane
+      - Voice Mode Guard
+      - Wake Word Guard
+      - workflow_lint
+    types:
+      - completed
+
+jobs:
+  collect-triage:
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion != 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (
+          github.event.workflow_run.event == 'push' ||
+          github.event.workflow_run.event == 'schedule' ||
+          github.event.workflow_run.event == 'workflow_dispatch'
+        ) &&
+        (
+          (
+            vars.FAILURE_TRIAGE_BRANCHES != '' &&
+            contains(
+              format(',{0},', vars.FAILURE_TRIAGE_BRANCHES),
+              format(',{0},', github.event.workflow_run.head_branch)
+            )
+          ) ||
+          (
+            vars.FAILURE_TRIAGE_BRANCHES == '' &&
+            (
+              github.event.workflow_run.head_branch == 'develop' ||
+              github.event.workflow_run.head_branch == 'master'
+            )
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout failed workflow revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Prepare failure artifact directory
+        id: prep
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 1 }}
+        run: |
+          WORKFLOW_SLUG="$(printf '%s' "${WORKFLOW_NAME}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9._-' '-')"
+          ARTIFACT_DIR="dev/reports/failures/${WORKFLOW_SLUG}/run-${RUN_ID}-attempt-${RUN_ATTEMPT}"
+          mkdir -p "${ARTIFACT_DIR}"
+          echo "artifact_dir=${ARTIFACT_DIR}" >> "${GITHUB_OUTPUT}"
+
+      - name: Capture workflow context
+        env:
+          ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 1 }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_HTML_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          cp "${GITHUB_EVENT_PATH}" "${ARTIFACT_DIR}/github-event.json"
+          {
+            echo "# Failure triage snapshot"
+            echo ""
+            echo "- workflow: ${WORKFLOW_NAME}"
+            echo "- run_id: ${RUN_ID}"
+            echo "- run_attempt: ${RUN_ATTEMPT}"
+            echo "- conclusion: ${CONCLUSION}"
+            echo "- branch: ${HEAD_BRANCH}"
+            echo "- sha: ${HEAD_SHA}"
+            echo "- html_url: ${RUN_HTML_URL}"
+            echo ""
+            echo "Use this directory with AI or local audit tooling."
+            echo "Cleanup once green: \`python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --yes\`."
+          } > "${ARTIFACT_DIR}/README.md"
+
+      - name: Download source workflow artifacts
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          mkdir -p "${ARTIFACT_DIR}/source-artifacts"
+          gh run download "${RUN_ID}" --dir "${ARTIFACT_DIR}/source-artifacts" --repo "${REPO_SLUG}"
+
+      - name: Run triage snapshot
+        env:
+          ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXTERNAL_ARGS=()
+          BACKLOG_FILE="$(find "${ARTIFACT_DIR}/source-artifacts" -type f -name 'backlog-medium.json' | head -n 1 || true)"
+          if [[ -n "${BACKLOG_FILE}" ]]; then
+            EXTERNAL_ARGS+=(--external-issues-file "${BACKLOG_FILE}")
+          fi
+
+          python3 dev/scripts/devctl.py triage \
+            --ci \
+            --ci-limit 20 \
+            --no-cihub \
+            "${EXTERNAL_ARGS[@]}" \
+            --emit-bundle \
+            --bundle-dir "${ARTIFACT_DIR}" \
+            --bundle-prefix triage \
+            --format md \
+            --output "${ARTIFACT_DIR}/triage-summary.md"
+
+      - name: Publish failure summary to job output
+        if: always()
+        env:
+          ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+          SOURCE_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          SOURCE_WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          echo "## Failure triage bundle" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- source workflow: ${SOURCE_WORKFLOW_NAME}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- source run: ${SOURCE_WORKFLOW_URL}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- artifact_dir: \`${ARTIFACT_DIR}\`" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -f "${ARTIFACT_DIR}/triage-summary.md" ]]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### triage-summary preview" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```md' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,80p' "${ARTIFACT_DIR}/triage-summary.md" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload failure triage artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: failure-triage-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+          path: ${{ steps.prep.outputs.artifact_dir }}
+          if-no-files-found: error
+          retention-days: 21

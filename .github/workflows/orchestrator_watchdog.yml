@@ -1,0 +1,34 @@
+name: Orchestrator Watchdog
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  watchdog:
+    name: multi-agent sla watchdog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Run orchestrator status guard
+        run: python3 dev/scripts/devctl.py orchestrate-status --format md
+
+      - name: Run orchestrator SLA watchdog
+        run: python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md

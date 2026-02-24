@@ -1,7 +1,7 @@
 # Theme + Overlay Studio Plan (No-Code, Full-Surface Customization)
 
 Date: 2026-02-23  
-Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` MP-148..MP-151, MP-161..MP-167, MP-172..MP-182)  
+Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` MP-099, MP-148..MP-151, MP-161..MP-167, MP-172..MP-182)  
 Scope: Canonical single source for Theme Studio architecture, overlay visual
 research, and active redesign details in one document.
 
@@ -49,35 +49,35 @@ This boundary prevents control sprawl and keeps Studio as one coherent system.
 ### Strong today
 
 - runtime theme switching, picker, and settings wiring exist:
-  - `src/src/bin/voiceterm/theme_ops.rs`
-  - `src/src/bin/voiceterm/theme_picker.rs`
-  - `src/src/bin/voiceterm/settings_handlers.rs`
+  - `rust/src/bin/voiceterm/theme_ops.rs`
+  - `rust/src/bin/voiceterm/theme_picker.rs`
+  - `rust/src/bin/voiceterm/settings_handlers.rs`
 - color capability fallback already exists:
-  - `src/src/bin/voiceterm/config/theme.rs`
-  - `src/src/bin/voiceterm/color_mode.rs`
+  - `rust/src/bin/voiceterm/config/theme.rs`
+  - `rust/src/bin/voiceterm/color_mode.rs`
 - HUD data modules already have a registry pattern:
-  - `src/src/bin/voiceterm/hud/mod.rs`
+  - `rust/src/bin/voiceterm/hud/mod.rs`
 
 ### Current blockers for full no-code editor
 
 - theme system is enum/static-palette centered:
-  - `src/src/bin/voiceterm/theme/mod.rs`
-  - `src/src/bin/voiceterm/theme/palettes.rs`
+  - `rust/src/bin/voiceterm/theme/mod.rs`
+  - `rust/src/bin/voiceterm/theme/palettes.rs`
 - layout and animation are hardcoded in formatter/util modules:
-  - `src/src/bin/voiceterm/status_line/layout.rs`
-  - `src/src/bin/voiceterm/status_line/animation.rs`
+  - `rust/src/bin/voiceterm/status_line/layout.rs`
+  - `rust/src/bin/voiceterm/status_line/animation.rs`
 - settings UI is flat, not a multi-page editor:
-  - `src/src/bin/voiceterm/settings/items.rs`
-  - `src/src/bin/voiceterm/settings/state.rs`
+  - `rust/src/bin/voiceterm/settings/items.rs`
+  - `rust/src/bin/voiceterm/settings/state.rs`
 - active overlay renderer is custom ANSI row redraw, not a structured scene graph:
-  - `src/src/bin/voiceterm/writer/state.rs`
-  - `src/src/bin/voiceterm/writer/render.rs`
+  - `rust/src/bin/voiceterm/writer/state.rs`
+  - `rust/src/bin/voiceterm/writer/render.rs`
 - multiple visual surfaces are still hardcoded outside a central style resolver:
-  - `src/src/bin/voiceterm/banner.rs`
-  - `src/src/bin/voiceterm/help.rs`
-  - `src/src/bin/voiceterm/progress.rs`
-  - `src/src/bin/voiceterm/audio_meter/format.rs`
-  - `src/src/bin/voiceterm/icons.rs`
+  - `rust/src/bin/voiceterm/banner.rs`
+  - `rust/src/bin/voiceterm/help.rs`
+  - `rust/src/bin/voiceterm/progress.rs`
+  - `rust/src/bin/voiceterm/audio_meter/format.rs`
+  - `rust/src/bin/voiceterm/icons.rs`
 
 ## Is "Full GUI Editor in Overlay" Possible?
 
@@ -140,7 +140,7 @@ not supported.
 ### Ratatui (already in repo)
 
 - current dependency is `ratatui = 0.26` with `default-features = false` and
-  backend feature `crossterm` only (`src/Cargo.toml`), so parity must be
+  backend feature `crossterm` only (`rust/Cargo.toml`), so parity must be
   tracked against that shipped capability set.
 - supports rich layout composition, constraints, and many widgets (charts,
   sparklines, bars, tables, tabs, scrollbars, paragraph/list/block/canvas) and
@@ -393,7 +393,7 @@ When Studio baseline is active, migrate these controls out of Settings:
 - `SettingsItem::HudPanel`
 - `SettingsItem::HudAnimate`
 
-Reference source for current ownership: `src/src/bin/voiceterm/settings/items.rs`.
+Reference source for current ownership: `rust/src/bin/voiceterm/settings/items.rs`.
 
 ## Data Model Upgrade
 
@@ -425,31 +425,31 @@ Persist as versioned `StylePack` with inheritance and partial overrides.
 
 ### New modules (proposed)
 
-- `src/src/bin/voiceterm/theme/spec.rs`
-- `src/src/bin/voiceterm/theme/runtime.rs`
-- `src/src/bin/voiceterm/theme/registry.rs`
-- `src/src/bin/voiceterm/theme/resolver.rs`
-- `src/src/bin/voiceterm/theme/io.rs`
-- `src/src/bin/voiceterm/theme/migrate.rs`
-- `src/src/bin/voiceterm/theme/component_registry.rs` (styleable component IDs + defaults)
-- `src/src/bin/voiceterm/studio/` (editor pages/state/actions)
-- `src/src/bin/voiceterm/render_model/` (scene/layout/widget composition)
-- `src/src/bin/voiceterm/keymap/` (runtime-editable keybinding profiles)
-- `src/src/bin/voiceterm/profiles/` (backend/project profile resolution)
+- `rust/src/bin/voiceterm/theme/spec.rs`
+- `rust/src/bin/voiceterm/theme/runtime.rs`
+- `rust/src/bin/voiceterm/theme/registry.rs`
+- `rust/src/bin/voiceterm/theme/resolver.rs`
+- `rust/src/bin/voiceterm/theme/io.rs`
+- `rust/src/bin/voiceterm/theme/migrate.rs`
+- `rust/src/bin/voiceterm/theme/component_registry.rs` (styleable component IDs + defaults)
+- `rust/src/bin/voiceterm/studio/` (editor pages/state/actions)
+- `rust/src/bin/voiceterm/render_model/` (scene/layout/widget composition)
+- `rust/src/bin/voiceterm/keymap/` (runtime-editable keybinding profiles)
+- `rust/src/bin/voiceterm/profiles/` (backend/project profile resolution)
 
 ### Existing modules to refactor
 
-- `src/src/bin/voiceterm/theme/mod.rs`
-- `src/src/bin/voiceterm/theme/palettes.rs`
-- `src/src/bin/voiceterm/config/theme.rs`
-- `src/src/bin/voiceterm/settings/*`
-- `src/src/bin/voiceterm/overlays.rs`
-- `src/src/bin/voiceterm/buttons.rs`
-- `src/src/bin/voiceterm/event_loop.rs`
-- `src/src/bin/voiceterm/status_line/layout.rs`
-- `src/src/bin/voiceterm/status_line/animation.rs`
-- `src/src/bin/voiceterm/status_line/format.rs`
-- `src/src/bin/voiceterm/writer/state.rs`
+- `rust/src/bin/voiceterm/theme/mod.rs`
+- `rust/src/bin/voiceterm/theme/palettes.rs`
+- `rust/src/bin/voiceterm/config/theme.rs`
+- `rust/src/bin/voiceterm/settings/*`
+- `rust/src/bin/voiceterm/overlays.rs`
+- `rust/src/bin/voiceterm/buttons.rs`
+- `rust/src/bin/voiceterm/event_loop.rs`
+- `rust/src/bin/voiceterm/status_line/layout.rs`
+- `rust/src/bin/voiceterm/status_line/animation.rs`
+- `rust/src/bin/voiceterm/status_line/format.rs`
+- `rust/src/bin/voiceterm/writer/state.rs`
 
 ## Safe Rollout Plan (Do Not Break Overlay)
 
@@ -1621,19 +1621,19 @@ When toggled ON, sets all animation fields to their "static" equivalents and sto
 
 | File | Changes |
 |------|---------|
-| `src/src/bin/voiceterm/theme_studio.rs` | **Major rewrite**: `ThemeStudioPage` enum, expanded `ThemeStudioItem` (~34 variants), per-page item arrays, `format_tab_bar()`, `format_studio_row()`, preview rows, separator rows, tip descriptions, page-aware height/width, all tests updated |
-| `src/src/bin/voiceterm/theme/mod.rs` | Add 4 new `Runtime*Override` enums with `Debug/Clone/Copy/PartialEq/Eq` + `Display` impls |
-| `src/src/bin/voiceterm/theme/style_pack.rs` | Add 6 fields to `RuntimeStylePackOverrides`, add `apply_*` resolver functions, update `active_override_count()` helper |
-| `src/src/bin/voiceterm/event_state.rs` | Replace `theme_studio_selected` with `theme_studio_page` + `theme_studio_page_selected[7]`, add animation timing fields |
-| `src/src/bin/voiceterm/event_loop/input_dispatch/overlay.rs` | Tab/Shift+Tab handling, 6 new cycling functions, animation timing adjusters, reduced motion toggle, expanded `apply_theme_studio_adjustment()` |
-| `src/src/bin/voiceterm/event_loop.rs` | Update `render_theme_studio_overlay_for_state()` to populate all new view fields, `reset_theme_studio_selection()` for page-aware reset |
-| `src/src/bin/voiceterm/event_loop/input_dispatch/overlay/overlay_mouse.rs` | Tab bar click zones, per-page row click zones |
-| `src/src/bin/voiceterm/button_handlers.rs` | Update `open_theme_studio_overlay()` for page state |
-| `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs` | Update `open_theme_studio_overlay()` for page reset |
-| `src/src/bin/voiceterm/terminal.rs` | Update `reserved_rows_for_mode()` for new height (16 vs 21) |
-| `src/src/bin/voiceterm/help.rs` | Update Theme Studio shortcut hints |
-| `src/src/bin/voiceterm/status_line/animation.rs` | Read animation timing from config instead of hardcoded constants |
-| `src/src/bin/voiceterm/banner.rs` | Read `startup_splash_ms` from config instead of env var only |
+| `rust/src/bin/voiceterm/theme_studio.rs` | **Major rewrite**: `ThemeStudioPage` enum, expanded `ThemeStudioItem` (~34 variants), per-page item arrays, `format_tab_bar()`, `format_studio_row()`, preview rows, separator rows, tip descriptions, page-aware height/width, all tests updated |
+| `rust/src/bin/voiceterm/theme/mod.rs` | Add 4 new `Runtime*Override` enums with `Debug/Clone/Copy/PartialEq/Eq` + `Display` impls |
+| `rust/src/bin/voiceterm/theme/style_pack.rs` | Add 6 fields to `RuntimeStylePackOverrides`, add `apply_*` resolver functions, update `active_override_count()` helper |
+| `rust/src/bin/voiceterm/event_state.rs` | Replace `theme_studio_selected` with `theme_studio_page` + `theme_studio_page_selected[7]`, add animation timing fields |
+| `rust/src/bin/voiceterm/event_loop/input_dispatch/overlay.rs` | Tab/Shift+Tab handling, 6 new cycling functions, animation timing adjusters, reduced motion toggle, expanded `apply_theme_studio_adjustment()` |
+| `rust/src/bin/voiceterm/event_loop.rs` | Update `render_theme_studio_overlay_for_state()` to populate all new view fields, `reset_theme_studio_selection()` for page-aware reset |
+| `rust/src/bin/voiceterm/event_loop/input_dispatch/overlay/overlay_mouse.rs` | Tab bar click zones, per-page row click zones |
+| `rust/src/bin/voiceterm/button_handlers.rs` | Update `open_theme_studio_overlay()` for page state |
+| `rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs` | Update `open_theme_studio_overlay()` for page reset |
+| `rust/src/bin/voiceterm/terminal.rs` | Update `reserved_rows_for_mode()` for new height (16 vs 21) |
+| `rust/src/bin/voiceterm/help.rs` | Update Theme Studio shortcut hints |
+| `rust/src/bin/voiceterm/status_line/animation.rs` | Read animation timing from config instead of hardcoded constants |
+| `rust/src/bin/voiceterm/banner.rs` | Read `startup_splash_ms` from config instead of env var only |
 
 ---
 

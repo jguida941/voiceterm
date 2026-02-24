@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "assertive"
+  high_level_summary: true
+  changed_files_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  poem: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - develop
+      - master
+    labels:
+      - ai-review
+  path_filters:
+    - "**"
+    - "!dev/archive/**"
+    - "!img/**"
+    - "!**/mutants.out*/**"
+  path_instructions:
+    - path: "src/**"
+      instructions: |
+        Prioritize runtime safety and behavior regressions first: memory bounds,
+        concurrency/threading, error handling, and PTY/terminal lifecycle
+        invariants.
+        Flag non-test unwrap/expect additions unless failure-path rationale is
+        explicit and tested.
+    - path: "dev/scripts/**"
+      instructions: |
+        Focus on command-surface compatibility, deterministic output contracts,
+        and backward compatibility for automation consumers.
+    - path: ".github/workflows/*.yml"
+      instructions: |
+        Treat workflow edits as supply-chain and CI-policy sensitive.
+        Require pinned action SHAs, explicit permissions, and explicit
+        concurrency.
+    - path: "README.md"
+      instructions: |
+        For docs-only edits, focus on factual command/path correctness and avoid
+        style-only nitpicks.
+    - path: "guides/**"
+      instructions: |
+        For docs-only edits, focus on factual command/path correctness and avoid
+        style-only nitpicks.
+    - path: "dev/**"
+      instructions: |
+        For docs-only edits, focus on factual command/path correctness and avoid
+        style-only nitpicks.

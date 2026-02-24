@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voiceterm"
-version = "1.0.91"
-description = "Voice-first terminal HUD for Codex and Claude with local Whisper STT"
+version = "1.0.92"
+description = "Voice-first terminal overlay for Codex and Claude with local Whisper STT, PTY passthrough, and a customizable HUD"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

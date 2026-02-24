@@ -7,7 +7,9 @@ Why this exists:
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Tuple
 
 from .collect import (
     collect_ci_runs,
@@ -15,6 +17,46 @@ from .collect import (
     collect_git_status,
     collect_mutation_summary,
 )
+
+# Default worker cap for parallel collection probes.
+DEFAULT_COLLECT_WORKERS = 4
+
+
+def _run_probes_serial(probes: List[Tuple[str, Callable[[], Any]]]) -> Dict[str, Any]:
+    """Run collection probes sequentially, returning {key: result}."""
+    results: Dict[str, Any] = {}
+    for key, func in probes:
+        try:
+            results[key] = func()
+        except Exception as exc:
+            results[key] = {"error": f"probe '{key}' failed: {exc}"}
+    return results
+
+
+def _run_probes_parallel(
+    probes: List[Tuple[str, Callable[[], Any]]],
+    max_workers: int,
+) -> Dict[str, Any]:
+    """Run independent collection probes in parallel while preserving key mapping."""
+    if not probes:
+        return {}
+    if len(probes) <= 1 or max_workers <= 1:
+        return _run_probes_serial(probes)
+
+    worker_count = min(max_workers, len(probes))
+    results: Dict[str, Any] = {}
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        futures = {
+            pool.submit(func): key
+            for key, func in probes
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as exc:
+                results[key] = {"error": f"probe '{key}' failed: {exc}"}
+    return results
 
 
 def build_project_report(
@@ -25,21 +67,39 @@ def build_project_report(
     include_dev_logs: bool,
     dev_root: str | None,
     dev_sessions_limit: int,
+    parallel: bool = True,
+    max_workers: int = DEFAULT_COLLECT_WORKERS,
 ) -> dict:
     """Collect the standard project snapshot used by both commands."""
-    report = {
+    # Build the list of independent collection probes.
+    probes: List[Tuple[str, Callable[[], Any]]] = [
+        ("git", collect_git_status),
+        ("mutants", collect_mutation_summary),
+    ]
+    if include_ci:
+        probes.append(("ci", lambda: collect_ci_runs(ci_limit)))
+    if include_dev_logs:
+        probes.append((
+            "dev_logs",
+            lambda: collect_dev_log_summary(
+                dev_root=dev_root,
+                session_limit=dev_sessions_limit,
+            ),
+        ))
+
+    # Execute probes (parallel or sequential based on caller preference).
+    if parallel:
+        collected = _run_probes_parallel(probes, max_workers=max_workers)
+    else:
+        collected = _run_probes_serial(probes)
+
+    report: dict = {
         "command": command,
         "timestamp": datetime.now().isoformat(),
-        "git": collect_git_status(),
-        "mutants": collect_mutation_summary(),
     }
-    if include_ci:
-        report["ci"] = collect_ci_runs(ci_limit)
-    if include_dev_logs:
-        report["dev_logs"] = collect_dev_log_summary(
-            dev_root=dev_root,
-            session_limit=dev_sessions_limit,
-        )
+    # Merge results in deterministic probe-definition order.
+    for key, _func in probes:
+        report[key] = collected[key]
     return report
 
 

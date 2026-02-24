@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-24
 
 ## At a Glance
 
@@ -138,7 +138,7 @@ Inference: These screenshots improve readability for users. They show current UI
 - Architecture and lifecycle: `dev/ARCHITECTURE.md`
 - Verification workflow: `dev/DEVELOPMENT.md`
 - Decision records: `dev/adr/README.md`
-- Latency display logic path: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs`
+- Latency display logic path: `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs`
 
 ### Developer Fast Start
 
@@ -181,11 +181,11 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-175`, `MP-176`, `MP-179`, `MP-180`,
   `MP-182` status and gate-evidence notes)
-- `src/src/bin/voiceterm/theme/capability_matrix.rs`
-- `src/src/bin/voiceterm/theme/texture_profile.rs`
-- `src/src/bin/voiceterm/theme/dependency_baseline.rs`
-- `src/src/bin/voiceterm/theme/widget_pack.rs`
-- `src/src/bin/voiceterm/theme/rule_profile.rs`
+- `rust/src/bin/voiceterm/theme/capability_matrix.rs`
+- `rust/src/bin/voiceterm/theme/texture_profile.rs`
+- `rust/src/bin/voiceterm/theme/dependency_baseline.rs`
+- `rust/src/bin/voiceterm/theme/widget_pack.rs`
+- `rust/src/bin/voiceterm/theme/rule_profile.rs`
 
 Inference: The Theme Studio track moved from prerequisite definition to
 evidence-backed gate completion, reducing release risk for future Studio
@@ -234,6 +234,74 @@ Evidence:
 Inference: The release path remains centered on one control plane (`devctl`)
 while reducing publish-time drift risk between requested tag versions,
 repository metadata, and downstream Homebrew formula updates.
+
+### Recent Governance Update (2026-02-24, External Federation Bridge)
+
+Fact: `codex-voice` now tracks `code-link-ide` and `ci-cd-hub` as pinned
+integration links under `integrations/`, with a one-command sync helper and a
+documented selective-import governance workflow.
+
+Evidence:
+
+- `.gitmodules` (`integrations/code-link-ide`, `integrations/ci-cd-hub`)
+- `dev/scripts/sync_external_integrations.sh`
+- `dev/scripts/devctl/commands/integrations_sync.py`
+- `dev/scripts/devctl/commands/integrations_import.py`
+- `dev/config/control_plane_policy.json` (`integration_federation`)
+- `dev/integrations/EXTERNAL_REPOS.md`
+- `dev/active/autonomous_control_plane.md` (`Phase 5 - External Repo Federation Bridge`)
+- `dev/active/MASTER_PLAN.md` (`MP-334`)
+
+Inference: Cross-repo reuse moved from ad-hoc cloning to an auditable,
+version-pinned federation model that supports template extraction work without
+memory-only coordination.
+
+### Recent Governance Update (2026-02-24, Loop-to-Chat Coordination Runbook)
+
+Fact: Active-plan governance now includes a dedicated loop-output-to-chat
+runbook so operator handoffs and loop suggestion decisions are tracked in a
+single append-only active doc.
+
+Evidence:
+
+- `dev/active/loop_chat_bridge.md` (new runbook with execution checklist,
+  progress log, and audit evidence sections)
+- `dev/active/INDEX.md` (registry entry for `loop_chat_bridge.md`, scope
+  `MP-338`)
+- `dev/active/MASTER_PLAN.md` (`MP-338` and canonical rule/reference updates)
+- `AGENTS.md`, `DEV_INDEX.md`, `dev/README.md` (discovery-link routing updates)
+- `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (maintainer workflow updates
+  for loop handoff evidence)
+
+Inference: Loop guidance can now flow through a visible, auditable markdown
+channel instead of ad-hoc chat-only coordination, which reduces decision drift
+before enabling higher-autonomy execution.
+
+### Recent Governance Update (2026-02-24, Rust Guardrail Tightening)
+
+Fact: Rust guard scripts were tightened after the `src/` to `rust/` workspace
+migration audit to prevent silent check bypass and enforce stricter memory-safety
+policy for changed Rust files.
+
+Evidence:
+
+- `dev/scripts/checks/check_rust_audit_patterns.py` (active source-root discovery
+  with `rust/src` priority and fail-fast behavior when no Rust files are found)
+- `dev/scripts/checks/check_rust_security_footguns.py` (rename-aware baseline
+  mapping via `git_change_paths.py` to avoid rename-only false positives)
+- `dev/scripts/checks/check_rust_best_practices.py` (new non-regressive
+  `std::mem::forget`/`mem::forget` growth guard)
+- `dev/scripts/devctl/tests/test_check_rust_best_practices.py`,
+  `dev/scripts/devctl/tests/test_check_rust_audit_patterns.py`,
+  `dev/scripts/devctl/tests/test_check_rust_security_footguns.py`
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (policy/docs
+  wording updated for the tightened best-practices guard)
+- `dev/active/rust_workspace_layout_migration.md`, `dev/active/MASTER_PLAN.md`
+  (`MP-339` follow-up evidence and scope notes)
+
+Inference: The post-migration toolchain now fails louder when Rust source paths
+drift and blocks additional `mem::forget` debt in touched Rust files, reducing
+the chance of hidden safety regressions slipping through rename-heavy changes.
 
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
@@ -382,6 +450,182 @@ Inference: Release preparation now has fewer manual edit points and lower drift
 risk between versioned metadata files, while keeping existing verification and
 publishing gates unchanged.
 
+### Recent Governance Update (2026-02-23, Master Plan Snapshot Freshness Guard)
+
+Fact: Release-governance tooling now keeps `dev/active/MASTER_PLAN.md` Status
+Snapshot metadata synchronized and enforces freshness checks so release-state
+drift fails fast. `devctl ship/release --prepare-release` now updates the
+snapshot date plus `Last tagged release` and `Current release target`, and
+`check_active_plan_sync.py` now validates snapshot structure, branch policy,
+and release-tag consistency against git/Cargo release metadata.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/release_prep.py` (Status Snapshot auto-update)
+- `dev/scripts/devctl/tests/test_release_prep.py` (snapshot/idempotence coverage)
+- `dev/scripts/checks/check_active_plan_sync.py` (snapshot policy validation)
+- `AGENTS.md` (release SOP + guard definition update)
+- `dev/DEVELOPMENT.md` (check coverage wording update)
+- `dev/scripts/README.md` (script behavior update)
+- `dev/active/MASTER_PLAN.md` (`MP-304`)
+
+Inference: Maintainers now get one deterministic path to keep release snapshots
+current, and CI/local governance catches stale plan snapshots immediately.
+
+### Recent Governance Update (2026-02-23, Active-Plan Phase/Link Enforcement)
+
+Fact: Active-plan governance was tightened so mirrored spec docs must stay
+phase-structured and explicitly linked in the master tracker, and strict
+tooling docs checks now run this guard through `devctl`.
+
+Evidence:
+
+- `dev/scripts/checks/check_active_plan_sync.py` (required mirrored spec rows now
+  include `devctl_reporting_upgrade.md`, MP-scope parsing accepts single IDs,
+  and mirrored specs must include phase headings + explicit `MASTER_PLAN`
+  links)
+- `dev/active/devctl_reporting_upgrade.md` (status marker now uses the
+  canonical mirror phrasing)
+- `dev/active/MASTER_PLAN.md` (canonical rule now links the phased devctl
+  reporting spec)
+- `dev/scripts/devctl/commands/docs_check.py` (strict-tooling path now runs
+  active-plan sync)
+- `dev/scripts/devctl/tests/test_docs_check.py` (strict-tooling failure-path
+  coverage for active-plan sync errors)
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+Inference: Tooling/process changes now fail fast when active specs drift from
+phase governance or lose master-plan traceability, reducing the chance of
+"floating" active docs outside canonical execution state.
+
+### Recent Governance Update (2026-02-23, Guarded Branch Sync Automation)
+
+Fact: `devctl` now provides a dedicated `sync` command so maintainers can
+repeatably align branch state without ad-hoc git sequences. The command enforces
+clean-tree checks by default, validates local/remote branch refs, runs
+fast-forward-only pulls, optionally pushes local-ahead branches (`--push`), and
+restores the starting branch after execution.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/sync.py`
+- `dev/scripts/devctl/cli.py` (`sync` parser + dispatch)
+- `dev/scripts/devctl/commands/listing.py` (command inventory includes `sync`)
+- `dev/scripts/devctl/tests/test_sync.py`
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+
+Inference: Branch-sync hygiene now has one guarded control-plane path, reducing
+manual drift between `develop`, `master`, and active work branches.
+
+### Recent Governance Update (2026-02-23, Multi-Agent Accountability Guard)
+
+Fact: Multi-agent execution now has enforceable coordination checks instead of
+markdown-only conventions. A new guard validates parity between the
+`MASTER_PLAN` 3-agent board and `MULTI_AGENT_WORKTREE_RUNBOOK.md`, including
+lane/MP scope/worktree/branch alignment, status/date validation, and runbook
+ledger traceability. `devctl docs-check --strict-tooling` now runs this guard.
+
+Fact: End-of-cycle signoff is now explicit and machine-checkable. The runbook
+includes a required signoff table (`AGENT-1`, `AGENT-2`, `AGENT-3`,
+`ORCHESTRATOR`) and the guard enforces populated pass/isolation/bundle/signature
+fields when all agent lanes are marked `merged` in `MASTER_PLAN`.
+
+Fact: Accountability is now explicit in both CI and local control-plane usage.
+`.github/workflows/tooling_control_plane.yml` runs
+`python3 dev/scripts/checks/check_multi_agent_sync.py` as a dedicated workflow step,
+and `devctl orchestrate-status` provides a one-command orchestrator summary
+for active-plan sync + multi-agent parity state.
+
+Fact: Orchestrator-to-agent communication now has a machine-checked instruction
+ledger contract. The runbook now includes an append-only instruction table with
+unique instruction IDs, due timestamps, and ACK tokens; the guard validates
+target-agent scope, timestamp formatting, status transitions, and ACK metadata.
+
+Fact: Lane-isolation guarantees now include collision controls. The guard now
+fails when lane branch/worktree identifiers are reused across agents or when MP
+scope overlaps appear without explicit matching handoff tokens.
+
+Fact: SLA enforcement now runs continuously between pushes. `devctl
+orchestrate-watch` evaluates stale lane updates and overdue instruction ACKs,
+and `.github/workflows/orchestrator_watchdog.yml` runs this lane every 15
+minutes (plus manual dispatch).
+
+Evidence:
+
+- `dev/scripts/checks/check_multi_agent_sync.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/orchestrator_watchdog.yml`
+- `dev/scripts/devctl/commands/orchestrate_status.py`
+- `dev/scripts/devctl/commands/orchestrate_watch.py`
+- `dev/scripts/devctl/cli.py` (`orchestrate-status` parser + dispatch)
+- `dev/scripts/devctl/orchestrate_parser.py`
+- `dev/scripts/devctl/commands/listing.py` (command inventory includes `orchestrate-status` and `orchestrate-watch`)
+- `dev/scripts/devctl/tests/test_check_multi_agent_sync.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/devctl/tests/test_orchestrate_status.py`
+- `dev/scripts/devctl/tests/test_orchestrate_watch.py`
+- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+- `AGENTS.md`
+- `dev/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+Inference: The orchestration plane now has full contract coverage: board/runbook
+parity, instruction/ack protocol, lane collision controls, and scheduled SLA
+watchdog enforcement.
+
+### Recent Governance Update (2026-02-23, Code-Shape Guidance Hardening)
+
+Fact: `check_code_shape.py` violation output now ships explicit remediation
+guidance: run a modularization/consolidation audit when limits are crossed, do
+not "solve" shape failures with readability-degrading code-golf edits, and use
+language-specific best-practice references for Python/Rust during cleanup.
+The guard also now tracks `check_active_plan_sync.py` through an explicit
+path-level budget (`soft_limit=450`) so remediation can stay refactor-first
+instead of forcing readability-hostile shrink edits.
+
+Evidence:
+
+- `dev/scripts/checks/check_code_shape.py` (audit-first guidance + docs links)
+- `dev/scripts/devctl/tests/test_check_code_shape_guidance.py`
+- `dev/scripts/README.md` (guard behavior update)
+- `dev/active/MASTER_PLAN.md` (`MP-305`)
+
+Inference: The shape guard now drives maintainable refactors by default instead
+of incentivizing superficial line-count minimization.
+
+### Recent Governance Update (2026-02-23, Check-Script Path Registry)
+
+Fact: Governance check scripts were reorganized under `dev/scripts/checks/`,
+and `devctl` now uses one canonical check-path registry
+(`dev/scripts/devctl/script_catalog.py`) instead of scattered hardcoded path
+strings. New `devctl path-audit` and `devctl path-rewrite` commands plus
+strict-tooling docs-check integration (`dev/scripts/devctl/path_audit.py`) now
+detect and auto-rewrite stale legacy references after script moves.
+
+Evidence:
+
+- `dev/scripts/checks/` (consolidated `check_*.py` scripts)
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/path_audit.py`
+- `dev/scripts/devctl/commands/path_audit.py`
+- `dev/scripts/devctl/commands/path_rewrite.py`
+- `dev/scripts/devctl/commands/docs_check.py` (strict-tooling stale-path gate)
+- `dev/scripts/devctl/tests/test_path_audit.py`
+- `dev/scripts/devctl/tests/test_path_rewrite.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/active/MASTER_PLAN.md` (`MP-306`)
+
+Inference: Future script reorganizations now scale as one registry change plus
+automated stale-reference detection/rewrites, instead of broad manual path
+churn.
+
 ### Recent Governance Update (2026-02-23, Devctl Triage Integration)
 
 Fact: `devctl` now includes a dedicated `triage` command that outputs both a
@@ -422,6 +666,295 @@ Inference: Triage output is now better suited for cross-project team workflows
 because ownership and severity routing can be consumed directly by humans, bots,
 and AI agents without ad-hoc post-processing.
 
+### Recent Governance Update (2026-02-23, CodeRabbit Triage Bridge)
+
+Fact: CodeRabbit PR-review signals now flow into the existing `devctl triage`
+schema, with blocking policy gates that fail on unresolved medium/high findings.
+Release verification now uses one reusable check path (`check_coderabbit_gate`)
+across `devctl ship --verify`, release preflight, and release publish lanes
+(PyPI/Homebrew/attestation) for the exact tagged commit.
+
+Evidence:
+
+- `.coderabbit.yaml` (repo-level CodeRabbit review profile/path instructions)
+- `.github/workflows/coderabbit_triage.yml` (normalizes CodeRabbit
+  review/check signals into `.cihub/coderabbit/priority.json`, runs
+  `devctl triage --external-issues-file ...`, and fails on medium/high
+  severities)
+- `.github/workflows/release_preflight.yml` (requires a successful
+  `CodeRabbit Triage Bridge` run for the same commit SHA before continuing)
+- `.github/workflows/publish_pypi.yml`,
+  `.github/workflows/publish_homebrew.yml`,
+  `.github/workflows/release_attestation.yml` (all verify CodeRabbit gate
+  success for the release tag commit before distribution/attestation actions)
+- `.github/workflows/coderabbit_ralph_loop.yml` (bounded remediation loop for
+  medium/high backlog artifacts with optional auto-fix command retries)
+- `dev/scripts/checks/check_coderabbit_gate.py` (shared commit-SHA gate check
+  used by local release tooling and CI release lanes)
+- `dev/scripts/checks/run_coderabbit_ralph_loop.py` (loop controller with
+  bounded retries, backlog artifact ingestion, and new-run polling)
+- `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs the
+  CodeRabbit gate before release/governance checks)
+- `dev/scripts/devctl/triage_parser.py` (`--external-issues-file`)
+- `dev/scripts/devctl/commands/triage.py` (external issue-file ingestion path)
+- `dev/scripts/devctl/triage_enrich.py` (shared payload/file extraction helpers)
+- `dev/scripts/devctl/triage_support.py` (external-source markdown rendering)
+- `dev/scripts/devctl/tests/test_triage.py` (parser and external-ingest coverage)
+- `dev/scripts/devctl/tests/test_ship.py` (release verify gate coverage)
+- `.github/workflows/failure_triage.yml` (includes `CodeRabbit Triage Bridge`
+  in tracked workflow-run sources)
+
+Inference: AI code-review tooling now feeds one canonical triage pipeline and
+acts as an enforceable release-control signal instead of a parallel advisory
+comment stream, while default severity handling avoids blocking on purely
+informational bot comments.
+
+### Recent Governance Update (2026-02-24, Autonomous Loop Hardening)
+
+Fact: The bounded remediation control plane advanced from planning-only to
+implemented loop governance in three lanes: source-run pinning for CodeRabbit
+Ralph, real summary/comment upserts, and a new bounded mutation loop with
+report-only default plus policy-gated fix mode.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_loop_parser.py` (`--source-run-id`,
+  `--source-run-sha`, `--source-event`, `--comment-target`,
+  `--comment-pr-number`)
+- `dev/scripts/checks/coderabbit_ralph_loop_core.py` (authoritative source-run
+  attempt resolution, run/artifact SHA validation, explicit
+  `source_run_sha_mismatch` reasons)
+- `dev/scripts/devctl/commands/triage_loop.py` (summary/comment publication with
+  idempotent marker upsert targeting PR or commit comments)
+- `.github/workflows/coderabbit_ralph_loop.yml` (source run id/sha wiring and
+  comment target inputs/vars)
+- `dev/scripts/devctl/mutation_loop_parser.py`
+- `dev/scripts/checks/mutation_ralph_loop_core.py`
+- `dev/scripts/devctl/commands/mutation_loop.py`
+- `.github/workflows/mutation_ralph_loop.yml`
+- `dev/config/control_plane_policy.json` (`AUTONOMY_MODE` baseline, branch and
+  command-prefix allowlist policy for mutation fix mode)
+- `dev/scripts/checks/check_active_plan_sync.py` (execution-plan marker/section
+  enforcement for active autonomy docs)
+- `dev/active/autonomous_control_plane.md` and `dev/active/MASTER_PLAN.md`
+  (`MP-325` through `MP-329` + `MP-333` status updates)
+
+Inference: The repo now has an auditable, policy-bounded automation path that
+can run autonomously inside approved scope while escalating on policy/scope
+violations instead of silently mutating state.
+
+### Recent Governance Update (2026-02-24, Autonomy Controller + Queue Packets)
+
+Fact: The autonomy plan now includes a first-pass bounded controller command and
+workflow that coordinate repeated `triage-loop` + `loop-packet` rounds, emit
+run-scoped checkpoint packets, and write queue-ready artifacts for phone/chat
+handoff paths, including a continuously refreshed phone-ready status feed.
+
+Evidence:
+
+- `dev/scripts/devctl/autonomy_loop_parser.py`
+- `dev/scripts/devctl/commands/autonomy_loop.py` (round/hour/task caps,
+  policy-aware mode gating via `AUTONOMY_MODE`, checkpoint packet schema with
+  terminal/action trace payloads, queue inbox artifacts, phone-status snapshots
+  at `dev/reports/autonomy/queue/phone/latest.{json,md}`)
+- `dev/scripts/devctl/autonomy_loop_helpers.py` (phone-status payload builder +
+  markdown renderer with run URL/SHA context and next-action summaries)
+- `dev/scripts/devctl/tests/test_autonomy_loop.py` (parser + controller command
+  behavior coverage including phone-status artifact assertions)
+- `.github/workflows/autonomy_controller.yml` (dispatch/schedule entrypoints,
+  controller artifact upload, optional PR promote path gated on remote branch
+  existence)
+- `dev/config/control_plane_policy.json` (autonomy-loop branch/cap/packet/queue
+  policy defaults)
+- `dev/active/autonomous_control_plane.md`, `dev/active/MASTER_PLAN.md`,
+  `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md` (governance and
+  operator flow updates)
+
+Inference: The repo now has a concrete controller orchestration lane that can
+run bounded autonomous cycles with auditable packetized handoffs, while keeping
+promotion/release actions behind explicit guards and follow-up hardening gates.
+
+### Recent Governance Update (2026-02-23, CI Failure Artifact Automation)
+
+Fact: CI now has a dedicated workflow-run failure lane that captures a triage
+bundle whenever any core workflow ends non-success, and `devctl` now includes a
+guarded local cleanup command for these artifacts.
+
+Evidence:
+
+- `.github/workflows/failure_triage.yml` (workflow-run trigger for core lanes;
+  on failure writes triage/context files and uploads artifact bundle)
+- `dev/scripts/devctl/commands/failure_cleanup.py` (guarded cleanup with
+  optional `--require-green-ci` gate, dry-run, and confirmation)
+- `dev/scripts/devctl/failure_cleanup_parser.py`
+- `dev/scripts/devctl/cli.py` / `dev/scripts/devctl/commands/listing.py`
+- `dev/scripts/devctl/tests/test_failure_cleanup.py`
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
+
+Inference: Failure evidence is now standardized into one artifact path pattern
+for both humans and AI agents, while cleanup is intentionally gated so teams do
+not erase diagnostics before CI is green.
+
+### Recent Governance Update (2026-02-23, Failure Automation Trust Hardening)
+
+Fact: The failure/security automation lane added stricter trust and determinism
+ guards: CI security workflows now force full-repo Python checks, failure-triage
+ workflow execution is constrained to trusted same-repo branch contexts (with a
+ configurable branch allowlist), and
+ `devctl failure-cleanup` now enforces default cleanup-root boundaries, keeps
+ override mode constrained to `dev/reports/**`, and adds optional CI run
+ filters for auditable scoped cleanup decisions.
+
+Evidence:
+
+- `.github/workflows/security_guard.yml` (`devctl security --python-scope all`)
+- `.github/workflows/release_preflight.yml` (`devctl security --python-scope all`)
+- `.github/workflows/failure_triage.yml` (same-repo/event/branch guards and
+  explicit `GH_TOKEN` export for triage collection; branch allowlist defaults
+  to `develop,master` and can be overridden via `FAILURE_TRIAGE_BRANCHES`)
+- `dev/scripts/devctl/collect.py` (expanded `gh run list` fields plus fallback
+  behavior for older `gh` JSON field support to keep CI-gate collection
+  deterministic across mixed developer environments)
+- `dev/scripts/devctl/commands/failure_cleanup.py` (default failure-root
+  enforcement and `branch`/`workflow`/`event`/`sha` filter-aware CI gating)
+- `dev/scripts/devctl/failure_cleanup_parser.py`
+- `dev/scripts/devctl/tests/test_failure_cleanup.py`
+- `dev/scripts/devctl/tests/test_security.py`
+- `dev/active/MASTER_PLAN.md` (`MP-306` hardening sub-item)
+- `dev/active/devctl_reporting_upgrade.md` (`MP-306 Hardening Checklist`)
+
+Inference: Automation now fails safer by default: untrusted workflow-run
+contexts are skipped, Python checks in CI are deterministic, cleanup scope
+requires explicit intent before deleting anything outside failure artifacts, and
+branch policy changes can be adopted without workflow rewrites.
+
+### Recent Governance Update (2026-02-24, Ralph Loop Control-Plane Integration)
+
+Fact: The CodeRabbit medium/high remediation loop is now exposed as a first-class
+`devctl triage-loop` command with mode controls (`report-only`,
+`plan-then-fix`, `fix-only`), optional bundle/proposal artifacts, and a new
+release gate (`check_coderabbit_ralph_gate.py`) enforced by local ship verify
+and release publish workflows.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_loop_parser.py` (parser wiring for `triage-loop`)
+- `dev/scripts/devctl/commands/triage_loop.py` (loop execution, md/json output,
+  bundle emission, optional MASTER_PLAN proposal artifact)
+- `dev/scripts/devctl/cli.py` /
+  `dev/scripts/devctl/commands/listing.py` (`triage-loop` command registration)
+- `dev/scripts/checks/check_coderabbit_ralph_gate.py` (commit-SHA release gate
+  for the `CodeRabbit Ralph Loop` workflow)
+- `dev/scripts/devctl/script_catalog.py` /
+  `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs both
+  CodeRabbit gates before release checks)
+- `.github/workflows/coderabbit_ralph_loop.yml` (mode-aware loop orchestration
+  via `devctl triage-loop` and repo-variable controls)
+- `.github/workflows/release_preflight.yml`,
+  `.github/workflows/publish_pypi.yml`,
+  `.github/workflows/publish_homebrew.yml`,
+  `.github/workflows/release_attestation.yml` (all enforce the Ralph gate)
+- `dev/scripts/devctl/tests/test_triage_loop.py`,
+  `dev/scripts/devctl/tests/test_check_coderabbit_ralph_gate.py`,
+  `dev/scripts/devctl/tests/test_ship.py` (parser/loop/gate/release wiring
+  coverage)
+- `dev/DEVCTL_AUTOGUIDE.md`, `AGENTS.md`, `dev/DEVELOPMENT.md`,
+  `dev/scripts/README.md` (operator docs and workflow guidance updates)
+
+Inference: Ralph remediation behavior is now controllable through one canonical
+control-plane path with deterministic artifacts and stronger release promotion
+guards against unresolved CodeRabbit medium/high backlog risk.
+
+### Recent Governance Update (2026-02-24, Hygiene Auto-Fix for Python Cache Drift)
+
+Fact: `devctl hygiene` now supports an optional `--fix` mode that removes
+detected `dev/scripts/**/__pycache__` directories after local runs, re-audits
+scripts hygiene, and reports removed/skipped/failed cache paths explicitly.
+
+Evidence:
+
+- `dev/scripts/devctl/cli_parser_reporting.py` (new `hygiene --fix` flag)
+- `dev/scripts/devctl/commands/hygiene.py` (safe cache-dir removal flow with
+  repo-root guardrails and fix report output)
+- `dev/scripts/devctl/tests/test_hygiene.py` (parser + cleanup + end-to-end fix
+  behavior coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md` (operator docs)
+
+Inference: Maintainers can clear Python cache drift with one control-plane
+command instead of manual deletion while keeping deletion scope bounded and
+auditable.
+
+### Recent Governance Update (2026-02-24, Scientific Audit Metrics + Repeat-to-Automate Policy)
+
+Fact: Governance now requires repeated manual workarounds to be either
+automated or logged as explicit automation debt, and the audit program now
+includes KPI+chart instrumentation to measure script-only vs AI-assisted vs
+manual execution share over time.
+
+Evidence:
+
+- `AGENTS.md` (`Continuous improvement loop (required)`, source-of-truth map
+  additions, documentation governance updates)
+- `dev/scripts/checks/check_agents_contract.py` (required markers for
+  repeat-to-automate and metrics schema/tool references)
+- `dev/audits/README.md`,
+  `dev/audits/AUTOMATION_DEBT_REGISTER.md`,
+  `dev/audits/2026-02-24-autonomy-baseline-audit.md`,
+  `dev/audits/METRICS_SCHEMA.md`,
+  `dev/audits/templates/audit_events_template.jsonl`
+- `dev/scripts/audits/audit_metrics.py` (JSONL event analysis + optional
+  matplotlib chart generation)
+- `dev/scripts/devctl/audit_events.py`,
+  `dev/scripts/devctl/cli.py`,
+  `dev/config/control_plane_policy.json` (`audit_metrics.event_log_path`) for
+  automatic per-command event emission
+- `dev/active/MASTER_PLAN.md` (`MP-337`)
+
+Inference: Autonomy loops can now be improved like a controlled experiment:
+capture event data, quantify automation quality, and iterate scripts toward
+higher script-only coverage with lower manual intervention.
+
+### Recent Governance Update (2026-02-24, Text-Edit Caret Navigation Backlog Intake)
+
+Fact: A high-impact text-editing regression was captured in the canonical
+tracker: left/right arrow-key input is being consumed by tab/button navigation
+instead of moving the caret inside staged transcript/input text, preventing
+users from correcting recognition mistakes before submit.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md` (`MP-323`)
+
+Inference: This closes a planning gap for a blocker-level UX issue and makes
+the input-routing fix traceable as explicit backlog scope before implementation.
+
+### Recent Governance Update (2026-02-23, Supply-Chain Lane Expansion)
+
+Fact: CI supply-chain automation expanded with four dedicated lanes: PR
+dependency review, workflow linting, scheduled scorecard analysis, and release
+source provenance attestation; workflow-governance path coverage was broadened
+so any workflow edit now routes through tooling governance checks.
+
+Evidence:
+
+- `.github/workflows/dependency_review.yml` (`actions/dependency-review-action`
+  pinned SHA, high-severity PR dependency policy gate)
+- `.github/workflows/workflow_lint.yml` (actionlint execution for workflow
+  syntax/policy drift)
+- `.github/workflows/scorecard.yml` (OpenSSF scorecard SARIF generation and
+  upload to code scanning)
+- `.github/workflows/release_attestation.yml` (`actions/attest-build-provenance`
+  on release-tag source archives)
+- `.github/workflows/tooling_control_plane.yml` (workflow path scope expanded
+  to `.github/workflows/*.yml`)
+- `dev/active/MASTER_PLAN.md` (`MP-306` lane-expansion completion + deferred
+  admin backlog for PyPI Trusted Publishing and branch-protection rulesets)
+
+Inference: Supply-chain assurance moved from policy guidance to active CI lanes
+that detect dependency/workflow risk earlier and add provenance signals for
+release artifacts, while explicitly deferring admin-controlled rollout steps to
+tracked backlog items instead of ad-hoc notes.
+
 ### Recent Governance Update (2026-02-20, Theme Studio Settings Ownership)
 
 Fact: Theme Studio delivery tracking advanced by completing `MP-165`, which
@@ -431,7 +964,7 @@ remains focused on non-theme runtime controls.
 Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-165` marked complete with landed note)
-- `src/src/bin/voiceterm/settings/items.rs` (`SETTINGS_ITEMS` no longer
+- `rust/src/bin/voiceterm/settings/items.rs` (`SETTINGS_ITEMS` no longer
   includes `Theme`, `HudStyle`, `HudBorders`, `HudPanel`, `HudAnimate`)
 - `guides/USAGE.md` and `guides/TROUBLESHOOTING.md` (updated operator guidance
   for `Ctrl+Y`/`Ctrl+G`/`Ctrl+U` and HUD panel launch flags)
@@ -450,13 +983,13 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-166` in-progress note now includes
   `Voice scene` control coverage)
-- `src/src/bin/voiceterm/theme_studio.rs` (new `Voice scene` row + live value
+- `rust/src/bin/voiceterm/theme_studio.rs` (new `Voice scene` row + live value
   label)
-- `src/src/bin/voiceterm/theme/style_pack.rs` and
-  `src/src/bin/voiceterm/theme/colors.rs` (runtime `voice_scene_style`
+- `rust/src/bin/voiceterm/theme/style_pack.rs` and
+  `rust/src/bin/voiceterm/theme/colors.rs` (runtime `voice_scene_style`
   overrides wired through resolver)
-- `src/src/bin/voiceterm/status_line/format.rs` and
-  `src/src/bin/voiceterm/status_line/buttons.rs` (scene-style-aware
+- `rust/src/bin/voiceterm/status_line/format.rs` and
+  `rust/src/bin/voiceterm/status_line/buttons.rs` (scene-style-aware
   animation/density behavior in full/minimal right panel rendering)
 - `guides/USAGE.md` and `dev/CHANGELOG.md` (user-facing control and behavior
   updates)
@@ -475,16 +1008,16 @@ Evidence:
 - `dev/active/MASTER_PLAN.md` (`MP-174` in-progress note now includes
   resolver-based routing for `components.overlay_border` and
   `components.hud_border`)
-- `src/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
+- `rust/src/bin/voiceterm/theme/style_pack.rs` (new resolver helpers for
   overlay/HUD component border sets)
-- `src/src/bin/voiceterm/help.rs`,
-  `src/src/bin/voiceterm/settings/render.rs`,
-  `src/src/bin/voiceterm/theme_picker.rs`,
-  `src/src/bin/voiceterm/theme_studio.rs`,
-  `src/src/bin/voiceterm/toast.rs`,
-  `src/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
+- `rust/src/bin/voiceterm/help.rs`,
+  `rust/src/bin/voiceterm/settings/render.rs`,
+  `rust/src/bin/voiceterm/theme_picker.rs`,
+  `rust/src/bin/voiceterm/theme_studio.rs`,
+  `rust/src/bin/voiceterm/toast.rs`,
+  `rust/src/bin/voiceterm/custom_help.rs` (overlay renderers now use resolved
   overlay border set)
-- `src/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
+- `rust/src/bin/voiceterm/status_line/format.rs` (Full HUD now uses resolved
   HUD border set when HUD border mode is `theme`)
 
 Inference: Component-border style-pack fields moved from parse-only schema
@@ -538,7 +1071,7 @@ context injection, and overlay architecture ADR work.
 
 Evidence:
 
-- `dev/scripts/check_code_shape.py` (path-level `PATH_POLICY_OVERRIDES` for
+- `dev/scripts/checks/check_code_shape.py` (path-level `PATH_POLICY_OVERRIDES` for
   Phase 3C hotspot files)
 - `dev/active/MASTER_PLAN.md` (`MP-265` in-progress note and new `MP-269` ..
   `MP-273` backlog items)
@@ -557,7 +1090,7 @@ or non-test `unwrap/expect` call-sites without an explicit CI failure.
 
 Evidence:
 
-- `dev/scripts/check_rust_lint_debt.py` (working-tree + `--since-ref` /
+- `dev/scripts/checks/check_rust_lint_debt.py` (working-tree + `--since-ref` /
   `--head-ref` commit-range support)
 - `.github/workflows/tooling_control_plane.yml` (commit-range enforcement step)
 - `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`
@@ -576,7 +1109,7 @@ push/release.
 
 Evidence:
 
-- `dev/scripts/check_rust_best_practices.py` (working-tree + `--since-ref` /
+- `dev/scripts/checks/check_rust_best_practices.py` (working-tree + `--since-ref` /
   `--head-ref` commit-range support for reason-less `#[allow(...)]`,
   undocumented `unsafe { ... }`, and public `unsafe fn` without `# Safety`
   docs)
@@ -602,9 +1135,9 @@ Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-265` note updated with concrete extraction
   evidence and line-count reduction)
-- `src/src/bin/voiceterm/status_line/buttons.rs` (reduced module footprint and
+- `rust/src/bin/voiceterm/status_line/buttons.rs` (reduced module footprint and
   imports rewired to helper module)
-- `src/src/bin/voiceterm/status_line/buttons/badges.rs` (new queue/wake/ready/
+- `rust/src/bin/voiceterm/status_line/buttons/badges.rs` (new queue/wake/ready/
   latency badge helper module)
 - `dev/CHANGELOG.md` (unreleased code-quality note documenting the extraction)
 
@@ -620,7 +1153,7 @@ default and can fail on stale mutation data, so maintainers can distinguish
 
 Evidence:
 
-- `dev/scripts/check_mutation_score.py` (outcomes source path + updated-at/age
+- `dev/scripts/checks/check_mutation_score.py` (outcomes source path + updated-at/age
   reporting, stale warning threshold, and `--max-age-hours` fail gate)
 - `dev/scripts/devctl/commands/mutation_score.py`,
   `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/check.py`
@@ -657,6 +1190,36 @@ Inference: Process-leak handling moved from manual triage to default-safe
 maintenance behavior in the primary verification command, reducing repeated
 CPU/disk churn incidents during heavy multi-agent test cycles.
 
+### Recent Governance Update (2026-02-23, Runaway Process Containment)
+
+Fact: `devctl` process safety was tightened so interrupted check runs now tear
+down entire subprocess trees, and stale long-running `voiceterm-*` test
+processes are now treated as actionable drift (not warning-only noise).
+
+Evidence:
+
+- `dev/scripts/devctl/common.py` (check step subprocesses now run in isolated
+  process groups/sessions; `KeyboardInterrupt` path performs best-effort tree
+  teardown and returns structured exit `130` instead of leaving detached
+  children)
+- `dev/scripts/devctl/process_sweep.py` (added stale-process splitter with
+  explicit age threshold)
+- `dev/scripts/devctl/commands/check.py` (`process-sweep-pre`/`post` now clean
+  both detached-orphan and stale active test binaries)
+- `dev/scripts/devctl/commands/hygiene.py` (stale active test binaries now fail
+  hygiene instead of warning-only)
+- `dev/scripts/devctl/tests/test_common.py`,
+  `dev/scripts/devctl/tests/test_process_sweep.py`,
+  `dev/scripts/devctl/tests/test_check.py`,
+  `dev/scripts/devctl/tests/test_hygiene.py` (regression coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (operator/governance guidance aligned to new
+  containment semantics)
+
+Inference: Process-leak prevention now covers both common failure paths
+(`Ctrl+C` interruption and stale-active leftovers), reducing repeat CPU
+saturation incidents during local hardening and multi-agent verification loops.
+
 ### Recent Governance Update (2026-02-23, Wake/Send Runtime Semantics)
 
 Fact: Wake-word and insert-mode send behavior were tightened so voice-first
@@ -666,13 +1229,13 @@ conditions.
 Evidence:
 
 - `dev/active/MASTER_PLAN.md` (`MP-280`, `MP-281` completed)
-- `src/src/bin/voiceterm/wake_word.rs` and
-  `src/src/bin/voiceterm/wake_word/tests.rs` (alias normalization expansion,
+- `rust/src/bin/voiceterm/wake_word.rs` and
+  `rust/src/bin/voiceterm/wake_word/tests.rs` (alias normalization expansion,
   wake-event classification, no-audio retry backoff)
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` (wake-trigger handling
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs` (wake-trigger handling
   decoupled from auto-voice pause latch, insert-mode `Ctrl+E` finalize-only
   semantics, wake-tail send intent routing)
-- `src/src/bin/voiceterm/voice_control/navigation.rs` (built-in voice submit
+- `rust/src/bin/voiceterm/voice_control/navigation.rs` (built-in voice submit
   intents: `send`, `send message`, `submit`)
 - User docs updated for control behavior: `README.md`, `QUICK_START.md`,
   `guides/USAGE.md`, `guides/CLI_FLAGS.md`, `guides/INSTALL.md`,
@@ -695,7 +1258,7 @@ Evidence:
 - `dev/active/INDEX.md` (active-doc registry updated to remove standalone
   `overlay.md` entry)
 - `dev/active/MASTER_PLAN.md` (`MP-282` completion + reference updates)
-- `dev/scripts/check_active_plan_sync.py` (required active-doc registry rows
+- `dev/scripts/checks/check_active_plan_sync.py` (required active-doc registry rows
   aligned with consolidated file set)
 
 Inference: The visual execution track now has one source for design/research
@@ -725,12 +1288,58 @@ Evidence:
 Inference: Guarded runtime telemetry moved from "written to disk only" to a
 repeatable maintainer inspection path in the existing control-plane CLI.
 
+### Recent Governance Update (2026-02-23, AGENTS Coverage + Active-Doc Routing)
+
+Fact: Governance entry docs were tightened so autonomous agents have explicit
+coverage for command discovery, active-doc authority boundaries, and
+reference-only planning context.
+
+Evidence:
+
+- `AGENTS.md` (source-of-truth map now calls out reference-only `dev/active`
+  docs, CI workflow ownership, `devctl` command-semantics location, explicit
+  autonomous execution route contract, and full tooling inventory coverage for
+  `triage`, `cihub-setup`, and security CodeQL alert-gate flags)
+- `DEV_INDEX.md` (added discoverability links for `dev/active/phase2.md` as a
+  reference-only doc)
+- `dev/README.md` (start-path and task-routing table now include
+  reference-only active docs with clear non-execution-state framing)
+- `dev/active/MASTER_PLAN.md` (`MP-257` progress note for readability/autonomy
+  routing cleanup)
+
+Inference: The planning/process surface remains centralized, but now better
+distinguishes execution-state docs from contextual references, reducing agent
+misrouting risk during autonomous runs.
+
+### Recent Governance Update (2026-02-23, Guard-Driven Rust Remediation Scaffold)
+
+Fact: Tooling lanes now auto-generate a canonical Rust remediation scaffold when
+AI guardrails detect modularity/pattern drift, so humans and agents work from
+one active execution document instead of ad-hoc notes.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/audit_scaffold.py` (new `devctl audit-scaffold`
+  command with active-root output guard + overwrite confirmation)
+- `dev/config/templates/rust_audit_findings_template.md` (canonical scaffold
+  template carrying required sources, references, findings, and verification
+  checklist structure)
+- `dev/scripts/devctl/commands/check.py` (auto-runs scaffold generation when AI
+  guard steps fail)
+- `.github/workflows/tooling_control_plane.yml` (failure-path scaffold
+  generation + artifact upload for `dev/active/RUST_AUDIT_FINDINGS.md`)
+- `dev/scripts/devctl/tests/test_audit_scaffold.py` and
+  `dev/scripts/devctl/tests/test_check.py`
+
+Inference: Remediation now moves from "manual triage memory" to an enforceable,
+repeatable control-plane output that keeps multi-agent follow-up aligned.
+
 ### Replay the Evidence Quickly
 
 1. `git log --reverse --date=short --pretty=format:'%ad %h %s'`
 2. `git log --merges --date=short --pretty=format:'%ad %h %s'`
 3. `git show <hash>`
-4. `git log -- <path>` (example: `git log -- src/src/bin/voiceterm/voice_control/drain/message_processing.rs`)
+4. `git log -- <path>` (example: `git log -- rust/src/bin/voiceterm/voice_control/drain/message_processing.rs`)
 5. `git tag --sort=creatordate`
 
 ### Visual Guide
@@ -744,13 +1353,13 @@ repeatable maintainer inspection path in the existing control-plane CLI.
 
 ```mermaid
 flowchart LR
-  MIC[Mic Input] --> STT[src/src/stt.rs]
-  STT --> VOICE[src/src/bin/voiceterm/voice_control]
-  VOICE --> HUD[src/src/bin/voiceterm/event_loop and writer]
-  HUD <--> PTY[src/src/pty_session/pty.rs]
+  MIC[Mic Input] --> STT[rust/src/stt.rs]
+  STT --> VOICE[rust/src/bin/voiceterm/voice_control]
+  VOICE --> HUD[rust/src/bin/voiceterm/event_loop and writer]
+  HUD <--> PTY[rust/src/pty_session/pty.rs]
   PTY <--> CLI[Codex or Claude CLI via PTY]
-  HUD <--> IPC[src/src/ipc]
-  IPCS[src/src/ipc/session.rs] --> PTY
+  HUD <--> IPC[rust/src/ipc]
+  IPCS[rust/src/ipc/session.rs] --> PTY
   DOCS[SDLC docs and ADRs] --> HUD
   DOCS --> VOICE
 ```
@@ -846,9 +1455,9 @@ Prove the voice-to-CLI loop quickly while resolving low-level PTY and event-loop
 
 ### Where to Inspect in Repo
 
-- `src/src/pty_session/pty.rs` (PTY behavior and lifecycle mechanics)
-- `src/src/stt.rs` (STT model/runtime behavior)
-- `src/src/bin/voiceterm/main.rs` (runtime wiring and control loop entrypoint)
+- `rust/src/pty_session/pty.rs` (PTY behavior and lifecycle mechanics)
+- `rust/src/stt.rs` (STT model/runtime behavior)
+- `rust/src/bin/voiceterm/main.rs` (runtime wiring and control loop entrypoint)
 
 ### Key Decisions + Evidence
 
@@ -897,7 +1506,7 @@ Move from internal utility behavior to predictable install and launch behavior f
 
 - `README.md` and `QUICK_START.md` (user install/startup framing)
 - `guides/INSTALL.md` and `guides/USAGE.md` (distribution and usage behavior)
-- `src/src/bin/voiceterm/main.rs` (startup/status behavior)
+- `rust/src/bin/voiceterm/main.rs` (startup/status behavior)
 
 ### Key Decisions + Evidence
 
@@ -991,7 +1600,7 @@ Terminal edge cases, heavy PTY output, and high release frequency exposed reliab
 
 - `.github/workflows/latency_guard.yml` and `.github/workflows/voice_mode_guard.yml`
 - `dev/scripts/tests/measure_latency.sh` and `dev/scripts/devctl.py`
-- `src/src/pty_session/pty.rs` and `src/src/bin/voiceterm/voice_control/drain/`
+- `rust/src/pty_session/pty.rs` and `rust/src/bin/voiceterm/voice_control/drain/`
 
 ### Key Decisions + Evidence
 
@@ -1051,29 +1660,29 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `.github/workflows/mutation-testing.yml`
 - `dev/scripts/render_mutation_badge.py`
 - `.github/badges/mutation-score.json`
-- `src/src/pty_session/pty.rs` and `src/src/pty_session/tests.rs`
-- `src/src/pty_session/session_guard.rs`
-- `src/src/bin/voiceterm/event_loop.rs` and `src/src/bin/voiceterm/event_loop/`
-- `src/src/bin/voiceterm/voice_control/drain.rs` and `src/src/bin/voiceterm/voice_control/drain/`
-- `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, and `src/src/ipc/session/event_processing/`
+- `rust/src/pty_session/pty.rs` and `rust/src/pty_session/tests.rs`
+- `rust/src/pty_session/session_guard.rs`
+- `rust/src/bin/voiceterm/event_loop.rs` and `rust/src/bin/voiceterm/event_loop/`
+- `rust/src/bin/voiceterm/voice_control/drain.rs` and `rust/src/bin/voiceterm/voice_control/drain/`
+- `rust/src/ipc/session.rs`, `rust/src/ipc/session/loop_runtime.rs`, and `rust/src/ipc/session/event_processing/`
 
 ### Key Decisions + Evidence
 
 - Rust hardening audit tracking consolidated into `MASTER_PLAN` and archive reference. Evidence: `fc68982`, `4194dd4`.
 - Release-notes automation shipped via script + devctl wrapper + release handoff. Evidence: `4194dd4`.
-- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/check_release_version_parity.py`, `dev/scripts/check_agents_contract.py`, `dev/scripts/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
+- Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/checks/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/checks/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/checks/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/checks/check_release_version_parity.py`, `dev/scripts/checks/check_agents_contract.py`, `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
 - Tooling hygiene now includes a runtime process sweep that errors on detached `target/debug/deps/voiceterm-*` test binaries (`PPID=1`) and warns on active test runners, so leaked local test binaries are caught before governance bundles proceed. Evidence: `dev/scripts/devctl/commands/hygiene.py`, `dev/scripts/devctl/tests/test_hygiene.py`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md` (MP-256).
 - Docs readability scope now includes an explicit plain-language pass for primary `dev/` entry docs (`dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`) so new contributors can follow workflows faster while preserving command and policy accuracy. Evidence: `dev/active/MASTER_PLAN.md` (MP-257), `dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `AGENTS.md`.
 - Maintainer-facing workflow docs were rewritten for faster scanability with an end-to-end lifecycle flowchart plus quick routing sections (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) so developers can quickly choose the right local checks and push path, while keeping `AGENTS.md` as the canonical bundle/router source. Evidence: `dev/DEVELOPMENT.md`, `AGENTS.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`.
-- Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
+- Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
-- Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `src/src/bin/voiceterm/event_loop/`, `src/src/bin/voiceterm/voice_control/drain/`.
-- IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `src/src/ipc/session.rs`, `src/src/ipc/session/loop_runtime.rs`, `src/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
+- Runtime hot-path decomposition (MP-143) split event-loop dispatch and voice-drain helpers into dedicated modules to reduce regression blast radius and review risk. Evidence: `dev/active/MASTER_PLAN.md`, `dev/CHANGELOG.md`, `rust/src/bin/voiceterm/event_loop/`, `rust/src/bin/voiceterm/voice_control/drain/`.
+- IPC event-processing decomposition split `run_ipc_loop` orchestration from codex/claude/voice/auth draining handlers and command/loop helper flow. Evidence: `rust/src/ipc/session.rs`, `rust/src/ipc/session/loop_runtime.rs`, `rust/src/ipc/session/event_processing/`, `dev/ARCHITECTURE.md`.
 - Process churn / CPU leak validation was formalized in release-test guidance so long-run backend process cleanup regressions are caught before tagging. Evidence: `dev/CHANGELOG.md` (`v1.0.71`), `dev/DEVELOPMENT.md` (`Testing` section).
 - PTY session-lease guard added to reap stale VoiceTerm-owned process groups before new backend spawn. Evidence: `5d77a59`.
-- Secondary detached-orphan sweep fail-safe added for backend CLIs (`PPID=1`) not tied to active leases and no longer sharing a TTY with a live shell process. Evidence: `src/src/pty_session/session_guard.rs`, `dev/CHANGELOG.md`, `dev/ARCHITECTURE.md`.
-- Session-guard hardening added deterministic coverage for elapsed-time parsing and detached-orphan candidate filtering to keep cleanup heuristics testable. Evidence: `src/src/pty_session/session_guard.rs` tests.
+- Secondary detached-orphan sweep fail-safe added for backend CLIs (`PPID=1`) not tied to active leases and no longer sharing a TTY with a live shell process. Evidence: `rust/src/pty_session/session_guard.rs`, `dev/CHANGELOG.md`, `dev/ARCHITECTURE.md`.
+- Session-guard hardening added deterministic coverage for elapsed-time parsing and detached-orphan candidate filtering to keep cleanup heuristics testable. Evidence: `rust/src/pty_session/session_guard.rs` tests.
 - HUD responsiveness/layout wave shipped with right-panel anchoring restoration and high-output non-blocking behavior hardening. Evidence: `10f0b49`, `28424bb`, `5d77a59`.
 - Insert-mode `Ctrl+R`/`Ctrl+E` semantics were aligned and documented through rapid patch releases. Evidence: `e4170b7`, `4cfc2c2`, `7bd4c2b`, `fd0a5c6`.
 - Homebrew launcher path handling was fixed for both `Cellar` and `opt` prefixes to preserve model cache across upgrades. Evidence: `8530132`.
@@ -1182,7 +1791,7 @@ Concrete example:
 
 Fact: HUD latency is a post-capture processing metric, not full speak-to-final-response time.
 
-Fact: `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` uses this logic:
+Fact: `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs` uses this logic:
 
 - `display_ms = stt_ms` when STT timing exists.
 - Else `display_ms = elapsed_ms - capture_ms` when only capture timing exists.

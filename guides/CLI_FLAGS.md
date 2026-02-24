@@ -38,7 +38,7 @@ voiceterm --login --codex               # Run Codex login before starting
 voiceterm --login --claude              # Run Claude login before starting
 voiceterm --auto-voice                  # Hands-free mode
 voiceterm --auto-voice --wake-word --voice-send-mode insert  # Wake + voice submit
-voiceterm --image-mode                  # Ctrl+R / [rec] captures image prompts
+voiceterm --image-mode                  # Persistent image mode for HUD [rec] (Ctrl+R stays voice)
 voiceterm --dev                         # Enable guarded deferred dev features (`DEV` badge)
 voiceterm --dev --dev-log              # Also persist dev events to JSONL files
 voiceterm --theme dracula               # Change theme
@@ -61,8 +61,8 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 | `--wake-word` | Enable local wake-word listening (off by default) | off |
 | `--wake-word-sensitivity <0.0-1.0>` | Wake detector sensitivity | 0.55 |
 | `--wake-word-cooldown-ms <MS>` | Cooldown between wake triggers (500-10000) | 2000 |
-| `--image-mode` | Switch `Ctrl+R` / HUD `[rec]` to image capture mode (injects image prompt text) | off |
-| `--image-capture-command <CMD>` | Custom capture command. Output path is provided via `VOICETERM_IMAGE_PATH` | auto on macOS (`imagesnap` -> `screencapture`) |
+| `--image-mode` | Enable persistent image mode for HUD `[rec]`; `Ctrl+R` still triggers voice capture | off |
+| `--image-capture-command <CMD>` | Custom capture command. Output path is provided via `VOICETERM_IMAGE_PATH` | auto on macOS (`screencapture`) |
 | `--seconds <N>` | Recording duration for the Python fallback pipeline (1-60) | 5 |
 
 For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
@@ -75,7 +75,8 @@ Wake status labels in Full HUD:
 - Wake phrases still work even if auto-voice is paused.
 - Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
 - In `auto` mode, wake-triggered `send`/`submit` still submits Enter even when no staged insert text is pending.
-- Image mode adds an `IMG` HUD badge when enabled.
+- `Ctrl+X` triggers one-shot screenshot capture prompts.
+- Image mode adds an `IMG` HUD badge when persistent mode is enabled.
 
 ---
 
@@ -83,7 +84,7 @@ Wake status labels in Full HUD:
 
 | Flag | Purpose | Default |
 |------|---------|---------|
-| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only (includes `Ctrl+D` Dev panel) | off |
+| `--dev` (`--dev-mode`, `-D`) | Enables guarded deferred developer-mode features for this launch only (includes `Ctrl+D` Dev panel with `Dev Tools` commands: `status`, `report`, `triage`, `security`, `sync`) | off |
 | `--dev-log` | Persist guarded dev events to session JSONL logs (requires `--dev`) | off |
 | `--dev-path <DIR>` | Root directory for `--dev-log` session files (requires `--dev --dev-log`) | `$HOME/.voiceterm/dev` (fallback: `<cwd>/.voiceterm/dev`) |
 

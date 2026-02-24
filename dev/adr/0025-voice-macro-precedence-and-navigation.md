@@ -43,7 +43,7 @@ Use a deterministic transcript transform order:
 
 ## Links
 
-- `src/src/bin/voiceterm/voice_macros.rs`
-- `src/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs`
-- `src/src/bin/voiceterm/voice_control/navigation.rs`
+- `rust/src/bin/voiceterm/voice_macros.rs`
+- `rust/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs`
+- `rust/src/bin/voiceterm/voice_control/navigation.rs`
 - `dev/active/MASTER_PLAN.md` (`MP-085`, `MP-086`, `MP-090`, `MP-140`, `MP-281`)

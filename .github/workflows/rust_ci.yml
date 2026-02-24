@@ -25,7 +25,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: src
+        working-directory: rust
 
     steps:
       - name: Checkout
@@ -43,8 +43,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src/Cargo.lock') }}
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 

@@ -32,7 +32,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: src
+        working-directory: rust
 
     steps:
       - name: Checkout
@@ -50,8 +50,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src/Cargo.lock') }}
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -87,13 +87,13 @@ jobs:
           echo "Captured ${OUTCOME_PATH}"
 
       - name: Report shard mutation score
-        run: python3 ../dev/scripts/check_mutation_score.py --path mutants.out/shard-${{ matrix.shard.display }}-outcomes.json --threshold 0.0
+        run: python3 ../dev/scripts/checks/check_mutation_score.py --path mutants.out/shard-${{ matrix.shard.display }}-outcomes.json --threshold 0.0
 
       - name: Upload shard outcomes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mutation-outcomes-shard-${{ matrix.shard.display }}
-          path: src/mutants.out/shard-${{ matrix.shard.display }}-outcomes.json
+          path: rust/mutants.out/shard-${{ matrix.shard.display }}-outcomes.json
           if-no-files-found: error
 
   mutation-score:
@@ -118,7 +118,7 @@ jobs:
         run: python3 dev/scripts/render_mutation_badge.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json
 
       - name: Enforce mutation score threshold
-        run: python3 dev/scripts/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80
+        run: python3 dev/scripts/checks/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80
 
       - name: Commit mutation badge update
         if: github.ref == 'refs/heads/master'

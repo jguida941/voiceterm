@@ -7,6 +7,31 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.92] - 2026-02-24
+### Persistence
+
+- Wire `MemoryIngestor` into the runtime: initialize from `main.rs` with project-scoped JSONL persistence, cross-session recovery via `recover_from_jsonl()`, and triple-write ingestion (voice transcripts, PTY input, PTY output) mirroring the existing `TranscriptHistory` + `SessionMemoryLogger` pattern. Add devctl metric appenders (`status`, `report`, `triage`) and failure knowledge-base writer to `~/.voiceterm/dev/`. (MP-230, MP-232, MP-241)
+
+### UX
+
+- Expand the guarded `--dev` panel into a `Dev Tools` command surface that can run allowlisted `devctl` actions (`status`, `report`, `triage`, `security`, `sync`) asynchronously with in-panel status and completion summaries. Mutating `sync` runs require explicit confirmation.
+- Keep `Ctrl+R` dedicated to voice capture and add `Ctrl+X` for one-shot image prompts; `--image-mode` now acts as persistent HUD `[rec]` image mode, and default macOS image capture now uses `screencapture` (screenshot-first).
+
+### Runtime Hardening
+
+- Harden dev/runtime safety boundaries: UTF-8-safe preview truncation for IPC logs, char-safe transcript/input truncation limits, multi-occurrence secret redaction, non-deterministic event/session ID suffixing, and saturating float-to-`i16` audio conversion in VAD paths.
+
+### Tooling
+
+- Add `check_rust_audit_patterns.py` and wire it into `devctl check --profile ai-guard` plus security/release CI lanes so known audit regression patterns are blocked automatically.
+- Rename the repository Rust workspace root from `src/` to `rust/` and migrate path contracts across scripts, guard checks, CI workflows, and developer docs.
+- Add `devctl autonomy-loop` plus `.github/workflows/autonomy_controller.yml` for bounded controller orchestration (round/hour/task caps), run-scoped checkpoint packet + queue artifacts, phone-ready `latest.json`/`latest.md` status snapshots (terminal trace + draft + run context), and optional PR promote flow guarded by remote branch existence checks.
+
+### Code Quality
+
+- Extract `dev_command` test module into `dev_command/tests.rs` to bring the file under the code-shape soft limit and eliminate `unwrap`/`expect` growth in test helpers.
+- Migrate YAML macro parsing to `serde_norway` and remove unsound `serde_yml`/`libyml` usage flagged by RustSec.
+
 ## [1.0.91] - 2026-02-23
 
 ### UX
@@ -485,7 +510,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Align `docs_lint.yml` trigger paths with the exact markdown files linted (published docs subset + `DEV_INDEX.md`).
 - Add a dedicated `Security Guard` workflow (`.github/workflows/security_guard.yml`) that runs RustSec advisory scans and enforces policy thresholds.
-- Enforce dependency risk gates via `dev/scripts/check_rustsec_policy.py` (fail on CVSS >= 7.0 plus `yanked`/`unsound` warning kinds) and upload the audit report as a CI artifact.
+- Enforce dependency risk gates via `dev/scripts/checks/check_rustsec_policy.py` (fail on CVSS >= 7.0 plus `yanked`/`unsound` warning kinds) and upload the audit report as a CI artifact.
 - Add `parser_fuzz_guard.yml` for parser/ANSI-OSC property-fuzz regression coverage.
 - Add `audit_traceability_guard.yml` to enforce hardening-traceability consistency between `dev/active/MASTER_PLAN.md` and `RUST_GUI_AUDIT_2026-02-15.md`.
 
@@ -526,7 +551,7 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Branding
 
 - Complete project rebrand to **VoiceTerm** across the codebase, CLI help text, startup banner/UI copy, docs, scripts, and macOS app bundle path (`app/macos/VoiceTerm.app`).
-- Rename Rust package/binary defaults to `voiceterm` and move overlay source path to `src/src/bin/voiceterm/`.
+- Rename Rust package/binary defaults to `voiceterm` and move overlay source path to `rust/src/bin/voiceterm/`.
 
 ### Packaging
 

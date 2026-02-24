@@ -13,7 +13,7 @@ dist/
 build/
 
 # Rust
-/src/target/
+/rust/target/
 **/*.rs.bk
 *.pdb
 
@@ -52,6 +52,8 @@ whisper_models/*.onnx
 # Logs
 *.log
 logs/
+dev/reports/*.jsonl
+dev/reports/**/*.jsonl
 
 # Temporary files
 /tmp/
@@ -93,7 +95,7 @@ dev/BACKLOG.md
 # dev/archive/ is tracked
 **/PROJECT_OVERVIEW.md
 **/master_index.md
-src/mutants.out*
+rust/mutants.out*
 claudeaudit.md
 
 # AI tooling (local only)
@@ -106,3 +108,11 @@ dev/active/DEV_MODE_PLAN.md
 
 # Local-only testing notes
 Testing_Guide.md
+
+# Local scanner scratch artifacts (external tools)
+/cvelist
+/cvelist-html
+/cvelist-our
+/cvelist-our-html
+/cvelist.diff
+/orb.db/

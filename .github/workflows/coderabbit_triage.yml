@@ -1,0 +1,526 @@
+name: CodeRabbit Triage Bridge
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: coderabbit-triage-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+  issue_comment:
+    types:
+      - created
+      - edited
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to ingest
+        required: true
+        type: string
+      repository:
+        description: owner/repo override (optional)
+        required: false
+        type: string
+
+jobs:
+  triage:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'push' ||
+        (
+          contains(github.actor, 'coderabbit') &&
+          (
+            github.event_name != 'issue_comment' ||
+            github.event.issue.pull_request != null
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Collect CodeRabbit findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_INPUT: ${{ inputs.pr_number }}
+          REPO_INPUT: ${{ inputs.repository }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any
+
+          EVENT_PATH = Path(os.environ["GITHUB_EVENT_PATH"])
+          event = json.loads(EVENT_PATH.read_text(encoding="utf-8"))
+          event_name = str(os.getenv("GITHUB_EVENT_NAME", "")).strip()
+          pushed_sha = str(event.get("after") or "").strip() if event_name == "push" else ""
+          repo = (os.getenv("REPO_INPUT") or "").strip()
+          if not repo:
+              repo = str(event.get("repository", {}).get("full_name") or "").strip()
+          if not repo:
+              repo = str(os.getenv("GITHUB_REPOSITORY", "")).strip()
+          if not repo:
+              raise SystemExit("Unable to resolve repository slug.")
+
+          warnings: list[str] = []
+
+          def gh_api(path: str, *, default: Any) -> Any:
+              try:
+                  output = subprocess.check_output(
+                      [
+                          "gh",
+                          "api",
+                          "-H",
+                          "Accept: application/vnd.github+json",
+                          path,
+                      ],
+                      text=True,
+                  )
+                  return json.loads(output)
+              except Exception as exc:  # pragma: no cover - workflow helper
+                  warnings.append(f"gh api failed for {path}: {exc}")
+                  return default
+
+          pr_number = (os.getenv("PR_INPUT") or "").strip()
+          if not pr_number:
+              pr = event.get("pull_request")
+              if isinstance(pr, dict):
+                  pr_number = str(pr.get("number") or "").strip()
+          if not pr_number:
+              issue = event.get("issue")
+              if isinstance(issue, dict) and issue.get("pull_request"):
+                  pr_number = str(issue.get("number") or "").strip()
+          if not pr_number and event_name == "push":
+              pulls = gh_api(
+                  f"/repos/{repo}/commits/{pushed_sha}/pulls?per_page=20",
+                  default=[],
+              )
+              if isinstance(pulls, list):
+                  selected = None
+                  for pull in pulls:
+                      if isinstance(pull, dict) and pull.get("merged_at"):
+                          selected = pull
+                          break
+                  if selected is None and pulls:
+                      selected = pulls[0]
+                  if isinstance(selected, dict):
+                      pr_number = str(selected.get("number") or "").strip()
+          if not pr_number and event_name != "push":
+              raise SystemExit("Unable to resolve pull request number.")
+
+          pr_payload = event.get("pull_request") if pr_number else {}
+          if pr_number and not isinstance(pr_payload, dict):
+              pr_payload = gh_api(f"/repos/{repo}/pulls/{pr_number}", default={})
+
+          head_sha = str(pr_payload.get("head", {}).get("sha") or "").strip()
+          if not head_sha and pushed_sha:
+              head_sha = pushed_sha
+          if not head_sha:
+              warnings.append("Unable to resolve PR head SHA; check-run ingestion skipped.")
+
+          review_comments = (
+              gh_api(
+                  f"/repos/{repo}/pulls/{pr_number}/comments?per_page=100",
+                  default=[],
+              )
+              if pr_number
+              else []
+          )
+          issue_comments = (
+              gh_api(
+                  f"/repos/{repo}/issues/{pr_number}/comments?per_page=100",
+                  default=[],
+              )
+              if pr_number
+              else []
+          )
+          reviews = (
+              gh_api(
+                  f"/repos/{repo}/pulls/{pr_number}/reviews?per_page=100",
+                  default=[],
+              )
+              if pr_number
+              else []
+          )
+          check_runs_payload = (
+              gh_api(
+                  f"/repos/{repo}/commits/{head_sha}/check-runs?per_page=100",
+                  default={},
+              )
+              if head_sha
+              else {}
+          )
+
+          def has_coderabbit_token(text: Any) -> bool:
+              return "coderabbit" in str(text or "").lower()
+
+          def is_coderabbit_user(user: Any) -> bool:
+              if not isinstance(user, dict):
+                  return False
+              return has_coderabbit_token(user.get("login"))
+
+          def summarize(body: Any, fallback: str) -> str:
+              for raw_line in str(body or "").splitlines():
+                  line = raw_line.strip()
+                  if not line:
+                      continue
+                  line = re.sub(r"^[`>#*\-\s]+", "", line).strip()
+                  if line:
+                      return line[:220]
+              return fallback
+
+          def classify_category(text: str) -> str:
+              lowered = text.lower()
+              if re.search(r"\b(security|injection|credential|secret|xss|sqli)\b", lowered):
+                  return "security"
+              if re.search(r"\b(ci|workflow|pipeline|action|check)\b", lowered):
+                  return "ci"
+              if re.search(r"\b(perf|performance|latency|throughput|allocation|memory)\b", lowered):
+                  return "performance"
+              if re.search(r"\b(doc|readme|guide|changelog)\b", lowered):
+                  return "docs"
+              return "quality"
+
+          def classify_severity(text: str, *, default: str = "info") -> str:
+              lowered = text.lower()
+              if re.search(r"\b(critical|sev0|p0|blocker)\b", lowered):
+                  return "critical"
+              if re.search(r"\b(high|sev1|p1|urgent)\b", lowered):
+                  return "high"
+              if re.search(r"\b(low|sev3|p3|minor)\b", lowered):
+                  return "low"
+              if re.search(r"\b(info|informational|nit|p4)\b", lowered):
+                  return "info"
+              if re.search(r"\b(medium|moderate|sev2|p2|warning|warn)\b", lowered):
+                  return "medium"
+              return default
+
+          findings: list[dict[str, str]] = []
+
+          if isinstance(review_comments, list):
+              for comment in review_comments:
+                  if not is_coderabbit_user(comment.get("user")):
+                      continue
+                  body = str(comment.get("body") or "")
+                  comment_commit = str(comment.get("commit_id") or "").strip()
+                  if head_sha and comment_commit and comment_commit != head_sha:
+                      continue
+                  summary = summarize(body, "CodeRabbit review comment")
+                  path = str(comment.get("path") or "").strip()
+                  line = comment.get("line") or comment.get("original_line")
+                  if path:
+                      location = f"{path}:{line}" if line else path
+                      summary = f"{location} - {summary}"
+                  findings.append(
+                      {
+                          "category": classify_category(body),
+                          "severity": classify_severity(body, default="low"),
+                          "summary": summary,
+                      }
+                  )
+
+          if isinstance(issue_comments, list):
+              for comment in issue_comments:
+                  if not is_coderabbit_user(comment.get("user")):
+                      continue
+                  body = str(comment.get("body") or "")
+                  findings.append(
+                      {
+                          "category": classify_category(body),
+                          "severity": classify_severity(body, default="info"),
+                          "summary": summarize(body, "CodeRabbit PR comment"),
+                      }
+                  )
+
+          if isinstance(reviews, list):
+              for review in reviews:
+                  if not is_coderabbit_user(review.get("user")):
+                      continue
+                  state = str(review.get("state") or "").strip().upper()
+                  body = str(review.get("body") or "")
+                  review_commit = str(review.get("commit_id") or "").strip()
+                  if head_sha and review_commit and review_commit != head_sha:
+                      continue
+                  default_severity = "high" if state == "CHANGES_REQUESTED" else "info"
+                  findings.append(
+                      {
+                          "category": classify_category(body),
+                          "severity": classify_severity(body, default=default_severity),
+                          "summary": summarize(
+                              body,
+                              f"CodeRabbit review state: {state or 'UNKNOWN'}",
+                          ),
+                      }
+                  )
+
+          if isinstance(check_runs_payload, dict):
+              check_runs = check_runs_payload.get("check_runs", [])
+              if isinstance(check_runs, list):
+                  for check_run in check_runs:
+                      app = check_run.get("app") or {}
+                      app_slug = str(app.get("slug") or "")
+                      app_name = str(app.get("name") or "")
+                      run_name = str(check_run.get("name") or "")
+                      if not any(has_coderabbit_token(value) for value in (app_slug, app_name, run_name)):
+                          continue
+                      conclusion = str(check_run.get("conclusion") or "pending").lower()
+                      if conclusion in {"success", "neutral", "skipped"}:
+                          continue
+                      severity = "high" if conclusion == "failure" else "medium"
+                      findings.append(
+                          {
+                              "category": "ci",
+                              "severity": severity,
+                              "summary": f"CodeRabbit check '{run_name or app_name}' concluded '{conclusion}'",
+                          }
+                      )
+
+          deduped: list[dict[str, str]] = []
+          seen = set()
+          for finding in findings:
+              key = (
+                  finding.get("category"),
+                  finding.get("severity"),
+                  finding.get("summary"),
+              )
+              if key in seen:
+                  continue
+              seen.add(key)
+              deduped.append(finding)
+
+          if warnings:
+              deduped.append(
+                  {
+                      "category": "infra",
+                      "severity": "medium",
+                      "summary": "; ".join(warnings),
+                  }
+              )
+
+          output_dir = Path(".cihub/coderabbit")
+          output_dir.mkdir(parents=True, exist_ok=True)
+          priority_path = output_dir / "priority.json"
+          backlog_path = output_dir / "backlog-medium.json"
+          backlog_md_path = output_dir / "backlog-medium.md"
+          triage_md_path = output_dir / "triage.md"
+
+          backlog_items = []
+          for item in deduped:
+              if not isinstance(item, dict):
+                  continue
+              severity = str(item.get("severity") or "").lower()
+              if severity not in {"critical", "high", "medium"}:
+                  continue
+              backlog_items.append(item)
+
+          pr_number_value = int(pr_number) if pr_number.isdigit() else None
+          pr_label = pr_number or "n/a"
+
+          payload = {
+              "source": "coderabbit",
+              "repository": repo,
+              "pr_number": pr_number_value,
+              "head_sha": head_sha,
+              "generated_at": datetime.now(timezone.utc).isoformat(),
+              "items": deduped,
+              "medium_plus_count": len(backlog_items),
+              "warning_count": len(warnings),
+          }
+          priority_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+          backlog_payload = {
+              "source": "coderabbit",
+              "repository": repo,
+              "pr_number": pr_number_value,
+              "head_sha": head_sha,
+              "generated_at": datetime.now(timezone.utc).isoformat(),
+              "items": backlog_items,
+              "agent_handoff": {
+                  "intent": "AI remediation queue for CodeRabbit medium/high findings",
+                  "recommended_command": (
+                      "python3 dev/scripts/devctl.py triage "
+                      "--no-cihub "
+                      "--external-issues-file .cihub/coderabbit/backlog-medium.json "
+                      "--emit-bundle "
+                      "--bundle-dir .cihub/coderabbit "
+                      "--bundle-prefix coderabbit-backlog "
+                      "--format md "
+                      "--output .cihub/coderabbit/backlog-triage.md"
+                  ),
+                  "notes": "Validate finding relevance before auto-fix commits.",
+              },
+          }
+          backlog_path.write_text(json.dumps(backlog_payload, indent=2), encoding="utf-8")
+
+          lines = [
+              "# CodeRabbit normalized findings",
+              "",
+              f"- repository: {repo}",
+              f"- pr_number: {pr_label}",
+              f"- findings: {len(deduped)}",
+              f"- medium_plus: {len(backlog_items)}",
+              f"- warning_count: {len(warnings)}",
+              "",
+          ]
+          for row in deduped[:60]:
+              lines.append(
+                  f"- [{row.get('severity', 'medium')}] {row.get('category', 'quality')}: {row.get('summary', '')}"
+              )
+          triage_md_path.write_text("\n".join(lines), encoding="utf-8")
+
+          backlog_lines = [
+              "# CodeRabbit medium+ backlog",
+              "",
+              f"- repository: {repo}",
+              f"- pr_number: {pr_label}",
+              f"- items: {len(backlog_items)}",
+              "",
+          ]
+          for row in backlog_items[:80]:
+              backlog_lines.append(
+                  f"- [{row.get('severity', 'medium')}] {row.get('category', 'quality')}: {row.get('summary', '')}"
+              )
+          backlog_md_path.write_text("\n".join(backlog_lines), encoding="utf-8")
+          PY
+
+      - name: Build unified triage bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/devctl.py triage \
+            --ci \
+            --ci-limit 20 \
+            --no-cihub \
+            --external-issues-file .cihub/coderabbit/priority.json \
+            --emit-bundle \
+            --bundle-dir .cihub/coderabbit \
+            --bundle-prefix coderabbit-triage \
+            --format md \
+            --output .cihub/coderabbit/triage-summary.md
+
+      - name: Build medium+ backlog triage bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/devctl.py triage \
+            --ci \
+            --ci-limit 20 \
+            --no-cihub \
+            --external-issues-file .cihub/coderabbit/backlog-medium.json \
+            --emit-bundle \
+            --bundle-dir .cihub/coderabbit \
+            --bundle-prefix coderabbit-backlog \
+            --format md \
+            --output .cihub/coderabbit/backlog-triage.md
+
+      - name: Enforce CodeRabbit medium/high gate
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(
+              Path(".cihub/coderabbit/priority.json").read_text(encoding="utf-8")
+          )
+          items = payload.get("items", [])
+          if not isinstance(items, list):
+              raise SystemExit("CodeRabbit priority payload is invalid (items is not a list).")
+
+          blocked = []
+          for row in items:
+              if not isinstance(row, dict):
+                  continue
+              severity = str(row.get("severity") or "medium").lower()
+              if severity in {"critical", "high", "medium"}:
+                  blocked.append(
+                      {
+                          "severity": severity,
+                          "category": str(row.get("category") or "quality"),
+                          "summary": str(row.get("summary") or "").strip(),
+                      }
+                  )
+
+          if blocked:
+              print("CodeRabbit gate failed (medium/high findings present):")
+              for finding in blocked:
+                  print(
+                      f"- [{finding['severity']}] {finding['category']}: {finding['summary']}"
+                  )
+              raise SystemExit(1)
+
+          print("CodeRabbit gate passed (no medium/high findings).")
+          PY
+
+      - name: Publish triage preview to job summary
+        if: always()
+        run: |
+          echo "## CodeRabbit triage bridge" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- actor: \`${GITHUB_ACTOR}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- event: \`${GITHUB_EVENT_NAME}\`" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -f ".cihub/coderabbit/backlog-medium.json" ]]; then
+            COUNT="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path(".cihub/coderabbit/backlog-medium.json").read_text(encoding="utf-8"))
+          items = payload.get("items", [])
+          print(len(items) if isinstance(items, list) else 0)
+          PY
+            )"
+            echo "- backlog medium+ items: \`${COUNT}\`" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -f ".cihub/coderabbit/triage-summary.md" ]]; then
+            echo "### triage-summary preview" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```md' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,80p' .cihub/coderabbit/triage-summary.md >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          if [[ -f ".cihub/coderabbit/backlog-triage.md" ]]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### backlog-triage preview" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```md' >> "${GITHUB_STEP_SUMMARY}"
+            sed -n '1,60p' .cihub/coderabbit/backlog-triage.md >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload CodeRabbit triage artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coderabbit-triage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cihub/coderabbit
+          if-no-files-found: error
+          retention-days: 21

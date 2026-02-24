@@ -8,15 +8,18 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 from ..common import pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
+from ..metric_writers import append_failure_kb, append_metric
 from ..status_report import build_project_report
 from ..triage_enrich import (
     apply_defaults_to_issues,
     build_issue_rollup,
     extract_cihub_issues,
+    extract_issues_from_file,
     load_owner_map,
 )
 from ..triage_support import (
@@ -144,6 +147,35 @@ def run(args) -> int:
         if not triage_report["cihub"].get("warning"):
             triage_report["cihub"]["warning"] = "cihub triage skipped."
 
+    external_rows: list[dict[str, Any]] = []
+    for raw_path in list(getattr(args, "external_issues_file", []) or []):
+        source = f"external.{Path(raw_path).name}"
+        row: dict[str, Any] = {"path": raw_path, "source": source}
+        external_issues, external_error = extract_issues_from_file(
+            raw_path,
+            source=source,
+            owner_map=owner_map,
+        )
+        if external_error:
+            row["error"] = external_error
+            triage_report["warnings"].append(
+                f"external issues ingest failed ({raw_path}): {external_error}"
+            )
+            triage_report["issues"].append(
+                {
+                    "category": "infra",
+                    "severity": "medium",
+                    "owner": owner_map.get("infra", "platform"),
+                    "source": source,
+                    "summary": f"external issues ingest failed for {raw_path}",
+                }
+            )
+        else:
+            row["issues"] = len(external_issues)
+            triage_report["issues"].extend(external_issues)
+        external_rows.append(row)
+    triage_report["external_inputs"] = external_rows
+
     if args.require_cihub:
         step = triage_report["cihub"].get("step", {})
         step_failed = isinstance(step, dict) and step.get("returncode") not in (None, 0)
@@ -182,6 +214,12 @@ def run(args) -> int:
     else:
         output = json.dumps(triage_report, indent=2)
 
+    try:
+        append_metric("triage", triage_report)
+        for issue in triage_report.get("issues", []):
+            append_failure_kb(issue)
+    except Exception:
+        pass
     write_output(output, args.output)
     if args.pipe_command:
         pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)

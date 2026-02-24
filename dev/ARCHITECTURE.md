@@ -1,8 +1,12 @@
 # VoiceTerm (Rust Overlay) Architecture
 
 This document explains how the Rust overlay works today.
-VoiceTerm runs the selected backend CLI (Codex or Claude) inside a PTY and adds
-voice capture plus a small status overlay without replacing the backend UI.
+**VoiceTerm** runs the selected backend CLI (Codex or Claude) inside a
+**PTY** (pseudo-terminal) and adds voice capture plus a small status overlay
+without replacing the backend UI.
+
+A new developer should be able to read this document and understand the full
+system in under ten minutes.
 
 ## Contents
 
@@ -32,9 +36,9 @@ voice capture plus a small status overlay without replacing the backend UI.
 
 ## Goals
 
-- Preserve the **full CLI TUI** (raw ANSI passthrough).
+- Preserve the **full CLI TUI** -- pass raw ANSI output through unchanged.
 - Add **voice capture** and **auto-voice** without corrupting terminal output.
-- Keep a **minimal overlay** (bottom status line + optional help overlay) and avoid a full-screen custom UI.
+- Keep a **minimal overlay** -- just a bottom status line and an optional help panel; no full-screen custom UI.
 
 ## Supported Backends
 
@@ -48,22 +52,21 @@ voice capture plus a small status overlay without replacing the backend UI.
 
 **Primary supported backends:** Codex and Claude Code.
 
-Backend selection is handled by `src/src/backend/` which provides preset configurations for Codex and Claude.
-Additional presets (Gemini, Aider, OpenCode) exist but are experimental and not part of the primary support matrix.
-Gemini is currently nonfunctional, and Aider/OpenCode are untested.
+- **Backend selection** is handled by `rust/src/backend/`, which provides preset configurations for Codex and Claude.
+- Additional presets (Gemini, Aider, OpenCode) exist but are experimental and outside the primary support matrix.
+- Gemini is currently nonfunctional. Aider and OpenCode are untested.
 
 ## Naming Conventions
 
-- Use `backend`/`provider` for generic, multi-backend functionality.
+- Use `backend`/`provider` for generic, multi-backend code.
 - Use `codex`/`claude`/`gemini` only for provider-specific code and assets.
-- The overlay binary lives under `src/src/bin/voiceterm/` (name matches the shipped binary).
-- Legacy names that are Codex-specific but generic in purpose were migrated under Track G in
-  `dev/archive/2026-02-06-modularization-plan.md`.
+- The overlay binary lives under `rust/src/bin/voiceterm/` -- the directory name matches the shipped binary.
+- Legacy names that were Codex-specific but generic in purpose were migrated under Track G in `dev/archive/2026-02-06-modularization-plan.md`.
 
 ## Architecture Decision Records (ADRs)
 
-We track key decisions in ADRs so the rationale stays visible over time. See
-`dev/adr/README.md` for the index, process, and template.
+We track key decisions in **ADRs** so the rationale stays visible over time.
+See `dev/adr/README.md` for the index, process, and template.
 
 ## System Overview (Rust Only)
 
@@ -84,27 +87,30 @@ graph LR
   Prompt --> Overlay
 ```
 
-What this means:
+### What this means
 
-- The **terminal is the frontend**; the overlay doesn't replace the backend's UI.
-- The overlay **injects transcripts** as if typed by the user.
-- The status line is drawn at the bottom using ANSI save/restore.
+- The **terminal is the frontend** -- the overlay does not replace the backend's UI.
+- The overlay **injects transcripts** into the PTY as if the user typed them.
+- The **status line** is drawn at the bottom of the screen using ANSI cursor-save/restore sequences.
 
 ## Components
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Rust Overlay | `src/src/bin/voiceterm/main.rs` | PTY passthrough UI with voice overlay |
-| Voice Pipeline | `src/src/voice.rs` | Audio capture orchestration + STT |
-| PTY Session | `src/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
-| IPC Mode | `src/src/ipc/` | JSON IPC integration mode |
-| Auth Helpers | `src/src/auth.rs` | Backend authentication helpers |
-| Diagnostics | `src/src/doctor.rs` | `--doctor` environment report |
-| Terminal Restore | `src/src/terminal_restore.rs` | Panic-safe terminal cleanup |
-| Telemetry | `src/src/telemetry.rs` | Structured trace logging |
+| Rust Overlay | `rust/src/bin/voiceterm/main.rs` | PTY passthrough UI with voice overlay |
+| Voice Pipeline | `rust/src/voice.rs` | Audio capture orchestration + STT |
+| PTY Session | `rust/src/pty_session/` | Raw PTY passthrough and prompt-safe output |
+| IPC Mode | `rust/src/ipc/` | JSON IPC integration mode |
+| Auth Helpers | `rust/src/auth.rs` | Backend authentication helpers |
+| Diagnostics | `rust/src/doctor.rs` | `--doctor` environment report |
+| Terminal Restore | `rust/src/terminal_restore.rs` | Panic-safe terminal cleanup |
+| Telemetry | `rust/src/telemetry.rs` | Structured trace logging |
 | Python fallback | `scripts/python_fallback.py` | Optional fallback STT pipeline |
 
 ## Threads and Channels
+
+VoiceTerm uses several dedicated threads so that audio work, user input, and
+terminal output never block each other.
 
 ```mermaid
 graph TD
@@ -123,13 +129,13 @@ graph TD
   VoiceThread -->|VoiceJobMessage| Main
 ```
 
-Why this matters:
+### Why each thread exists
 
-- **Input thread** intercepts overlay hotkeys (voice, send mode, theme picker, help, sensitivity, exit) without blocking the backend CLI.
-- **PTY reader** keeps ANSI intact while replying to terminal queries (DSR/DA).
-- **Writer thread** prevents output + status/help overlay interleaving.
-- **Voice thread** keeps audio/Whisper work off the main loop.
-- **Wake listener thread** runs local hotword detection behind an opt-in toggle and emits bounded wake events that reuse the main capture pipeline.
+- **Input thread** -- intercepts overlay hotkeys (voice, send mode, theme picker, help, sensitivity, exit) without blocking the backend CLI.
+- **PTY reader** -- keeps ANSI output intact while replying to terminal queries (DSR/DA).
+- **Writer thread** -- prevents output and status/help overlay from interleaving on screen.
+- **Voice thread** -- keeps audio capture and Whisper transcription off the main loop.
+- **Wake listener thread** -- runs local hotword detection behind an opt-in toggle and sends bounded wake events that reuse the main capture pipeline.
 
 ## Startup Sequence
 
@@ -154,6 +160,9 @@ sequenceDiagram
 
 ### 1) Keyboard -> Backend -> Terminal
 
+User keystrokes travel through the input thread, into the PTY, and back out
+to the terminal as raw ANSI output.
+
 ```mermaid
 sequenceDiagram
   participant User
@@ -176,6 +185,9 @@ sequenceDiagram
 
 ### 2) Voice -> Whisper -> Transcript -> Backend
 
+Voice capture converts speech to text and injects the transcript into the PTY
+as if the user typed it.
+
 ```mermaid
 sequenceDiagram
   participant User
@@ -196,6 +208,9 @@ sequenceDiagram
 
 ### 3) Auto-Voice (Prompt Detection)
 
+When **auto-voice** is enabled, the overlay watches PTY output for a prompt
+and starts recording automatically.
+
 ```mermaid
 sequenceDiagram
   participant PTY as PTY Session
@@ -210,23 +225,24 @@ sequenceDiagram
 
 ### 4) Transcript Queue + Send Modes
 
-When the CLI is busy (output streaming), transcripts are queued and sent once the next
-prompt appears or the transcript idle timer fires. Send mode controls whether a newline
-is added automatically.
+When the CLI is busy (output streaming), transcripts are queued and sent once
+the next prompt appears or the transcript idle timer fires. **Send mode**
+controls whether a newline is added automatically.
 
-- Before queue/send, transcripts pass through project voice-macro expansion from
-  `.voiceterm/macros.yaml` (if present).
+- Before queue/send, transcripts pass through project **voice-macro expansion** from `.voiceterm/macros.yaml` (if present).
 - A runtime **Macros** toggle in Settings gates that transform:
-  - `ON`: macro expansion enabled.
-  - `OFF`: raw transcript injection (no macro rewrite).
-- **Auto send**: inject transcript + newline immediately when safe to send.
-- **Insert**: inject transcript only (no newline); user presses Enter to send.
-- **Enter while recording (insert mode)**: stops capture early and transcribes what was recorded.
+  - `ON` -- macro expansion enabled.
+  - `OFF` -- raw transcript injection (no macro rewrite).
+- **Auto send** -- inject transcript + newline immediately when safe to send.
+- **Insert** -- inject transcript only (no newline); user presses Enter to send.
+- **Enter while recording (insert mode)** -- stops capture early and transcribes what was recorded.
 
 ## Operational Workflows (Dev/CI/Release)
 
-This section documents engineering workflows that keep runtime behavior and release quality stable.
-When workflow mechanics change (dev loop, CI lanes, release flow), update this section in the same change.
+This section documents engineering workflows that keep runtime behavior and
+release quality stable.
+When workflow mechanics change (dev loop, CI lanes, release flow), update this
+section in the same change.
 
 ### 1) Local Feature Workflow
 
@@ -238,8 +254,8 @@ When workflow mechanics change (dev loop, CI lanes, release flow), update this s
 6. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
 7. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
 8. Run docs-integrity guards:
-   - `python3 dev/scripts/check_cli_flags_parity.py` (clap schema <-> `guides/CLI_FLAGS.md` parity)
-   - `python3 dev/scripts/check_screenshot_integrity.py --stale-days 120` (doc image-reference integrity + stale-age visibility)
+   - `python3 dev/scripts/checks/check_cli_flags_parity.py` -- keeps clap schema and `guides/CLI_FLAGS.md` in sync.
+   - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` -- checks doc image references and flags stale screenshots.
 9. Confirm no accidental root `--*` artifact files before push (`find . -maxdepth 1 -type f -name '--*'`).
 
 For tooling/process/CI governance changes, `python3 dev/scripts/devctl.py docs-check --strict-tooling`
@@ -254,20 +270,21 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Rust CI | `.github/workflows/rust_ci.yml` | fmt + clippy + workspace tests |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | macros-toggle and send-mode regression tests |
 | Wake Word Guard | `.github/workflows/wake_word_guard.yml` | wake-word regression + soak guardrails (false-positive + matcher-latency checks) |
-| Perf Smoke | `.github/workflows/perf_smoke.yml` | validate `voice_metrics\|...` logging contract |
+| Perf Smoke | `.github/workflows/perf_smoke.yml` | validates `voice_metrics\|...` logging contract |
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
-| Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (fail on high/critical CVSS, yanked, unsound) |
+| Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded autonomy-controller orchestration (`devctl autonomy-loop`) with checkpoint packet/queue artifacts, phone-ready status snapshots, and optional guarded PR promote path |
+| Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate -- fails on high/critical CVSS, yanked, or unsound crates |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
-| Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` (redundant clones/closures, risky wrap casts, dead-code drift) |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane (`docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, root artifact guard) |
+| Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` -- catches redundant clones/closures, risky wrap casts, and dead-code drift |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane -- runs `docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, and root artifact guard |
 
 ### 3) Release Workflow (Master Branch)
 
-1. Finalize release metadata (`src/Cargo.toml`, `dev/CHANGELOG.md`).
-2. Verify release scope (at least CI-profile checks; `devctl check --profile release` when wake/soak/mutation gates are required).
+1. Finalize release metadata (`rust/Cargo.toml`, `dev/CHANGELOG.md`).
+2. Verify release scope -- at minimum run CI-profile checks; use `devctl check --profile release` when wake/soak/mutation gates are required.
 3. Create and push release tag/notes via `python3 dev/scripts/devctl.py release --version X.Y.Z`.
 4. Publish GitHub release using generated notes (`gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md`).
 5. Publish PyPI package via `python3 dev/scripts/devctl.py pypi --upload`.
@@ -277,13 +294,15 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 
 ### 4) Security Posture and Risk Controls
 
-- VoiceTerm is local-first: it runs backend CLIs on the same host and does not add hosted control planes.
+- VoiceTerm is **local-first** -- it runs backend CLIs on the same host and does not add hosted control planes.
 - Backend child processes inherit the invoking user's OS privileges, so host-level least privilege remains the primary boundary.
 - Claude permission prompts are enabled by default; `--claude-skip-permissions` intentionally weakens that guard.
-- Use `--claude-skip-permissions` only in isolated/trusted environments (sandbox/container/throwaway workspace) and avoid untrusted repositories.
-- Supply-chain risk is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
+- Use `--claude-skip-permissions` only in isolated/trusted environments (sandbox, container, or throwaway workspace) and avoid untrusted repositories.
+- **Supply-chain risk** is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/checks/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
 
 ## Overlay State Machine
+
+The voice overlay cycles through four states during a capture:
 
 ```mermaid
 stateDiagram-v2
@@ -295,20 +314,33 @@ stateDiagram-v2
   Listening --> Idle: silence/empty/error
 ```
 
+- **Idle** -- waiting for user input or an auto-voice trigger.
+- **Listening** -- microphone is recording.
+- **Transcribing** -- Whisper is converting audio to text.
+- **Injecting** -- transcript is being written into the PTY.
+
 ## Whisper Integration (Rust)
 
-- **Primary path:** `stt::Transcriber` uses `whisper-rs` with a GGML model resolved
-  from `--whisper-model-path` or auto-discovered from `--whisper-model` (default `small`)
-  in the repo `whisper_models/` directory.
-- **Fallback:** if native capture is unavailable or fails, the code falls back to Python
-  (`scripts/python_fallback.py`) unless `--no-python-fallback` is set.
+### Primary path
 
-Common setup path:
+`stt::Transcriber` uses **whisper-rs** with a GGML model resolved from
+`--whisper-model-path` or auto-discovered from `--whisper-model` (default
+`small`) in the repo `whisper_models/` directory.
+
+### Fallback
+
+If native capture is unavailable or fails, VoiceTerm falls back to the Python
+pipeline (`scripts/python_fallback.py`) unless `--no-python-fallback` is set.
+
+### Common setup
 
 - `./scripts/setup.sh models --base` downloads `whisper_models/ggml-base.en.bin`.
 - `start.sh` passes `--whisper-model-path` into `voiceterm` when a model is found.
 
 ## Voice Error and Fallback Flow
+
+This flowchart shows how VoiceTerm decides between native capture and the
+Python fallback, and where errors surface.
 
 ```mermaid
 flowchart TD
@@ -331,28 +363,28 @@ flowchart TD
   PyFallback -- error --> ErrPy[Error: python fallback failed]
 ```
 
-Notes:
+### Fallback requirements
 
-- Python fallback requires `python3`, `ffmpeg`, and the `whisper` CLI on PATH.
+- The Python fallback needs `python3`, `ffmpeg`, and the `whisper` CLI on PATH.
 - Use `--no-python-fallback` to force native Whisper and surface errors early.
-- When fallback is active, overlay status/logs report `Python` pipeline context; recording/state visuals remain mode-first (`AUTO`/`PTT`) in Full HUD.
+- When the fallback is active, overlay status/logs show `Python` pipeline context. Recording/state visuals remain mode-first (`AUTO`/`PTT`) in Full HUD.
 
 ## Logging and privacy
 
-- File logs are opt-in: `--logs` (add `--log-content` to include prompt/transcript snippets).
-- Debug logs rotate to avoid unbounded growth.
-- Structured trace logs (JSON) write to the temp dir when logging is enabled (override with `VOICETERM_TRACE_LOG`).
-- Prompt detection logs are opt-in via `--prompt-log` or `VOICETERM_PROMPT_LOG` (disabled by `--no-logs`).
+- **File logs** are opt-in -- enable with `--logs` (add `--log-content` to include prompt/transcript snippets).
+- Debug logs **rotate** to avoid unbounded growth.
+- **Structured trace logs** (JSON) write to the temp dir when logging is enabled. Override the path with `VOICETERM_TRACE_LOG`.
+- **Prompt detection logs** are opt-in via `--prompt-log` or `VOICETERM_PROMPT_LOG` (disabled by `--no-logs`).
 
 ## STT behavior (non-streaming)
 
-- Transcription is non-streaming: each capture is fully recorded before Whisper runs.
-- There is no chunk overlap; latency scales with capture length and model size.
+- Transcription is **non-streaming** -- each capture is fully recorded before Whisper runs.
+- There is no chunk overlap. Latency scales with capture length and model size.
 
 ## Audio device behavior
 
-- The input device is chosen at startup.
-- Device hotplug/recovery is not implemented; if the mic disconnects, restart or pick another device.
+- The **input device** is chosen at startup.
+- Device hotplug/recovery is not implemented. If the mic disconnects, restart VoiceTerm or pick another device.
 
 ## Timing and Latency
 
@@ -363,11 +395,10 @@ graph LR
   Inject --> Backend["Backend response"]
 ```
 
-Timing observability:
+### Timing observability
 
-- Voice capture logs: `voice_metrics|capture_ms=...|speech_ms=...|...`
-- If `--log-timings` is set, also logs:
-  `timing|phase=voice_capture|record_s=...|stt_s=...|chars=...`
+- Voice capture logs emit: `voice_metrics|capture_ms=...|speech_ms=...|...`
+- If `--log-timings` is set, also logs: `timing|phase=voice_capture|record_s=...|stt_s=...|chars=...`
 
 ## Safety and External Dependencies
 
@@ -380,14 +411,16 @@ graph TD
   Py --> FFmpeg[ffmpeg]
 ```
 
-Safety constraints in code:
+### Safety constraints in code
 
-- CLI binary paths are validated (`--codex-cmd`, `--python-cmd`, `--ffmpeg-cmd`, `--whisper-cmd`).
-- `--ffmpeg-device` is restricted to avoid shell metacharacters.
-- `--whisper-model-path` must exist and is canonicalized.
-- Overlay only intercepts control hotkeys; all other bytes go directly to the backend CLI.
+- **CLI binary paths** are validated (`--codex-cmd`, `--python-cmd`, `--ffmpeg-cmd`, `--whisper-cmd`).
+- `--ffmpeg-device` is restricted to block shell metacharacters.
+- `--whisper-model-path` must exist and is canonicalized before use.
+- The overlay only intercepts control hotkeys. All other bytes go directly to the backend CLI.
 
 ## Resource Lifecycle
+
+This diagram shows how VoiceTerm starts up, runs, and shuts down cleanly.
 
 ```mermaid
 sequenceDiagram
@@ -407,158 +440,233 @@ sequenceDiagram
 
 ## Prompt Detection (Auto-Voice)
 
+The prompt detector figures out when the backend CLI is waiting for input so
+that auto-voice can start recording.
+
 - Strip ANSI escape sequences from PTY output.
-- Track the current line + last completed line.
+- Track the current line and the last completed line.
 - If a regex is provided (`--prompt-regex`), match against it.
 - Otherwise, **learn** the prompt from the first idle line and match it later.
-- Fallback: if no prompt is known, trigger auto-voice after an idle timeout.
+- Fallback -- if no prompt pattern is known, trigger auto-voice after an idle timeout.
 
 ## PTY Handling and Resize
 
-- `PtyOverlaySession` uses `openpty` and forks the backend CLI into the slave PTY.
-- PTY children call `setsid()`, so the backend runs as a session/process-group leader.
-- It **replies to terminal queries** (DSR/DA) but leaves all ANSI intact.
-- On SIGWINCH, `ioctl(TIOCSWINSZ)` updates the PTY size and forwards SIGWINCH to the PTY process group (with direct-PID fallback).
-- On drop, PTY sessions attempt graceful `exit`, then send `SIGTERM`/`SIGKILL` to the PTY process group (with direct-PID fallback) and reap the direct child to prevent orphan/zombie buildup.
-- Before new PTY spawns, VoiceTerm scans stale session-lease files (owner PID + backend PID metadata) and reaps only leases whose owner process is gone, so multi-session runtime remains supported while orphaned backend parents from crashed sessions are cleaned automatically.
-- As a secondary fail-safe, session-guard also sweeps detached backend CLIs (`PPID=1`) that are old enough, not tied to active lease files, and no longer share a TTY with any live shell process; this catches stale backend leftovers that escaped lease-based ownership tracking.
+**`PtyOverlaySession`** manages the backend CLI's pseudo-terminal.
+
+### Spawning
+
+- Uses `openpty` to create a PTY pair and forks the backend CLI into the child side.
+- The child calls `setsid()`, so the backend runs as a session/process-group leader.
+
+### Terminal queries
+
+- The overlay **replies to terminal queries** (DSR/DA) but leaves all other ANSI output intact.
+
+### Window resize
+
+- On `SIGWINCH`, VoiceTerm calls `ioctl(TIOCSWINSZ)` to update the PTY size and forwards `SIGWINCH` to the PTY process group (with a direct-PID fallback).
+
+### Cleanup on drop
+
+- PTY sessions attempt a graceful `exit`, then send `SIGTERM`/`SIGKILL` to the PTY process group (with a direct-PID fallback), and reap the direct child to prevent orphan/zombie buildup.
+
+### Session-lease reaping
+
+- Before spawning a new PTY, VoiceTerm scans stale **session-lease files** (which store owner PID + backend PID metadata). It reaps only leases whose owner process is gone, so multi-session runtime stays supported while orphaned backends from crashed sessions are cleaned automatically.
+- As a secondary fail-safe, the session guard also sweeps detached backend CLIs (`PPID=1`) that are old enough, not tied to active lease files, and no longer share a TTY with any live shell process. This catches stale backend leftovers that escaped lease-based ownership tracking.
 
 ## Output Serialization
 
-All terminal output is serialized through one writer thread to avoid
+All terminal output is serialized through one **writer thread** to avoid
 interleaving PTY output with the status line or help overlay. The status line
 and overlay use ANSI save/restore sequences and redraw only after quiet output
 intervals to avoid corrupting the backend's screen.
 
 ## Visual System (Overlay)
 
-- **Enhanced status line** is driven by `StatusLineState` (mode, pipeline, sensitivity, message, duration).
-- `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact sparkline rendering.
-- Compact HUD rendering is context-aware (`recording`, `busy queue`, `idle`) and picks modules accordingly.
-- Full HUD rendering uses a conservative writer path (compatible with the `v1.0.53` draw model) and clears stale HUD/overlay rows on resize before redraw to prevent ghost frames in IDE terminals.
-- Startup splash is automatically skipped in JetBrains IDE terminals (PyCharm/IntelliJ/CLion/WebStorm) to avoid alternate-screen handoff artifacts.
+### Status line
+
+- The **enhanced status line** is driven by `StatusLineState` -- it tracks mode, pipeline, sensitivity, message, and duration.
+- `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact **sparkline** rendering.
+
+### HUD rendering
+
+- **Compact HUD** is context-aware (`recording`, `busy queue`, `idle`) and picks display modules accordingly.
+- **Full HUD** uses a conservative writer path (compatible with the `v1.0.53` draw model) and clears stale HUD/overlay rows on resize before redraw to prevent ghost frames in IDE terminals.
+- The **startup splash** is automatically skipped in JetBrains IDE terminals (PyCharm/IntelliJ/CLion/WebStorm) to avoid alternate-screen handoff artifacts.
+
+### Themes
+
 - **Theme selection** uses `--theme` with automatic fallback based on terminal color capability and `NO_COLOR`.
-- Theme palette resolution is centralized through the runtime style resolver (`theme/style_pack.rs`) so all built-in themes flow through one style-pack path.
-- Optional style-pack payload override (`VOICETERM_STYLE_PACK_JSON`) is schema-validated/migrated by `theme/style_schema.rs`; invalid/unsupported payloads fall back to built-in base-theme palettes, while valid payload overrides can reroute border glyph sets and status-lane indicator families (including processing/responding lanes).
+- Theme palette resolution is centralized through the runtime **style resolver** (`theme/style_pack.rs`) so all built-in themes flow through one style-pack path.
+- Optional style-pack payload override (`VOICETERM_STYLE_PACK_JSON`) is schema-validated and migrated by `theme/style_schema.rs`. Invalid or unsupported payloads fall back to built-in base-theme palettes. Valid overrides can reroute border glyph sets and status-lane indicator families (including processing/responding lanes).
 - Settings migration guidance: Theme Studio foundation changes do not alter existing Settings theme/HUD controls or persisted settings keys yet.
-- Runtime settings persistence is backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (overrideable via `VOICETERM_CONFIG_DIR`); explicit CLI flags remain authoritative for each launch.
-- **Help overlay** is toggled with `?` and rendered by the writer thread above the status line.
-- **Transcript history overlay** is toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
-- Optional **session memory logging** (`--session-memory`) writes newline-delimited `user`/`assistant` records to markdown for project-local conversation archives.
-- **Codex/Claude prompt safety** is enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts and reply/composer prompt markers trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
-- **Mic meter output** (`--mic-meter`) renders a bar display for ambient/speech levels.
-- **Session summary** prints on exit when activity is present.
+
+### Persistent settings
+
+- Runtime settings are backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (override with `VOICETERM_CONFIG_DIR`).
+- Explicit CLI flags remain authoritative for each launch.
+
+### Overlays and panels
+
+- **Help overlay** -- toggled with `?`, rendered by the writer thread above the status line.
+- **Transcript history overlay** -- toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
+- **Session memory logging** (`--session-memory`) -- writes newline-delimited `user`/`assistant` records to markdown for project-local conversation archives.
+- **Codex/Claude prompt safety** -- enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts and reply/composer prompt markers trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
+- **Mic meter output** (`--mic-meter`) -- renders a bar display for ambient/speech levels.
+- **Session summary** -- prints on exit when activity is present.
 
 ## Key Files
 
-- `src/src/bin/voiceterm/main.rs` - main loop, input handling, prompt detection (binary: `voiceterm`)
-- `src/src/bin/voiceterm/event_loop.rs` - event loop orchestration + select-loop coordination
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs` - keyboard/mouse dispatch + settings/hotkey actions
-- `src/src/bin/voiceterm/event_loop/output_dispatch.rs` - PTY output handling + redraw-safe output routing
-- `src/src/bin/voiceterm/event_loop/overlay_dispatch.rs` - overlay open/close transitions + overlay mode state updates
-- `src/src/bin/voiceterm/event_loop/periodic_tasks.rs` - timer-driven tasks (spinner, status expiry, meter cadence)
-- `src/src/bin/voiceterm/event_loop/tests.rs` - event-loop regression coverage for overlay/input/output behavior
-- `src/src/bin/voiceterm/event_state.rs` - event loop state, deps, and timers shared by the main loop
-- `src/src/bin/voiceterm/wake_word.rs` - wake listener runtime ownership, local detector lifecycle, and wake event channel wiring
-- `src/src/bin/voiceterm/banner.rs` - startup splash + banner configuration
-- `src/src/bin/voiceterm/terminal.rs` - terminal sizing, modes, and signal handling
-- `src/src/bin/voiceterm/arrow_keys.rs` - arrow key normalization helpers
-- `src/src/bin/voiceterm/progress.rs` - progress/ETA helpers for long-running tasks
-- `src/src/bin/voiceterm/writer/` - serialized output, status line, help overlay
-- `src/src/bin/voiceterm/writer/state.rs` - writer state + message handling
-- `src/src/bin/voiceterm/writer/render.rs` - status/overlay rendering + clear helpers
-- `src/src/bin/voiceterm/writer/mouse.rs` - mouse enable/disable output
-- `src/src/bin/voiceterm/writer/sanitize.rs` - status text sanitization + truncation
-- `src/src/bin/voiceterm/status_line/` - status line layout + formatting modules
-- `src/src/bin/voiceterm/status_line/format.rs` - status banner/line formatting
-- `src/src/bin/voiceterm/status_line/buttons.rs` - button layout + click positions
-- `src/src/bin/voiceterm/status_line/layout.rs` - breakpoints + banner height
-- `src/src/bin/voiceterm/status_line/animation.rs` - status animation helpers
-- `src/src/bin/voiceterm/status_line/state.rs` - status line state enums + structs
-- `src/src/bin/voiceterm/status_line/text.rs` - display width + truncation helpers
-- `src/src/bin/voiceterm/status_style.rs` - status message categorization + styling
-- `src/src/bin/voiceterm/hud/` - HUD modules (ribbon/dots/heartbeat/meter/latency)
-- `src/src/bin/voiceterm/icons.rs` - status line icons/glyphs
-- `src/src/bin/voiceterm/color_mode.rs` - color mode detection + overrides
-- `src/src/bin/voiceterm/theme/` - color palettes and theme selection
-- `src/src/bin/voiceterm/theme/style_pack.rs` - runtime style-pack resolution + fallback policy
-- `src/src/bin/voiceterm/theme/style_schema.rs` - versioned style-pack schema parse/migration helpers
-- `src/src/bin/voiceterm/theme/capability_matrix.rs` - framework capability matrix + parity helpers
-- `src/src/bin/voiceterm/theme/texture_profile.rs` - terminal texture tier detection + fallback policy
-- `src/src/bin/voiceterm/theme/dependency_baseline.rs` - ecosystem dependency pin/compat baseline
-- `src/src/bin/voiceterm/theme/widget_pack.rs` - curated widget-pack registry + maturity gates
-- `src/src/bin/voiceterm/theme/rule_profile.rs` - conditional style-rule profile engine + deterministic merge
-- `src/src/bin/voiceterm/theme_ops.rs` - theme picker selection + theme cycling helpers
-- `src/src/bin/voiceterm/theme_picker.rs` - interactive theme picker overlay
-- `src/src/bin/voiceterm/help.rs` - shortcut help overlay rendering
-- `src/src/bin/voiceterm/overlays.rs` - overlay rendering helpers
-- `src/src/bin/voiceterm/transcript_history.rs` - transcript history model + searchable overlay renderer
-- `src/src/bin/voiceterm/session_memory.rs` - opt-in markdown conversation memory logger
-- `src/src/bin/voiceterm/persistent_config.rs` - persistent runtime settings load/apply/save flow
-- `src/src/bin/voiceterm/toast.rs` - toast center model + history overlay formatter
-- `src/src/bin/voiceterm/prompt/` - prompt detection + logging modules
-- `src/src/bin/voiceterm/prompt/claude_prompt_detect.rs` - Codex/Claude interactive prompt detection + HUD suppression policy
-- `src/src/bin/voiceterm/prompt/tracker.rs` - prompt tracking + idle detection
-- `src/src/bin/voiceterm/prompt/regex.rs` - prompt regex resolution
-- `src/src/bin/voiceterm/prompt/logger.rs` - prompt log writer + rotation
-- `src/src/bin/voiceterm/prompt/strip.rs` - ANSI stripping for prompt matching
-- `src/src/bin/voiceterm/voice_control/` - voice capture manager + drain logic
-- `src/src/bin/voiceterm/voice_control/manager.rs` - voice capture lifecycle + start helpers
-- `src/src/bin/voiceterm/voice_control/drain.rs` - voice-drain orchestration + message fanout
-- `src/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs` - transcript transform/queue/send flow
-- `src/src/bin/voiceterm/voice_control/drain/message_processing.rs` - status updates, latency display, and preview lifecycle
-- `src/src/bin/voiceterm/voice_control/drain/auto_rearm.rs` - auto-voice rearm/finalize behavior after drain outcomes
-- `src/src/bin/voiceterm/voice_control/drain/tests.rs` - drain-path regression coverage
-- `src/src/bin/voiceterm/voice_control/pipeline.rs` - pipeline selection helpers
-- `src/src/bin/voiceterm/voice_macros.rs` - project macro loader + transcript trigger expansion
-- `src/src/bin/voiceterm/transcript/` - transcript queue + delivery helpers
-- `src/src/bin/voiceterm/session_stats.rs` - session counters + summary output
-- `src/src/bin/voiceterm/cli_utils.rs` - CLI helper utilities
-- `src/src/bin/voiceterm/input/` - input parsing + event mapping
-- `src/src/bin/voiceterm/input/event.rs` - input event enum
-- `src/src/bin/voiceterm/input/parser.rs` - input parser + CSI handling
-- `src/src/bin/voiceterm/input/mouse.rs` - SGR mouse parsing
-- `src/src/bin/voiceterm/input/spawn.rs` - input thread loop
-- `src/src/bin/voiceterm/config/` - overlay CLI config + backend resolution
-- `src/src/bin/voiceterm/config/cli.rs` - overlay CLI flags + enums
-- `src/src/bin/voiceterm/config/backend.rs` - backend resolution + prompt patterns
-- `src/src/bin/voiceterm/config/theme.rs` - theme/color-mode resolution
-- `src/src/bin/voiceterm/config/util.rs` - backend command helpers
-- `src/src/bin/voiceterm/settings_handlers.rs` - settings actions + toggles
-- `src/src/bin/voiceterm/settings/` - settings overlay layout + menu state
-- `src/src/bin/voiceterm/buttons.rs` - HUD button layout + registry
-- `src/src/bin/voiceterm/button_handlers.rs` - HUD button registry + action handling
-- `src/src/bin/voiceterm/audio_meter/` - mic meter visuals (`--mic-meter`)
-- `src/src/backend/` - provider registry + backend presets (Codex/Claude/Gemini/etc.)
-- `src/src/codex/` - Codex CLI runtime (CodexJobRunner + CodexCliBackend)
-- `src/src/legacy_tui/` - Codex-specific TUI state + logging (legacy path)
-- `src/src/legacy_ui.rs` - Codex-specific TUI renderer (legacy path)
-- `src/src/pty_session/` - raw PTY passthrough + query replies
-- `src/src/voice.rs` - voice capture job orchestration
-- `src/src/audio/` - CPAL recorder + VAD
-- `src/src/stt.rs` - Whisper transcription
-- `src/src/config/` - CLI flags + validation
-- `src/src/ipc/` - JSON IPC mode + protocol/router entrypoints
-- `src/src/ipc/session.rs` - IPC loop orchestration + command dispatch
-- `src/src/ipc/session/loop_runtime.rs` - command dispatch + active-job draining helpers for the IPC loop
-- `src/src/ipc/session/event_processing/` - non-blocking Codex/Claude/voice/auth event processors
-- `src/src/auth.rs` - backend auth helpers
-- `src/src/doctor.rs` - diagnostics report
-- `src/src/telemetry.rs` - tracing/JSON logs
-- `src/src/terminal_restore.rs` - terminal restore guard
+### Event loop and main binary
+
+- `rust/src/bin/voiceterm/main.rs` -- main loop, input handling, prompt detection (binary: `voiceterm`)
+- `rust/src/bin/voiceterm/event_loop.rs` -- event loop orchestration + select-loop coordination
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs` -- keyboard/mouse dispatch + settings/hotkey actions
+- `rust/src/bin/voiceterm/event_loop/output_dispatch.rs` -- PTY output handling + redraw-safe output routing
+- `rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs` -- overlay open/close transitions + overlay mode state updates
+- `rust/src/bin/voiceterm/event_loop/periodic_tasks.rs` -- timer-driven tasks (spinner, status expiry, meter cadence)
+- `rust/src/bin/voiceterm/event_loop/tests.rs` -- event-loop regression coverage for overlay/input/output behavior
+- `rust/src/bin/voiceterm/event_state.rs` -- event loop state, deps, and timers shared by the main loop
+
+### Wake word and startup
+
+- `rust/src/bin/voiceterm/wake_word.rs` -- wake listener runtime ownership, local detector lifecycle, and wake event channel wiring
+- `rust/src/bin/voiceterm/banner.rs` -- startup splash + banner configuration
+- `rust/src/bin/voiceterm/terminal.rs` -- terminal sizing, modes, and signal handling
+- `rust/src/bin/voiceterm/arrow_keys.rs` -- arrow key normalization helpers
+- `rust/src/bin/voiceterm/progress.rs` -- progress/ETA helpers for long-running tasks
+
+### Writer and output
+
+- `rust/src/bin/voiceterm/writer/` -- serialized output, status line, help overlay
+- `rust/src/bin/voiceterm/writer/state.rs` -- writer state + message handling
+- `rust/src/bin/voiceterm/writer/render.rs` -- status/overlay rendering + clear helpers
+- `rust/src/bin/voiceterm/writer/mouse.rs` -- mouse enable/disable output
+- `rust/src/bin/voiceterm/writer/sanitize.rs` -- status text sanitization + truncation
+
+### Status line
+
+- `rust/src/bin/voiceterm/status_line/` -- status line layout + formatting modules
+- `rust/src/bin/voiceterm/status_line/format.rs` -- status banner/line formatting
+- `rust/src/bin/voiceterm/status_line/buttons.rs` -- button layout + click positions
+- `rust/src/bin/voiceterm/status_line/layout.rs` -- breakpoints + banner height
+- `rust/src/bin/voiceterm/status_line/animation.rs` -- status animation helpers
+- `rust/src/bin/voiceterm/status_line/state.rs` -- status line state enums + structs
+- `rust/src/bin/voiceterm/status_line/text.rs` -- display width + truncation helpers
+- `rust/src/bin/voiceterm/status_style.rs` -- status message categorization + styling
+
+### HUD and visuals
+
+- `rust/src/bin/voiceterm/hud/` -- HUD modules (ribbon/dots/heartbeat/meter/latency)
+- `rust/src/bin/voiceterm/icons.rs` -- status line icons/glyphs
+- `rust/src/bin/voiceterm/color_mode.rs` -- color mode detection + overrides
+
+### Theme system
+
+- `rust/src/bin/voiceterm/theme/` -- color palettes and theme selection
+- `rust/src/bin/voiceterm/theme/style_pack.rs` -- runtime style-pack resolution + fallback policy
+- `rust/src/bin/voiceterm/theme/style_schema.rs` -- versioned style-pack schema parse/migration helpers
+- `rust/src/bin/voiceterm/theme/capability_matrix.rs` -- framework capability matrix + parity helpers
+- `rust/src/bin/voiceterm/theme/texture_profile.rs` -- terminal texture tier detection + fallback policy
+- `rust/src/bin/voiceterm/theme/dependency_baseline.rs` -- ecosystem dependency pin/compat baseline
+- `rust/src/bin/voiceterm/theme/widget_pack.rs` -- curated widget-pack registry + maturity gates
+- `rust/src/bin/voiceterm/theme/rule_profile.rs` -- conditional style-rule profile engine + deterministic merge
+- `rust/src/bin/voiceterm/theme_ops.rs` -- theme picker selection + theme cycling helpers
+- `rust/src/bin/voiceterm/theme_picker.rs` -- interactive theme picker overlay
+
+### Overlays and panels
+
+- `rust/src/bin/voiceterm/help.rs` -- shortcut help overlay rendering
+- `rust/src/bin/voiceterm/overlays.rs` -- overlay rendering helpers
+- `rust/src/bin/voiceterm/transcript_history.rs` -- transcript history model + searchable overlay renderer
+- `rust/src/bin/voiceterm/session_memory.rs` -- opt-in markdown conversation memory logger
+- `rust/src/bin/voiceterm/persistent_config.rs` -- persistent runtime settings load/apply/save flow
+- `rust/src/bin/voiceterm/toast.rs` -- toast center model + history overlay formatter
+
+### Prompt detection
+
+- `rust/src/bin/voiceterm/prompt/` -- prompt detection + logging modules
+- `rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs` -- Codex/Claude interactive prompt detection + HUD suppression policy
+- `rust/src/bin/voiceterm/prompt/tracker.rs` -- prompt tracking + idle detection
+- `rust/src/bin/voiceterm/prompt/regex.rs` -- prompt regex resolution
+- `rust/src/bin/voiceterm/prompt/logger.rs` -- prompt log writer + rotation
+- `rust/src/bin/voiceterm/prompt/strip.rs` -- ANSI stripping for prompt matching
+
+### Voice capture
+
+- `rust/src/bin/voiceterm/voice_control/` -- voice capture manager + drain logic
+- `rust/src/bin/voiceterm/voice_control/manager.rs` -- voice capture lifecycle + start helpers
+- `rust/src/bin/voiceterm/voice_control/drain.rs` -- voice-drain orchestration + message fanout
+- `rust/src/bin/voiceterm/voice_control/drain/transcript_delivery.rs` -- transcript transform/queue/send flow
+- `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs` -- status updates, latency display, and preview lifecycle
+- `rust/src/bin/voiceterm/voice_control/drain/auto_rearm.rs` -- auto-voice rearm/finalize behavior after drain outcomes
+- `rust/src/bin/voiceterm/voice_control/drain/tests.rs` -- drain-path regression coverage
+- `rust/src/bin/voiceterm/voice_control/pipeline.rs` -- pipeline selection helpers
+- `rust/src/bin/voiceterm/voice_macros.rs` -- project macro loader + transcript trigger expansion
+
+### Transcript and session
+
+- `rust/src/bin/voiceterm/transcript/` -- transcript queue + delivery helpers
+- `rust/src/bin/voiceterm/session_stats.rs` -- session counters + summary output
+- `rust/src/bin/voiceterm/cli_utils.rs` -- CLI helper utilities
+
+### Input handling
+
+- `rust/src/bin/voiceterm/input/` -- input parsing + event mapping
+- `rust/src/bin/voiceterm/input/event.rs` -- input event enum
+- `rust/src/bin/voiceterm/input/parser.rs` -- input parser + CSI handling
+- `rust/src/bin/voiceterm/input/mouse.rs` -- SGR mouse parsing
+- `rust/src/bin/voiceterm/input/spawn.rs` -- input thread loop
+
+### Configuration
+
+- `rust/src/bin/voiceterm/config/` -- overlay CLI config + backend resolution
+- `rust/src/bin/voiceterm/config/cli.rs` -- overlay CLI flags + enums
+- `rust/src/bin/voiceterm/config/backend.rs` -- backend resolution + prompt patterns
+- `rust/src/bin/voiceterm/config/theme.rs` -- theme/color-mode resolution
+- `rust/src/bin/voiceterm/config/util.rs` -- backend command helpers
+
+### Settings and buttons
+
+- `rust/src/bin/voiceterm/settings_handlers.rs` -- settings actions + toggles
+- `rust/src/bin/voiceterm/settings/` -- settings overlay layout + menu state
+- `rust/src/bin/voiceterm/buttons.rs` -- HUD button layout + registry
+- `rust/src/bin/voiceterm/button_handlers.rs` -- HUD button registry + action handling
+- `rust/src/bin/voiceterm/audio_meter/` -- mic meter visuals (`--mic-meter`)
+
+### Shared library modules
+
+- `rust/src/backend/` -- provider registry + backend presets (Codex/Claude/Gemini/etc.)
+- `rust/src/codex/` -- Codex CLI runtime (CodexJobRunner + CodexCliBackend)
+- `rust/src/legacy_tui/` -- Codex-specific TUI state + logging (legacy path)
+- `rust/src/legacy_ui.rs` -- Codex-specific TUI renderer (legacy path)
+- `rust/src/pty_session/` -- raw PTY passthrough + query replies
+- `rust/src/voice.rs` -- voice capture job orchestration
+- `rust/src/audio/` -- CPAL recorder + VAD
+- `rust/src/stt.rs` -- Whisper transcription
+- `rust/src/config/` -- CLI flags + validation
+- `rust/src/ipc/` -- JSON IPC mode + protocol/router entrypoints
+- `rust/src/ipc/session.rs` -- IPC loop orchestration + command dispatch
+- `rust/src/ipc/session/loop_runtime.rs` -- command dispatch + active-job draining helpers for the IPC loop
+- `rust/src/ipc/session/event_processing/` -- non-blocking Codex/Claude/voice/auth event processors
+- `rust/src/auth.rs` -- backend auth helpers
+- `rust/src/doctor.rs` -- diagnostics report
+- `rust/src/telemetry.rs` -- tracing/JSON logs
+- `rust/src/terminal_restore.rs` -- terminal restore guard
 
 ## Other Binaries
 
-- `src/src/bin/voice_benchmark.rs` - voice pipeline benchmark harness
-- `src/src/bin/latency_measurement.rs` - latency measurement tool
-- `src/src/bin/test_crash.rs` - crash logger test binary
-- `src/src/bin/test_utf8_bug.rs` - UTF-8 regression test binary
+- `rust/src/bin/voice_benchmark.rs` -- voice pipeline benchmark harness
+- `rust/src/bin/latency_measurement.rs` -- latency measurement tool
+- `rust/src/bin/test_crash.rs` -- crash logger test binary
+- `rust/src/bin/test_utf8_bug.rs` -- UTF-8 regression test binary
 
 ## Cargo Features
 
-- `high-quality-audio` (default): enables high-quality resampling via `rubato`
-- `vad_earshot` (default): enables the Earshot VAD backend
-- `mutants`: test-only hooks for mutation testing
+- `high-quality-audio` (default) -- enables high-quality resampling via `rubato`
+- `vad_earshot` (default) -- enables the Earshot VAD backend
+- `mutants` -- test-only hooks for mutation testing
 
 ## Config Knobs
 
@@ -588,7 +696,7 @@ Full CLI reference: `guides/CLI_FLAGS.md`.
 
 Project-local config:
 
-- `.voiceterm/macros.yaml` (optional) defines transcript trigger expansions before PTY injection.
+- `.voiceterm/macros.yaml` (optional) -- defines transcript trigger expansions before PTY injection.
 
 ### Core CLI Flags
 
@@ -662,8 +770,8 @@ Project-local config:
 
 ## Debugging and Logs
 
-- Logs are opt-in: enable with `--logs` (add `--log-content` for prompt/transcript snippets).
-- Debug log: `${TMPDIR}/voiceterm_tui.log` (created only when logs are enabled).
-- Trace log (JSON): `${TMPDIR}/voiceterm_trace.jsonl` (override with `VOICETERM_TRACE_LOG`).
-- Prompt detection log: only when `--prompt-log` or `VOICETERM_PROMPT_LOG` is set.
+- **Logs are opt-in** -- enable with `--logs` (add `--log-content` for prompt/transcript snippets).
+- **Debug log** -- `${TMPDIR}/voiceterm_tui.log` (created only when logs are enabled).
+- **Trace log (JSON)** -- `${TMPDIR}/voiceterm_trace.jsonl` (override with `VOICETERM_TRACE_LOG`).
+- **Prompt detection log** -- only when `--prompt-log` or `VOICETERM_PROMPT_LOG` is set.
 - Use `--no-python-fallback` to force native Whisper and surface errors early.

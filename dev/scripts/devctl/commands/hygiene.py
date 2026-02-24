@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-import re
+import shutil
 from datetime import datetime
 from typing import Dict, List, Tuple
 
@@ -16,15 +16,16 @@ from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
+    DEFAULT_STALE_MIN_AGE_SECONDS,
     format_process_rows,
-    scan_matching_processes,
+    scan_voiceterm_test_binaries,
     split_orphaned_processes,
+    split_stale_processes,
 )
 from . import hygiene_audits
 
-# Match only VoiceTerm test binaries so warnings stay relevant.
-VOICETERM_TEST_BIN_RE = re.compile(r"target/(?:debug|release)/deps/voiceterm-[0-9a-f]{8,}")
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
+STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 8
 
@@ -53,7 +54,7 @@ def _format_process_rows(rows: List[Dict]) -> str:
 
 
 def _scan_voiceterm_test_processes() -> Tuple[List[Dict], List[str]]:
-    return scan_matching_processes(VOICETERM_TEST_BIN_RE)
+    return scan_voiceterm_test_binaries()
 
 
 def _audit_runtime_processes() -> Dict:
@@ -74,6 +75,10 @@ def _audit_runtime_processes() -> Dict:
         test_processes,
         min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
     )
+    stale_active, fresh_active = split_stale_processes(
+        active,
+        min_age_seconds=STALE_ACTIVE_TEST_MIN_AGE_SECONDS,
+    )
 
     if orphaned:
         errors.append(
@@ -81,18 +86,71 @@ def _audit_runtime_processes() -> Dict:
             "Stop leaked runners before continuing: "
             f"{_format_process_rows(orphaned)}"
         )
-    if active:
+    if stale_active:
+        errors.append(
+            "Stale active voiceterm test binaries detected. "
+            f"Any process running >= {STALE_ACTIVE_TEST_MIN_AGE_SECONDS}s should be stopped: "
+            f"{_format_process_rows(stale_active)}"
+        )
+    if fresh_active:
         warnings.append(
             "Active voiceterm test binaries detected during hygiene run: "
-            f"{_format_process_rows(active)}"
+            f"{_format_process_rows(fresh_active)}"
         )
 
     return {
         "total_detected": len(test_processes),
         "orphaned": orphaned,
-        "active": active,
+        "stale_active": stale_active,
+        "active": fresh_active,
         "errors": errors,
         "warnings": warnings,
+    }
+
+
+def _fix_pycache_dirs(pycache_dirs: List[str]) -> Dict:
+    """Remove detected `__pycache__` dirs under repo-root-safe paths."""
+    removed: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+    repo_root_resolved = REPO_ROOT.resolve()
+
+    for relative_path in pycache_dirs:
+        candidate = REPO_ROOT / relative_path
+        if candidate.name != "__pycache__":
+            skipped.append(f"{relative_path} (name is not __pycache__)")
+            continue
+        try:
+            resolved = candidate.resolve()
+        except OSError as exc:
+            failed.append(f"{relative_path} (resolve failed: {exc})")
+            continue
+        try:
+            resolved.relative_to(repo_root_resolved)
+        except ValueError:
+            failed.append(f"{relative_path} (outside repo root)")
+            continue
+        if not candidate.exists():
+            skipped.append(f"{relative_path} (already absent)")
+            continue
+        if not candidate.is_dir():
+            failed.append(f"{relative_path} (not a directory)")
+            continue
+        if candidate.is_symlink():
+            failed.append(f"{relative_path} (symlink deletion is blocked)")
+            continue
+        try:
+            shutil.rmtree(candidate)
+        except OSError as exc:
+            failed.append(f"{relative_path} ({exc})")
+            continue
+        removed.append(relative_path)
+
+    return {
+        "requested": True,
+        "removed": removed,
+        "failed": failed,
+        "skipped": skipped,
     }
 
 
@@ -101,6 +159,16 @@ def run(args) -> int:
     archive = _audit_archive()
     adr = _audit_adrs()
     scripts = _audit_scripts()
+    fix_report = {"requested": False, "removed": [], "failed": [], "skipped": []}
+    if getattr(args, "fix", False):
+        fix_report = _fix_pycache_dirs(scripts.get("pycache_dirs", []))
+        scripts = _audit_scripts()
+        if fix_report["failed"]:
+            scripts["errors"] = [
+                *scripts.get("errors", []),
+                "Unable to remove some Python cache directories: "
+                + "; ".join(fix_report["failed"]),
+            ]
     runtime_processes = _audit_runtime_processes()
     sections = [archive, adr, scripts, runtime_processes]
 
@@ -118,6 +186,7 @@ def run(args) -> int:
         "adr": adr,
         "scripts": scripts,
         "runtime_processes": runtime_processes,
+        "fix": fix_report,
     }
 
     if args.format == "json":
@@ -140,13 +209,25 @@ def run(args) -> int:
         lines.append("")
         lines.append("## Scripts")
         lines.append(f"- top-level scripts: {len(scripts['top_level_scripts'])}")
+        lines.append(f"- check scripts: {len(scripts['check_scripts'])}")
         lines.extend(f"- error: {message}" for message in scripts["errors"])
         lines.extend(f"- warning: {message}" for message in scripts["warnings"])
         lines.append("")
         lines.append("## Runtime Processes")
-        lines.append(f"- voiceterm test binaries detected: {runtime_processes['total_detected']}")
+        lines.append(
+            f"- voiceterm test binaries detected: {runtime_processes['total_detected']}"
+        )
         lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
-        lines.extend(f"- warning: {message}" for message in runtime_processes["warnings"])
+        lines.extend(
+            f"- warning: {message}" for message in runtime_processes["warnings"]
+        )
+        if fix_report["requested"]:
+            lines.append("")
+            lines.append("## Fix")
+            lines.append(f"- removed_pycache_dirs: {len(fix_report['removed'])}")
+            lines.extend(f"- removed: {path}" for path in fix_report["removed"])
+            lines.extend(f"- skipped: {path}" for path in fix_report["skipped"])
+            lines.extend(f"- error: {path}" for path in fix_report["failed"])
         output = "\n".join(lines)
 
     write_output(output, args.output)

@@ -2,6 +2,7 @@ name: release_preflight
 
 permissions:
   contents: read
+  security-events: read
 
 concurrency:
   group: release-preflight-${{ github.ref }}-${{ github.event.inputs.version || github.run_id }}
@@ -24,6 +25,7 @@ jobs:
   preflight:
     name: release-preflight
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     env:
       RELEASE_VERSION: ${{ github.event.inputs.version }}
       VERIFY_DOCS: ${{ github.event.inputs.verify_docs }}
@@ -61,7 +63,7 @@ jobs:
 
       - name: Verify release version parity and requested version
         run: |
-          python3 dev/scripts/check_release_version_parity.py --format json > /tmp/release-version-parity.json
+          python3 dev/scripts/checks/check_release_version_parity.py --format json > /tmp/release-version-parity.json
           python3 - <<'PY'
           import json
           import os
@@ -82,8 +84,50 @@ jobs:
               sys.exit(1)
           PY
 
+      - name: Verify CodeRabbit gate passed for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --branch "${GITHUB_REF_NAME}" \
+            --sha "${GITHUB_SHA}" \
+            --format md
+
+      - name: Verify CodeRabbit Ralph gate passed for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${GITHUB_REF_NAME}" \
+            --sha "${GITHUB_SHA}" \
+            --format md
+
       - name: Run CI runtime bundle
         run: python3 dev/scripts/devctl.py check --profile ci
+
+      - name: Run Rust audit-pattern guard
+        run: |
+          python3 dev/scripts/devctl.py check \
+            --profile ai-guard \
+            --skip-fmt \
+            --skip-clippy
+
+      - name: Run zizmor workflow security scan
+        uses: woodruffw/zizmor-action@e639dbb30f0f5f1b5776b6921e7001715262b4e4
+
+      - name: Run release security gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/devctl.py security \
+            --scanner-tier core \
+            --python-scope all \
+            --with-codeql-alerts \
+            --codeql-repo "${{ github.repository }}" \
+            --codeql-min-severity high \
+            --format json \
+            --output /tmp/release-security.json
+          cat /tmp/release-security.json
 
       - name: Run release governance bundle
         run: |
@@ -94,14 +138,14 @@ jobs:
             echo "Skipping strict user-facing docs check."
           fi
           python3 dev/scripts/devctl.py hygiene
-          python3 dev/scripts/check_agents_contract.py
-          python3 dev/scripts/check_active_plan_sync.py
-          python3 dev/scripts/check_release_version_parity.py
-          python3 dev/scripts/check_cli_flags_parity.py
-          python3 dev/scripts/check_screenshot_integrity.py --stale-days 120
-          python3 dev/scripts/check_code_shape.py
-          python3 dev/scripts/check_rust_lint_debt.py
-          python3 dev/scripts/check_rust_best_practices.py
+          python3 dev/scripts/checks/check_agents_contract.py
+          python3 dev/scripts/checks/check_active_plan_sync.py
+          python3 dev/scripts/checks/check_release_version_parity.py
+          python3 dev/scripts/checks/check_cli_flags_parity.py
+          python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
+          python3 dev/scripts/checks/check_code_shape.py
+          python3 dev/scripts/checks/check_rust_lint_debt.py
+          python3 dev/scripts/checks/check_rust_best_practices.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \

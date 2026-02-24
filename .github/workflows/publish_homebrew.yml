@@ -9,9 +9,15 @@ on:
         description: "Release version (X.Y.Z)"
         required: true
         type: string
+      release_branch:
+        description: "Release branch for CodeRabbit gate lookup"
+        required: false
+        default: master
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-homebrew-${{ github.event_name }}-${{ github.event.release.tag_name || github.event.inputs.version || github.run_id }}
@@ -25,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -42,12 +50,21 @@ jobs:
 
       - name: Resolve release version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_RELEASE_BRANCH: ${{ github.event.inputs.release_branch }}
         run: |
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            TAG="${RELEASE_TAG}"
+            VERSION="${TAG#v}"
+            BRANCH="${RELEASE_TARGET_BRANCH}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="${INPUT_VERSION}"
+            TAG="v${VERSION}"
+            BRANCH="${INPUT_RELEASE_BRANCH}"
           fi
 
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -55,7 +72,49 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${TAG}"
+            exit 1
+          fi
+
+          if [[ -z "${BRANCH}" ]]; then
+            echo "Release branch is required for CodeRabbit gate lookup."
+            exit 1
+          fi
+
+          git fetch --force --tags origin
+          SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          if [[ -z "${SHA}" ]]; then
+            echo "Failed to resolve commit SHA for tag ${TAG}."
+            exit 1
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify CodeRabbit gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
+
+      - name: Verify CodeRabbit Ralph gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
 
       - name: Clone Homebrew tap repo
         env:
@@ -69,9 +128,10 @@ jobs:
           HOMEBREW_TAP_BRANCH: main
           HOMEBREW_GIT_USER_NAME: github-actions[bot]
           HOMEBREW_GIT_USER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python3 dev/scripts/devctl.py ship \
-            --version "${{ steps.version.outputs.version }}" \
+            --version "${RELEASE_VERSION}" \
             --homebrew \
             --yes \
             --allow-ci \

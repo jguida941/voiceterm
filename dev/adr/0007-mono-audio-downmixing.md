@@ -53,5 +53,5 @@ Target format: 16kHz mono (defined in `audio/mod.rs` as `TARGET_SAMPLE_RATE` and
 
 ## Links
 
-- `src/src/audio/dispatch.rs:9-38` - Downmixing implementation
-- `src/src/audio/mod.rs:7-11` - Target format constants
+- `rust/src/audio/dispatch.rs:9-38` - Downmixing implementation
+- `rust/src/audio/mod.rs:7-11` - Target format constants

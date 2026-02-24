@@ -47,7 +47,7 @@ Adopt a guarded wake-word runtime model:
 
 ## Links
 
-- `src/src/bin/voiceterm/wake_word.rs`
-- `src/src/bin/voiceterm/event_loop/input_dispatch.rs`
-- `src/src/bin/voiceterm/settings_handlers.rs`
+- `rust/src/bin/voiceterm/wake_word.rs`
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs`
+- `rust/src/bin/voiceterm/settings_handlers.rs`
 - `dev/active/MASTER_PLAN.md` (`MP-199`..`MP-203`, `MP-276`..`MP-280`)

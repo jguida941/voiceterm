@@ -200,19 +200,19 @@ macros:
     mode: auto
 
   run rust fmt check:
-    expansion: "cd src && cargo fmt --all -- --check"
+    expansion: "cd rust && cargo fmt --all -- --check"
     mode: auto
 
   run rust clippy:
-    expansion: "cd src && cargo clippy --workspace --all-features -- -D warnings"
+    expansion: "cd rust && cargo clippy --workspace --all-features -- -D warnings"
     mode: auto
 
   run workspace tests:
-    expansion: "cd src && cargo test"
+    expansion: "cd rust && cargo test"
     mode: auto
 
   run voiceterm tests:
-    expansion: "cd src && cargo test --bin voiceterm"
+    expansion: "cd rust && cargo test --bin voiceterm"
     mode: auto
 
   run parser fuzz guard:
@@ -236,7 +236,7 @@ macros:
     mode: auto
 
   build release binary:
-    expansion: "cd src && cargo build --release --bin voiceterm"
+    expansion: "cd rust && cargo build --release --bin voiceterm"
     mode: auto
 
   launch voiceterm:

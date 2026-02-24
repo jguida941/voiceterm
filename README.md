@@ -18,10 +18,11 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-**VoiceTerm** gives you voice control for AI CLIs in your normal terminal.
-It supports a fully hands-free flow: say the wake phrase (`hey codex` /
-`hey claude`), speak your prompt, then say `send` or `submit`.
-Completely hands-free, no keyboard needed.
+**VoiceTerm** is a voice-first terminal overlay for Codex and Claude.
+It keeps your CLI in a normal PTY session, runs Whisper speech-to-text on your
+machine by default, and adds a customizable HUD.
+Use wake phrases (`hey codex` / `hey claude`) plus `send` / `submit` for fully
+hands-free prompting when needed.
 
 Whisper runs locally by default. No cloud API keys required.
 Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
@@ -145,7 +146,7 @@ types the result into your AI CLI input.
 | **Terminal passthrough** | Your CLI layout and behavior stay the same |
 | **Auto-voice** | You can talk hands-free instead of typing |
 | **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` in insert mode |
-| **Image mode** | Turn on `Image mode` in Settings to have `Ctrl+R` capture picture prompts (`IMG` badge) |
+| **Image prompts** | Use `Ctrl+X` for one-shot screenshot prompts, or enable persistent image mode for HUD `[rec]` (`IMG` badge) |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
 | **Codex + Claude support** | Primary support for Codex and Claude Code |
 
@@ -153,7 +154,7 @@ types the result into your AI CLI input.
 
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
-- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel, and add `--dev-log` to write session JSONL diagnostics
+- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel with `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`), and add `--dev-log` to write session JSONL diagnostics
 - **Prompt-safe reply boxes**: Codex/Claude approval and reply/composer prompts temporarily suppress HUD rows so prompt text remains visible while you respond
 - **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
 - **Notification history**: use `Ctrl+N` to review recent status notifications
@@ -243,37 +244,34 @@ Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros)
 
 ## Documentation
 
-Use this order if you're new:
-
-1. Start with [Quick Start](QUICK_START.md).
-2. Use the [Guides Index](guides/README.md) for task-based navigation.
-3. Use [Troubleshooting](guides/TROUBLESHOOTING.md) as the single issue hub.
-
-User docs:
-
-- [Guides Index](guides/README.md)
-- [Quick Start](QUICK_START.md)
-- [Install Guide](guides/INSTALL.md)
-- [Usage Guide](guides/USAGE.md)
-- [CLI Flags](guides/CLI_FLAGS.md)
-- [Troubleshooting](guides/TROUBLESHOOTING.md)
-
-Developer docs:
-
-- [Developer Index](dev/README.md)
-- [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
+| Audience | Document |
+|---|---|
+| User | [Quick Start](QUICK_START.md) |
+| User | [Guides Index](guides/README.md) |
+| User | [Install Guide](guides/INSTALL.md) |
+| User | [Usage Guide](guides/USAGE.md) |
+| User | [CLI Flags](guides/CLI_FLAGS.md) |
+| User | [Troubleshooting](guides/TROUBLESHOOTING.md) |
+| Developer | [Developer Index](dev/README.md) |
+| Developer | [Project Integrations Playbook](dev/integrations/EXTERNAL_REPOS.md) |
+| Developer | [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) |
 
 ## Support
 
-- Troubleshooting: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-- Bug reports and feature requests: [GitHub Issues](https://github.com/jguida941/voiceterm/issues)
-- Security concerns: [.github/SECURITY.md](.github/SECURITY.md)
+- Troubleshooting:
+  [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- Bug reports and feature requests:
+  [GitHub Issues](https://github.com/jguida941/voiceterm/issues)
+- Security concerns:
+  [.github/SECURITY.md](.github/SECURITY.md)
 
 ## Contributing
 
 PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
-Before opening a PR, run `python3 dev/scripts/devctl.py check --profile prepush`.
-For governance/docs consistency, also run `python3 dev/scripts/devctl.py hygiene`.
+Before opening a PR, run:
+
+- `python3 dev/scripts/devctl.py check --profile prepush`
+- `python3 dev/scripts/devctl.py hygiene`
 
 ## License
 

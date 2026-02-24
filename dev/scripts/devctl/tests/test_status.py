@@ -7,6 +7,25 @@ from unittest.mock import patch
 from dev.scripts.devctl.commands import status
 
 
+def make_args(**overrides) -> SimpleNamespace:
+    """Build a default status args namespace with optional overrides."""
+    defaults = dict(
+        ci=False,
+        ci_limit=10,
+        require_ci=False,
+        dev_logs=False,
+        dev_root=None,
+        dev_sessions_limit=5,
+        no_parallel=False,
+        format="md",
+        output=None,
+        pipe_command=None,
+        pipe_args=None,
+    )
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
 class StatusCommandTests(unittest.TestCase):
     """Validate status command markdown and CI guard behavior."""
 
@@ -35,18 +54,7 @@ class StatusCommandTests(unittest.TestCase):
                 ]
             },
         }
-        args = SimpleNamespace(
-            ci=True,
-            ci_limit=10,
-            require_ci=False,
-            dev_logs=False,
-            dev_root=None,
-            dev_sessions_limit=5,
-            format="md",
-            output=None,
-            pipe_command=None,
-            pipe_args=None,
-        )
+        args = make_args(ci=True)
 
         code = status.run(args)
 
@@ -67,18 +75,7 @@ class StatusCommandTests(unittest.TestCase):
             "mutants": {"results": {}},
             "ci": {"error": "gh not found"},
         }
-        args = SimpleNamespace(
-            ci=False,
-            ci_limit=10,
-            require_ci=True,
-            dev_logs=False,
-            dev_root=None,
-            dev_sessions_limit=5,
-            format="md",
-            output=None,
-            pipe_command=None,
-            pipe_args=None,
-        )
+        args = make_args(require_ci=True)
 
         code = status.run(args)
 
@@ -110,18 +107,7 @@ class StatusCommandTests(unittest.TestCase):
                 "latest_event_iso": "2026-02-23T00:00:00+00:00",
             },
         }
-        args = SimpleNamespace(
-            ci=False,
-            ci_limit=10,
-            require_ci=False,
-            dev_logs=True,
-            dev_root=None,
-            dev_sessions_limit=5,
-            format="md",
-            output=None,
-            pipe_command=None,
-            pipe_args=None,
-        )
+        args = make_args(dev_logs=True)
 
         code = status.run(args)
 
@@ -130,6 +116,44 @@ class StatusCommandTests(unittest.TestCase):
         self.assertIn("- Dev logs root: /tmp/dev", output)
         self.assertIn("- Dev sessions scanned: 2/4", output)
         self.assertIn("- Dev avg latency: 210 ms", output)
+
+    @patch("dev.scripts.devctl.commands.status.write_output")
+    @patch("dev.scripts.devctl.commands.status.build_project_report")
+    def test_parallel_flag_forwarded_to_build_report(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        """Verify that parallel=True is passed when --no-parallel is absent."""
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+        args = make_args()
+
+        status.run(args)
+
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertTrue(call_kwargs["parallel"])
+
+    @patch("dev.scripts.devctl.commands.status.write_output")
+    @patch("dev.scripts.devctl.commands.status.build_project_report")
+    def test_no_parallel_flag_disables_parallel(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        """Verify that parallel=False is passed when --no-parallel is set."""
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+        args = make_args(no_parallel=True)
+
+        status.run(args)
+
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertFalse(call_kwargs["parallel"])
 
 
 if __name__ == "__main__":

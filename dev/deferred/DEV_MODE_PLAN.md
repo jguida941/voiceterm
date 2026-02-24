@@ -54,7 +54,7 @@ Planned capabilities:
 
 ## Modularization Strategy
 
-- Core data pipeline lives in `src/src/devtools/` (events, storage, search, stats).
+- Core data pipeline lives in `rust/src/devtools/` (events, storage, search, stats).
 - UI components consume `DevModeStats` via a small interface so overlay and offline tool share the same renderer.
 - `voiceterm` overlay only wires events + toggles; avoid one-off `dev_mode.rs` / `dev_panel.rs` files in the bin.
 
@@ -360,7 +360,7 @@ noise_floor_db: -52.3
 
 ### Phase 0: Architecture + Modularization (Priority: High)
 
-- [ ] Create `devtools` module in `src/src/devtools/` with clear boundaries (config, events, storage, search, ui).
+- [ ] Create `devtools` module in `rust/src/devtools/` with clear boundaries (config, events, storage, search, ui).
 - [ ] Define stable `DevEvent` schema + versioning.
 - [ ] Add a thin bridge in `voiceterm` to avoid one-off "mode" files.
 
@@ -400,18 +400,18 @@ noise_floor_db: -52.3
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `src/src/devtools/mod.rs` | CREATE | Devtools module entrypoint |
-| `src/src/devtools/config.rs` | CREATE | Config + defaults + CLI mapping |
-| `src/src/devtools/events.rs` | CREATE | DevEvent schema + versioning |
-| `src/src/devtools/state.rs` | CREATE | Stats + aggregation |
-| `src/src/devtools/storage.rs` | CREATE | JSONL writer + retention |
-| `src/src/devtools/search.rs` | CREATE | Fuzzy search + filters |
-| `src/src/devtools/panel.rs` | CREATE | Dev panel rendering (shared) |
-| `src/src/devtools/export.rs` | CREATE | MD/JSON/CSV exporters |
+| `rust/src/devtools/mod.rs` | CREATE | Devtools module entrypoint |
+| `rust/src/devtools/config.rs` | CREATE | Config + defaults + CLI mapping |
+| `rust/src/devtools/events.rs` | CREATE | DevEvent schema + versioning |
+| `rust/src/devtools/state.rs` | CREATE | Stats + aggregation |
+| `rust/src/devtools/storage.rs` | CREATE | JSONL writer + retention |
+| `rust/src/devtools/search.rs` | CREATE | Fuzzy search + filters |
+| `rust/src/devtools/panel.rs` | CREATE | Dev panel rendering (shared) |
+| `rust/src/devtools/export.rs` | CREATE | MD/JSON/CSV exporters |
 | `src/bin/voiceterm/main.rs` | MODIFY | Wire devtools bridge + flags |
 | `src/bin/voiceterm/config.rs` | MODIFY | CLI flags |
 | `src/bin/voiceterm/input.rs` | MODIFY | Keybindings |
-| `src/src/legacy_ui.rs` | MODIFY | Shared rendering hooks (if needed) |
+| `rust/src/legacy_ui.rs` | MODIFY | Shared rendering hooks (if needed) |
 
 ---
 

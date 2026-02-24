@@ -5,7 +5,37 @@ def add_security_parser(sub) -> None:
     """Register the `security` command parser on the given subparser group."""
     security_cmd = sub.add_parser(
         "security",
-        help="Run local security checks (RustSec policy + optional workflow scanner checks)",
+        help="Run local security checks with scanner tiers (RustSec/core/all)",
+    )
+    security_cmd.add_argument(
+        "--scanner-tier",
+        choices=("rustsec", "core", "all"),
+        default="core",
+        help="Security scanner tier: rustsec baseline, core default-on, or all (core + expensive)",
+    )
+    security_cmd.add_argument(
+        "--expensive-policy",
+        choices=("advisory", "fail"),
+        default="advisory",
+        help="How expensive scanner failures should behave when --scanner-tier all is used",
+    )
+    security_cmd.add_argument(
+        "--since-ref",
+        help="Changed-file scope base ref for Python checks (for example origin/develop)",
+    )
+    security_cmd.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Changed-file scope head ref used with --since-ref (default: HEAD)",
+    )
+    security_cmd.add_argument(
+        "--python-scope",
+        choices=("auto", "changed", "all"),
+        default="auto",
+        help=(
+            "Scope for Python black/isort/bandit checks: auto (changed locally, all in CI), "
+            "changed (commit/worktree delta only), or all (all tracked Python files)"
+        ),
     )
     security_cmd.add_argument(
         "--min-cvss",
@@ -36,12 +66,27 @@ def add_security_parser(sub) -> None:
     security_cmd.add_argument(
         "--with-zizmor",
         action="store_true",
-        help="Run zizmor against GitHub workflows for workflow security checks",
+        help="Force-enable zizmor scan even when scanner tier is rustsec",
+    )
+    security_cmd.add_argument(
+        "--with-codeql-alerts",
+        action="store_true",
+        help="Force-enable CodeQL alert query even when scanner tier is rustsec",
+    )
+    security_cmd.add_argument(
+        "--codeql-repo",
+        help="Explicit GitHub repo slug for CodeQL API checks (owner/repo)",
+    )
+    security_cmd.add_argument(
+        "--codeql-min-severity",
+        choices=("low", "medium", "high", "critical"),
+        default="high",
+        help="Minimum CodeQL alert severity that should fail (default: high)",
     )
     security_cmd.add_argument(
         "--require-optional-tools",
         action="store_true",
-        help="Fail when optional scanners (for example zizmor) are requested but missing",
+        help="Fail when optional scanners (for example zizmor/codeql alerts) are requested but missing",
     )
     security_cmd.add_argument("--dry-run", action="store_true")
     security_cmd.add_argument("--offline", action="store_true")

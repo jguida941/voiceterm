@@ -60,5 +60,5 @@ The Python fallback:
 ## Links
 
 - [Architecture docs](../ARCHITECTURE.md#voice-error-and-fallback-flow)
-- `src/src/voice.rs` - Fallback logic
+- `rust/src/voice.rs` - Fallback logic
 - `scripts/python_fallback.py` - Python pipeline

@@ -66,5 +66,5 @@ The auto-learn algorithm:
 ## Links
 
 - [Architecture docs](../ARCHITECTURE.md#prompt-detection-auto-voice)
-- `src/src/bin/voiceterm/prompt/tracker.rs` - Prompt tracker
+- `rust/src/bin/voiceterm/prompt/tracker.rs` - Prompt tracker
 - [CLI flags reference](../../guides/CLI_FLAGS.md) - `--prompt-regex` docs

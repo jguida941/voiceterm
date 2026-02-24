@@ -103,7 +103,8 @@ Flow:
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+R` | Trigger capture (voice by default; image capture when `Image mode` is ON) |
+| `Ctrl+R` | Trigger voice capture |
+| `Ctrl+X` | Capture one screenshot prompt |
 | `Ctrl+E` | Finalize active capture early (stage text only, never sends Enter) |
 | `Ctrl+V` | Toggle auto-voice |
 | `Ctrl+T` | Toggle send mode (`auto` <-> `insert`) |
@@ -158,7 +159,7 @@ Common settings:
 - Auto-voice
 - Wake word (`OFF`/`ON`, sensitivity, cooldown; default `OFF`)
 - Send mode (`auto` or `insert`)
-- Image mode (`OFF`/`ON`; ON makes `Ctrl+R`/`[rec]` capture an image prompt)
+- Image mode (`OFF`/`ON`; ON makes HUD `[rec]` persistently capture image prompts)
 - Macros toggle
 - Mic threshold
 - Latency display (`Off`, `Nms`, `Latency: Nms`)
@@ -182,12 +183,12 @@ Settings persistence:
 
 ## Image Mode (Picture Prompts)
 
-Use this mode when you want `Ctrl+R` and HUD `[rec]` to capture an image and
-insert a prompt into the active terminal session.
+Use this mode when you want HUD `[rec]` to capture an image prompt while keeping
+`Ctrl+R` dedicated to voice capture.
 
 1. Open Settings with `Ctrl+O`.
 2. Set `Image mode` to `ON`.
-3. Press `Ctrl+R` (or click `[rec]` when mouse is enabled).
+3. Press `Ctrl+X` for one-shot screenshot capture, or click `[rec]` for persistent mode.
 
 Behavior:
 
@@ -198,7 +199,7 @@ Behavior:
 
 Capture command:
 
-- macOS default: tries `imagesnap` first, then falls back to `screencapture`.
+- macOS default: uses `screencapture`.
 - Other platforms: set `--image-capture-command` (or `VOICETERM_IMAGE_CAPTURE_COMMAND`).
 - Custom commands receive output path via `VOICETERM_IMAGE_PATH`.
 
@@ -217,9 +218,12 @@ Behavior:
 
 - Default launch stays unchanged when the flag is not present.
 - Full HUD shows `DEV` while the guard is active.
-- `Ctrl+D` toggles the in-session Dev panel (read-only session counters).
+- `Ctrl+D` toggles the in-session Dev panel.
+- The panel shows live session counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) that run through an allowlisted async broker.
+- `sync` is mutating and requires a second `Enter` confirmation before it runs.
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
+- Mutating commands like `sync` require explicit confirmation before execution.
 
 ## Transcript History
 
@@ -291,8 +295,8 @@ You can also do one-shot submit with:
 - In `insert` mode, Enter submits staged text.
 - In `insert` mode, saying `send`, `send message`, or `submit` submits staged text.
 - One-shot wake submit works: `hey codex send` or `hey claude send`.
-- When Image mode is `OFF`, `Ctrl+R` stops active recording without sending.
-- When Image mode is `ON`, `Ctrl+R` captures an image prompt instead of voice.
+- `Ctrl+R` toggles voice recording start/stop without sending.
+- `Ctrl+X` captures one screenshot prompt into the terminal.
 - `Ctrl+E` finalizes only. It never sends.
 - Wake state labels in Full HUD:
   `Wake: ON` (listening), `Wake: PAUSED` (temporarily paused), `Wake: ERR` (startup failed).

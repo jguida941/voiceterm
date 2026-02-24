@@ -266,6 +266,21 @@ def render_triage_markdown(report: dict) -> str:
                 lines.append(f"- triage_markdown: {artifacts['triage_markdown_path']}")
         lines.append("")
 
+    external_inputs = report.get("external_inputs", [])
+    if isinstance(external_inputs, list) and external_inputs:
+        lines.append("## External Issue Sources")
+        lines.append("")
+        for row in external_inputs:
+            if not isinstance(row, dict):
+                continue
+            source = row.get("source", "external")
+            path = row.get("path", "unknown")
+            if row.get("error"):
+                lines.append(f"- {source}: {path} (error: {row['error']})")
+            else:
+                lines.append(f"- {source}: {path} (issues={row.get('issues', 0)})")
+        lines.append("")
+
     bundle = report.get("bundle", {})
     if isinstance(bundle, dict) and bundle.get("written"):
         lines.append("## Bundle")

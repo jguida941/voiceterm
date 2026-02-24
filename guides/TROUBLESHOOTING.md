@@ -22,6 +22,7 @@ Fast first checks:
 | Full HUD shows `Wake: ERR` | Verify wake listener startup/log path details | [Status Messages](#status-messages) |
 | Wake phrase does not trigger capture | Verify wake mode and phrase match | [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet) |
 | Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
+| Dev panel not opening | Verify `--dev` flag at launch | [Backend Issues](#backend-issues) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
@@ -710,7 +711,7 @@ hash -r
 Verify Homebrew binary directly:
 
 ```bash
-$(brew --prefix)/opt/voiceterm/libexec/src/target/release/voiceterm --version
+$(brew --prefix)/opt/voiceterm/libexec/rust/target/release/voiceterm --version
 ```
 
 <details>

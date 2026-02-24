@@ -30,6 +30,7 @@ def make_args(**overrides):
         "bundle_dir": ".cihub",
         "bundle_prefix": "devctl-triage",
         "owner_map_file": None,
+        "external_issues_file": [],
         "dry_run": False,
         "format": "json",
         "output": None,
@@ -71,6 +72,8 @@ class TriageParserTests(unittest.TestCase):
                 "my-triage",
                 "--owner-map-file",
                 "/tmp/owners.json",
+                "--external-issues-file",
+                "/tmp/external-issues.json",
                 "--format",
                 "md",
             ]
@@ -84,10 +87,78 @@ class TriageParserTests(unittest.TestCase):
         self.assertTrue(args.emit_bundle)
         self.assertEqual(args.bundle_prefix, "my-triage")
         self.assertEqual(args.owner_map_file, "/tmp/owners.json")
+        self.assertEqual(args.external_issues_file, ["/tmp/external-issues.json"])
         self.assertEqual(args.format, "md")
 
 
 class TriageCommandTests(unittest.TestCase):
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_external_issue_file_is_ingested(
+        self,
+        build_report_mock,
+        write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = minimal_project_report()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            external_path = Path(tmp_dir) / "external.json"
+            external_path.write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "category": "security",
+                                "severity": "high",
+                                "summary": "CodeRabbit flagged unsafe command interpolation",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            args = make_args(
+                external_issues_file=[str(external_path)],
+                format="json",
+            )
+            rc = triage.run(args)
+            self.assertEqual(rc, 0)
+
+            payload = json.loads(write_output_mock.call_args.args[0])
+            summaries = {issue["summary"]: issue for issue in payload["issues"]}
+            self.assertIn("CodeRabbit flagged unsafe command interpolation", summaries)
+            self.assertEqual(
+                summaries["CodeRabbit flagged unsafe command interpolation"]["severity"],
+                "high",
+            )
+            self.assertTrue(payload["external_inputs"])
+
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_external_issue_file_error_adds_warning_issue(
+        self,
+        build_report_mock,
+        write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = minimal_project_report()
+        args = make_args(
+            external_issues_file=["/tmp/does-not-exist-triage-input.json"],
+            format="json",
+        )
+        rc = triage.run(args)
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(
+            any("external issues ingest failed" in warning for warning in payload["warnings"])
+        )
+        self.assertTrue(
+            any(
+                issue["summary"] == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
+                for issue in payload["issues"]
+            )
+        )
+
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_emit_bundle_writes_markdown_and_ai_json(

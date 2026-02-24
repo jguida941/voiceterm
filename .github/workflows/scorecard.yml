@@ -1,0 +1,51 @@
+name: scorecard
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  security-events: write
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "18 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  analysis:
+    name: scorecard-analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@89a39a4ef9108d8f37853ddfda8d7010eaf5b894
+        with:
+          sarif_file: scorecard-results.sarif
+
+      - name: Upload scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scorecard-results
+          path: scorecard-results.sarif
+          if-no-files-found: error

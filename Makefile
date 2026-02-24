@@ -72,26 +72,26 @@ help:
 # =============================================================================
 
 build:
-	cd src && cargo build --release --bin voiceterm
+	cd rust && cargo build --release --bin voiceterm
 
 run: build
-	./src/target/release/voiceterm
+	./rust/target/release/voiceterm
 
 doctor: build
-	./src/target/release/voiceterm --doctor
+	./rust/target/release/voiceterm --doctor
 
 # =============================================================================
 # Code Quality
 # =============================================================================
 
 fmt:
-	cd src && cargo fmt --all
+	cd rust && cargo fmt --all
 
 fmt-check:
-	cd src && cargo fmt --all -- --check
+	cd rust && cargo fmt --all -- --check
 
 lint:
-	cd src && cargo clippy --workspace --all-features -- -D warnings
+	cd rust && cargo clippy --workspace --all-features -- -D warnings
 
 check: fmt-check lint
 
@@ -100,13 +100,13 @@ check: fmt-check lint
 # =============================================================================
 
 test:
-	cd src && cargo test --workspace --all-features
+	cd rust && cargo test --workspace --all-features
 
 test-bin:
-	cd src && cargo test --bin voiceterm
+	cd rust && cargo test --bin voiceterm
 
 test-perf:
-	cd src && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
+	cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
 	@LOG_PATH=$$(python3 -c "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'voiceterm_tui.log'))"); \
 	echo "Inspecting $$LOG_PATH"; \
 	if ! grep -q "voice_metrics|" "$$LOG_PATH"; then \
@@ -116,25 +116,25 @@ test-perf:
 	python3 .github/scripts/verify_perf_metrics.py "$$LOG_PATH"
 
 test-mem:
-	cd src && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
+	cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture
 
 test-mem-loop:
 	@set -eu; \
-	cd src; \
+	cd rust; \
 	for i in $$(seq 1 20); do \
 		echo "Iteration $$i"; \
 		cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture; \
 	done
 
 parser-fuzz:
-	cd src && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
-	cd src && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
-	cd src && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
+	cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
+	cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
+	cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture
 
 security-audit:
 	cargo install cargo-audit --locked
-	cd src && (cargo audit --json > ../rustsec-audit.json || true)
-	python3 dev/scripts/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
+	cd rust && (cargo audit --json > ../rustsec-audit.json || true)
+	python3 dev/scripts/checks/check_rustsec_policy.py --input rustsec-audit.json --min-cvss 7.0 --fail-on-kind yanked --fail-on-kind unsound --allowlist-file dev/security/rustsec_allowlist.md
 
 # Voice benchmark
 bench:
@@ -181,8 +181,8 @@ mutants-results:
 
 # Legacy: run cargo mutants directly
 mutants-raw:
-	cd src && cargo mutants --timeout 300 -o mutants.out
-	python3 dev/scripts/check_mutation_score.py --path src/mutants.out/outcomes.json --threshold 0.80
+	cd rust && cargo mutants --timeout 300 -o mutants.out
+	python3 dev/scripts/checks/check_mutation_score.py --path rust/mutants.out/outcomes.json --threshold 0.80
 
 # =============================================================================
 # Dev CLI (devctl)
@@ -213,7 +213,7 @@ dev-hygiene:
 	python3 dev/scripts/devctl.py hygiene --format md
 
 dev-active-sync:
-	python3 dev/scripts/check_active_plan_sync.py
+	python3 dev/scripts/checks/check_active_plan_sync.py
 
 dev-list:
 	python3 dev/scripts/devctl.py list
@@ -277,8 +277,8 @@ model-tiny:
 # =============================================================================
 
 clean:
-	cd src && cargo clean
-	rm -rf src/mutants.out
+	cd rust && cargo clean
+	rm -rf rust/mutants.out
 
 # Remove test scripts clutter
 clean-tests:
