@@ -244,10 +244,17 @@ Setup and examples: [Project Voice Macros](guides/USAGE.md#project-voice-macros)
 
 ## Documentation
 
-| Audience | Start Here | More |
-|---|---|---|
-| User | [Quick Start](QUICK_START.md) | [Guides Index](guides/README.md), [Install Guide](guides/INSTALL.md), [Usage Guide](guides/USAGE.md), [CLI Flags](guides/CLI_FLAGS.md), [Troubleshooting](guides/TROUBLESHOOTING.md) |
-| Developer | [Developer Index](dev/README.md) | [External Repo Federation Playbook](dev/integrations/EXTERNAL_REPOS.md), [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) |
+| Audience | Document |
+|---|---|
+| User | [Quick Start](QUICK_START.md) |
+| User | [Guides Index](guides/README.md) |
+| User | [Install Guide](guides/INSTALL.md) |
+| User | [Usage Guide](guides/USAGE.md) |
+| User | [CLI Flags](guides/CLI_FLAGS.md) |
+| User | [Troubleshooting](guides/TROUBLESHOOTING.md) |
+| Developer | [Developer Index](dev/README.md) |
+| Developer | [Project Integrations Playbook](dev/integrations/EXTERNAL_REPOS.md) |
+| Developer | [Engineering History](dev/history/ENGINEERING_EVOLUTION.md) |
 
 ## Support
 
