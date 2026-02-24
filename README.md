@@ -18,13 +18,14 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-**VoiceTerm** is a voice-first terminal overlay for Codex and Claude.
-It keeps your CLI in a normal PTY session, runs Whisper speech-to-text on your
-machine by default, and adds a customizable HUD.
-Use wake phrases (`hey codex` / `hey claude`) plus `send` / `submit` for fully
-hands-free prompting when needed.
+VoiceTerm is a voice-first terminal overlay for Codex, Claude, and Gemini.
+It uses local Whisper speech-to-text to stream your voice into your existing
+CLI session. Your tools continue running in a normal PTY environment while
+VoiceTerm adds a customizable HUD on top. It supports push-to-talk or wake
+phrases ("hey codex", "hey claude") plus voice commands like `send` / `submit`
+for fully hands-free prompting when needed.
 
-Whisper runs locally by default. No cloud API keys required.
+Whisper runs locally by default. No cloud API keys required. All local!
 Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
 ## Quick Nav

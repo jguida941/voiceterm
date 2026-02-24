@@ -49,6 +49,7 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py check --profile release
+# `release` adds strict remote gates: `status --ci --require-ci` + CI-mode CodeRabbit/Ralph checks.
 # Optional: force sequential check execution (parallel phases are default)
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: disable automatic orphaned/stale test-process cleanup sweep
@@ -92,9 +93,9 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
-# CodeRabbit release gate: local GitHub-connectivity outages warn-only outside CI/release lanes.
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+# CodeRabbit release gates (strict local verification mode).
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_markdown_metadata_header.py
@@ -196,8 +197,8 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --gith
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 # Optional explicit gate check (same check used by ship --verify and release CI)
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh run list --workflow publish_release_binaries.yml --limit 1
@@ -290,7 +291,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
   - Tune parallelism with `--parallel-workers <n>` or force sequential execution with `--no-parallel`.
   - Runs an automatic orphaned/stale test-process sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Disable only when needed with `--no-process-sweep-cleanup`.
-  - `release` profile includes wake-word regression/soak guardrails and mutation-score gating.
+  - `release` profile includes wake-word regression/soak guardrails, mutation-score gating, and strict remote release gates (`status --ci --require-ci`, CodeRabbit, Ralph).
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + stale-path audit)
@@ -329,6 +330,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | Command | Run it when | Why |
 |---|---|---|
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
+| `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local release checks |
 | `check --profile ai-guard` | after touching larger Rust/Python files | catches shape/lint-debt/best-practice drift |
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance and active-plan sync |
@@ -537,7 +539,8 @@ Markdown lint policy files live under `dev/config/`:
 ```bash
 # 1) align release versions across Cargo/PyPI/macOS app plist + changelog
 python3 dev/scripts/checks/check_release_version_parity.py
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 # Optional: auto-prepare these files in one step
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release
 

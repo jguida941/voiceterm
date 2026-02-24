@@ -379,7 +379,7 @@ python3 dev/scripts/devctl.py check --profile maintainer-lint
 # AI guard lane (code-shape + lint-debt + Rust best-practices guards)
 python3 dev/scripts/devctl.py check --profile ai-guard
 
-# Release verification lane (includes wake-word guard + mutation-score gate)
+# Release verification lane (wake guard + mutation score + strict remote CI/CodeRabbit gates)
 python3 dev/scripts/devctl.py check --profile release
 
 # Quick scope (fmt-check + clippy only)
@@ -450,8 +450,8 @@ python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true

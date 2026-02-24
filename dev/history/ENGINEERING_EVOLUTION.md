@@ -329,6 +329,31 @@ Inference: The post-migration toolchain now fails louder when Rust source paths
 drift and blocks additional `mem::forget` debt in touched Rust files, reducing
 the chance of hidden safety regressions slipping through rename-heavy changes.
 
+### Recent Governance Update (2026-02-24, Strict Remote Release Gates in `devctl check`)
+
+Fact: `devctl check --profile release` now enforces strict remote release
+verification instead of local-only checks. The release profile now requires
+GitHub CI status reachability and strict CodeRabbit/Ralph gate success.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check.py` (adds release-only
+  `ci-status-gate`, `coderabbit-release-gate`, and
+  `coderabbit-ralph-release-gate`)
+- `dev/scripts/devctl/commands/check_profile.py` (adds
+  `with_ci_release_gate` to release profile wiring)
+- `dev/scripts/devctl/commands/check_progress.py` (progress accounting for new
+  release gates)
+- `dev/scripts/devctl/tests/test_check.py` (release-profile and progress tests
+  updated for strict-gate steps)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/DEVCTL_AUTOGUIDE.md`, `dev/active/MASTER_PLAN.md` (release-lane docs
+  updated to reflect strict remote gate behavior)
+
+Inference: Maintainers now get deterministic local release-fail behavior when
+remote CI/workflow health is broken, preventing false "green local release"
+signals before push/tag.
+
 ### Recent Governance Update (2026-02-20, Coverage Automation)
 
 Fact: Coverage publication is now automated through a dedicated CI lane that

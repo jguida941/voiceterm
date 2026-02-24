@@ -349,6 +349,7 @@ find . -maxdepth 1 -type f -name '--*'
 
 ```bash
 python3 dev/scripts/devctl.py check --profile release
+# Includes strict remote gates: `status --ci --require-ci` plus CodeRabbit + Ralph release checks in CI mode.
 python3 dev/scripts/devctl.py docs-check --user-facing --strict
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
@@ -358,8 +359,8 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
@@ -445,9 +446,9 @@ Use this exact sequence:
 3. Verify release prerequisites:
    - `gh auth status -h github.com`
    - Latest `CodeRabbit Triage Bridge` run for release commit is `success` (no unresolved medium/high CodeRabbit findings)
-   - `python3 dev/scripts/checks/check_coderabbit_gate.py --branch master`
+   - `CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master`
    - Latest `CodeRabbit Ralph Loop` run for release commit is `success`
-   - `python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master`
+   - `CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master`
    - GitHub Actions secret `PYPI_API_TOKEN` exists for `.github/workflows/publish_pypi.yml`
    - GitHub Actions secret `HOMEBREW_TAP_TOKEN` exists for `.github/workflows/publish_homebrew.yml`
    - Optional local fallback: Homebrew tap path is resolvable (`HOMEBREW_VOICETERM_PATH` or `brew --repo`)
@@ -633,6 +634,7 @@ Core commands:
 | Command | Run it when | Why |
 |---|---|---|
 | `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
+| `python3 dev/scripts/devctl.py check --profile release` | before release/tag validation on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local release checks |
 | `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
 | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current external source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |

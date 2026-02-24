@@ -1,7 +1,8 @@
 """`devctl check` command.
 
 This command runs local quality gates (fmt, clippy, tests, build, and optional
-extra guards). It is the main pre-push/pre-release verifier for maintainers.
+extra guards). The release profile also runs strict remote CI/CodeRabbit
+verification gates.
 """
 
 from __future__ import annotations
@@ -272,6 +273,35 @@ def run(args) -> int:
                     args.mutation_score_warn_age_hours,
                 ),
                 cwd=REPO_ROOT,
+            )
+
+        if settings.get("with_ci_release_gate", False):
+            add_step(
+                "ci-status-gate",
+                [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "status",
+                    "--ci",
+                    "--require-ci",
+                    "--format",
+                    "md",
+                ],
+                cwd=REPO_ROOT,
+            )
+            release_gate_env = dict(env)
+            release_gate_env["CI"] = "1"
+            add_step(
+                "coderabbit-release-gate",
+                check_script_cmd("coderabbit_gate", "--branch", "master"),
+                cwd=REPO_ROOT,
+                step_env=release_gate_env,
+            )
+            add_step(
+                "coderabbit-ralph-release-gate",
+                check_script_cmd("coderabbit_ralph_gate", "--branch", "master"),
+                cwd=REPO_ROOT,
+                step_env=release_gate_env,
             )
     except RuntimeError as exc:
         message = str(exc) or "check halted due to runtime error"

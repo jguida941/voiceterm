@@ -219,11 +219,20 @@ class CheckProfileTests(TestCase):
         names = [call["name"] for call in calls]
         self.assertIn("wake-guard", names)
         self.assertIn("mutation-score", names)
+        self.assertIn("ci-status-gate", names)
+        self.assertIn("coderabbit-release-gate", names)
+        self.assertIn("coderabbit-ralph-release-gate", names)
         self.assertIn("code-shape-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+        coderabbit_gate_call = next(call for call in calls if call["name"] == "coderabbit-release-gate")
+        coderabbit_ralph_gate_call = next(
+            call for call in calls if call["name"] == "coderabbit-ralph-release-gate"
+        )
+        self.assertEqual(coderabbit_gate_call["env"]["CI"], "1")
+        self.assertEqual(coderabbit_ralph_gate_call["env"]["CI"], "1")
 
     @patch("dev.scripts.devctl.commands.check.write_output")
     @patch("dev.scripts.devctl.commands.check.resolve_outcomes_path")
@@ -670,6 +679,24 @@ class CheckProgressFeedbackTests(TestCase):
         }
         total = check_progress.count_quality_steps(args, settings)
         self.assertEqual(total, 5)
+
+    def test_count_quality_steps_with_release_ci_gates(self) -> None:
+        args = make_args("")
+        args.skip_fmt = True
+        args.skip_clippy = True
+        settings = {
+            "skip_tests": True,
+            "skip_build": True,
+            "with_ai_guard": False,
+            "with_wake_guard": False,
+            "with_perf": False,
+            "with_mem_loop": False,
+            "with_mutants": False,
+            "with_mutation_score": False,
+            "with_ci_release_gate": True,
+        }
+        total = check_progress.count_quality_steps(args, settings)
+        self.assertEqual(total, 3)
 
     def test_emit_progress_serial_single_step(self) -> None:
         """Single-step serial prints [1/4] name..."""

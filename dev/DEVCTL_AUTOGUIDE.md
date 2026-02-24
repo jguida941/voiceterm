@@ -51,6 +51,12 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --
 - `check_coderabbit_gate.py`
 - `check_coderabbit_ralph_gate.py`
 
+`check --profile release` also enforces strict remote release gates by running:
+
+- `status --ci --require-ci`
+- `CI=1 check_coderabbit_gate.py --branch master`
+- `CI=1 check_coderabbit_ralph_gate.py --branch master`
+
 ## Always-On Ralph Loop
 
 `CodeRabbit Ralph Loop` runs after `CodeRabbit Triage Bridge` completes on
@@ -411,9 +417,9 @@ Output bundle:
 Use these checks before promoting release commits:
 
 ```bash
-python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/devctl.py check --profile release
+CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
 ```
