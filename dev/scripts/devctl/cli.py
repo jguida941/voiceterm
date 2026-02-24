@@ -6,13 +6,23 @@ import argparse
 import sys
 import time
 
+from .audit_events import emit_devctl_audit_event
+from .autonomy_benchmark_parser import add_autonomy_benchmark_parser
+from .autonomy_loop_parser import add_autonomy_loop_parser
+from .autonomy_run_parser import add_autonomy_run_parser
 from .cihub_setup_parser import add_cihub_setup_parser
+from .controller_action_parser import add_controller_action_parser
 from .cli_parser_builders import add_standard_parsers
 from .commands import (
-    autonomy_loop,
     audit_scaffold,
+    autonomy_benchmark,
+    autonomy_loop,
+    autonomy_report,
+    autonomy_run,
+    autonomy_swarm,
     check,
     cihub_setup,
+    controller_action,
     docs_check,
     failure_cleanup,
     homebrew,
@@ -28,6 +38,7 @@ from .commands import (
     orchestrate_watch,
     path_audit,
     path_rewrite,
+    phone_status,
     pypi,
     release,
     release_notes,
@@ -45,19 +56,17 @@ from .config import (
     DEFAULT_MUTANTS_TIMEOUT,
     DEFAULT_MUTATION_THRESHOLD,
 )
-from .audit_events import emit_devctl_audit_event
 from .failure_cleanup_parser import add_failure_cleanup_parser
+from .integrations_import_parser import add_integrations_import_parser
+from .integrations_sync_parser import add_integrations_sync_parser
+from .loop_packet_parser import add_loop_packet_parser
+from .mutation_loop_parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
-from .loop_packet_parser import add_loop_packet_parser
-from .autonomy_loop_parser import add_autonomy_loop_parser
-from .mutation_loop_parser import add_mutation_loop_parser
 from .triage_loop_parser import add_triage_loop_parser
 from .triage_parser import add_triage_parser
-from .integrations_import_parser import add_integrations_import_parser
-from .integrations_sync_parser import add_integrations_sync_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -77,10 +86,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_path_rewrite_parser(sub)
     add_cihub_setup_parser(sub)
     add_security_parser(sub)
+    add_controller_action_parser(sub)
     add_triage_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_triage_loop_parser(sub)
     add_loop_packet_parser(sub)
     add_autonomy_loop_parser(sub)
+    add_autonomy_benchmark_parser(sub)
+    add_autonomy_run_parser(sub)
     add_mutation_loop_parser(sub)
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_sync_parser(sub)
@@ -107,11 +119,17 @@ COMMAND_HANDLERS = {
     "triage-loop": triage_loop.run,
     "loop-packet": loop_packet.run,
     "autonomy-loop": autonomy_loop.run,
+    "autonomy-benchmark": autonomy_benchmark.run,
+    "autonomy-run": autonomy_run.run,
+    "autonomy-report": autonomy_report.run,
+    "phone-status": phone_status.run,
+    "autonomy-swarm": autonomy_swarm.run,
     "mutation-loop": mutation_loop.run,
     "list": listing.run,
     "path-audit": path_audit.run,
     "path-rewrite": path_rewrite.run,
     "cihub-setup": cihub_setup.run,
+    "controller-action": controller_action.run,
     "hygiene": hygiene.run,
     "sync": sync.run,
     "integrations-sync": integrations_sync.run,

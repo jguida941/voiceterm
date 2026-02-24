@@ -129,6 +129,10 @@ class TriageLoopCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.triage_loop.write_output")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
     @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
     )
@@ -140,6 +144,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         write_output_mock,
     ) -> None:
@@ -150,10 +155,88 @@ class TriageLoopCommandTests(unittest.TestCase):
         execute_loop_mock.assert_called_once()
         self.assertIsNone(execute_loop_mock.call_args.kwargs["fix_command"])
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
         self.assertFalse(payload["fix_command_effective"])
 
     @patch("dev.scripts.devctl.commands.triage_loop.write_output")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(1, "", "error connecting to api.github.com"),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop._is_ci_environment",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_preflight_connectivity_is_non_blocking_locally(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _is_ci_mock,
+        _run_capture_mock,
+        execute_loop_mock,
+        write_output_mock,
+    ) -> None:
+        args = make_args(mode="report-only")
+        rc = triage_loop.run(args)
+        self.assertEqual(rc, 0)
+        execute_loop_mock.assert_not_called()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reason"], "gh_unreachable_local_non_blocking")
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop._is_ci_environment",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_connectivity_reason_is_normalized_to_non_blocking_locally(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _is_ci_mock,
+        _run_capture_mock,
+        execute_loop_mock,
+        write_output_mock,
+    ) -> None:
+        execute_loop_mock.return_value = {
+            **loop_report(ok=False, unresolved=0),
+            "reason": "timeout waiting for completed run (error connecting to api.github.com)",
+        }
+        args = make_args(mode="report-only")
+        rc = triage_loop.run(args)
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reason"], "gh_unreachable_local_non_blocking")
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
     @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
@@ -166,6 +249,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         write_output_mock,
     ) -> None:
@@ -216,6 +300,10 @@ class TriageLoopCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.triage_loop._publish_notification_comment")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
     @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
     )
@@ -227,6 +315,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         publish_mock,
         write_output_mock,

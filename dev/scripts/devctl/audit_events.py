@@ -26,6 +26,8 @@ AREA_BY_COMMAND = {
     "status": "reporting",
     "report": "reporting",
     "triage": "reporting",
+    "phone-status": "reporting",
+    "controller-action": "orchestration",
     "check": "governance",
     "docs-check": "governance",
     "hygiene": "governance",

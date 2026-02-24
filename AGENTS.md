@@ -463,6 +463,8 @@ Use this exact sequence:
    gh run list --workflow publish_pypi.yml --limit 1
    # Homebrew publish runs automatically via .github/workflows/publish_homebrew.yml.
    gh run list --workflow publish_homebrew.yml --limit 1
+   # Native release binaries publish via .github/workflows/publish_release_binaries.yml.
+   gh run list --workflow publish_release_binaries.yml --limit 1
    # Release source provenance attestations run via .github/workflows/release_attestation.yml.
    gh run list --workflow release_attestation.yml --limit 1
    # gh run watch <run-id>
@@ -482,6 +484,7 @@ python3 dev/scripts/devctl.py ship --version <version> --verify --tag --notes --
 python3 dev/scripts/devctl.py ship --version <version> --prepare-release --verify --tag --notes --github --yes
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
+gh run list --workflow publish_release_binaries.yml --limit 1
 gh run list --workflow release_attestation.yml --limit 1
 
 # Manual fallback (run PyPI/Homebrew locally)
@@ -504,8 +507,9 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | AI PR review signal ingestion and owner/severity rollups | `coderabbit_triage.yml` |
 | Bounded AI remediation loop for CodeRabbit medium/high backlog | `coderabbit_ralph_loop.yml` |
 | Bounded autonomous controller loop (checkpoint packets + queue artifacts + optional promote PR) | `autonomy_controller.yml` |
+| Guarded plan-scoped autonomy swarm pipeline (scope load + swarm + reviewer + governance + plan evidence append) | `autonomy_run.yml` |
 | Bounded mutation remediation loop (report-only default, optional policy-gated fix mode) | `mutation_ralph_loop.yml` |
-| Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `coderabbit_ralph_loop.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `release_attestation.yml` |
+| Release commit guard for unresolved CodeRabbit medium/high findings | `coderabbit_triage.yml`, `coderabbit_ralph_loop.yml`, `release_preflight.yml`, `publish_pypi.yml`, `publish_homebrew.yml`, `publish_release_binaries.yml`, `release_attestation.yml` |
 | Supply-chain posture drift | `scorecard.yml` |
 | Coverage reporting / Codecov badge freshness | `coverage.yml` |
 | Rust/Python source-file shape drift (God-file growth) | `tooling_control_plane.yml` |
@@ -514,6 +518,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Release preflight verification bundle | `release_preflight.yml` |
 | GitHub release publication / PyPI distribution | `publish_pypi.yml` |
 | GitHub release publication / Homebrew distribution | `publish_homebrew.yml` |
+| GitHub release publication / native binaries | `publish_release_binaries.yml` |
 | Release source provenance attestation | `release_attestation.yml` |
 | Any non-success CI workflow run | `failure_triage.yml` (workflow-run triage bundle + artifact upload; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
@@ -608,7 +613,13 @@ Core commands:
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json bundles and optional MASTER_PLAN proposal artifacts)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates)
-- `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons)
+- `autonomy-loop` (bounded controller loop that orchestrates triage-loop + loop-packet rounds, emits checkpoint packets/queue artifacts, writes phone-ready status snapshots under `dev/reports/autonomy/queue/phone/`, and enforces policy-driven stop reasons; non-dry-run write modes require `AUTONOMY_MODE=operate`)
+- `autonomy-benchmark` (active-plan-scoped swarm matrix runner for tactic/swarm-size tradeoff analysis; executes `autonomy-swarm` batches across configurable count/tactic grids, emits per-swarm and per-scenario productivity metrics, and writes benchmark bundles under `dev/reports/autonomy/benchmarks/<label>/`; non-report modes require `--fix-command`)
+- `autonomy-run` (guarded plan-scoped autonomy pipeline that derives next unchecked plan steps, runs `autonomy-swarm` with reviewer + post-audit defaults, executes governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to plan-doc `Progress Log` + `Audit Evidence`; non-report modes require `--fix-command`)
+- `autonomy-report` (builds a human-readable autonomy digest bundle from loop/watch artifacts under `dev/reports/autonomy/library/<label>` with summary markdown/json, copied sources, and optional matplotlib charts)
+- `phone-status` (renders iPhone/SSH-safe autonomy status projections from `dev/reports/autonomy/queue/phone/latest.json` with selectable views `full|compact|trace|actions` and optional projection bundle emission: `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
+- `controller-action` (policy-gated operator action surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch and mode writes are bounded by workflow/branch allowlists and autonomy mode gates, with optional dry-run and mode-state artifact output)
+- `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
 - `audit-scaffold`
@@ -629,6 +640,13 @@ Core commands:
 | `python3 dev/scripts/devctl.py triage-loop --branch develop --mode plan-then-fix --max-attempts 3 --format md` | you want bounded CodeRabbit remediation automation with artifacts | runs report/fix loop and writes actionable loop evidence |
 | `python3 dev/scripts/devctl.py loop-packet --format json` | you want one guarded packet for terminal draft injection from loop/triage evidence | builds a risk-scored packet with draft text and auto-send eligibility metadata |
 | `python3 dev/scripts/devctl.py autonomy-loop --plan-id <id> --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --format json` | you want a bounded autonomy-controller run with checkpoint packets and queue artifacts | orchestrates triage-loop/loop-packet rounds with policy-gated stop reasons, run-scoped outputs, and phone-ready `latest.json`/`latest.md` status snapshots |
+| `python3 dev/scripts/devctl.py phone-status --view compact --format md` | you want one fast iPhone/SSH-safe controller snapshot from loop artifacts | loads `queue/phone/latest.json`, renders a compact/trace/actions/full view, and can emit controller-state projection files for downstream clients |
+| `python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --repo <owner/repo> --branch develop --dry-run --format md` | you want one guarded remote-control action surface without ad-hoc shell steps | validates policy allowlists/mode gates, then executes or previews bounded dispatch/pause/resume/status actions with auditable output |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run --format md` | you want measurable swarm tradeoff data before scaling live worker runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario productivity metrics/charts |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label> --format md` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, and appends progress/audit evidence to the plan doc |
+| `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label <label> --format md` | you want one operator-readable autonomy digest | assembles latest loop/watch artifacts into a dated bundle with markdown/json summary and chart outputs |
+| `python3 dev/scripts/devctl.py autonomy-swarm --question-file <plan.md> --adaptive --min-agents 4 --max-agents 20 --plan-only --format md` | you want one governed worker-allocation decision before launching Claude/Codex lanes | computes metadata-driven agent sizing with rationale and emits a deterministic swarm plan artifact |
+| `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file <plan.md> --mode report-only --run-label <label> --format md` | you want one-command live swarm execution with built-in review lane and digest | runs bounded worker fanout, reserves default `AGENT-REVIEW` when possible, and auto-runs post-audit digest artifacts |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
@@ -641,8 +659,16 @@ Implementation note for maintainers:
   `dev/scripts/devctl/security_codeql.py` (CodeQL alert-fetch wiring for security gate),
   `dev/scripts/devctl/security_python_scope.py` (Python changed/all scope resolution + core scanner targets),
   `dev/scripts/devctl/audit_events.py` (auto-emitted per-command audit-metrics event logging),
+  `dev/scripts/devctl/autonomy_report_helpers.py` (autonomy-report source discovery + summarization helpers),
+  `dev/scripts/devctl/autonomy_report_render.py` (autonomy-report markdown/chart renderer helpers),
+  `dev/scripts/devctl/autonomy_swarm_helpers.py` (adaptive swarm metadata scoring + sizing + report renderer helpers),
+  `dev/scripts/devctl/autonomy_swarm_post_audit.py` (shared autonomy-swarm post-audit payload + digest helpers),
   `dev/scripts/devctl/autonomy_loop_helpers.py` (shared autonomy-loop packet/policy/render helper logic),
   `dev/scripts/devctl/autonomy_phone_status.py` (phone-ready autonomy status payload/render helpers),
+  `dev/scripts/devctl/phone_status_views.py` (phone-status projection/render helpers and projection-bundle writer),
+  `dev/scripts/devctl/autonomy_status_parsers.py` (shared parser wiring for autonomy-report + phone-status),
+  `dev/scripts/devctl/controller_action_parser.py` (`controller-action` parser wiring),
+  `dev/scripts/devctl/controller_action_support.py` (`controller-action` policy/mode/dispatch helper logic),
   `dev/scripts/devctl/sync_parser.py` (sync CLI parser wiring),
   `dev/scripts/devctl/integrations_sync_parser.py` (`integrations-sync` parser wiring),
   `dev/scripts/devctl/integrations_import_parser.py` (`integrations-import` parser wiring),
@@ -654,15 +680,29 @@ Implementation note for maintainers:
   `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
   `dev/scripts/devctl/triage_parser.py` (triage parser wiring),
   `dev/scripts/devctl/triage_loop_parser.py` (triage-loop parser wiring),
+  `dev/scripts/devctl/triage_loop_support.py` (triage-loop connectivity/comment/bundle helper logic),
   `dev/scripts/devctl/loop_packet_parser.py` (loop-packet parser wiring),
   `dev/scripts/devctl/autonomy_loop_parser.py` (autonomy-loop parser wiring),
+  `dev/scripts/devctl/autonomy_benchmark_parser.py` (autonomy-benchmark parser wiring),
+  `dev/scripts/devctl/autonomy_run_parser.py` (autonomy-run parser wiring),
+  `dev/scripts/devctl/autonomy_benchmark_helpers.py` (autonomy-benchmark scenario orchestration + metrics helpers),
+  `dev/scripts/devctl/autonomy_benchmark_matrix.py` (autonomy-benchmark matrix planner/execution helpers),
+  `dev/scripts/devctl/autonomy_benchmark_runner.py` (autonomy-benchmark scenario runner + per-scenario bundle helpers),
+  `dev/scripts/devctl/autonomy_benchmark_render.py` (autonomy-benchmark markdown/chart renderer),
+  `dev/scripts/devctl/autonomy_run_helpers.py` (autonomy-run shared scope/prompt/governance/plan-update helpers),
+  `dev/scripts/devctl/autonomy_run_render.py` (autonomy-run markdown renderer),
   `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
   `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
   `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
   `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
   `dev/scripts/devctl/commands/triage_loop.py` (bounded CodeRabbit loop command),
+  `dev/scripts/devctl/commands/controller_action.py` (policy-gated controller action command),
   `dev/scripts/devctl/commands/loop_packet.py` (guarded loop-to-terminal packet builder),
   `dev/scripts/devctl/commands/autonomy_loop.py` (bounded autonomy controller loop command + checkpoint queue artifacts),
+  `dev/scripts/devctl/commands/autonomy_benchmark.py` (active-plan-scoped swarm matrix benchmark command),
+  `dev/scripts/devctl/commands/autonomy_run.py` (guarded plan-scoped autonomy swarm pipeline command),
+  `dev/scripts/devctl/commands/autonomy_report.py` (human-readable autonomy digest command),
+  `dev/scripts/devctl/commands/autonomy_swarm.py` (adaptive swarm planner/executor with per-agent autonomy-loop fanout),
   `dev/scripts/devctl/commands/autonomy_loop_support.py` (autonomy-loop validation + policy-deny report helpers),
   `dev/scripts/devctl/commands/autonomy_loop_rounds.py` (autonomy-loop round executor helper),
   `dev/scripts/devctl/commands/docs_check_support.py` (docs-check policy + failure-action helper builders),
@@ -739,6 +779,8 @@ in changed Rust files.
 - `docs_lint.yml`
 - `lint_hardening.yml`
 - `coderabbit_ralph_loop.yml`
+- `autonomy_controller.yml`
+- `autonomy_run.yml`
 - `release_preflight.yml`
 - `release_attestation.yml`
 - `tooling_control_plane.yml`
@@ -746,6 +788,7 @@ in changed Rust files.
 - `failure_triage.yml`
 - `publish_pypi.yml`
 - `publish_homebrew.yml`
+- `publish_release_binaries.yml`
 
 ## CI expansion policy
 
