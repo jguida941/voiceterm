@@ -54,6 +54,8 @@ pub(crate) use runtime_overrides::{
     RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
 };
 #[cfg(not(test))]
+pub(crate) use style_pack::clear_runtime_color_override;
+#[cfg(not(test))]
 pub(crate) use style_pack::set_runtime_color_override;
 pub(crate) use style_pack::{
     resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,

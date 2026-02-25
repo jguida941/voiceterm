@@ -205,7 +205,6 @@ pub(crate) fn set_runtime_color_override(colors: ThemeColors) {
 
 /// Clear the runtime color palette override (e.g. when studio closes).
 #[cfg(not(test))]
-#[allow(dead_code)]
 pub(crate) fn clear_runtime_color_override() {
     let cell = RUNTIME_COLOR_OVERRIDE.get_or_init(|| Mutex::new(None));
     match cell.lock() {

@@ -97,6 +97,10 @@ pub(super) fn handle_theme_studio_bytes(
                 }
             }
         }
+        #[cfg(not(test))]
+        {
+            crate::theme::clear_runtime_color_override();
+        }
         close_overlay(state, deps, false);
         return;
     }
