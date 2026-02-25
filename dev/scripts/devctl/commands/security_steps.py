@@ -60,9 +60,12 @@ def run_rustsec_audit_step(
     *,
     dry_run: bool,
     env: dict,
+    offline: bool,
 ) -> tuple[dict, list[str]]:
     """Run `cargo audit --json` and write the raw report to disk."""
     cmd = ["cargo", "audit", "--json"]
+    if offline:
+        cmd.append("--no-fetch")
     if dry_run:
         step = make_internal_step(
             name="rustsec-audit",

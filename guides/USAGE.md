@@ -68,8 +68,8 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 
 ## How Voice Input Works
 
-VoiceTerm only handles voice capture and text injection. It does not replace your
-backend CLI.
+VoiceTerm handles voice capture and text injection.
+It does not replace your backend CLI.
 
 ```mermaid
 flowchart TD
@@ -85,17 +85,17 @@ flowchart TD
     H -->|insert| J["Wait for Enter (Ctrl+E finalizes capture only)"]
 ```
 
-Flow:
+Simple flow:
 
 1. Record: VoiceTerm listens while you speak.
 2. Transcribe: local Whisper converts speech to text.
-3. Expand (optional): macro rules from `.voiceterm/macros.yaml` apply if enabled.
+3. Expand (optional): macro rules from `.voiceterm/macros.yaml` apply when enabled.
 4. Inject: final text is typed into terminal input.
-5. Send decision:
+5. Send:
    - `auto`: press Enter automatically.
    - `insert`: wait for manual Enter.
 
-![Recording Mode](../img/recording.png)
+![Recording Mode](../img/auto-record.png)
 
 ## Core Controls
 
@@ -137,6 +137,10 @@ Mouse and overlay behavior:
 
 - When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still
   works with Left/Right + Enter.
+- In Cursor terminal, wheel/touchpad scrolling may not move chat history while
+  Mouse is ON. The scrollbar can still be dragged.
+- If you want touchpad/wheel scrolling in Cursor, set `Mouse` to `OFF` and use
+  keyboard HUD navigation (Left/Right or `Tab` + `Enter`) for controls.
 - If help/settings/theme overlays are open, unmatched input closes the overlay
   and replays the key/action into normal input handling.
 - Help overlay includes clickable Docs/Troubleshooting links (terminals that
@@ -170,9 +174,18 @@ Visual controls are now in Theme Studio:
 
 - Press `Ctrl+Y` to open Theme Studio.
 - Use `Theme picker` (or `Ctrl+G`) to change themes.
-- Use Theme Studio rows to change HUD style, borders, right panel, animation, toast position/severity, startup splash style, and banner style.
-- Theme Studio rows use a `Label [ Value ]` layout with a bottom `tip:` line for the currently selected row.
-- Use `Undo edit`, `Redo edit`, and `Rollback edits` if you want to revert visual changes.
+- Theme Studio is a multi-page tabbed editor. Press `Tab`/`Shift+Tab` to switch pages:
+
+| Page | Purpose |
+|------|---------|
+| **Home** | Cycle-button controls for HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast, startup, banner, undo/redo/rollback |
+| **Colors** | Edit all 10 semantic colors (Recording, Processing, Success, Warning, Error, Info, Dim, Bg Primary, Bg Secondary, Border) with an inline RGB color picker. Changes apply live. Indicator set and glyph set selectors at the bottom (Left/Right to cycle) |
+| **Borders** | Pick border style (Single, Rounded, Double, Heavy, None) with live mini-box previews. Press Enter to apply |
+| **Components** | Browse 54 component IDs grouped by category (HUD, Buttons, Toast, Overlay, etc.) with color swatches showing which semantic color each component uses |
+| **Preview** | Read-only live preview of HUD status line colors, indicators, toast severity, and border chrome using the active theme |
+| **Export** | Export current theme to TOML file (`~/.config/voiceterm/themes/`), copy to clipboard via OSC 52, or import from file |
+
+- Use `Undo edit`, `Redo edit`, and `Rollback edits` on the Home page if you want to revert visual changes.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 
@@ -205,8 +218,8 @@ Capture command:
 
 ## Developer Guard Mode
 
-Use `--dev` (or `--dev-mode` / `-D`) to enable deferred developer-only
-experiments for a launch without changing normal default behavior.
+Use `--dev` (or `--dev-mode` / `-D`) for guarded developer-only tools in one
+launch. Normal default behavior stays unchanged when this flag is off.
 
 ```bash
 voiceterm --dev
@@ -214,12 +227,12 @@ voiceterm --dev --dev-log
 voiceterm --dev --dev-log --dev-path ~/.voiceterm/dev
 ```
 
-Behavior:
+What you get:
 
 - Default launch stays unchanged when the flag is not present.
-- Full HUD shows `DEV` while the guard is active.
+- Full HUD shows `DEV` when guard mode is active.
 - `Ctrl+D` toggles the in-session Dev panel.
-- The panel shows live session counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) that run through an allowlisted async broker.
+- The panel shows live counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) through an allowlisted async broker.
 - `sync` is mutating and requires a second `Enter` confirmation before it runs.
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
@@ -251,6 +264,8 @@ Open with `Ctrl+N`.
 - Overlay borders and rows keep alignment in both Unicode and ASCII glyph modes (including long history lists).
 - Use `Esc` (or `Ctrl+N` again) to close the overlay.
 
+![Notification History](../img/toast-history.png)
+
 ## Voice Modes
 
 Three controls define runtime behavior:
@@ -261,7 +276,7 @@ Three controls define runtime behavior:
 
 ### Wake + Voice Send flow (hands-free)
 
-This is the most hands-free mode and works like an Alexa-style flow:
+This is the most hands-free mode:
 
 1. Open Settings with `Ctrl+O` and set `Wake word` to `ON`.
 2. Press `Ctrl+T` until send mode is `insert`.
@@ -275,6 +290,8 @@ Optional startup command:
 ```bash
 voiceterm --auto-voice --wake-word --voice-send-mode insert
 ```
+
+![Wake Word Flow](../img/wake-word.png)
 
 You can also do one-shot submit with:
 
@@ -293,8 +310,8 @@ You can also do one-shot submit with:
 ### Practical notes
 
 - In `insert` mode, Enter submits staged text.
-- In `insert` mode, saying `send`, `send message`, or `submit` submits staged text.
-- One-shot wake submit works: `hey codex send` or `hey claude send`.
+- In `insert` mode, saying `send`, `send message`, or `submit` also submits staged text.
+- One-shot wake submit works: `hey codex send` or `hey claude send` (in `insert` mode).
 - `Ctrl+R` toggles voice recording start/stop without sending.
 - `Ctrl+X` captures one screenshot prompt into the terminal.
 - `Ctrl+E` finalizes only. It never sends.
@@ -304,8 +321,8 @@ You can also do one-shot submit with:
 
 ### Built-in voice navigation commands
 
-When a transcript exactly matches one of these phrases, VoiceTerm runs a local
-navigation action instead of typing the raw text.
+If a transcript exactly matches one phrase below, VoiceTerm runs a local action
+instead of typing raw text.
 
 - `scroll up` - sends terminal PageUp
 - `scroll down` - sends terminal PageDown
@@ -314,17 +331,17 @@ navigation action instead of typing the raw text.
 - `copy last error` - copies the most recent error-like terminal line to clipboard
 - `explain last error` - sends an "explain this error" prompt to the active backend
 
-Precedence:
+Priority:
 
-- If a voice macro matches first, the macro wins.
+- If a voice macro matches first, macro wins.
 - Use `voice scroll up` or `voice scroll down` for explicit built-in navigation
   phrases when you also keep overlapping macro triggers.
 
 ### Long dictation (`auto-voice` + `insert`)
 
 Capture is chunked by duration (default 30s, max 60s via
-`--voice-max-capture-ms`). Each chunk is transcribed and injected; press Enter
-once when ready to submit, or use `Ctrl+E` while recording to stop early and stage text without waiting for silence timeout.
+`--voice-max-capture-ms`). Each chunk is transcribed and injected.
+Press Enter when ready to submit, or use `Ctrl+E` to stop early and stage text.
 
 ## Common Tasks
 
@@ -421,6 +438,8 @@ Tips:
 
 Advanced theme options (optional):
 
+- **TOML theme files**: Export a theme from Theme Studio (Export page) or create a `.toml` file manually in `~/.config/voiceterm/themes/`. Load with `--theme-file <path>` or set `VOICETERM_THEME_FILE=<path>`. Themes can inherit from built-in palettes via `base_theme` and define custom hex colors, border styles, indicator sets, and glyph profiles.
+- **Hot-reload**: When using `--theme-file`, VoiceTerm watches the file for changes and applies updates live (within ~500ms).
 - Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
 - `components.overlay_border` in style-pack JSON controls overlay frame borders (help/settings/theme-picker/theme-studio/toast/history overlays).
 - `components.hud_border` controls Full HUD borders when `--hud-border-style theme` (or Theme Studio `HUD borders` set to Theme) is active.
@@ -475,11 +494,15 @@ voiceterm --hud-right-panel off
 
 Minimal HUD example:
 
-![Minimal HUD](../img/minimal-hud.png)
+![Minimal HUD](../img/hud-min.png)
 
 Hidden HUD example:
 
 ![Hidden HUD](../img/hidden-hud.png)
+
+Hidden HUD while recording:
+
+![Hidden HUD Recording](../img/hidden-hud-rec.png)
 
 ## Project Voice Macros
 

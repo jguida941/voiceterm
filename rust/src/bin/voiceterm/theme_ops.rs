@@ -7,6 +7,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::color_mode::ColorMode;
 use crate::config::OverlayConfig;
+use crate::cycle_index::cycle_index;
 use crate::overlays::OverlayMode;
 use crate::status_line::StatusLineState;
 use crate::terminal::update_pty_winsize;
@@ -23,10 +24,7 @@ pub(crate) fn cycle_theme(current: Theme, direction: i32) -> Theme {
         .iter()
         .position(|(theme, _, _)| *theme == current)
         .unwrap_or(0);
-    let len_i64 = i64::try_from(len).unwrap_or(1);
-    let idx_i64 = i64::try_from(idx).unwrap_or(0);
-    let next_i64 = (idx_i64 + i64::from(direction)).rem_euclid(len_i64);
-    let next = usize::try_from(next_i64).unwrap_or(0);
+    let next = cycle_index(idx, len, direction);
     THEME_OPTIONS[next].0
 }
 

@@ -1,3 +1,5 @@
+# Purpose: Collects CodeRabbit findings, builds triage artifacts, and enforces the medium/high gate.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: CodeRabbit Triage Bridge
 
 permissions:

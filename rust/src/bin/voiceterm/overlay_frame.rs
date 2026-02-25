@@ -29,37 +29,50 @@ pub(crate) fn truncate_display(text: &str, max_width: usize) -> String {
 
 #[must_use]
 pub(crate) fn frame_top(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat(borders.horizontal)
-        .take(inner_width)
-        .collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.top_left, inner, borders.top_right, colors.reset
+    frame_line(
+        colors,
+        borders.horizontal,
+        borders.top_left,
+        borders.top_right,
+        width,
     )
 }
 
 #[must_use]
 pub(crate) fn frame_bottom(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
-    let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat(borders.horizontal)
-        .take(inner_width)
-        .collect();
-    format!(
-        "{}{}{}{}{}",
-        colors.border, borders.bottom_left, inner, borders.bottom_right, colors.reset
+    frame_line(
+        colors,
+        borders.horizontal,
+        borders.bottom_left,
+        borders.bottom_right,
+        width,
     )
 }
 
 #[must_use]
 pub(crate) fn frame_separator(colors: &ThemeColors, borders: &BorderSet, width: usize) -> String {
+    frame_line(
+        colors,
+        borders.horizontal,
+        borders.t_left,
+        borders.t_right,
+        width,
+    )
+}
+
+#[must_use]
+fn frame_line(
+    colors: &ThemeColors,
+    horizontal: char,
+    left_corner: char,
+    right_corner: char,
+    width: usize,
+) -> String {
     let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat(borders.horizontal)
-        .take(inner_width)
-        .collect();
+    let inner: String = std::iter::repeat(horizontal).take(inner_width).collect();
     format!(
         "{}{}{}{}{}",
-        colors.border, borders.t_left, inner, borders.t_right, colors.reset
+        colors.border, left_corner, inner, right_corner, colors.reset
     )
 }
 

@@ -1,13 +1,48 @@
 //! Dev-panel command helpers extracted from the core event loop.
 
 use super::*;
+use std::sync::OnceLock;
 
-fn dev_packet_auto_send_runtime_enabled() -> bool {
-    let raw = std::env::var("VOICETERM_DEV_PACKET_AUTOSEND").unwrap_or_default();
+#[cfg(test)]
+use std::sync::atomic::{AtomicU8, Ordering};
+
+fn parse_dev_packet_auto_send_runtime_flag(raw: &str) -> bool {
     matches!(
         raw.trim().to_ascii_lowercase().as_str(),
         "1" | "true" | "yes" | "on"
     )
+}
+
+fn dev_packet_auto_send_runtime_env_enabled() -> bool {
+    let raw = std::env::var("VOICETERM_DEV_PACKET_AUTOSEND").unwrap_or_default();
+    parse_dev_packet_auto_send_runtime_flag(&raw)
+}
+
+static DEV_PACKET_AUTOSEND_RUNTIME_ENABLED: OnceLock<bool> = OnceLock::new();
+
+#[cfg(test)]
+static DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE: AtomicU8 = AtomicU8::new(0);
+
+fn dev_packet_auto_send_runtime_enabled() -> bool {
+    #[cfg(test)]
+    {
+        match DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE.load(Ordering::Relaxed) {
+            1 => return false,
+            2 => return true,
+            _ => {}
+        }
+    }
+    *DEV_PACKET_AUTOSEND_RUNTIME_ENABLED.get_or_init(dev_packet_auto_send_runtime_env_enabled)
+}
+
+#[cfg(test)]
+pub(super) fn set_dev_packet_auto_send_runtime_override(override_value: Option<bool>) {
+    let encoded = match override_value {
+        Some(false) => 1,
+        Some(true) => 2,
+        None => 0,
+    };
+    DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE.store(encoded, Ordering::Relaxed);
 }
 
 pub(super) fn apply_terminal_packet_completion(

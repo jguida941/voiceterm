@@ -77,35 +77,37 @@ pub(super) fn handle_input_event(
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
-                    let mut moved = false;
-                    for key in keys {
-                        let direction = match key {
-                            ArrowKey::Left => -1,
-                            ArrowKey::Right => 1,
-                            _ => 0,
-                        };
-                        if direction != 0
-                            && advance_hud_button_focus(
-                                &mut state.status_state,
+                    if !should_preserve_terminal_caret_navigation(state) {
+                        let mut moved = false;
+                        for key in keys {
+                            let direction = match key {
+                                ArrowKey::Left => -1,
+                                ArrowKey::Right => 1,
+                                _ => 0,
+                            };
+                            if direction != 0
+                                && advance_hud_button_focus(
+                                    &mut state.status_state,
+                                    state.overlay_mode,
+                                    state.terminal_cols,
+                                    state.theme,
+                                    direction,
+                                )
+                            {
+                                moved = true;
+                            }
+                        }
+                        if moved {
+                            send_enhanced_status_with_buttons(
+                                &deps.writer_tx,
+                                &deps.button_registry,
+                                &state.status_state,
                                 state.overlay_mode,
                                 state.terminal_cols,
                                 state.theme,
-                                direction,
-                            )
-                        {
-                            moved = true;
+                            );
+                            return;
                         }
-                    }
-                    if moved {
-                        send_enhanced_status_with_buttons(
-                            &deps.writer_tx,
-                            &deps.button_registry,
-                            &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
-                            state.theme,
-                        );
-                        return;
                     }
                 }
 
@@ -330,12 +332,13 @@ fn trigger_image_capture(
     let captured_path = match crate::image_mode::capture_image(&state.config) {
         Ok(path) => path,
         Err(err) => {
+            let status = crate::status_messages::image_capture_failed(&err);
             set_status(
                 &deps.writer_tx,
                 &mut timers.status_clear_deadline,
                 &mut state.current_status,
                 &mut state.status_state,
-                &crate::status_messages::with_log_path("Image capture failed"),
+                &status,
                 Some(Duration::from_secs(3)),
             );
             log_debug(&format!("image capture failed: {err:#}"));
@@ -426,6 +429,10 @@ fn start_capture_for_trigger(
 }
 
 fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
+    state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
+}
+
+fn should_preserve_terminal_caret_navigation(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 

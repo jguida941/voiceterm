@@ -1,3 +1,5 @@
+# Purpose: Lints key markdown docs that users read.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: docs_lint
 
 permissions:

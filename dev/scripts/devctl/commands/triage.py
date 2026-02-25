@@ -7,7 +7,8 @@ import os
 import re
 import shutil
 import subprocess
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -82,11 +83,9 @@ def _cihub_supports_triage(cihub_bin: str) -> tuple[bool, str]:
 def _resolve_use_cihub(args) -> tuple[bool, str | None]:
     if args.no_cihub:
         return False, None
-    if args.cihub:
-        cihub_available = shutil.which(args.cihub_bin) is not None
-    else:
-        cihub_available = shutil.which(args.cihub_bin) is not None
-    if not cihub_available:
+    explicit_opt_in = bool(getattr(args, "cihub", False))
+    cihub_available = shutil.which(args.cihub_bin) is not None
+    if not cihub_available and not explicit_opt_in:
         return False, "cihub binary not found; skipping CIHub triage."
 
     supports_triage, source = _cihub_supports_triage(args.cihub_bin)
@@ -112,7 +111,7 @@ def run(args) -> int:
     )
     triage_report: Dict[str, Any] = {
         "command": "triage",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "project": project_report,
         "issues": apply_defaults_to_issues(classify_issues(project_report), owner_map),
         "owner_map": owner_map,
@@ -218,8 +217,11 @@ def run(args) -> int:
         append_metric("triage", triage_report)
         for issue in triage_report.get("issues", []):
             append_failure_kb(issue)
-    except Exception:
-        pass
+    except Exception as exc:  # pragma: no cover - fail-soft telemetry path
+        print(
+            f"[devctl triage] warning: unable to persist metrics ({exc})",
+            file=sys.stderr,
+        )
     write_output(output, args.output)
     if args.pipe_command:
         pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)

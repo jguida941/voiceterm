@@ -286,7 +286,7 @@ fn format_status_banner_hidden_mode_recording() {
 }
 
 #[test]
-fn format_status_banner_hidden_mode_recording_uses_neutral_gray() {
+fn format_status_banner_hidden_mode_recording_uses_theme_dim() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Hidden;
     state.recording_state = RecordingState::Recording;
@@ -296,8 +296,7 @@ fn format_status_banner_hidden_mode_recording_uses_neutral_gray() {
     let line = &banner.lines[0];
     let colors = Theme::Codex.colors();
 
-    assert!(line.contains("\x1b[90m"));
-    assert!(!line.contains(colors.dim));
+    assert!(line.contains(colors.dim));
 }
 
 #[test]

@@ -28,10 +28,17 @@ extern "C" fn handle_sigwinch(_: libc::c_int) {
 
 pub(crate) fn install_sigwinch_handler() -> Result<()> {
     unsafe {
-        // SAFETY: handle_sigwinch is an extern "C" signal handler with no side effects
-        // beyond flipping an atomic flag, which is async-signal-safe.
-        let handler = handle_sigwinch as *const () as libc::sighandler_t;
-        if libc::signal(libc::SIGWINCH, handler) == libc::SIG_ERR {
+        // SAFETY: We install an async-signal-safe handler that only sets an atomic flag.
+        // `sigemptyset` and `sigaction` are called with initialized pointers and checked
+        // for non-zero error returns.
+        let mut action: libc::sigaction = std::mem::zeroed();
+        action.sa_flags = libc::SA_RESTART;
+        action.sa_sigaction = handle_sigwinch as *const () as usize;
+        if libc::sigemptyset(&mut action.sa_mask) != 0 {
+            log_debug("failed to clear SIGWINCH mask");
+            return Err(anyhow!("failed to clear SIGWINCH mask"));
+        }
+        if libc::sigaction(libc::SIGWINCH, &action, std::ptr::null_mut()) != 0 {
             log_debug("failed to install SIGWINCH handler");
             return Err(anyhow!("failed to install SIGWINCH handler"));
         }
@@ -80,11 +87,6 @@ pub(crate) fn reserved_rows_for_mode(
         // Toast history uses a fixed default height estimate since the actual
         // height depends on runtime state; 10 rows is a safe conservative value.
         OverlayMode::ToastHistory => 10,
-        // Memory Browser and Action Center use the same height as transcript history
-        // for the initial iteration (placeholder until dedicated overlays are built).
-        OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
-            crate::transcript_history::transcript_history_overlay_height()
-        }
     }
 }
 

@@ -11,6 +11,7 @@ use crate::buttons::ButtonRegistry;
 use crate::config::{
     HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, OverlayConfig, VoiceSendMode,
 };
+use crate::cycle_index::cycle_option;
 use crate::log_debug;
 use crate::overlays::OverlayMode;
 use crate::status_line::{RecordingState, StatusLineState, VoiceMode, WakeWordHudState};
@@ -234,23 +235,46 @@ impl SettingsActionContext<'_> {
     }
 
     pub(crate) fn cycle_hud_panel(&mut self, direction: i32) {
-        self.config.hud_right_panel = cycle_hud_right_panel(self.config.hud_right_panel, direction);
+        const HUD_PANEL_OPTIONS: &[HudRightPanel] = &[
+            HudRightPanel::Ribbon,
+            HudRightPanel::Dots,
+            HudRightPanel::Heartbeat,
+            HudRightPanel::Off,
+        ];
+        self.config.hud_right_panel =
+            cycle_option(HUD_PANEL_OPTIONS, self.config.hud_right_panel, direction);
         self.status.status_state.hud_right_panel = self.config.hud_right_panel;
         let label = format!("HUD right panel: {}", self.config.hud_right_panel);
         self.set_transient_status(&label, Duration::from_secs(2));
     }
 
     pub(crate) fn cycle_hud_border_style(&mut self, direction: i32) {
-        self.config.hud_border_style =
-            cycle_hud_border_style(self.config.hud_border_style, direction);
+        const BORDER_STYLE_OPTIONS: &[HudBorderStyle] = &[
+            HudBorderStyle::Theme,
+            HudBorderStyle::Single,
+            HudBorderStyle::Rounded,
+            HudBorderStyle::Double,
+            HudBorderStyle::Heavy,
+            HudBorderStyle::None,
+        ];
+        self.config.hud_border_style = cycle_option(
+            BORDER_STYLE_OPTIONS,
+            self.config.hud_border_style,
+            direction,
+        );
         self.status.status_state.hud_border_style = self.config.hud_border_style;
         let label = format!("HUD borders: {}", self.config.hud_border_style);
         self.set_transient_status(&label, Duration::from_secs(2));
     }
 
     pub(crate) fn cycle_hud_style(&mut self, direction: i32) {
-        self.status.status_state.hud_style =
-            cycle_hud_style(self.status.status_state.hud_style, direction);
+        const HUD_STYLE_OPTIONS: &[HudStyle] =
+            &[HudStyle::Full, HudStyle::Minimal, HudStyle::Hidden];
+        self.status.status_state.hud_style = cycle_option(
+            HUD_STYLE_OPTIONS,
+            self.status.status_state.hud_style,
+            direction,
+        );
         self.status.status_state.hidden_launcher_collapsed = false;
         let label = format!("HUD style: {}", self.status.status_state.hud_style);
         self.set_transient_status(&label, Duration::from_secs(2));
@@ -279,7 +303,16 @@ impl SettingsActionContext<'_> {
     }
 
     pub(crate) fn cycle_latency_display(&mut self, direction: i32) {
-        self.config.latency_display = cycle_latency_display(self.config.latency_display, direction);
+        const LATENCY_DISPLAY_OPTIONS: &[LatencyDisplayMode] = &[
+            LatencyDisplayMode::Short,
+            LatencyDisplayMode::Label,
+            LatencyDisplayMode::Off,
+        ];
+        self.config.latency_display = cycle_option(
+            LATENCY_DISPLAY_OPTIONS,
+            self.config.latency_display,
+            direction,
+        );
         self.status.status_state.latency_display = self.config.latency_display;
         let label = match self.config.latency_display {
             LatencyDisplayMode::Off => "Latency display: OFF",
@@ -290,8 +323,8 @@ impl SettingsActionContext<'_> {
     }
 
     pub(crate) fn toggle_mouse(&mut self) {
-        self.status.status_state.mouse_enabled = !self.status.status_state.mouse_enabled;
-        if self.status.status_state.mouse_enabled {
+        if !self.status.status_state.mouse_enabled {
+            self.status.status_state.mouse_enabled = true;
             let _ = try_send_message(self.status.writer_tx, WriterMessage::EnableMouse);
             update_button_registry(
                 self.hud.button_registry,
@@ -302,67 +335,13 @@ impl SettingsActionContext<'_> {
             );
             self.set_transient_status("Mouse: ON - click HUD buttons", Duration::from_secs(2));
         } else {
+            self.status.status_state.mouse_enabled = false;
             let _ = try_send_message(self.status.writer_tx, WriterMessage::DisableMouse);
             self.hud.button_registry.clear();
             self.status.status_state.hud_button_focus = None;
             self.set_transient_status("Mouse: OFF", Duration::from_secs(2));
         }
     }
-}
-
-fn cycle_option<T>(options: &[T], current: T, direction: i32) -> T
-where
-    T: Copy + PartialEq,
-{
-    let len = options.len();
-    if len == 0 {
-        return current;
-    }
-    let idx = options
-        .iter()
-        .position(|item| *item == current)
-        .unwrap_or(0);
-    let len_i64 = i64::try_from(len).unwrap_or(1);
-    let idx_i64 = i64::try_from(idx).unwrap_or(0);
-    let next_i64 = (idx_i64 + i64::from(direction)).rem_euclid(len_i64);
-    let next = usize::try_from(next_i64).unwrap_or(0);
-    options[next]
-}
-
-fn cycle_hud_right_panel(current: HudRightPanel, direction: i32) -> HudRightPanel {
-    const OPTIONS: &[HudRightPanel] = &[
-        HudRightPanel::Ribbon,
-        HudRightPanel::Dots,
-        HudRightPanel::Heartbeat,
-        HudRightPanel::Off,
-    ];
-    cycle_option(OPTIONS, current, direction)
-}
-
-fn cycle_hud_border_style(current: HudBorderStyle, direction: i32) -> HudBorderStyle {
-    const OPTIONS: &[HudBorderStyle] = &[
-        HudBorderStyle::Theme,
-        HudBorderStyle::Single,
-        HudBorderStyle::Rounded,
-        HudBorderStyle::Double,
-        HudBorderStyle::Heavy,
-        HudBorderStyle::None,
-    ];
-    cycle_option(OPTIONS, current, direction)
-}
-
-fn cycle_hud_style(current: HudStyle, direction: i32) -> HudStyle {
-    const OPTIONS: &[HudStyle] = &[HudStyle::Full, HudStyle::Minimal, HudStyle::Hidden];
-    cycle_option(OPTIONS, current, direction)
-}
-
-fn cycle_latency_display(current: LatencyDisplayMode, direction: i32) -> LatencyDisplayMode {
-    const OPTIONS: &[LatencyDisplayMode] = &[
-        LatencyDisplayMode::Short,
-        LatencyDisplayMode::Label,
-        LatencyDisplayMode::Off,
-    ];
-    cycle_option(OPTIONS, current, direction)
 }
 
 #[cfg(test)]

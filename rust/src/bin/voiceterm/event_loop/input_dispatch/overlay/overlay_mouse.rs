@@ -29,9 +29,6 @@ pub(super) fn handle_overlay_mouse_click(
         OverlayMode::ToastHistory => {
             crate::toast::toast_history_overlay_height(&state.toast_center)
         }
-        OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
-            transcript_history_overlay_height()
-        }
         OverlayMode::None => 0,
     };
     if overlay_height == 0 {
@@ -94,11 +91,6 @@ pub(super) fn handle_overlay_mouse_click(
             );
             (toast_width, toast_inner, footer)
         }
-        OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => (
-            crate::transcript_history::transcript_history_overlay_width(cols),
-            crate::transcript_history::transcript_history_overlay_inner_width(cols),
-            crate::transcript_history::transcript_history_overlay_footer(&state.theme.colors()),
-        ),
         OverlayMode::None => (0, 0, String::new()),
     };
 
@@ -156,7 +148,7 @@ pub(super) fn handle_overlay_mouse_click(
             && rel_x < overlay_width
         {
             state.theme_studio_selected = overlay_row.saturating_sub(options_start);
-            super::apply_theme_studio_selection(state, timers, deps, running);
+            super::theme_studio_input::apply_theme_studio_selection(state, timers, deps, running);
             if state.overlay_mode == OverlayMode::ThemeStudio {
                 render_theme_studio_overlay_for_state(state, deps);
             }

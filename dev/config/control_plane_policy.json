@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "autonomy_mode_default": "read-only",
+  "allowed_workflow_dispatches": [
+    ".github/workflows/autonomy_controller.yml",
+    ".github/workflows/coderabbit_ralph_loop.yml",
+    ".github/workflows/mutation_ralph_loop.yml",
+    ".github/workflows/coderabbit_triage.yml",
+    ".github/workflows/failure_triage.yml"
+  ],
+  "autonomy_loop": {
+    "allowed_branches": [
+      "develop"
+    ],
+    "max_rounds_hard_cap": 12,
+    "max_hours_hard_cap": 24,
+    "max_tasks_hard_cap": 200,
+    "packet_root": "dev/reports/autonomy/packets",
+    "queue_root": "dev/reports/autonomy/queue",
+    "replay_window_seconds": 300
+  },
+  "mutation_loop": {
+    "allowed_branches": [
+      "develop"
+    ],
+    "allowed_fix_command_prefixes": [
+      [
+        "python3",
+        "dev/scripts/devctl.py",
+        "check",
+        "--profile",
+        "ci"
+      ],
+      [
+        "python3",
+        "dev/scripts/devctl.py",
+        "mutants"
+      ]
+    ],
+    "max_comment_updates_per_hour": 6,
+    "max_attempts_hard_cap": 5
+  },
+  "triage_loop": {
+    "allowed_branches": [
+      "develop"
+    ],
+    "allowed_fix_command_prefixes": [
+      [
+        "python3",
+        "dev/scripts/devctl.py",
+        "check",
+        "--profile",
+        "ci"
+      ]
+    ],
+    "max_comment_updates_per_hour": 8,
+    "max_attempts_hard_cap": 5
+  },
+  "security": {
+    "enforce_replay_window_seconds": 300,
+    "audit_retention_days": 30
+  },
+  "audit_metrics": {
+    "event_log_path": "dev/reports/audits/devctl_events.jsonl"
+  },
+  "integration_federation": {
+    "audit_log_path": "dev/reports/integration_import_audit.jsonl",
+    "max_files_per_import": 1200,
+    "allowed_destination_roots": [
+      "dev/integrations/imports"
+    ],
+    "sources": {
+      "code-link-ide": {
+        "path": "integrations/code-link-ide",
+        "url": "https://github.com/jguida941/code-link-ide.git",
+        "profiles": {
+          "iphone-core": {
+            "description": "iPhone/Swift core package and Xcode CLI harness patterns",
+            "mappings": [
+              {
+                "from": "ios/Sources/VoiceAgentCore",
+                "to": "dev/integrations/imports/code-link-ide/ios/Sources/VoiceAgentCore"
+              },
+              {
+                "from": "scripts/xcode_gui_cli.sh",
+                "to": "dev/integrations/imports/code-link-ide/scripts/xcode_gui_cli.sh"
+              },
+              {
+                "from": "docs/active/xcode_gui_test_guide.md",
+                "to": "dev/integrations/imports/code-link-ide/docs/active/xcode_gui_test_guide.md"
+              }
+            ]
+          },
+          "control-agent-core": {
+            "description": "Rust control-agent source and command schema references",
+            "mappings": [
+              {
+                "from": "agent/src",
+                "to": "dev/integrations/imports/code-link-ide/agent/src"
+              },
+              {
+                "from": "agent/schemas",
+                "to": "dev/integrations/imports/code-link-ide/agent/schemas"
+              },
+              {
+                "from": "agent/tests",
+                "to": "dev/integrations/imports/code-link-ide/agent/tests"
+              }
+            ]
+          }
+        }
+      },
+      "ci-cd-hub": {
+        "path": "integrations/ci-cd-hub",
+        "url": "https://github.com/jguida941/ci-cd-hub.git",
+        "profiles": {
+          "workflow-templates": {
+            "description": "Workflow and template references for CI/CD automation patterns",
+            "mappings": [
+              {
+                "from": ".github/workflows",
+                "to": "dev/integrations/imports/ci-cd-hub/github/workflows"
+              },
+              {
+                "from": "templates",
+                "to": "dev/integrations/imports/ci-cd-hub/templates"
+              },
+              {
+                "from": "docs/reference",
+                "to": "dev/integrations/imports/ci-cd-hub/docs/reference"
+              }
+            ]
+          },
+          "cli-automation-core": {
+            "description": "Python CLI command/service patterns and helper scripts",
+            "mappings": [
+              {
+                "from": "cihub/commands",
+                "to": "dev/integrations/imports/ci-cd-hub/cihub/commands"
+              },
+              {
+                "from": "cihub/services",
+                "to": "dev/integrations/imports/ci-cd-hub/cihub/services"
+              },
+              {
+                "from": "scripts",
+                "to": "dev/integrations/imports/ci-cd-hub/scripts"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

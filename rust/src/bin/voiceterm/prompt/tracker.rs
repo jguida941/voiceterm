@@ -128,14 +128,13 @@ impl PromptTracker {
     }
 
     fn matches_prompt(&self, line: &str) -> bool {
-        let mut matches = false;
-        if let Some(regex) = &self.regex {
-            matches |= regex.is_match(line);
-        }
-        if let Some(prompt) = &self.learned_prompt {
-            matches |= line.trim_end() == prompt.trim_end();
-        }
-        matches
+        self.regex
+            .as_ref()
+            .is_some_and(|regex| regex.is_match(line))
+            || self
+                .learned_prompt
+                .as_ref()
+                .is_some_and(|prompt| line.trim_end() == prompt.trim_end())
     }
 
     fn update_prompt_seen(&mut self, now: Instant, line: &str, reason: &str) {

@@ -1,14 +1,15 @@
 """`devctl check` command.
 
 This command runs local quality gates (fmt, clippy, tests, build, and optional
-extra guards). It is the main pre-push/pre-release verifier for maintainers.
+extra guards). The release profile also runs strict remote CI/CodeRabbit
+verification gates.
 """
 
 from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import List
 
@@ -273,6 +274,35 @@ def run(args) -> int:
                 ),
                 cwd=REPO_ROOT,
             )
+
+        if settings.get("with_ci_release_gate", False):
+            add_step(
+                "ci-status-gate",
+                [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "status",
+                    "--ci",
+                    "--require-ci",
+                    "--format",
+                    "md",
+                ],
+                cwd=REPO_ROOT,
+            )
+            release_gate_env = dict(env)
+            release_gate_env["CI"] = "1"
+            add_step(
+                "coderabbit-release-gate",
+                check_script_cmd("coderabbit_gate", "--branch", "master"),
+                cwd=REPO_ROOT,
+                step_env=release_gate_env,
+            )
+            add_step(
+                "coderabbit-ralph-release-gate",
+                check_script_cmd("coderabbit_ralph_gate", "--branch", "master"),
+                cwd=REPO_ROOT,
+                step_env=release_gate_env,
+            )
     except RuntimeError as exc:
         message = str(exc) or "check halted due to runtime error"
         print(f"[check] error: {message}", file=sys.stderr)
@@ -300,7 +330,7 @@ def run(args) -> int:
     success = all(step["returncode"] == 0 for step in steps)
     report = {
         "command": "check",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "success": success,
         "steps": steps,
     }

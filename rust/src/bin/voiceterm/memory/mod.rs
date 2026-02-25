@@ -12,6 +12,15 @@
 //!   memory/governance.rs    - Retention, redaction, isolation policies
 //!   memory/action_audit.rs  - Action Center templates and policy tiers
 
+#![allow(
+    dead_code,
+    reason = "Memory Studio APIs are intentionally scaffolded ahead of full UI/runtime wiring (MP-230..MP-255)."
+)]
+#![allow(
+    unused_imports,
+    reason = "Module-level re-exports and staged helper surfaces are retained for upcoming Memory Studio integration phases."
+)]
+
 pub(crate) mod action_audit;
 pub(crate) mod context_pack;
 pub(crate) mod governance;
@@ -22,6 +31,5 @@ pub(crate) mod store;
 pub(crate) mod types;
 
 // Re-exports for ergonomic access from event loop and overlays.
-pub(crate) use action_audit::ActionCenterState;
 pub(crate) use ingest::MemoryIngestor;
 pub(crate) use types::{MemoryMode, RetentionPolicy};

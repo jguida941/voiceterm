@@ -5,7 +5,8 @@ All orchestrator instructions, agent ACKs, progress updates, and handoffs must b
 
 ## 0) Current Execution Mode
 
-This mode is authoritative for the active 10-lane scale-out cycle.
+This mode is authoritative for the active scale-out cycle.
+Default is 10 lanes; optional scale mode supports up to 20 lanes.
 
 Coordination contract:
 
@@ -28,6 +29,17 @@ Coordination contract:
 | `AGENT-8` | Autonomy guardrails and loop bridge | `dev/active/autonomous_control_plane.md`, `dev/active/loop_chat_bridge.md` | `MP-332, MP-336, MP-338` | `../codex-voice-wt-a8` | `feature/a8-autonomy-guardrails` |
 | `AGENT-9` | Tooling performance and maintainer UX | `dev/active/devctl_reporting_upgrade.md` + tooling pack | `MP-297, MP-298, MP-257` | `../codex-voice-wt-a9` | `feature/a9-tooling-hardening` |
 | `AGENT-10` | Runtime send/reliability fixes | `dev/active/MASTER_PLAN.md` + runtime/voice pack | `MP-301, MP-322, MP-323, MP-335` | `../codex-voice-wt-a10` | `feature/a10-runtime-reliability` |
+
+### 0.1) Optional 20-Agent Scale Mode (Claude Workers + Codex Auditor)
+
+Use this mode when complexity warrants larger parallelism.
+
+1. Plan worker count:
+   `python3 dev/scripts/devctl.py autonomy-swarm --question-file <plan.md> --adaptive --min-agents 4 --max-agents 20 --plan-only --format md`
+2. Update `MASTER_PLAN` board and Section 0 table to include selected `AGENT-<N>` rows.
+3. Start Claude workers in matching worktrees/branches using the Section 12 prompt template.
+4. Keep one auditor loop (Codex/orchestrator) running Section 4 checks every 15-30 minutes.
+5. Block merges for any lane with stale ACK/progress, failed required bundles, or policy denials.
 
 ## 1) Sprint Goal
 
@@ -69,7 +81,8 @@ python3 dev/scripts/checks/check_multi_agent_sync.py --format md
 cd /Users/jguida941/testing_upgrade/codex-voice
 python3 dev/scripts/devctl.py sync --push
 
-for n in 1 2 3 4 5 6 7 8 9 10; do
+AGENT_MAX=${AGENT_MAX:-10}
+for n in $(seq 1 "${AGENT_MAX}"); do
   git worktree remove --force "../codex-voice-wt-a${n}" 2>/dev/null || true
 done
 
@@ -135,7 +148,8 @@ Rules:
 ## 9) Rebase Protocol After Each Merge
 
 ```bash
-for n in 1 2 3 4 5 6 7 8 9 10; do
+AGENT_MAX=${AGENT_MAX:-10}
+for n in $(seq 1 "${AGENT_MAX}"); do
   git -C "/Users/jguida941/testing_upgrade/codex-voice-wt-a${n}" fetch origin
   git -C "/Users/jguida941/testing_upgrade/codex-voice-wt-a${n}" rebase origin/develop
 done
@@ -256,5 +270,6 @@ Signoff rules:
 cd /Users/jguida941/testing_upgrade/codex-voice
 git worktree list
 # Remove cycle worktrees once merged and no longer needed:
-# for n in 1 2 3 4 5 6 7 8 9 10; do git worktree remove "../codex-voice-wt-a${n}"; done
+# AGENT_MAX=${AGENT_MAX:-10}
+# for n in $(seq 1 "${AGENT_MAX}"); do git worktree remove "../codex-voice-wt-a${n}"; done
 ```

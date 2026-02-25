@@ -1,3 +1,5 @@
+# Purpose: Runs synthetic latency guard tests.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Latency Guardrails
 
 permissions:

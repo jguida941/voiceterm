@@ -139,7 +139,10 @@ pub(super) fn handle_voice_message(
                 &crate::status_messages::with_log_path("Voice capture error"),
                 Some(Duration::from_secs(STATUS_TOAST_SECS)),
             );
-            log_debug(&format!("voice capture error: {message}"));
+            log_debug(&format!(
+                "voice capture error (code={}): {message}",
+                message.code()
+            ));
         }
     }
 }

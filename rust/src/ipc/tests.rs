@@ -10,7 +10,7 @@ use crate::codex::{
 };
 use crate::config::AppConfig;
 use crate::pty_session::test_pty_session;
-use crate::voice;
+use crate::voice::{self, VoiceError};
 use crate::{PipelineJsonResult, PipelineMetrics, VoiceJob, VoiceJobMessage};
 use clap::Parser;
 use crossbeam_channel::bounded;
@@ -111,17 +111,26 @@ fn pipe_pair() -> (RawFd, RawFd) {
 
 #[test]
 fn test_provider_from_str() {
-    assert_eq!(Provider::from_str("codex"), Some(Provider::Codex));
-    assert_eq!(Provider::from_str("CODEX"), Some(Provider::Codex));
-    assert_eq!(Provider::from_str("Codex"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("codex"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("CODEX"), Some(Provider::Codex));
+    assert_eq!(Provider::parse_name("Codex"), Some(Provider::Codex));
 
-    assert_eq!(Provider::from_str("claude"), Some(Provider::Claude));
-    assert_eq!(Provider::from_str("CLAUDE"), Some(Provider::Claude));
-    assert_eq!(Provider::from_str("Claude"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("claude"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("CLAUDE"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("Claude"), Some(Provider::Claude));
 
-    assert_eq!(Provider::from_str("unknown"), None);
-    assert_eq!(Provider::from_str(""), None);
-    assert_eq!(Provider::from_str("openai"), None);
+    assert_eq!(Provider::parse_name("unknown"), None);
+    assert_eq!(Provider::parse_name(""), None);
+    assert_eq!(Provider::parse_name("openai"), None);
+}
+
+#[test]
+fn test_provider_from_str_trait() {
+    use std::str::FromStr;
+
+    assert_eq!(Provider::from_str("codex"), Ok(Provider::Codex));
+    assert_eq!(Provider::from_str("claude"), Ok(Provider::Claude));
+    assert!(Provider::from_str("unknown").is_err());
 }
 
 #[test]
@@ -533,6 +542,7 @@ fn run_ipc_loop_processes_active_jobs() {
         receiver: voice_rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     let (auth_tx, auth_rx) = mpsc::channel();
@@ -797,6 +807,7 @@ fn process_voice_events_handles_transcript() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
     tx.send(VoiceJobMessage::Transcript {
         text: "hello".to_string(),
@@ -827,6 +838,7 @@ fn process_voice_events_handles_empty() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
     tx.send(VoiceJobMessage::Empty {
         source: voice::VoiceCaptureSource::Native,
@@ -849,8 +861,12 @@ fn process_voice_events_handles_error() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
-    tx.send(VoiceJobMessage::Error("boom".to_string())).unwrap();
+    tx.send(VoiceJobMessage::Error(VoiceError::Message(
+        "boom".to_string(),
+    )))
+    .unwrap();
 
     assert!(process_voice_events(&job, false));
     let events = events_since(snapshot);
@@ -868,6 +884,7 @@ fn process_voice_events_handles_disconnect() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     };
 
     assert!(process_voice_events(&job, false));
@@ -1053,6 +1070,7 @@ fn handle_cancel_clears_voice_job() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_cancel(&mut state);
@@ -1091,6 +1109,7 @@ fn handle_start_voice_errors_when_already_running() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_start_voice(&mut state);
@@ -1172,6 +1191,7 @@ fn handle_auth_command_rejects_when_active() {
         receiver: rx,
         handle: None,
         stop_flag: Arc::new(AtomicBool::new(false)),
+        capture_active: Arc::new(AtomicBool::new(false)),
     });
 
     handle_auth_command(&mut state, None);

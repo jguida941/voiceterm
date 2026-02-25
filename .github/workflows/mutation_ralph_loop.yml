@@ -1,3 +1,5 @@
+# Purpose: Runs the bounded mutation remediation loop and publishes results.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Mutation Ralph Loop
 
 permissions:

@@ -1,3 +1,5 @@
+# Purpose: Runs tooling, docs-governance, and process policy gates.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Tooling Control Plane
 
 permissions:

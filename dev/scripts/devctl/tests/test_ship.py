@@ -1,6 +1,8 @@
 """Tests for devctl ship release/distribution safety guards."""
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -305,3 +307,29 @@ class ShipReleaseParityTests(TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["name"], "prepare-release")
         self.assertEqual(result["details"]["reason"], "boom")
+
+
+class ShipCommonVersionReadTests(TestCase):
+    def test_read_version_prefers_package_version(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "Cargo.toml"
+            path.write_text(
+                "[package]\nname = \"voiceterm\"\nversion = \"1.2.3\"\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(ship_common.read_version(path), "1.2.3")
+
+    def test_read_version_reads_project_version(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "pyproject.toml"
+            path.write_text(
+                "[project]\nname = \"voiceterm\"\nversion = \"2.3.4\"\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(ship_common.read_version(path), "2.3.4")
+
+    def test_read_version_returns_empty_for_invalid_toml(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "broken.toml"
+            path.write_text("version = [", encoding="utf-8")
+            self.assertEqual(ship_common.read_version(path), "")

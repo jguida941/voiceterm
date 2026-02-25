@@ -75,13 +75,13 @@ fn merge_pending_transcripts(pending: &mut VecDeque<PendingTranscript>) -> Optio
     // Batch consecutive transcripts with the same send mode to avoid mixing auto/insert.
     let mode = pending.front()?.mode;
     let mut parts: Vec<String> = Vec::new();
-    while let Some(next) = pending.front() {
-        if next.mode != mode {
-            break;
-        }
-        let Some(next) = pending.pop_front() else {
-            break;
-        };
+    while pending
+        .front()
+        .is_some_and(|next_transcript| next_transcript.mode == mode)
+    {
+        let next = pending
+            .pop_front()
+            .unwrap_or_else(|| unreachable!("pending.front() confirmed a queued transcript"));
         let trimmed = next.text.trim();
         if !trimmed.is_empty() {
             parts.push(trimmed.to_string());

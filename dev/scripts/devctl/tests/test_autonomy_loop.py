@@ -269,6 +269,31 @@ class AutonomyLoopCommandTests(unittest.TestCase):
             self.assertEqual(observed_modes, ["report-only"])
 
     @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
+    @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
+    def test_non_operate_mode_denies_non_dry_run(
+        self,
+        _policy_mock,
+        _resolve_repo_mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "autonomy.json"
+            args = make_args(
+                mode="fix-only",
+                dry_run=False,
+                output=str(output_path),
+                packet_out=str(Path(tmp_dir) / "packets"),
+                queue_out=str(Path(tmp_dir) / "queue"),
+            )
+            with patch.dict(os.environ, {"AUTONOMY_MODE": "read-only"}, clear=False):
+                rc = autonomy_loop.run(args)
+
+            self.assertEqual(rc, 1)
+            report = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(report["ok"])
+            self.assertEqual(report["reason"], "policy_denied")
+            self.assertTrue(any("AUTONOMY_MODE" in row for row in report.get("errors", [])))
+
+    @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
     @patch(
         "dev.scripts.devctl.commands.autonomy_loop._load_policy",
         return_value={"autonomy_loop": {"allowed_branches": ["develop"]}},

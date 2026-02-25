@@ -2,9 +2,7 @@
 
 use crate::config::{HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode};
 use crate::status_line::Pipeline;
-use crate::theme::{
-    overlay_close_symbol, overlay_move_hint, overlay_separator, Theme, ThemeColors,
-};
+use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsItem {
@@ -16,16 +14,9 @@ pub enum SettingsItem {
     ImageMode,
     Macros,
     Sensitivity,
-    Theme,
-    // Retained for Theme Studio migration wiring; no longer exposed in Settings menu.
-    #[allow(dead_code)]
     HudStyle,
-    // Retained for Theme Studio migration wiring; no longer exposed in Settings menu.
-    #[allow(dead_code)]
     HudBorders,
-    #[allow(dead_code)]
     HudPanel,
-    #[allow(dead_code)]
     HudAnimate,
     Latency,
     Mouse,
@@ -54,27 +45,6 @@ pub const SETTINGS_ITEMS: &[SettingsItem] = &[
 
 pub const SETTINGS_OPTION_START_ROW: usize = 4;
 
-#[must_use]
-pub fn settings_overlay_footer(colors: &ThemeColors) -> String {
-    let close = overlay_close_symbol(colors.glyph_set);
-    let sep = overlay_separator(colors.glyph_set);
-    let move_hint = overlay_move_hint(colors.glyph_set);
-    format!("[{close}] close {sep} {move_hint} move {sep} Enter select {sep} Click/Tap select")
-}
-
-pub fn settings_overlay_width_for_terminal(width: usize) -> usize {
-    width.saturating_sub(4).clamp(24, 70)
-}
-
-pub fn settings_overlay_inner_width_for_terminal(width: usize) -> usize {
-    settings_overlay_width_for_terminal(width).saturating_sub(2)
-}
-
-pub fn settings_overlay_height() -> usize {
-    // Top border + title + separator + items + description + separator + footer + bottom border
-    SETTINGS_ITEMS.len() + 7
-}
-
 pub struct SettingsView<'a> {
     pub selected: usize,
     pub auto_voice_enabled: bool,
@@ -86,7 +56,6 @@ pub struct SettingsView<'a> {
     pub macros_enabled: bool,
     pub sensitivity_db: f32,
     pub theme: Theme,
-    pub theme_locked: bool,
     pub hud_style: HudStyle,
     pub hud_border_style: HudBorderStyle,
     pub hud_right_panel: HudRightPanel,

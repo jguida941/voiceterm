@@ -164,12 +164,26 @@ mod tests {
     fn default_dev_root_dir_prefers_home_env_when_available() {
         with_env_lock(|| {
             let previous = env::var_os("HOME");
-            env::set_var("HOME", "/tmp/dev-home-test");
+            // SAFETY: This test serializes environment mutation via `with_env_lock`,
+            // so no concurrent env access occurs while HOME is temporarily overridden.
+            unsafe {
+                env::set_var("HOME", "/tmp/dev-home-test");
+            }
             let path = default_dev_root_dir(Path::new("/tmp/project"));
             assert_eq!(path, PathBuf::from("/tmp/dev-home-test/.voiceterm/dev"));
             match previous {
-                Some(value) => env::set_var("HOME", value),
-                None => env::remove_var("HOME"),
+                Some(value) => {
+                    // SAFETY: Guarded by `with_env_lock`; restores prior HOME atomically in test scope.
+                    unsafe {
+                        env::set_var("HOME", value);
+                    }
+                }
+                None => {
+                    // SAFETY: Guarded by `with_env_lock`; restores prior unset HOME state in test scope.
+                    unsafe {
+                        env::remove_var("HOME");
+                    }
+                }
             }
         });
     }

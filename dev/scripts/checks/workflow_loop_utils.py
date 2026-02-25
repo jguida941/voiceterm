@@ -28,7 +28,9 @@ def run_capture(cmd: list[str], *, cwd: Path = REPO_ROOT) -> tuple[int, str, str
 
 def gh_json(repo: str, args: list[str]) -> tuple[Any | None, str | None]:
     cmd = ["gh", *args]
-    if repo:
+    # `gh api` endpoints already carry repo context in the path (for example
+    # `/repos/{owner}/{repo}/...`) and do not support `--repo`.
+    if repo and args and args[0] != "api":
         cmd.extend(["--repo", repo])
     rc, stdout, stderr = run_capture(cmd)
     if rc != 0:

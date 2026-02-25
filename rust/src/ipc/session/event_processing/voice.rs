@@ -30,7 +30,7 @@ pub(super) fn process_voice_events(job: &VoiceJob, cancelled: bool) -> bool {
                 }
                 VoiceJobMessage::Error(message) => {
                     send_event(&IpcEvent::VoiceEnd {
-                        error: Some(message),
+                        error: Some(message.to_string()),
                     });
                 }
             }

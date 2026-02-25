@@ -32,7 +32,7 @@ fn contains_cursor_hint(value: &str) -> bool {
     value.to_ascii_lowercase().contains("cursor")
 }
 
-fn is_jetbrains_terminal() -> bool {
+pub(super) fn is_jetbrains_terminal() -> bool {
     static IS_JETBRAINS: OnceLock<bool> = OnceLock::new();
     *IS_JETBRAINS.get_or_init(|| {
         const HINT_KEYS: &[&str] = &[

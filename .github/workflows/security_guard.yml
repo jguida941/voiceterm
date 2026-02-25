@@ -1,3 +1,5 @@
+# Purpose: Runs Rust, Python, and workflow security gates.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Security Guard
 
 permissions:

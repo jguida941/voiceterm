@@ -42,6 +42,7 @@ def run(args) -> int:
         rustsec_output,
         dry_run=args.dry_run,
         env=env,
+        offline=args.offline,
     )
     steps.append(rustsec_step)
     warnings.extend(rustsec_warnings)

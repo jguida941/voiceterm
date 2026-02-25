@@ -40,6 +40,7 @@ whisper_models/*.onnx
 *.json
 !.github/badges/
 !.github/badges/*.json
+!dev/config/control_plane_policy.json
 
 # IDE
 .idea/
@@ -52,8 +53,7 @@ whisper_models/*.onnx
 # Logs
 *.log
 logs/
-dev/reports/*.jsonl
-dev/reports/**/*.jsonl
+dev/reports/**
 
 # Temporary files
 /tmp/
@@ -108,6 +108,9 @@ dev/active/DEV_MODE_PLAN.md
 
 # Local-only testing notes
 Testing_Guide.md
+
+# Local runtime memory artifacts
+.voiceterm/memory/
 
 # Local scanner scratch artifacts (external tools)
 /cvelist

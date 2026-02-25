@@ -39,6 +39,8 @@ def count_quality_steps(args, settings: dict) -> int:
         count += 1
     if settings["with_mutation_score"]:
         count += 1
+    if settings.get("with_ci_release_gate", False):
+        count += 3  # status --require-ci + strict CodeRabbit + strict Ralph gates
     return count
 
 

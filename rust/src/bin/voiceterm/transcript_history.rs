@@ -14,6 +14,8 @@ pub(crate) use render::{
 use std::collections::VecDeque;
 use std::time::Instant;
 
+use crate::stream_line_buffer::StreamLineBuffer;
+
 /// Maximum number of history entries retained.
 pub(crate) const MAX_HISTORY_ENTRIES: usize = 300;
 
@@ -65,10 +67,8 @@ impl HistoryEntry {
 pub(crate) struct TranscriptHistory {
     entries: VecDeque<HistoryEntry>,
     next_sequence: u32,
-    pending_user_line: String,
-    pending_user_line_truncated: bool,
-    pending_assistant_line: String,
-    pending_assistant_line_truncated: bool,
+    pending_user_line: StreamLineBuffer,
+    pending_assistant_line: StreamLineBuffer,
 }
 
 impl TranscriptHistory {
@@ -76,10 +76,8 @@ impl TranscriptHistory {
         Self {
             entries: VecDeque::with_capacity(MAX_HISTORY_ENTRIES),
             next_sequence: 1,
-            pending_user_line: String::new(),
-            pending_user_line_truncated: false,
-            pending_assistant_line: String::new(),
-            pending_assistant_line_truncated: false,
+            pending_user_line: StreamLineBuffer::new(MAX_STREAM_LINE_BYTES),
+            pending_assistant_line: StreamLineBuffer::new(MAX_STREAM_LINE_BYTES),
         }
     }
 
@@ -115,11 +113,11 @@ impl TranscriptHistory {
             match b {
                 b'\r' | b'\n' => self.flush_pending_user_line(),
                 0x7f | 0x08 => {
-                    self.pending_user_line.pop();
+                    self.pending_user_line.pop_char();
                 }
-                b'\t' => self.push_user_char(' '),
+                b'\t' => self.pending_user_line.push_char(' '),
                 _ if b.is_ascii_control() => {}
-                _ => self.push_user_char(b as char),
+                _ => self.pending_user_line.push_char(b as char),
             }
         }
     }
@@ -140,7 +138,7 @@ impl TranscriptHistory {
                 '\n' => self.flush_pending_assistant_line(),
                 '\r' => {}
                 _ if ch.is_control() => {}
-                _ => self.push_assistant_char(ch),
+                _ => self.pending_assistant_line.push_char(ch),
             }
         }
     }
@@ -152,7 +150,7 @@ impl TranscriptHistory {
     }
 
     /// Return the number of stored entries.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
     }
@@ -184,63 +182,24 @@ impl TranscriptHistory {
     }
 
     /// Return all entries in newest-first order.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn all_newest_first(&self) -> Vec<usize> {
         (0..self.entries.len()).rev().collect()
     }
 
-    fn push_user_char(&mut self, ch: char) {
-        if self.pending_user_line.len() < MAX_STREAM_LINE_BYTES {
-            self.pending_user_line.push(ch);
-        } else {
-            self.pending_user_line_truncated = true;
-        }
-    }
-
-    fn push_assistant_char(&mut self, ch: char) {
-        if self.pending_assistant_line.len() < MAX_STREAM_LINE_BYTES {
-            self.pending_assistant_line.push(ch);
-        } else {
-            self.pending_assistant_line_truncated = true;
-        }
-    }
-
     fn flush_pending_user_line(&mut self) {
-        let Some(line) = take_stream_line(
-            &mut self.pending_user_line,
-            &mut self.pending_user_line_truncated,
-        ) else {
+        let Some(line) = self.pending_user_line.take_line() else {
             return;
         };
         self.push_with_source(line, HistorySource::UserInput);
     }
 
     fn flush_pending_assistant_line(&mut self) {
-        let Some(line) = take_stream_line(
-            &mut self.pending_assistant_line,
-            &mut self.pending_assistant_line_truncated,
-        ) else {
+        let Some(line) = self.pending_assistant_line.take_line() else {
             return;
         };
         self.push_with_source(line, HistorySource::AssistantOutput);
     }
-}
-
-fn take_stream_line(buffer: &mut String, truncated: &mut bool) -> Option<String> {
-    let trimmed = buffer.trim();
-    if trimmed.is_empty() {
-        buffer.clear();
-        *truncated = false;
-        return None;
-    }
-
-    let mut line = trimmed.to_string();
-    if *truncated {
-        line.push_str(" ...");
-    }
-    buffer.clear();
-    *truncated = false;
-    Some(line)
 }
 
 /// Overlay state for browsing history.

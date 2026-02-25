@@ -4,6 +4,7 @@
 //! frontends (e.g., UI clients). Messages are newline-delimited JSON.
 
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 // ============================================================================
 // IPC Events (Rust → client)
@@ -208,11 +209,22 @@ impl Provider {
         }
     }
 
-    pub(crate) fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "codex" => Some(Provider::Codex),
-            "claude" => Some(Provider::Claude),
-            _ => None,
+    pub(crate) fn parse_name(s: &str) -> Option<Self> {
+        s.parse::<Self>().ok()
+    }
+}
+
+impl FromStr for Provider {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized = s.trim();
+        if normalized.eq_ignore_ascii_case("codex") {
+            Ok(Provider::Codex)
+        } else if normalized.eq_ignore_ascii_case("claude") {
+            Ok(Provider::Claude)
+        } else {
+            Err("unknown provider")
         }
     }
 }

@@ -30,6 +30,46 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+const MAX_CAPTURE_EXPECTED_SECONDS: usize = 60;
+const MAX_CAPTURE_EXPECTED_CHANNELS: usize = 16;
+const MAX_CAPTURE_EXPECTED_SAMPLE_RATE: usize = 48_000;
+const MAX_EXPECTED_SAMPLES: usize =
+    MAX_CAPTURE_EXPECTED_SAMPLE_RATE * MAX_CAPTURE_EXPECTED_CHANNELS * MAX_CAPTURE_EXPECTED_SECONDS;
+
+struct StreamPauseGuard<'a> {
+    stream: &'a cpal::Stream,
+    context: &'static str,
+    active: bool,
+}
+
+impl<'a> StreamPauseGuard<'a> {
+    fn new(stream: &'a cpal::Stream, context: &'static str) -> Self {
+        Self {
+            stream,
+            context,
+            active: true,
+        }
+    }
+
+    fn disarm(&mut self) {
+        self.active = false;
+    }
+}
+
+impl Drop for StreamPauseGuard<'_> {
+    fn drop(&mut self) {
+        if !self.active {
+            return;
+        }
+        if let Err(err) = self.stream.pause() {
+            log_debug(&format!(
+                "failed to pause audio stream during {} cleanup: {err}",
+                self.context
+            ));
+        }
+    }
+}
+
 /// Audio input device wrapper.
 ///
 /// Abstracts CPAL device handling and provides methods for recording audio
@@ -112,8 +152,14 @@ impl Recorder {
 
         // cpal delivers samples on a callback thread; collect them in a shared
         // buffer so we can keep ownership on the caller side.
-        let expected_samples =
+        let computed_samples =
             (duration.as_secs_f64() * device_sample_rate as f64 * channels as f64).ceil() as usize;
+        let expected_samples = computed_samples.min(MAX_EXPECTED_SAMPLES);
+        if expected_samples != computed_samples {
+            log_debug(&format!(
+                "audio capture capacity clamped from {computed_samples} to {expected_samples} samples"
+            ));
+        }
         let buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(expected_samples)));
         let buffer_clone = buffer.clone();
 
@@ -125,9 +171,12 @@ impl Recorder {
         let stream = match format {
             SampleFormat::F32 => self.device.build_input_stream(
                 &device_config,
-                move |data: &[f32], _| {
-                    if let Ok(mut buf) = buffer_clone.lock() {
+                move |data: &[f32], _| match buffer_clone.lock() {
+                    Ok(mut buf) => {
                         append_downmixed_samples(&mut buf, data, channels, |sample| sample);
+                    }
+                    Err(_) => {
+                        log_debug("audio callback buffer lock poisoned; dropping frame");
                     }
                 },
                 err_fn,
@@ -135,11 +184,14 @@ impl Recorder {
             )?,
             SampleFormat::I16 => self.device.build_input_stream(
                 &device_config,
-                move |data: &[i16], _| {
-                    if let Ok(mut buf) = buffer_clone.lock() {
+                move |data: &[i16], _| match buffer_clone.lock() {
+                    Ok(mut buf) => {
                         append_downmixed_samples(&mut buf, data, channels, |sample| {
                             sample as f32 / 32_768.0_f32
                         });
+                    }
+                    Err(_) => {
+                        log_debug("audio callback buffer lock poisoned; dropping frame");
                     }
                 },
                 err_fn,
@@ -147,11 +199,14 @@ impl Recorder {
             )?,
             SampleFormat::U16 => self.device.build_input_stream(
                 &device_config,
-                move |data: &[u16], _| {
-                    if let Ok(mut buf) = buffer_clone.lock() {
+                move |data: &[u16], _| match buffer_clone.lock() {
+                    Ok(mut buf) => {
                         append_downmixed_samples(&mut buf, data, channels, |sample| {
                             (sample as f32 - 32_768.0_f32) / 32_768.0_f32
                         });
+                    }
+                    Err(_) => {
+                        log_debug("audio callback buffer lock poisoned; dropping frame");
                     }
                 },
                 err_fn,
@@ -161,11 +216,12 @@ impl Recorder {
         };
 
         stream.play()?;
+        let mut stream_guard = StreamPauseGuard::new(&stream, "record_for");
         std::thread::sleep(duration);
         if let Err(err) = stream.pause() {
             log_debug(&format!("failed to pause audio stream: {err}"));
         }
-        drop(stream);
+        stream_guard.disarm();
 
         let samples = buffer
             .lock()
@@ -288,10 +344,15 @@ fn record_with_vad_impl(
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,
-                move |data: &[f32], _| {
-                    if let Ok(mut pump) = dispatcher.try_lock() {
+                move |data: &[f32], _| match dispatcher.try_lock() {
+                    Ok(mut pump) => {
                         pump.push(data, channels, |sample| sample);
-                    } else {
+                    }
+                    Err(std::sync::TryLockError::Poisoned(_)) => {
+                        dropped.fetch_add(1, Ordering::Relaxed);
+                        log_debug("audio dispatcher lock poisoned; dropping frame batch");
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => {
                         dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 },
@@ -303,10 +364,15 @@ fn record_with_vad_impl(
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,
-                move |data: &[i16], _| {
-                    if let Ok(mut pump) = dispatcher.try_lock() {
+                move |data: &[i16], _| match dispatcher.try_lock() {
+                    Ok(mut pump) => {
                         pump.push(data, channels, |sample| sample as f32 / 32_768.0);
-                    } else {
+                    }
+                    Err(std::sync::TryLockError::Poisoned(_)) => {
+                        dropped.fetch_add(1, Ordering::Relaxed);
+                        log_debug("audio dispatcher lock poisoned; dropping frame batch");
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => {
                         dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 },
@@ -318,12 +384,17 @@ fn record_with_vad_impl(
             let dropped = dropped.clone();
             recorder.device.build_input_stream(
                 &device_config,
-                move |data: &[u16], _| {
-                    if let Ok(mut pump) = dispatcher.try_lock() {
+                move |data: &[u16], _| match dispatcher.try_lock() {
+                    Ok(mut pump) => {
                         pump.push(data, channels, |sample| {
                             (sample as f32 - 32_768.0) / 32_768.0
                         });
-                    } else {
+                    }
+                    Err(std::sync::TryLockError::Poisoned(_)) => {
+                        dropped.fetch_add(1, Ordering::Relaxed);
+                        log_debug("audio dispatcher lock poisoned; dropping frame batch");
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => {
                         dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 },
@@ -335,6 +406,7 @@ fn record_with_vad_impl(
     };
 
     stream.play()?;
+    let mut stream_guard = StreamPauseGuard::new(&stream, "record_with_vad");
 
     let mut accumulator = FrameAccumulator::from_config(cfg);
     let mut state = CaptureState::new(cfg, frame_ms);
@@ -393,7 +465,7 @@ fn record_with_vad_impl(
     if let Err(err) = stream.pause() {
         log_debug(&format!("failed to pause audio stream: {err}"));
     }
-    drop(stream);
+    stream_guard.disarm();
     if let Some(ref meter) = meter {
         meter.set_db(-60.0);
     }

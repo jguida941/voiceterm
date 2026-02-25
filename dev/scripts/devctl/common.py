@@ -2,9 +2,12 @@
 
 from collections import deque
 import os
+import queue
+import shlex
 import signal
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Deque, List, Optional, Tuple
@@ -14,11 +17,13 @@ from .config import REPO_ROOT, SRC_DIR
 FAILURE_OUTPUT_MAX_LINES = 60
 FAILURE_OUTPUT_MAX_CHARS = 8000
 INTERRUPT_KILL_GRACE_SECONDS = 3.0
+PIPE_OUTPUT_TIMEOUT_SECONDS = 120.0
+LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
 
 
 def cmd_str(cmd: List[str]) -> str:
     """Render a command list as a printable string."""
-    return " ".join(cmd)
+    return shlex.join(cmd)
 
 
 def _trim_failure_output(output_tail: str) -> str:
@@ -27,6 +32,28 @@ def _trim_failure_output(output_tail: str) -> str:
     if len(trimmed) <= FAILURE_OUTPUT_MAX_CHARS:
         return trimmed
     return trimmed[-FAILURE_OUTPUT_MAX_CHARS:]
+
+
+def _resolve_live_output_timeout_seconds() -> float:
+    """Resolve the live-output command timeout from env with safe fallback."""
+    raw = os.getenv("VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return LIVE_OUTPUT_TIMEOUT_SECONDS
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return LIVE_OUTPUT_TIMEOUT_SECONDS
+    return timeout if timeout > 0 else 0.0
+
+
+def _enqueue_stdout_lines(stream, line_queue: "queue.Queue[object]") -> None:
+    try:
+        for line in stream:
+            line_queue.put(line)
+    except BaseException as exc:  # pragma: no cover - reader-thread relay path
+        line_queue.put(exc)
+    finally:
+        line_queue.put(None)
 
 
 def _run_with_live_output(
@@ -52,11 +79,71 @@ def _run_with_live_output(
         except KeyboardInterrupt:
             _terminate_subprocess_tree(process)
             raise
+    timeout_seconds = _resolve_live_output_timeout_seconds()
+    deadline = (
+        time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
+    )
+    line_queue: "queue.Queue[object]" = queue.Queue()
+    reader = threading.Thread(
+        target=_enqueue_stdout_lines,
+        args=(process.stdout, line_queue),
+        daemon=True,
+    )
+    reader.start()
+
     try:
-        for line in process.stdout:
+        while True:
+            if deadline is not None and time.monotonic() >= deadline:
+                _terminate_subprocess_tree(process)
+                timeout_message = (
+                    f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
+                )
+                output_tail.append(timeout_message)
+                return 124, "\n".join(output_tail)
+
+            wait_timeout = 0.25
+            if deadline is not None:
+                wait_timeout = max(0.0, min(wait_timeout, deadline - time.monotonic()))
+
+            try:
+                line = line_queue.get(timeout=wait_timeout)
+            except queue.Empty:
+                if process.poll() is not None and not reader.is_alive() and line_queue.empty():
+                    break
+                continue
+
+            if isinstance(line, BaseException):
+                if isinstance(line, KeyboardInterrupt):
+                    raise KeyboardInterrupt
+                output_tail.append(str(line))
+                continue
+
+            if line is None:
+                if not reader.is_alive():
+                    break
+                continue
+
             print(line, end="")
             output_tail.append(line.rstrip("\n"))
-        return process.wait(), "\n".join(output_tail)
+        if deadline is None:
+            return process.wait(), "\n".join(output_tail)
+        remaining = max(0.0, deadline - time.monotonic())
+        if remaining <= 0.0:
+            _terminate_subprocess_tree(process)
+            timeout_message = (
+                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
+            )
+            output_tail.append(timeout_message)
+            return 124, "\n".join(output_tail)
+        try:
+            return process.wait(timeout=remaining), "\n".join(output_tail)
+        except subprocess.TimeoutExpired:
+            _terminate_subprocess_tree(process)
+            timeout_message = (
+                f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
+            )
+            output_tail.append(timeout_message)
+            return 124, "\n".join(output_tail)
     except KeyboardInterrupt:
         _terminate_subprocess_tree(process)
         raise
@@ -188,7 +275,7 @@ def write_output(content: str, output_path: Optional[str]) -> None:
     if output_path:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         print(f"Report saved to: {path}")
     else:
         print(content)
@@ -202,7 +289,22 @@ def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[L
     if not shutil.which(cmd[0]):
         print(f"Pipe command not found: {cmd[0]}")
         return 2
-    result = subprocess.run(cmd, input=content, text=True)
+    try:
+        result = subprocess.run(
+            cmd,
+            input=content,
+            text=True,
+            timeout=PIPE_OUTPUT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}"
+        )
+        return 124
+    except OSError as exc:
+        print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
+        return 127
     return result.returncode
 
 

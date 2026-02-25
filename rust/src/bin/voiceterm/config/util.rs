@@ -1,18 +1,25 @@
 //! Backend command parsing so custom backend strings are split predictably.
 
 use std::path::Path;
+use voiceterm::log_debug;
 
 pub(super) fn split_backend_command(raw: &str) -> (String, Vec<String>) {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return (String::new(), Vec::new());
     }
-    let parts = shell_words::split(trimmed).unwrap_or_else(|_| {
-        trimmed
-            .split_whitespace()
-            .map(ToString::to_string)
-            .collect()
-    });
+    let parts = match shell_words::split(trimmed) {
+        Ok(parts) => parts,
+        Err(err) => {
+            log_debug(&format!(
+                "failed to parse backend command with shell quoting semantics: {err}; falling back to whitespace split"
+            ));
+            trimmed
+                .split_whitespace()
+                .map(ToString::to_string)
+                .collect()
+        }
+    };
     if parts.is_empty() {
         return (String::new(), Vec::new());
     }

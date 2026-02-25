@@ -1,3 +1,5 @@
+# Purpose: Lints workflow YAML with actionlint.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: workflow_lint
 
 permissions:

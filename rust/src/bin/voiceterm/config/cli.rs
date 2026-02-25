@@ -263,6 +263,14 @@ pub(crate) struct OverlayConfig {
     /// Run backend login before starting the overlay
     #[arg(long = "login", default_value_t = false)]
     pub(crate) login: bool,
+
+    /// Load theme from a specific TOML file path
+    #[arg(long = "theme-file", env = "VOICETERM_THEME_FILE")]
+    pub(crate) theme_file: Option<PathBuf>,
+
+    /// Export a built-in theme to stdout as TOML and exit
+    #[arg(long = "export-theme")]
+    pub(crate) export_theme: Option<String>,
 }
 
 fn parse_wake_word_sensitivity(raw: &str) -> Result<f32, String> {

@@ -1,0 +1,134 @@
+# Purpose: Builds and uploads release binaries for Linux and macOS.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: publish_release_binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-release-binaries-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish-release-binaries (${{ matrix.package_os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    if: startsWith(github.event.release.tag_name, 'v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            package_os: linux
+            arch: amd64
+          - os: macos-15-intel
+            package_os: darwin
+            arch: amd64
+          - os: macos-14
+            package_os: darwin
+            arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release ref
+        id: release_ref
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
+        run: |
+          TAG="${RELEASE_TAG}"
+          BRANCH="${RELEASE_TARGET_BRANCH}"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${TAG}"
+            exit 1
+          fi
+          if [[ -z "${BRANCH}" ]]; then
+            echo "Release target branch is missing."
+            exit 1
+          fi
+          git fetch --force --tags origin
+          SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          if [[ -z "${SHA}" ]]; then
+            echo "Failed to resolve commit SHA for tag ${TAG}."
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify CodeRabbit gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
+
+      - name: Verify CodeRabbit Ralph gate passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --format md
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: Install ALSA development headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Build release binary
+        run: cargo build --release --manifest-path rust/Cargo.toml --bin voiceterm
+
+      - name: Package release binary
+        id: package
+        env:
+          TAG: ${{ steps.release_ref.outputs.tag }}
+          PACKAGE_OS: ${{ matrix.package_os }}
+          PACKAGE_ARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${TAG#v}"
+          ARCHIVE="voiceterm-${VERSION}-${PACKAGE_OS}-${PACKAGE_ARCH}.tar.gz"
+          tar -czf "${ARCHIVE}" -C rust/target/release voiceterm
+          python3 - <<'PY' "${ARCHIVE}"
+          import hashlib
+          import pathlib
+          import sys
+
+          archive = pathlib.Path(sys.argv[1])
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          pathlib.Path(f"{archive}.sha256").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+          PY
+          echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
+          echo "checksum=${ARCHIVE}.sha256" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload binary assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release_ref.outputs.tag }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
+        run: |
+          gh release upload "${TAG}" "${ARCHIVE}" "${CHECKSUM}" --clobber

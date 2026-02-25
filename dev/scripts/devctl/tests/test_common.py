@@ -1,5 +1,6 @@
 """Tests for shared devctl command helpers."""
 
+import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -44,6 +45,17 @@ class RunCmdTests(TestCase):
         result = run_cmd("interrupt", [sys.executable, "-c", "print('x')"])
         self.assertEqual(result["returncode"], 130)
         self.assertIn("interrupted", result.get("error", ""))
+
+    @patch("builtins.print")
+    @patch(
+        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds", return_value=0.05
+    )
+    def test_run_cmd_timeout_returns_124_and_failure_excerpt(
+        self, _timeout_mock, _print_mock
+    ) -> None:
+        result = run_cmd("timeout", [sys.executable, "-c", "import time; time.sleep(0.2)"])
+        self.assertEqual(result["returncode"], 124)
+        self.assertIn("timed out", result.get("failure_output", ""))
 
 
 class RunWithLiveOutputTests(TestCase):
@@ -115,3 +127,38 @@ class MutationOutcomeDiscoveryTests(TestCase):
                 resolved = common.find_latest_outcomes_file()
 
         self.assertEqual(resolved, outcomes)
+
+
+class CommandRenderingTests(TestCase):
+    def test_cmd_str_quotes_args_with_spaces(self) -> None:
+        rendered = common.cmd_str(["echo", "/tmp/has space/file.txt"])
+        self.assertEqual(rendered, "echo '/tmp/has space/file.txt'")
+
+
+class PipeOutputTests(TestCase):
+    @patch("dev.scripts.devctl.common.shutil.which", return_value=None)
+    def test_pipe_output_missing_command_returns_2(self, _which_mock) -> None:
+        rc = common.pipe_output("payload", "missing-command", [])
+        self.assertEqual(rc, 2)
+
+    @patch("dev.scripts.devctl.common.shutil.which", return_value="/bin/cat")
+    @patch("dev.scripts.devctl.common.subprocess.run")
+    def test_pipe_output_timeout_returns_124(
+        self,
+        run_mock,
+        _which_mock,
+    ) -> None:
+        run_mock.side_effect = subprocess.TimeoutExpired(cmd=["cat"], timeout=1)
+        rc = common.pipe_output("payload", "cat", [])
+        self.assertEqual(rc, 124)
+
+    @patch("dev.scripts.devctl.common.shutil.which", return_value="/bin/cat")
+    @patch("dev.scripts.devctl.common.subprocess.run")
+    def test_pipe_output_oserror_returns_127(
+        self,
+        run_mock,
+        _which_mock,
+    ) -> None:
+        run_mock.side_effect = OSError("boom")
+        rc = common.pipe_output("payload", "cat", [])
+        self.assertEqual(rc, 127)

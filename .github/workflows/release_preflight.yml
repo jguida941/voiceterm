@@ -1,3 +1,5 @@
+# Purpose: Runs manual release preflight gates before tagging/publishing.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: release_preflight
 
 permissions:

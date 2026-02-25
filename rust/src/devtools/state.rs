@@ -49,7 +49,7 @@ impl DevModeStats {
             VoiceJobMessage::Empty { source, metrics } => {
                 DevEvent::empty(event_id, *source, metrics.as_ref())
             }
-            VoiceJobMessage::Error(message) => DevEvent::error(event_id, message),
+            VoiceJobMessage::Error(message) => DevEvent::error(event_id, &message.to_string()),
         };
 
         self.update_counters(&event);
@@ -158,9 +158,15 @@ mod tests {
     #[test]
     fn ring_buffer_keeps_most_recent_events_only() {
         let mut stats = DevModeStats::with_capacity(2);
-        stats.record_voice_message(&VoiceJobMessage::Error("first".to_string()));
-        stats.record_voice_message(&VoiceJobMessage::Error("second".to_string()));
-        stats.record_voice_message(&VoiceJobMessage::Error("third".to_string()));
+        stats.record_voice_message(&VoiceJobMessage::Error(crate::voice::VoiceError::Message(
+            "first".to_string(),
+        )));
+        stats.record_voice_message(&VoiceJobMessage::Error(crate::voice::VoiceError::Message(
+            "second".to_string(),
+        )));
+        stats.record_voice_message(&VoiceJobMessage::Error(crate::voice::VoiceError::Message(
+            "third".to_string(),
+        )));
 
         let ids: Vec<u64> = stats
             .recent_events()
@@ -174,7 +180,9 @@ mod tests {
     #[test]
     fn avg_latency_none_when_no_latency_samples_exist() {
         let mut stats = DevModeStats::default();
-        stats.record_voice_message(&VoiceJobMessage::Error("boom".to_string()));
+        stats.record_voice_message(&VoiceJobMessage::Error(crate::voice::VoiceError::Message(
+            "boom".to_string(),
+        )));
         assert_eq!(stats.snapshot().avg_latency_ms, None);
     }
 

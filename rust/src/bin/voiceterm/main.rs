@@ -19,6 +19,7 @@ mod cli_utils;
 mod color_mode;
 mod config;
 mod custom_help;
+mod cycle_index;
 mod dev_command;
 mod dev_panel;
 mod event_loop;
@@ -28,13 +29,11 @@ mod hud;
 mod icons;
 mod image_mode;
 mod input;
-#[allow(dead_code, unused_imports)]
 mod memory;
 mod onboarding;
 mod overlay_frame;
 mod overlays;
 mod persistent_config;
-mod progress;
 mod prompt;
 mod session_memory;
 mod session_stats;
@@ -43,6 +42,7 @@ mod settings_handlers;
 mod status_line;
 mod status_messages;
 mod status_style;
+mod stream_line_buffer;
 mod terminal;
 mod theme;
 mod theme_ops;
@@ -234,10 +234,33 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(ref theme_name) = config.export_theme {
+        match theme::Theme::from_name(theme_name) {
+            Some(t) => {
+                let colors = theme::palette_to_resolved(&t.colors());
+                let toml = theme::theme_file::export_theme_file(
+                    &colors,
+                    Some(theme_name.as_str()),
+                    Some(theme_name.as_str()),
+                );
+                print!("{toml}");
+                return Ok(());
+            }
+            None => {
+                bail!("unknown theme '{}'. Available: chatgpt, claude, codex, coral, catppuccin, dracula, gruvbox, nord, tokyonight, ansi, none", theme_name);
+            }
+        }
+    }
+
     // Load persistent user config and merge with CLI flags (CLI always wins).
     let cli_explicit = persistent_config::detect_explicit_flags(&config);
     let user_config = persistent_config::load_user_config();
     persistent_config::apply_user_config_to_overlay(&user_config, &mut config, &cli_explicit);
+
+    // Bridge --theme-file CLI flag to the env var that style_pack.rs reads.
+    if let Some(ref path) = config.theme_file {
+        env::set_var("VOICETERM_THEME_FILE", path);
+    }
 
     let sound_on_complete = resolve_sound_flag(config.app.sounds, config.app.sound_on_complete);
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
@@ -442,7 +465,9 @@ fn main() -> Result<()> {
         VoiceMode::Manual
     };
     status_state.pipeline = Pipeline::Rust;
-    status_state.mouse_enabled = true; // Mouse enabled by default for clickable buttons
+    // Keep mouse mode enabled by default so HUD buttons are clickable.
+    // Cursor wheel scroll passthrough is handled in the input loop.
+    status_state.mouse_enabled = true;
     let _ = writer_tx.send(WriterMessage::EnableMouse);
     let dev_mode_stats = config.dev_mode.then(DevModeStats::default);
     let session_memory_logger = if session_memory_enabled {
@@ -509,6 +534,12 @@ fn main() -> Result<()> {
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
         theme_studio_selected: 0,
+        theme_studio_page: crate::theme_studio::StudioPage::Home,
+        theme_studio_colors_editor: None,
+        theme_studio_borders_page: crate::theme_studio::BordersPageState::new(),
+        theme_studio_components_editor: crate::theme_studio::ComponentsEditorState::new(),
+        theme_studio_preview_page: crate::theme_studio::PreviewPageState::new(),
+        theme_studio_export_page: crate::theme_studio::ExportPageState::new(),
         theme_studio_undo_history: Vec::new(),
         theme_studio_redo_history: Vec::new(),
         theme_picker_selected: theme_index_from_theme(theme),
@@ -540,7 +571,14 @@ fn main() -> Result<()> {
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor,
-        action_center_state: memory::ActionCenterState::new(),
+        theme_file_watcher: std::env::var("VOICETERM_THEME_FILE").ok().and_then(|p| {
+            let path = std::path::PathBuf::from(p.trim());
+            if path.exists() {
+                Some(crate::theme::file_watcher::ThemeFileWatcher::new(path))
+            } else {
+                None
+            }
+        }),
     };
     let mut timers = EventLoopTimers {
         theme_picker_digit_deadline: None,
@@ -555,6 +593,7 @@ fn main() -> Result<()> {
         last_meter_update: Instant::now(),
         last_wake_hud_tick: Instant::now(),
         last_toast_tick: Instant::now(),
+        last_theme_file_poll: Instant::now(),
     };
     let mut deps = EventLoopDeps {
         session,

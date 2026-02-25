@@ -126,6 +126,9 @@ impl FrameAccumulator {
     }
 
     pub(super) fn push_frame(&mut self, samples: Vec<f32>, label: FrameLabel) {
+        if samples.is_empty() {
+            return;
+        }
         self.total_samples = self.total_samples.saturating_add(samples.len());
         self.frames.push_back(FrameRecord { samples, label });
         // Enforce a hard memory ceiling during long captures by dropping oldest

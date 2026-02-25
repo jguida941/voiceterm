@@ -1,3 +1,5 @@
+# Purpose: Runs quick performance smoke tests and voice-metrics sanity checks.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Perf Smoke
 
 permissions:

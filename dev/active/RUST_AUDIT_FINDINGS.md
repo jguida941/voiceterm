@@ -1,8 +1,8 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-02-24T02:14:03.445673  
+**Generated:** 2026-02-24T17:46:59.278803  
 **Trigger:** check-ai-guard  
-**Trigger steps:** code-shape-guard  
+**Trigger steps:** rust-lint-debt-guard,rust-best-practices-guard  
 **Diff range:** working-tree vs HEAD
 
 ---
@@ -36,24 +36,32 @@ planning and implementation, not a historical archive.
 
 | Guard | Focus | Severity | Return | Violations | Status |
 |---|---|---|---:|---:|---|
-| `code-shape-guard` | modularity | high | 1 | 1 | needs remediation |
-| `rust-lint-debt-guard` | lint debt | high | 0 | 0 | clean |
-| `rust-best-practices-guard` | best practices | high | 0 | 0 | clean |
+| `code-shape-guard` | modularity | high | 0 | 0 | clean |
+| `rust-lint-debt-guard` | lint debt | high | 1 | 1 | needs remediation |
+| `rust-best-practices-guard` | best practices | high | 1 | 1 | needs remediation |
 | `rust-audit-patterns-guard` | known audit regressions | critical | 0 | 0 | clean |
 | `rust-security-footguns-guard` | security footguns | critical | 0 | 0 | clean |
 
 ## Findings
 
-### code-shape-guard
-- Focus: modularity
+### rust-lint-debt-guard
+- Focus: lint debt
 - Severity: high
 - Return code: 1
 - Violations:
-- `dev/scripts/devctl/commands/check.py` (crossed_soft_limit)
+- `rust/src/bin/voiceterm/theme_studio/borders_page.rs` (allow_attrs +2)
+
+### rust-best-practices-guard
+- Focus: best practices
+- Severity: high
+- Return code: 1
+- Violations:
+- `rust/src/bin/voiceterm/theme_studio/borders_page.rs` (allow_without_reason +2)
 
 ## Remediation Actions
 
-- [ ] Refactor oversized or growth-violating files listed by `code-shape-guard` into narrower modules/helpers.
+- [ ] Reduce newly introduced `#[allow(...)]` and non-test `unwrap/expect` growth reported by `rust-lint-debt-guard`.
+- [ ] Add missing `reason=` for `#[allow(...)]`, document `unsafe` with `SAFETY:` comments, and add `# Safety` docs for public `unsafe fn` where reported.
 
 ## Verification Checklist
 

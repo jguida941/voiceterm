@@ -1,3 +1,5 @@
+# Purpose: When another workflow fails, captures artifacts and runs a triage snapshot.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Failure Triage
 
 permissions:

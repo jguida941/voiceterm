@@ -76,7 +76,9 @@ pub(super) fn handle_output_chunk(
         Err(TrySendError::Full(WriterMessage::PtyOutput(bytes))) => {
             state.pending_pty_output = Some(bytes);
         }
-        Err(TrySendError::Full(_)) => {}
+        Err(TrySendError::Full(_)) => {
+            log_debug("writer queue returned unexpected message variant for PTY output");
+        }
         Err(TrySendError::Disconnected(_)) => {
             *running = false;
         }

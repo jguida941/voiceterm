@@ -44,9 +44,11 @@ const WAKE_VAD_DB_AT_MIN_SENSITIVITY: f32 = -24.0;
 const WAKE_VAD_DB_AT_MAX_SENSITIVITY: f32 = -56.0;
 
 const HOTWORD_PHRASES: &[&str] = &[
+    "codex",
     "hey codex",
     "ok codex",
     "okay codex",
+    "claude",
     "hey claude",
     "ok claude",
     "okay claude",
@@ -78,9 +80,18 @@ struct WakeSettings {
 impl WakeSettings {
     #[must_use = "wake settings should stay within configured safety bounds"]
     fn clamped(sensitivity: f32, cooldown_ms: u64) -> Self {
+        let clamped_sensitivity = sensitivity.clamp(WAKE_MIN_SENSITIVITY, WAKE_MAX_SENSITIVITY);
+        let clamped_cooldown = cooldown_ms.clamp(WAKE_MIN_COOLDOWN_MS, WAKE_MAX_COOLDOWN_MS);
+        if (clamped_sensitivity - sensitivity).abs() > f32::EPSILON
+            || clamped_cooldown != cooldown_ms
+        {
+            log_debug(&format!(
+                "wake-word settings clamped: sensitivity {sensitivity:.3} -> {clamped_sensitivity:.3}, cooldown {cooldown_ms} -> {clamped_cooldown}ms"
+            ));
+        }
         Self {
-            sensitivity: sensitivity.clamp(WAKE_MIN_SENSITIVITY, WAKE_MAX_SENSITIVITY),
-            cooldown_ms: cooldown_ms.clamp(WAKE_MIN_COOLDOWN_MS, WAKE_MAX_COOLDOWN_MS),
+            sensitivity: clamped_sensitivity,
+            cooldown_ms: clamped_cooldown,
         }
     }
 }
@@ -189,8 +200,10 @@ impl WakeWordRuntime {
         self.reap_finished_listener();
 
         if !enabled {
-            self.stop_listener();
-            self.active_settings = None;
+            let _ = self.stop_listener();
+            if self.listener.is_none() {
+                self.active_settings = None;
+            }
             return;
         }
 
@@ -199,7 +212,9 @@ impl WakeWordRuntime {
             || self.active_settings.is_none()
             || self.active_settings != Some(settings);
         if restart_required {
-            self.stop_listener();
+            if !self.stop_listener() {
+                return;
+            }
             if let Some(retry_after) = self.start_retry_after {
                 if Instant::now() < retry_after {
                     return;
@@ -236,7 +251,21 @@ impl WakeWordRuntime {
             return;
         }
         if let Some(listener) = self.listener.take() {
-            join_thread_with_timeout("wake-word", listener.handle);
+            let WakeListener {
+                stop_flag,
+                pause_flag,
+                capture_stop_flag,
+                handle,
+            } = listener;
+            if let Err(handle) = join_thread_with_timeout("wake-word", handle) {
+                self.listener = Some(WakeListener {
+                    stop_flag,
+                    pause_flag,
+                    capture_stop_flag,
+                    handle,
+                });
+                return;
+            }
         }
         self.active_settings = None;
     }
@@ -285,13 +314,38 @@ impl WakeWordRuntime {
         Ok(())
     }
 
-    fn stop_listener(&mut self) {
+    fn stop_listener(&mut self) -> bool {
         let Some(listener) = self.listener.take() else {
-            return;
+            self.active_settings = None;
+            return true;
         };
         listener.request_stop();
-        join_thread_with_timeout("wake-word", listener.handle);
-        self.active_settings = None;
+        let WakeListener {
+            stop_flag,
+            pause_flag,
+            capture_stop_flag,
+            handle,
+        } = listener;
+        match join_thread_with_timeout("wake-word", handle) {
+            Ok(()) => {
+                self.active_settings = None;
+                true
+            }
+            Err(handle) => {
+                self.listener = Some(WakeListener {
+                    stop_flag,
+                    pause_flag,
+                    capture_stop_flag,
+                    handle,
+                });
+                self.start_retry_after =
+                    Some(Instant::now() + Duration::from_millis(WAKE_LISTENER_RETRY_BACKOFF_MS));
+                log_debug(
+                    "wake-word listener still running after stop request; deferring restart/disable",
+                );
+                false
+            }
+        }
     }
 }
 
@@ -357,7 +411,7 @@ fn spawn_wake_listener_thread(
     })
 }
 
-fn join_thread_with_timeout(name: &str, handle: JoinHandle<()>) {
+fn join_thread_with_timeout(name: &str, handle: JoinHandle<()>) -> Result<(), JoinHandle<()>> {
     let timeout = Duration::from_millis(WAKE_LISTENER_JOIN_TIMEOUT_MS);
     let deadline = Instant::now() + timeout;
     while !handle.is_finished() && Instant::now() < deadline {
@@ -369,12 +423,13 @@ fn join_thread_with_timeout(name: &str, handle: JoinHandle<()>) {
                 "{name} listener thread panicked during shutdown: {err:?}"
             ));
         }
-    } else {
-        log_debug(&format!(
-            "{name} listener thread did not exit within {}ms; detaching",
-            timeout.as_millis()
-        ));
+        return Ok(());
     }
+    log_debug(&format!(
+        "{name} listener thread did not exit within {}ms",
+        timeout.as_millis()
+    ));
+    Err(handle)
 }
 
 struct AudioWakeDetector {
@@ -686,10 +741,12 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
         ["send"]
             | ["sen"]
             | ["sand"]
+            | ["son"]
             | ["sending"]
             | ["send", "it"]
             | ["sen", "it"]
             | ["sand", "it"]
+            | ["son", "it"]
             | ["send", "this"]
             | ["sen", "this"]
             | ["sand", "this"]
@@ -700,6 +757,7 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
             | ["send", "now"]
             | ["sen", "now"]
             | ["sand", "now"]
+            | ["son", "now"]
             | ["submit", "now"]
     )
 }

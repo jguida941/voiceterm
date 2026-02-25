@@ -7,6 +7,62 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Code Quality
+
+- Keep `maintainer-lint` green on current Rust toolchains by removing redundant
+  clippy patterns in voice capture and dev-panel snapshot paths. No runtime
+  behavior change.
+
+## [1.0.94] - 2026-02-25
+### Control Plane
+
+- Add an optional PySide6 desktop command-center scaffold under `app/pyside6/` with modular tabbed surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`, `Git`, `Terminal`), non-blocking command execution (`QProcess`), and a broad command catalog that reuses existing `devctl`/governance/git/cargo/workflow command paths.
+
+### Runtime Hardening
+
+- Harden terminal resize signal registration by switching to `sigaction` (`SA_RESTART`) for `SIGWINCH`, reducing non-portable `signal()` behavior in long-running sessions.
+- Replace a Theme Studio non-home render `unreachable!()` with a safe fallback line so unexpected page-state mismatches no longer panic.
+- Add explicit diagnostics when PTY output queueing hits an unexpected writer-message variant instead of silently discarding that branch.
+
+### Theme Studio Upgrade
+
+- Add multi-page tabbed Theme Studio with 6 pages (Home, Colors, Borders, Components, Preview, Export) navigated via Tab/Shift+Tab.
+- Add Colors page with inline RGB color picker (R/G/B sliders, hex entry mode) for editing all 10 semantic color fields. Color changes apply live to the active theme via runtime color override.
+- Add indicator set and glyph set selectors to Colors page with Left/Right cycling and live symbol preview.
+- Add Borders page with 5 border style options (Single, Rounded, Double, Heavy, None) and live mini-box previews. Enter applies the selected border style.
+- Add Components page as a browsable catalog of 54 component IDs organized into 10 groups (HUD, Buttons, Toast, Overlay, Theme Studio, Voice Scene, Transcript, Banner, Progress, Settings) with color swatches and semantic-color hint labels.
+- Add Preview page showing read-only live preview of HUD status line colors, indicators, toast severity colors, and border chrome.
+- Add Export page with TOML file export to `~/.config/voiceterm/themes/`, OSC 52 clipboard copy, and import stub.
+- Introduce `Rgb`, `ColorValue`, and `ResolvedThemeColors` types (`color_value.rs`) enabling runtime color editing while preserving the `&'static str` rendering pipeline via `Box::leak` string interning.
+- Add TOML theme file support (`theme_file.rs`, `theme_dir.rs`) with three-tier token system (palette, semantic colors, component overrides), base_theme inheritance, validation, and round-trip export/import.
+- Add per-component style resolver (`style_resolver.rs`) mapping 54 ComponentIds to semantic default colors with optional per-component/state overrides.
+- Add runtime color override system (`set_runtime_color_override`) as highest-precedence layer in `resolve_theme_colors()`.
+- Add `--theme-file <PATH>` CLI flag and `VOICETERM_THEME_FILE` env var for loading TOML theme files.
+- Add theme file hot-reload via mtime polling + FNV-1a content hashing (~500ms cycle).
+- Add tab bar renderer (`format_tab_bar`) for multi-page Studio navigation.
+
+### Documentation
+
+- Refresh screenshot placement in `README.md` and `guides/USAGE.md` to include the new shortcuts overlay, notification-history overlay, wake-word flow, and hidden-HUD-recording visuals.
+
+## [1.0.93] - 2026-02-24
+### UX
+
+- Restore single-accent startup ASCII splash rendering so wide-terminal startup no longer rotates rainbow logo lines and instead tracks the active theme family (for example Tokyo Night purple border accents).
+- Preserve Cursor terminal mouse-wheel scrolling while leaving mouse mode ON (`Mouse: ON - scroll preserved in Cursor`) by keeping Cursor on scroll-safe mouse handling, while leaving JetBrains/other terminal mouse behavior unchanged.
+- Reduce Cursor typing-time HUD flash by limiting writer-side HUD pre-clear behavior to JetBrains terminals, while keeping scroll-ghost protection for JetBrains redraw paths.
+
+### Runtime Hardening
+
+- Type `VoiceJobMessage::Error` payloads with `VoiceError` variants and bounded drop-time worker join behavior so voice thread lifecycle and downstream error handling are deterministic.
+- Harden Whisper model-load stderr suppression with an RAII restore guard so stderr is restored on every exit path.
+- Parse custom backend commands with `shell_words` (quoted-arg aware) plus fallback behavior for malformed shell syntax.
+- Remove orphaned `rust/src/bin/voiceterm/progress.rs` (no longer compiled) to avoid stale, out-of-sync progress helpers drifting from active runtime code paths.
+
+### Packaging
+
+- Fix PyPI launcher bootstrap Cargo-manifest detection to support both `rust/` (current workspace layout) and legacy `src/` repositories.
+
 ## [1.0.92] - 2026-02-24
 ### Persistence
 

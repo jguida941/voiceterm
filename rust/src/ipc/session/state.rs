@@ -32,7 +32,7 @@ impl IpcState {
         // Allow env override so wrappers can pin provider without extra flags.
         let default_provider = env::var("VOICETERM_PROVIDER")
             .ok()
-            .and_then(|s| Provider::from_str(&s))
+            .and_then(|s| Provider::parse_name(&s))
             .unwrap_or(Provider::Codex);
 
         // Recorder/transcriber are optional so IPC still works without voice dependencies.

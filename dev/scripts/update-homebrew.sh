@@ -211,11 +211,11 @@ else
 fi
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if ! git config user.name >/dev/null; then
-        git config user.name "${HOMEBREW_GIT_USER_NAME:-github-actions[bot]}"
+    if ! git config --local user.name >/dev/null; then
+        git config --local user.name "${HOMEBREW_GIT_USER_NAME:-github-actions[bot]}"
     fi
-    if ! git config user.email >/dev/null; then
-        git config user.email "${HOMEBREW_GIT_USER_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
+    if ! git config --local user.email >/dev/null; then
+        git config --local user.email "${HOMEBREW_GIT_USER_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
     fi
 
     if [[ -f "$README" ]]; then

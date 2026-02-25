@@ -42,7 +42,6 @@ def _list_target_comments(
 
 
 def _mutate_comment(
-    repo: str,
     *,
     method: str,
     endpoint: str,
@@ -50,8 +49,6 @@ def _mutate_comment(
     run_capture_fn: CommandRunner,
 ) -> tuple[dict[str, Any], str | None]:
     cmd = ["gh", "api", "--method", method, endpoint, "-f", f"body={body}"]
-    if repo:
-        cmd.extend(["--repo", repo])
     rc, stdout, stderr = run_capture_fn(cmd)
     if rc != 0:
         return {}, (stderr or stdout or "gh api failed").strip()
@@ -90,7 +87,6 @@ def upsert_comment(
         else:
             endpoint = f"/repos/{repo}/comments/{comment_id}"
         payload, patch_error = _mutate_comment(
-            repo,
             method="PATCH",
             endpoint=endpoint,
             body=body,
@@ -106,7 +102,6 @@ def upsert_comment(
     else:
         endpoint = f"/repos/{repo}/commits/{target['id']}/comments"
     payload, create_error = _mutate_comment(
-        repo,
         method="POST",
         endpoint=endpoint,
         body=body,

@@ -37,16 +37,19 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_mutation_score": False,
         "with_wake_guard": False,
         "with_ai_guard": False,
+        "with_ci_release_gate": False,
     },
     "prepush": {
         "with_perf": True,
         "with_mem_loop": True,
         "with_ai_guard": True,
+        "with_ci_release_gate": False,
     },
     "release": {
         "with_mutation_score": True,
         "with_wake_guard": True,
         "with_ai_guard": True,
+        "with_ci_release_gate": True,
     },
     "ai-guard": {
         "skip_build": True,
@@ -56,6 +59,7 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_mutation_score": False,
         "with_wake_guard": False,
         "with_ai_guard": True,
+        "with_ci_release_gate": False,
     },
     "maintainer-lint": {
         "skip_tests": True,
@@ -66,12 +70,14 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_mutation_score": False,
         "with_wake_guard": False,
         "with_ai_guard": False,
+        "with_ci_release_gate": False,
     },
     "quick": {
         "skip_build": True,
         "skip_tests": True,
         "with_wake_guard": False,
         "with_ai_guard": False,
+        "with_ci_release_gate": False,
     },
 }
 
@@ -105,6 +111,7 @@ def resolve_profile_settings(args) -> tuple[dict, list[str]]:
         "with_mutation_score": args.with_mutation_score,
         "with_wake_guard": args.with_wake_guard,
         "with_ai_guard": args.with_ai_guard,
+        "with_ci_release_gate": False,
     }
     clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
 

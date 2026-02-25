@@ -6,6 +6,7 @@ mod borders;
 #[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod capability_matrix;
+pub(crate) mod color_value;
 mod colors;
 #[cfg(feature = "theme_studio_v2")]
 pub(crate) mod component_registry;
@@ -13,16 +14,20 @@ pub(crate) mod component_registry;
 #[allow(dead_code)]
 pub(crate) mod dependency_baseline;
 mod detect;
+pub(crate) mod file_watcher;
 mod palettes;
 #[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod rule_profile;
 mod runtime_overrides;
 mod style_pack;
+pub(crate) mod style_resolver;
 mod style_schema;
 #[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod texture_profile;
+pub(crate) mod theme_dir;
+pub(crate) mod theme_file;
 #[cfg(feature = "theme_studio_v2")]
 #[allow(dead_code)]
 pub(crate) mod widget_pack;
@@ -30,6 +35,7 @@ pub(crate) mod widget_pack;
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
 #[allow(unused_imports)]
 pub use borders::{BORDER_DOTTED, BORDER_NONE};
+pub(crate) use color_value::palette_to_resolved;
 pub use colors::{GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, VoiceSceneStyle};
 pub use palettes::{
     THEME_ANSI, THEME_CATPPUCCIN, THEME_CHATGPT, THEME_CLAUDE, THEME_CODEX, THEME_CORAL,
@@ -47,6 +53,8 @@ pub(crate) use runtime_overrides::{
     RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
     RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
 };
+#[cfg(not(test))]
+pub(crate) use style_pack::set_runtime_color_override;
 pub(crate) use style_pack::{
     resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
     set_runtime_style_pack_overrides,
@@ -71,34 +79,11 @@ pub(crate) const WAVEFORM_BARS_UNICODE: &[char; 8] = &['▁', '▂', '▃', '▄
 /// ASCII-safe waveform bars for fallback terminals.
 pub(crate) const WAVEFORM_BARS_ASCII: &[char; 8] = &['.', ':', '-', '=', '+', '*', '#', '@'];
 
-/// Progress bar partial fill characters (empty -> full).
-pub(crate) const PROGRESS_PARTIAL_UNICODE: &[char; 9] =
-    &['░', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
-/// ASCII-safe partial fill characters.
-pub(crate) const PROGRESS_PARTIAL_ASCII: &[char; 9] =
-    &['-', '.', ':', '-', '=', '+', '*', '#', '#'];
-/// Compact unicode partial fill characters.
-pub(crate) const PROGRESS_PARTIAL_COMPACT_UNICODE: &[char; 9] =
-    &['·', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '■'];
-/// Braille-style unicode partial fill characters.
-pub(crate) const PROGRESS_PARTIAL_BRAILLE_UNICODE: &[char; 9] =
-    &['⣀', '⣄', '⣆', '⣇', '⣧', '⣷', '⣾', '⣿', '⣿'];
-/// Compact ASCII partial fill characters.
-pub(crate) const PROGRESS_PARTIAL_COMPACT_ASCII: &[char; 9] =
-    &['.', '.', ':', ':', '-', '=', '=', '*', '#'];
-/// Braille-style ASCII fallback partial fill characters.
-pub(crate) const PROGRESS_PARTIAL_BRAILLE_ASCII: &[char; 9] =
-    &['.', '.', ':', '-', '=', '+', '*', '#', '#'];
-
 /// Resolved glyph profile for progress rendering surfaces.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ProgressGlyphProfile {
     pub(crate) bar_filled: char,
     pub(crate) bar_empty: char,
-    pub(crate) blocks_filled: char,
-    pub(crate) blocks_empty: char,
-    pub(crate) partial: &'static [char; 9],
-    pub(crate) bouncing_fill: char,
 }
 
 /// Available color themes.
@@ -159,7 +144,7 @@ impl Theme {
     }
 
     /// List all available theme names.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn available() -> &'static [&'static str] {
         &[
             "chatgpt",
@@ -308,69 +293,37 @@ pub(crate) fn progress_glyph_profile(colors: &ThemeColors) -> ProgressGlyphProfi
             ProgressGlyphProfile {
                 bar_filled: '█',
                 bar_empty: '░',
-                blocks_filled: '▓',
-                blocks_empty: '░',
-                partial: PROGRESS_PARTIAL_UNICODE,
-                bouncing_fill: '=',
             }
         }
         (ProgressBarFamily::Theme | ProgressBarFamily::Bar, GlyphSet::Ascii) => {
             ProgressGlyphProfile {
                 bar_filled: '=',
                 bar_empty: '-',
-                blocks_filled: '#',
-                blocks_empty: '.',
-                partial: PROGRESS_PARTIAL_ASCII,
-                bouncing_fill: '=',
             }
         }
         (ProgressBarFamily::Compact, GlyphSet::Unicode) => ProgressGlyphProfile {
             bar_filled: '■',
             bar_empty: '·',
-            blocks_filled: '■',
-            blocks_empty: '·',
-            partial: PROGRESS_PARTIAL_COMPACT_UNICODE,
-            bouncing_fill: '■',
         },
         (ProgressBarFamily::Compact, GlyphSet::Ascii) => ProgressGlyphProfile {
             bar_filled: '#',
             bar_empty: '.',
-            blocks_filled: '#',
-            blocks_empty: '.',
-            partial: PROGRESS_PARTIAL_COMPACT_ASCII,
-            bouncing_fill: '#',
         },
         (ProgressBarFamily::Blocks, GlyphSet::Unicode) => ProgressGlyphProfile {
             bar_filled: '▓',
             bar_empty: '░',
-            blocks_filled: '█',
-            blocks_empty: '░',
-            partial: PROGRESS_PARTIAL_UNICODE,
-            bouncing_fill: '▓',
         },
         (ProgressBarFamily::Blocks, GlyphSet::Ascii) => ProgressGlyphProfile {
             bar_filled: '#',
             bar_empty: ' ',
-            blocks_filled: '#',
-            blocks_empty: ' ',
-            partial: PROGRESS_PARTIAL_ASCII,
-            bouncing_fill: '#',
         },
         (ProgressBarFamily::Braille, GlyphSet::Unicode) => ProgressGlyphProfile {
             bar_filled: '⣿',
             bar_empty: '⣀',
-            blocks_filled: '⣿',
-            blocks_empty: '⣀',
-            partial: PROGRESS_PARTIAL_BRAILLE_UNICODE,
-            bouncing_fill: '⣶',
         },
         (ProgressBarFamily::Braille, GlyphSet::Ascii) => ProgressGlyphProfile {
             bar_filled: '=',
             bar_empty: '.',
-            blocks_filled: '#',
-            blocks_empty: '.',
-            partial: PROGRESS_PARTIAL_BRAILLE_ASCII,
-            bouncing_fill: '=',
         },
     }
 }
@@ -707,9 +660,12 @@ mod tests {
             "src/bin/voiceterm/theme/mod.rs",
             "src/bin/voiceterm/theme/borders.rs",
             "src/bin/voiceterm/theme/palettes.rs",
+            "src/bin/voiceterm/theme/color_value.rs",
+            "src/bin/voiceterm/theme/theme_file.rs",
             "src/bin/voiceterm/theme/style_pack.rs",
             "src/bin/voiceterm/theme/style_pack/tests.rs",
             "src/bin/voiceterm/status_line/format.rs",
+            "src/bin/voiceterm/theme_studio/borders_page.rs",
         ];
 
         let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bin/voiceterm");

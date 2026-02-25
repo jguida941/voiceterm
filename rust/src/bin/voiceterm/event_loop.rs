@@ -75,7 +75,10 @@ use output_dispatch::handle_output_chunk;
 use overlay_dispatch::{
     close_overlay, open_dev_panel_overlay, open_help_overlay, open_settings_overlay,
     open_theme_picker_overlay, open_theme_studio_overlay, open_toast_history_overlay,
-    open_transcript_history_overlay,
+    open_transcript_history_overlay, render_dev_panel_overlay_for_state,
+    render_help_overlay_for_state, render_settings_overlay_for_state,
+    render_theme_picker_overlay_for_state, render_theme_studio_overlay_for_state,
+    render_toast_history_overlay_for_state, render_transcript_history_overlay_for_state,
 };
 use periodic_tasks::run_periodic_tasks;
 
@@ -358,100 +361,6 @@ fn refresh_button_registry_if_mouse(state: &EventLoopState, deps: &EventLoopDeps
     );
 }
 
-fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    show_help_overlay(&deps.writer_tx, state.theme, cols);
-}
-
-fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    let snapshot = state.dev_mode_stats.as_ref().map(|stats| stats.snapshot());
-    show_dev_panel_overlay(
-        &deps.writer_tx,
-        state.theme,
-        snapshot,
-        state.config.dev_log,
-        state.config.dev_path.as_deref(),
-        &state.dev_panel_commands,
-        cols,
-    );
-}
-
-fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    let locked_theme = style_pack_theme_lock();
-    let display_theme = locked_theme.unwrap_or(state.theme);
-    let selected_idx = locked_theme
-        .map(theme_index_from_theme)
-        .unwrap_or(state.theme_picker_selected);
-    show_theme_picker_overlay(
-        &deps.writer_tx,
-        display_theme,
-        selected_idx,
-        cols,
-        locked_theme,
-    );
-}
-
-fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    let selected = state
-        .theme_studio_selected
-        .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
-    let style_pack_overrides = runtime_style_pack_overrides();
-    let view = ThemeStudioView {
-        theme: state.theme,
-        selected,
-        hud_style: state.status_state.hud_style,
-        hud_border_style: state.config.hud_border_style,
-        hud_right_panel: state.config.hud_right_panel,
-        hud_right_panel_recording_only: state.config.hud_right_panel_recording_only,
-        border_style_override: style_pack_overrides.border_style_override,
-        glyph_set_override: style_pack_overrides.glyph_set_override,
-        indicator_set_override: style_pack_overrides.indicator_set_override,
-        progress_style_override: style_pack_overrides.progress_style_override,
-        progress_bar_family_override: style_pack_overrides.progress_bar_family_override,
-        voice_scene_style_override: style_pack_overrides.voice_scene_style_override,
-        toast_position_override: style_pack_overrides.toast_position_override,
-        startup_style_override: style_pack_overrides.startup_style_override,
-        toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
-        banner_style_override: style_pack_overrides.banner_style_override,
-        undo_available: !state.theme_studio_undo_history.is_empty(),
-        redo_available: !state.theme_studio_redo_history.is_empty(),
-        runtime_overrides_dirty: style_pack_overrides != RuntimeStylePackOverrides::default(),
-    };
-    show_theme_studio_overlay(&deps.writer_tx, &view, cols);
-}
-
-fn render_transcript_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    show_transcript_history_overlay(
-        &deps.writer_tx,
-        &state.transcript_history,
-        &state.transcript_history_state,
-        state.theme,
-        cols,
-    );
-}
-
-fn render_toast_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    show_toast_history_overlay(&deps.writer_tx, &state.toast_center, state.theme, cols);
-}
-
-fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
-    show_settings_overlay(
-        &deps.writer_tx,
-        state.theme,
-        cols,
-        &state.settings_menu,
-        &state.config,
-        &state.status_state,
-        &deps.backend_label,
-    );
-}
-
 fn reset_theme_picker_digits(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
     state.theme_picker_digits.clear();
     timers.theme_picker_digit_deadline = None;
@@ -467,6 +376,7 @@ fn reset_theme_studio_selection(state: &mut EventLoopState) {
     state.theme_studio_selected = state
         .theme_studio_selected
         .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
+    state.theme_studio_page = crate::theme_studio::StudioPage::Home;
 }
 
 fn settings_action_context<'a>(
@@ -552,10 +462,6 @@ fn apply_settings_item_action(
                 true
             }
         }
-        SettingsItem::Theme => {
-            settings_ctx.cycle_theme(step);
-            true
-        }
         SettingsItem::HudStyle => {
             settings_ctx.cycle_hud_style(step);
             true
@@ -629,7 +535,10 @@ fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) ->
             state.pending_pty_output = Some(bytes);
             false
         }
-        Err(TrySendError::Full(_)) => false,
+        Err(TrySendError::Full(_)) => {
+            log_debug("writer queue returned unexpected message variant while flushing PTY output");
+            false
+        }
         Err(TrySendError::Disconnected(_)) => false,
     }
 }

@@ -336,6 +336,12 @@ fn build_harness(
         settings_menu: SettingsMenuState::new(),
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
         theme_studio_selected: 0,
+        theme_studio_page: crate::theme_studio::StudioPage::Home,
+        theme_studio_colors_editor: None,
+        theme_studio_borders_page: crate::theme_studio::BordersPageState::new(),
+        theme_studio_components_editor: crate::theme_studio::ComponentsEditorState::new(),
+        theme_studio_preview_page: crate::theme_studio::PreviewPageState::new(),
+        theme_studio_export_page: crate::theme_studio::ExportPageState::new(),
         theme_studio_undo_history: Vec::new(),
         theme_studio_redo_history: Vec::new(),
         theme_picker_selected: theme_index_from_theme(theme),
@@ -365,7 +371,7 @@ fn build_harness(
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
-        action_center_state: crate::memory::ActionCenterState::new(),
+        theme_file_watcher: None,
     };
 
     let now = Instant::now();
@@ -382,6 +388,7 @@ fn build_harness(
         last_meter_update: now,
         last_wake_hud_tick: now,
         last_toast_tick: now,
+        last_theme_file_poll: now,
     };
 
     let deps = EventLoopDeps {
@@ -1113,7 +1120,14 @@ fn apply_terminal_packet_completion_stages_draft_text() {
 #[test]
 fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
     let _guard = install_try_send_hook(hook_would_block);
-    std::env::set_var("VOICETERM_DEV_PACKET_AUTOSEND", "1");
+    struct AutoSendOverrideReset;
+    impl Drop for AutoSendOverrideReset {
+        fn drop(&mut self) {
+            dev_panel_commands::set_dev_packet_auto_send_runtime_override(None);
+        }
+    }
+    let _reset = AutoSendOverrideReset;
+    dev_panel_commands::set_dev_packet_auto_send_runtime_override(Some(true));
 
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let completion = DevCommandCompletion {
@@ -1139,7 +1153,6 @@ fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
         &completion,
     )
     .expect("packet auto-send message");
-    std::env::remove_var("VOICETERM_DEV_PACKET_AUTOSEND");
 
     assert!(message.contains("auto-sent"));
     assert!(!state.status_state.insert_pending_send);
@@ -1727,6 +1740,139 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
     );
     assert!(state.theme_studio_undo_history.len() >= 2);
     assert!(state.theme_studio_redo_history.is_empty());
+}
+
+#[test]
+fn theme_studio_colors_page_arrow_right_on_indicator_selector_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio_colors_editor =
+        Some(crate::theme_studio::ColorsEditorState::new(state.theme));
+    let mut running = true;
+
+    let color_field_count = crate::theme_studio::ColorField::ALL.len();
+    {
+        let editor = state
+            .theme_studio_colors_editor
+            .as_mut()
+            .expect("colors editor is initialized");
+        editor.selected = color_field_count;
+        editor.indicator_set = None;
+    }
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.indicator_set_override,
+        Some(RuntimeIndicatorSetOverride::Ascii)
+    );
+    let editor = state
+        .theme_studio_colors_editor
+        .as_ref()
+        .expect("colors editor persists");
+    assert_eq!(
+        editor.indicator_set,
+        Some(RuntimeIndicatorSetOverride::Ascii)
+    );
+    assert!(editor.picker.is_none());
+}
+
+#[test]
+fn theme_studio_colors_page_arrow_right_on_glyph_selector_cycles_runtime_override() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio_colors_editor =
+        Some(crate::theme_studio::ColorsEditorState::new(state.theme));
+    let mut running = true;
+
+    let color_field_count = crate::theme_studio::ColorField::ALL.len();
+    {
+        let editor = state
+            .theme_studio_colors_editor
+            .as_mut()
+            .expect("colors editor is initialized");
+        editor.selected = color_field_count + 1;
+        editor.glyph_set = None;
+    }
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let overrides = crate::theme::runtime_style_pack_overrides();
+    assert_eq!(
+        overrides.glyph_set_override,
+        Some(RuntimeGlyphSetOverride::Unicode)
+    );
+    let editor = state
+        .theme_studio_colors_editor
+        .as_ref()
+        .expect("colors editor persists");
+    assert_eq!(editor.glyph_set, Some(RuntimeGlyphSetOverride::Unicode));
+    assert!(editor.picker.is_none());
+}
+
+#[test]
+fn theme_studio_colors_page_enter_on_indicator_selector_is_noop_for_picker() {
+    let _override_guard =
+        install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio_colors_editor =
+        Some(crate::theme_studio::ColorsEditorState::new(state.theme));
+    let mut running = true;
+
+    let color_field_count = crate::theme_studio::ColorField::ALL.len();
+    {
+        let editor = state
+            .theme_studio_colors_editor
+            .as_mut()
+            .expect("colors editor is initialized");
+        editor.selected = color_field_count;
+        editor.picker = None;
+    }
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    let editor = state
+        .theme_studio_colors_editor
+        .as_ref()
+        .expect("colors editor persists");
+    assert!(editor.picker.is_none());
+    assert_eq!(
+        crate::theme::runtime_style_pack_overrides(),
+        RuntimeStylePackOverrides::default()
+    );
 }
 
 #[test]
@@ -3940,6 +4086,59 @@ fn arrow_left_and_right_focus_different_buttons_from_none() {
     let right_focus = right_state.status_state.hud_button_focus;
     assert!(right_focus.is_some(), "right arrow should set focus");
     assert_ne!(left_focus, right_focus);
+}
+
+#[test]
+fn insert_mode_with_pending_text_forwards_left_and_right_arrows_to_pty() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = true;
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[C".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 2));
+}
+
+#[test]
+fn insert_mode_without_pending_text_keeps_hud_arrow_focus_navigation() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = false;
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[D".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.hud_button_focus.is_some());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]

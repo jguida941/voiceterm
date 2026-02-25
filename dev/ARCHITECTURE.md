@@ -18,6 +18,8 @@ system in under ten minutes.
 - [Startup Sequence](#startup-sequence)
 - [Core Flows](#core-flows)
 - [Operational Workflows (Dev/CI/Release)](#operational-workflows-devcirelease)
+- [Custom Ralph Loop Architecture](#custom-ralph-loop-architecture)
+- [Autonomy Swarm Workflow](#autonomy-swarm-workflow)
 - [Overlay State Machine](#overlay-state-machine)
 - [Whisper Integration (Rust)](#whisper-integration-rust)
 - [Voice Error and Fallback Flow](#voice-error-and-fallback-flow)
@@ -239,31 +241,33 @@ controls whether a newline is added automatically.
 
 ## Operational Workflows (Dev/CI/Release)
 
-This section documents engineering workflows that keep runtime behavior and
-release quality stable.
-When workflow mechanics change (dev loop, CI lanes, release flow), update this
-section in the same change.
+This is the day-to-day operations map.
+If workflow behavior changes, update this section in the same PR.
 
 ### 1) Local Feature Workflow
 
-1. Link work in `dev/active/MASTER_PLAN.md`.
-2. Implement code + tests in one change.
-3. Run local verification (`python3 dev/scripts/devctl.py check --profile ci` minimum).
-4. For latency-sensitive work, also run `./dev/scripts/tests/measure_latency.sh --ci-guard`.
-5. For wake-word runtime/matching changes, run `bash dev/scripts/tests/wake_word_guard.sh`.
-6. Update docs (`dev/CHANGELOG.md` for user-facing changes, plus related guides/dev docs).
-7. Run governance hygiene audit (`python3 dev/scripts/devctl.py hygiene`) for archive/ADR/scripts sync.
-8. Run docs-integrity guards:
-   - `python3 dev/scripts/checks/check_cli_flags_parity.py` -- keeps clap schema and `guides/CLI_FLAGS.md` in sync.
-   - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` -- checks doc image references and flags stale screenshots.
-9. Confirm no accidental root `--*` artifact files before push (`find . -maxdepth 1 -type f -name '--*'`).
+1. Link the work in `dev/active/MASTER_PLAN.md`.
+2. Ship code and tests together.
+3. Run `python3 dev/scripts/devctl.py check --profile ci`.
+4. Add risk checks when needed:
+   - latency work: `./dev/scripts/tests/measure_latency.sh --ci-guard`
+   - wake-word work: `bash dev/scripts/tests/wake_word_guard.sh`
+5. Update docs in the same change (`dev/CHANGELOG.md` for user-facing behavior).
+6. Run governance checks:
+   - `python3 dev/scripts/devctl.py hygiene`
+   - `python3 dev/scripts/checks/check_cli_flags_parity.py`
+   - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`
+7. Confirm no root-level `--*` artifact files:
+   `find . -maxdepth 1 -type f -name '--*'`
 
-For tooling/process/CI governance changes, `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-also requires updating `dev/history/ENGINEERING_EVOLUTION.md` in the same change.
+Main command entry point: `python3 dev/scripts/devctl.py ...`.
 
-Primary command entrypoint: `dev/scripts/devctl.py`.
+For tooling/process/CI edits, `docs-check --strict-tooling` also requires
+updating `dev/history/ENGINEERING_EVOLUTION.md`.
 
 ### 2) CI Workflow Lanes
+
+For plain-language workflow details, read `.github/workflows/README.md`.
 
 | Workflow | File | Purpose |
 |---|---|---|
@@ -274,17 +278,104 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 | Latency Guardrails | `.github/workflows/latency_guard.yml` | synthetic latency regression checks (`measure_latency.sh --ci-guard`) |
 | Memory Guard | `.github/workflows/memory_guard.yml` | repeated thread/resource cleanup test |
 | Mutation Testing | `.github/workflows/mutation-testing.yml` | scheduled sharded mutation testing with aggregated score enforcement |
-| Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded autonomy-controller orchestration (`devctl autonomy-loop`) with checkpoint packet/queue artifacts, phone-ready status snapshots, and optional guarded PR promote path |
+| Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded `devctl autonomy-loop` runs with checkpoint/queue artifacts and phone-ready status snapshots |
+| Autonomy Run | `.github/workflows/autonomy_run.yml` | guarded `devctl swarm_run` path with scope checks, reviewer lane, governance checks, and plan-evidence append |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate -- fails on high/critical CVSS, yanked, or unsound crates |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary regression lane |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key user/developer docs |
-| Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` -- catches redundant clones/closures, risky wrap casts, and dead-code drift |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell-script integrity, and docs governance policy lane -- runs `docs-check --strict-tooling`, conditional strict user-facing docs-check, `hygiene`, markdownlint, CLI flag parity, screenshot integrity, and root artifact guard |
+| Lint Hardening | `.github/workflows/lint_hardening.yml` | strict maintainer clippy subset via `devctl check --profile maintainer-lint` |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | tooling/docs governance lane (`docs-check --strict-tooling`, `hygiene`, markdownlint, parity checks, screenshot checks, root artifact guard) |
 
-### 3) Release Workflow (Master Branch)
+### Custom Ralph Loop Architecture
+
+This repo owns the Ralph/Wiggum loop behavior.
+`integrations/*` is import source only, not runtime authority.
+
+Core loop surfaces:
+
+1. `devctl triage-loop` for CodeRabbit backlog work.
+2. `devctl mutation-loop` for mutation backlog work.
+3. Policy gates in `dev/config/control_plane_policy.json`.
+4. Workflow wrappers in `.github/workflows/coderabbit_ralph_loop.yml` and
+   `.github/workflows/mutation_ralph_loop.yml`.
+
+Simple loop flow:
+
+```mermaid
+flowchart TD
+  A[Source run completes<br/>CodeRabbit or mutation workflow] --> B[Controller workflow triggers]
+  B --> C[devctl loop command starts]
+  C --> D[Resolve source run and artifacts]
+  D --> E{Policy and bounds pass?}
+  E -->|No| F[Stop with reason code and audit output]
+  E -->|Yes| G[Analyze backlog and decide mode]
+  G --> H{Mode}
+  H -->|report-only| I[Emit md/json bundle and summary]
+  H -->|plan-then-fix or fix-only| J[Run allowlisted fix path]
+  J --> K[Wait/re-check bounded by attempts and timeout]
+  K --> L[Emit final summary and optional comment update]
+  I --> L
+```
+
+Why this loop is safe:
+
+1. It pins each run to `source_run_id` and `source_run_sha`.
+2. It uses predictable notify modes (`summary-only` or `summary-and-comment`).
+3. Fix commands are policy-gated (mode, branch, prefix allowlist, attempt cap).
+4. It always emits artifacts for review (`md/json`, queue packets, phone views).
+
+How your other repos fit:
+
+```mermaid
+flowchart LR
+  A[code-link-ide repo] --> B[integrations/* pinned refs]
+  C[ci-cd-hub repo] --> B
+  B --> D[devctl integrations-import<br/>allowlisted mappings]
+  D --> E[codex-voice first-party paths]
+  E --> F[tests plus policy gates]
+  F --> G[active runtime and CI workflows]
+```
+
+Ownership model:
+
+1. `codex-voice` owns runtime and policy behavior.
+2. Other repos feed reusable pieces through controlled imports.
+
+### Autonomy Swarm Workflow
+
+Use `autonomy-swarm` for bounded parallel lanes with one command.
+Use `swarm_run` for the same flow plus governance checks and plan evidence.
+
+Execution flow:
+
+1. Planner picks lane count from metadata unless `--agents` is set.
+2. Worker fanout runs bounded `autonomy-loop` lanes in parallel.
+3. If selected count > 1, one slot is reserved for `AGENT-REVIEW` by default.
+4. `autonomy-report` runs by default after the swarm run.
+
+`swarm_run` also adds:
+
+1. Active-plan scope checks (`plan-doc`, `INDEX`, `MASTER_PLAN` token checks).
+2. One swarm prompt from the next unchecked checklist items.
+3. `autonomy-swarm` execution with reviewer lane and post-audit.
+4. Run governance checks (`check_active_plan_sync`, `check_multi_agent_sync`,
+   `docs-check --strict-tooling`, `orchestrate-status`, `orchestrate-watch`).
+5. Append one run entry to plan-doc `Progress Log` + `Audit Evidence`.
+
+Output paths:
+
+- Swarm bundle: `dev/reports/autonomy/swarms/<run-label>/summary.{md,json}`
+- Per-lane outputs/logs: `dev/reports/autonomy/swarms/<run-label>/AGENT-*/`
+- Auto digest: `dev/reports/autonomy/library/<run-label>-digest/summary.{md,json}`
+- Guarded run bundle: `dev/reports/autonomy/runs/<run-label>/summary.{md,json}`
+
+Default behavior keeps execution and audit evidence together.
+
+### 4) Release Workflow (Master Branch)
 
 1. Finalize release metadata (`rust/Cargo.toml`, `dev/CHANGELOG.md`).
-2. Verify release scope -- at minimum run CI-profile checks; use `devctl check --profile release` when wake/soak/mutation gates are required.
+2. Verify release scope. At minimum run CI-profile checks.
+   Use `devctl check --profile release` when wake/soak/mutation gates apply.
 3. Create and push release tag/notes via `python3 dev/scripts/devctl.py release --version X.Y.Z`.
 4. Publish GitHub release using generated notes (`gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md`).
 5. Publish PyPI package via `python3 dev/scripts/devctl.py pypi --upload`.
@@ -292,13 +383,15 @@ Primary command entrypoint: `dev/scripts/devctl.py`.
 7. Update Homebrew tap via `python3 dev/scripts/devctl.py homebrew --version X.Y.Z`.
 8. Sync release snapshot in `dev/active/MASTER_PLAN.md`.
 
-### 4) Security Posture and Risk Controls
+### 5) Security Posture and Risk Controls
 
-- VoiceTerm is **local-first** -- it runs backend CLIs on the same host and does not add hosted control planes.
-- Backend child processes inherit the invoking user's OS privileges, so host-level least privilege remains the primary boundary.
-- Claude permission prompts are enabled by default; `--claude-skip-permissions` intentionally weakens that guard.
-- Use `--claude-skip-permissions` only in isolated/trusted environments (sandbox, container, or throwaway workspace) and avoid untrusted repositories.
-- **Supply-chain risk** is gated in CI by `security_guard.yml`, which enforces RustSec policy thresholds with `dev/scripts/checks/check_rustsec_policy.py` and a documented temporary exception list at `dev/security/rustsec_allowlist.md`.
+- VoiceTerm is local-first. It runs backend CLIs on your machine.
+- Child processes inherit the same OS privileges as the current user.
+- Claude permission prompts are on by default.
+- `--claude-skip-permissions` weakens safety. Use it only in trusted sandboxes.
+- CI supply-chain checks run in `security_guard.yml` with
+  `check_rustsec_policy.py` and exceptions documented in
+  `dev/security/rustsec_allowlist.md`.
 
 ## Overlay State Machine
 
@@ -484,7 +577,7 @@ intervals to avoid corrupting the backend's screen.
 
 ## Visual System (Overlay)
 
-### Status line
+### Status line modules
 
 - The **enhanced status line** is driven by `StatusLineState` -- it tracks mode, pipeline, sensitivity, message, and duration.
 - `StatusLineState` keeps bounded telemetry history buffers (meter + latency) for compact **sparkline** rendering.
@@ -507,7 +600,7 @@ intervals to avoid corrupting the backend's screen.
 - Runtime settings are backed by `persistent_config.rs` and stored at `~/.config/voiceterm/config.toml` (override with `VOICETERM_CONFIG_DIR`).
 - Explicit CLI flags remain authoritative for each launch.
 
-### Overlays and panels
+### Overlay and panel modules
 
 - **Help overlay** -- toggled with `?`, rendered by the writer thread above the status line.
 - **Transcript history overlay** -- toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
@@ -535,7 +628,6 @@ intervals to avoid corrupting the backend's screen.
 - `rust/src/bin/voiceterm/banner.rs` -- startup splash + banner configuration
 - `rust/src/bin/voiceterm/terminal.rs` -- terminal sizing, modes, and signal handling
 - `rust/src/bin/voiceterm/arrow_keys.rs` -- arrow key normalization helpers
-- `rust/src/bin/voiceterm/progress.rs` -- progress/ETA helpers for long-running tasks
 
 ### Writer and output
 

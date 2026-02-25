@@ -1,3 +1,5 @@
+# Purpose: Runs the bounded CodeRabbit remediation loop for medium/high backlog items.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: CodeRabbit Ralph Loop
 
 permissions:
@@ -163,7 +165,7 @@ jobs:
             SOURCE_EVENT="workflow_run"
             SOURCE_RUN_ID="${WORKFLOW_RUN_ID}"
             SOURCE_RUN_SHA="${WORKFLOW_HEAD_SHA}"
-            FIX_COMMAND="${LOOP_FIX_COMMAND}"
+            FIX_COMMAND="${LOOP_FIX_COMMAND:-python3 dev/scripts/devctl.py check --profile ci}"
           fi
 
           if [[ -z "${BRANCH}" ]]; then
@@ -237,6 +239,8 @@ jobs:
       - name: Run CodeRabbit Ralph loop
         env:
           GH_TOKEN: ${{ github.token }}
+          AUTONOMY_MODE: ${{ vars.AUTONOMY_MODE }}
+          TRIAGE_LOOP_ALLOWED_PREFIXES: ${{ vars.TRIAGE_LOOP_ALLOWED_PREFIXES }}
           FIX_COMMAND: ${{ steps.cfg.outputs.fix_command }}
           MODE: ${{ steps.cfg.outputs.execution_mode }}
           TARGET_REPO: ${{ github.repository }}

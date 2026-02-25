@@ -31,6 +31,8 @@ fn onboarding_state_path() -> Option<PathBuf> {
 }
 
 fn parse_state(contents: &str) -> OnboardingState {
+    // Intentional minimal parser: a single boolean key keeps startup overhead low
+    // and avoids a full TOML dependency for this one-file state marker.
     for line in contents.lines() {
         let line = line.trim();
         if let Some(value) = line.strip_prefix("completed_first_capture") {

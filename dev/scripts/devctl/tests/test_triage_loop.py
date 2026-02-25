@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +69,8 @@ def loop_report(*, ok: bool = True, unresolved: int = 0) -> dict:
         "unresolved_count": unresolved,
         "reason": "resolved" if unresolved == 0 else "no fix command configured",
         "fix_command_configured": True,
+        "fix_block_reason": None,
+        "escalation_needed": False,
     }
 
 
@@ -129,6 +132,10 @@ class TriageLoopCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.triage_loop.write_output")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
     @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
     )
@@ -140,6 +147,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         write_output_mock,
     ) -> None:
@@ -150,10 +158,137 @@ class TriageLoopCommandTests(unittest.TestCase):
         execute_loop_mock.assert_called_once()
         self.assertIsNone(execute_loop_mock.call_args.kwargs["fix_command"])
         payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
         self.assertFalse(payload["fix_command_effective"])
 
     @patch("dev.scripts.devctl.commands.triage_loop.write_output")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.load_policy",
+        return_value={
+            "autonomy_mode_default": "read-only",
+            "triage_loop": {
+                "allowed_branches": ["develop"],
+                "allowed_fix_command_prefixes": [
+                    ["python3", "dev/scripts/devctl.py", "check", "--profile", "ci"]
+                ],
+            },
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_policy_denial_passes_fix_block_reason_to_loop_core(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _run_capture_mock,
+        _load_policy_mock,
+        execute_loop_mock,
+        write_output_mock,
+    ) -> None:
+        execute_loop_mock.return_value = loop_report(ok=False, unresolved=2)
+        args = make_args(
+            mode="plan-then-fix",
+            fix_command="python3 dev/scripts/devctl.py check --profile ci",
+        )
+        with patch.dict(os.environ, {"AUTONOMY_MODE": ""}, clear=False):
+            rc = triage_loop.run(args)
+        self.assertEqual(rc, 1)
+        fix_block_reason = execute_loop_mock.call_args.kwargs["fix_block_reason"]
+        self.assertIsNotNone(fix_block_reason)
+        self.assertIn("AUTONOMY_MODE", fix_block_reason or "")
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(any("AUTONOMY_MODE" in row for row in payload.get("warnings", [])))
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(1, "", "error connecting to api.github.com"),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop._is_ci_environment",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_preflight_connectivity_is_non_blocking_locally(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _is_ci_mock,
+        _run_capture_mock,
+        execute_loop_mock,
+        write_output_mock,
+    ) -> None:
+        args = make_args(mode="report-only")
+        rc = triage_loop.run(args)
+        self.assertEqual(rc, 0)
+        execute_loop_mock.assert_not_called()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reason"], "gh_unreachable_local_non_blocking")
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop._is_ci_environment",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_connectivity_reason_is_normalized_to_non_blocking_locally(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _is_ci_mock,
+        _run_capture_mock,
+        execute_loop_mock,
+        write_output_mock,
+    ) -> None:
+        execute_loop_mock.return_value = {
+            **loop_report(ok=False, unresolved=0),
+            "reason": "timeout waiting for completed run (error connecting to api.github.com)",
+        }
+        args = make_args(mode="report-only")
+        rc = triage_loop.run(args)
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reason"], "gh_unreachable_local_non_blocking")
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
     @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
@@ -166,6 +301,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         write_output_mock,
     ) -> None:
@@ -216,6 +352,10 @@ class TriageLoopCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.triage_loop._publish_notification_comment")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
     @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
         "dev.scripts.devctl.commands.triage_loop.shutil.which",
         return_value="/usr/bin/gh",
     )
@@ -227,6 +367,7 @@ class TriageLoopCommandTests(unittest.TestCase):
         self,
         _resolve_repo_mock,
         _which_mock,
+        _run_capture_mock,
         execute_loop_mock,
         publish_mock,
         write_output_mock,
@@ -240,6 +381,46 @@ class TriageLoopCommandTests(unittest.TestCase):
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "notification_comment_failed")
         self.assertIn("comment denied", " ".join(payload.get("warnings", [])))
+
+    @patch("dev.scripts.devctl.commands.triage_loop.write_output")
+    @patch("dev.scripts.devctl.commands.triage_loop._publish_review_escalation")
+    @patch("dev.scripts.devctl.commands.triage_loop._publish_notification_comment")
+    @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.run_capture",
+        return_value=(0, "1000", ""),
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.shutil.which",
+        return_value="/usr/bin/gh",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.triage_loop.resolve_repo",
+        return_value="owner/repo",
+    )
+    def test_escalation_comment_published_when_attempts_exhausted(
+        self,
+        _resolve_repo_mock,
+        _which_mock,
+        _run_capture_mock,
+        execute_loop_mock,
+        publish_notification_mock,
+        publish_escalation_mock,
+        write_output_mock,
+    ) -> None:
+        execute_loop_mock.return_value = {
+            **loop_report(ok=False, unresolved=3),
+            "reason": "max attempts reached with unresolved medium+ backlog",
+            "escalation_needed": True,
+        }
+        publish_notification_mock.return_value = {"ok": True, "mode": "summary-and-comment"}
+        publish_escalation_mock.return_value = {"ok": True, "mode": "summary-and-comment"}
+        args = make_args(notify="summary-and-comment")
+        rc = triage_loop.run(args)
+        self.assertEqual(rc, 1)
+        publish_escalation_mock.assert_called_once()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertIn("escalation_result", payload)
 
 
 if __name__ == "__main__":

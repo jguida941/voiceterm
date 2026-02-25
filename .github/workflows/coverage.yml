@@ -1,3 +1,5 @@
+# Purpose: Builds Rust coverage and uploads it to Codecov.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Coverage Upload
 
 permissions:

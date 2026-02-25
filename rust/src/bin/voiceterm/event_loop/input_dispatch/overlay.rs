@@ -5,6 +5,7 @@ use crate::transcript_history::transcript_history_visible_rows;
 
 mod overlay_mouse;
 mod theme_studio_cycles;
+mod theme_studio_input;
 
 use self::theme_studio_cycles::{
     cycle_runtime_banner_style_override, cycle_runtime_border_style_override,
@@ -13,8 +14,7 @@ use self::theme_studio_cycles::{
     cycle_runtime_startup_style_override, cycle_runtime_toast_position_override,
     cycle_runtime_toast_severity_mode_override, cycle_runtime_voice_scene_style_override,
 };
-
-const THEME_STUDIO_HISTORY_LIMIT: usize = 64;
+use self::theme_studio_input::{handle_theme_studio_bytes, handle_theme_studio_enter_key};
 
 fn dev_panel_index_from_ascii(byte: u8) -> Option<usize> {
     if !byte.is_ascii_digit() {
@@ -83,9 +83,6 @@ pub(super) fn handle_overlay_input_event(
                 }
                 OverlayMode::ToastHistory => {
                     render_toast_history_overlay_for_state(state, deps);
-                }
-                OverlayMode::MemoryBrowser | OverlayMode::ActionCenter => {
-                    // Placeholder: re-render after theme cycle when overlays ship.
                 }
                 OverlayMode::None => {}
             }
@@ -259,42 +256,11 @@ pub(super) fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {
-            apply_theme_studio_selection(state, timers, deps, running);
+            handle_theme_studio_enter_key(state, timers, deps, running);
             None
         }
         (OverlayMode::ThemeStudio, InputEvent::Bytes(bytes)) => {
-            if bytes == [0x1b] {
-                close_overlay(state, deps, false);
-            } else {
-                let mut should_redraw = false;
-                for key in parse_arrow_keys(&bytes) {
-                    match key {
-                        ArrowKey::Up => {
-                            if state.theme_studio_selected > 0 {
-                                state.theme_studio_selected =
-                                    state.theme_studio_selected.saturating_sub(1);
-                                should_redraw = true;
-                            }
-                        }
-                        ArrowKey::Down => {
-                            let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
-                            if state.theme_studio_selected < max {
-                                state.theme_studio_selected += 1;
-                                should_redraw = true;
-                            }
-                        }
-                        ArrowKey::Left => {
-                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, -1);
-                        }
-                        ArrowKey::Right => {
-                            should_redraw |= apply_theme_studio_adjustment(state, timers, deps, 1);
-                        }
-                    }
-                }
-                if should_redraw {
-                    render_theme_studio_overlay_for_state(state, deps);
-                }
-            }
+            handle_theme_studio_bytes(state, timers, deps, &bytes);
             None
         }
         (OverlayMode::ThemePicker, InputEvent::HelpToggle) => {
@@ -538,248 +504,6 @@ fn run_settings_item_action(
         did_apply = apply_settings_item_action(selected, direction, settings_ctx);
     });
     did_apply
-}
-
-fn apply_theme_studio_adjustment(
-    state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
-    direction: i32,
-) -> bool {
-    match theme_studio_item_at(state.theme_studio_selected) {
-        ThemeStudioItem::HudStyle => run_settings_item_action(
-            state,
-            timers,
-            deps,
-            SettingsItem::HudStyle,
-            direction,
-            OverlayMode::ThemeStudio,
-        ),
-        ThemeStudioItem::HudBorders => run_settings_item_action(
-            state,
-            timers,
-            deps,
-            SettingsItem::HudBorders,
-            direction,
-            OverlayMode::ThemeStudio,
-        ),
-        ThemeStudioItem::HudPanel => run_settings_item_action(
-            state,
-            timers,
-            deps,
-            SettingsItem::HudPanel,
-            direction,
-            OverlayMode::ThemeStudio,
-        ),
-        ThemeStudioItem::HudAnimate => run_settings_item_action(
-            state,
-            timers,
-            deps,
-            SettingsItem::HudAnimate,
-            direction,
-            OverlayMode::ThemeStudio,
-        ),
-        ThemeStudioItem::ColorsGlyphs => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.glyph_set_override =
-                    cycle_runtime_glyph_set_override(overrides.glyph_set_override, direction);
-            })
-        }
-        ThemeStudioItem::LayoutMotion => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.indicator_set_override = cycle_runtime_indicator_set_override(
-                    overrides.indicator_set_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressSpinner => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.progress_style_override = cycle_runtime_progress_style_override(
-                    overrides.progress_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressBars => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.progress_bar_family_override = cycle_runtime_progress_bar_family_override(
-                    overrides.progress_bar_family_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ThemeBorders => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.border_style_override =
-                    cycle_runtime_border_style_override(overrides.border_style_override, direction);
-            })
-        }
-        ThemeStudioItem::VoiceScene => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.voice_scene_style_override = cycle_runtime_voice_scene_style_override(
-                    overrides.voice_scene_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ToastPosition => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.toast_position_override = cycle_runtime_toast_position_override(
-                    overrides.toast_position_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::StartupSplash => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.startup_style_override = cycle_runtime_startup_style_override(
-                    overrides.startup_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ToastSeverity => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.toast_severity_mode_override = cycle_runtime_toast_severity_mode_override(
-                    overrides.toast_severity_mode_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::BannerStyle => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.banner_style_override =
-                    cycle_runtime_banner_style_override(overrides.banner_style_override, direction);
-            })
-        }
-        ThemeStudioItem::UndoEdit => {
-            if direction == 0 {
-                theme_studio_undo_runtime_override_edit(state)
-            } else {
-                false
-            }
-        }
-        ThemeStudioItem::RedoEdit => {
-            if direction == 0 {
-                theme_studio_redo_runtime_override_edit(state)
-            } else {
-                false
-            }
-        }
-        ThemeStudioItem::RollbackEdits => {
-            if direction == 0 {
-                theme_studio_rollback_runtime_override_edits(state)
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
-fn push_theme_studio_history_entry(
-    history: &mut Vec<crate::theme::RuntimeStylePackOverrides>,
-    overrides: crate::theme::RuntimeStylePackOverrides,
-) {
-    if history.len() >= THEME_STUDIO_HISTORY_LIMIT {
-        history.remove(0);
-    }
-    history.push(overrides);
-}
-
-fn apply_theme_studio_runtime_override_edit(
-    state: &mut EventLoopState,
-    edit: impl FnOnce(&mut crate::theme::RuntimeStylePackOverrides),
-) -> bool {
-    let mut next = crate::theme::runtime_style_pack_overrides();
-    let previous = next;
-    edit(&mut next);
-    if next == previous {
-        return false;
-    }
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, previous);
-    state.theme_studio_redo_history.clear();
-    crate::theme::set_runtime_style_pack_overrides(next);
-    true
-}
-
-fn theme_studio_undo_runtime_override_edit(state: &mut EventLoopState) -> bool {
-    let Some(previous) = state.theme_studio_undo_history.pop() else {
-        return false;
-    };
-    let current = crate::theme::runtime_style_pack_overrides();
-    push_theme_studio_history_entry(&mut state.theme_studio_redo_history, current);
-    crate::theme::set_runtime_style_pack_overrides(previous);
-    true
-}
-
-fn theme_studio_redo_runtime_override_edit(state: &mut EventLoopState) -> bool {
-    let Some(next) = state.theme_studio_redo_history.pop() else {
-        return false;
-    };
-    let current = crate::theme::runtime_style_pack_overrides();
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
-    crate::theme::set_runtime_style_pack_overrides(next);
-    true
-}
-
-fn theme_studio_rollback_runtime_override_edits(state: &mut EventLoopState) -> bool {
-    let current = crate::theme::runtime_style_pack_overrides();
-    let defaults = crate::theme::RuntimeStylePackOverrides::default();
-    if current == defaults {
-        return false;
-    }
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
-    state.theme_studio_redo_history.clear();
-    crate::theme::set_runtime_style_pack_overrides(defaults);
-    true
-}
-
-fn apply_theme_studio_selection(
-    state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
-    running: &mut bool,
-) {
-    match theme_studio_item_at(state.theme_studio_selected) {
-        ThemeStudioItem::ThemePicker => {
-            open_theme_picker_overlay(state, timers, deps);
-        }
-        ThemeStudioItem::HudStyle
-        | ThemeStudioItem::HudBorders
-        | ThemeStudioItem::HudPanel
-        | ThemeStudioItem::HudAnimate
-        | ThemeStudioItem::ColorsGlyphs
-        | ThemeStudioItem::LayoutMotion
-        | ThemeStudioItem::ProgressSpinner
-        | ThemeStudioItem::ProgressBars
-        | ThemeStudioItem::ThemeBorders
-        | ThemeStudioItem::VoiceScene
-        | ThemeStudioItem::ToastPosition
-        | ThemeStudioItem::StartupSplash
-        | ThemeStudioItem::ToastSeverity
-        | ThemeStudioItem::BannerStyle => {
-            if apply_theme_studio_adjustment(state, timers, deps, 1)
-                && state.overlay_mode == OverlayMode::ThemeStudio
-            {
-                render_theme_studio_overlay_for_state(state, deps);
-            }
-        }
-        ThemeStudioItem::UndoEdit | ThemeStudioItem::RedoEdit | ThemeStudioItem::RollbackEdits => {
-            if apply_theme_studio_adjustment(state, timers, deps, 0)
-                && state.overlay_mode == OverlayMode::ThemeStudio
-            {
-                render_theme_studio_overlay_for_state(state, deps);
-            }
-        }
-        ThemeStudioItem::Close => {
-            close_overlay(state, deps, false);
-        }
-    }
-    if !*running {
-        close_overlay(state, deps, false);
-    }
 }
 
 fn apply_theme_picker_selection(

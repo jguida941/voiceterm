@@ -1,0 +1,277 @@
+# Purpose: Runs the guarded plan-scoped swarm pipeline.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: Swarm Run
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: swarm-run-${{ github.event_name == 'workflow_dispatch' && (inputs.run_label || 'manual') || github.run_id }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_doc:
+        description: Active execution plan doc path
+        required: false
+        default: dev/active/autonomous_control_plane.md
+        type: string
+      mp_scope:
+        description: MASTER_PLAN scope token
+        required: false
+        default: MP-338
+        type: string
+      branch_base:
+        description: Integration branch to execute against
+        required: false
+        default: develop
+        type: string
+      run_label:
+        description: Optional explicit run label
+        required: false
+        type: string
+      mode:
+        description: Nested autonomy mode
+        required: false
+        default: report-only
+        type: choice
+        options:
+          - report-only
+          - plan-then-fix
+          - fix-only
+      agents:
+        description: Explicit agent count override
+        required: false
+        default: "10"
+        type: string
+      parallel_workers:
+        description: Parallel worker process count
+        required: false
+        default: "4"
+        type: string
+      max_rounds:
+        description: Max rounds per worker loop
+        required: false
+        default: "1"
+        type: string
+      max_hours:
+        description: Max hours per worker loop
+        required: false
+        default: "1"
+        type: string
+      max_tasks:
+        description: Max tasks per worker loop
+        required: false
+        default: "1"
+        type: string
+      stale_minutes:
+        description: Stale threshold for orchestrate-watch
+        required: false
+        default: "120"
+        type: string
+      dry_run:
+        description: Run dry-run mode (recommended)
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  swarm-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      run_label: ${{ steps.cfg.outputs.run_label }}
+      report_ok: ${{ steps.export.outputs.report_ok }}
+      run_dir: ${{ steps.export.outputs.run_dir }}
+      swarm_selected_agents: ${{ steps.export.outputs.swarm_selected_agents }}
+      swarm_worker_agents: ${{ steps.export.outputs.swarm_worker_agents }}
+      reviewer_lane: ${{ steps.export.outputs.reviewer_lane }}
+      governance_ok: ${{ steps.export.outputs.governance_ok }}
+      plan_update_ok: ${{ steps.export.outputs.plan_update_ok }}
+      plan_update_updated: ${{ steps.export.outputs.plan_update_updated }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.branch_base || github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Resolve run configuration
+        id: cfg
+        env:
+          INPUT_RUN_LABEL: ${{ inputs.run_label }}
+          INPUT_BRANCH_BASE: ${{ inputs.branch_base }}
+          INPUT_AGENTS: ${{ inputs.agents }}
+          INPUT_PARALLEL_WORKERS: ${{ inputs.parallel_workers }}
+          INPUT_MAX_ROUNDS: ${{ inputs.max_rounds }}
+          INPUT_MAX_HOURS: ${{ inputs.max_hours }}
+          INPUT_MAX_TASKS: ${{ inputs.max_tasks }}
+          INPUT_STALE_MINUTES: ${{ inputs.stale_minutes }}
+        run: |
+          set -euo pipefail
+          RUN_LABEL="${INPUT_RUN_LABEL}"
+          if [[ -z "${RUN_LABEL}" ]]; then
+            RUN_LABEL="gh-swarm-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          fi
+          BRANCH_BASE="${INPUT_BRANCH_BASE:-develop}"
+          AGENTS="${INPUT_AGENTS:-10}"
+          PARALLEL_WORKERS="${INPUT_PARALLEL_WORKERS:-4}"
+          MAX_ROUNDS="${INPUT_MAX_ROUNDS:-1}"
+          MAX_HOURS="${INPUT_MAX_HOURS:-1}"
+          MAX_TASKS="${INPUT_MAX_TASKS:-1}"
+          STALE_MINUTES="${INPUT_STALE_MINUTES:-120}"
+
+          for value in "${AGENTS}" "${PARALLEL_WORKERS}" "${MAX_ROUNDS}" "${MAX_TASKS}" "${STALE_MINUTES}"; do
+            if [[ ! "${value}" =~ ^[0-9]+$ ]]; then
+              echo "invalid numeric input: ${value}"
+              exit 1
+            fi
+          done
+          if ! [[ "${MAX_HOURS}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "invalid max_hours: ${MAX_HOURS}"
+            exit 1
+          fi
+
+          {
+            echo "run_label=${RUN_LABEL}"
+            echo "branch_base=${BRANCH_BASE}"
+            echo "agents=${AGENTS}"
+            echo "parallel_workers=${PARALLEL_WORKERS}"
+            echo "max_rounds=${MAX_ROUNDS}"
+            echo "max_hours=${MAX_HOURS}"
+            echo "max_tasks=${MAX_TASKS}"
+            echo "stale_minutes=${STALE_MINUTES}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Run swarm_run pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          PLAN_DOC: ${{ inputs.plan_doc }}
+          MP_SCOPE: ${{ inputs.mp_scope }}
+          BRANCH_BASE: ${{ steps.cfg.outputs.branch_base }}
+          RUN_LABEL: ${{ steps.cfg.outputs.run_label }}
+          MODE: ${{ inputs.mode }}
+          AGENTS: ${{ steps.cfg.outputs.agents }}
+          PARALLEL_WORKERS: ${{ steps.cfg.outputs.parallel_workers }}
+          MAX_ROUNDS: ${{ steps.cfg.outputs.max_rounds }}
+          MAX_HOURS: ${{ steps.cfg.outputs.max_hours }}
+          MAX_TASKS: ${{ steps.cfg.outputs.max_tasks }}
+          STALE_MINUTES: ${{ steps.cfg.outputs.stale_minutes }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set +e
+          CMD=(
+            python3 dev/scripts/devctl.py swarm_run
+            --repo "${TARGET_REPO}"
+            --plan-doc "${PLAN_DOC}"
+            --mp-scope "${MP_SCOPE}"
+            --branch-base "${BRANCH_BASE}"
+            --run-label "${RUN_LABEL}"
+            --mode "${MODE}"
+            --agents "${AGENTS}"
+            --parallel-workers "${PARALLEL_WORKERS}"
+            --max-rounds "${MAX_ROUNDS}"
+            --max-hours "${MAX_HOURS}"
+            --max-tasks "${MAX_TASKS}"
+            --stale-minutes "${STALE_MINUTES}"
+            --format json
+            --output /tmp/swarm-run.json
+            --json-output /tmp/swarm-run.json
+          )
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            CMD+=(--dry-run)
+          fi
+          "${CMD[@]}"
+          RC=$?
+          echo "${RC}" > /tmp/swarm-run.exit
+          if [[ ! -f /tmp/swarm-run.json ]]; then
+            cat <<'JSON' > /tmp/swarm-run.json
+            {"ok": false, "errors": ["swarm_run output missing"], "run_dir": ""}
+            JSON
+          fi
+          exit 0
+
+      - name: Export outputs
+        id: export
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
+          summary = payload.get('swarm', {}).get('summary', {})
+          plan_update = payload.get('plan_update', {})
+          output_path = Path(os.environ['GITHUB_OUTPUT'])
+          with output_path.open('a', encoding='utf-8') as handle:
+              handle.write(f"report_ok={'true' if payload.get('ok') else 'false'}\n")
+              handle.write(f"run_dir={payload.get('run_dir','')}\n")
+              handle.write(f"swarm_selected_agents={summary.get('selected_agents','')}\n")
+              handle.write(f"swarm_worker_agents={summary.get('worker_agents','')}\n")
+              handle.write(f"reviewer_lane={summary.get('reviewer_lane','')}\n")
+              handle.write(f"governance_ok={'true' if payload.get('governance',{}).get('ok') else 'false'}\n")
+              handle.write(f"plan_update_ok={'true' if plan_update.get('ok') else 'false'}\n")
+              handle.write(f"plan_update_updated={'true' if plan_update.get('updated') else 'false'}\n")
+          PY
+
+      - name: Publish run summary
+        if: always()
+        env:
+          RUN_LABEL: ${{ steps.cfg.outputs.run_label }}
+          REPORT_OK: ${{ steps.export.outputs.report_ok }}
+          RUN_DIR: ${{ steps.export.outputs.run_dir }}
+          SWARM_SELECTED_AGENTS: ${{ steps.export.outputs.swarm_selected_agents }}
+          SWARM_WORKER_AGENTS: ${{ steps.export.outputs.swarm_worker_agents }}
+          REVIEWER_LANE: ${{ steps.export.outputs.reviewer_lane }}
+          GOVERNANCE_OK: ${{ steps.export.outputs.governance_ok }}
+          PLAN_UPDATE_OK: ${{ steps.export.outputs.plan_update_ok }}
+          PLAN_UPDATE_UPDATED: ${{ steps.export.outputs.plan_update_updated }}
+        run: |
+          echo "## Swarm Run" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- run_label: \`${RUN_LABEL}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- ok: \`${REPORT_OK}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- run_dir: \`${RUN_DIR}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- selected_agents: \`${SWARM_SELECTED_AGENTS}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- worker_agents: \`${SWARM_WORKER_AGENTS}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- reviewer_lane: \`${REVIEWER_LANE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- governance_ok: \`${GOVERNANCE_OK}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- plan_update_ok: \`${PLAN_UPDATE_OK}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- plan_update_updated: \`${PLAN_UPDATE_UPDATED}\`" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload swarm_run artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: swarm-run-${{ steps.cfg.outputs.run_label }}
+          path: |
+            /tmp/swarm-run.json
+            /tmp/swarm-run.exit
+            ${{ steps.export.outputs.run_dir }}
+          if-no-files-found: warn
+
+      - name: Enforce swarm_run success
+        if: always()
+        run: |
+          RC="$(cat /tmp/swarm-run.exit)"
+          if [[ "${RC}" != "0" ]]; then
+            echo "swarm_run command returned ${RC}"
+            exit "${RC}"
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
+          if not payload.get('ok'):
+              print('swarm_run report marked not ok')
+              raise SystemExit(1)
+          PY

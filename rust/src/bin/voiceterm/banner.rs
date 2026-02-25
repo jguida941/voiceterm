@@ -28,19 +28,9 @@ const ASCII_LOGO: &[&str] = &[
     r"  ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝",
 ];
 
-/// Purple gradient colors for shiny effect (light to deep purple)
-const PURPLE_GRADIENT: &[(u8, u8, u8)] = &[
-    (224, 176, 255), // Light lavender
-    (200, 162, 255), // Soft purple
-    (187, 154, 247), // Bright purple (TokyoNight)
-    (157, 124, 216), // Medium purple
-    (138, 106, 196), // Deep purple
-    (118, 88, 176),  // Rich purple
-];
-
-/// Format RGB color as ANSI truecolor foreground code
-fn rgb_fg(r: u8, g: u8, b: u8) -> String {
-    format!("\x1b[38;2;{};{};{}m", r, g, b)
+fn logo_line_color(theme: Theme, _line_index: usize) -> &'static str {
+    // Keep a single accent so splash art matches the selected theme family.
+    theme.colors().border
 }
 
 fn centered_padding(terminal_width: u16, text: &str) -> usize {
@@ -65,10 +55,16 @@ fn clear_screen(stdout: &mut dyn Write) -> io::Result<()> {
     write!(stdout, "\x1b[0m\x1b[2J\x1b[3J\x1b[H")
 }
 
-/// Format the shiny purple ASCII art banner with tagline underneath.
-pub fn format_ascii_banner(use_color: bool, terminal_width: u16, separator: &str) -> String {
-    let reset = "\x1b[0m";
-    let dim = "\x1b[90m";
+/// Format the ASCII startup banner with theme-routed color accents.
+pub fn format_ascii_banner(
+    use_color: bool,
+    terminal_width: u16,
+    separator: &str,
+    theme: Theme,
+) -> String {
+    let colors = theme.colors();
+    let reset = colors.reset;
+    let dim = colors.dim;
     let mut output = String::new();
 
     let logo_width = ASCII_LOGO
@@ -84,12 +80,12 @@ pub fn format_ascii_banner(use_color: bool, terminal_width: u16, separator: &str
     };
     let pad_str: String = " ".repeat(padding);
 
-    // Print the ASCII art logo with purple gradient
+    // Print the ASCII art logo with theme-routed accents.
     for (i, line) in ASCII_LOGO.iter().enumerate() {
         output.push_str(&pad_str);
         if use_color {
-            let (r, g, b) = PURPLE_GRADIENT[i % PURPLE_GRADIENT.len()];
-            output.push_str(&rgb_fg(r, g, b));
+            let color = logo_line_color(theme, i);
+            output.push_str(color);
             output.push_str(line);
             output.push_str(reset);
         } else {
@@ -116,13 +112,12 @@ pub fn format_ascii_banner(use_color: bool, terminal_width: u16, separator: &str
     }
     output.push_str("\n\n");
 
-    // Add "Initializing..." in golden yellow
+    // Add "Initializing..." using themed warning color.
     let init_text = "Initializing...";
     let init_padding = centered_padding(terminal_width, init_text);
     output.push_str(&" ".repeat(init_padding));
     if use_color {
-        // Golden yellow color
-        output.push_str(&rgb_fg(255, 200, 50));
+        output.push_str(colors.warning);
         output.push_str(init_text);
         output.push_str(reset);
     } else {
@@ -253,7 +248,7 @@ fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Opti
     if let Some(startup_style) = runtime_overrides.startup_style_override {
         return match startup_style {
             RuntimeStartupStyleOverride::Full => {
-                format_ascii_banner(use_color, cols.unwrap_or(80), separator)
+                format_ascii_banner(use_color, cols.unwrap_or(80), separator, theme)
             }
             RuntimeStartupStyleOverride::Minimal => format_minimal_banner(theme),
             RuntimeStartupStyleOverride::Hidden => String::new(),
@@ -270,7 +265,7 @@ fn build_startup_banner_for_cols(config: &BannerConfig, theme: Theme, cols: Opti
     }
 
     match cols {
-        Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols, separator),
+        Some(cols) if cols >= 66 => format_ascii_banner(use_color, cols, separator, theme),
         Some(cols) if use_minimal_banner(cols) => format_minimal_banner(theme),
         _ => format_startup_banner(config, theme),
     }
@@ -583,7 +578,7 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     #[test]
     fn ascii_banner_logo_left_padding_matches_centered_formula() {
         let width = 120;
-        let banner = format_ascii_banner(false, width, "│");
+        let banner = format_ascii_banner(false, width, "│", Theme::Coral);
         let first_logo_line = banner.lines().next().expect("logo line");
         let expected = centered_padding(width, ASCII_LOGO[0]);
         let leading_spaces = first_logo_line.chars().take_while(|c| *c == ' ').count();
@@ -593,7 +588,7 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     #[test]
     fn ascii_banner_initializing_padding_matches_centered_formula() {
         let width = 120;
-        let banner = format_ascii_banner(false, width, "│");
+        let banner = format_ascii_banner(false, width, "│", Theme::Coral);
         let init_line = banner
             .lines()
             .find(|line| line.contains("Initializing..."))
@@ -646,30 +641,30 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn ascii_banner_contains_logo() {
-        let banner = format_ascii_banner(false, 80, "│");
+        let banner = format_ascii_banner(false, 80, "│", Theme::Coral);
         assert!(banner.contains("██╗"));
         assert!(banner.contains("╚═╝"));
     }
 
     #[test]
     fn ascii_banner_with_color_has_ansi_codes() {
-        let banner = format_ascii_banner(true, 80, "│");
-        // Should contain truecolor ANSI codes
-        assert!(banner.contains("\x1b[38;2;"));
+        let banner = format_ascii_banner(true, 80, "│", Theme::Coral);
+        // Should contain ANSI codes from the active theme palette.
+        assert!(banner.contains("\x1b["));
         // Should contain reset codes
         assert!(banner.contains("\x1b[0m"));
     }
 
     #[test]
     fn ascii_banner_no_color_is_plain() {
-        let banner = format_ascii_banner(false, 80, "│");
+        let banner = format_ascii_banner(false, 80, "│", Theme::Coral);
         // Should NOT contain any ANSI codes
         assert!(!banner.contains("\x1b["));
     }
 
     #[test]
     fn ascii_banner_contains_tagline() {
-        let banner = format_ascii_banner(false, 80, "│");
+        let banner = format_ascii_banner(false, 80, "│", Theme::Coral);
         assert!(banner.contains("Ctrl+R record"));
         assert!(banner.contains("? help"));
         assert!(banner.contains("Ctrl+O settings"));
@@ -679,13 +674,13 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn ascii_banner_has_no_leading_blank_line() {
-        let banner = format_ascii_banner(false, 120, "│");
+        let banner = format_ascii_banner(false, 120, "│", Theme::Coral);
         assert!(!banner.starts_with('\n'));
     }
 
     #[test]
     fn ascii_banner_centers_with_wide_terminal() {
-        let banner = format_ascii_banner(false, 120, "│");
+        let banner = format_ascii_banner(false, 120, "│", Theme::Coral);
         // With 120 cols, there should be some leading spaces for centering
         let lines: Vec<&str> = banner.lines().collect();
         // Find a line with the logo (not empty)
@@ -696,7 +691,7 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     #[test]
     fn ascii_banner_centers_tagline_using_display_width() {
         let width = 120;
-        let banner = format_ascii_banner(false, width, "│");
+        let banner = format_ascii_banner(false, width, "│", Theme::Coral);
         let line = banner
             .lines()
             .find(|line| line.contains("Ctrl+R record"))
@@ -711,7 +706,9 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     }
 
     #[test]
-    fn purple_gradient_has_six_colors() {
-        assert_eq!(PURPLE_GRADIENT.len(), 6);
+    fn logo_line_color_uses_single_theme_accent() {
+        let colors = Theme::TokyoNight.colors();
+        assert_eq!(logo_line_color(Theme::TokyoNight, 0), colors.border);
+        assert_eq!(logo_line_color(Theme::TokyoNight, 3), colors.border);
     }
 }

@@ -8,6 +8,7 @@ use voiceterm::VoiceCaptureTrigger;
 
 use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::{HudStyle, OverlayConfig};
+use crate::cycle_index::cycle_index;
 use crate::image_mode::{build_image_prompt, capture_image};
 use crate::log_debug;
 use crate::overlays::{
@@ -179,12 +180,13 @@ impl<'a> ButtonActionContext<'a> {
         let captured_path = match capture_image(self.config) {
             Ok(path) => path,
             Err(err) => {
+                let status = crate::status_messages::image_capture_failed(&err);
                 set_status(
                     self.writer_tx,
                     self.status_clear_deadline,
                     self.current_status,
                     self.status_state,
-                    &crate::status_messages::with_log_path("Image capture failed"),
+                    &status,
                     Some(Duration::from_secs(3)),
                 );
                 log_debug(&format!("image capture failed: {err:#}"));
@@ -194,12 +196,13 @@ impl<'a> ButtonActionContext<'a> {
 
         let prompt = build_image_prompt(&captured_path, self.config.voice_send_mode);
         if let Err(err) = self.session.send_text(&prompt.text) {
+            let status = format!("Image prompt inject failed: {err}");
             set_status(
                 self.writer_tx,
                 self.status_clear_deadline,
                 self.current_status,
                 self.status_state,
-                &crate::status_messages::with_log_path("Image prompt inject failed"),
+                &status,
                 Some(Duration::from_secs(3)),
             );
             log_debug(&format!("image prompt inject failed: {err:#}"));
@@ -367,12 +370,7 @@ pub(crate) fn advance_hud_button_focus(
         .hud_button_focus
         .and_then(|action| actions.iter().position(|candidate| *candidate == action))
     {
-        Some(current_idx) => {
-            let len_i64 = i64::try_from(actions.len()).unwrap_or(1);
-            let current_i64 = i64::try_from(current_idx).unwrap_or(0);
-            let next_i64 = (current_i64 + i64::from(direction)).rem_euclid(len_i64);
-            usize::try_from(next_i64).unwrap_or(0)
-        }
+        Some(current_idx) => cycle_index(current_idx, actions.len(), direction),
         None => {
             if direction >= 0 {
                 0

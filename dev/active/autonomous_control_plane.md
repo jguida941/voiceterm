@@ -1,6 +1,6 @@
 # Autonomous Loop + Mobile Control Plane
 
-Status: execution mirrored in `dev/active/MASTER_PLAN.md` (MP-325..MP-337)
+Status: execution mirrored in `dev/active/MASTER_PLAN.md` (MP-325..MP-338, MP-340)
 Execution plan contract: required
 Owner lane: Control-plane/governance
 
@@ -17,6 +17,10 @@ This plan covers:
 4. Rust containerized mobile control service with SMS-first pilot and richer
    channel support next.
 5. Guardrail and traceability hardening for autonomous execution.
+6. One unified operator system across Rust overlay, PySide6 desktop controller,
+   and iPhone surfaces using the same controller-state contract.
+7. Deterministic learning so repeated loop work is reused through
+   artifact-backed playbooks instead of hidden memory.
 
 ## Execution Protocol (Required)
 
@@ -38,6 +42,10 @@ This plan covers:
 3. Safety posture is allowlisted and policy-gated; no unrestricted free-form
    command execution.
 4. Mobile strategy defaults to SMS backup first, then richer interactive chat.
+5. Rust overlay stays the primary runtime/rendering surface for VoiceTerm.
+6. PySide6 is optional for desktop operator control only, using control-plane API
+   boundaries (not as a replacement for runtime overlay internals).
+7. Learning logic must be artifact-driven, replayable, and auditable.
 
 ## External Inputs
 
@@ -94,6 +102,27 @@ Acceptance:
 
 1. `summary-and-comment` produces one canonical updatable comment per target.
 2. `summary-only` does not publish comments.
+
+### 1.3 Policy-Gated Triage Fixes + Review Escalation
+
+- [x] Add triage fix-policy evaluation mirroring mutation safety gates:
+  - [x] `AUTONOMY_MODE=operate` required for live fix execution.
+  - [x] Branch must be in `triage_loop.allowed_branches`.
+  - [x] Fix command must match allowlisted prefixes (with optional
+        `TRIAGE_LOOP_ALLOWED_PREFIXES` env override).
+- [x] Pass `fix_block_reason` into loop core and attempt rows for explicit
+      deny-path reason codes.
+- [x] Add review-escalation comment upsert path with dedicated marker
+      (`coderabbit-ralph-loop-escalation`) so escalation comments coexist with
+      status comments.
+- [x] Set `escalation_needed=true` when attempts exhaust unresolved medium/high
+      backlog so reviewer action requests are deterministic.
+
+Acceptance:
+
+1. No triage fix command executes unless policy gates pass.
+2. Policy-denied loops emit explicit reason codes in reports/attempts.
+3. Exhausted loops publish one idempotent escalation comment per target.
 
 ## Phase 2 - Mutation Remediation Loop (Bounded)
 
@@ -322,9 +351,9 @@ Unified data contract backlog:
 
 Operator experience backlog:
 
-- [ ] Add `devctl phone-status` command (`--view full|compact|trace|actions`)
+- [x] Add `devctl phone-status` command (`--view full|compact|trace|actions`)
       for iPhone SSH-first usage.
-- [ ] Add `devctl controller-action` command with safe subset first:
+- [x] Add `devctl controller-action` command with safe subset first:
   - `dispatch-report-only`
   - `pause-loop`
   - `resume-loop`
@@ -380,6 +409,81 @@ ADR delivery rule for this track:
 3. ADR IDs and MP scope linkage must be reflected in both this file and
    `dev/active/MASTER_PLAN.md`.
 
+### 3.7 Unified Operator Surfaces (Rust Overlay + PySide6 + iPhone)
+
+Goal: one control system, multiple clients, no behavior drift.
+
+Implementation scope:
+
+- [ ] Keep one canonical `controller_state` source artifact and API projection.
+- [ ] Rust `--dev` panel reads local `controller_state` projections directly.
+- [ ] Add an optional PySide6 desktop operator client that:
+  - [ ] renders the same status/phase/metrics/actions as Rust/iPhone.
+  - [ ] calls only policy-gated `controller-action` endpoints for writes.
+  - [ ] never shells directly into unrestricted local commands.
+- [ ] Keep iPhone surfaces (SSH read + API/PWA) bound to the same projections.
+- [ ] Require parity tests across all clients before enabling new write actions.
+
+Implementation order:
+
+1. Land `controller_state` schema and projection files (`full`, `compact`,
+   `trace`, `actions`) as source of truth.
+2. Wire Rust Dev panel and `devctl phone-status` to that schema first.
+3. Add PySide6 read-only UI against the same data contract.
+4. Add one guarded write action (`dispatch-report-only`) and verify parity.
+5. Expand write actions only after replay/auth/rate-limit gates are green.
+
+Acceptance:
+
+1. A state change appears the same in Rust Dev panel, PySide6 client, and iPhone.
+2. Action outcomes and denials are identical across clients.
+3. No client bypasses policy gates for workflow/shell actions.
+4. Operator can monitor and steer bounded loops from any client safely.
+
+### 3.8 Claude Swarm Worker Mode + Codex Audit Observer
+
+Goal: allow high-parallel coding execution (up to 20 workers) while keeping one
+auditable orchestrator contract.
+
+Execution model:
+
+- [x] Use `devctl autonomy-swarm` for agent-count planning and bounded loop fanout
+      (`--max-agents 20` cap).
+- [x] Keep execution as one command by default: worker fanout + post-audit
+      digest + reserved reviewer slot (`AGENT-REVIEW` when lane count >1).
+- [x] Add one guarded wrapper (`devctl swarm_run`) that loads plan scope,
+      drives swarm execution, runs governance checks, and appends plan evidence
+      (`Progress Log` + `Audit Evidence`) without manual glue steps.
+- [x] Add one matrix benchmark wrapper (`devctl autonomy-benchmark`) that
+      validates plan scope and runs swarm-count/tactic tradeoff batches with
+      consolidated productivity reports/charts.
+- [ ] Use Claude workers only inside dedicated worktrees/branches mapped in
+      `MASTER_PLAN` + runbook tables.
+- [ ] Keep Codex (orchestrator) in audit-observer mode:
+  - [ ] run `orchestrate-status` + `orchestrate-watch` cadence.
+  - [ ] run sync guards and post-run digest (`autonomy-report`).
+  - [ ] enforce policy denials/stop conditions before any promote actions.
+- [ ] Require every worker instruction/ack/progress to land in
+      `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` sections 14/15.
+- [ ] Treat any lane with missing ACK, stale updates, or failed required bundle
+      as blocked until resolved.
+
+Operator checklist (per run):
+
+1. `python3 dev/scripts/devctl.py swarm_run --plan-doc <plan.md> --mp-scope <MP-XXX> --mode report-only --run-label <label> --format md`
+2. Update `MASTER_PLAN` board + runbook section 0 with selected `AGENT-<N>` lanes.
+3. Start Claude workers with the runbook prompt template + lane scope.
+4. Run auditor loop every 15-30 minutes (`orchestrate-status`, `orchestrate-watch`, `check_multi_agent_sync`).
+5. Review `swarm_run` bundle + nested swarm post-audit bundle and ensure
+   `AGENT-REVIEW` lane is healthy before merges.
+
+Acceptance:
+
+1. Up to 20 workers can run concurrently with deterministic lane ownership.
+2. All worker actions are reconstructable from runbook + autonomy artifacts.
+3. Auditor can halt promotion safely when policy/gate evidence is incomplete.
+4. No worker runs outside tracked MP scope and branch/worktree boundaries.
+
 ## Phase 4 - Guardrails and Data Quality
 
 - [x] Add policy file `dev/config/control_plane_policy.json`:
@@ -404,6 +508,8 @@ ADR delivery rule for this track:
 - [x] Mutation hotspot extraction + reason-code surface.
 - [x] Policy gate allowlist/denylist evaluation.
 - [ ] Mobile command parser normalization + auth checks.
+- [ ] Controller-state projection parity checks (Rust, phone, PySide6 clients).
+- [ ] Fingerprint and playbook-confidence scoring determinism checks.
 
 ### Integration
 
@@ -413,6 +519,8 @@ ADR delivery rule for this track:
 - [ ] Fix-mode dry-run allowlisted vs blocked command paths.
 - [ ] Twilio webhook roundtrip command dispatch.
 - [ ] API auth + replay rejection.
+- [ ] PySide6 client adapter parity against Rust/iPhone action behavior.
+- [ ] Learning-loop promotion/decay policy behavior on mixed outcomes.
 
 ### End-to-End
 
@@ -420,6 +528,8 @@ ADR delivery rule for this track:
 - [ ] Phone-triggered report-only mutation loop returns artifact summary.
 - [ ] Blocked command attempt yields policy deny + audit trace.
 - [ ] No repeated comment spam across repeated loop runs on same target.
+- [ ] Same loop packet appears identically in Rust Dev panel, PySide6, and phone.
+- [ ] Learned playbook recommendation appears in next loop cycle with evidence.
 
 ## Rollout Plan
 
@@ -495,6 +605,37 @@ Acceptance:
 3. The audit program supports iterative script improvement over time.
 4. `devctl` usage generates audit data automatically with minimal manual logging.
 
+### 6.1 Deterministic Learning Loop (No Hidden Memory)
+
+- [ ] Add loop-task fingerprinting from packet fields
+      (`task_type`, `risk_class`, `paths`, `failure_reason`, `policy_outcome`).
+- [ ] Add playbook-memory store
+      (`dev/reports/autonomy/learning/playbooks.jsonl`) with:
+  - [ ] fingerprint key
+  - [ ] attempted strategy
+  - [ ] outcome metrics (success/failure/revert count)
+  - [ ] confidence score and last-seen timestamp
+- [ ] Add promotion rules:
+  - [ ] auto-suggest after 2 successful repeats
+  - [ ] auto-apply only after guarded threshold (for example 5/5 success)
+  - [ ] always require policy gate pass before execution
+- [ ] Add decay/quarantine rules:
+  - [ ] lower confidence on regressions
+  - [ ] auto-disable playbooks after repeated failures
+- [ ] Add `devctl autonomy-learn` digest to emit:
+  - [ ] most reused playbooks
+  - [ ] automation win-rate by task class
+  - [ ] candidate manual tasks to automate next
+- [ ] Feed learned playbook suggestions back into `autonomy-loop` plan stage as
+      ranked options (with evidence refs and confidence).
+
+Acceptance:
+
+1. Repeated task classes converge to stable playbooks with measurable win-rate.
+2. Failed/unsafe playbooks are quarantined automatically.
+3. Every learned decision is explainable from stored artifacts and metrics.
+4. Architect can disable learning globally without disabling core loop execution.
+
 ## Assumptions and Defaults
 
 1. `develop` remains integration branch; `master` remains release branch.
@@ -513,6 +654,16 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-02-25: Implemented triage-loop fix execution parity with mutation policy
+  gates (new `triage_loop_policy.py`, `control_plane_policy.json`
+  `triage_loop.allowed_fix_command_prefixes`, workflow env wiring for
+  `AUTONOMY_MODE`/`TRIAGE_LOOP_ALLOWED_PREFIXES`, and `fix_block_reason`
+  propagation into dry-run/live reports).
+- 2026-02-25: Added review escalation flow for exhausted triage loops:
+  `coderabbit_ralph_loop_core.py` now sets `escalation_needed=true` on
+  max-attempt exhaustion, `triage_loop_support.py` now upserts dedicated
+  escalation comments with a separate marker, and `devctl triage-loop` now
+  publishes escalation comments when unresolved backlog remains.
 - 2026-02-24: Plan created under `dev/active/` with execution-contract marker,
   staged phases, acceptance criteria, and audit checklist.
 - 2026-02-24: Added iPhone-first MVP execution path (read-first UI, one guarded
@@ -556,17 +707,88 @@ Acceptance:
   `dev/reports/audits/devctl_events.jsonl` (policy/env configurable) so every
   control-plane run contributes to KPI trend analysis by default.
 - 2026-02-24: Added bounded autonomy controller surfaces (`devctl autonomy-loop`
-  + `.github/workflows/autonomy_controller.yml`) with checkpoint packet queue
+  and `.github/workflows/autonomy_controller.yml`) with checkpoint packet queue
   artifacts, terminal/action trace payloads for phone-forwardable status, and
   optional guarded PR promote flow when working branch refs exist remotely.
 - 2026-02-24: Added first-pass phone-status feed emission to `autonomy-loop`
   (`dev/reports/autonomy/queue/phone/latest.json` + `latest.md`) including
   terminal trace lines, loop draft text, run URL/SHA context, and next-action
   summaries for iPhone/SMS/push adapter consumption.
+- 2026-02-24: Added `devctl autonomy-report` for operator-readable autonomy
+  summaries: command scans loop/watch artifacts, writes dated bundles under
+  `dev/reports/autonomy/library/<label>`, emits summary markdown/json, copies
+  source artifacts, and generates matplotlib charts when available.
 - 2026-02-24: Added explicit unified architect-controller phase map + required
   ADR backlog (`ADR-0027..ADR-0034`) so autonomy/mobile execution has a
   tracked architectural decision path and does not drift into memory-only scope.
+- 2026-02-24: Added one-system operator architecture decision: Rust overlay
+  remains runtime primary, PySide6 is an optional desktop controller client over
+  shared control-plane APIs, and iPhone uses the same projected controller
+  state for parity.
+- 2026-02-25: Added an initial `app/pyside6` command-center scaffold for
+  MP-340 with modular tab surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`,
+  `Git`, `Terminal`), non-blocking `QProcess` execution, and a broad static
+  command catalog mapped to existing `devctl`/check/git/cargo/workflow
+  operations. This is a partial milestone; policy-gated action-only mode and
+  strict projection parity with Rust/iPhone remain open.
+- 2026-02-24: Added deterministic learning-loop scope (fingerprints, playbook
+  memory, guarded promotion/decay, `autonomy-learn` digest) so repeated work
+  can be automated over time with explicit auditability.
+- 2026-02-24: Added explicit Claude swarm worker mode + Codex audit-observer
+  execution contract (up to 20 workers) with required runbook/guard cadence and
+  stop conditions.
+- 2026-02-24: Upgraded `devctl autonomy-swarm` to one-command execution mode:
+  auto post-audit digest (`autonomy-report`) now runs by default, and execution
+  reserves a default `AGENT-REVIEW` lane when selected lane count is greater
+  than one (disable controls: `--no-post-audit`, `--no-reviewer-lane`).
+- 2026-02-24: Added `devctl swarm_run` guarded wrapper so one command now
+  covers plan-scope load, next-step prompt derivation, swarm+reviewer
+  execution, governance checks, and plan-doc evidence append.
+- 2026-02-24: Added workflow-dispatch lane `.github/workflows/autonomy_run.yml`
+  so guarded plan-scoped swarm runs can be executed in CI with uploaded run
+  artifacts and summary outputs.
+- 2026-02-25: Canonical command name for this wrapper is now `swarm_run`.
+  Historical log/evidence rows below that mention `autonomy-run` refer to runs
+  executed before the rename.
+- 2026-02-24: Added `devctl autonomy-benchmark` for active-plan-scoped swarm
+  matrix runs (`swarm-counts x tactics`) with per-swarm/per-scenario metrics
+  and charted tradeoff outputs under
+  `dev/reports/autonomy/benchmarks/<run-label>/summary.{md,json}`.
 
+- 2026-02-24: Ran `devctl autonomy-run` (`autonomy-run-live-20260224-091724Z`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/autonomy-run-live-20260224-091724Z/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`autonomy-run-live-20260224-092520Z`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/autonomy-run-live-20260224-092520Z/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-benchmark` (`matrix-10-15-20-30-40-20260224`, `MP-338`) across swarm counts `10,15,20,30,40` and tactics `uniform,specialized,research-first,test-first`; scenarios=20, swarms_total=460, swarms_ok=460, tasks_completed_total=1840; artifacts: `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224/summary.md`.
+- 2026-02-24: Re-ran `devctl autonomy-benchmark` after benchmark module split (`matrix-10-15-20-30-40-20260224-r2`, `MP-338`) and confirmed the same matrix contract with `scenarios=20`, `swarms_total=460`, `swarms_ok=460`, `tasks_completed_total=1840`; artifacts: `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224-r2/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-benchmark` (`mp342-344-baseline-matrix-20260225`, `MP-338`) with an explicit runtime-reliability prompt covering `MP-342`, `MP-343`, and `MP-344`; baseline control used `swarm_count=1` and comparison tiers used `swarm_count=3,5` across `uniform,specialized,research-first,test-first`; outcomes: `scenarios=12`, `swarms_total=36`, `swarms_ok=36`, `tasks_completed_total=108`, `elapsed_seconds_total=10.079`; artifacts: `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/summary.{md,json}`.
+- 2026-02-25: Ran live `devctl autonomy-benchmark` A/B control-vs-swarm pass (`mp342-344-live-baseline-matrix-20260225`, `MP-338`) for the same runtime prompt using `swarm_count=1` control (no-swarm) and `swarm_count=5` swarm variant across `research-first,specialized`; outcomes: `scenarios=4`, `swarms_total=12`, `swarms_ok=12`, `tasks_completed_total=24`, `elapsed_seconds_total=3.81`; artifacts: `dev/reports/autonomy/benchmarks/mp342-344-live-baseline-matrix-20260225/summary.{md,json}`.
+- 2026-02-25: Generated explicit graph bundle comparing swarm vs no-swarm outcomes for `MP-342/343/344` (`tasks_completed_total`, `work_output_score`, `tasks_per_minute`, `elapsed_seconds_total`, `success_pct`) under `dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/`.
+- 2026-02-24: Added `devctl phone-status` read-surface command for iPhone/SSH usage with projection views (`full|compact|trace|actions`) and optional controller-state projection bundle output (`full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`); also fixed autonomy-report phone summary reason extraction to use top-level phone payload reason.
+- 2026-02-24: Added `devctl controller-action` with safe subset (`refresh-status`, `dispatch-report-only`, `pause-loop`, `resume-loop`) plus policy gates (workflow/branch allowlist + `AUTONOMY_MODE=off` kill-switch block), dry-run support, and local controller-mode state artifact emission for phone surfaces.
+
+- 2026-02-24: Ran `devctl autonomy-run` (`mp340-controller-state-r1`, `MP-340`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/mp340-controller-state-r1/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`mp340-controller-state-r2-10workers`, `MP-340`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/mp340-controller-state-r2-10workers/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`cont-fix-20260224-110234Z`, `MP-340`); selected_agents=2, worker_agents=1, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/cont-fix-20260224-110234Z/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`mp330-swarm-20260224a`, `MP-330`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=False, status=blocked; artifacts: `dev/reports/autonomy/runs/mp330-swarm-20260224a/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`20260224-133052Z-c01`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260224-133052Z-c01/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`20260224-133052Z-c02`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260224-133052Z-c02/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`20260224-133052Z-c03`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260224-133052Z-c03/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`20260224-133052Z-c04`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260224-133052Z-c04/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`20260224-133052Z-c05`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260224-133052Z-c05/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c01`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c01/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c02`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c02/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`orchestrator-live-bounded-c03`, `MP-338`); selected_agents=4, worker_agents=3, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`swarm10-20260224-085105-c01`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md`.
+- 2026-02-24: Ran `devctl autonomy-run` (`swarm10-20260224-085105-c02`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c01`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c01/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c02`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c02/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c03`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c03/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c04`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c04/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c05`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c05/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c06`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c06/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c07`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c07/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c08`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c09`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c10`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md`.
 ## Audit Evidence
 
 | Check | Evidence | Status |
@@ -584,8 +806,49 @@ Acceptance:
 | `python3 -m unittest dev.scripts.devctl.tests.test_audit_events dev.scripts.devctl.tests.test_cli_audit_events` | `Ran 5 tests ... OK` (2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_loop dev.scripts.devctl.tests.test_loop_packet dev.scripts.devctl.tests.test_triage_loop dev.scripts.devctl.tests.test_mutation_loop` | `Ran 18 tests ... OK` (2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_loop` | updated phone-status artifact assertions passed (2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_report` | parser + bundle generation tests passed (`Ran 3 tests ... OK`, 2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_swarm` | reviewer-lane reservation + post-audit default behavior covered (`Ran 7 tests ... OK`, 2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_run` | guarded `swarm_run` flow covered (scope checks, governance pass/fail behavior, plan-doc evidence append; `Ran 3 tests ... OK`, 2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_benchmark` | autonomy-benchmark parser + matrix summary aggregation behavior covered (`Ran 2 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-loop --repo jguida941/voiceterm --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 1 --max-hours 1 --max-tasks 1 --checkpoint-every 1 --loop-max-attempts 1 --dry-run --format md --output /tmp/autonomy-controller-smoke.md` | dry-run controller emitted round packet + queue artifacts and summary markdown (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label live-human-report --format md --output dev/reports/autonomy/live-human-report.md --json-output dev/reports/autonomy/live-human-report.json` | generated dated operator bundle (`summary.md/json` + charts + copied sources) under `dev/reports/autonomy/library/live-human-report` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label live-10-reviewlane-20260224-085045Z --format md --output dev/reports/autonomy/live-10-reviewlane-20260224-085045Z.md --json-output dev/reports/autonomy/live-10-reviewlane-20260224-085045Z.json` | one-command live swarm produced 9 worker lanes + `AGENT-REVIEW` and auto digest bundle under `dev/reports/autonomy/library/live-10-reviewlane-20260224-085045Z-digest` (`ok: True`, 2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 20 --mode report-only --dry-run --run-label matrix-10-15-20-30-40-20260224 --format md --output /tmp/autonomy-benchmark-latest.md --json-output /tmp/autonomy-benchmark-latest.json` | plan-scoped matrix benchmark completed with consolidated tradeoff report (`scenarios=20`, `swarms_total=460`, `swarms_ok=460`, `tasks_completed_total=1840`) under `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224/` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 20 --mode report-only --dry-run --run-label matrix-10-15-20-30-40-20260224-r2 --format md --output /tmp/autonomy-benchmark-latest-r2.md --json-output /tmp/autonomy-benchmark-latest-r2.json` | post-shape-refactor benchmark rerun passed with identical matrix totals and refreshed bundle/charts under `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224-r2/` (`swarms_total=460`, `swarms_ok=460`) (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,3,5 --tactics uniform,specialized,research-first,test-first --agents 3 --parallel-workers 3 --max-concurrent-swarms 3 --mode report-only --dry-run --run-label mp342-344-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.json` | baseline-first runtime backlog benchmark completed for `MP-342/343/344` (`scenarios=12`, `swarms_total=36`, `swarms_ok=36`, `tasks_completed_total=108`) with scenario bundles under `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,5 --tactics research-first,specialized --agents 2 --parallel-workers 2 --max-concurrent-swarms 2 --mode report-only --run-label mp342-344-live-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.json` | live A/B benchmark completed with explicit no-swarm control vs swarm variant (`scenarios=4`, `swarms_total=12`, `swarms_ok=12`, `tasks_completed_total=24`) under `dev/reports/autonomy/benchmarks/mp342-344-live-baseline-matrix-20260225/` (2026-02-25 local run) | done |
+| `python3 - <<'PY' ... -> dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/{summary.md,summary.json,*.svg}` | generated direct comparison table + SVG graphs for swarm (`swarm_count=5`) vs no-swarm control (`swarm_count=1`) across `research-first` and `specialized` tactics (2026-02-25 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_phone_status dev.scripts.devctl.tests.test_autonomy_report` | phone-status parser/command/projection bundle behavior covered and phone reason metric extraction fixed (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_controller_action` | controller-action parser/guard/action behavior covered (`refresh-status`, allowlist-reject, allowlist dry-run dispatch, pause-loop mode-file write) (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after autonomy-loop helper split (2026-02-24 local run) | done |
-| `python3 dev/scripts/checks/check_code_shape.py` | autonomy-loop files now satisfy new-file shape limits after round/snapshot helper extraction; current gate still reports one unrelated pre-existing violation in `dev/scripts/checks/check_multi_agent_sync.py` growth (`423 -> 455`) | blocked (unrelated) |
+| `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after guarded `swarm_run` split + `dev/scripts/mutants.py` compaction removed pre-existing growth-budget violation (2026-02-24 local run) | done |
 | `python3 dev/scripts/audits/audit_metrics.py --input dev/audits/templates/audit_events_template.jsonl --output-md /tmp/audit-metrics.md --output-json /tmp/audit-metrics.json --chart-dir /tmp/audit-metrics-charts` | summary + JSON + chart outputs emitted (2026-02-24 local run) | done |
 | `DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 DEVCTL_EXECUTION_SOURCE=script_only python3 dev/scripts/devctl.py list` | event row appended to `dev/reports/audits/devctl_events.jsonl` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label autonomy-run-live-20260224-091724Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/autonomy-run-live-20260224-091724Z/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label autonomy-run-live-20260224-092520Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/autonomy-run-live-20260224-092520Z/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label mp340-controller-state-r1` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/mp340-controller-state-r1/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label mp340-controller-state-r2-10workers` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/mp340-controller-state-r2-10workers/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-340 --run-label cont-fix-20260224-110234Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/cont-fix-20260224-110234Z/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-330 --run-label mp330-swarm-20260224a` | swarm_ok=True, governance_ok=False, summary=`dev/reports/autonomy/runs/mp330-swarm-20260224a/summary.md` (2026-02-24 local run) | blocked |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260224-133052Z-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260224-133052Z-c01/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260224-133052Z-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260224-133052Z-c02/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260224-133052Z-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260224-133052Z-c03/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260224-133052Z-c04` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260224-133052Z-c04/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260224-133052Z-c05` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260224-133052Z-c05/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c01/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c02/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md` (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md` (2026-02-24 local run) | done |
+| `python3 -m compileall app/pyside6` | compiled new PySide6 command-center package (`run.py`, `main.py`, runner/models/catalog/tab modules) with no syntax errors (2026-02-25 local run) | done |
+| `source ../../.venv-pyside6/bin/activate && QT_QPA_PLATFORM=offscreen python3 - <<'PY' ... CommandCenterWindow()` | offscreen smoke test constructed `CommandCenterWindow` successfully (`VoiceTerm Command Center (PySide6)`) after isolated venv install (`PySide6 6.10.2`) (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c01/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c02/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c03/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c04` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c04/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c05` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c05/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c06` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c06/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c07` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c07/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c08` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c09` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c10` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md` (2026-02-25 local run) | done |

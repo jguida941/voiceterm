@@ -50,17 +50,19 @@ impl MemoryIndex {
     }
 
     /// Total number of indexed events.
+    #[must_use = "memory index length should be consumed by callers"]
     pub(crate) fn len(&self) -> usize {
         self.events.len()
     }
 
     /// Whether the index is empty.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.events.is_empty()
     }
 
     /// Retrieve the N most recent eligible events, newest first.
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn recent(&self, n: usize) -> Vec<&MemoryEvent> {
         self.events
             .iter()
@@ -71,6 +73,7 @@ impl MemoryIndex {
     }
 
     /// Retrieve events by topic tag (case-insensitive), newest first.
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn by_topic(&self, topic: &str, n: usize) -> Vec<&MemoryEvent> {
         let key = topic.to_ascii_lowercase();
         let Some(indices) = self.topic_index.get(&key) else {
@@ -80,7 +83,7 @@ impl MemoryIndex {
             .iter()
             .rev()
             .filter_map(|&idx| {
-                let event = &self.events[idx];
+                let event = self.events.get(idx)?;
                 if event.retrieval_state == RetrievalState::Eligible {
                     Some(event)
                 } else {
@@ -92,6 +95,7 @@ impl MemoryIndex {
     }
 
     /// Retrieve events by task reference (case-insensitive), newest first.
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn by_task(&self, task: &str, n: usize) -> Vec<&MemoryEvent> {
         let key = task.to_ascii_lowercase();
         let Some(indices) = self.task_index.get(&key) else {
@@ -101,7 +105,7 @@ impl MemoryIndex {
             .iter()
             .rev()
             .filter_map(|&idx| {
-                let event = &self.events[idx];
+                let event = self.events.get(idx)?;
                 if event.retrieval_state == RetrievalState::Eligible {
                     Some(event)
                 } else {
@@ -114,6 +118,7 @@ impl MemoryIndex {
 
     /// Full-text search across event text (simple case-insensitive substring).
     /// Returns matching events newest-first, capped at `n`.
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn search_text(&self, query: &str, n: usize) -> Vec<&MemoryEvent> {
         if query.is_empty() {
             return self.recent(n);
@@ -131,6 +136,7 @@ impl MemoryIndex {
     }
 
     /// Retrieve events within a time range (ISO string comparison).
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn timeline(&self, start: &str, end: &str, n: usize) -> Vec<&MemoryEvent> {
         self.events
             .iter()
@@ -145,6 +151,7 @@ impl MemoryIndex {
     }
 
     /// Update retrieval state for an event by ID.
+    #[must_use = "callers should check whether an event state update occurred"]
     pub(crate) fn set_retrieval_state(&mut self, event_id: &str, state: RetrievalState) -> bool {
         for event in &mut self.events {
             if event.event_id == event_id {
@@ -156,11 +163,13 @@ impl MemoryIndex {
     }
 
     /// Get an event by ID.
+    #[must_use = "query results should be checked by callers"]
     pub(crate) fn get_by_id(&self, event_id: &str) -> Option<&MemoryEvent> {
         self.events.iter().find(|e| e.event_id == event_id)
     }
 
     /// Return all events (for export/pack generation), newest first.
+    #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn all_eligible(&self) -> Vec<&MemoryEvent> {
         self.events
             .iter()
@@ -249,6 +258,19 @@ mod tests {
     }
 
     #[test]
+    fn by_topic_skips_stale_indices_without_panicking() {
+        let mut idx = MemoryIndex::new();
+        idx.insert(event_with_tags("evt_1", "test", &["rust"], &[]));
+        idx.topic_index
+            .entry("rust".to_string())
+            .or_default()
+            .push(9_999);
+        let results = idx.by_topic("rust", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].event_id, "evt_1");
+    }
+
+    #[test]
     fn by_task_filters() {
         let mut idx = MemoryIndex::new();
         idx.insert(event_with_tags("evt_1", "alpha", &[], &["MP-230"]));
@@ -258,6 +280,19 @@ mod tests {
         let results = idx.by_task("MP-230", 10);
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].event_id, "evt_3");
+    }
+
+    #[test]
+    fn by_task_skips_stale_indices_without_panicking() {
+        let mut idx = MemoryIndex::new();
+        idx.insert(event_with_tags("evt_1", "alpha", &[], &["MP-230"]));
+        idx.task_index
+            .entry("mp-230".to_string())
+            .or_default()
+            .push(4_242);
+        let results = idx.by_task("MP-230", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].event_id, "evt_1");
     }
 
     #[test]
@@ -339,7 +374,7 @@ mod tests {
         let mut idx = MemoryIndex::new();
         idx.insert(sample_event("evt_1", "one"));
         idx.insert(sample_event("evt_2", "two"));
-        idx.set_retrieval_state("evt_1", RetrievalState::Quarantined);
+        let _ = idx.set_retrieval_state("evt_1", RetrievalState::Quarantined);
 
         let all = idx.all_eligible();
         assert_eq!(all.len(), 1);
