@@ -28,6 +28,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add theme file hot-reload via mtime polling + FNV-1a content hashing (~500ms cycle).
 - Add tab bar renderer (`format_tab_bar`) for multi-page Studio navigation.
 
+### Documentation
+
+- Refresh screenshot placement in `README.md` and `guides/USAGE.md` to include the new shortcuts overlay, notification-history overlay, wake-word flow, and hidden-HUD-recording visuals.
+
 ## [1.0.93] - 2026-02-24
 ### UX
 

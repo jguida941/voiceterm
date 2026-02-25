@@ -264,6 +264,8 @@ Open with `Ctrl+N`.
 - Overlay borders and rows keep alignment in both Unicode and ASCII glyph modes (including long history lists).
 - Use `Esc` (or `Ctrl+N` again) to close the overlay.
 
+![Notification History](../img/toast-history.png)
+
 ## Voice Modes
 
 Three controls define runtime behavior:
@@ -288,6 +290,8 @@ Optional startup command:
 ```bash
 voiceterm --auto-voice --wake-word --voice-send-mode insert
 ```
+
+![Wake Word Flow](../img/wake-word.png)
 
 You can also do one-shot submit with:
 
@@ -490,11 +494,15 @@ voiceterm --hud-right-panel off
 
 Minimal HUD example:
 
-![Minimal HUD](../img/min-hud.png)
+![Minimal HUD](../img/hud-min.png)
 
 Hidden HUD example:
 
 ![Hidden HUD](../img/hidden-hud.png)
+
+Hidden HUD while recording:
+
+![Hidden HUD Recording](../img/hidden-hud-rec.png)
 
 ## Project Voice Macros
 

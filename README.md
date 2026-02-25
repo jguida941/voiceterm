@@ -233,6 +233,8 @@ Press `?` to open grouped shortcuts (`Recording`, `Mode`, `Appearance`,
 `Sensitivity`, `Navigation`) with clickable Docs/Troubleshooting links on
 terminals that support clickable links. Details: [Core Controls](guides/USAGE.md#core-controls).
 
+![Shortcuts Overlay](img/shortcuts.png)
+
 ## Controls
 
 For shortcuts and behavior, see:
