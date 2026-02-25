@@ -29,7 +29,7 @@ COMMANDS = [
     "loop-packet",
     "autonomy-loop",
     "autonomy-benchmark",
-    "autonomy-run",
+    "swarm_run",
     "autonomy-report",
     "phone-status",
     "controller-action",

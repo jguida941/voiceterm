@@ -1,7 +1,7 @@
 # CLI Flags
 
-All command flags for `voiceterm`.
-If you are new, start with [Quick Reference](#quick-reference) first.
+All `voiceterm` flags in one place.
+If you are new, start with [Quick Reference](#quick-reference).
 
 Docs map:
 
@@ -67,17 +67,17 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 
 For runtime controls and keyboard shortcuts, see [USAGE.md](USAGE.md).
 
-Wake status labels in Full HUD:
+Wake labels in Full HUD:
 
-- `Wake: ON` - listener active (steady badge in Full HUD)
-- `Wake: PAUSED` - listener intentionally paused during active capture/transcription
-- `Wake: ERR` - listener startup failed; check status/log-path message
-- Mouse stays enabled for clickable HUD controls by default.
-- In Cursor terminal, wheel scrolling remains available while mouse mode is on
+- `Wake: ON` - listener is active
+- `Wake: PAUSED` - listener paused during capture/transcription
+- `Wake: ERR` - listener startup failed
+- Mouse is on by default for clickable HUD controls.
+- In Cursor terminal, wheel scrolling stays available while mouse mode is on
   (`Mouse: ON - scroll preserved in Cursor`).
 - Wake phrases still work even if auto-voice is paused.
-- Built-in voice phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
-- In `auto` mode, wake-triggered `send`/`submit` still submits Enter even when no staged insert text is pending.
+- Built-in phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
+- In `auto` mode, wake-triggered `send`/`submit` still sends Enter even without staged `insert` text.
 - `Ctrl+X` triggers one-shot screenshot capture prompts.
 - Image mode adds an `IMG` HUD badge when persistent mode is enabled.
 
@@ -91,9 +91,9 @@ Wake status labels in Full HUD:
 | `--dev-log` | Persist guarded dev events to session JSONL logs (requires `--dev`) | off |
 | `--dev-path <DIR>` | Root directory for `--dev-log` session files (requires `--dev --dev-log`) | `$HOME/.voiceterm/dev` (fallback: `<cwd>/.voiceterm/dev`) |
 
-When enabled, Full HUD shows a `DEV` badge so it is obvious you are in guarded mode.
-`Ctrl+D` toggles the in-session Dev panel while the guard is active.
-With `--dev-log`, VoiceTerm writes per-run JSONL files under `<dev-path>/sessions/`.
+When enabled, Full HUD shows a `DEV` badge.
+`Ctrl+D` toggles the in-session Dev panel.
+With `--dev-log`, VoiceTerm writes JSONL session files under `<dev-path>/sessions/`.
 
 ---
 
@@ -124,8 +124,8 @@ voiceterm --login --claude      # Login to Claude CLI
 
 **Notes:**
 
-- `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`
-- Gemini is currently nonfunctional; Aider/OpenCode presets exist but are untested. Only Codex and Claude are fully supported.
+- `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`.
+- Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Only Codex and Claude are fully supported.
 
 ---
 
@@ -142,7 +142,7 @@ voiceterm --login --claude      # Login to Claude CLI
 | `--ffmpeg-cmd <PATH>` | FFmpeg binary path (python fallback) | ffmpeg |
 | `--ffmpeg-device <NAME>` | FFmpeg audio device override (python fallback) | - |
 
-`--input-device` values are normalized before lookup (wrapped whitespace/newlines are collapsed), so pasted multi-line names from terminal output resolve correctly.
+`--input-device` values are normalized before lookup (extra whitespace/newlines collapsed), so pasted multi-line names resolve correctly.
 
 ---
 
@@ -202,8 +202,8 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
 Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.
-`--theme-file` uses the same path source as `VOICETERM_THEME_FILE`; when set,
-VoiceTerm polls the file (~500ms) and reapplies valid edits live.
+`--theme-file` uses the same path source as `VOICETERM_THEME_FILE`.
+When set, VoiceTerm polls the file (~500ms) and applies valid edits live.
 
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
@@ -246,9 +246,9 @@ if `HOME` is unavailable).
 | `--claude-skip-permissions` | Skip Claude permission prompts (IPC only; high-risk) | off |
 
 `--claude-skip-permissions` forwards Claude's
-`--dangerously-skip-permissions` behavior. Keep this disabled unless you are
-running in a trusted, isolated environment and accept that tool actions may run
-without interactive approval prompts.
+`--dangerously-skip-permissions` behavior. Keep this off unless you are in a
+trusted, isolated environment and accept that tool actions may run without
+interactive approval prompts.
 
 ---
 

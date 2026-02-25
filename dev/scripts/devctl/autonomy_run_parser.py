@@ -1,4 +1,4 @@
-"""Parser wiring for `devctl autonomy-run` arguments."""
+"""Parser wiring for `devctl swarm_run` arguments."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ import argparse
 
 
 def add_autonomy_run_parser(sub) -> None:
-    """Register the `autonomy-run` command parser."""
+    """Register the `swarm_run` command parser."""
     run_cmd = sub.add_parser(
-        "autonomy-run",
+        "swarm_run",
         help=(
             "Run one guarded autonomy pipeline: load active-plan scope, execute "
             "swarm+reviewer lane, run governance checks, and append plan evidence"
@@ -30,7 +30,7 @@ def add_autonomy_run_parser(sub) -> None:
     run_cmd.add_argument(
         "--run-root",
         default="dev/reports/autonomy/runs",
-        help="Root directory for autonomy-run bundles",
+        help="Root directory for swarm_run bundles",
     )
     run_cmd.add_argument(
         "--swarm-output-root",
@@ -127,6 +127,42 @@ def add_autonomy_run_parser(sub) -> None:
         type=int,
         default=10,
         help="Maximum swarm cycles when --continuous is enabled",
+    )
+    run_cmd.add_argument(
+        "--feedback-sizing",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable closed-loop agent sizing in continuous mode",
+    )
+    run_cmd.add_argument(
+        "--feedback-stall-rounds",
+        type=int,
+        default=2,
+        help="Downshift when unresolved totals stall for this many cycles",
+    )
+    run_cmd.add_argument(
+        "--feedback-no-signal-rounds",
+        type=int,
+        default=2,
+        help="Downshift when all workers report no-signal triage reasons",
+    )
+    run_cmd.add_argument(
+        "--feedback-downshift-factor",
+        type=float,
+        default=0.5,
+        help="Multiplier for feedback downshift decisions",
+    )
+    run_cmd.add_argument(
+        "--feedback-upshift-rounds",
+        type=int,
+        default=2,
+        help="Upshift after this many improving cycles",
+    )
+    run_cmd.add_argument(
+        "--feedback-upshift-factor",
+        type=float,
+        default=1.25,
+        help="Multiplier for feedback upshift decisions",
     )
     run_cmd.add_argument("--format", choices=["json", "md"], default="md")
     run_cmd.add_argument("--output")

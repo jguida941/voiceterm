@@ -65,6 +65,7 @@ def non_blocking_connectivity_report(
     repo: str,
     args,
     effective_fix_command: str | None,
+    fix_block_reason: str | None,
     message: str,
     normalize_sha_fn,
 ) -> dict[str, Any]:
@@ -79,6 +80,8 @@ def non_blocking_connectivity_report(
         "unresolved_count": 0,
         "reason": "gh_unreachable_local_non_blocking",
         "fix_command_configured": bool(effective_fix_command),
+        "fix_block_reason": fix_block_reason,
+        "escalation_needed": False,
         "source_run_id": (
             args.source_run_id
             if args.source_run_id and args.source_run_id > 0
@@ -96,6 +99,7 @@ def build_dry_run_report(
     repo: str,
     args,
     effective_fix_command: str | None,
+    fix_block_reason: str | None,
     normalize_sha_fn,
 ) -> Dict[str, Any]:
     return {
@@ -109,6 +113,8 @@ def build_dry_run_report(
         "unresolved_count": 0,
         "reason": "dry-run",
         "fix_command_configured": bool(effective_fix_command),
+        "fix_block_reason": fix_block_reason,
+        "escalation_needed": False,
         "source_run_id": (
             args.source_run_id
             if args.source_run_id and args.source_run_id > 0

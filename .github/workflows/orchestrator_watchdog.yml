@@ -1,3 +1,5 @@
+# Purpose: Checks multi-agent orchestrator status and stale-lane SLA rules.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Orchestrator Watchdog
 
 permissions:

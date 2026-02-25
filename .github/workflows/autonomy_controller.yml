@@ -1,3 +1,5 @@
+# Purpose: Runs the bounded autonomy controller loop and optional PR promotion.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Autonomy Controller
 
 permissions:

@@ -2,8 +2,8 @@
 
 Get voice input for your AI CLI in under 2 minutes.
 Works on macOS and Linux (Windows needs WSL2).
-For an always-listening flow, combine `--auto-voice` + `--wake-word`, then say
-`send` / `submit` in `insert` mode for hands-free delivery.
+If you want hands-free mode, start with `--auto-voice` + `--wake-word`, then
+use `insert` send mode so you can say `send` / `submit`.
 
 ## 1) Install Codex CLI (default backend)
 
@@ -80,16 +80,16 @@ Use `voiceterm --claude` to target Claude.
 
 - `Ctrl+R` - trigger voice capture
 - `Ctrl+X` - one-shot screenshot prompt capture
-- `Ctrl+E` - finalize active recording early (stages text only, does not send)
+- `Ctrl+E` - stop recording early and keep the text in input (does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
-- `Ctrl+D` - toggle Dev panel with Dev Tools commands (`--dev` launches only)
+- `Ctrl+D` - open/close Dev panel (`--dev` only)
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.
 In `insert` mode, text is typed and waits for Enter (or spoken `send`).
-When Codex/Claude approval or reply/composer prompts appear, VoiceTerm
-suppresses HUD rows until you submit/cancel so the prompt stays readable.
+When Codex/Claude approval or reply/composer prompts appear, VoiceTerm hides
+HUD rows until you submit/cancel so prompt text stays readable.
 
 Full controls reference:
 
@@ -109,7 +109,7 @@ Mouse note:
 
 ## 5) Hands-free starter (optional)
 
-GUI setup:
+Settings path:
 
 1. Press `Ctrl+O` and set `Wake word` to `ON`.
 2. Press `Ctrl+T` until send mode is `insert`.
@@ -123,7 +123,7 @@ Example flow:
 2. "summarize the last 3 commits"
 3. `send`
 
-One-shot examples:
+Quick examples:
 
 - `hey codex send`
 - `hey claude send`
@@ -154,9 +154,10 @@ voiceterm --logs
 
 Style-pack note:
 
-- `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays and `components.hud_border` for Full HUD when border style is `theme`.
-- TOML theme files loaded with `--theme-file` are watched and re-applied on save
-  (about 500ms poll interval).
+- `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays
+  and `components.hud_border` for Full HUD when border style is `theme`.
+- TOML theme files loaded with `--theme-file` are watched and re-applied on
+  save (about 500ms poll interval).
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 

@@ -121,7 +121,12 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
                     }
                     lines
                 }
-                StudioPage::Home => unreachable!(),
+                StudioPage::Home => {
+                    log_debug(
+                        "theme studio home page reached non-home renderer branch; using fallback",
+                    );
+                    vec![" (theme studio fallback; press Esc and reopen)".to_string()]
+                }
             };
 
             let mut content = String::new();

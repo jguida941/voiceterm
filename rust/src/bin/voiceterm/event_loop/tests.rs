@@ -1120,7 +1120,14 @@ fn apply_terminal_packet_completion_stages_draft_text() {
 #[test]
 fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
     let _guard = install_try_send_hook(hook_would_block);
-    std::env::set_var("VOICETERM_DEV_PACKET_AUTOSEND", "1");
+    struct AutoSendOverrideReset;
+    impl Drop for AutoSendOverrideReset {
+        fn drop(&mut self) {
+            dev_panel_commands::set_dev_packet_auto_send_runtime_override(None);
+        }
+    }
+    let _reset = AutoSendOverrideReset;
+    dev_panel_commands::set_dev_packet_auto_send_runtime_override(Some(true));
 
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let completion = DevCommandCompletion {
@@ -1146,7 +1153,6 @@ fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
         &completion,
     )
     .expect("packet auto-send message");
-    std::env::remove_var("VOICETERM_DEV_PACKET_AUTOSEND");
 
     assert!(message.contains("auto-sent"));
     assert!(!state.status_state.insert_pending_send);

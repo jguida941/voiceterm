@@ -123,7 +123,7 @@ COMMAND_HANDLERS = {
     "loop-packet": loop_packet.run,
     "autonomy-loop": autonomy_loop.run,
     "autonomy-benchmark": autonomy_benchmark.run,
-    "autonomy-run": autonomy_run.run,
+    "swarm_run": autonomy_run.run,
     "autonomy-report": autonomy_report.run,
     "phone-status": phone_status.run,
     "autonomy-swarm": autonomy_swarm.run,

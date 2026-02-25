@@ -5,19 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+from .numeric import to_float, to_int
 
 
 def build_charts(
@@ -45,9 +33,9 @@ def build_charts(
             continue
         summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
         labels.append(str(row.get("label") or "scenario"))
-        work_scores.append(_safe_int(summary.get("work_output_score"), default=0))
-        tasks_per_min.append(_safe_float(summary.get("tasks_per_minute"), default=0.0))
-        success_rates.append(_safe_float(summary.get("swarm_success_pct"), default=0.0))
+        work_scores.append(to_int(summary.get("work_output_score"), default=0))
+        tasks_per_min.append(to_float(summary.get("tasks_per_minute"), default=0.0))
+        success_rates.append(to_float(summary.get("swarm_success_pct"), default=0.0))
 
     if labels:
         work_chart = chart_dir / "scenario_work_output.png"

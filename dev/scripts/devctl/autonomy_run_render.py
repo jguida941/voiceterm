@@ -1,4 +1,4 @@
-"""Markdown rendering for `devctl autonomy-run` reports."""
+"""Markdown rendering for `devctl swarm_run` reports."""
 
 from __future__ import annotations
 
@@ -17,6 +17,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(f"- continuous: {continuous.get('enabled')}")
         lines.append(f"- cycles_completed: {continuous.get('cycles_completed')}")
         lines.append(f"- stop_reason: {continuous.get('stop_reason')}")
+    feedback = report.get("feedback_sizing", {})
+    if isinstance(feedback, dict):
+        lines.append(f"- feedback_sizing: {feedback.get('enabled')}")
+        lines.append(f"- feedback_next_agents: {feedback.get('next_agents')}")
     lines.append(f"- swarm_ok: {report.get('swarm', {}).get('ok')}")
     lines.append(f"- governance_ok: {report.get('governance', {}).get('ok')}")
     lines.append(f"- plan_update_ok: {report.get('plan_update', {}).get('ok')}")
@@ -47,7 +51,9 @@ def render_markdown(report: dict[str, Any]) -> str:
                 + f"ok={row.get('ok')} "
                 + f"swarm_ok={row.get('swarm_ok')} "
                 + f"governance_ok={row.get('governance_ok')} "
-                + f"plan_update_ok={row.get('plan_update_ok')}"
+                + f"plan_update_ok={row.get('plan_update_ok')} "
+                + f"feedback={row.get('feedback_decision')} "
+                + f"next_agents={row.get('feedback_next_agents')}"
             )
     lines.append("")
     lines.append("## Governance")

@@ -12,8 +12,6 @@ from ..autonomy_benchmark_helpers import (
     parse_swarm_counts,
     parse_tactics,
     resolve_path,
-    safe_float,
-    safe_int,
     slug,
     validate_plan_scope,
 )
@@ -23,6 +21,7 @@ from ..autonomy_benchmark_render import render_markdown as _render_markdown
 from ..autonomy_benchmark_runner import leaders, run_scenario_payload
 from ..autonomy_run_helpers import collect_next_steps, derive_prompt
 from ..common import pipe_output, write_output
+from ..numeric import to_float, to_int
 
 try:
     from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
@@ -36,32 +35,32 @@ def _timestamp_utc() -> str:
 
 def _summarize_overall(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
     swarms_total = sum(
-        safe_int((row.get("summary") or {}).get("swarms_total"), default=0)
+        to_int((row.get("summary") or {}).get("swarms_total"), default=0)
         for row in scenarios
         if isinstance(row, dict)
     )
     swarms_ok = sum(
-        safe_int((row.get("summary") or {}).get("swarms_ok"), default=0)
+        to_int((row.get("summary") or {}).get("swarms_ok"), default=0)
         for row in scenarios
         if isinstance(row, dict)
     )
     tasks_completed_total = sum(
-        safe_int((row.get("summary") or {}).get("tasks_completed_total"), default=0)
+        to_int((row.get("summary") or {}).get("tasks_completed_total"), default=0)
         for row in scenarios
         if isinstance(row, dict)
     )
     rounds_completed_total = sum(
-        safe_int((row.get("summary") or {}).get("rounds_completed_total"), default=0)
+        to_int((row.get("summary") or {}).get("rounds_completed_total"), default=0)
         for row in scenarios
         if isinstance(row, dict)
     )
     work_output_score_total = sum(
-        safe_int((row.get("summary") or {}).get("work_output_score"), default=0)
+        to_int((row.get("summary") or {}).get("work_output_score"), default=0)
         for row in scenarios
         if isinstance(row, dict)
     )
     elapsed_seconds_total = sum(
-        safe_float((row.get("summary") or {}).get("elapsed_seconds_total"), default=0.0)
+        to_float((row.get("summary") or {}).get("elapsed_seconds_total"), default=0.0)
         for row in scenarios
         if isinstance(row, dict)
     )

@@ -1,7 +1,7 @@
 # Whisper Speech-to-Text
 
 VoiceTerm uses [Whisper](https://github.com/openai/whisper) for local speech-to-text.
-All transcription happens on your machine - no audio is sent to the cloud.
+All transcription happens on your machine. No audio is sent to the cloud.
 
 Docs map:
 
@@ -21,11 +21,11 @@ Docs map:
 
 1. **You speak** → VoiceTerm captures audio from your microphone
 2. **Voice Activity Detection (VAD)** → Detects when you start/stop speaking
-3. **Whisper transcribes** → Converts speech to text locally using a local Whisper engine
+3. **Whisper transcribes** → Converts speech to text locally
 4. **Text typed into CLI** → Transcript is injected into your AI CLI terminal
 
 The entire pipeline runs locally.
-Latency depends on model size, utterance length, and hardware.
+Latency depends on model size, clip length, and hardware.
 
 ## Choosing a Model
 
@@ -39,13 +39,13 @@ Latency depends on model size, utterance length, and hardware.
 
 ### Recommendations
 
-- **Start with `base`** - Good accuracy, fast transcription, small download
-- **Use `small`** if you need better accuracy and have the disk space
-- **Use `medium` or `large`** for non-English languages or accented speech
-- **Use `tiny`** only for testing or very low-end hardware
+- **Start with `base`** - good accuracy, fast, small download
+- **Use `small`** if you want better accuracy
+- **Use `medium` or `large`** for non-English languages or harder accents
+- **Use `tiny`** for testing or very low-end hardware
 
-**Note:** The CLI flag `--whisper-model` defaults to `small`, but the installer and
-`scripts/start.sh` download `base` by default unless you choose another size. VoiceTerm
+**Note:** `--whisper-model` defaults to `small`. Installer/start scripts
+download `base` by default unless you choose another size. VoiceTerm
 auto-detects whichever model file is present.
 
 ### Switching Models
@@ -68,7 +68,7 @@ voiceterm --whisper-model-path /path/to/ggml-medium.en.bin
 
 ## Language Support
 
-Whisper supports many languages. VoiceTerm defaults to English but works with any supported language.
+Whisper supports many languages. VoiceTerm defaults to English.
 
 <details>
 <summary><strong>Language setup details</strong></summary>
@@ -89,13 +89,13 @@ voiceterm --lang auto
 
 ### Language-Specific Models
 
-Models ending in `.en` are English-only and slightly faster/smaller:
+Models ending in `.en` are English-only and a bit faster/smaller:
 
 - `ggml-base.en.bin` - English only
 - `ggml-base.bin` - Multilingual
 
-For non-English languages, use the multilingual models (without `.en`).
-The setup script downloads English-only `.en` models by default, so download a
+For non-English languages, use multilingual models (without `.en`).
+The setup script downloads English `.en` models by default, so download a
 multilingual file manually:
 
 ```bash
@@ -132,12 +132,12 @@ curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.b
 
 ### Model Locations
 
-VoiceTerm (the binary) looks for models in this order:
+VoiceTerm looks for models in this order:
 
 1. Path specified via `--whisper-model-path`
 2. `whisper_models/` in the project directory
 
-The install/start scripts also check `~/.local/share/voiceterm/models/` and pass it
+Install/start scripts also check `~/.local/share/voiceterm/models/` and pass it
 via `--whisper-model-path` when found.
 
 Override with environment variable (used by install/start scripts):
@@ -150,17 +150,17 @@ export VOICETERM_MODEL_DIR=/path/to/models
 
 ### Reduce Latency
 
-1. **Use a smaller model** - `base` is 2-3x faster than `small`
-2. **Speak in shorter phrases** - Transcription time scales with audio length
-3. **Use English-only models** - `.en` models are slightly faster
-4. **Set explicit language** - Avoids auto-detection overhead
+1. **Use a smaller model** - `base` is much faster than `small`
+2. **Speak in shorter phrases** - transcription time scales with audio length
+3. **Use English-only models** - `.en` models are a little faster
+4. **Set explicit language** - avoids auto-detect overhead
 
 ### Improve Accuracy
 
-1. **Use a larger model** - `small` or `medium` for better results
-2. **Speak clearly** - Pause between sentences
-3. **Reduce background noise** - Adjust mic sensitivity with `Ctrl+]` / `Ctrl+\`
-4. **Set the correct language** - Don't rely on auto-detect
+1. **Use a larger model** - `small` or `medium` gives better results
+2. **Speak clearly** - pause between sentences
+3. **Reduce background noise** - adjust mic sensitivity with `Ctrl+]` / `Ctrl+\`
+4. **Set the correct language** - do not rely on auto-detect
 
 <details>
 <summary><strong>Troubleshooting and advanced tuning</strong></summary>
@@ -187,8 +187,8 @@ export VOICETERM_MODEL_DIR=/path/to/models
 
 Whisper options (native pipeline):
 
-- `--whisper-beam-size <N>`: beam search size — how many candidates to evaluate (0 = fastest, greedy decoding)
-- `--whisper-temperature <T>`: randomness in transcription (0.0 = most predictable)
+- `--whisper-beam-size <N>`: beam search size (0 = fastest, greedy decoding)
+- `--whisper-temperature <T>`: transcription randomness (0.0 = most predictable)
 
 Fallback control:
 

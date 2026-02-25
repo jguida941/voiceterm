@@ -8,7 +8,12 @@ from datetime import datetime
 from typing import Any, Dict
 
 from ..common import pipe_output, write_output
+from ..config import REPO_ROOT
+from ..triage_loop_escalation import (
+    publish_review_escalation_comment as _publish_review_escalation_comment_support,
+)
 from ..triage_loop_render import build_master_plan_proposal, render_markdown
+from ..triage_loop_policy import evaluate_fix_policy, load_policy
 from ..triage_loop_support import (
     build_dry_run_report,
     default_mp_proposal_path,
@@ -72,6 +77,16 @@ def _publish_notification_comment(report: dict[str, Any], args) -> dict[str, Any
     )
 
 
+def _publish_review_escalation(report: dict[str, Any], args) -> dict[str, Any]:
+    return _publish_review_escalation_comment_support(
+        report,
+        args,
+        normalize_sha_fn=normalize_sha,
+        gh_json_fn=gh_json,
+        run_capture_fn=run_capture,
+    )
+
+
 def run(args) -> int:
     """Run a bounded CodeRabbit medium/high backlog loop and emit reports."""
     repo = resolve_repo(args.repo)
@@ -97,7 +112,16 @@ def run(args) -> int:
         return 2
 
     warnings: list[str] = []
+    policy = load_policy(REPO_ROOT)
     effective_fix_command = mode_fix_command(args.mode, args.fix_command)
+    fix_block_reason = evaluate_fix_policy(
+        mode=args.mode,
+        branch=args.branch,
+        fix_command=effective_fix_command,
+        policy=policy,
+    )
+    if fix_block_reason:
+        warnings.append(fix_block_reason)
     if args.mode in {"plan-then-fix", "fix-only"} and not effective_fix_command:
         warnings.append(
             f"mode={args.mode} requested but no --fix-command configured; backlog can only be reported."
@@ -108,6 +132,7 @@ def run(args) -> int:
             repo=repo,
             args=args,
             effective_fix_command=effective_fix_command,
+            fix_block_reason=fix_block_reason,
             normalize_sha_fn=normalize_sha,
         )
     else:
@@ -121,6 +146,7 @@ def run(args) -> int:
                 repo=repo,
                 args=args,
                 effective_fix_command=effective_fix_command,
+                fix_block_reason=fix_block_reason,
                 message=connectivity_error,
                 normalize_sha_fn=normalize_sha,
             )
@@ -134,6 +160,7 @@ def run(args) -> int:
                 poll_seconds=args.poll_seconds,
                 timeout_seconds=args.timeout_seconds,
                 fix_command=effective_fix_command,
+                fix_block_reason=fix_block_reason,
                 source_run_id=args.source_run_id,
                 source_run_sha=args.source_run_sha,
                 source_event=args.source_event,
@@ -186,6 +213,20 @@ def run(args) -> int:
             )
     elif args.notify == "summary-only":
         report["notify_result"] = {"ok": True, "mode": "summary-only", "skipped": True}
+
+    if (
+        not args.dry_run
+        and args.notify == "summary-and-comment"
+        and report.get("escalation_needed")
+        and int(report.get("unresolved_count") or 0) > 0
+    ):
+        escalation_result = _publish_review_escalation(report, args)
+        report["escalation_result"] = escalation_result
+        if not escalation_result.get("ok"):
+            warnings.append(
+                "review escalation comment publication failed: "
+                + str(escalation_result.get("error") or "unknown error")
+            )
 
     if args.emit_bundle:
         bundle_dir = resolve_path(args.bundle_dir)

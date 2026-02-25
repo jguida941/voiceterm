@@ -7,6 +7,7 @@ use crate::theme::color_value::{palette_to_resolved, ColorValue, ResolvedThemeCo
 use crate::theme::{RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride, Theme};
 
 use super::color_picker::ColorPickerState;
+use super::nav::{select_next, select_prev};
 
 /// Semantic color field identifiers for the editor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,18 +150,14 @@ impl ColorsEditorState {
         self.picker = None;
     }
 
-    /// Move selection up.
-    pub(crate) fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-        }
+    /// Select previous row.
+    pub(crate) fn select_prev(&mut self) {
+        select_prev(&mut self.selected);
     }
 
-    /// Move selection down.
-    pub(crate) fn move_down(&mut self) {
-        if self.selected < TOTAL_ITEMS - 1 {
-            self.selected += 1;
-        }
+    /// Select next row.
+    pub(crate) fn select_next(&mut self) {
+        select_next(&mut self.selected, TOTAL_ITEMS);
     }
 
     /// Whether the selected item is a color field (vs indicator/glyph selector).
@@ -342,11 +339,11 @@ mod tests {
     #[test]
     fn colors_editor_navigate_and_select() {
         let mut editor = ColorsEditorState::new(Theme::Codex);
-        editor.move_down();
-        editor.move_down();
+        editor.select_next();
+        editor.select_next();
         assert_eq!(editor.selected_field(), ColorField::Success);
 
-        editor.move_up();
+        editor.select_prev();
         assert_eq!(editor.selected_field(), ColorField::Processing);
     }
 
@@ -386,7 +383,7 @@ mod tests {
     fn colors_editor_navigate_to_indicator_row() {
         let mut editor = ColorsEditorState::new(Theme::Codex);
         for _ in 0..11 {
-            editor.move_down();
+            editor.select_next();
         }
         // Should be at glyph set row (index 11).
         assert_eq!(editor.selected, 11);

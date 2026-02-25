@@ -16,6 +16,7 @@ from .data_science_rendering import (
     render_data_science_markdown,
     write_data_science_charts,
 )
+from .numeric import to_float, to_int
 
 DEFAULT_OUTPUT_ROOT = "dev/reports/data_science"
 DEFAULT_SWARM_ROOT = "dev/reports/autonomy/swarms"
@@ -23,20 +24,6 @@ DEFAULT_BENCHMARK_ROOT = "dev/reports/autonomy/benchmarks"
 DEFAULT_MAX_EVENTS = 20_000
 DEFAULT_MAX_SWARM_FILES = 2_000
 DEFAULT_MAX_BENCHMARK_FILES = 500
-
-
-def _safe_float(value: Any, *, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_int(value: Any, *, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _iso_utc() -> str:
@@ -89,7 +76,7 @@ def _collect_swarm_rows(root: Path, *, max_files: int) -> list[dict[str, Any]]:
         summary = payload.get("summary")
         if not isinstance(summary, dict):
             continue
-        selected_agents = _safe_int(summary.get("selected_agents"), default=0)
+        selected_agents = to_int(summary.get("selected_agents"), default=0)
         if selected_agents <= 0:
             continue
         agent_rows = payload.get("agents")
@@ -97,7 +84,7 @@ def _collect_swarm_rows(root: Path, *, max_files: int) -> list[dict[str, Any]]:
         if isinstance(agent_rows, list):
             for item in agent_rows:
                 if isinstance(item, dict):
-                    task_total += _safe_int(item.get("tasks_completed"), default=0)
+                    task_total += to_int(item.get("tasks_completed"), default=0)
         rows.append(
             {
                 "source": "swarm",
@@ -132,17 +119,17 @@ def _collect_benchmark_rows(root: Path, *, max_files: int) -> list[dict[str, Any
             for swarm in swarms:
                 if not isinstance(swarm, dict):
                     continue
-                selected_agents = _safe_int(swarm.get("selected_agents"), default=0)
+                selected_agents = to_int(swarm.get("selected_agents"), default=0)
                 if selected_agents <= 0:
                     continue
                 rows.append(
                     {
                         "source": "benchmark",
                         "selected_agents": selected_agents,
-                        "tasks_completed_total": _safe_int(
+                        "tasks_completed_total": to_int(
                             swarm.get("tasks_completed_total"), default=0
                         ),
-                        "elapsed_seconds": _safe_float(
+                        "elapsed_seconds": to_float(
                             swarm.get("elapsed_seconds"), default=0.0
                         ),
                         "ok": bool(swarm.get("ok")),
@@ -242,15 +229,15 @@ def maybe_auto_refresh_data_science(
     benchmark_root = (
         str(os.environ.get("DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT") or "").strip() or None
     )
-    max_events = _safe_int(
+    max_events = to_int(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_EVENTS"),
         default=DEFAULT_MAX_EVENTS,
     )
-    max_swarm_files = _safe_int(
+    max_swarm_files = to_int(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_SWARM_FILES"),
         default=DEFAULT_MAX_SWARM_FILES,
     )
-    max_benchmark_files = _safe_int(
+    max_benchmark_files = to_int(
         os.environ.get("DEVCTL_DATA_SCIENCE_MAX_BENCHMARK_FILES"),
         default=DEFAULT_MAX_BENCHMARK_FILES,
     )

@@ -18,6 +18,7 @@ For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 For automation-first `devctl` routing and Ralph loop controls, see
 `dev/DEVCTL_AUTOGUIDE.md`.
+For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
 Check scripts now live under `dev/scripts/checks/`, with centralized path
@@ -146,9 +147,9 @@ python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/act
 # Swarm benchmark matrix (active-plan-scoped tactics x swarm-size tradeoff report)
 python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 10 --dry-run --format md --output /tmp/autonomy-benchmark.md --json-output /tmp/autonomy-benchmark.json
 # Full guarded plan pipeline (scope load + swarm + reviewer + governance + plan evidence append)
-python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --agents 10 --mode report-only --run-label swarm-guarded --format md --output /tmp/autonomy-run.md --json-output /tmp/autonomy-run.json
+python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --agents 10 --mode report-only --run-label swarm-guarded --format md --output /tmp/swarm-run.md --json-output /tmp/swarm-run.json
 # Optional continuous mode: keep cycling through checklist scope until failure/limit
-python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --continuous --continuous-max-cycles 10 --run-label swarm-continuous --format md --output /tmp/autonomy-run-continuous.md --json-output /tmp/autonomy-run-continuous.json
+python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --continuous --continuous-max-cycles 10 --feedback-sizing --feedback-no-signal-rounds 2 --feedback-stall-rounds 2 --run-label swarm-continuous --format md --output /tmp/swarm-run-continuous.md --json-output /tmp/swarm-run-continuous.json
 # CI note: `.github/workflows/coderabbit_triage.yml` enforces a blocking
 # medium/high severity gate for CodeRabbit findings, and `release_preflight.yml`
 # verifies that gate passed for the exact release commit. Publish workflows
@@ -249,6 +250,7 @@ gh workflow run autonomy_run.yml -f plan_doc=dev/active/autonomous_control_plane
 # MUTATION_COMMENT_PR_NUMBER=<optional pr number>
 # AUTONOMY_MODE=read-only                 # off|read-only|operate
 # MUTATION_LOOP_ALLOWED_PREFIXES='python3 dev/scripts/devctl.py check --profile ci;python3 dev/scripts/devctl.py mutants'
+# TRIAGE_LOOP_ALLOWED_PREFIXES='python3 dev/scripts/devctl.py check --profile ci'
 
 # Manual fallback (local PyPI/Homebrew publish)
 python3 dev/scripts/devctl.py pypi --upload --yes
@@ -318,13 +320,13 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports local source/output overrides for experiments
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, emits rollups for severity/category/owner counts, and stamps reports with UTC timestamps
-- `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
+- `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), policy-gated fix execution (`AUTONOMY_MODE=operate`, branch allowlist, command-prefix allowlist), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), automatic review-escalation comment upserts when max attempts are exhausted with unresolved backlog, attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
 - `autonomy-loop`: bounded autonomy controller wrapper around `triage-loop` + `loop-packet` with hard caps (`--max-rounds`, `--max-hours`, `--max-tasks`), run-scoped packet artifacts, queue inbox outputs, phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.{json,md}`), and strict policy gating for write modes (`AUTONOMY_MODE=operate` required for non-dry-run fix modes; dry-run still downgrades to `report-only`)
 - `phone-status`: iPhone/SSH-safe read surface for autonomy controller snapshots; renders one selected projection view (`full|compact|trace|actions`) from `dev/reports/autonomy/queue/phone/latest.json` and can emit controller-state files (`full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
 - `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, and emit auditable action reports plus optional local controller-mode state artifact
 - `autonomy-benchmark`: active-plan-scoped swarm benchmark matrix runner (`swarm-counts x tactics`) that launches `autonomy-swarm` batches, captures per-swarm/per-scenario productivity metrics, and writes benchmark bundles under `dev/reports/autonomy/benchmarks/<label>` (non-report modes require `--fix-command`)
-- `autonomy-run`: guarded autonomy pipeline wrapper around `autonomy-swarm` that loads plan scope context, derives next unchecked plan steps into one prompt, enforces reviewer lane + post-audit digest, runs governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to the active plan doc (`Progress Log` + `Audit Evidence`); supports optional continuous multi-cycle execution (`--continuous --continuous-max-cycles`) for hands-off checklist progression (non-report modes require `--fix-command`)
+- `swarm_run`: guarded autonomy pipeline wrapper around `autonomy-swarm` that loads plan scope context, derives next unchecked plan steps into one prompt, enforces reviewer lane + post-audit digest, runs governance checks (`check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `orchestrate-status/watch`), and appends run evidence to the active plan doc (`Progress Log` + `Audit Evidence`); supports optional continuous multi-cycle execution (`--continuous --continuous-max-cycles`) plus feedback sizing controls (`--feedback-sizing`, `--feedback-no-signal-rounds`, `--feedback-stall-rounds`, `--feedback-downshift-factor`, `--feedback-upshift-rounds`, `--feedback-upshift-factor`) for hands-off checklist progression (non-report modes require `--fix-command`)
 - `autonomy-report`: human-readable autonomy digest builder that scans loop/watch artifacts, writes dated bundles under `dev/reports/autonomy/library/<label>`, and emits summary markdown/json plus optional matplotlib charts
 - `autonomy-swarm`: adaptive swarm orchestrator that sizes agent count from change/question metadata (with optional token-budget cap), runs per-agent bounded `autonomy-loop` lanes in parallel, reserves a default `AGENT-REVIEW` lane for post-audit review when execution runs with >1 lane, writes one dated swarm bundle under `dev/reports/autonomy/swarms/<label>`, and by default runs a post-audit digest bundle under `dev/reports/autonomy/library/<label>-digest` (use `--no-post-audit` and/or `--no-reviewer-lane` to disable; non-report modes require `--fix-command`)
 - `failure-cleanup`: guarded cleanup for local failure triage bundles (`dev/reports/failures`) with default path-root enforcement, optional override constrained to `dev/reports/**` (`--allow-outside-failure-root`), optional scoped CI gate filters (`--ci-branch`, `--ci-workflow`, `--ci-event`, `--ci-sha`), plus dry-run/confirmation controls
@@ -351,7 +353,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `phone-status --phone-json dev/reports/autonomy/queue/phone/latest.json --view compact --format md` | you want one iPhone/SSH-safe autonomy snapshot | renders a selected phone-status projection view and can emit controller-state projection files for downstream clients |
 | `controller-action --action dispatch-report-only --repo owner/repo --branch develop --dry-run --format md` | you want one guarded operator action without ad-hoc shell scripting | validates policy + mode gates and executes (or previews) bounded dispatch/pause/resume/status actions with structured output |
 | `autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run` | you want measurable swarm tradeoff data before scaling live runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario metrics/charts |
-| `autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label>` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, and appends progress/audit evidence to the plan doc |
+| `swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label>` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, appends progress/audit evidence to the plan doc, and in continuous mode can auto-tune agent count with `--feedback-*` sizing controls |
 | `autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label daily-ops` | you want one human-readable autonomy digest | bundles latest loop/watch artifacts into a dated folder with summary markdown/json and optional charts |
 | `autonomy-swarm --question \"<scope>\" --prompt-tokens <n> --token-budget <n>` | you want adaptive multi-agent autonomy execution | computes recommended agent count from metadata + budget, reserves one default reviewer lane (`AGENT-REVIEW`) when possible, runs bounded loops, writes one swarm summary bundle, then auto-runs a post-audit digest bundle (unless `--no-post-audit`) |
 | `audit-scaffold` | AI-guard/tooling guards failed | creates one shared fix list file |
@@ -413,6 +415,13 @@ consistent:
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/triage_loop_parser.py`: shared CLI parser wiring for the
   `triage-loop` command.
+- `dev/scripts/devctl/loop_fix_policy.py`: shared fix-policy engine used by
+  both `triage-loop` and `mutation-loop` wrappers.
+- `dev/scripts/devctl/triage_loop_policy.py`: shared policy-gate evaluation
+  for `triage-loop` fix execution (`AUTONOMY_MODE`, branch allowlist, command
+  prefix allowlist).
+- `dev/scripts/devctl/triage_loop_escalation.py`: shared review-escalation
+  comment renderer/upsert helper for `triage-loop`.
 - `dev/scripts/devctl/triage_loop_support.py`: shared connectivity/comment/
   bundle helper logic used by `triage-loop`.
 - `dev/scripts/devctl/autonomy_loop_parser.py`: shared CLI parser wiring for
@@ -420,7 +429,7 @@ consistent:
 - `dev/scripts/devctl/autonomy_benchmark_parser.py`: shared CLI parser wiring
   for the `autonomy-benchmark` swarm-matrix command.
 - `dev/scripts/devctl/autonomy_run_parser.py`: shared CLI parser wiring for
-  the `autonomy-run` guarded plan-scoped swarm command.
+  the `swarm_run` guarded plan-scoped swarm command.
 - `dev/scripts/devctl/autonomy_benchmark_helpers.py`: shared helpers for
   `autonomy-benchmark` scenario orchestration, tactic prompts, and metric
   aggregation.
@@ -431,10 +440,12 @@ consistent:
 - `dev/scripts/devctl/autonomy_benchmark_render.py`: markdown/chart renderer
   for `autonomy-benchmark` bundles.
 - `dev/scripts/devctl/autonomy_run_helpers.py`: shared helpers for
-  `autonomy-run` scope validation, prompt derivation, command fanout, and plan
+  `swarm_run` scope validation, prompt derivation, command fanout, and plan
   markdown section updates.
+- `dev/scripts/devctl/autonomy_run_feedback.py`: closed-loop sizing helpers
+  for `swarm_run` continuous mode (cycle signal extraction + downshift/upshift decisions).
 - `dev/scripts/devctl/autonomy_run_render.py`: markdown renderer for
-  `autonomy-run` run bundles.
+  `swarm_run` run bundles.
 - `dev/scripts/devctl/autonomy_report_helpers.py`: data-collection helpers for
   `autonomy-report` source discovery, summarization, and bundle assembly.
 - `dev/scripts/devctl/autonomy_report_render.py`: markdown/chart rendering

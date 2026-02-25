@@ -5,19 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Any
 
-
-def _safe_float(value: Any, *, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_int(value: Any, *, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+from .numeric import to_float, to_int
 
 
 def _quantile(values: list[float], q: float) -> float:
@@ -58,7 +46,7 @@ def build_event_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         command = str(row.get("command") or "unknown")
         source = str(row.get("execution_source") or "unknown")
         ok = bool(row.get("success"))
-        duration = _safe_float(row.get("duration_seconds"), default=0.0)
+        duration = to_float(row.get("duration_seconds"), default=0.0)
 
         command_counts[command] += 1
         source_counts[source] += 1
@@ -108,7 +96,7 @@ def build_agent_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     grouped: defaultdict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        grouped[_safe_int(row.get("selected_agents"), default=0)].append(row)
+        grouped[to_int(row.get("selected_agents"), default=0)].append(row)
 
     metric_rows: list[dict[str, Any]] = []
     for selected_agents, group_rows in sorted(grouped.items()):
@@ -117,10 +105,10 @@ def build_agent_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         runs = len(group_rows)
         successes = sum(1 for row in group_rows if bool(row.get("ok")))
         tasks_total = sum(
-            _safe_int(row.get("tasks_completed_total"), default=0) for row in group_rows
+            to_int(row.get("tasks_completed_total"), default=0) for row in group_rows
         )
         elapsed_total = sum(
-            _safe_float(row.get("elapsed_seconds"), default=0.0)
+            to_float(row.get("elapsed_seconds"), default=0.0)
             for row in group_rows
             if row.get("elapsed_seconds") is not None
         )

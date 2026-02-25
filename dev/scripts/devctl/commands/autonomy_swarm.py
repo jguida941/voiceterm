@@ -19,10 +19,10 @@ from ..autonomy_swarm_helpers import (
 from ..autonomy_swarm_post_audit import build_post_audit_payload as _post_audit_payload
 from ..autonomy_swarm_post_audit import run_post_audit_digest as _run_post_audit_digest
 from ..common import pipe_output, write_output
+from ..numeric import to_int
 from .autonomy_swarm_core import AgentTask as _AgentTask
 from .autonomy_swarm_core import fallback_repo_from_origin as _fallback_repo_from_origin
 from .autonomy_swarm_core import run_one_agent as _run_one_agent
-from .autonomy_swarm_core import safe_int as _safe_int
 from .autonomy_swarm_core import validate_args as _validate_args
 
 try:
@@ -60,7 +60,7 @@ def run(args) -> int:
     metadata, warnings = collect_refactor_metadata(args)
     selected_agents, rationale, score_components = recommend_agent_count(metadata, args)
 
-    requested_agents = _safe_int(args.agents, default=selected_agents)
+    requested_agents = to_int(args.agents, default=selected_agents)
     if requested_agents <= 0:
         requested_agents = selected_agents
 

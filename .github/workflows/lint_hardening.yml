@@ -1,3 +1,5 @@
+# Purpose: Runs the maintainer lint profile for stricter Rust quality.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: lint_hardening
 
 permissions:

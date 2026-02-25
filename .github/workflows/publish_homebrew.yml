@@ -1,3 +1,5 @@
+# Purpose: Publishes Homebrew formula updates for tagged releases.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: publish_homebrew
 
 on:

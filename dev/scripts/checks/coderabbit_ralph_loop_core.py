@@ -56,16 +56,6 @@ def load_backlog_payload(root: Path) -> tuple[dict, str | None]:
     return payload, None
 
 
-def load_backlog_items(root: Path) -> tuple[list[dict], str | None]:
-    payload, error = load_backlog_payload(root)
-    if error:
-        return [], error
-    items = payload.get("items", [])
-    if not isinstance(items, list):
-        return [], "backlog payload items is not a list"
-    return [row for row in items if isinstance(row, dict)], None
-
-
 def run_fix_command(
     command: str,
     *,
@@ -110,6 +100,7 @@ def build_report(
     workflow: str,
     max_attempts: int,
     fix_command: str | None,
+    fix_block_reason: str | None = None,
     source_run_id: int | None = None,
     source_run_sha: str | None = None,
     source_event: str | None = None,
@@ -128,6 +119,8 @@ def build_report(
         "unresolved_count": 0,
         "reason": "",
         "fix_command_configured": bool(fix_command),
+        "fix_block_reason": fix_block_reason,
+        "escalation_needed": False,
         "source_run_id": source_run_id if source_run_id and source_run_id > 0 else None,
         "source_run_sha": normalized_source_sha or None,
         "source_event": str(source_event or "workflow_dispatch"),
@@ -147,6 +140,7 @@ def execute_loop(
     poll_seconds: int,
     timeout_seconds: int,
     fix_command: str | None,
+    fix_block_reason: str | None = None,
     source_run_id: int | None = None,
     source_run_sha: str | None = None,
     source_event: str | None = None,
@@ -157,6 +151,7 @@ def execute_loop(
         workflow=workflow,
         max_attempts=max_attempts,
         fix_command=fix_command,
+        fix_block_reason=fix_block_reason,
         source_run_id=source_run_id,
         source_run_sha=source_run_sha,
         source_event=source_event,
@@ -300,6 +295,14 @@ def execute_loop(
                 report["reason"] = "no fix command configured"
                 break
 
+            if fix_block_reason:
+                attempt_row["status"] = "blocked"
+                attempt_row["message"] = fix_block_reason
+                report["attempts"].append(attempt_row)
+                report["completed_attempts"] = attempt
+                report["reason"] = "fix_command_policy_blocked"
+                break
+
             fix_rc, fix_error = run_fix_command(
                 fix_command,
                 attempt=attempt,
@@ -343,4 +346,5 @@ def execute_loop(
                 break
     else:
         report["reason"] = "max attempts reached with unresolved medium+ backlog"
+        report["escalation_needed"] = True
     return report

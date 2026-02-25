@@ -1,3 +1,5 @@
+# Purpose: Builds and uploads release binaries for Linux and macOS.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: publish_release_binaries
 
 on:

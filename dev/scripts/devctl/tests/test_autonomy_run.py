@@ -1,4 +1,4 @@
-"""Tests for devctl autonomy-run parser and command behavior."""
+"""Tests for devctl swarm_run parser and command behavior."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from dev.scripts.devctl.commands import autonomy_run
 def make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "repo": "owner/repo",
-        "run_label": "autonomy-run-test",
+        "run_label": "swarm-run-test",
         "plan_doc": "dev/active/autonomous_control_plane.md",
         "index_doc": "dev/active/INDEX.md",
         "master_plan_doc": "dev/active/MASTER_PLAN.md",
@@ -53,6 +53,12 @@ def make_args(**overrides) -> SimpleNamespace:
         "skip_plan_update": False,
         "continuous": False,
         "continuous_max_cycles": 10,
+        "feedback_sizing": True,
+        "feedback_stall_rounds": 2,
+        "feedback_no_signal_rounds": 2,
+        "feedback_downshift_factor": 0.5,
+        "feedback_upshift_rounds": 2,
+        "feedback_upshift_factor": 1.25,
         "format": "json",
         "output": None,
         "json_output": None,
@@ -94,7 +100,7 @@ class AutonomyRunParserTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(
             [
-                "autonomy-run",
+                "swarm_run",
                 "--plan-doc",
                 "dev/active/autonomous_control_plane.md",
                 "--mp-scope",
@@ -111,18 +117,23 @@ class AutonomyRunParserTests(unittest.TestCase):
                 "--continuous",
                 "--continuous-max-cycles",
                 "7",
+                "--no-feedback-sizing",
+                "--feedback-no-signal-rounds",
+                "3",
                 "--format",
                 "json",
             ]
         )
 
-        self.assertEqual(args.command, "autonomy-run")
+        self.assertEqual(args.command, "swarm_run")
         self.assertEqual(args.next_steps_limit, 6)
         self.assertEqual(args.agents, 10)
         self.assertEqual(args.fix_command, "echo run-fix")
         self.assertFalse(args.charts)
         self.assertTrue(args.continuous)
         self.assertEqual(args.continuous_max_cycles, 7)
+        self.assertFalse(args.feedback_sizing)
+        self.assertEqual(args.feedback_no_signal_rounds, 3)
         self.assertEqual(args.format, "json")
 
 
@@ -133,7 +144,7 @@ class AutonomyRunCommandTests(unittest.TestCase):
             plan_doc = root / "autonomous_control_plane.md"
             index_doc = root / "INDEX.md"
             master_doc = root / "MASTER_PLAN.md"
-            output_json = root / "autonomy-run.json"
+            output_json = root / "swarm-run.json"
             run_root = root / "runs"
             swarm_root = root / "swarms"
 
@@ -216,7 +227,7 @@ class AutonomyRunCommandTests(unittest.TestCase):
 
             updated_plan = plan_doc.read_text(encoding="utf-8")
             self.assertIn("pipeline-001", updated_plan)
-            self.assertIn("devctl autonomy-run", updated_plan)
+            self.assertIn("devctl swarm_run", updated_plan)
 
     def test_run_returns_nonzero_when_governance_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -224,7 +235,7 @@ class AutonomyRunCommandTests(unittest.TestCase):
             plan_doc = root / "autonomous_control_plane.md"
             index_doc = root / "INDEX.md"
             master_doc = root / "MASTER_PLAN.md"
-            output_json = root / "autonomy-run.json"
+            output_json = root / "swarm-run.json"
 
             _write_plan_fixture(plan_doc)
             index_doc.write_text(
@@ -312,7 +323,7 @@ class AutonomyRunCommandTests(unittest.TestCase):
             plan_doc = root / "autonomous_control_plane.md"
             index_doc = root / "INDEX.md"
             master_doc = root / "MASTER_PLAN.md"
-            output_json = root / "autonomy-run.json"
+            output_json = root / "swarm-run.json"
 
             _write_plan_fixture(plan_doc)
             index_doc.write_text("autonomous_control_plane.md MP-338\n", encoding="utf-8")

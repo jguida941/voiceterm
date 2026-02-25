@@ -14,10 +14,13 @@ Use this with:
 `devctl` is the maintainer entrypoint for:
 
 1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
-2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `autonomy-run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
+2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
 3. Release verification and distribution (`ship`, `release`, `pypi`, `homebrew`)
 4. Orchestration guardrails (`orchestrate-status`, `orchestrate-watch`)
 5. External federation guardrails (`integrations-sync`, `integrations-import`)
+
+Naming note: `swarm_run` is the canonical command name for the guarded
+plan-scoped swarm pipeline.
 
 ## Fast Paths
 
@@ -73,6 +76,7 @@ Runtime controls are repo variables:
 - `RALPH_NOTIFY_MODE`: `summary-only` | `summary-and-comment`
 - `RALPH_COMMENT_TARGET`: `auto` | `pr` | `commit`
 - `RALPH_COMMENT_PR_NUMBER`: optional explicit PR target
+- `TRIAGE_LOOP_ALLOWED_PREFIXES`: optional semicolon-delimited command-prefix override
 
 Default operating mode:
 
@@ -80,7 +84,7 @@ Default operating mode:
 2. `RALPH_EXECUTION_MODE=plan-then-fix`
 
 In `plan-then-fix`, the loop reports backlog state first, then runs bounded
-fix attempts when a fix command is configured.
+fix attempts when a fix command is configured and policy gates pass.
 
 ## Local Ralph/Triage Loop
 
@@ -113,7 +117,15 @@ Output includes:
 - unresolved medium/high count
 - final reason
 - source run correlation fields (`source_run_id`, `source_run_sha`, `source_correlation`)
+- fix policy block reasons (`fix_block_reason`) when a command is denied
+- review escalation comment path when max attempts exhaust unresolved backlog
 - optional MASTER_PLAN proposal artifact
+
+Triage fix mode policy gates:
+
+- `AUTONOMY_MODE` must be `operate`
+- branch must be allowlisted in `dev/config/control_plane_policy.json`
+- fix command must match allowlisted prefixes (or `TRIAGE_LOOP_ALLOWED_PREFIXES`)
 
 ## Mutation Ralph Loop
 
@@ -343,16 +355,19 @@ If you use `--mode plan-then-fix` or `--mode fix-only`, you must also pass
 Continuous mode (hands-off checklist progression until failure/limit):
 
 ```bash
-python3 dev/scripts/devctl.py autonomy-run \
+python3 dev/scripts/devctl.py swarm_run \
   --plan-doc dev/active/autonomous_control_plane.md \
   --mp-scope MP-338 \
   --mode report-only \
   --continuous \
   --continuous-max-cycles 10 \
+  --feedback-sizing \
+  --feedback-no-signal-rounds 2 \
+  --feedback-stall-rounds 2 \
   --run-label swarm-continuous \
   --format md \
-  --output /tmp/autonomy-run-continuous.md \
-  --json-output /tmp/autonomy-run-continuous.json
+  --output /tmp/swarm-run-continuous.md \
+  --json-output /tmp/swarm-run-continuous.json
 ```
 
 Continuous runs stop when one of these happens:
@@ -360,6 +375,13 @@ Continuous runs stop when one of these happens:
 1. no unchecked checklist items remain in the plan doc
 2. a cycle fails swarm/governance/plan-update checks
 3. `--continuous-max-cycles` is reached
+
+When feedback sizing is enabled, each cycle also records worker triage signals
+and adjusts the next cycle's `--agents` target:
+
+1. downshift after repeated no-signal cycles (`--feedback-no-signal-rounds`)
+2. downshift after repeated unresolved stalls (`--feedback-stall-rounds`)
+3. upshift after repeated improvements (`--feedback-upshift-rounds`)
 
 Output bundle:
 
@@ -370,7 +392,7 @@ Output bundle:
 
 ## Guarded Plan-Scoped Swarm Pipeline
 
-Use `autonomy-run` when you want one command to execute this full path:
+Use `swarm_run` when you want one command to execute this full path:
 
 1. load active plan scope (`plan-doc`, `INDEX`, `MASTER_PLAN` token checks)
 2. derive next unchecked plan steps into a swarm prompt
@@ -380,14 +402,14 @@ Use `autonomy-run` when you want one command to execute this full path:
 5. append run evidence to plan `Progress Log` + `Audit Evidence`
 
 ```bash
-python3 dev/scripts/devctl.py autonomy-run \
+python3 dev/scripts/devctl.py swarm_run \
   --plan-doc dev/active/autonomous_control_plane.md \
   --mp-scope MP-338 \
   --mode report-only \
   --run-label swarm-guarded \
   --format md \
-  --output /tmp/autonomy-run.md \
-  --json-output /tmp/autonomy-run.json
+  --output /tmp/swarm-run.md \
+  --json-output /tmp/swarm-run.json
 ```
 
 If you use `--mode plan-then-fix` or `--mode fix-only`, you must also pass

@@ -11,6 +11,7 @@ from typing import Any
 
 from ..autonomy_swarm_helpers import slug
 from ..config import REPO_ROOT
+from ..numeric import to_int
 
 
 @dataclass(frozen=True)
@@ -18,14 +19,6 @@ class AgentTask:
     index: int
     name: str
     output_dir: Path
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    """Convert value to int with a stable fallback."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def agent_plan_id(run_label: str, index: int) -> str:
@@ -95,7 +88,7 @@ def run_one_agent(task: AgentTask, args, run_label: str) -> dict[str, Any]:
             cwd=REPO_ROOT,
             text=True,
             capture_output=True,
-            timeout=max(60, safe_int(args.agent_timeout_seconds, default=1800)),
+            timeout=max(60, to_int(args.agent_timeout_seconds, default=1800)),
             check=False,
         )
         stdout_text = str(result.stdout or "")
@@ -136,8 +129,8 @@ def run_one_agent(task: AgentTask, args, run_label: str) -> dict[str, Any]:
             or stdout_head
             or "unknown"
         ),
-        "rounds_completed": safe_int(payload.get("rounds_completed"), default=0),
-        "tasks_completed": safe_int(payload.get("tasks_completed"), default=0),
+        "rounds_completed": to_int(payload.get("rounds_completed"), default=0),
+        "tasks_completed": to_int(payload.get("tasks_completed"), default=0),
         "report_json": str(json_report),
         "report_md": str(task.output_dir / "autonomy-loop.md"),
         "stdout_log": str(stdout_log),

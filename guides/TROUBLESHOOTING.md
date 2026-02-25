@@ -2,7 +2,7 @@
 <!-- markdownlint-disable MD033 -->
 
 Single troubleshooting reference for VoiceTerm.
-Use the quick-fix table first, then jump into the matching section shortcuts.
+Start with the quick-fix table, then jump to the matching section.
 
 Fast first checks:
 
@@ -93,25 +93,25 @@ Transcription is taking longer than expected.
 
 ### Latency badge seems wrong in auto mode
 
-The HUD latency badge reflects the latest transcript processing delay, not backend response time.
-In auto mode, the last successful latency sample stays visible between captures to avoid flashing.
+The HUD latency badge shows transcript processing delay, not backend response time.
+In auto mode, the last good sample stays visible between captures.
 
 1. Re-run with logs: `voiceterm --logs`
 2. Look for `latency_audit` lines in the log.
 3. If `stt_ms` rises on longer utterances, that is expected for non-streaming transcription.
-4. Compare `rtf` (real-time factor — how fast transcription runs compared to speech length; lower is faster) for consistency across short and long clips.
+4. Compare `rtf` (real-time factor). Lower is faster.
 
 ### Transcript includes ambient-sound tags
 
 If Whisper emits ambient placeholders such as `(siren wailing)` or
 `(water splashing)`, update to the latest build. Current sanitizer rules strip
-known non-speech tags before delivery.
+known non-speech tags.
 
 If artifacts persist:
 
 1. Run with logs: `voiceterm --logs`
 2. Capture the exact emitted token from `${TMPDIR:-/tmp}/voiceterm_tui.log`
-3. Report the phrase so the non-speech filter list can be extended
+3. Report the phrase so the non-speech filter list can be extended.
 
 ### Transcript history has no entries
 
@@ -171,8 +171,8 @@ Native STT was unavailable, so Python fallback was used.
 ### Raw mouse escape text appears in terminal
 
 If you see fragments like `[<0;35;25M` in the wrapped CLI while clicking or
-interrupting, those are mouse event codes that should be handled by
-the HUD parser, not forwarded to the backend.
+interrupting, those are mouse event codes. They should be handled by the HUD
+parser, not forwarded to the backend.
 
 1. Confirm version: `voiceterm --version`
 2. Re-run with logs: `voiceterm --logs`
@@ -321,8 +321,7 @@ If reply rows still look clipped or overlapped:
    voiceterm --version
    ```
 
-2. Retry in a larger terminal row count first (wrapped absolute command paths
-   can consume multiple rows quickly).
+2. Retry with a taller terminal first (long wrapped command paths can consume rows quickly).
 3. Re-run with logs and capture a screenshot while the overlap is visible:
 
    ```bash
@@ -378,14 +377,14 @@ Auto-voice waits for prompt readiness before listening again.
 
 ### Wake-word enabled but no wake triggers yet
 
-Wake-word listening is local and depends on microphone capture + local Whisper
-transcription, so setup issues can prevent detections.
+Wake-word listening is local. It depends on mic capture + local Whisper
+transcription, so setup issues can block detections.
 
 1. In Full HUD, confirm wake privacy status:
    - `Wake: ON` means always-listening is active.
-   - `Wake: PAUSED` means wake listening is temporarily suspended while capture/transcription is active.
+   - `Wake: PAUSED` means wake listening is temporarily paused while capture/transcription is active.
    - `Wake: ON` is now a steady badge (no pulse blink), so visual state matches runtime state.
-   - macOS microphone indicator (`orange dot`) can still blink briefly during internal wake-listener capture cycles; that does not mean wake mode toggled off.
+   - On macOS, the mic indicator (`orange dot`) can blink during internal wake-listener cycles. That does not mean wake mode turned off.
 2. Confirm expected values in Settings (`Ctrl+O`) or via
    `--wake-word-sensitivity` / `--wake-word-cooldown-ms`.
 3. Confirm a local Whisper model path is configured and usable in your install.
@@ -413,7 +412,7 @@ in `insert` send mode.
 
 1. While recording, `Ctrl+E` requests early finalize so transcript text lands in the input box sooner.
 2. It does not send Enter to the backend.
-3. When you are ready to submit, press Enter (or use wake-tail submit like `hey codex send`).
+3. When ready to submit, press Enter (or use `hey codex send`).
 
 ### Transcript queued (N)
 
@@ -471,6 +470,7 @@ Section shortcuts:
 - [Meter looks too loud](#meter-looks-too-loud-for-normal-speech)
 - [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals)
 - [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
+- [Theme Studio fallback line](#theme-studio-shows-fallback-line)
 - [Startup banner lingers](#startup-banner-lingers-in-ide-terminal)
 - [Theme colors look muted](#theme-colors-look-muted-in-ide-terminal)
 - [Theme file edits do not apply](#theme-file-edits-do-not-apply)
@@ -504,6 +504,23 @@ and `input events` lines.
 3. Use `VOICETERM_DEBUG_INPUT=1 voiceterm --logs` and inspect
    `${TMPDIR:-/tmp}/voiceterm_tui.log` for `Ctrl+G` input events.
 
+### Theme Studio shows fallback line
+
+If Theme Studio shows `(theme studio fallback; press Esc and reopen)`, VoiceTerm
+detected a rare page-state mismatch and switched to a safe fallback instead of
+crashing.
+
+1. Press `Esc` to close Theme Studio.
+2. Reopen Theme Studio with `Ctrl+Y`.
+3. If it repeats, run with logs and capture one screenshot:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+4. Include terminal/IDE details and relevant `${TMPDIR:-/tmp}/voiceterm_tui.log`
+   lines when reporting.
+
 ### Settings or HUD lags during heavy backend output
 
 If arrow keys/settings updates feel delayed while backend output is streaming:
@@ -530,8 +547,7 @@ For `ribbon`, short sample history should render from a low baseline with peaks
 above it, not as a full-height block across the entire lane.
 
 1. Verify HUD panel mode is not `off` at launch (for example `--hud-right-panel ribbon`).
-2. Confirm terminal width is large enough for Full HUD (`>= 60` columns is a
-   practical minimum; very narrow widths may fall back to compact rendering).
+2. Confirm terminal width is large enough for Full HUD (`>= 60` columns is a practical minimum).
 3. If visualizer placement still looks wrong, run once with logs:
 
    ```bash
@@ -596,7 +612,7 @@ If you see:
 failed to send PTY exit command: PTY write failed: Input/output error (os error 5)
 ```
 
-This is usually a benign shutdown race where the virtual terminal session was already closing.
+This is usually a harmless shutdown race where the PTY session was already closing.
 
 ### Startup banner missing
 

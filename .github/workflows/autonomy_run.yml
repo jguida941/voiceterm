@@ -1,11 +1,13 @@
-name: Autonomy Run
+# Purpose: Runs the guarded plan-scoped swarm pipeline.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
+name: Swarm Run
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: autonomy-run-${{ github.event_name == 'workflow_dispatch' && (inputs.run_label || 'manual') || github.run_id }}
+  group: swarm-run-${{ github.event_name == 'workflow_dispatch' && (inputs.run_label || 'manual') || github.run_id }}
   cancel-in-progress: false
 
 on:
@@ -76,7 +78,7 @@ on:
         type: boolean
 
 jobs:
-  autonomy-run:
+  swarm-run:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     outputs:
@@ -116,7 +118,7 @@ jobs:
           set -euo pipefail
           RUN_LABEL="${INPUT_RUN_LABEL}"
           if [[ -z "${RUN_LABEL}" ]]; then
-            RUN_LABEL="gh-autonomy-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            RUN_LABEL="gh-swarm-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           fi
           BRANCH_BASE="${INPUT_BRANCH_BASE:-develop}"
           AGENTS="${INPUT_AGENTS:-10}"
@@ -148,7 +150,7 @@ jobs:
             echo "stale_minutes=${STALE_MINUTES}"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Run autonomy-run pipeline
+      - name: Run swarm_run pipeline
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ github.repository }}
@@ -167,7 +169,7 @@ jobs:
         run: |
           set +e
           CMD=(
-            python3 dev/scripts/devctl.py autonomy-run
+            python3 dev/scripts/devctl.py swarm_run
             --repo "${TARGET_REPO}"
             --plan-doc "${PLAN_DOC}"
             --mp-scope "${MP_SCOPE}"
@@ -181,18 +183,18 @@ jobs:
             --max-tasks "${MAX_TASKS}"
             --stale-minutes "${STALE_MINUTES}"
             --format json
-            --output /tmp/autonomy-run.json
-            --json-output /tmp/autonomy-run.json
+            --output /tmp/swarm-run.json
+            --json-output /tmp/swarm-run.json
           )
           if [[ "${DRY_RUN}" == "true" ]]; then
             CMD+=(--dry-run)
           fi
           "${CMD[@]}"
           RC=$?
-          echo "${RC}" > /tmp/autonomy-run.exit
-          if [[ ! -f /tmp/autonomy-run.json ]]; then
-            cat <<'JSON' > /tmp/autonomy-run.json
-            {"ok": false, "errors": ["autonomy-run output missing"], "run_dir": ""}
+          echo "${RC}" > /tmp/swarm-run.exit
+          if [[ ! -f /tmp/swarm-run.json ]]; then
+            cat <<'JSON' > /tmp/swarm-run.json
+            {"ok": false, "errors": ["swarm_run output missing"], "run_dir": ""}
             JSON
           fi
           exit 0
@@ -206,7 +208,7 @@ jobs:
           import os
           from pathlib import Path
 
-          payload = json.loads(Path('/tmp/autonomy-run.json').read_text(encoding='utf-8'))
+          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
           summary = payload.get('swarm', {}).get('summary', {})
           plan_update = payload.get('plan_update', {})
           output_path = Path(os.environ['GITHUB_OUTPUT'])
@@ -234,7 +236,7 @@ jobs:
           PLAN_UPDATE_OK: ${{ steps.export.outputs.plan_update_ok }}
           PLAN_UPDATE_UPDATED: ${{ steps.export.outputs.plan_update_updated }}
         run: |
-          echo "## Autonomy Run" >> "${GITHUB_STEP_SUMMARY}"
+          echo "## Swarm Run" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- run_label: \`${RUN_LABEL}\`" >> "${GITHUB_STEP_SUMMARY}"
           echo "- ok: \`${REPORT_OK}\`" >> "${GITHUB_STEP_SUMMARY}"
@@ -246,30 +248,30 @@ jobs:
           echo "- plan_update_ok: \`${PLAN_UPDATE_OK}\`" >> "${GITHUB_STEP_SUMMARY}"
           echo "- plan_update_updated: \`${PLAN_UPDATE_UPDATED}\`" >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Upload autonomy-run artifacts
+      - name: Upload swarm_run artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: autonomy-run-${{ steps.cfg.outputs.run_label }}
+          name: swarm-run-${{ steps.cfg.outputs.run_label }}
           path: |
-            /tmp/autonomy-run.json
-            /tmp/autonomy-run.exit
+            /tmp/swarm-run.json
+            /tmp/swarm-run.exit
             ${{ steps.export.outputs.run_dir }}
           if-no-files-found: warn
 
-      - name: Enforce autonomy-run success
+      - name: Enforce swarm_run success
         if: always()
         run: |
-          RC="$(cat /tmp/autonomy-run.exit)"
+          RC="$(cat /tmp/swarm-run.exit)"
           if [[ "${RC}" != "0" ]]; then
-            echo "autonomy-run command returned ${RC}"
+            echo "swarm_run command returned ${RC}"
             exit "${RC}"
           fi
           python3 - <<'PY'
           import json
           from pathlib import Path
-          payload = json.loads(Path('/tmp/autonomy-run.json').read_text(encoding='utf-8'))
+          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
           if not payload.get('ok'):
-              print('autonomy-run report marked not ok')
+              print('swarm_run report marked not ok')
               raise SystemExit(1)
           PY

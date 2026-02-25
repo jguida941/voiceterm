@@ -535,7 +535,10 @@ fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) ->
             state.pending_pty_output = Some(bytes);
             false
         }
-        Err(TrySendError::Full(_)) => false,
+        Err(TrySendError::Full(_)) => {
+            log_debug("writer queue returned unexpected message variant while flushing PTY output");
+            false
+        }
         Err(TrySendError::Disconnected(_)) => false,
     }
 }

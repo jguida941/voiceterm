@@ -12,6 +12,7 @@ from typing import Any
 from .autonomy_report_render import build_charts
 from .autonomy_report_summaries import summarize_source
 from .config import REPO_ROOT
+from .numeric import to_int, to_optional_float
 
 DEFAULT_SOURCE_ROOT = "dev/reports/autonomy"
 DEFAULT_LIBRARY_ROOT = "dev/reports/autonomy/library"
@@ -48,22 +49,6 @@ def resolve_path(raw_path: str) -> Path:
 
 def iso_z(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def safe_float(value: Any, default: float | None = None) -> float | None:
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def freshness_hours(path: Path, now: datetime) -> float:
@@ -224,27 +209,27 @@ def collect_report(args) -> tuple[dict[str, Any], Path, Path]:
     phone_summary = source_report.get("phone_status", {}).get("summary") or {}
 
     metrics = {
-        "triage_unresolved_count": safe_int(
+        "triage_unresolved_count": to_int(
             triage_summary.get("unresolved_count"), default=0
         ),
-        "mutation_score_gap_pct": safe_float(
+        "mutation_score_gap_pct": to_optional_float(
             mutation_summary.get("score_gap_pct"), default=None
         ),
-        "autonomy_rounds_completed": safe_int(
+        "autonomy_rounds_completed": to_int(
             autonomy_summary.get("rounds_completed"), default=0
         ),
-        "autonomy_tasks_completed": safe_int(
+        "autonomy_tasks_completed": to_int(
             autonomy_summary.get("tasks_completed"), default=0
         ),
         "autonomy_resolved": bool(autonomy_summary.get("resolved", False)),
-        "orchestrate_errors_count": safe_int(
+        "orchestrate_errors_count": to_int(
             status_summary.get("errors_count"), default=0
         )
-        + safe_int(watch_summary.get("errors_count"), default=0),
-        "stale_agent_count": safe_int(
+        + to_int(watch_summary.get("errors_count"), default=0),
+        "stale_agent_count": to_int(
             watch_summary.get("stale_agent_count"), default=0
         ),
-        "overdue_instruction_ack_count": safe_int(
+        "overdue_instruction_ack_count": to_int(
             watch_summary.get("overdue_instruction_ack_count"), default=0
         ),
         "phone_reason": str(phone_summary.get("reason") or "unknown"),

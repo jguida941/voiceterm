@@ -1,3 +1,5 @@
+# Purpose: Runs wake-word guardrails and related checks.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Wake Word Guard
 
 permissions:

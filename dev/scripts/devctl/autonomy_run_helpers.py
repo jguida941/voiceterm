@@ -1,4 +1,4 @@
-"""Helper utilities for `devctl autonomy-run`."""
+"""Helper utilities for `devctl swarm_run`."""
 
 from __future__ import annotations
 
@@ -9,19 +9,13 @@ from pathlib import Path
 from typing import Any
 
 from .config import REPO_ROOT
+from .numeric import to_int
 
 CHECKBOX_PATTERN = re.compile(r"^\s*-\s*\[\s\]\s+(?P<text>.+?)\s*$")
 
 
 def utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def repo_relative(path: Path) -> str:
@@ -127,7 +121,13 @@ def run_command(command: list[str], *, timeout_seconds: int = 0) -> dict[str, An
 
 
 def build_swarm_command(
-    args, *, prompt_path: Path, run_label: str, output_md: Path, output_json: Path
+    args,
+    *,
+    prompt_path: Path,
+    run_label: str,
+    output_md: Path,
+    output_json: Path,
+    agent_override: int | None = None,
 ) -> list[str]:
     command: list[str] = [
         "python3",
@@ -179,7 +179,10 @@ def build_swarm_command(
     fix_command = str(args.fix_command or "").strip()
     if fix_command:
         command.extend(["--fix-command", fix_command])
-    if args.agents is not None:
+    effective_agents = to_int(agent_override, default=0)
+    if effective_agents > 0:
+        command.extend(["--agents", str(effective_agents)])
+    elif args.agents is not None:
         command.extend(["--agents", str(int(args.agents))])
     else:
         command.extend(
@@ -191,7 +194,7 @@ def build_swarm_command(
             ]
         )
         command.append("--adaptive" if bool(args.adaptive) else "--no-adaptive")
-    token_budget = safe_int(args.token_budget, default=0)
+    token_budget = to_int(args.token_budget, default=0)
     if token_budget > 0:
         command.extend(
             [

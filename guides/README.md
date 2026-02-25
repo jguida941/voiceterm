@@ -1,15 +1,15 @@
 # Guides Index
 
-Use this page as the canonical user documentation entrypoint.
+Start here for user docs.
 
 ## Recommended Reading Order
 
-1. [`../QUICK_START.md`](../QUICK_START.md) - fastest setup and first run.
-2. [`INSTALL.md`](INSTALL.md) - install paths and platform details.
-3. [`USAGE.md`](USAGE.md) - controls, modes, and daily workflow.
-4. [`CLI_FLAGS.md`](CLI_FLAGS.md) - full flags and environment variables.
-5. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) - issue hub and deep links.
-6. [`WHISPER.md`](WHISPER.md) - model/language guidance.
+1. [`../QUICK_START.md`](../QUICK_START.md) - fastest first run.
+2. [`INSTALL.md`](INSTALL.md) - install options.
+3. [`USAGE.md`](USAGE.md) - controls and daily use.
+4. [`CLI_FLAGS.md`](CLI_FLAGS.md) - all flags and env vars.
+5. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) - common issues and fixes.
+6. [`WHISPER.md`](WHISPER.md) - model and language help.
 
 ## Find Docs by Goal
 
@@ -21,7 +21,7 @@ Use this page as the canonical user documentation entrypoint.
 | Configure wake mode and hands-free send | [`USAGE.md#voice-modes`](USAGE.md#voice-modes) and [`CLI_FLAGS.md#voice-behavior`](CLI_FLAGS.md#voice-behavior) |
 | Find exact CLI flags and env vars | [`CLI_FLAGS.md`](CLI_FLAGS.md) |
 | Diagnose runtime issues | [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) |
-| Tune Whisper models/languages/performance | [`WHISPER.md`](WHISPER.md) |
+| Tune Whisper model/language/performance | [`WHISPER.md`](WHISPER.md) |
 | Understand install/start scripts | [`../scripts/README.md`](../scripts/README.md) |
 
 ## Troubleshooting Jump Links

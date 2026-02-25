@@ -5,6 +5,8 @@
 
 #![allow(dead_code)]
 
+use super::nav::{select_next, select_prev};
+
 /// State for the Components editor page.
 #[derive(Debug, Clone)]
 pub(crate) struct ComponentsEditorState {
@@ -24,18 +26,14 @@ impl ComponentsEditorState {
         }
     }
 
-    /// Move selection up.
-    pub(crate) fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-        }
+    /// Select previous row.
+    pub(crate) fn select_prev(&mut self) {
+        select_prev(&mut self.selected);
     }
 
-    /// Move selection down with a maximum bound.
-    pub(crate) fn move_down(&mut self, max: usize) {
-        if self.selected < max.saturating_sub(1) {
-            self.selected += 1;
-        }
+    /// Select next row with a maximum bound.
+    pub(crate) fn select_next(&mut self, max: usize) {
+        select_next(&mut self.selected, max);
     }
 
     /// Toggle expansion of the selected component.
@@ -219,10 +217,10 @@ mod tests {
     #[test]
     fn components_editor_navigate() {
         let mut editor = ComponentsEditorState::new();
-        editor.move_down(10);
-        editor.move_down(10);
+        editor.select_next(10);
+        editor.select_next(10);
         assert_eq!(editor.selected, 2);
-        editor.move_up();
+        editor.select_prev();
         assert_eq!(editor.selected, 1);
     }
 

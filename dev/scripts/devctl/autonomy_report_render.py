@@ -5,21 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_float(value: Any, default: float | None = None) -> float | None:
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+from .numeric import to_int, to_optional_float
 
 
 def build_charts(
@@ -37,10 +23,10 @@ def build_charts(
     bar_chart = chart_dir / "autonomy_overview.png"
     labels = ["triage_unresolved", "mutation_gap_pct", "rounds", "orchestrate_errors"]
     values = [
-        _safe_int(metrics.get("triage_unresolved_count"), default=0),
-        _safe_float(metrics.get("mutation_score_gap_pct"), default=0.0) or 0.0,
-        _safe_int(metrics.get("autonomy_rounds_completed"), default=0),
-        _safe_int(metrics.get("orchestrate_errors_count"), default=0),
+        to_int(metrics.get("triage_unresolved_count"), default=0),
+        to_optional_float(metrics.get("mutation_score_gap_pct"), default=0.0) or 0.0,
+        to_int(metrics.get("autonomy_rounds_completed"), default=0),
+        to_int(metrics.get("orchestrate_errors_count"), default=0),
     ]
     figure = plt.figure(figsize=(8, 4.5))
     axis = figure.add_subplot(111)

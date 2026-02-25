@@ -9,6 +9,7 @@ mod colors_page;
 mod components_page;
 mod export_page;
 mod home_page;
+mod nav;
 mod preview_page;
 
 // Re-export all items from home_page for backward compatibility.

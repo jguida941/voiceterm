@@ -193,11 +193,11 @@ pub(super) fn handle_theme_studio_bytes(
                     for key in parse_arrow_keys(bytes) {
                         match key {
                             ArrowKey::Up => {
-                                editor.move_up();
+                                editor.select_prev();
                                 should_redraw = true;
                             }
                             ArrowKey::Down => {
-                                editor.move_down();
+                                editor.select_next();
                                 should_redraw = true;
                             }
                             ArrowKey::Left | ArrowKey::Right => {
@@ -236,11 +236,11 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_borders_page.move_up();
+                        state.theme_studio_borders_page.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        state.theme_studio_borders_page.move_down();
+                        state.theme_studio_borders_page.select_next();
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -251,12 +251,12 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_components_editor.move_up();
+                        state.theme_studio_components_editor.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
                         let max = state.theme_studio_components_editor.group_count();
-                        state.theme_studio_components_editor.move_down(max);
+                        state.theme_studio_components_editor.select_next(max);
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -282,11 +282,11 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_export_page.move_up();
+                        state.theme_studio_export_page.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        state.theme_studio_export_page.move_down();
+                        state.theme_studio_export_page.select_next();
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}

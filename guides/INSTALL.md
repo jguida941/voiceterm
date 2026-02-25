@@ -1,7 +1,7 @@
 # Installation
 
-This guide shows install options and model setup.
-Recommended for most users: Homebrew on macOS/Linux.
+This guide shows install options.
+Best default: Homebrew on macOS/Linux.
 
 Related docs:
 [Quick Start](../QUICK_START.md) |
@@ -33,14 +33,14 @@ Related docs:
 
 ## Prerequisites
 
-**AI CLI (choose one):**
+**AI CLI (pick one):**
 
 | CLI | Install Command |
 |-----|-----------------|
 | Codex (default) | `npm install -g @openai/codex` |
 | Claude Code | `bash -c "$(curl -fsSL https://claude.ai/install.sh)"` |
 
-After you install VoiceTerm (any option below), authenticate your backend once:
+After install, run backend login once:
 
 ```bash
 voiceterm --login --codex
@@ -50,21 +50,21 @@ voiceterm --login --claude
 **Other requirements:**
 
 - Microphone access
-- Whisper model file downloaded on first run
+- Whisper model download on first run
 - Disk space for models: `tiny.en` ~75 MB, `base.en` ~142 MB, `small.en` ~466 MB, `medium.en` ~1.5 GB, `large` ~3.1 GB
 - Rust toolchain (stable) only if you build from source: <https://rustup.rs>
-- Source builds use `serde_norway` for YAML macro parsing (maintained `serde_yaml` fork with RustSec-recommended safety posture)
-- Optional: `python3`, `ffmpeg`, and `whisper` CLI on PATH (used as backup if native engine is unavailable; disable with `--no-python-fallback`)
+- Source builds use `serde_norway` for YAML macro parsing
+- Optional fallback tools on PATH: `python3`, `ffmpeg`, `whisper` (disable fallback with `--no-python-fallback`)
 
 ## Choose an Install Path
 
 | If you want... | Choose | Why |
 |----------------|--------|-----|
-| Easiest global install and upgrades | **Homebrew** | Best default on macOS/Linux with `brew upgrade` updates |
-| Python-managed CLI install | **PyPI (`pipx`)** | Isolated Python tool install, then bootstrap native binary on first run |
-| Full local control / development workflow | **From source** | Build and modify directly from this repository |
-| Finder-based launch on macOS | **macOS App** | Folder picker launches VoiceTerm without terminal setup steps |
-| No install, one-off run | **Manual run** | Use the repo scripts directly from any directory |
+| Easiest install and upgrades | **Homebrew** | Best default on macOS/Linux (`brew upgrade`) |
+| Python-managed install | **PyPI (`pipx`)** | Isolated install, then native bootstrap on first run |
+| Full local control | **From source** | Build and edit from this repo |
+| Finder launch on macOS | **macOS App** | Pick folder and launch without shell setup |
+| No install | **Manual run** | Run repo scripts directly |
 
 ## Option A: Homebrew (recommended)
 
@@ -92,10 +92,9 @@ voiceterm
 ```
 
 Model storage defaults to `~/.local/share/voiceterm/models` for Homebrew installs
-(or when the repo directory is not writable). The install/start scripts honor
-`VOICETERM_MODEL_DIR` for a custom path.
-Homebrew upgrades should reuse this directory, so the Whisper model is not
-redownloaded on each version bump unless the file is missing.
+(or when the repo directory is not writable). Use `VOICETERM_MODEL_DIR` to set
+a custom path. Homebrew upgrades reuse this folder, so models are not
+redownloaded unless missing.
 
 Optional pre-download:
 
@@ -115,8 +114,7 @@ If Homebrew still shows an older version or `voiceterm` runs an older binary, se
 
 After upgrading, run `voiceterm --version` to confirm.
 
-Daily usage details are in [USAGE.md](USAGE.md). Install/runtime issues and
-terminal-specific edge cases are in
+Daily usage is in [USAGE.md](USAGE.md). Install/runtime issues are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 If you use Cursor terminal, VoiceTerm keeps mouse mode on for HUD clicks while
 preserving wheel scrolling (`Mouse: ON - scroll preserved in Cursor`).
@@ -153,7 +151,7 @@ PyPI project page:
 
 - <https://pypi.org/project/voiceterm/>
 
-PyPI launcher note:
+PyPI launcher notes:
 
 - The package installs a Python launcher named `voiceterm`.
 - On first run it bootstraps the native Rust binary into
@@ -170,7 +168,7 @@ PyPI launcher note:
 <details>
 <summary><strong>Show source install steps</strong></summary>
 
-Recommended if you want a local build or plan to hack on VoiceTerm.
+Use this if you want a local build or plan to modify VoiceTerm.
 
 ```bash
 git clone https://github.com/jguida941/voiceterm.git
@@ -178,8 +176,7 @@ cd voiceterm
 ./scripts/install.sh
 ```
 
-The installer builds VoiceTerm, installs the `voiceterm` command, and downloads
-the Whisper model if needed.
+The installer builds VoiceTerm, installs `voiceterm`, and downloads a model if needed.
 
 For startup splash options, see [USAGE.md - Startup splash behavior](USAGE.md#startup-splash-behavior).
 
@@ -208,7 +205,7 @@ If `voiceterm` is not found, the installer used the first writable directory in
 this order: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, or
 `/path/to/voiceterm/bin`.
 
-Add that directory to PATH or set `VOICETERM_INSTALL_DIR` before running
+Add that directory to PATH, or set `VOICETERM_INSTALL_DIR` before running
 `./scripts/install.sh`.
 
 If a `voiceterm` command already exists in `/opt/homebrew/bin` or
@@ -269,8 +266,7 @@ Use a Linux environment in WSL2:
 
 ## After install: run in your project
 
-VoiceTerm works with any codebase. Run from your project directory or set
-`VOICETERM_CWD` to force the working directory.
+Run VoiceTerm from your project directory, or set `VOICETERM_CWD`.
 
 ```bash
 cd ~/my-project
@@ -283,13 +279,13 @@ To target Claude instead of Codex:
 voiceterm --claude
 ```
 
-First-run control note (current behavior):
+First-run control notes:
 
 - `Ctrl+R` starts/stops recording.
-- `Ctrl+E` finalizes active recording early in `insert` mode and stages text (it does not send Enter).
+- `Ctrl+E` finalizes active recording early in `insert` mode and stages text (no Enter send).
 - In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
 - `Ctrl+Y` opens Theme Studio; use `Tab` / `Shift+Tab` to switch pages.
-- If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD only when border mode is `theme`.
+- If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD when border mode is `theme`.
 - Use `--theme-file <PATH>` (or `VOICETERM_THEME_FILE`) to load a TOML theme file.
 
 ## Optional: Macro Wizard

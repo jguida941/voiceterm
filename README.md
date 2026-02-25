@@ -19,13 +19,12 @@
 </p>
 
 VoiceTerm is a voice-first terminal overlay for Codex, Claude, and Gemini.
-It uses local Whisper speech-to-text to stream your voice into your existing
-CLI session. Your tools continue running in a normal PTY environment while
-VoiceTerm adds a customizable HUD on top. It supports push-to-talk or wake
-phrases ("hey codex", "hey claude") plus voice commands like `send` / `submit`
-for fully hands-free prompting when needed.
+It runs Whisper on your machine and types what you say into your existing CLI.
+Your tools still run in a normal PTY; VoiceTerm just adds a HUD on top.
+Use push-to-talk or wake phrases (`hey codex`, `hey claude`), then say
+`send` / `submit` for hands-free delivery.
 
-Whisper runs locally by default. No cloud API keys required. All local!
+Whisper runs locally by default. No cloud API keys required.
 Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 
 ## Quick Nav
@@ -143,9 +142,9 @@ types the result into your AI CLI input.
 | Feature | What it does |
 |---------|---------------|
 | **Local speech-to-text** | Whisper runs on your machine (no cloud calls) |
-| **Fast voice-to-text** | A local Whisper engine turns speech into text quickly |
-| **Terminal passthrough** | Your CLI layout and behavior stay the same |
-| **Auto-voice** | You can talk hands-free instead of typing |
+| **Fast voice-to-text** | Local Whisper turns speech into text quickly |
+| **Keep your CLI as-is** | Your backend CLI layout and behavior stay the same |
+| **Auto voice mode** | Keep listening on so you can talk instead of typing |
 | **Wake mode + voice send** | Say `hey codex`/`hey claude`, then say `send`/`submit` in insert mode |
 | **Image prompts** | Use `Ctrl+X` for one-shot screenshot prompts, or enable persistent image mode for HUD `[rec]` (`IMG` badge) |
 | **Transcript queue** | If the CLI is busy, VoiceTerm waits and sends text when ready |
@@ -153,15 +152,15 @@ types the result into your AI CLI input.
 
 ### Everyday tools
 
-- **Voice macros**: expand phrases from `.voiceterm/macros.yaml` and toggle them on/off in Settings
-- **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, and `explain last error`
-- **Developer guard mode**: launch with `--dev` to enable deferred dev-only experiments (`DEV` badge), use `Ctrl+D` to open the in-session Dev panel with `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`), and add `--dev-log` to write session JSONL diagnostics
-- **Prompt-safe reply boxes**: Codex/Claude approval and reply/composer prompts temporarily suppress HUD rows so prompt text remains visible while you respond
-- **Transcript history**: use `Ctrl+H` to search and replay past text into the active CLI
-- **Notification history**: use `Ctrl+N` to review recent status notifications
-- **Saved settings**: keeps your settings in `~/.config/voiceterm/config.toml`
+- **Voice macros**: expand phrases from `.voiceterm/macros.yaml` (toggle in Settings)
+- **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, `explain last error`
+- **Dev mode tools**: use `--dev` (`DEV` badge), `Ctrl+D` for Dev panel tools, `--dev-log` for JSONL diagnostics
+- **Prompt-safe HUD**: VoiceTerm hides HUD rows during Codex/Claude approval and reply/composer prompts so text stays readable
+- **Transcript history**: `Ctrl+H` to search and replay past text
+- **Notification history**: `Ctrl+N` to review recent status messages
+- **Saved settings**: stored in `~/.config/voiceterm/config.toml`
 - **Built-in themes**: 11 themes including ChatGPT, Catppuccin, Dracula, Nord, Tokyo Night, and Gruvbox
-- **Style-pack border routing**: `VOICETERM_STYLE_PACK_JSON` supports `components.overlay_border` and `components.hud_border` (HUD applies when border mode is `theme`)
+- **Style-pack border settings**: `VOICETERM_STYLE_PACK_JSON` supports `components.overlay_border` and `components.hud_border` (HUD applies when border mode is `theme`)
 
 For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
 
@@ -198,8 +197,8 @@ Think of this like Alexa for your terminal:
 
 ![Theme Picker](img/theme-picker.png)
 Press `Ctrl+Y` to open Theme Studio and choose `Theme picker`.
-Use `Ctrl+G` to quick-cycle themes.
-Use `Tab` / `Shift+Tab` to move across Theme Studio pages (`Home`, `Colors`,
+Use `Ctrl+G` to cycle themes quickly.
+Use `Tab` / `Shift+Tab` to move between Theme Studio pages (`Home`, `Colors`,
 `Borders`, `Components`, `Preview`, `Export`).
 For editor details, see [Themes](guides/USAGE.md#themes).
 For theme-file flags/env vars, see [CLI Flags](guides/CLI_FLAGS.md#themes--display).

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .autonomy_benchmark_helpers import safe_float, safe_int
 from .config import REPO_ROOT
+from .numeric import to_float, to_int
 
 
 @dataclass(frozen=True)
@@ -128,7 +128,7 @@ def build_swarm_command(
     command.append(
         "--reviewer-lane" if bool(args.reviewer_lane) else "--no-reviewer-lane"
     )
-    token_budget = safe_int(args.token_budget, default=0)
+    token_budget = to_int(args.token_budget, default=0)
     if token_budget > 0:
         command.extend(
             [
@@ -176,20 +176,20 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     ok_count = sum(1 for row in rows if bool(row.get("ok")))
     failed = total - ok_count
     elapsed_total = sum(
-        safe_float(row.get("elapsed_seconds"), default=0.0) for row in rows
+        to_float(row.get("elapsed_seconds"), default=0.0) for row in rows
     )
     agent_exec_total = sum(
-        safe_int(row.get("executed_agents"), default=0) for row in rows
+        to_int(row.get("executed_agents"), default=0) for row in rows
     )
-    agent_ok_total = sum(safe_int(row.get("ok_count"), default=0) for row in rows)
+    agent_ok_total = sum(to_int(row.get("ok_count"), default=0) for row in rows)
     resolved_rows_total = sum(
-        safe_int(row.get("resolved_count"), default=0) for row in rows
+        to_int(row.get("resolved_count"), default=0) for row in rows
     )
     tasks_total = sum(
-        safe_int(row.get("tasks_completed_total"), default=0) for row in rows
+        to_int(row.get("tasks_completed_total"), default=0) for row in rows
     )
     rounds_total = sum(
-        safe_int(row.get("rounds_completed_total"), default=0) for row in rows
+        to_int(row.get("rounds_completed_total"), default=0) for row in rows
     )
     post_audit_ok_total = sum(1 for row in rows if bool(row.get("post_audit_ok")))
     tasks_per_minute = 0.0

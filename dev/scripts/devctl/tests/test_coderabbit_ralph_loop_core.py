@@ -152,3 +152,96 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
         self.assertEqual(report["reason"], "resolved")
         self.assertEqual(report["source_correlation"], "source_artifact_sha_validated")
         self.assertEqual(report["backlog_pr_number"], 19)
+
+    def test_execute_loop_policy_block_sets_reason(self) -> None:
+        with (
+            patch.object(
+                self.script,
+                "wait_for_latest_completed",
+                return_value=(
+                    {
+                        "databaseId": 123,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "headSha": "a" * 40,
+                        "url": "https://example.invalid/runs/123",
+                    },
+                    None,
+                ),
+            ),
+            patch.object(self.script, "download_run_artifacts", return_value=None),
+            patch.object(
+                self.script,
+                "load_backlog_payload",
+                return_value=({"items": [{"severity": "high"}]}, None),
+            ),
+        ):
+            report = self.script.execute_loop(
+                repo="owner/repo",
+                branch="develop",
+                workflow="CodeRabbit Triage Bridge",
+                max_attempts=1,
+                run_list_limit=10,
+                poll_seconds=5,
+                timeout_seconds=60,
+                fix_command="python3 dev/scripts/devctl.py check --profile ci",
+                fix_block_reason="policy denied",
+            )
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["reason"], "fix_command_policy_blocked")
+        self.assertEqual(report["attempts"][0]["status"], "blocked")
+        self.assertFalse(report["escalation_needed"])
+
+    def test_execute_loop_max_attempts_sets_escalation_needed(self) -> None:
+        with (
+            patch.object(
+                self.script,
+                "wait_for_latest_completed",
+                return_value=(
+                    {
+                        "databaseId": 188,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "headSha": "a" * 40,
+                        "url": "https://example.invalid/runs/188",
+                    },
+                    None,
+                ),
+            ),
+            patch.object(self.script, "download_run_artifacts", return_value=None),
+            patch.object(
+                self.script,
+                "load_backlog_payload",
+                return_value=({"items": [{"severity": "high"}]}, None),
+            ),
+            patch.object(self.script, "run_fix_command", return_value=(0, None)),
+            patch.object(
+                self.script,
+                "wait_for_new_completed_run",
+                return_value=(
+                    {
+                        "databaseId": 189,
+                        "status": "completed",
+                        "conclusion": "success",
+                        "headSha": "b" * 40,
+                        "url": "https://example.invalid/runs/189",
+                    },
+                    None,
+                ),
+            ),
+        ):
+            report = self.script.execute_loop(
+                repo="owner/repo",
+                branch="develop",
+                workflow="CodeRabbit Triage Bridge",
+                max_attempts=1,
+                run_list_limit=10,
+                poll_seconds=5,
+                timeout_seconds=60,
+                fix_command="python3 dev/scripts/devctl.py check --profile ci",
+            )
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["reason"], "max attempts reached with unresolved medium+ backlog")
+        self.assertTrue(report["escalation_needed"])

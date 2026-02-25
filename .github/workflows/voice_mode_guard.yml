@@ -1,3 +1,5 @@
+# Purpose: Runs regression tests for macro mode and send mode behavior.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Voice Mode Guard
 
 permissions:

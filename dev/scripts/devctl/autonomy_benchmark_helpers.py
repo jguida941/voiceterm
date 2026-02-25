@@ -10,22 +10,9 @@ from typing import Any
 
 from .autonomy_swarm_helpers import resolve_path, slug
 from .config import REPO_ROOT
+from .numeric import to_int
 
 SUPPORTED_TACTICS = ("uniform", "specialized", "research-first", "test-first")
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def repo_relative(path: Path) -> str:
@@ -66,7 +53,7 @@ def parse_swarm_counts(raw: str) -> list[int]:
         text = part.strip()
         if not text:
             continue
-        value = safe_int(text, default=0)
+        value = to_int(text, default=0)
         if value > 0:
             counts.append(value)
     return sorted(set(counts))

@@ -15,24 +15,25 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
 ## Recommended Reading Order
 
-1. [`dev/active/INDEX.md`](active/INDEX.md) -- registry of active planning docs (read this first).
+1. [`dev/active/INDEX.md`](active/INDEX.md) -- list of active planning docs (read this first).
 2. [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) -- current scope and what ships next.
-3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) -- Theme + Overlay Studio spec (`TS-G*`, `MP-148+`).
-4. [`dev/active/memory_studio.md`](active/memory_studio.md) -- Memory + Action Studio spec (`MS-G*`, `MP-230+`).
-5. [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md) -- autonomous loop + mobile control-plane phased execution spec (`MP-325+`).
-6. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- loop artifact to chat-suggestion runbook (`MP-338`).
-7. [`dev/active/rust_workspace_layout_migration.md`](active/rust_workspace_layout_migration.md) -- Rust workspace path/layout migration execution plan (`MP-339`) when repository path contracts are in scope.
-8. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- linked external repos (`code-link-ide`, `ci-cd-hub`) and governed import workflow.
-9. [`dev/audits/README.md`](audits/README.md) -- audit-cycle entry points and evidence conventions.
-10. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeat-to-automate debt tracking.
-11. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- event schema and KPI/chart definitions for scientific audit runs.
-12. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
-13. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-14. [`dev/history/README.md`](history/README.md) -- index for historical records.
-15. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
-16. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
-17. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-18. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+3. [`dev/active/theme_upgrade.md`](active/theme_upgrade.md) -- Theme and overlay design plan.
+4. [`dev/active/memory_studio.md`](active/memory_studio.md) -- Memory and action-system plan.
+5. [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md) -- autonomy loop and mobile control-plane plan.
+6. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
+7. [`dev/active/rust_workspace_layout_migration.md`](active/rust_workspace_layout_migration.md) -- Rust workspace path/layout migration plan.
+8. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
+9. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
+10. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
+11. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
+12. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
+13. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
+14. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+15. [`dev/history/README.md`](history/README.md) -- index for historical records.
+16. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
+17. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
+18. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
+19. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
 
 ## Three Core Docs
 
@@ -68,7 +69,7 @@ User docs start here:
 | `dev/history/` | Engineering history and timeline |
 | `dev/adr/` | Architecture decision records |
 | `dev/scripts/` | Developer automation and tooling docs |
-| `dev/integrations/` | External repo federation playbooks and import guardrails |
+| `dev/integrations/` | External repo links and import rules |
 | `dev/audits/` | Audit runbooks, baseline checklists, and automation debt register |
 
 ## Fast Workflow Commands
@@ -84,10 +85,10 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/devctl.py status --ci --format md
 ```
 
-### Why these guardrails exist
+### Why these checks exist
 
 - **`docs-check`** -- blocks behavior changes that ship without matching docs.
 - **`docs-check --strict-tooling`** -- requires a matching `dev/history/ENGINEERING_EVOLUTION.md` entry when `MASTER_PLAN` moves.
-- **`hygiene`** -- catches doc/process drift (ADR index, archive naming, scripts list).
+- **`hygiene`** -- catches doc/process drift (ADR index, archive naming, script list).
 - **`check_cli_flags_parity.py`** -- keeps CLI docs in sync with clap flags.
 - **`check_screenshot_integrity.py`** -- catches missing image links and stale screenshots.

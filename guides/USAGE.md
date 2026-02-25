@@ -68,8 +68,8 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 
 ## How Voice Input Works
 
-VoiceTerm only handles voice capture and text injection. It does not replace your
-backend CLI.
+VoiceTerm handles voice capture and text injection.
+It does not replace your backend CLI.
 
 ```mermaid
 flowchart TD
@@ -85,13 +85,13 @@ flowchart TD
     H -->|insert| J["Wait for Enter (Ctrl+E finalizes capture only)"]
 ```
 
-Flow:
+Simple flow:
 
 1. Record: VoiceTerm listens while you speak.
 2. Transcribe: local Whisper converts speech to text.
-3. Expand (optional): macro rules from `.voiceterm/macros.yaml` apply if enabled.
+3. Expand (optional): macro rules from `.voiceterm/macros.yaml` apply when enabled.
 4. Inject: final text is typed into terminal input.
-5. Send decision:
+5. Send:
    - `auto`: press Enter automatically.
    - `insert`: wait for manual Enter.
 
@@ -218,8 +218,8 @@ Capture command:
 
 ## Developer Guard Mode
 
-Use `--dev` (or `--dev-mode` / `-D`) to enable deferred developer-only
-experiments for a launch without changing normal default behavior.
+Use `--dev` (or `--dev-mode` / `-D`) for guarded developer-only tools in one
+launch. Normal default behavior stays unchanged when this flag is off.
 
 ```bash
 voiceterm --dev
@@ -227,12 +227,12 @@ voiceterm --dev --dev-log
 voiceterm --dev --dev-log --dev-path ~/.voiceterm/dev
 ```
 
-Behavior:
+What you get:
 
 - Default launch stays unchanged when the flag is not present.
-- Full HUD shows `DEV` while the guard is active.
+- Full HUD shows `DEV` when guard mode is active.
 - `Ctrl+D` toggles the in-session Dev panel.
-- The panel shows live session counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) that run through an allowlisted async broker.
+- The panel shows live counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) through an allowlisted async broker.
 - `sync` is mutating and requires a second `Enter` confirmation before it runs.
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
@@ -276,7 +276,7 @@ Three controls define runtime behavior:
 
 ### Wake + Voice Send flow (hands-free)
 
-This is the most hands-free mode and works like an Alexa-style flow:
+This is the most hands-free mode:
 
 1. Open Settings with `Ctrl+O` and set `Wake word` to `ON`.
 2. Press `Ctrl+T` until send mode is `insert`.
@@ -310,8 +310,8 @@ You can also do one-shot submit with:
 ### Practical notes
 
 - In `insert` mode, Enter submits staged text.
-- In `insert` mode, saying `send`, `send message`, or `submit` submits staged text.
-- One-shot wake submit works: `hey codex send` or `hey claude send`.
+- In `insert` mode, saying `send`, `send message`, or `submit` also submits staged text.
+- One-shot wake submit works: `hey codex send` or `hey claude send` (in `insert` mode).
 - `Ctrl+R` toggles voice recording start/stop without sending.
 - `Ctrl+X` captures one screenshot prompt into the terminal.
 - `Ctrl+E` finalizes only. It never sends.
@@ -321,8 +321,8 @@ You can also do one-shot submit with:
 
 ### Built-in voice navigation commands
 
-When a transcript exactly matches one of these phrases, VoiceTerm runs a local
-navigation action instead of typing the raw text.
+If a transcript exactly matches one phrase below, VoiceTerm runs a local action
+instead of typing raw text.
 
 - `scroll up` - sends terminal PageUp
 - `scroll down` - sends terminal PageDown
@@ -331,17 +331,17 @@ navigation action instead of typing the raw text.
 - `copy last error` - copies the most recent error-like terminal line to clipboard
 - `explain last error` - sends an "explain this error" prompt to the active backend
 
-Precedence:
+Priority:
 
-- If a voice macro matches first, the macro wins.
+- If a voice macro matches first, macro wins.
 - Use `voice scroll up` or `voice scroll down` for explicit built-in navigation
   phrases when you also keep overlapping macro triggers.
 
 ### Long dictation (`auto-voice` + `insert`)
 
 Capture is chunked by duration (default 30s, max 60s via
-`--voice-max-capture-ms`). Each chunk is transcribed and injected; press Enter
-once when ready to submit, or use `Ctrl+E` while recording to stop early and stage text without waiting for silence timeout.
+`--voice-max-capture-ms`). Each chunk is transcribed and injected.
+Press Enter when ready to submit, or use `Ctrl+E` to stop early and stage text.
 
 ## Common Tasks
 

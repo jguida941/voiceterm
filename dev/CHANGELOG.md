@@ -7,9 +7,16 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.94] - 2026-02-25
 ### Control Plane
 
 - Add an optional PySide6 desktop command-center scaffold under `app/pyside6/` with modular tabbed surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`, `Git`, `Terminal`), non-blocking command execution (`QProcess`), and a broad command catalog that reuses existing `devctl`/governance/git/cargo/workflow command paths.
+
+### Runtime Hardening
+
+- Harden terminal resize signal registration by switching to `sigaction` (`SA_RESTART`) for `SIGWINCH`, reducing non-portable `signal()` behavior in long-running sessions.
+- Replace a Theme Studio non-home render `unreachable!()` with a safe fallback line so unexpected page-state mismatches no longer panic.
+- Add explicit diagnostics when PTY output queueing hits an unexpected writer-message variant instead of silently discarding that branch.
 
 ### Theme Studio Upgrade
 

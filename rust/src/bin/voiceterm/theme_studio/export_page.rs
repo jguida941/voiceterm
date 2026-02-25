@@ -12,6 +12,8 @@ use crate::theme::theme_dir::ensure_theme_dir;
 use crate::theme::theme_file::export_theme_file;
 use crate::theme::Theme;
 
+use super::nav::{select_next, select_prev};
+
 /// State for the Export page.
 #[derive(Debug, Clone)]
 pub(crate) struct ExportPageState {
@@ -71,18 +73,14 @@ impl ExportPageState {
             .unwrap_or(ExportAction::ExportToml)
     }
 
-    /// Move selection up.
-    pub(crate) fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-        }
+    /// Select previous action.
+    pub(crate) fn select_prev(&mut self) {
+        select_prev(&mut self.selected);
     }
 
-    /// Move selection down.
-    pub(crate) fn move_down(&mut self) {
-        if self.selected < ExportAction::ALL.len() - 1 {
-            self.selected += 1;
-        }
+    /// Select next action.
+    pub(crate) fn select_next(&mut self) {
+        select_next(&mut self.selected, ExportAction::ALL.len());
     }
 
     /// Execute the currently selected action.
@@ -194,13 +192,13 @@ mod tests {
     #[test]
     fn export_page_navigate() {
         let mut page = ExportPageState::new();
-        page.move_down();
+        page.select_next();
         assert_eq!(page.selected_action(), ExportAction::CopyToClipboard);
-        page.move_down();
+        page.select_next();
         assert_eq!(page.selected_action(), ExportAction::ImportFile);
-        page.move_down(); // should not go past end
+        page.select_next(); // should not go past end
         assert_eq!(page.selected_action(), ExportAction::ImportFile);
-        page.move_up();
+        page.select_prev();
         assert_eq!(page.selected_action(), ExportAction::CopyToClipboard);
     }
 

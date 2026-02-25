@@ -1,4 +1,4 @@
-"""Plan-scope helpers for `devctl autonomy-run`."""
+"""Plan-scope helpers for `devctl swarm_run`."""
 
 from __future__ import annotations
 
@@ -78,14 +78,14 @@ def update_plan_doc(
     summary_rel = repo_relative(run_dir / "summary.md")
 
     progress_line = (
-        f"- {today}: Ran `devctl autonomy-run` (`{run_label}`, `{mp_scope}`); "
+        f"- {today}: Ran `devctl swarm_run` (`{run_label}`, `{mp_scope}`); "
         f"selected_agents={swarm_summary.get('selected_agents')}, "
         f"worker_agents={swarm_summary.get('worker_agents')}, "
         f"reviewer_lane={swarm_summary.get('reviewer_lane')}, governance_ok={governance_ok}, "
         f"status={status_word}; artifacts: `{summary_rel}`."
     )
     audit_row = (
-        f"| `python3 dev/scripts/devctl.py autonomy-run --plan-doc {plan_rel} --mp-scope {mp_scope} --run-label {run_label}` "
+        f"| `python3 dev/scripts/devctl.py swarm_run --plan-doc {plan_rel} --mp-scope {mp_scope} --run-label {run_label}` "
         f"| swarm_ok={swarm_ok}, governance_ok={governance_ok}, summary=`{summary_rel}` ({today} local run) "
         f"| {status_word} |"
     )

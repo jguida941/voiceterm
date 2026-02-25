@@ -32,18 +32,19 @@ Already know the feature area? Use this short loop:
 
 ## Workflow ownership and routing
 
-Each doc owns a specific part of the workflow:
+Use docs like this:
 
 - **`AGENTS.md`** -- which workflow to follow (read this first).
-- **`dev/DEVELOPMENT.md`** (this file) -- exact commands and verification steps.
-- **`dev/scripts/README.md`** -- tooling and release command reference.
-- **`dev/active/INDEX.md`** -- registry of active planning docs and when to read them.
+- **`dev/DEVELOPMENT.md`** (this file) -- exact commands and check steps.
+- **`dev/scripts/README.md`** -- `devctl` and release command reference.
+- **`.github/workflows/README.md`** -- what each GitHub workflow does.
+- **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
-- **`dev/active/theme_upgrade.md`** -- Theme + Overlay Studio spec (visual architecture, research, redesign).
-- **`dev/active/loop_chat_bridge.md`** -- loop artifact-to-chat suggestion coordination runbook (`MP-338`).
-- **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- parallel worktree orchestration for this cycle.
+- **`dev/active/theme_upgrade.md`** -- Theme and overlay plan.
+- **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
+- **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- multi-agent worktree runbook for this cycle.
 
-Start with `AGENTS.md` to pick your task class, then come back here for commands.
+Start with `AGENTS.md` to pick your task class, then use this file for commands.
 
 ## End-to-end lifecycle flow
 
@@ -84,8 +85,8 @@ flowchart TD
 
 ## What checks protect us
 
-Run the checks that match your change type before pushing.
-CI runs the same families, so catching issues locally saves round-trips.
+Run the checks that match your change before pushing.
+CI runs the same checks, so local failures are faster to fix.
 
 ### Runtime and UI changes
 
@@ -101,14 +102,14 @@ CI runs the same families, so catching issues locally saves round-trips.
 | User docs (`README`, `guides/*`, `QUICK_START`) | `python3 dev/scripts/devctl.py docs-check --user-facing` | `tooling_control_plane.yml` (conditional) |
 | Tooling/process/CI docs or scripts | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `tooling_control_plane.yml` |
 | CodeRabbit review integration and backlog routing | `python3 dev/scripts/devctl.py triage --no-cihub --external-issues-file .cihub/coderabbit/priority.json --format md` | `coderabbit_triage.yml` |
-| CodeRabbit medium/high backlog auto-remediation loop | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --format md` | `coderabbit_ralph_loop.yml` |
+| CodeRabbit medium/high backlog loop (policy-gated fixes + escalation comments) | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --format md` | `coderabbit_ralph_loop.yml` |
 | Mutation score remediation loop (report-only default) | `python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | `mutation_ralph_loop.yml` |
-| Autonomous controller loop (bounded rounds/hours/tasks + queue packets + phone status snapshots) | `python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --checkpoint-every 1 --format json` | `autonomy_controller.yml` |
-| Guarded plan-scoped swarm pipeline (scope load + swarm + reviewer + governance + plan evidence append) | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label ops-guarded --format md` | `tooling_control_plane.yml` (governance/docs checks) |
+| Autonomous controller loop (bounded rounds + queue packets + phone snapshots) | `python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-001 --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --checkpoint-every 1 --format json` | `autonomy_controller.yml` |
+| Guarded plan-scoped swarm pipeline (scope checks + swarm + reviewer + governance + plan evidence append) | `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label ops-guarded --format md` | `tooling_control_plane.yml` (governance/docs checks) |
 | Human-readable autonomy digest bundle (dated md/json + charts) | `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label daily-ops --format md` | `tooling_control_plane.yml` |
 | Adaptive multi-agent autonomy planner/executor (Claude/Codex worker sizing up to 20 lanes) | `python3 dev/scripts/devctl.py autonomy-swarm --question-file dev/active/autonomous_control_plane.md --adaptive --min-agents 4 --max-agents 20 --plan-only --format md` | `tooling_control_plane.yml` (governance/docs checks) |
 | Live swarm execution with reserved reviewer lane + automatic audit digest | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label ops-live --format md` | `tooling_control_plane.yml` (governance/docs checks) |
-| Continuous data-science telemetry snapshots (command productivity + agent-size recommendation) | `python3 dev/scripts/devctl.py data-science --format md` (auto-refresh also runs after every devctl command unless disabled) | `tooling_control_plane.yml` (tooling/docs governance checks) |
+| Continuous data-science telemetry snapshots (command productivity + lane-size recommendation) | `python3 dev/scripts/devctl.py data-science --format md` (auto-refresh also runs after every devctl command unless disabled) | `tooling_control_plane.yml` (tooling/docs governance checks) |
 | Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
 | Federated repo links/import workflow (your other repos) | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
@@ -116,11 +117,8 @@ CI runs the same families, so catching issues locally saves round-trips.
 
 ## Ralph/Wiggum Loop Model
 
-`codex-voice` runs a custom Ralph/Wiggum implementation through `devctl`
-commands and guarded workflows.
-
-Your other repos (`code-link-ide`, `ci-cd-hub`) are federated sources for
-patterns and selective imports, not the runtime loop executor.
+`codex-voice` owns the Ralph/Wiggum runtime loop behavior.
+Other repos (`code-link-ide`, `ci-cd-hub`) are import sources only.
 
 ```mermaid
 flowchart TD
@@ -137,14 +135,13 @@ flowchart TD
   H --> K
 ```
 
-What is different about this model:
+Why this model is safe:
 
-1. Source-run correlation is explicit to avoid analyzing the wrong run.
-2. Comment publishing is idempotent to avoid spam.
-3. Fix paths are allowlisted and bounded by policy.
-4. Outputs are structured for phone/controller/report surfaces.
-5. Shared loop `gh` helpers treat `gh api` endpoints specially and never pass
-   `--repo` for API subcommands.
+1. It pins analysis to one source run/sha.
+2. It updates comments idempotently (no spam loops).
+3. It only allows policy-approved fix paths.
+4. It emits structured artifacts for phone/controller/report views.
+5. `gh api` helpers are handled safely without incorrect `--repo` usage.
 
 ### Release and quality drift checks
 
@@ -208,99 +205,35 @@ flowchart TD
 
 ```text
 voiceterm/
-├── .github/
-│   ├── CONTRIBUTING.md   # Contribution guidelines
-│   ├── SECURITY.md       # Security policy
-│   └── workflows/        # CI workflows
-├── app/
-│   ├── macos/VoiceTerm.app # macOS double-click launcher
-│   └── windows/          # Windows launcher (planned placeholder)
 ├── AGENTS.md             # SDLC policy and release checklist
-├── QUICK_START.md        # Fast setup and commands
+├── README.md             # Main user docs
+├── QUICK_START.md        # Fast setup
+├── app/
+│   └── macos/VoiceTerm.app # macOS double-click launcher
+├── .github/workflows/    # CI workflows
 ├── guides/
-│   ├── CLI_FLAGS.md        # Full CLI and env reference
-│   ├── INSTALL.md          # Install options and PATH notes
-│   ├── TROUBLESHOOTING.md  # Common issues and fixes
-│   ├── USAGE.md            # Controls and overlay behavior
-│   └── WHISPER.md          # Whisper model guidance
+│   └── *.md               # User guides
 ├── dev/
-│   ├── ARCHITECTURE.md     # Architecture diagrams and data flow
-│   ├── CHANGELOG.md        # Release history
-│   ├── DEVELOPMENT.md      # Build/test workflow
-│   ├── active/             # Active plans and work in progress
-│   ├── archive/            # Completed work entries
-│   ├── adr/                # Architecture decision records
-│   └── scripts/            # Developer scripts
-│       ├── release.sh         # Legacy adapter -> devctl release
-│       ├── generate-release-notes.sh # Markdown notes from git diff history
-│       ├── publish-pypi.sh    # Legacy adapter -> devctl pypi
-│       ├── update-homebrew.sh # Legacy adapter -> devctl homebrew (+ tap formula desc sync)
-│       ├── check_mutation_score.py # Mutation score helper
-│       ├── check_cli_flags_parity.py # clap/docs CLI parity guard
-│       ├── check_screenshot_integrity.py # image reference + stale-age guard
-│       ├── check_code_shape.py # Rust/Python God-file drift guard
-│       ├── check_rust_lint_debt.py # Rust lint-debt non-regression guard
-│       ├── check_rust_best_practices.py # Rust best-practices non-regression guard
-│       ├── tests/             # Test scripts
-│       └── devctl/            # Modular maintainer CLI package internals
-│           ├── process_sweep.py # Shared process parser/cleanup helpers
-│           ├── security_parser.py # Shared CLI parser wiring for security command
-│           ├── commands/check_profile.py # Shared check-profile normalization
-│           ├── commands/security.py # Local RustSec + optional workflow scanner gates
-│           ├── status_report.py # Shared status/report payload + markdown renderer
-│           └── commands/ship_*.py # Ship step helper modules
-├── img/                 # Screenshots
-├── integrations/        # Pinned federated repo links (code-link-ide, ci-cd-hub)
-├── Makefile             # Developer tasks
-├── src/                 # Rust overlay + voice pipeline
-│   └── src/
-│       ├── bin/voiceterm/main.rs # Overlay entry point
-│       ├── bin/voiceterm/banner.rs # Startup splash + banner config
-│       ├── bin/voiceterm/custom_help.rs # Themed CLI help renderer
-│       ├── bin/voiceterm/help.rs # Shortcut overlay rendering
-│       ├── bin/voiceterm/onboarding.rs # First-run onboarding state persistence
-│       ├── bin/voiceterm/overlay_frame.rs # Shared overlay frame layout helpers
-│       ├── bin/voiceterm/status_messages.rs # Reusable status message builders
-│       ├── bin/voiceterm/terminal.rs # Terminal sizing + signal handling
-│       ├── bin/voiceterm/event_loop/ # Event-loop dispatch modules + tests
-│       ├── bin/voiceterm/audio_meter/ # Mic meter UI (`--mic-meter`)
-│       ├── bin/voiceterm/hud/ # HUD modules and right panel visuals
-│       ├── bin/voiceterm/status_line/ # Status line layout + formatting
-│       ├── bin/voiceterm/settings/ # Settings overlay
-│       ├── bin/voiceterm/transcript/ # Transcript queue + delivery
-│       ├── bin/voiceterm/voice_control/ # Voice capture lifecycle + drain orchestration
-│       ├── bin/voiceterm/voice_control/drain/ # Voice drain helpers + tests
-│       ├── bin/voiceterm/input/ # Input parsing + events
-│       ├── bin/voiceterm/writer/ # Output writer + overlays
-│       ├── bin/voiceterm/theme/ # Theme definitions
-│       ├── legacy_tui/   # Codex TUI state + logging (legacy)
-│       ├── audio/       # CPAL recording, VAD, resample
-│       ├── backend/     # AI CLI backend presets (overlay)
-│       ├── codex/       # Codex-specific backend + PTY worker (TUI/IPC)
-│       ├── config/      # CLI flags + validation
-│       ├── ipc/         # JSON IPC mode + protocol/router/session loop
-│       ├── ipc/session/ # IPC non-blocking event processing helpers
-│       ├── pty_session/ # PTY wrapper
-│       ├── voice.rs     # Voice capture orchestration
-│       ├── mic_meter.rs # Ambient/speech level sampler
-│       ├── stt.rs       # Whisper transcription
-│       ├── auth.rs      # Backend auth helpers
-│       ├── doctor.rs    # Diagnostics report
-│       ├── telemetry.rs # Structured trace logging
-│       ├── terminal_restore.rs # Panic-safe terminal restore
-│       └── legacy_ui.rs  # Codex TUI rendering (legacy)
+│   ├── active/          # Active plans and runbooks
+│   ├── audits/          # Audit runbooks and debt register
+│   ├── ARCHITECTURE.md  # Runtime architecture
+│   ├── DEVELOPMENT.md   # Build/test/release workflow
+│   ├── scripts/         # devctl and checks
+│   └── history/         # Why key changes happened
+├── rust/                # Rust workspace
+│   ├── src/bin/voiceterm/ # Overlay binary + UI/event loop modules
+│   └── src/             # Shared runtime modules (pty, stt, config, ipc, etc.)
 ├── scripts/
-│   ├── README.md        # Script documentation
-│   ├── install.sh       # One-time installer
-│   ├── start.sh         # Linux/macOS launcher
-│   ├── setup.sh         # Model download and setup
-│   └── python_fallback.py # Python fallback pipeline
+│   └── *.sh, *.py       # Install/start/setup helpers
+├── integrations/        # Pinned external repo links/imports
+├── img/                 # Screenshots
+├── pypi/                # PyPI packaging
 ├── whisper_models/      # Whisper GGML models
 └── bin/                 # Install wrapper (created by install.sh)
 ```
 
-Note: `rust/` is the Rust workspace root and the crate lives under `rust/src/`.
-`dev/active/MASTER_PLAN.md` is the canonical execution tracker.
+For a deeper module map, use `dev/ARCHITECTURE.md`.
+`dev/active/MASTER_PLAN.md` is the active execution tracker.
 
 ## Building
 
@@ -514,7 +447,7 @@ python3 dev/scripts/devctl.py autonomy-loop --repo owner/repo --plan-id acp-poc-
 # Human-readable autonomy digest bundle (dated md/json + charts)
 python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label daily-ops --format md --output /tmp/autonomy-report.md --json-output /tmp/autonomy-report.json
 # Full guarded plan-scoped swarm path (scope load + swarm + reviewer + governance + plan-evidence append)
-python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --agents 10 --mode report-only --run-label swarm-guarded --format md --output /tmp/autonomy-run.md --json-output /tmp/autonomy-run.json
+python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --agents 10 --mode report-only --run-label swarm-guarded --format md --output /tmp/swarm-run.md --json-output /tmp/swarm-run.json
 # Adaptive autonomy swarm (metadata-based sizing + optional token-budget cap)
 python3 dev/scripts/devctl.py autonomy-swarm --question "large runtime refactor touching parser/security/workspace" --prompt-tokens 48000 --token-budget 120000 --max-agents 20 --parallel-workers 6 --dry-run --no-post-audit --run-label swarm-plan --format md --output /tmp/autonomy-swarm.md --json-output /tmp/autonomy-swarm.json
 # Live swarm defaults (reserves AGENT-REVIEW lane when possible + auto-runs post-audit digest)
@@ -538,7 +471,8 @@ Implementation layout:
 - `dev/scripts/devctl/common.py`: shared helpers (run_cmd, env, output)
 - `dev/scripts/devctl/collect.py`: git/CI/mutation summaries for reports
 
-Legacy shell scripts in `dev/scripts/*.sh` are compatibility adapters and should not be the canonical maintainer workflow.
+Legacy shell scripts in `dev/scripts/*.sh` are compatibility adapters.
+Use `devctl` as the main maintainer workflow.
 
 ## Manual QA checklist
 
@@ -684,6 +618,7 @@ Use this protocol for non-trivial runtime/tooling Rust changes.
 ## CI/CD Workflow
 
 GitHub Actions lanes used by this repo:
+For simple per-workflow intent/triggers, see `.github/workflows/README.md`.
 
 | Workflow | File | What it checks |
 |----------|------|----------------|
@@ -703,7 +638,7 @@ GitHub Actions lanes used by this repo:
 | CodeRabbit Triage Bridge | `.github/workflows/coderabbit_triage.yml` | normalizes CodeRabbit review/check signals into triage artifacts and blocks unresolved medium/high findings |
 | CodeRabbit Ralph Loop | `.github/workflows/coderabbit_ralph_loop.yml` | branch-scoped always-on (configurable) medium/high backlog loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`) and optional auto-fix command |
 | Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded controller orchestration (`autonomy-loop`) with checkpoint packet/queue artifacts and optional PR promote step under protected merge flow |
-| Autonomy Run | `.github/workflows/autonomy_run.yml` | one-command guarded swarm pipeline (`autonomy-run`) with plan-scope validation, reviewer lane, governance checks, and run artifact upload |
+| Autonomy Run | `.github/workflows/autonomy_run.yml` | one-command guarded swarm pipeline (`swarm_run`) with plan-scope validation, reviewer lane, governance checks, and run artifact upload |
 | Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, metadata-header normalization guard, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published (requires both CodeRabbit gate and Ralph gate success for release commit) |

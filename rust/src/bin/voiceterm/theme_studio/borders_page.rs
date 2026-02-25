@@ -7,6 +7,8 @@ use crate::theme::{
     BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
+use super::nav::{select_next, select_prev};
+
 /// Available border style options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BorderOption {
@@ -61,16 +63,12 @@ impl BordersPageState {
         Self { selected: 0 }
     }
 
-    pub(crate) fn move_up(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-        }
+    pub(crate) fn select_prev(&mut self) {
+        select_prev(&mut self.selected);
     }
 
-    pub(crate) fn move_down(&mut self) {
-        if self.selected < BorderOption::ALL.len() - 1 {
-            self.selected += 1;
-        }
+    pub(crate) fn select_next(&mut self) {
+        select_next(&mut self.selected, BorderOption::ALL.len());
     }
 
     #[must_use]
@@ -133,11 +131,11 @@ mod tests {
     #[test]
     fn borders_page_navigate() {
         let mut page = BordersPageState::new();
-        page.move_down();
+        page.select_next();
         assert_eq!(page.selected_option(), BorderOption::Rounded);
-        page.move_down();
+        page.select_next();
         assert_eq!(page.selected_option(), BorderOption::Double);
-        page.move_up();
+        page.select_prev();
         assert_eq!(page.selected_option(), BorderOption::Rounded);
     }
 

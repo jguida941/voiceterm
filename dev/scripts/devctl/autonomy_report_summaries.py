@@ -4,21 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_float(value: Any, default: float | None = None) -> float | None:
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+from .numeric import to_int, to_optional_float
 
 
 def _summarize_triage(payload: dict[str, Any]) -> dict[str, Any]:
@@ -26,7 +12,7 @@ def _summarize_triage(payload: dict[str, Any]) -> dict[str, Any]:
     attempt_count = len(attempts) if isinstance(attempts, list) else 0
     return {
         "reason": str(payload.get("reason") or "unknown"),
-        "unresolved_count": _safe_int(payload.get("unresolved_count"), default=0),
+        "unresolved_count": to_int(payload.get("unresolved_count"), default=0),
         "attempt_count": attempt_count,
         "mode": str(payload.get("mode") or "unknown"),
         "ok": bool(payload.get("ok", False)),
@@ -34,8 +20,8 @@ def _summarize_triage(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _summarize_mutation(payload: dict[str, Any]) -> dict[str, Any]:
-    score = _safe_float(payload.get("last_score"), default=None)
-    threshold = _safe_float(payload.get("threshold"), default=None)
+    score = to_optional_float(payload.get("last_score"), default=None)
+    threshold = to_optional_float(payload.get("threshold"), default=None)
     gap = None
     if score is not None and threshold is not None:
         gap = round((score - threshold) * 100.0, 3)
@@ -55,15 +41,15 @@ def _summarize_autonomy(payload: dict[str, Any]) -> dict[str, Any]:
         for row in rounds:
             if isinstance(row, dict):
                 unresolved_by_round.append(
-                    _safe_int(row.get("unresolved_count"), default=0)
+                    to_int(row.get("unresolved_count"), default=0)
                 )
     return {
         "reason": str(payload.get("reason") or "unknown"),
         "resolved": bool(payload.get("resolved", False)),
-        "rounds_completed": _safe_int(
+        "rounds_completed": to_int(
             payload.get("rounds_completed"), default=len(unresolved_by_round)
         ),
-        "tasks_completed": _safe_int(payload.get("tasks_completed"), default=0),
+        "tasks_completed": to_int(payload.get("tasks_completed"), default=0),
         "unresolved_by_round": unresolved_by_round,
         "ok": bool(payload.get("ok", False)),
     }
@@ -76,8 +62,8 @@ def _summarize_orchestrate(payload: dict[str, Any]) -> dict[str, Any]:
         "ok": bool(payload.get("ok", False)),
         "errors_count": len(errors) if isinstance(errors, list) else 0,
         "warnings_count": len(warnings) if isinstance(warnings, list) else 0,
-        "stale_agent_count": _safe_int(payload.get("stale_agent_count"), default=0),
-        "overdue_instruction_ack_count": _safe_int(
+        "stale_agent_count": to_int(payload.get("stale_agent_count"), default=0),
+        "overdue_instruction_ack_count": to_int(
             payload.get("overdue_instruction_ack_count"), default=0
         ),
     }
@@ -93,8 +79,8 @@ def _summarize_phone(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "reason": str(payload.get("reason") or "unknown"),
         "mode": str(controller.get("mode_effective") or "unknown"),
-        "rounds_completed": _safe_int(controller.get("rounds_completed"), default=0),
-        "tasks_completed": _safe_int(controller.get("tasks_completed"), default=0),
+        "rounds_completed": to_int(controller.get("rounds_completed"), default=0),
+        "tasks_completed": to_int(controller.get("tasks_completed"), default=0),
         "trace_lines": (
             len(terminal.get("trace") or [])
             if isinstance(terminal.get("trace"), list)

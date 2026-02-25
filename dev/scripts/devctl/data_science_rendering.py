@@ -5,12 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
-def _safe_float(value: Any, *, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+from .numeric import to_float
 
 
 def _write_bar_chart_svg(
@@ -83,7 +78,7 @@ def write_data_science_charts(
         _write_bar_chart_svg(
             title="Command Frequency (Top 10)",
             labels=[str(row.get("command")) for row in top_commands],
-            values=[_safe_float(row.get("count"), default=0.0) for row in top_commands],
+            values=[to_float(row.get("count"), default=0.0) for row in top_commands],
             output_path=charts_dir / "command_frequency.svg",
             color="#4e79a7",
         )
@@ -94,7 +89,7 @@ def write_data_science_charts(
             title="Agent Recommendation Score",
             labels=[str(row.get("selected_agents")) for row in agent_metric_rows],
             values=[
-                _safe_float(row.get("recommendation_score"), default=0.0)
+                to_float(row.get("recommendation_score"), default=0.0)
                 for row in agent_metric_rows
             ],
             output_path=charts_dir / "agent_recommendation_score.svg",
@@ -104,7 +99,7 @@ def write_data_science_charts(
             title="Tasks Per Minute by Agent Count",
             labels=[str(row.get("selected_agents")) for row in agent_metric_rows],
             values=[
-                _safe_float(row.get("tasks_per_minute"), default=0.0)
+                to_float(row.get("tasks_per_minute"), default=0.0)
                 for row in agent_metric_rows
             ],
             output_path=charts_dir / "agent_tasks_per_minute.svg",

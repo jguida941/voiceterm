@@ -11,6 +11,7 @@ from typing import Any
 
 from .autonomy_swarm_render import render_swarm_markdown
 from .config import REPO_ROOT
+from .numeric import to_int
 
 KEYWORDS = (
     "refactor",
@@ -40,13 +41,6 @@ def resolve_path(raw_path: str) -> Path:
     if path.is_absolute():
         return path
     return REPO_ROOT / path
-
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _question_text(
@@ -125,7 +119,7 @@ def collect_refactor_metadata(args) -> tuple[dict[str, Any], list[str]]:
     question_chars = len(question_text)
     question_words = len([row for row in re.split(r"\s+", question_text) if row])
     estimated_prompt_tokens = max(1, question_chars // 4) if question_chars else 0
-    prompt_tokens = _safe_int(args.prompt_tokens, default=estimated_prompt_tokens)
+    prompt_tokens = to_int(args.prompt_tokens, default=estimated_prompt_tokens)
     if prompt_tokens <= 0:
         prompt_tokens = estimated_prompt_tokens
 
@@ -148,12 +142,12 @@ def collect_refactor_metadata(args) -> tuple[dict[str, Any], list[str]]:
 def recommend_agent_count(
     metadata: dict[str, Any], args
 ) -> tuple[int, list[str], dict[str, float | int | None]]:
-    min_agents = max(1, _safe_int(args.min_agents, default=1))
-    max_agents = max(min_agents, _safe_int(args.max_agents, default=20))
+    min_agents = max(1, to_int(args.min_agents, default=1))
+    max_agents = max(min_agents, to_int(args.max_agents, default=20))
 
     if args.agents is not None:
         explicit = max(
-            min_agents, min(max_agents, _safe_int(args.agents, default=min_agents))
+            min_agents, min(max_agents, to_int(args.agents, default=min_agents))
         )
         rationale = [f"explicit --agents={explicit} override"]
         components = {
@@ -180,14 +174,14 @@ def recommend_agent_count(
         }
         return min_agents, rationale, components
 
-    lines_changed = _safe_int(metadata.get("lines_changed"), default=0)
-    files_changed = _safe_int(metadata.get("files_changed"), default=0)
+    lines_changed = to_int(metadata.get("lines_changed"), default=0)
+    files_changed = to_int(metadata.get("files_changed"), default=0)
     difficulty_hits = (
         metadata.get("difficulty_hits")
         if isinstance(metadata.get("difficulty_hits"), list)
         else []
     )
-    prompt_tokens = _safe_int(metadata.get("prompt_tokens"), default=0)
+    prompt_tokens = to_int(metadata.get("prompt_tokens"), default=0)
 
     lines_factor = min(6.0, lines_changed / 1200.0)
     files_factor = min(4.0, files_changed / 10.0)
@@ -197,8 +191,8 @@ def recommend_agent_count(
 
     recommended = int(math.ceil(raw_score))
     token_cap: int | None = None
-    token_budget = _safe_int(args.token_budget, default=0)
-    per_agent_cost = max(1, _safe_int(args.per_agent_token_cost, default=12000))
+    token_budget = to_int(args.token_budget, default=0)
+    per_agent_cost = max(1, to_int(args.per_agent_token_cost, default=12000))
     if token_budget > 0:
         token_cap = max(min_agents, token_budget // per_agent_cost)
         recommended = min(recommended, token_cap)
@@ -272,10 +266,10 @@ def build_swarm_charts(
     summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
     labels = ["requested", "selected", "ok", "resolved"]
     values = [
-        _safe_int(summary.get("requested_agents"), default=0),
-        _safe_int(summary.get("selected_agents"), default=0),
-        _safe_int(summary.get("ok_count"), default=0),
-        _safe_int(summary.get("resolved_count"), default=0),
+        to_int(summary.get("requested_agents"), default=0),
+        to_int(summary.get("selected_agents"), default=0),
+        to_int(summary.get("ok_count"), default=0),
+        to_int(summary.get("resolved_count"), default=0),
     ]
     figure = plt.figure(figsize=(8, 4.5))
     axis = figure.add_subplot(111)

@@ -1,3 +1,5 @@
+# Purpose: Runs backend thread and memory guard tests.
+# Details: See .github/workflows/README.md for triggers, jobs, and failure handling.
 name: Memory Guard
 
 permissions:

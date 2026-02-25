@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from .autonomy_benchmark_helpers import load_json, safe_float, safe_int, slug
+from .autonomy_benchmark_helpers import load_json, slug
 from .autonomy_benchmark_matrix import (
     BenchmarkScenario,
     build_swarm_command,
@@ -16,6 +16,7 @@ from .autonomy_benchmark_matrix import (
     tactic_prompt,
 )
 from .autonomy_benchmark_render import render_markdown as _render_markdown
+from .numeric import to_float, to_int
 
 
 def _first_line(text: str) -> str:
@@ -73,12 +74,12 @@ def run_swarm_once(
         payload.get("post_audit") if isinstance(payload.get("post_audit"), dict) else {}
     )
     tasks_completed_total = sum(
-        safe_int(item.get("tasks_completed"), default=0)
+        to_int(item.get("tasks_completed"), default=0)
         for item in agents
         if isinstance(item, dict)
     )
     rounds_completed_total = sum(
-        safe_int(item.get("rounds_completed"), default=0)
+        to_int(item.get("rounds_completed"), default=0)
         for item in agents
         if isinstance(item, dict)
     )
@@ -97,11 +98,11 @@ def run_swarm_once(
         "ok": swarm_ok,
         "returncode": rc,
         "elapsed_seconds": round(elapsed_seconds, 3),
-        "executed_agents": safe_int(summary.get("executed_agents"), default=0),
-        "ok_count": safe_int(summary.get("ok_count"), default=0),
-        "resolved_count": safe_int(summary.get("resolved_count"), default=0),
-        "selected_agents": safe_int(summary.get("selected_agents"), default=0),
-        "worker_agents": safe_int(summary.get("worker_agents"), default=0),
+        "executed_agents": to_int(summary.get("executed_agents"), default=0),
+        "ok_count": to_int(summary.get("ok_count"), default=0),
+        "resolved_count": to_int(summary.get("resolved_count"), default=0),
+        "selected_agents": to_int(summary.get("selected_agents"), default=0),
+        "worker_agents": to_int(summary.get("worker_agents"), default=0),
         "reviewer_lane": bool(summary.get("reviewer_lane")),
         "tasks_completed_total": tasks_completed_total,
         "rounds_completed_total": rounds_completed_total,
@@ -174,7 +175,7 @@ def leaders(scenarios: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
     def metric_value(row: dict[str, Any], metric: str) -> float:
         summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
-        return safe_float(summary.get(metric), default=0.0)
+        return to_float(summary.get(metric), default=0.0)
 
     by_work = max(scenarios, key=lambda row: metric_value(row, "work_output_score"))
     by_throughput = max(

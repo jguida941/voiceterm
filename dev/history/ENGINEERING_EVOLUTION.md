@@ -154,6 +154,61 @@ Inference: These screenshots improve readability for users. They show current UI
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
 5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
 
+### Recent Governance Update (2026-02-25, Ralph Fix Policy + Escalation)
+
+Fact: CodeRabbit Ralph loop fix execution now mirrors mutation-loop policy
+gates, and exhausted unresolved loops now publish a dedicated review-escalation
+comment path.
+
+Evidence:
+
+- `dev/scripts/devctl/triage_loop_policy.py` (policy evaluation for
+  `AUTONOMY_MODE`, branch allowlist, and fix-command prefix allowlist with
+  `TRIAGE_LOOP_ALLOWED_PREFIXES` override)
+- `dev/config/control_plane_policy.json` (`triage_loop.allowed_fix_command_prefixes`)
+- `dev/scripts/devctl/commands/triage_loop.py` (policy wiring +
+  `fix_block_reason` propagation + escalation publish path)
+- `dev/scripts/devctl/triage_loop_support.py` (separate escalation marker and
+  idempotent escalation upsert helper)
+- `dev/scripts/checks/coderabbit_ralph_loop_core.py` (`fix_command_policy_blocked`
+  handling and `escalation_needed=true` on max-attempt exhaustion)
+- `.github/workflows/coderabbit_ralph_loop.yml` (workflow env wiring for
+  `AUTONOMY_MODE` and `TRIAGE_LOOP_ALLOWED_PREFIXES`, plus bounded default fix
+  command for workflow-run trigger path)
+
+Inference: The Ralph loop now has the same bounded, policy-first write posture
+as mutation automation, and unresolved retry exhaustion creates an explicit,
+auditable reviewer handoff instead of silent failure.
+
+### Recent Governance Update (2026-02-25, Naming Cohesion + Policy Dedup)
+
+Fact: The guarded plan-scoped swarm command surface is now consistently exposed
+as `swarm_run` in active workflow/operator paths, and duplicated loop
+fix-policy logic was consolidated into one shared engine.
+
+Evidence:
+
+- `.github/workflows/autonomy_run.yml` (workflow now executes
+  `python3 dev/scripts/devctl.py swarm_run` and publishes `swarm-run` artifacts)
+- `.github/workflows/README.md`, `AGENTS.md`, `dev/ARCHITECTURE.md`,
+  `dev/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`,
+  `dev/active/autonomous_control_plane.md` (active command references aligned
+  to `swarm_run`, with historical pre-rename evidence explicitly labeled)
+- `dev/scripts/devctl/loop_fix_policy.py` (shared fix-policy parser/allowlist
+  engine)
+- `dev/scripts/devctl/triage_loop_policy.py`,
+  `dev/scripts/devctl/mutation_loop_policy.py` (thin wrappers over shared
+  engine)
+- `dev/scripts/devctl/tests/test_triage_loop_policy.py`,
+  `dev/scripts/devctl/tests/test_mutation_loop_policy.py` (policy behavior
+  coverage across both loop wrappers)
+- `dev/active/naming_api_cohesion.md` (`MP-267` inventory/progress/evidence
+  updates for naming + duplicate-helper cleanup)
+
+Inference: Command naming drift in active operator paths is reduced, and future
+policy hardening changes can land once in the shared engine instead of diverging
+across triage/mutation loop implementations.
+
 ### Recent Governance Update (2026-02-19)
 
 Fact: The active planning model was expanded to include a hardened Memory Studio
@@ -274,6 +329,92 @@ Evidence:
 Inference: The repo now has an always-on, reproducible telemetry loop for
 command throughput, success/latency, and swarm-size recommendation scoring,
 which reduces ad-hoc "what agent count should we use?" decisions.
+
+### Recent Governance Update (2026-02-25, Workflow Readability Pass)
+
+Fact: Workflow documentation now follows a plain-language format so maintainers
+can quickly understand each CI lane without reading full YAML files.
+
+Evidence:
+
+- `.github/workflows/README.md` (one simple guide for every workflow, including
+  what it does, when it runs, and first local reproduce commands)
+- `.github/workflows/*.yml` (short `Purpose` and `Details` header comments at
+  the top of every workflow file)
+- `dev/active/MASTER_PLAN.md` (`MP-257` progress note for this readability
+  slice)
+
+Inference: This lowers onboarding/debug friction for CI changes and makes
+workflow intent obvious at file-open time.
+
+### Recent Governance Update (2026-02-25, Core Dev Docs Plain-Language Pass)
+
+Fact: Core developer entry docs were rewritten in simpler language while
+keeping command-level accuracy and policy behavior unchanged.
+
+Evidence:
+
+- `dev/README.md` (simplified active-doc discovery wording)
+- `dev/DEVELOPMENT.md` (simplified check-routing and Ralph loop explanations)
+- `dev/ARCHITECTURE.md` (simplified operational workflow, loop, and release
+  operations language)
+- `dev/active/MASTER_PLAN.md` (`MP-257` progress update for this slice)
+
+Inference: New contributors can now find the right commands faster, and
+maintainers can scan workflow intent without policy-heavy phrasing.
+
+### Recent Governance Update (2026-02-25, Runtime Hardening Audit Follow-Up)
+
+Fact: Runtime hardening follow-up work for `MP-341` landed additional guard
+stability around terminal resize handling, Theme Studio fallback safety, and
+writer-queue anomaly diagnostics, while keeping CI/runtime bundles green.
+
+Evidence:
+
+- `rust/src/bin/voiceterm/terminal.rs` (SIGWINCH install path moved from
+  `signal()` to `sigaction` + `SA_RESTART`)
+- `rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs` (non-home Theme
+  Studio branch uses safe fallback text instead of production `unreachable!`)
+- `rust/src/bin/voiceterm/event_loop/output_dispatch.rs`,
+  `rust/src/bin/voiceterm/event_loop.rs` (unexpected writer-queue variants now
+  emit explicit diagnostics)
+- `rust/src/bin/voiceterm/event_loop/dev_panel_commands.rs`,
+  `rust/src/bin/voiceterm/event_loop/tests.rs` (auto-send runtime guard cached
+  once, with test override path removing unsafe env-mutation test usage)
+- `dev/active/MASTER_PLAN.md` (`MP-341` partial evidence update)
+- `dev/CHANGELOG.md`, `guides/TROUBLESHOOTING.md` (user-facing runtime
+  hardening notes and fallback troubleshooting path)
+
+Inference: The audit follow-up reduces panic/silent-drop risk in hot runtime
+paths and tightens signal portability without weakening governance checks.
+
+### Recent Governance Update (2026-02-25, Swarm Run Feedback + Naming Cohesion)
+
+Fact: guarded plan-scoped swarm execution now uses canonical command name
+`devctl swarm_run` (no legacy alias), and the command supports a closed-loop
+feedback controller for continuous runs so swarm size can downshift on repeated
+no-signal/stall cycles and upshift on repeated improvement cycles without
+manual agent-count tuning.
+
+Evidence:
+
+- `dev/scripts/devctl/autonomy_run_feedback.py` (cycle metrics extraction from
+  worker `autonomy-loop` reports, streak tracking, downshift/upshift decisions)
+- `dev/scripts/devctl/commands/autonomy_run.py` (feedback-state wiring, cycle
+  agent override forwarding, report payload integration)
+- `dev/scripts/devctl/autonomy_run_parser.py` (`--feedback-*` control flags)
+- `dev/scripts/devctl/autonomy_run_helpers.py` (per-cycle `--agents` override
+  support)
+- `dev/scripts/devctl/tests/test_autonomy_run_feedback.py`,
+  `dev/scripts/devctl/tests/test_autonomy_run.py` (config + behavior coverage)
+- `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md` (operator-facing usage
+  updates)
+- `dev/active/naming_api_cohesion.md`, `dev/active/INDEX.md`,
+  `dev/active/MASTER_PLAN.md` (`MP-267` execution-plan traceability kickoff)
+
+Inference: Continuous swarm runs can now tune throughput/cost using real cycle
+outcomes instead of static one-shot sizing, and naming/API cohesion work now
+runs through an explicit active-plan checklist instead of ad-hoc cleanup.
 
 ### Recent Governance Update (2026-02-24, External Federation Bridge)
 

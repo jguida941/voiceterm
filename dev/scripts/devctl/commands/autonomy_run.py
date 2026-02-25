@@ -1,4 +1,4 @@
-"""devctl autonomy-run command implementation."""
+"""devctl swarm_run command implementation."""
 
 from __future__ import annotations
 
@@ -15,13 +15,18 @@ from ..autonomy_run_helpers import (
 )
 from ..autonomy_run_helpers import governance_commands as _governance_commands
 from ..autonomy_run_helpers import run_command as _run_command
-from ..autonomy_run_helpers import safe_int as _safe_int
 from ..autonomy_run_helpers import utc_timestamp as _utc_timestamp
+from ..autonomy_run_feedback import (
+    build_feedback_state as _build_feedback_state,
+)
+from ..autonomy_run_feedback import summarize_feedback_state as _summarize_feedback_state
+from ..autonomy_run_feedback import update_feedback_state as _update_feedback_state
 from ..autonomy_run_plan import update_plan_doc as _update_plan_doc
 from ..autonomy_run_plan import validate_plan_scope as _validate_plan_scope
 from ..autonomy_run_render import render_markdown as _render_markdown
 from ..autonomy_swarm_helpers import resolve_path, slug
 from ..common import pipe_output, write_output
+from ..numeric import to_int
 
 try:
     from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
@@ -73,7 +78,7 @@ def run(args) -> int:
 
     run_label_seed = slug(
         str(args.run_label or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")),
-        fallback="autonomy-run",
+        fallback="swarm-run",
     )
     run_root = resolve_path(str(args.run_root))
     continuous_enabled = bool(getattr(args, "continuous", False))
@@ -82,10 +87,16 @@ def run(args) -> int:
         print("Error: --continuous-max-cycles must be >= 1")
         return 2
     cycle_limit = continuous_max_cycles if continuous_enabled else 1
+    feedback_state, feedback_warnings, feedback_errors = _build_feedback_state(
+        args, continuous_enabled=continuous_enabled
+    )
+    if feedback_errors:
+        print("\n".join(f"Error: {row}" for row in feedback_errors))
+        return 2
 
     cycle_reports: list[dict[str, Any]] = []
     stop_reason = "max_cycles_reached"
-    aggregate_warnings = list(warnings)
+    aggregate_warnings = list(warnings) + list(feedback_warnings)
     aggregate_errors = list(errors)
 
     for cycle_index in range(1, cycle_limit + 1):
@@ -123,6 +134,9 @@ def run(args) -> int:
             run_label=cycle_run_label,
             output_md=swarm_md,
             output_json=swarm_json,
+            agent_override=feedback_state.get("next_agents")
+            if bool(feedback_state.get("enabled"))
+            else None,
         )
         swarm_result = _run_command(
             swarm_command, timeout_seconds=max(60, int(args.agent_timeout_seconds))
@@ -160,7 +174,7 @@ def run(args) -> int:
                     {
                         "name": name,
                         "command": " ".join(command),
-                        "returncode": _safe_int(result.get("returncode"), default=1),
+                        "returncode": to_int(result.get("returncode"), default=1),
                         "ok": bool(result.get("ok")),
                         "stdout_log": str(stdout_log),
                         "stderr_log": str(stderr_log),
@@ -193,6 +207,10 @@ def run(args) -> int:
             if plan_update_warnings:
                 cycle_errors.extend(plan_update_warnings)
 
+        feedback_update = _update_feedback_state(feedback_state, swarm_payload)
+        for warning in feedback_update.get("warnings", []):
+            cycle_warnings.append(str(warning))
+
         cycle_ok = swarm_ok and governance_ok and plan_update["ok"] and not cycle_errors
         cycle_report = {
             "index": cycle_index,
@@ -204,7 +222,7 @@ def run(args) -> int:
                 "ok": swarm_ok,
                 "command": " ".join(swarm_command),
                 "fix_command_configured": bool(fix_command),
-                "returncode": _safe_int(swarm_result.get("returncode"), default=1),
+                "returncode": to_int(swarm_result.get("returncode"), default=1),
                 "summary_json": str(swarm_json),
                 "summary_md": str(swarm_md),
                 "summary": swarm_payload.get("summary", {}),
@@ -215,6 +233,7 @@ def run(args) -> int:
                 "skipped": bool(args.skip_governance),
                 "steps": governance_steps,
             },
+            "feedback": feedback_update,
             "plan_update": plan_update,
             "warnings": cycle_warnings,
             "errors": cycle_errors,
@@ -258,7 +277,7 @@ def run(args) -> int:
     summary_dir.mkdir(parents=True, exist_ok=True)
 
     report: dict[str, Any] = {
-        "command": "autonomy-run",
+        "command": "swarm_run",
         "timestamp": _utc_timestamp(),
         "ok": overall_ok,
         "run_label": run_label_seed,
@@ -283,6 +302,7 @@ def run(args) -> int:
             "cycles_completed": len(cycle_reports),
             "stop_reason": stop_reason,
         },
+        "feedback_sizing": _summarize_feedback_state(feedback_state),
         "cycles": [
             {
                 "index": row.get("index"),
@@ -292,6 +312,8 @@ def run(args) -> int:
                 "swarm_ok": row.get("swarm", {}).get("ok"),
                 "governance_ok": row.get("governance", {}).get("ok"),
                 "plan_update_ok": row.get("plan_update", {}).get("ok"),
+                "feedback_decision": row.get("feedback", {}).get("decision"),
+                "feedback_next_agents": row.get("feedback", {}).get("next_agents"),
                 "next_steps": row.get("next_steps", []),
             }
             for row in cycle_reports
