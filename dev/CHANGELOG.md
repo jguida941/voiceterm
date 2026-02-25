@@ -7,6 +7,12 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Code Quality
+
+- Keep `maintainer-lint` green on current Rust toolchains by removing redundant
+  clippy patterns in voice capture and dev-panel snapshot paths. No runtime
+  behavior change.
+
 ## [1.0.94] - 2026-02-25
 ### Control Plane
 

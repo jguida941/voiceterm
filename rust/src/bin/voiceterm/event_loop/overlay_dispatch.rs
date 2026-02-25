@@ -9,7 +9,10 @@ pub(super) fn render_help_overlay_for_state(state: &EventLoopState, deps: &Event
 
 pub(super) fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.terminal_cols);
-    let snapshot = state.dev_mode_stats.as_ref().map(|stats| stats.snapshot());
+    let snapshot = state
+        .dev_mode_stats
+        .as_ref()
+        .map(voiceterm::devtools::DevModeStats::snapshot);
     show_dev_panel_overlay(
         &deps.writer_tx,
         state.theme,

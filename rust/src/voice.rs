@@ -227,7 +227,7 @@ fn perform_voice_capture(
         transcriber,
         config,
         stop_flag.clone(),
-        capture_active.clone(),
+        capture_active,
         meter.clone(),
     ) {
         Ok((Some(transcript), metrics)) => VoiceJobMessage::Transcript {

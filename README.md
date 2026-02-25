@@ -107,6 +107,12 @@ cd voiceterm
 ./scripts/install.sh
 ```
 
+If you are running from source while developing, run:
+
+```bash
+python3 dev/scripts/devctl.py check --profile ci
+```
+
 </details>
 
 <details>
