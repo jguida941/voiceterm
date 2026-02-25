@@ -16,21 +16,24 @@ pub(super) fn handle_theme_studio_enter_key(
         }
         StudioPage::Colors => {
             if let Some(editor) = state.theme_studio_colors_editor.as_mut() {
-                if let Some(picker) = editor.picker.as_mut() {
-                    if picker.hex_entry_mode && !picker.apply_hex_buffer() {
-                        render_theme_studio_overlay_for_state(state, deps);
-                        return;
+                if editor.is_color_field_selected() {
+                    if let Some(picker) = editor.picker.as_mut() {
+                        if picker.hex_entry_mode && !picker.apply_hex_buffer() {
+                            render_theme_studio_overlay_for_state(state, deps);
+                            return;
+                        }
+                        editor.apply_picker();
+                    } else {
+                        editor.open_picker();
                     }
-                    editor.apply_picker();
-                } else {
-                    editor.open_picker();
+                    // Apply edited colors to the live runtime theme.
+                    #[cfg(not(test))]
+                    {
+                        let legacy = editor.colors.to_legacy_theme_colors();
+                        crate::theme::set_runtime_color_override(legacy);
+                    }
                 }
-                // Apply edited colors to the live runtime theme.
-                #[cfg(not(test))]
-                {
-                    let legacy = editor.colors.to_legacy_theme_colors();
-                    crate::theme::set_runtime_color_override(legacy);
-                }
+                // For indicator/glyph rows, Enter is a no-op (use ←/→).
                 render_theme_studio_overlay_for_state(state, deps);
             }
         }
@@ -197,7 +200,33 @@ pub(super) fn handle_theme_studio_bytes(
                                 editor.move_down();
                                 should_redraw = true;
                             }
-                            ArrowKey::Left | ArrowKey::Right => {}
+                            ArrowKey::Left | ArrowKey::Right => {
+                                let dir = if matches!(key, ArrowKey::Right) {
+                                    1
+                                } else {
+                                    -1
+                                };
+                                let field_count = crate::theme_studio::ColorField::ALL.len();
+                                if editor.selected == field_count {
+                                    // Indicator set selector.
+                                    if editor.cycle_indicator_set(dir) {
+                                        let mut overrides =
+                                            crate::theme::runtime_style_pack_overrides();
+                                        overrides.indicator_set_override = editor.indicator_set;
+                                        crate::theme::set_runtime_style_pack_overrides(overrides);
+                                        should_redraw = true;
+                                    }
+                                } else if editor.selected == field_count + 1 {
+                                    // Glyph set selector.
+                                    if editor.cycle_glyph_set(dir) {
+                                        let mut overrides =
+                                            crate::theme::runtime_style_pack_overrides();
+                                        overrides.glyph_set_override = editor.glyph_set;
+                                        crate::theme::set_runtime_style_pack_overrides(overrides);
+                                        should_redraw = true;
+                                    }
+                                }
+                            }
                         }
                     }
                 }

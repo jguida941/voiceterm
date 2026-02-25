@@ -95,7 +95,7 @@ Flow:
    - `auto`: press Enter automatically.
    - `insert`: wait for manual Enter.
 
-![Recording Mode](../img/recording.png)
+![Recording Mode](../img/auto-record.png)
 
 ## Core Controls
 
@@ -137,9 +137,10 @@ Mouse and overlay behavior:
 
 - When Mouse is enabled, HUD buttons are clickable. Keyboard HUD focus still
   works with Left/Right + Enter.
-- In Cursor terminal, Mouse can stay ON and wheel scrolling remains available.
-  Settings shows `Mouse: ON - scroll preserved in Cursor`; HUD click handling
-  auto-resumes shortly after wheel scrolling.
+- In Cursor terminal, wheel/touchpad scrolling may not move chat history while
+  Mouse is ON. The scrollbar can still be dragged.
+- If you want touchpad/wheel scrolling in Cursor, set `Mouse` to `OFF` and use
+  keyboard HUD navigation (Left/Right or `Tab` + `Enter`) for controls.
 - If help/settings/theme overlays are open, unmatched input closes the overlay
   and replays the key/action into normal input handling.
 - Help overlay includes clickable Docs/Troubleshooting links (terminals that
@@ -173,9 +174,18 @@ Visual controls are now in Theme Studio:
 
 - Press `Ctrl+Y` to open Theme Studio.
 - Use `Theme picker` (or `Ctrl+G`) to change themes.
-- Use Theme Studio rows to change HUD style, borders, right panel, animation, toast position/severity, startup splash style, and banner style.
-- Theme Studio rows use a `Label [ Value ]` layout with a bottom `tip:` line for the currently selected row.
-- Use `Undo edit`, `Redo edit`, and `Rollback edits` if you want to revert visual changes.
+- Theme Studio is a multi-page tabbed editor. Press `Tab`/`Shift+Tab` to switch pages:
+
+| Page | Purpose |
+|------|---------|
+| **Home** | Cycle-button controls for HUD style, borders, right panel, animation, glyphs, indicators, spinners, progress bars, voice scene, toast, startup, banner, undo/redo/rollback |
+| **Colors** | Edit all 10 semantic colors (Recording, Processing, Success, Warning, Error, Info, Dim, Bg Primary, Bg Secondary, Border) with an inline RGB color picker. Changes apply live. Indicator set and glyph set selectors at the bottom (Left/Right to cycle) |
+| **Borders** | Pick border style (Single, Rounded, Double, Heavy, None) with live mini-box previews. Press Enter to apply |
+| **Components** | Browse 54 component IDs grouped by category (HUD, Buttons, Toast, Overlay, etc.) with color swatches showing which semantic color each component uses |
+| **Preview** | Read-only live preview of HUD status line colors, indicators, toast severity, and border chrome using the active theme |
+| **Export** | Export current theme to TOML file (`~/.config/voiceterm/themes/`), copy to clipboard via OSC 52, or import from file |
+
+- Use `Undo edit`, `Redo edit`, and `Rollback edits` on the Home page if you want to revert visual changes.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 
@@ -424,6 +434,8 @@ Tips:
 
 Advanced theme options (optional):
 
+- **TOML theme files**: Export a theme from Theme Studio (Export page) or create a `.toml` file manually in `~/.config/voiceterm/themes/`. Load with `--theme-file <path>` or set `VOICETERM_THEME_FILE=<path>`. Themes can inherit from built-in palettes via `base_theme` and define custom hex colors, border styles, indicator sets, and glyph profiles.
+- **Hot-reload**: When using `--theme-file`, VoiceTerm watches the file for changes and applies updates live (within ~500ms).
 - Use `VOICETERM_STYLE_PACK_JSON` to load a custom style-pack with overrides for borders, indicators, glyphs, progress bars, and voice scene styles.
 - `components.overlay_border` in style-pack JSON controls overlay frame borders (help/settings/theme-picker/theme-studio/toast/history overlays).
 - `components.hud_border` controls Full HUD borders when `--hud-border-style theme` (or Theme Studio `HUD borders` set to Theme) is active.
@@ -478,7 +490,7 @@ voiceterm --hud-right-panel off
 
 Minimal HUD example:
 
-![Minimal HUD](../img/minimal-hud.png)
+![Minimal HUD](../img/min-hud.png)
 
 Hidden HUD example:
 

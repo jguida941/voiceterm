@@ -14,7 +14,7 @@ Use this with:
 `devctl` is the maintainer entrypoint for:
 
 1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
-2. Triage and reporting (`status`, `report`, `triage`, `triage-loop`, `mutation-loop`, `autonomy-run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
+2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `autonomy-run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
 3. Release verification and distribution (`ship`, `release`, `pypi`, `homebrew`)
 4. Orchestration guardrails (`orchestrate-status`, `orchestrate-watch`)
 5. External federation guardrails (`integrations-sync`, `integrations-import`)
@@ -467,4 +467,34 @@ and source type during experiments:
 DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 \
 DEVCTL_EXECUTION_SOURCE=ai_assisted \
 python3 dev/scripts/devctl.py triage-loop --help
+```
+
+## Data Science Snapshots (Always-On)
+
+`devctl` now refreshes a rolling data-science snapshot after every command
+unless disabled (`DEVCTL_DATA_SCIENCE_DISABLE=1`).
+
+Manual rebuild:
+
+```bash
+python3 dev/scripts/devctl.py data-science --format md
+```
+
+Default generated outputs:
+
+- `dev/reports/data_science/latest/summary.md`
+- `dev/reports/data_science/latest/summary.json`
+- `dev/reports/data_science/latest/charts/*.svg`
+- `dev/reports/data_science/history/snapshots.jsonl`
+
+Use source/output overrides for focused experiments:
+
+```bash
+python3 dev/scripts/devctl.py data-science \
+  --output-root dev/reports/data_science \
+  --event-log dev/reports/audits/devctl_events.jsonl \
+  --swarm-root dev/reports/autonomy/swarms \
+  --benchmark-root dev/reports/autonomy/benchmarks \
+  --max-events 20000 \
+  --format md
 ```

@@ -87,8 +87,10 @@ impl ColorField {
     }
 }
 
-/// Total navigable items: 10 color fields + 2 glyph/indicator selectors.
-const TOTAL_ITEMS: usize = 12;
+/// Number of non-color selector rows in the colors editor.
+const EXTRA_SELECTOR_ITEMS: usize = 2;
+/// Total navigable items: color fields + indicator/glyph selectors.
+const TOTAL_ITEMS: usize = ColorField::ALL.len() + EXTRA_SELECTOR_ITEMS;
 
 /// State for the Colors editor page.
 #[derive(Debug, Clone)]
@@ -104,10 +106,13 @@ impl ColorsEditorState {
     /// Create a new Colors editor initialized from the given theme.
     #[must_use]
     pub(crate) fn new(theme: Theme) -> Self {
+        let overrides = crate::theme::runtime_style_pack_overrides();
         Self {
             selected: 0,
             colors: palette_to_resolved(&theme.colors()),
             picker: None,
+            indicator_set: overrides.indicator_set_override,
+            glyph_set: overrides.glyph_set_override,
         }
     }
 
@@ -153,14 +158,69 @@ impl ColorsEditorState {
 
     /// Move selection down.
     pub(crate) fn move_down(&mut self) {
-        if self.selected < ColorField::ALL.len() - 1 {
+        if self.selected < TOTAL_ITEMS - 1 {
             self.selected += 1;
+        }
+    }
+
+    /// Whether the selected item is a color field (vs indicator/glyph selector).
+    #[must_use]
+    pub(crate) fn is_color_field_selected(&self) -> bool {
+        self.selected < ColorField::ALL.len()
+    }
+
+    /// Cycle indicator set with Left/Right arrows. Returns true if changed.
+    pub(crate) fn cycle_indicator_set(&mut self, direction: i32) -> bool {
+        const VALUES: &[Option<RuntimeIndicatorSetOverride>] = &[
+            None,
+            Some(RuntimeIndicatorSetOverride::Ascii),
+            Some(RuntimeIndicatorSetOverride::Dot),
+            Some(RuntimeIndicatorSetOverride::Diamond),
+        ];
+        let idx = VALUES
+            .iter()
+            .position(|v| *v == self.indicator_set)
+            .unwrap_or(0);
+        let next = if direction > 0 {
+            (idx + 1) % VALUES.len()
+        } else {
+            (idx + VALUES.len() - 1) % VALUES.len()
+        };
+        if VALUES[next] != self.indicator_set {
+            self.indicator_set = VALUES[next];
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Cycle glyph set with Left/Right arrows. Returns true if changed.
+    pub(crate) fn cycle_glyph_set(&mut self, direction: i32) -> bool {
+        const VALUES: &[Option<RuntimeGlyphSetOverride>] = &[
+            None,
+            Some(RuntimeGlyphSetOverride::Unicode),
+            Some(RuntimeGlyphSetOverride::Ascii),
+        ];
+        let idx = VALUES
+            .iter()
+            .position(|v| *v == self.glyph_set)
+            .unwrap_or(0);
+        let next = if direction > 0 {
+            (idx + 1) % VALUES.len()
+        } else {
+            (idx + VALUES.len() - 1) % VALUES.len()
+        };
+        if VALUES[next] != self.glyph_set {
+            self.glyph_set = VALUES[next];
+            true
+        } else {
+            false
         }
     }
 
     /// Render the colors page as lines.
     #[must_use]
-    pub(crate) fn render(&self, fg_escape: &str, _dim_escape: &str, reset: &str) -> Vec<String> {
+    pub(crate) fn render(&self, fg_escape: &str, dim_escape: &str, reset: &str) -> Vec<String> {
         let mut lines = Vec::new();
 
         for (i, field) in ColorField::ALL.iter().enumerate() {
@@ -185,6 +245,46 @@ impl ColorsEditorState {
             ));
         }
 
+        // Separator before indicator/glyph selectors.
+        lines.push(format!(" {dim_escape}─── Indicators & Glyphs ───{reset}"));
+
+        // Indicator set selector (item index 10).
+        let ind_idx = ColorField::ALL.len();
+        let ind_marker = if self.selected == ind_idx { "▸" } else { " " };
+        let ind_highlight = if self.selected == ind_idx {
+            fg_escape
+        } else {
+            dim_escape
+        };
+        let ind_label = indicator_set_label(self.indicator_set);
+        let ind_preview = indicator_set_preview(self.indicator_set);
+        let ind_hint = if self.selected == ind_idx {
+            "  [←/→ to cycle]"
+        } else {
+            ""
+        };
+        lines.push(format!(
+            " {ind_marker} {ind_highlight}Indicators{reset}  {ind_label:<10} {ind_preview}{ind_hint}"
+        ));
+
+        // Glyph set selector (item index 11).
+        let gly_idx = ind_idx + 1;
+        let gly_marker = if self.selected == gly_idx { "▸" } else { " " };
+        let gly_highlight = if self.selected == gly_idx {
+            fg_escape
+        } else {
+            dim_escape
+        };
+        let gly_label = glyph_set_label(self.glyph_set);
+        let gly_hint = if self.selected == gly_idx {
+            "  [←/→ to cycle]"
+        } else {
+            ""
+        };
+        lines.push(format!(
+            " {gly_marker} {gly_highlight}Glyph Set{reset}   {gly_label}{gly_hint}"
+        ));
+
         // If picker is open, render it below.
         if let Some(ref picker) = self.picker {
             lines.push(String::new());
@@ -198,6 +298,32 @@ impl ColorsEditorState {
         }
 
         lines
+    }
+}
+
+fn indicator_set_label(set: Option<RuntimeIndicatorSetOverride>) -> &'static str {
+    match set {
+        None => "Theme",
+        Some(RuntimeIndicatorSetOverride::Ascii) => "Ascii",
+        Some(RuntimeIndicatorSetOverride::Dot) => "Dot",
+        Some(RuntimeIndicatorSetOverride::Diamond) => "Diamond",
+    }
+}
+
+fn indicator_set_preview(set: Option<RuntimeIndicatorSetOverride>) -> &'static str {
+    match set {
+        None => "◆ ◇ ▸ · ◐ ↺",
+        Some(RuntimeIndicatorSetOverride::Ascii) => "* @ > - ~ >",
+        Some(RuntimeIndicatorSetOverride::Dot) => "● ◎ ▶ ○ ◐ ↺",
+        Some(RuntimeIndicatorSetOverride::Diamond) => "◆ ◇ ▸ · ◈ ▸",
+    }
+}
+
+fn glyph_set_label(set: Option<RuntimeGlyphSetOverride>) -> &'static str {
+    match set {
+        None => "Theme default",
+        Some(RuntimeGlyphSetOverride::Unicode) => "Unicode",
+        Some(RuntimeGlyphSetOverride::Ascii) => "ASCII",
     }
 }
 
@@ -246,12 +372,52 @@ mod tests {
     fn colors_editor_render_produces_lines() {
         let editor = ColorsEditorState::new(Theme::Codex);
         let lines = editor.render("", "", "");
-        assert_eq!(lines.len(), ColorField::ALL.len());
+        // 10 color fields + 1 separator + 2 indicator/glyph selectors = 13
+        assert_eq!(lines.len(), ColorField::ALL.len() + 3);
         assert!(lines[0].contains("Recording"));
     }
 
     #[test]
     fn color_field_all_covers_10_fields() {
         assert_eq!(ColorField::ALL.len(), 10);
+    }
+
+    #[test]
+    fn colors_editor_navigate_to_indicator_row() {
+        let mut editor = ColorsEditorState::new(Theme::Codex);
+        for _ in 0..11 {
+            editor.move_down();
+        }
+        // Should be at glyph set row (index 11).
+        assert_eq!(editor.selected, 11);
+        assert!(!editor.is_color_field_selected());
+    }
+
+    #[test]
+    fn cycle_indicator_set() {
+        let mut editor = ColorsEditorState::new(Theme::Codex);
+        assert!(editor.indicator_set.is_none());
+        assert!(editor.cycle_indicator_set(1));
+        assert_eq!(
+            editor.indicator_set,
+            Some(RuntimeIndicatorSetOverride::Ascii)
+        );
+        assert!(editor.cycle_indicator_set(1));
+        assert_eq!(editor.indicator_set, Some(RuntimeIndicatorSetOverride::Dot));
+        assert!(editor.cycle_indicator_set(-1));
+        assert_eq!(
+            editor.indicator_set,
+            Some(RuntimeIndicatorSetOverride::Ascii)
+        );
+    }
+
+    #[test]
+    fn cycle_glyph_set() {
+        let mut editor = ColorsEditorState::new(Theme::Codex);
+        assert!(editor.glyph_set.is_none());
+        assert!(editor.cycle_glyph_set(1));
+        assert_eq!(editor.glyph_set, Some(RuntimeGlyphSetOverride::Unicode));
+        assert!(editor.cycle_glyph_set(1));
+        assert_eq!(editor.glyph_set, Some(RuntimeGlyphSetOverride::Ascii));
     }
 }

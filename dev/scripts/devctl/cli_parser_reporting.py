@@ -8,6 +8,7 @@ from .autonomy_status_parsers import (
     add_autonomy_report_parser,
     add_phone_status_parser,
 )
+from .data_science_parser import add_data_science_parser
 
 
 def add_reporting_parsers(
@@ -91,6 +92,7 @@ def add_reporting_parsers(
     list_cmd = sub.add_parser("list", help="List devctl commands and profiles")
     list_cmd.add_argument("--format", choices=["json", "md"], default="md")
     list_cmd.add_argument("--output")
+    add_data_science_parser(sub)
 
     # autonomy-report + phone-status
     add_autonomy_report_parser(sub)

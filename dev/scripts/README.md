@@ -175,6 +175,8 @@ python3 dev/scripts/audits/audit_metrics.py \
 DEVCTL_AUDIT_CYCLE_ID=baseline-2026-02-24 \
 DEVCTL_EXECUTION_SOURCE=script_only \
 python3 dev/scripts/devctl.py check --profile ci
+# Data-science snapshot (command telemetry + swarm/benchmark agent sizing stats)
+python3 dev/scripts/devctl.py data-science --format md --output /tmp/data-science-summary.md
 # Optional: gate cleanup against a scoped CI slice
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --ci-branch develop --ci-event push --ci-workflow "Rust TUI CI" --dry-run
 # Optional: override the default cleanup root guard (still restricted to dev/reports/**)
@@ -314,6 +316,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `orchestrate-status`: one-shot orchestrator accountability view (active-plan sync + multi-agent sync guard status with git context)
 - `orchestrate-watch`: SLA watchdog for stale lane updates and overdue instruction ACKs
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
+- `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports local source/output overrides for experiments
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, emits rollups for severity/category/owner counts, and stamps reports with UTC timestamps
 - `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
@@ -333,6 +336,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | Command | Run it when | Why |
 |---|---|---|
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
+| `data-science --format md` | you want a fresh productivity/agent-sizing snapshot from current telemetry | builds `summary.{md,json}` + charts from devctl events and swarm/benchmark history |
 | `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local release checks |
 | `check --profile ai-guard` | after touching larger Rust/Python files | catches shape/lint-debt/best-practice drift |
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |

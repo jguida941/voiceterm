@@ -7,6 +7,7 @@ import sys
 import time
 
 from .audit_events import emit_devctl_audit_event
+from .data_science_metrics import maybe_auto_refresh_data_science
 from .autonomy_benchmark_parser import add_autonomy_benchmark_parser
 from .autonomy_loop_parser import add_autonomy_loop_parser
 from .autonomy_run_parser import add_autonomy_run_parser
@@ -23,6 +24,7 @@ from .commands import (
     check,
     cihub_setup,
     controller_action,
+    data_science,
     docs_check,
     failure_cleanup,
     homebrew,
@@ -116,6 +118,7 @@ COMMAND_HANDLERS = {
     "orchestrate-watch": orchestrate_watch.run,
     "report": report.run,
     "triage": triage.run,
+    "data-science": data_science.run,
     "triage-loop": triage_loop.run,
     "loop-packet": loop_packet.run,
     "autonomy-loop": autonomy_loop.run,
@@ -169,6 +172,8 @@ def main() -> int:
             duration_seconds=duration_seconds,
             argv=sys.argv[1:],
         )
+        if args.command != "data-science":
+            maybe_auto_refresh_data_science(command=args.command)
 
 
 if __name__ == "__main__":

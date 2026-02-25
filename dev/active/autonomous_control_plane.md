@@ -17,7 +17,7 @@ This plan covers:
 4. Rust containerized mobile control service with SMS-first pilot and richer
    channel support next.
 5. Guardrail and traceability hardening for autonomous execution.
-6. One unified operator system across Rust overlay, PyQt6 desktop controller,
+6. One unified operator system across Rust overlay, PySide6 desktop controller,
    and iPhone surfaces using the same controller-state contract.
 7. Deterministic learning so repeated loop work is reused through
    artifact-backed playbooks instead of hidden memory.
@@ -43,7 +43,7 @@ This plan covers:
    command execution.
 4. Mobile strategy defaults to SMS backup first, then richer interactive chat.
 5. Rust overlay stays the primary runtime/rendering surface for VoiceTerm.
-6. PyQt6 is optional for desktop operator control only, using control-plane API
+6. PySide6 is optional for desktop operator control only, using control-plane API
    boundaries (not as a replacement for runtime overlay internals).
 7. Learning logic must be artifact-driven, replayable, and auditable.
 
@@ -388,7 +388,7 @@ ADR delivery rule for this track:
 3. ADR IDs and MP scope linkage must be reflected in both this file and
    `dev/active/MASTER_PLAN.md`.
 
-### 3.7 Unified Operator Surfaces (Rust Overlay + PyQt6 + iPhone)
+### 3.7 Unified Operator Surfaces (Rust Overlay + PySide6 + iPhone)
 
 Goal: one control system, multiple clients, no behavior drift.
 
@@ -396,7 +396,7 @@ Implementation scope:
 
 - [ ] Keep one canonical `controller_state` source artifact and API projection.
 - [ ] Rust `--dev` panel reads local `controller_state` projections directly.
-- [ ] Add an optional PyQt6 desktop operator client that:
+- [ ] Add an optional PySide6 desktop operator client that:
   - [ ] renders the same status/phase/metrics/actions as Rust/iPhone.
   - [ ] calls only policy-gated `controller-action` endpoints for writes.
   - [ ] never shells directly into unrestricted local commands.
@@ -408,13 +408,13 @@ Implementation order:
 1. Land `controller_state` schema and projection files (`full`, `compact`,
    `trace`, `actions`) as source of truth.
 2. Wire Rust Dev panel and `devctl phone-status` to that schema first.
-3. Add PyQt6 read-only UI against the same data contract.
+3. Add PySide6 read-only UI against the same data contract.
 4. Add one guarded write action (`dispatch-report-only`) and verify parity.
 5. Expand write actions only after replay/auth/rate-limit gates are green.
 
 Acceptance:
 
-1. A state change appears the same in Rust Dev panel, PyQt6 client, and iPhone.
+1. A state change appears the same in Rust Dev panel, PySide6 client, and iPhone.
 2. Action outcomes and denials are identical across clients.
 3. No client bypasses policy gates for workflow/shell actions.
 4. Operator can monitor and steer bounded loops from any client safely.
@@ -487,7 +487,7 @@ Acceptance:
 - [x] Mutation hotspot extraction + reason-code surface.
 - [x] Policy gate allowlist/denylist evaluation.
 - [ ] Mobile command parser normalization + auth checks.
-- [ ] Controller-state projection parity checks (Rust, phone, PyQt6 clients).
+- [ ] Controller-state projection parity checks (Rust, phone, PySide6 clients).
 - [ ] Fingerprint and playbook-confidence scoring determinism checks.
 
 ### Integration
@@ -498,7 +498,7 @@ Acceptance:
 - [ ] Fix-mode dry-run allowlisted vs blocked command paths.
 - [ ] Twilio webhook roundtrip command dispatch.
 - [ ] API auth + replay rejection.
-- [ ] PyQt6 client adapter parity against Rust/iPhone action behavior.
+- [ ] PySide6 client adapter parity against Rust/iPhone action behavior.
 - [ ] Learning-loop promotion/decay policy behavior on mixed outcomes.
 
 ### End-to-End
@@ -507,7 +507,7 @@ Acceptance:
 - [ ] Phone-triggered report-only mutation loop returns artifact summary.
 - [ ] Blocked command attempt yields policy deny + audit trace.
 - [ ] No repeated comment spam across repeated loop runs on same target.
-- [ ] Same loop packet appears identically in Rust Dev panel, PyQt6, and phone.
+- [ ] Same loop packet appears identically in Rust Dev panel, PySide6, and phone.
 - [ ] Learned playbook recommendation appears in next loop cycle with evidence.
 
 ## Rollout Plan
@@ -691,9 +691,15 @@ Acceptance:
   ADR backlog (`ADR-0027..ADR-0034`) so autonomy/mobile execution has a
   tracked architectural decision path and does not drift into memory-only scope.
 - 2026-02-24: Added one-system operator architecture decision: Rust overlay
-  remains runtime primary, PyQt6 is an optional desktop controller client over
+  remains runtime primary, PySide6 is an optional desktop controller client over
   shared control-plane APIs, and iPhone uses the same projected controller
   state for parity.
+- 2026-02-25: Added an initial `app/pyside6` command-center scaffold for
+  MP-340 with modular tab surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`,
+  `Git`, `Terminal`), non-blocking `QProcess` execution, and a broad static
+  command catalog mapped to existing `devctl`/check/git/cargo/workflow
+  operations. This is a partial milestone; policy-gated action-only mode and
+  strict projection parity with Rust/iPhone remain open.
 - 2026-02-24: Added deterministic learning-loop scope (fingerprints, playbook
   memory, guarded promotion/decay, `autonomy-learn` digest) so repeated work
   can be automated over time with explicit auditability.
@@ -719,6 +725,9 @@ Acceptance:
 - 2026-02-24: Ran `devctl autonomy-run` (`autonomy-run-live-20260224-092520Z`, `MP-338`); selected_agents=10, worker_agents=9, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/autonomy-run-live-20260224-092520Z/summary.md`.
 - 2026-02-24: Ran `devctl autonomy-benchmark` (`matrix-10-15-20-30-40-20260224`, `MP-338`) across swarm counts `10,15,20,30,40` and tactics `uniform,specialized,research-first,test-first`; scenarios=20, swarms_total=460, swarms_ok=460, tasks_completed_total=1840; artifacts: `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224/summary.md`.
 - 2026-02-24: Re-ran `devctl autonomy-benchmark` after benchmark module split (`matrix-10-15-20-30-40-20260224-r2`, `MP-338`) and confirmed the same matrix contract with `scenarios=20`, `swarms_total=460`, `swarms_ok=460`, `tasks_completed_total=1840`; artifacts: `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224-r2/summary.md`.
+- 2026-02-25: Ran `devctl autonomy-benchmark` (`mp342-344-baseline-matrix-20260225`, `MP-338`) with an explicit runtime-reliability prompt covering `MP-342`, `MP-343`, and `MP-344`; baseline control used `swarm_count=1` and comparison tiers used `swarm_count=3,5` across `uniform,specialized,research-first,test-first`; outcomes: `scenarios=12`, `swarms_total=36`, `swarms_ok=36`, `tasks_completed_total=108`, `elapsed_seconds_total=10.079`; artifacts: `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/summary.{md,json}`.
+- 2026-02-25: Ran live `devctl autonomy-benchmark` A/B control-vs-swarm pass (`mp342-344-live-baseline-matrix-20260225`, `MP-338`) for the same runtime prompt using `swarm_count=1` control (no-swarm) and `swarm_count=5` swarm variant across `research-first,specialized`; outcomes: `scenarios=4`, `swarms_total=12`, `swarms_ok=12`, `tasks_completed_total=24`, `elapsed_seconds_total=3.81`; artifacts: `dev/reports/autonomy/benchmarks/mp342-344-live-baseline-matrix-20260225/summary.{md,json}`.
+- 2026-02-25: Generated explicit graph bundle comparing swarm vs no-swarm outcomes for `MP-342/343/344` (`tasks_completed_total`, `work_output_score`, `tasks_per_minute`, `elapsed_seconds_total`, `success_pct`) under `dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/`.
 - 2026-02-24: Added `devctl phone-status` read-surface command for iPhone/SSH usage with projection views (`full|compact|trace|actions`) and optional controller-state projection bundle output (`full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`); also fixed autonomy-report phone summary reason extraction to use top-level phone payload reason.
 - 2026-02-24: Added `devctl controller-action` with safe subset (`refresh-status`, `dispatch-report-only`, `pause-loop`, `resume-loop`) plus policy gates (workflow/branch allowlist + `AUTONOMY_MODE=off` kill-switch block), dry-run support, and local controller-mode state artifact emission for phone surfaces.
 
@@ -762,6 +771,9 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label live-10-reviewlane-20260224-085045Z --format md --output dev/reports/autonomy/live-10-reviewlane-20260224-085045Z.md --json-output dev/reports/autonomy/live-10-reviewlane-20260224-085045Z.json` | one-command live swarm produced 9 worker lanes + `AGENT-REVIEW` and auto digest bundle under `dev/reports/autonomy/library/live-10-reviewlane-20260224-085045Z-digest` (`ok: True`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 20 --mode report-only --dry-run --run-label matrix-10-15-20-30-40-20260224 --format md --output /tmp/autonomy-benchmark-latest.md --json-output /tmp/autonomy-benchmark-latest.json` | plan-scoped matrix benchmark completed with consolidated tradeoff report (`scenarios=20`, `swarms_total=460`, `swarms_ok=460`, `tasks_completed_total=1840`) under `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224/` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 20 --mode report-only --dry-run --run-label matrix-10-15-20-30-40-20260224-r2 --format md --output /tmp/autonomy-benchmark-latest-r2.md --json-output /tmp/autonomy-benchmark-latest-r2.json` | post-shape-refactor benchmark rerun passed with identical matrix totals and refreshed bundle/charts under `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224-r2/` (`swarms_total=460`, `swarms_ok=460`) (2026-02-24 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,3,5 --tactics uniform,specialized,research-first,test-first --agents 3 --parallel-workers 3 --max-concurrent-swarms 3 --mode report-only --dry-run --run-label mp342-344-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.json` | baseline-first runtime backlog benchmark completed for `MP-342/343/344` (`scenarios=12`, `swarms_total=36`, `swarms_ok=36`, `tasks_completed_total=108`) with scenario bundles under `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,5 --tactics research-first,specialized --agents 2 --parallel-workers 2 --max-concurrent-swarms 2 --mode report-only --run-label mp342-344-live-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.json` | live A/B benchmark completed with explicit no-swarm control vs swarm variant (`scenarios=4`, `swarms_total=12`, `swarms_ok=12`, `tasks_completed_total=24`) under `dev/reports/autonomy/benchmarks/mp342-344-live-baseline-matrix-20260225/` (2026-02-25 local run) | done |
+| `python3 - <<'PY' ... -> dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/{summary.md,summary.json,*.svg}` | generated direct comparison table + SVG graphs for swarm (`swarm_count=5`) vs no-swarm control (`swarm_count=1`) across `research-first` and `specialized` tactics (2026-02-25 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_phone_status dev.scripts.devctl.tests.test_autonomy_report` | phone-status parser/command/projection bundle behavior covered and phone reason metric extraction fixed (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_controller_action` | controller-action parser/guard/action behavior covered (`refresh-status`, allowlist-reject, allowlist dry-run dispatch, pause-loop mode-file write) (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 dev/scripts/checks/check_code_shape.py` | `ok: True` after autonomy-loop helper split (2026-02-24 local run) | done |
@@ -784,3 +796,5 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md` (2026-02-24 local run) | done |
+| `python3 -m compileall app/pyside6` | compiled new PySide6 command-center package (`run.py`, `main.py`, runner/models/catalog/tab modules) with no syntax errors (2026-02-25 local run) | done |
+| `source ../../.venv-pyside6/bin/activate && QT_QPA_PLATFORM=offscreen python3 - <<'PY' ... CommandCenterWindow()` | offscreen smoke test constructed `CommandCenterWindow` successfully (`VoiceTerm Command Center (PySide6)`) after isolated venv install (`PySide6 6.10.2`) (2026-02-25 local run) | done |

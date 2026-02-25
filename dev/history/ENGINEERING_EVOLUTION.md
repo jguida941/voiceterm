@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 
 ## At a Glance
 
@@ -218,7 +218,6 @@ in `devctl ship`/Homebrew scripting to fail early on version mismatch and bad
 tarball downloads.
 
 Evidence:
-
 - `.github/workflows/release_preflight.yml` (manual release gate bundle with
   parity validation + governance checks + distribution dry-run smoke)
 - `.github/workflows/publish_homebrew.yml` (triggered by `release: published`
@@ -234,6 +233,47 @@ Evidence:
 Inference: The release path remains centered on one control plane (`devctl`)
 while reducing publish-time drift risk between requested tag versions,
 repository metadata, and downstream Homebrew formula updates.
+
+### Recent Governance Update (2026-02-25, Desktop Operator Surface)
+
+Fact: A new optional PySide6 desktop command-center scaffold was added as an
+`MP-340` partial milestone so operators can run and visualize control-plane
+commands from a modular tabbed UI while keeping the Rust overlay as runtime
+primary.
+
+Evidence:
+
+- `app/pyside6/README.md`
+- `app/pyside6/run.py`
+- `app/pyside6/voiceterm_command_center/main.py`
+- `app/pyside6/voiceterm_command_center/command_catalog.py`
+- `app/pyside6/voiceterm_command_center/runner.py`
+- `app/pyside6/voiceterm_command_center/tabs/*`
+- `dev/active/autonomous_control_plane.md` (Progress Log update)
+- `dev/active/MASTER_PLAN.md` (`MP-340` partial note)
+
+Inference: The control-plane strategy now has a concrete desktop implementation
+path (PySide6) over existing `devctl`/workflow guardrails, reducing reliance on
+ad-hoc terminal-only orchestration for operator flows.
+
+### Recent Governance Update (2026-02-25, Data Science Telemetry Workspace)
+
+Fact: `devctl` now maintains a rolling data-science snapshot so every command
+run contributes to measurable productivity and agent-sizing analytics.
+
+Evidence:
+
+- `data_science/README.md`
+- `dev/scripts/devctl/data_science_metrics.py`
+- `dev/scripts/devctl/commands/data_science.py`
+- `dev/scripts/devctl/cli.py` (post-command auto-refresh hook)
+- `dev/scripts/devctl/tests/test_data_science.py`
+- `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`, `AGENTS.md`
+- `dev/active/MASTER_PLAN.md` (`MP-345`)
+
+Inference: The repo now has an always-on, reproducible telemetry loop for
+command throughput, success/latency, and swarm-size recommendation scoring,
+which reduces ad-hoc "what agent count should we use?" decisions.
 
 ### Recent Governance Update (2026-02-24, External Federation Bridge)
 

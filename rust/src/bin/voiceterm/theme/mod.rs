@@ -53,12 +53,12 @@ pub(crate) use runtime_overrides::{
     RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
     RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
 };
+#[cfg(not(test))]
+pub(crate) use style_pack::set_runtime_color_override;
 pub(crate) use style_pack::{
     resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
     set_runtime_style_pack_overrides,
 };
-#[cfg(not(test))]
-pub(crate) use style_pack::set_runtime_color_override;
 #[cfg(test)]
 pub(crate) use style_schema::StylePackFieldId;
 

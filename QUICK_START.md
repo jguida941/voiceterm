@@ -100,8 +100,12 @@ Full controls reference:
 Mouse note:
 
 - `Mouse` is ON by default for clickable HUD controls.
-- In Cursor terminal, wheel scrolling still works while `Mouse` stays ON.
-  Settings shows `Mouse: ON - scroll preserved in Cursor`.
+- In Cursor terminal, wheel/touchpad scrolling may not move chat history while
+  `Mouse` stays ON, but the scrollbar can still be dragged.
+- If you want touchpad/wheel scrolling, set `Mouse` to `OFF` and use keyboard
+  HUD navigation (`Tab`/arrows + `Enter`) for controls.
+- `Ctrl+Y` opens Theme Studio; use `Tab` / `Shift+Tab` to move across pages
+  (`Home`, `Colors`, `Borders`, `Components`, `Preview`, `Export`).
 
 ## 5) Hands-free starter (optional)
 
@@ -140,6 +144,7 @@ voiceterm --auto-voice
 voiceterm --wake-word
 voiceterm --voice-send-mode insert
 voiceterm --image-mode    # persistent image capture for HUD [rec]
+voiceterm --theme-file ~/.config/voiceterm/themes/my-theme.toml
 voiceterm --dev
 voiceterm --dev --dev-log
 voiceterm --voice-vad-threshold-db -50
@@ -150,6 +155,8 @@ voiceterm --logs
 Style-pack note:
 
 - `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays and `components.hud_border` for Full HUD when border style is `theme`.
+- TOML theme files loaded with `--theme-file` are watched and re-applied on save
+  (about 500ms poll interval).
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
 

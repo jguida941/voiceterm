@@ -23,6 +23,7 @@ COMMANDS = [
     "orchestrate-status",
     "orchestrate-watch",
     "report",
+    "data-science",
     "triage",
     "triage-loop",
     "loop-packet",

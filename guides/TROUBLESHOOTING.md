@@ -29,6 +29,7 @@ Fast first checks:
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Theme file edits do not apply | Verify `--theme-file` / `VOICETERM_THEME_FILE` and check logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 
 ## Status Messages
 
@@ -180,9 +181,10 @@ the HUD parser, not forwarded to the backend.
 
 Note for Cursor terminal:
 
-- VoiceTerm keeps wheel scrolling available while `Mouse` remains on.
-  You will see `Mouse: ON - scroll preserved in Cursor`, and HUD clicks
-  automatically resume shortly after wheel scrolling.
+- With `Mouse` ON, wheel/touchpad scrolling may not move chat history.
+- The scrollbar can still be dragged to move up/down.
+- If you want touchpad/wheel scrolling, set `Settings -> Mouse` to `OFF`.
+  You can still operate HUD controls with keyboard focus and `Enter`.
 
 </details>
 
@@ -471,6 +473,7 @@ Section shortcuts:
 - [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
 - [Startup banner lingers](#startup-banner-lingers-in-ide-terminal)
 - [Theme colors look muted](#theme-colors-look-muted-in-ide-terminal)
+- [Theme file edits do not apply](#theme-file-edits-do-not-apply)
 - [Style-pack preview payload not applying](#style-pack-preview-payload-not-applying)
 - [PTY exit write error in logs](#pty-exit-write-error-in-logs)
 
@@ -648,6 +651,21 @@ Some IDE profiles do not expose truecolor env vars.
    ```bash
    COLORTERM=truecolor voiceterm --theme catppuccin
    ```
+
+### Theme file edits do not apply
+
+If you expect live updates from a TOML theme file:
+
+1. Confirm the path is set with `--theme-file <PATH>` or `VOICETERM_THEME_FILE=<PATH>`.
+2. Re-run once with logs:
+
+   ```bash
+   voiceterm --theme-file ~/.config/voiceterm/themes/my-theme.toml --logs
+   ```
+
+3. Save a valid TOML file and wait for the watcher poll cycle (~500ms).
+4. If `VOICETERM_STYLE_PACK_JSON` is set, clear it while testing (`unset VOICETERM_STYLE_PACK_JSON`) because style-pack payloads take precedence over theme files.
+5. Check `${TMPDIR:-/tmp}/voiceterm_tui.log` for theme-file parse/load warnings.
 
 ### Style-pack preview payload not applying
 

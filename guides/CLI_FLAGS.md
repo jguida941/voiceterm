@@ -202,6 +202,8 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
 Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.
+`--theme-file` uses the same path source as `VOICETERM_THEME_FILE`; when set,
+VoiceTerm polls the file (~500ms) and reapplies valid edits live.
 
 **Themes:** `chatgpt`, `claude`, `codex`, `coral`, `catppuccin`, `dracula`,
 `nord`, `tokyonight`, `gruvbox`, `ansi`, `none`.
@@ -274,6 +276,7 @@ without interactive approval prompts.
 | `VOICETERM_ONBOARDING_STATE` | Override first-run onboarding state file path | unset |
 | `VOICETERM_PROMPT_LOG` | Prompt detection log path | unset |
 | `VOICETERM_IMAGE_CAPTURE_COMMAND` | Default value for `--image-capture-command` | unset |
+| `VOICETERM_THEME_FILE` | Same as `--theme-file <PATH>`; load and watch a TOML theme file | unset |
 | `VOICETERM_STYLE_PACK_JSON` | Runtime Theme Studio preview payload (`base_theme` lock + supported overrides, including `components.overlay_border` and `components.hud_border`) | unset |
 | `VOICETERM_LOGS` | Enable logging (same as `--logs`) | unset |
 | `VOICETERM_NO_LOGS` | Disable logging | unset |

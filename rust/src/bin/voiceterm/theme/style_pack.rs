@@ -221,8 +221,8 @@ pub(crate) fn clear_runtime_color_override() {
 fn runtime_color_override() -> Option<ThemeColors> {
     let cell = RUNTIME_COLOR_OVERRIDE.get_or_init(|| Mutex::new(None));
     match cell.lock() {
-        Ok(guard) => guard.clone(),
-        Err(poisoned) => poisoned.into_inner().clone(),
+        Ok(guard) => *guard,
+        Err(poisoned) => *poisoned.into_inner(),
     }
 }
 

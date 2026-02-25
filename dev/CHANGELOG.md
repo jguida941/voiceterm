@@ -7,6 +7,27 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Control Plane
+
+- Add an optional PySide6 desktop command-center scaffold under `app/pyside6/` with modular tabbed surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`, `Git`, `Terminal`), non-blocking command execution (`QProcess`), and a broad command catalog that reuses existing `devctl`/governance/git/cargo/workflow command paths.
+
+### Theme Studio Upgrade
+
+- Add multi-page tabbed Theme Studio with 6 pages (Home, Colors, Borders, Components, Preview, Export) navigated via Tab/Shift+Tab.
+- Add Colors page with inline RGB color picker (R/G/B sliders, hex entry mode) for editing all 10 semantic color fields. Color changes apply live to the active theme via runtime color override.
+- Add indicator set and glyph set selectors to Colors page with Left/Right cycling and live symbol preview.
+- Add Borders page with 5 border style options (Single, Rounded, Double, Heavy, None) and live mini-box previews. Enter applies the selected border style.
+- Add Components page as a browsable catalog of 54 component IDs organized into 10 groups (HUD, Buttons, Toast, Overlay, Theme Studio, Voice Scene, Transcript, Banner, Progress, Settings) with color swatches and semantic-color hint labels.
+- Add Preview page showing read-only live preview of HUD status line colors, indicators, toast severity colors, and border chrome.
+- Add Export page with TOML file export to `~/.config/voiceterm/themes/`, OSC 52 clipboard copy, and import stub.
+- Introduce `Rgb`, `ColorValue`, and `ResolvedThemeColors` types (`color_value.rs`) enabling runtime color editing while preserving the `&'static str` rendering pipeline via `Box::leak` string interning.
+- Add TOML theme file support (`theme_file.rs`, `theme_dir.rs`) with three-tier token system (palette, semantic colors, component overrides), base_theme inheritance, validation, and round-trip export/import.
+- Add per-component style resolver (`style_resolver.rs`) mapping 54 ComponentIds to semantic default colors with optional per-component/state overrides.
+- Add runtime color override system (`set_runtime_color_override`) as highest-precedence layer in `resolve_theme_colors()`.
+- Add `--theme-file <PATH>` CLI flag and `VOICETERM_THEME_FILE` env var for loading TOML theme files.
+- Add theme file hot-reload via mtime polling + FNV-1a content hashing (~500ms cycle).
+- Add tab bar renderer (`format_tab_bar`) for multi-page Studio navigation.
+
 ## [1.0.93] - 2026-02-24
 ### UX
 

@@ -288,7 +288,9 @@ First-run control note (current behavior):
 - `Ctrl+R` starts/stops recording.
 - `Ctrl+E` finalizes active recording early in `insert` mode and stages text (it does not send Enter).
 - In `insert` mode, say `send` / `send message` / `submit` (or `hey codex send`) to submit staged text hands-free.
+- `Ctrl+Y` opens Theme Studio; use `Tab` / `Shift+Tab` to switch pages.
 - If you use `VOICETERM_STYLE_PACK_JSON`, `components.overlay_border` styles overlays and `components.hud_border` styles Full HUD only when border mode is `theme`.
+- Use `--theme-file <PATH>` (or `VOICETERM_THEME_FILE`) to load a TOML theme file.
 
 ## Optional: Macro Wizard
 

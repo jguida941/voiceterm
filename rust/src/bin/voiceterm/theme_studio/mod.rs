@@ -20,7 +20,7 @@ pub(crate) use home_page::{
 };
 
 pub(crate) use borders_page::{BorderOption, BordersPageState};
-pub(crate) use colors_page::ColorsEditorState;
+pub(crate) use colors_page::{ColorField, ColorsEditorState};
 pub(crate) use components_page::ComponentsEditorState;
 pub(crate) use export_page::{ExportAction, ExportPageState};
 pub(crate) use preview_page::PreviewPageState;

@@ -128,7 +128,7 @@ For model options and startup/IDE tuning:
 VoiceTerm listens to your mic, converts speech to text on your machine, and
 types the result into your AI CLI input.
 
-![Recording](img/recording.png)
+![Recording](img/auto-record.png)
 
 ## Requirements
 
@@ -173,7 +173,8 @@ For full backend status and setup details, see
 
 ### Codex
 
-![Codex Backend](img/codex-backend.png)
+Use the same workflow and controls documented for backend support in
+[guides/USAGE.md](guides/USAGE.md#backend-support).
 
 ### Claude Code
 
@@ -198,13 +199,20 @@ Think of this like Alexa for your terminal:
 ![Theme Picker](img/theme-picker.png)
 Press `Ctrl+Y` to open Theme Studio and choose `Theme picker`.
 Use `Ctrl+G` to quick-cycle themes.
+Use `Tab` / `Shift+Tab` to move across Theme Studio pages (`Home`, `Colors`,
+`Borders`, `Components`, `Preview`, `Export`).
+For editor details, see [Themes](guides/USAGE.md#themes).
+For theme-file flags/env vars, see [CLI Flags](guides/CLI_FLAGS.md#themes--display).
 
 ### Settings Menu
 
 ![Settings](img/settings.png)
 
 Mouse control is enabled by default. Open Settings with `Ctrl+O`.
-In Cursor terminal, VoiceTerm keeps `Mouse` ON but preserves wheel scrolling.
+Cursor note: when `Mouse` is ON, wheel/touchpad scrolling may not move chat
+history, but the scrollbar can still be dragged. If you prefer touchpad/wheel
+scrolling, set `Mouse` to `OFF` and use keyboard focus (`Tab`/arrows) + `Enter`
+for HUD buttons.
 For details, use:
 
 - [Settings Menu](guides/USAGE.md#settings-menu)
