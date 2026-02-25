@@ -83,8 +83,9 @@ def _cihub_supports_triage(cihub_bin: str) -> tuple[bool, str]:
 def _resolve_use_cihub(args) -> tuple[bool, str | None]:
     if args.no_cihub:
         return False, None
+    explicit_opt_in = bool(getattr(args, "cihub", False))
     cihub_available = shutil.which(args.cihub_bin) is not None
-    if not cihub_available:
+    if not cihub_available and not explicit_opt_in:
         return False, "cihub binary not found; skipping CIHub triage."
 
     supports_triage, source = _cihub_supports_triage(args.cihub_bin)
