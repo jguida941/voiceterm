@@ -158,6 +158,9 @@ Why this model is safe:
 | Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `mem::forget`) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
+Workflow permissions note:
+- For `.github/workflows/scorecard.yml`, keep workflow-level permissions read-only and scope `id-token: write` plus `security-events: write` at the `analysis` job level. OpenSSF `publish_results` rejects global write permissions.
+
 ## When to push where
 
 ### Normal work (features, fixes, docs)

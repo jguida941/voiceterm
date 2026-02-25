@@ -229,6 +229,26 @@ Evidence:
 Inference: CI lanes now stay portable across hosted-runner label catalog
 changes and mixed workspace-layout branches without manual rerun-only fixes.
 
+### Recent Governance Update (2026-02-25, Release Attestation + Scorecard Workflow Stability)
+
+Fact: Release-post workflow failures were remediated by correcting GitHub-owned
+action pins and tightening scorecard permission scope to the least-privilege
+shape required by OpenSSF result publishing.
+
+Evidence:
+
+- `.github/workflows/release_attestation.yml` (`actions/attest-build-provenance`
+  pin refreshed to a valid 40-character GitHub-owned SHA)
+- `.github/workflows/scorecard.yml` (`github/codeql-action/upload-sarif` pin
+  refreshed to a valid SHA; workflow-level permissions reduced to read-only;
+  `id-token: write` and `security-events: write` scoped to the `analysis` job)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (maintainer guidance synced with this workflow
+  stability fix)
+
+Inference: Release publication and security-posture telemetry lanes now fail
+less on policy/pin drift and are easier to keep green during hotfix pushes.
+
 ### Recent Governance Update (2026-02-19)
 
 Fact: The active planning model was expanded to include a hardened Memory Studio

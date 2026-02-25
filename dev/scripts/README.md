@@ -155,6 +155,11 @@ python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control
 # verifies that gate passed for the exact release commit. Publish workflows
 # (`publish_pypi`, `publish_homebrew`, `release_attestation`) also enforce
 # the same gate before distribution/attestation steps run.
+# Scorecard note: keep workflow-level permissions read-only and place
+# `id-token: write`/`security-events: write` at the scorecard job level so
+# OpenSSF `publish_results` verification passes.
+# Pinning note: keep GitHub-owned actions pinned to valid 40-character SHAs
+# (for example `actions/attest-build-provenance`, `github/codeql-action/upload-sarif`).
 # If your cihub binary doesn't support `triage`, devctl records an infra warning
 # and still emits local triage output.
 # Explicit `--cihub` now forces the capability probe path even when PATH lookup

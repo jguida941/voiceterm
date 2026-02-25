@@ -40,6 +40,10 @@
   actionlint-supported macOS targets, latency guard script path resolution now
   supports `rust/` with `src/` fallback, and explicit `devctl triage --cihub`
   opt-in now preserves capability probing when PATH lookup misses the binary.
+- Release workflow stability update: `release_attestation.yml` action pins were
+  refreshed to valid GitHub-owned SHAs, and `scorecard.yml` now keeps
+  workflow-level permissions read-only with write scopes isolated to the
+  scorecard job so OpenSSF publish verification succeeds.
 
 ## Multi-Agent Coordination Board
 

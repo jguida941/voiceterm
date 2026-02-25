@@ -531,6 +531,10 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 Runner-label note:
 - Keep `publish_release_binaries.yml` on actionlint-supported macOS labels (`macos-15-intel` for darwin/amd64, `macos-14` for darwin/arm64).
 
+Workflow hardening note:
+- Keep `.github/workflows/scorecard.yml` workflow-level permissions read-only; set `id-token: write` and `security-events: write` at the job level so OpenSSF result publishing passes workflow verification.
+- Keep GitHub-owned actions pinned to valid 40-character commit SHAs (for example `actions/attest-build-provenance` and `github/codeql-action/upload-sarif`).
+
 ## Documentation governance
 
 Always evaluate:

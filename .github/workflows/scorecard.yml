@@ -3,10 +3,7 @@
 name: scorecard
 
 permissions:
-  actions: read
   contents: read
-  id-token: write
-  security-events: write
 
 concurrency:
   group: scorecard-${{ github.ref }}
@@ -26,6 +23,11 @@ jobs:
     name: scorecard-analysis
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
