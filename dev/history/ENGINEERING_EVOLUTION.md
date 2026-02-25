@@ -209,6 +209,26 @@ Inference: Command naming drift in active operator paths is reduced, and future
 policy hardening changes can land once in the shared engine instead of diverging
 across triage/mutation loop implementations.
 
+### Recent Governance Update (2026-02-25, CI Compatibility Hotfixes)
+
+Fact: Post-push CI compatibility issues were resolved for workflow linting,
+latency guard workspace detection, and strict tooling triage preflight checks.
+
+Evidence:
+
+- `.github/workflows/publish_release_binaries.yml` (runner label updated to
+  actionlint-supported `macos-15-intel` for darwin/amd64)
+- `dev/scripts/tests/measure_latency.sh` (`rust/` workspace detection with
+  legacy `src/` fallback)
+- `dev/scripts/devctl/commands/triage.py` (explicit `--cihub` opt-in now keeps
+  capability probing even when PATH lookup misses the binary)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (maintainer/governance documentation synced with
+  this tooling/CI behavior change)
+
+Inference: CI lanes now stay portable across hosted-runner label catalog
+changes and mixed workspace-layout branches without manual rerun-only fixes.
+
 ### Recent Governance Update (2026-02-19)
 
 Fact: The active planning model was expanded to include a hardened Memory Studio

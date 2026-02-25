@@ -36,6 +36,10 @@
 - Runtime cleanup update: startup splash logo coloring now uses a single
   theme-family accent (no rainbow line rotation), and the stale orphan
   `rust/src/bin/voiceterm/progress.rs` module has been removed.
+- CI compatibility hotfix update: release-binary workflow runner labels now use
+  actionlint-supported macOS targets, latency guard script path resolution now
+  supports `rust/` with `src/` fallback, and explicit `devctl triage --cihub`
+  opt-in now preserves capability probing when PATH lookup misses the binary.
 
 ## Multi-Agent Coordination Board
 

@@ -157,6 +157,8 @@ python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control
 # the same gate before distribution/attestation steps run.
 # If your cihub binary doesn't support `triage`, devctl records an infra warning
 # and still emits local triage output.
+# Explicit `--cihub` now forces the capability probe path even when PATH lookup
+# cannot resolve the binary during preflight checks.
 # Loop comment publication uses API endpoints with explicit `/repos/{owner}/{repo}`
 # paths and does not append `--repo` to `gh api` calls.
 # Clean local failure triage bundles only after CI is green
@@ -619,3 +621,8 @@ Example latency guard command:
 ```bash
 dev/scripts/tests/measure_latency.sh --ci-guard --count 3
 ```
+
+Workspace-path note:
+- `dev/scripts/tests/measure_latency.sh` auto-detects `rust/` and falls back to
+  legacy `src/` so CI/local guard commands remain stable across migration-era
+  branches.

@@ -401,6 +401,7 @@ find . -maxdepth 1 -type f -name '--*'
   - `python3 dev/scripts/devctl.py check --profile prepush`
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
   - `./dev/scripts/tests/measure_latency.sh --ci-guard`
+  - `dev/scripts/tests/measure_latency.sh` auto-detects `rust/` workspace paths and falls back to legacy `src/` layouts
 - Wake-word runtime/detection changes:
   - `bash dev/scripts/tests/wake_word_guard.sh`
   - `python3 dev/scripts/devctl.py check --profile release`
@@ -526,6 +527,9 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | Any non-success CI workflow run | `failure_triage.yml` (workflow-run triage bundle + artifact upload; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled) plus local mutation-score evidence |
+
+Runner-label note:
+- Keep `publish_release_binaries.yml` on actionlint-supported macOS labels (`macos-15-intel` for darwin/amd64, `macos-14` for darwin/arm64).
 
 ## Documentation governance
 
