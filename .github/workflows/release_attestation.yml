@@ -116,6 +116,6 @@ jobs:
           if-no-files-found: error
 
       - name: Attest source archive provenance
-        uses: actions/attest-build-provenance@96278af632c8f45f10463ef9158834eb711f0f00
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f
         with:
           subject-path: ${{ env.ARCHIVE }}
