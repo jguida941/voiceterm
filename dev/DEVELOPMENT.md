@@ -773,7 +773,8 @@ python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 Publishing the GitHub release triggers `.github/workflows/publish_pypi.yml`,
 which publishes the matching `voiceterm` version to PyPI, and
 `.github/workflows/publish_homebrew.yml`, which updates the Homebrew tap
-formula metadata (URL/version/SHA and canonical description text).
+formula metadata (URL/version/SHA, canonical description text, and legacy Cargo
+manifest-path rewrites from `libexec/src/Cargo.toml` to `libexec/rust/Cargo.toml`).
 
 ### Publish PyPI package
 

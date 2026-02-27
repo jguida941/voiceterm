@@ -39,10 +39,6 @@ pub(crate) enum PromptType {
     WorktreePermission,
     /// Multi-tool batch approval (e.g., "+N more tool uses")
     MultiToolBatch,
-    /// Generic interactive prompt detected by heuristics.
-    GenericInteractive,
-    /// Composer/input prompt (for example Codex/Claude reply box markers).
-    ReplyComposer,
 }
 
 /// State machine for prompt detection and HUD suppression policy.
@@ -104,21 +100,6 @@ const MULTI_TOOL_BATCH_PATTERNS: &[&str] = &[
     "+3 more tool",
     "+4 more tool",
     "+5 more tool",
-];
-
-const GENERIC_INTERACTIVE_PATTERNS: &[&str] = &[
-    "do you want to",
-    "would you like to",
-    "shall i proceed",
-    "continue?",
-    "proceed?",
-];
-
-const REPLY_COMPOSER_PATTERNS: &[&str] = &[
-    "to generate command",
-    "generate command",
-    "type a message",
-    "type your message",
 ];
 
 /// Time before prompt suppression auto-expires (seconds).
@@ -190,10 +171,11 @@ impl ClaudePromptDetector {
         if let Some(prompt_type) = detect_prompt_type(&current_line, &lower_context) {
             if !self.suppressed {
                 self.suppressed = true;
-                self.suppressed_at = Some(Instant::now());
-                self.last_prompt_type = Some(prompt_type);
                 newly_detected = true;
             }
+            // Refresh suppression timeout whenever prompt context is still present.
+            self.suppressed_at = Some(Instant::now());
+            self.last_prompt_type = Some(prompt_type);
         }
 
         newly_detected
@@ -223,26 +205,8 @@ impl ClaudePromptDetector {
     }
 
     /// Return true when this input should resolve the active suppression.
-    ///
-    /// Reply-composer prompts stay suppressed while the user is typing text.
-    /// They only resolve on submit/cancel control keys.
     pub(crate) fn should_resolve_on_input(&self, bytes: &[u8]) -> bool {
-        if !self.suppressed || bytes.is_empty() {
-            return false;
-        }
-        match self.last_prompt_type {
-            Some(PromptType::ReplyComposer) => bytes.iter().any(|byte| {
-                matches!(
-                    byte,
-                    b'\r'   // Enter
-                        | b'\n' // LF submit path
-                        | 0x03  // Ctrl+C cancel
-                        | 0x04  // Ctrl+D exit
-                        | 0x1b // Escape cancel
-                )
-            }),
-            _ => true,
-        }
+        self.suppressed && !bytes.is_empty()
     }
 
     /// Capture a diagnostic snapshot for the current prompt state.
@@ -314,11 +278,6 @@ fn context_matches_patterns(current_line: &str, context: &str, patterns: &[&str]
 }
 
 fn detect_prompt_type(current_line: &str, context: &str) -> Option<PromptType> {
-    if looks_like_reply_composer(current_line)
-        || context_matches_patterns(current_line, context, REPLY_COMPOSER_PATTERNS)
-    {
-        return Some(PromptType::ReplyComposer);
-    }
     // Check in priority order: most specific first
     if context_matches_patterns(current_line, context, WORKTREE_PERMISSION_PATTERNS) {
         return Some(PromptType::WorktreePermission);
@@ -329,18 +288,9 @@ fn detect_prompt_type(current_line: &str, context: &str) -> Option<PromptType> {
     if context_matches_patterns(current_line, context, SINGLE_COMMAND_PATTERNS) {
         return Some(PromptType::SingleCommandApproval);
     }
-    if context_matches_patterns(current_line, context, GENERIC_INTERACTIVE_PATTERNS) {
-        return Some(PromptType::GenericInteractive);
-    }
+    // Generic phrase matches are intentionally not used because they are noisy
+    // in normal assistant output and can hide HUD unexpectedly.
     None
-}
-
-fn looks_like_reply_composer(current_line: &str) -> bool {
-    let trimmed = current_line.trim();
-    if trimmed.is_empty() || trimmed.len() > 240 {
-        return false;
-    }
-    trimmed.starts_with('❯') || trimmed.starts_with('›') || trimmed.starts_with('〉')
 }
 
 #[cfg(test)]
@@ -407,30 +357,27 @@ mod tests {
     }
 
     #[test]
-    fn detector_detects_generic_interactive() {
+    fn detector_ignores_low_confidence_generic_interactive_text() {
         let mut detector = ClaudePromptDetector::new(true);
         let detected = detector.feed_output(b"Would you like to proceed?\n");
-        assert!(detected);
-        assert_eq!(
-            detector.last_prompt_type,
-            Some(PromptType::GenericInteractive)
-        );
+        assert!(!detected);
+        assert!(!detector.should_suppress_hud());
     }
 
     #[test]
-    fn detector_detects_reply_composer_marker() {
+    fn detector_ignores_reply_composer_marker() {
         let mut detector = ClaudePromptDetector::new(true);
         let detected = detector.feed_output("❯ ".as_bytes());
-        assert!(detected);
-        assert_eq!(detector.last_prompt_type, Some(PromptType::ReplyComposer));
+        assert!(!detected);
+        assert!(!detector.should_suppress_hud());
     }
 
     #[test]
-    fn detector_detects_codex_generate_command_hint() {
+    fn detector_ignores_codex_generate_command_hint() {
         let mut detector = ClaudePromptDetector::new(true);
         let detected = detector.feed_output("⌘K to generate command".as_bytes());
-        assert!(detected);
-        assert_eq!(detector.last_prompt_type, Some(PromptType::ReplyComposer));
+        assert!(!detected);
+        assert!(!detector.should_suppress_hud());
     }
 
     #[test]
@@ -440,24 +387,6 @@ mod tests {
         assert!(detector.should_suppress_hud());
         detector.on_user_input();
         assert!(!detector.should_suppress_hud());
-    }
-
-    #[test]
-    fn reply_composer_stays_suppressed_during_typing() {
-        let mut detector = ClaudePromptDetector::new(true);
-        detector.feed_output("❯ ".as_bytes());
-        assert!(detector.should_suppress_hud());
-        assert!(!detector.should_resolve_on_input(b"hello"));
-        assert!(detector.should_suppress_hud());
-    }
-
-    #[test]
-    fn reply_composer_resolves_on_submit_or_cancel_keys() {
-        let mut detector = ClaudePromptDetector::new(true);
-        detector.feed_output("❯ ".as_bytes());
-        assert!(detector.should_suppress_hud());
-        assert!(detector.should_resolve_on_input(b"\r"));
-        assert!(detector.should_resolve_on_input(b"\x1b"));
     }
 
     #[test]
@@ -476,6 +405,25 @@ mod tests {
         let second = detector.feed_output(b"still waiting...\n");
         assert!(!second);
         assert!(detector.should_suppress_hud());
+    }
+
+    #[test]
+    fn detector_refreshes_suppression_deadline_when_prompt_reappears() {
+        let mut detector = ClaudePromptDetector::new(true);
+        let detected = detector.feed_output(b"Do you want to proceed? (y/n)\n");
+        assert!(detected);
+        detector.suppressed_at = Some(Instant::now() - std::time::Duration::from_secs(31));
+        assert!(!detector.should_suppress_hud());
+        let re_detected = detector.feed_output(b"Do you want to proceed? (y/n)\n");
+        assert!(
+            !re_detected,
+            "already-suppressed prompt should refresh without new transition"
+        );
+        assert!(detector.should_suppress_hud());
+        assert_eq!(
+            detector.last_prompt_type,
+            Some(PromptType::SingleCommandApproval)
+        );
     }
 
     #[test]

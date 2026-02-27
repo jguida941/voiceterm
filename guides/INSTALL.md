@@ -117,7 +117,8 @@ After upgrading, run `voiceterm --version` to confirm.
 Daily usage is in [USAGE.md](USAGE.md). Install/runtime issues are in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 If you use Cursor terminal, VoiceTerm keeps mouse mode on for HUD clicks while
-preserving wheel scrolling (`Mouse: ON - scroll preserved in Cursor`).
+potentially blocking wheel/touchpad history scrolling (`Mouse: ON`); the
+scrollbar can still be dragged, or set `Mouse` to `OFF` in Settings.
 If Codex/Claude approval or reply/composer rows look clipped, use the
 occlusion guidance in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md#codex-or-claude-reply-rows-are-occluded).

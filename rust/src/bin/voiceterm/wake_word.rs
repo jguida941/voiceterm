@@ -29,9 +29,9 @@ const WAKE_LISTENER_NO_AUDIO_BACKOFF_MS: u64 = 650;
 // Keep the wake listener stream open longer to avoid frequent OS-level
 // microphone indicator flapping caused by rapid open/close cycles.
 const WAKE_CAPTURE_MAX_MS: u64 = 8000;
-const WAKE_CAPTURE_SILENCE_TAIL_MS: u64 = 220;
-const WAKE_CAPTURE_MIN_SPEECH_MS: u64 = 120;
-const WAKE_CAPTURE_LOOKBACK_MS: u64 = 200;
+const WAKE_CAPTURE_SILENCE_TAIL_MS: u64 = 320;
+const WAKE_CAPTURE_MIN_SPEECH_MS: u64 = 80;
+const WAKE_CAPTURE_LOOKBACK_MS: u64 = 300;
 const WAKE_CAPTURE_BUFFER_MS: u64 = 1600;
 const WAKE_CAPTURE_CHANNEL_CAPACITY: usize = 8;
 
@@ -42,6 +42,9 @@ const WAKE_MAX_SENSITIVITY: f32 = 1.0;
 
 const WAKE_VAD_DB_AT_MIN_SENSITIVITY: f32 = -24.0;
 const WAKE_VAD_DB_AT_MAX_SENSITIVITY: f32 = -56.0;
+const WAKE_VAD_VOICE_HEADROOM_DB: f32 = 8.0;
+const WAKE_VAD_THRESHOLD_MIN_DB: f32 = -62.0;
+const WAKE_VAD_THRESHOLD_MAX_DB: f32 = -20.0;
 
 const HOTWORD_PHRASES: &[&str] = &[
     "codex",
@@ -75,23 +78,32 @@ pub(crate) enum WakeWordEvent {
 struct WakeSettings {
     sensitivity: f32,
     cooldown_ms: u64,
+    voice_vad_threshold_db: f32,
+    effective_vad_threshold_db: f32,
 }
 
 impl WakeSettings {
     #[must_use = "wake settings should stay within configured safety bounds"]
-    fn clamped(sensitivity: f32, cooldown_ms: u64) -> Self {
+    fn clamped(sensitivity: f32, cooldown_ms: u64, voice_vad_threshold_db: f32) -> Self {
         let clamped_sensitivity = sensitivity.clamp(WAKE_MIN_SENSITIVITY, WAKE_MAX_SENSITIVITY);
         let clamped_cooldown = cooldown_ms.clamp(WAKE_MIN_COOLDOWN_MS, WAKE_MAX_COOLDOWN_MS);
+        let clamped_voice_vad_threshold =
+            voice_vad_threshold_db.clamp(WAKE_VAD_THRESHOLD_MIN_DB, WAKE_VAD_THRESHOLD_MAX_DB);
+        let effective_vad_threshold_db =
+            resolve_wake_vad_threshold_db(clamped_sensitivity, clamped_voice_vad_threshold);
         if (clamped_sensitivity - sensitivity).abs() > f32::EPSILON
             || clamped_cooldown != cooldown_ms
+            || (clamped_voice_vad_threshold - voice_vad_threshold_db).abs() > f32::EPSILON
         {
             log_debug(&format!(
-                "wake-word settings clamped: sensitivity {sensitivity:.3} -> {clamped_sensitivity:.3}, cooldown {cooldown_ms} -> {clamped_cooldown}ms"
+                "wake-word settings clamped: sensitivity {sensitivity:.3} -> {clamped_sensitivity:.3}, cooldown {cooldown_ms} -> {clamped_cooldown}ms, voice_vad {voice_vad_threshold_db:.1} -> {clamped_voice_vad_threshold:.1}"
             ));
         }
         Self {
             sensitivity: clamped_sensitivity,
             cooldown_ms: clamped_cooldown,
+            voice_vad_threshold_db: clamped_voice_vad_threshold,
+            effective_vad_threshold_db,
         }
     }
 }
@@ -123,6 +135,7 @@ struct WakeListener {
     stop_flag: Arc<AtomicBool>,
     pause_flag: Arc<AtomicBool>,
     capture_stop_flag: Arc<AtomicBool>,
+    prioritize_send_flag: Arc<AtomicBool>,
     handle: JoinHandle<()>,
 }
 
@@ -137,6 +150,10 @@ impl WakeListener {
     fn request_stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         self.capture_stop_flag.store(true, Ordering::Relaxed);
+    }
+
+    fn set_prioritize_send_window(&self, enabled: bool) {
+        self.prioritize_send_flag.store(enabled, Ordering::Relaxed);
     }
 }
 
@@ -195,6 +212,8 @@ impl WakeWordRuntime {
         enabled: bool,
         sensitivity: f32,
         cooldown_ms: u64,
+        voice_vad_threshold_db: f32,
+        prioritize_send_intent_window: bool,
         capture_active: bool,
     ) {
         self.reap_finished_listener();
@@ -207,7 +226,7 @@ impl WakeWordRuntime {
             return;
         }
 
-        let settings = WakeSettings::clamped(sensitivity, cooldown_ms);
+        let settings = WakeSettings::clamped(sensitivity, cooldown_ms, voice_vad_threshold_db);
         let restart_required = self.listener.is_none()
             || self.active_settings.is_none()
             || self.active_settings != Some(settings);
@@ -238,6 +257,7 @@ impl WakeWordRuntime {
 
         if let Some(listener) = &self.listener {
             listener.set_paused(capture_active);
+            listener.set_prioritize_send_window(prioritize_send_intent_window && !capture_active);
         }
     }
 
@@ -255,6 +275,7 @@ impl WakeWordRuntime {
                 stop_flag,
                 pause_flag,
                 capture_stop_flag,
+                prioritize_send_flag,
                 handle,
             } = listener;
             if let Err(handle) = join_thread_with_timeout("wake-word", handle) {
@@ -262,6 +283,7 @@ impl WakeWordRuntime {
                     stop_flag,
                     pause_flag,
                     capture_stop_flag,
+                    prioritize_send_flag,
                     handle,
                 });
                 return;
@@ -274,6 +296,7 @@ impl WakeWordRuntime {
         let stop_flag = Arc::new(AtomicBool::new(false));
         let pause_flag = Arc::new(AtomicBool::new(false));
         let capture_stop_flag = Arc::new(AtomicBool::new(false));
+        let prioritize_send_flag = Arc::new(AtomicBool::new(false));
 
         #[cfg(test)]
         if let Some(hook) = *spawn_listener_hook_cell()
@@ -284,6 +307,7 @@ impl WakeWordRuntime {
                 stop_flag: stop_flag.clone(),
                 pause_flag: pause_flag.clone(),
                 capture_stop_flag: capture_stop_flag.clone(),
+                prioritize_send_flag: prioritize_send_flag.clone(),
                 handle: hook(
                     self.detection_tx.clone(),
                     stop_flag,
@@ -295,12 +319,13 @@ impl WakeWordRuntime {
             return Ok(());
         }
 
-        let detector = AudioWakeDetector::new(self.app_config.clone(), settings.sensitivity)
+        let detector = AudioWakeDetector::new(self.app_config.clone(), settings)
             .map_err(|err| anyhow!("failed to initialize local wake detector: {err:#}"))?;
         let listener = WakeListener {
             stop_flag: stop_flag.clone(),
             pause_flag: pause_flag.clone(),
             capture_stop_flag: capture_stop_flag.clone(),
+            prioritize_send_flag: prioritize_send_flag.clone(),
             handle: spawn_wake_listener_thread(
                 detector,
                 settings.cooldown_ms,
@@ -308,6 +333,7 @@ impl WakeWordRuntime {
                 stop_flag,
                 pause_flag,
                 capture_stop_flag,
+                prioritize_send_flag,
             ),
         };
         self.listener = Some(listener);
@@ -324,6 +350,7 @@ impl WakeWordRuntime {
             stop_flag,
             pause_flag,
             capture_stop_flag,
+            prioritize_send_flag,
             handle,
         } = listener;
         match join_thread_with_timeout("wake-word", handle) {
@@ -336,6 +363,7 @@ impl WakeWordRuntime {
                     stop_flag,
                     pause_flag,
                     capture_stop_flag,
+                    prioritize_send_flag,
                     handle,
                 });
                 self.start_retry_after =
@@ -362,6 +390,7 @@ fn spawn_wake_listener_thread(
     stop_flag: Arc<AtomicBool>,
     pause_flag: Arc<AtomicBool>,
     capture_stop_flag: Arc<AtomicBool>,
+    prioritize_send_flag: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         let cooldown = Duration::from_millis(cooldown_ms);
@@ -372,24 +401,36 @@ fn spawn_wake_listener_thread(
                 thread::sleep(Duration::from_millis(WAKE_LISTENER_PAUSE_SLEEP_MS));
                 continue;
             }
+            let prioritize_send_window = prioritize_send_flag.load(Ordering::Relaxed);
+            let mut within_cooldown = false;
             if let Some(last) = last_detection_at {
                 let elapsed = last.elapsed();
                 if elapsed < cooldown {
-                    let remaining = cooldown - elapsed;
-                    thread::sleep(
-                        remaining.min(Duration::from_millis(WAKE_LISTENER_IDLE_SLEEP_MS)),
-                    );
-                    continue;
+                    within_cooldown = true;
+                    if !prioritize_send_window {
+                        let remaining = cooldown - elapsed;
+                        thread::sleep(
+                            remaining.min(Duration::from_millis(WAKE_LISTENER_IDLE_SLEEP_MS)),
+                        );
+                        continue;
+                    }
                 }
             }
             match detector.listen_once(&capture_stop_flag) {
                 Ok(WakeListenOutcome::Detected(event)) => {
+                    if within_cooldown
+                        && !allow_cooldown_bypass_for_event(event, prioritize_send_window)
+                    {
+                        continue;
+                    }
                     match detection_tx.try_send(event) {
                         Ok(()) => {
-                            // Pause immediately so wake-triggered capture can claim
-                            // the microphone without listener overlap races.
-                            pause_flag.store(true, Ordering::Relaxed);
-                            capture_stop_flag.store(true, Ordering::Relaxed);
+                            if matches!(event, WakeWordEvent::Detected) {
+                                // Pause immediately so wake-triggered capture can claim
+                                // the microphone without listener overlap races.
+                                pause_flag.store(true, Ordering::Relaxed);
+                                capture_stop_flag.store(true, Ordering::Relaxed);
+                            }
                             last_detection_at = Some(Instant::now());
                         }
                         Err(TrySendError::Full(_)) => {
@@ -409,6 +450,11 @@ fn spawn_wake_listener_thread(
             }
         }
     })
+}
+
+#[inline]
+fn allow_cooldown_bypass_for_event(event: WakeWordEvent, prioritize_send_window: bool) -> bool {
+    prioritize_send_window && matches!(event, WakeWordEvent::SendStagedInput)
 }
 
 fn join_thread_with_timeout(name: &str, handle: JoinHandle<()>) -> Result<(), JoinHandle<()>> {
@@ -448,7 +494,7 @@ enum WakeListenOutcome {
 }
 
 impl AudioWakeDetector {
-    fn new(app_config: AppConfig, sensitivity: f32) -> Result<Self> {
+    fn new(app_config: AppConfig, settings: WakeSettings) -> Result<Self> {
         let model_path = app_config
             .whisper_model_path
             .clone()
@@ -463,7 +509,7 @@ impl AudioWakeDetector {
         pipeline_cfg.lookback_ms = WAKE_CAPTURE_LOOKBACK_MS;
         pipeline_cfg.buffer_ms = WAKE_CAPTURE_BUFFER_MS;
         pipeline_cfg.channel_capacity = WAKE_CAPTURE_CHANNEL_CAPACITY;
-        pipeline_cfg.vad_threshold_db = sensitivity_to_wake_vad_threshold_db(sensitivity);
+        pipeline_cfg.vad_threshold_db = settings.effective_vad_threshold_db;
         let vad_cfg = audio::VadConfig::from(&pipeline_cfg);
         let vad_engine = create_vad_engine(&pipeline_cfg);
 
@@ -540,6 +586,16 @@ fn sensitivity_to_wake_vad_threshold_db(sensitivity: f32) -> f32 {
     let normalized = sensitivity.clamp(WAKE_MIN_SENSITIVITY, WAKE_MAX_SENSITIVITY);
     WAKE_VAD_DB_AT_MIN_SENSITIVITY
         + (WAKE_VAD_DB_AT_MAX_SENSITIVITY - WAKE_VAD_DB_AT_MIN_SENSITIVITY) * normalized
+}
+
+#[must_use = "wake threshold should stay aligned with mic sensitivity defaults"]
+fn resolve_wake_vad_threshold_db(sensitivity: f32, voice_vad_threshold_db: f32) -> f32 {
+    let mapped = sensitivity_to_wake_vad_threshold_db(sensitivity);
+    let voice_aligned = (voice_vad_threshold_db - WAKE_VAD_VOICE_HEADROOM_DB)
+        .clamp(WAKE_VAD_THRESHOLD_MIN_DB, WAKE_VAD_THRESHOLD_MAX_DB);
+    mapped
+        .min(voice_aligned)
+        .clamp(WAKE_VAD_THRESHOLD_MIN_DB, WAKE_VAD_THRESHOLD_MAX_DB)
 }
 
 #[must_use = "hotword matching expects normalized lowercase transcript text"]
@@ -621,6 +677,9 @@ fn log_wake_transcript_decision(raw: &str, normalized: &str, event: Option<WakeW
                 | "hate"
                 | "pay"
                 | "codex"
+                | "codes"
+                | "coach"
+                | "coax"
                 | "codec"
                 | "codecs"
                 | "kodak"
@@ -632,6 +691,7 @@ fn log_wake_transcript_decision(raw: &str, normalized: &str, event: Option<WakeW
                 | "voice"
                 | "term"
                 | "send"
+                | "sent"
                 | "sen"
                 | "sand"
                 | "sending"
@@ -695,9 +755,22 @@ fn canonicalize_hotword_tokens(tokens: &[&str]) -> Vec<String> {
                 continue;
             }
         }
+        let prev = idx
+            .checked_sub(1)
+            .and_then(|prev_idx| tokens.get(prev_idx))
+            .copied()
+            .unwrap_or_default();
+        let next = tokens.get(idx + 1).copied();
         let token = match tokens[idx] {
-            "codec" | "codecs" | "kodak" | "kodaks" | "kodex" => "codex",
-            "cloud" | "clod" | "clawd" | "clog" => "claude",
+            "code"
+                if is_wake_prefix_token(prev)
+                    && next.map(wake_token_is_send_intent_marker).unwrap_or(true) =>
+            {
+                "codex"
+            }
+            "coach" | "coaches" | "coax" if is_wake_prefix_token(prev) => "codex",
+            "codec" | "codecs" | "codes" | "kodak" | "kodaks" | "kodex" => "codex",
+            "cloud" | "clod" | "clawd" | "clawed" | "claud" | "clog" => "claude",
             "hate" if idx == 0 => "hey",
             "pay" if idx == 0 => "hey",
             other => other,
@@ -706,6 +779,19 @@ fn canonicalize_hotword_tokens(tokens: &[&str]) -> Vec<String> {
         idx += 1;
     }
     canonical
+}
+
+#[inline]
+fn is_wake_prefix_token(token: &str) -> bool {
+    matches!(token, "hey" | "ok" | "okay")
+}
+
+#[inline]
+fn wake_token_is_send_intent_marker(token: &str) -> bool {
+    matches!(
+        token,
+        "send" | "sent" | "sen" | "sand" | "son" | "sending" | "submit"
+    )
 }
 
 #[cfg(test)]
@@ -739,22 +825,27 @@ fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
     matches!(
         suffix_tokens,
         ["send"]
+            | ["sent"]
             | ["sen"]
             | ["sand"]
             | ["son"]
             | ["sending"]
             | ["send", "it"]
+            | ["sent", "it"]
             | ["sen", "it"]
             | ["sand", "it"]
             | ["son", "it"]
             | ["send", "this"]
+            | ["sent", "this"]
             | ["sen", "this"]
             | ["sand", "this"]
             | ["send", "message"]
+            | ["sent", "message"]
             | ["sen", "message"]
             | ["sand", "message"]
             | ["submit"]
             | ["send", "now"]
+            | ["sent", "now"]
             | ["sen", "now"]
             | ["sand", "now"]
             | ["son", "now"]

@@ -697,9 +697,11 @@ Local validation bundle for this track:
 3. Append major strategy changes here with date-stamped notes.
 4. Preserve backward compatibility expectations as phases land.
 
-## External Reference Notes (2026-02-23)
+## External Reference Notes (2026-02-23, Deferred GUI Research)
 
-PyQt6-heavy dashboard ideas above are grounded in official Qt/PyQt sources:
+The Qt/PyQt/PySide links below are archived research context only. Active
+execution remains Rust-first and does not include desktop GUI delivery in the
+current MP scope.
 
 1. Main window and dock architecture:
    https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QMainWindow.html

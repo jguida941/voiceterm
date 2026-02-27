@@ -619,7 +619,7 @@ Core commands:
 - `release-notes`
 - `ship` (release-version reads now use TOML parsing for `[package]`/`[project]` with Python 3.10 fallback parsing)
 - `pypi`
-- `homebrew` (tap formula URL/version/checksum updates plus canonical `desc` text sync)
+- `homebrew` (tap formula URL/version/checksum updates, canonical `desc` sync, and Cargo manifest-path migration sync to `libexec/rust/Cargo.toml` when legacy formulas still reference `libexec/src/Cargo.toml`)
 - `status` (supports optional guarded Dev Mode log summaries via `--dev-logs`)
 - `orchestrate-status` (single-view orchestrator summary for active-plan sync + multi-agent coordination guard state)
 - `orchestrate-watch` (SLA watchdog for stale agent updates and overdue instruction ACKs)

@@ -593,8 +593,8 @@ Latency badge behavior:
 - larger `ms` values on longer utterances are expected for non-streaming STT
 - severity color follows real-time factor (`rtf = stt_ms / speech_ms` — how fast transcription runs compared to speech length; lower is faster)
 - recording duration is shown separately while speaking
-- manual/PTT mode hides latency while actively recording/processing
-- auto mode keeps the latest successful latency visible during active capture so the badge does not flash between turns
+- both manual/PTT and auto modes hide latency while actively recording/processing
+- the badge returns after capture/transcription completes with the latest reliable STT sample
 - hides automatically when latency metrics are incomplete (no synthetic elapsed/capture fallback)
 - stale idle badges auto-expire after a short window
 - full and compact button rows share the same queue/wake/latency badge rules and thresholds

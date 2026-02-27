@@ -91,6 +91,40 @@
               }
             ]
           },
+          "control-plane-guardrails-core": {
+            "description": "Narrow control-plane guardrail references (path ACL, schema registry, audit chain)",
+            "mappings": [
+              {
+                "from": "agent/src/commands/path.rs",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-guardrails/agent/src/commands/path.rs"
+              },
+              {
+                "from": "agent/src/schema.rs",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-guardrails/agent/src/schema.rs"
+              },
+              {
+                "from": "agent/src/audit.rs",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-guardrails/agent/src/audit.rs"
+              }
+            ]
+          },
+          "control-plane-contract-core": {
+            "description": "Typed command envelope and routing references for future Rust control service",
+            "mappings": [
+              {
+                "from": "agent/src/ws/routing.rs",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-contract/agent/src/ws/routing.rs"
+              },
+              {
+                "from": "agent/src/commands/types.rs",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-contract/agent/src/commands/types.rs"
+              },
+              {
+                "from": "agent/schemas",
+                "to": "dev/integrations/imports/code-link-ide/control-plane-contract/agent/schemas"
+              }
+            ]
+          },
           "control-agent-core": {
             "description": "Rust control-agent source and command schema references",
             "mappings": [
@@ -128,6 +162,61 @@
               {
                 "from": "docs/reference",
                 "to": "dev/integrations/imports/ci-cd-hub/docs/reference"
+              }
+            ]
+          },
+          "report-validator-core": {
+            "description": "Narrow CI report validation references for stronger triage ingestion checks",
+            "mappings": [
+              {
+                "from": "cihub/services/report_validator/schema.py",
+                "to": "dev/integrations/imports/ci-cd-hub/report-validator-core/cihub/services/report_validator/schema.py"
+              },
+              {
+                "from": "cihub/services/report_validator/content.py",
+                "to": "dev/integrations/imports/ci-cd-hub/report-validator-core/cihub/services/report_validator/content.py"
+              },
+              {
+                "from": "cihub/services/report_validator/artifact.py",
+                "to": "dev/integrations/imports/ci-cd-hub/report-validator-core/cihub/services/report_validator/artifact.py"
+              },
+              {
+                "from": "cihub/services/report_validator/types.py",
+                "to": "dev/integrations/imports/ci-cd-hub/report-validator-core/cihub/services/report_validator/types.py"
+              }
+            ]
+          },
+          "triage-evidence-core": {
+            "description": "Narrow triage evidence and detection references for devctl signal quality",
+            "mappings": [
+              {
+                "from": "cihub/services/triage/types.py",
+                "to": "dev/integrations/imports/ci-cd-hub/triage-evidence-core/cihub/services/triage/types.py"
+              },
+              {
+                "from": "cihub/services/triage/evidence.py",
+                "to": "dev/integrations/imports/ci-cd-hub/triage-evidence-core/cihub/services/triage/evidence.py"
+              },
+              {
+                "from": "cihub/services/triage/detection.py",
+                "to": "dev/integrations/imports/ci-cd-hub/triage-evidence-core/cihub/services/triage/detection.py"
+              },
+              {
+                "from": "cihub/services/triage_service.py",
+                "to": "dev/integrations/imports/ci-cd-hub/triage-evidence-core/cihub/services/triage_service.py"
+              }
+            ]
+          },
+          "registry-sync-core": {
+            "description": "Narrow registry diff/sync references for integrations-sync planning improvements",
+            "mappings": [
+              {
+                "from": "cihub/services/registry/diff.py",
+                "to": "dev/integrations/imports/ci-cd-hub/registry-sync-core/cihub/services/registry/diff.py"
+              },
+              {
+                "from": "cihub/services/registry/sync.py",
+                "to": "dev/integrations/imports/ci-cd-hub/registry-sync-core/cihub/services/registry/sync.py"
               }
             ]
           },

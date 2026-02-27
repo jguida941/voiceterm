@@ -1,6 +1,7 @@
 use super::*;
 use clap::Parser;
 use crossbeam_channel::{bounded, Receiver, Sender};
+use regex::Regex;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::io;
@@ -2789,6 +2790,23 @@ fn run_periodic_tasks_does_not_start_auto_voice_when_paused_by_user() {
 }
 
 #[test]
+fn run_periodic_tasks_does_not_start_auto_voice_while_wake_listener_is_active() {
+    let _capture = install_start_capture_hook(hook_start_capture_count);
+    let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.auto_voice_enabled = true;
+    state.config.wake_word = true;
+    deps.wake_word_runtime
+        .set_listener_active_override_for_tests(Some(true));
+    deps.auto_idle_timeout = Duration::ZERO;
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+
+    START_CAPTURE_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    assert!(timers.last_auto_trigger_at.is_none());
+}
+
+#[test]
 fn run_periodic_tasks_does_not_start_auto_voice_when_trigger_not_ready() {
     let _capture = install_start_capture_hook(hook_start_capture_count);
     let _sigwinch = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x24);
@@ -3150,7 +3168,7 @@ fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
 }
 
 #[test]
-fn handle_output_chunk_non_empty_responding_transitions_to_idle() {
+fn handle_output_chunk_non_empty_responding_stays_responding_until_prompt_ready() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
@@ -3165,11 +3183,40 @@ fn handle_output_chunk_non_empty_responding_transitions_to_idle() {
     );
 
     assert!(running);
-    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
+    assert_eq!(
+        state.status_state.recording_state,
+        RecordingState::Responding
+    );
     let has_output = writer_rx
         .try_iter()
         .any(|message| matches!(message, WriterMessage::PtyOutput(_)));
     assert!(has_output, "PTY output should always be forwarded");
+}
+
+#[test]
+fn handle_output_chunk_non_empty_responding_transitions_to_idle_when_prompt_is_ready() {
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    state.prompt_tracker = PromptTracker::new(
+        Some(Regex::new(r"^codex> ?$").expect("prompt regex")),
+        true,
+        PromptLogger::new(None),
+    );
+    timers.last_enter_at = Some(Instant::now() - Duration::from_millis(50));
+    state.status_state.recording_state = RecordingState::Responding;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"codex> \n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.status_state.recording_state, RecordingState::Idle);
 }
 
 #[test]
@@ -4041,6 +4088,7 @@ fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
         let _hook = install_try_send_hook(hook_count_writes);
         let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
         state.suppress_startup_escape_input = false;
+        state.status_state.hud_button_focus = None;
         let mut running = true;
         handle_input_event(
             &mut state,
@@ -4050,7 +4098,8 @@ fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
             &mut running,
         );
         assert!(running);
-        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+        assert!(state.status_state.hud_button_focus.is_some());
+        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
     }
 }
 
@@ -4142,7 +4191,7 @@ fn insert_mode_without_pending_text_keeps_hud_arrow_focus_navigation() {
 }
 
 #[test]
-fn up_arrow_does_not_move_focus_and_is_forwarded_to_pty() {
+fn up_arrow_moves_focus_and_is_not_forwarded_to_pty() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_button_focus = None;
@@ -4157,8 +4206,40 @@ fn up_arrow_does_not_move_focus_and_is_forwarded_to_pty() {
     );
 
     assert!(running);
-    assert!(state.status_state.hud_button_focus.is_none());
-    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
+    assert!(state.status_state.hud_button_focus.is_some());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+}
+
+#[test]
+fn insert_mode_with_pending_text_keeps_up_and_down_for_hud_navigation() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
+    state.status_state.insert_pending_send = true;
+    state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+    let focus_after_up = state.status_state.hud_button_focus;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[B".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(focus_after_up.is_some());
+    assert!(state.status_state.hud_button_focus.is_some());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
 }
 
 #[test]
@@ -4225,49 +4306,23 @@ fn non_empty_bytes_clear_claude_prompt_suppression() {
 }
 
 #[test]
-fn reply_composer_typing_keeps_claude_prompt_suppression() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+fn reply_composer_marker_does_not_enable_prompt_suppression() {
+    let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
-    let mut running = true;
-
     let detected = state.claude_prompt_detector.feed_output("❯ ".as_bytes());
-    assert!(detected);
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(b"hello".to_vec()),
-        &mut running,
-    );
-
-    assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(!detected);
+    assert!(!state.claude_prompt_detector.should_suppress_hud());
 }
 
 #[test]
-fn reply_composer_cancel_key_clears_claude_prompt_suppression() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+fn codex_generate_command_hint_does_not_enable_prompt_suppression() {
+    let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
-    let mut running = true;
-
-    let detected = state.claude_prompt_detector.feed_output("❯ ".as_bytes());
-    assert!(detected);
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(vec![0x1b]),
-        &mut running,
-    );
-
-    assert!(running);
-    assert!(!state.status_state.claude_prompt_suppressed);
+    let detected = state
+        .claude_prompt_detector
+        .feed_output("⌘K to generate command".as_bytes());
+    assert!(!detected);
+    assert!(!state.claude_prompt_detector.should_suppress_hud());
 }
 
 #[test]
@@ -4666,23 +4721,23 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_finalize
 }
 
 #[test]
-fn set_claude_prompt_suppression_updates_pty_row_budget() {
+fn set_claude_prompt_suppression_keeps_pty_row_budget_stable() {
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_style = HudStyle::Full;
     state.terminal_rows = 24;
     state.terminal_cols = 80;
+    let expected_rows = 24u16
+        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
+        .max(1);
 
     set_claude_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
     let (suppressed_rows, _) = deps.session.current_winsize();
-    assert_eq!(suppressed_rows, 24);
+    assert_eq!(suppressed_rows, expected_rows);
 
     set_claude_prompt_suppression(&mut state, &mut deps, false);
     assert!(!state.status_state.claude_prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
-    let expected_rows = 24u16
-        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
-        .max(1);
     assert_eq!(restored_rows, expected_rows);
 }
 
@@ -4701,7 +4756,10 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
     assert!(detected);
     set_claude_prompt_suppression(&mut state, &mut deps, true);
     let (suppressed_rows, _) = deps.session.current_winsize();
-    assert_eq!(suppressed_rows, 24);
+    let expected_rows = 24u16
+        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
+        .max(1);
+    assert_eq!(suppressed_rows, expected_rows);
 
     // Detector resolved via user input path, but no fresh output chunk arrives.
     state.claude_prompt_detector.on_user_input();
@@ -4709,9 +4767,6 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
 
     assert!(!state.status_state.claude_prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
-    let expected_rows = 24u16
-        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
-        .max(1);
     assert_eq!(restored_rows, expected_rows);
 }
 

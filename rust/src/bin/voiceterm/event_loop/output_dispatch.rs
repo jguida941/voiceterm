@@ -31,17 +31,6 @@ pub(super) fn handle_output_chunk(
             let text = String::from_utf8_lossy(&data);
             ingestor.ingest_assistant_output(text.as_ref());
         }
-        if state.status_state.recording_state == RecordingState::Responding {
-            state.status_state.recording_state = RecordingState::Idle;
-            send_enhanced_status_with_buttons(
-                &deps.writer_tx,
-                &deps.button_registry,
-                &state.status_state,
-                state.overlay_mode,
-                state.terminal_cols,
-                state.theme,
-            );
-        }
     }
     state.prompt_tracker.feed_output(&data);
     // Feed PTY output to Claude prompt detector for HUD occlusion prevention.
@@ -53,6 +42,27 @@ pub(super) fn handle_output_chunk(
     {
         // Suppression expired (timeout); restore HUD and normal row reservation.
         set_claude_prompt_suppression(state, deps, false);
+    }
+    // Avoid a one-frame "Responding -> Idle" flash on the first echoed bytes after send.
+    // Only leave Responding when prompt/idle heuristics report the turn is actually ready.
+    if !data.is_empty()
+        && state.status_state.recording_state == RecordingState::Responding
+        && crate::transcript::transcript_ready(
+            &state.prompt_tracker,
+            timers.last_enter_at,
+            now,
+            deps.transcript_idle_timeout,
+        )
+    {
+        state.status_state.recording_state = RecordingState::Idle;
+        send_enhanced_status_with_buttons(
+            &deps.writer_tx,
+            &deps.button_registry,
+            &state.status_state,
+            state.overlay_mode,
+            state.terminal_cols,
+            state.theme,
+        );
     }
     {
         let mut io = TranscriptIo {

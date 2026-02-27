@@ -97,8 +97,7 @@ pub(super) fn format_latency_badge(
     if matches!(
         state.recording_state,
         RecordingState::Recording | RecordingState::Processing
-    ) && !state.auto_voice_enabled
-    {
+    ) {
         return None;
     }
     let latency = state.last_latency_ms?;

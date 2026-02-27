@@ -88,6 +88,8 @@ Use `voiceterm --claude` to target Claude.
 
 In `auto` mode, text is typed and submitted.
 In `insert` mode, text is typed and waits for Enter (or spoken `send`).
+Latency badges are based on completed STT turns and hide while VoiceTerm is
+actively recording or processing.
 When Codex/Claude approval or reply/composer prompts appear, VoiceTerm hides
 HUD rows until you submit/cancel so prompt text stays readable.
 

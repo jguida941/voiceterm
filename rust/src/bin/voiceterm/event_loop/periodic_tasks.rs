@@ -240,15 +240,20 @@ pub(super) fn run_periodic_tasks(
     // Keep wake listening paused only while a live native capture holds the mic;
     // STT processing should not block wake re-arm.
     let capture_active = deps.voice_manager.is_capture_active();
+    let prioritize_send_intent_window = state.config.voice_send_mode == VoiceSendMode::Insert
+        && state.status_state.insert_pending_send;
     deps.wake_word_runtime.sync(
         state.config.wake_word,
         state.config.wake_word_sensitivity,
         state.config.wake_word_cooldown_ms,
+        state.status_state.sensitivity_db,
+        prioritize_send_intent_window,
         capture_active,
     );
     let wake_listener_active = deps.wake_word_runtime.is_listener_active();
     let wake_paused = wake_listener_active && capture_active;
     update_wake_word_hud_state(state, timers, deps, wake_listener_active, wake_paused, now);
+    let wake_mode_owns_mic = state.config.wake_word && wake_listener_active;
 
     {
         let mut io = TranscriptIo {
@@ -272,6 +277,7 @@ pub(super) fn run_periodic_tasks(
 
     if state.auto_voice_enabled
         && !state.auto_voice_paused_by_user
+        && !wake_mode_owns_mic
         && deps.voice_manager.is_idle()
         && should_auto_trigger(
             &state.prompt_tracker,

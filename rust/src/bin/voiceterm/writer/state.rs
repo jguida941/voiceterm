@@ -40,7 +40,7 @@ impl DisplayState {
             return true;
         }
         // Multi-row HUDs need full repaint after terminal row scrolling.
-        // Single-row HUDs (Minimal style) are more stable and skip this to reduce flicker.
+        // Single-row HUDs are more stable and should avoid full repaint flicker.
         self.banner_height > 1
     }
 }
@@ -524,5 +524,18 @@ mod tests {
 
         assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'\n'])));
         assert!(state.display.force_full_banner_redraw);
+    }
+
+    #[test]
+    fn scrolling_output_forces_full_banner_redraw_for_single_row_hud() {
+        let mut state = WriterState::new();
+        state.rows = 24;
+        state.cols = 120;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        state.display.banner_height = 1;
+        state.display.force_full_banner_redraw = false;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'\n'])));
+        assert!(!state.display.force_full_banner_redraw);
     }
 }

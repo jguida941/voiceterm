@@ -1,11 +1,15 @@
 # Federated Internal Repositories
 
-**Status**: active  |  **Last updated**: 2026-02-24 | **Owner:** tooling/control-plane
+**Status**: active  |  **Last updated**: 2026-02-26 | **Owner:** tooling/control-plane
 
 ## Purpose
 
 `codex-voice` tracks two of your other repos as pinned federation sources so we
 can reuse proven components without copy-paste drift.
+
+Git submodules always materialize the full upstream repository at a pinned SHA.
+Seeing full trees under `integrations/*` is expected; active runtime behavior
+still comes from first-party code in this repo after selective import.
 
 ## Linked Repositories
 
@@ -13,6 +17,39 @@ can reuse proven components without copy-paste drift.
 |---|---|---|
 | `integrations/code-link-ide` | `https://github.com/jguida941/code-link-ide.git` | iPhone control patterns, Rust agent control API patterns, Xcode CLI harness patterns |
 | `integrations/ci-cd-hub` | `https://github.com/jguida941/ci-cd-hub.git` | CI/CD orchestration patterns, workflow controls, reporting surfaces |
+
+## 2026-02-26 Fit-Gap Audit (Targeted Reuse)
+
+Mapped against active scopes `MP-297`, `MP-298`, `MP-330`, `MP-331`,
+`MP-332`, and `MP-340`.
+
+| Source repo | Candidate components | Why this helps `codex-voice` | MP scope | Decision |
+|---|---|---|---|---|
+| `code-link-ide` | `agent/src/commands/path.rs` | Strong canonical-path + allowlist guard patterns for remote-action safety boundaries | `MP-332`, `MP-340` | `import pattern now` |
+| `code-link-ide` | `agent/src/schema.rs`, `agent/schemas/*` | Deterministic schema validation model for controller-state/action payload contracts | `MP-330`, `MP-340` | `import pattern now` |
+| `code-link-ide` | `agent/src/audit.rs` | Hash-chain audit log + retention/compression model for tamper-evident control actions | `MP-332`, `MP-340` | `import pattern now` |
+| `code-link-ide` | `agent/src/ws/routing.rs`, `agent/src/commands/types.rs` | Typed envelope + error-code surface design for future Rust `voiceterm-control` service | `MP-330`, `MP-331` | `implement later` |
+| `ci-cd-hub` | `cihub/services/report_validator/{schema,content,artifact}.py` | Stronger artifact/schema consistency checks when ingesting CIHub triage outputs | `MP-297`, `MP-298` | `import pattern now` |
+| `ci-cd-hub` | `cihub/services/triage/{types,evidence,detection}.py` | Better failure typing (`required_not_run`, evidence-based status) and regression signals | `MP-297`, `MP-298`, `MP-338` | `import pattern now` |
+| `ci-cd-hub` | `cihub/services/registry/{diff,sync}.py` | Deterministic diff planning patterns useful for improving federation sync/import previews | `MP-298`, `MP-334` | `implement later` |
+| `ci-cd-hub` | Full workflow/template trees | Too broad for immediate value in this repo; high drift/coupling risk | n/a | `do not bulk import` |
+
+## License Gate (Before Code Copy)
+
+1. `codex-voice` is MIT (`LICENSE` at repo root).
+2. `integrations/ci-cd-hub` is Elastic License 2.0; treat as reference-only
+   unless explicit relicensing/permission is confirmed for copied code.
+3. `integrations/code-link-ide` does not expose a top-level license file at the
+   pinned SHA; do not copy verbatim code until license terms are explicit.
+4. Safe path today: reimplement patterns in first-party code, then validate
+   behavior with local tests.
+
+## Immediate Integration Sequence
+
+1. Use narrow import profiles only (no whole-tree imports).
+2. Import reference slices into `dev/integrations/imports/` for review.
+3. Reimplement selected behavior in first-party `devctl`/Rust code with tests.
+4. Keep submodules pinned as auditable upstream references.
 
 ## Operating Model
 
@@ -53,11 +90,11 @@ bash dev/scripts/sync_external_integrations.sh --status-only
 # Inspect allowlisted source/profile mappings
 python3 dev/scripts/devctl.py integrations-import --list-profiles --format md
 
-# Preview import (no writes)
-python3 dev/scripts/devctl.py integrations-import --source code-link-ide --profile iphone-core --format md
+# Preview narrow control-plane import (no writes)
+python3 dev/scripts/devctl.py integrations-import --source code-link-ide --profile control-plane-guardrails-core --format md
 
-# Apply import (writes allowlisted paths only, audit logged)
-python3 dev/scripts/devctl.py integrations-import --source ci-cd-hub --profile workflow-templates --apply --yes --format md
+# Apply narrow triage-evidence reference import (writes allowlisted paths only, audit logged)
+python3 dev/scripts/devctl.py integrations-import --source ci-cd-hub --profile triage-evidence-core --apply --yes --format md
 ```
 
 ## Import Checklist

@@ -387,11 +387,16 @@ transcription, so setup issues can block detections.
    - On macOS, the mic indicator (`orange dot`) can blink during internal wake-listener cycles. That does not mean wake mode turned off.
 2. Confirm expected values in Settings (`Ctrl+O`) or via
    `--wake-word-sensitivity` / `--wake-word-cooldown-ms`.
+   Wake listening now auto-aligns to your active mic sensitivity baseline, so if
+   normal capture works better after sensitivity tuning, wake detection should
+   follow that tuning automatically.
 3. Confirm a local Whisper model path is configured and usable in your install.
-4. Try moderate sensitivity first (for example `0.55` to `0.70`), then retest.
+4. Start with moderate-to-high wake sensitivity (`0.65` to `0.80`) and retest.
 5. Use expected wake phrases (`hey codex`, `ok codex`, `hey claude`, or
    `voiceterm`) and speak clearly near the mic.
-   Common transcript variants like `code x` and `voice term` are accepted, and leading command tails (`hey codex ...`) are supported.
+   Common transcript variants like `code x`, `voice term`, `claud`, and
+   `clawed` are accepted, and leading command tails (`hey codex ...`) are
+   supported.
 6. If this persists, keep using `Ctrl+R` / `Ctrl+E` controls and share logs
    (`voiceterm --logs`).
 
@@ -495,6 +500,49 @@ another:
 
 3. Reproduce once and inspect `${TMPDIR:-/tmp}/voiceterm_tui.log` for `input bytes`
 and `input events` lines.
+
+### Arrow keys stop selecting overlay rows after a backend turn
+
+Some terminals switch to enhanced keyboard CSI formats mid-session (for
+example after a Codex/Claude prompt cycle). If arrows stop moving Settings,
+Theme Studio, or picker rows:
+
+1. Confirm version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Collect one debug run:
+
+   ```bash
+   VOICETERM_DEBUG_INPUT=1 voiceterm --logs
+   ```
+
+3. Reproduce once and check `${TMPDIR:-/tmp}/voiceterm_tui.log` for arrow
+   sequences with extra parameter segments (for example `1;1:3A`).
+4. Upgrade to the latest build where enhanced colon-parameterized arrow CSI
+   forms are normalized for overlay navigation.
+
+### Codex composer/input row gets covered by HUD
+
+If the chat/composer row (for example the `⌘K to generate command` hint area)
+is obscured by the VoiceTerm banner:
+
+1. Confirm you are on the latest build.
+2. Keep one debug run with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+3. Capture one screenshot showing the overlapped area and include terminal app
+   details (VS Code/Cursor/JetBrains + version).
+4. If needed as a temporary workaround, switch HUD style to `Minimal` (`Ctrl+U`)
+   while the interactive composer is active.
+
+Note: VoiceTerm suppression now targets high-confidence approval/permission
+prompts only. Normal composer/hint text should not hide the HUD.
 
 ### Ctrl+G quick theme cycle does not work
 

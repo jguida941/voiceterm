@@ -77,43 +77,37 @@ pub(super) fn handle_input_event(
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
-                    if !should_preserve_terminal_caret_navigation(state) {
-                        let mut moved = false;
-                        for key in keys {
-                            let direction = match key {
-                                ArrowKey::Left => -1,
-                                ArrowKey::Right => 1,
-                                _ => 0,
-                            };
-                            if direction != 0
-                                && advance_hud_button_focus(
-                                    &mut state.status_state,
-                                    state.overlay_mode,
-                                    state.terminal_cols,
-                                    state.theme,
-                                    direction,
-                                )
-                            {
-                                moved = true;
-                            }
-                        }
-                        if moved {
-                            send_enhanced_status_with_buttons(
-                                &deps.writer_tx,
-                                &deps.button_registry,
-                                &state.status_state,
+                    let preserve_caret = should_preserve_terminal_caret_navigation(state);
+                    let mut moved = false;
+                    for key in keys {
+                        let direction = hud_navigation_direction_from_arrow(key, preserve_caret);
+                        if direction != 0
+                            && advance_hud_button_focus(
+                                &mut state.status_state,
                                 state.overlay_mode,
                                 state.terminal_cols,
                                 state.theme,
-                            );
-                            return;
+                                direction,
+                            )
+                        {
+                            moved = true;
                         }
+                    }
+                    if moved {
+                        send_enhanced_status_with_buttons(
+                            &deps.writer_tx,
+                            &deps.button_registry,
+                            &state.status_state,
+                            state.overlay_mode,
+                            state.terminal_cols,
+                            state.theme,
+                        );
+                        return;
                     }
                 }
 
                 state.status_state.hud_button_focus = None;
-                // Clear prompt suppression only when this input resolves the prompt.
-                // Reply composers should stay suppressed while the user is still typing.
+                // Clear prompt suppression once any user input is sent.
                 if state.status_state.claude_prompt_suppressed
                     && state.claude_prompt_detector.should_resolve_on_input(&bytes)
                 {
@@ -430,6 +424,17 @@ fn start_capture_for_trigger(
 
 fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
+}
+
+fn hud_navigation_direction_from_arrow(key: ArrowKey, preserve_terminal_caret: bool) -> i32 {
+    match key {
+        // Up/down remain HUD navigation keys even when insert-mode text is staged.
+        ArrowKey::Up => -1,
+        ArrowKey::Down => 1,
+        ArrowKey::Left if !preserve_terminal_caret => -1,
+        ArrowKey::Right if !preserve_terminal_caret => 1,
+        _ => 0,
+    }
 }
 
 fn should_preserve_terminal_caret_navigation(state: &EventLoopState) -> bool {

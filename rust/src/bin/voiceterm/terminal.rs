@@ -203,10 +203,10 @@ mod tests {
     }
 
     #[test]
-    fn reserved_rows_for_mode_drops_banner_rows_when_prompt_suppressed() {
+    fn reserved_rows_for_mode_keeps_banner_rows_when_prompt_suppressed() {
         assert_eq!(
             reserved_rows_for_mode(OverlayMode::None, 120, HudStyle::Full, true),
-            0
+            status_banner_height_with_policy(120, HudStyle::Full, true)
         );
     }
 

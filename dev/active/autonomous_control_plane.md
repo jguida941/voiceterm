@@ -17,8 +17,8 @@ This plan covers:
 4. Rust containerized mobile control service with SMS-first pilot and richer
    channel support next.
 5. Guardrail and traceability hardening for autonomous execution.
-6. One unified operator system across Rust overlay, PySide6 desktop controller,
-   and iPhone surfaces using the same controller-state contract.
+6. One unified operator system across Rust overlay and iPhone/SSH surfaces
+   using the same controller-state contract.
 7. Deterministic learning so repeated loop work is reused through
    artifact-backed playbooks instead of hidden memory.
 
@@ -43,8 +43,8 @@ This plan covers:
    command execution.
 4. Mobile strategy defaults to SMS backup first, then richer interactive chat.
 5. Rust overlay stays the primary runtime/rendering surface for VoiceTerm.
-6. PySide6 is optional for desktop operator control only, using control-plane API
-   boundaries (not as a replacement for runtime overlay internals).
+6. Desktop GUI clients are deferred; operator control stays on Rust + `devctl`
+   surfaces unless explicitly reactivated by a new MP scope.
 7. Learning logic must be artifact-driven, replayable, and auditable.
 
 ## External Inputs
@@ -409,7 +409,7 @@ ADR delivery rule for this track:
 3. ADR IDs and MP scope linkage must be reflected in both this file and
    `dev/active/MASTER_PLAN.md`.
 
-### 3.7 Unified Operator Surfaces (Rust Overlay + PySide6 + iPhone)
+### 3.7 Unified Operator Surfaces (Rust Overlay + iPhone/SSH)
 
 Goal: one control system, multiple clients, no behavior drift.
 
@@ -417,25 +417,23 @@ Implementation scope:
 
 - [ ] Keep one canonical `controller_state` source artifact and API projection.
 - [ ] Rust `--dev` panel reads local `controller_state` projections directly.
-- [ ] Add an optional PySide6 desktop operator client that:
-  - [ ] renders the same status/phase/metrics/actions as Rust/iPhone.
-  - [ ] calls only policy-gated `controller-action` endpoints for writes.
-  - [ ] never shells directly into unrestricted local commands.
 - [ ] Keep iPhone surfaces (SSH read + API/PWA) bound to the same projections.
-- [ ] Require parity tests across all clients before enabling new write actions.
+- [ ] Keep desktop GUI clients out of active scope unless a new MP reactivation
+      item lands with explicit policy and parity gates.
+- [ ] Require parity tests across Rust + phone projections before enabling new
+      write actions.
 
 Implementation order:
 
 1. Land `controller_state` schema and projection files (`full`, `compact`,
    `trace`, `actions`) as source of truth.
 2. Wire Rust Dev panel and `devctl phone-status` to that schema first.
-3. Add PySide6 read-only UI against the same data contract.
-4. Add one guarded write action (`dispatch-report-only`) and verify parity.
-5. Expand write actions only after replay/auth/rate-limit gates are green.
+3. Add one guarded write action (`dispatch-report-only`) and verify parity.
+4. Expand write actions only after replay/auth/rate-limit gates are green.
 
 Acceptance:
 
-1. A state change appears the same in Rust Dev panel, PySide6 client, and iPhone.
+1. A state change appears the same in Rust Dev panel and iPhone/SSH surfaces.
 2. Action outcomes and denials are identical across clients.
 3. No client bypasses policy gates for workflow/shell actions.
 4. Operator can monitor and steer bounded loops from any client safely.
@@ -508,7 +506,7 @@ Acceptance:
 - [x] Mutation hotspot extraction + reason-code surface.
 - [x] Policy gate allowlist/denylist evaluation.
 - [ ] Mobile command parser normalization + auth checks.
-- [ ] Controller-state projection parity checks (Rust, phone, PySide6 clients).
+- [ ] Controller-state projection parity checks (Rust + phone/SSH surfaces).
 - [ ] Fingerprint and playbook-confidence scoring determinism checks.
 
 ### Integration
@@ -519,7 +517,7 @@ Acceptance:
 - [ ] Fix-mode dry-run allowlisted vs blocked command paths.
 - [ ] Twilio webhook roundtrip command dispatch.
 - [ ] API auth + replay rejection.
-- [ ] PySide6 client adapter parity against Rust/iPhone action behavior.
+- [ ] Rust/phone projection adapter parity for action behavior.
 - [ ] Learning-loop promotion/decay policy behavior on mixed outcomes.
 
 ### End-to-End
@@ -528,7 +526,7 @@ Acceptance:
 - [ ] Phone-triggered report-only mutation loop returns artifact summary.
 - [ ] Blocked command attempt yields policy deny + audit trace.
 - [ ] No repeated comment spam across repeated loop runs on same target.
-- [ ] Same loop packet appears identically in Rust Dev panel, PySide6, and phone.
+- [ ] Same loop packet appears identically in Rust Dev panel and phone surfaces.
 - [ ] Learned playbook recommendation appears in next loop cycle with evidence.
 
 ## Rollout Plan
@@ -722,15 +720,24 @@ Acceptance:
   ADR backlog (`ADR-0027..ADR-0034`) so autonomy/mobile execution has a
   tracked architectural decision path and does not drift into memory-only scope.
 - 2026-02-24: Added one-system operator architecture decision: Rust overlay
-  remains runtime primary, PySide6 is an optional desktop controller client over
-  shared control-plane APIs, and iPhone uses the same projected controller
-  state for parity.
+  remains runtime primary and iPhone/SSH surfaces use the same projected
+  controller state for parity.
 - 2026-02-25: Added an initial `app/pyside6` command-center scaffold for
   MP-340 with modular tab surfaces (`Quick Ops`, `Catalog`, `GitHub Runs`,
-  `Git`, `Terminal`), non-blocking `QProcess` execution, and a broad static
-  command catalog mapped to existing `devctl`/check/git/cargo/workflow
-  operations. This is a partial milestone; policy-gated action-only mode and
-  strict projection parity with Rust/iPhone remain open.
+  `Git`, `Terminal`) and non-blocking `QProcess` execution as an exploratory
+  operator-client path.
+- 2026-02-26: Retired the exploratory `app/pyside6` path from active scope and
+  removed it from the tree to keep MP-340 Rust-first (`--dev` + `phone-status`
+  + policy-gated `controller-action`), with desktop GUI clients explicitly
+  deferred pending a future reactivation MP item.
+- 2026-02-26: Completed a targeted federation fit-gap audit for
+  `integrations/code-link-ide` + `integrations/ci-cd-hub` against
+  `MP-297/298/330/331/332/340`, documented keep/take/avoid decisions in
+  `dev/integrations/EXTERNAL_REPOS.md`, and added narrow
+  `integration_federation` import profiles in `control_plane_policy.json`
+  (`control-plane-guardrails-core`, `control-plane-contract-core`,
+  `report-validator-core`, `triage-evidence-core`, `registry-sync-core`) to
+  stop broad random imports.
 - 2026-02-24: Added deterministic learning-loop scope (fingerprints, playbook
   memory, guarded promotion/decay, `autonomy-learn` digest) so repeated work
   can be automated over time with explicit auditability.
@@ -840,8 +847,8 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label orchestrator-live-bounded-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/orchestrator-live-bounded-c03/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c01/summary.md` (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label swarm10-20260224-085105-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/swarm10-20260224-085105-c02/summary.md` (2026-02-24 local run) | done |
-| `python3 -m compileall app/pyside6` | compiled new PySide6 command-center package (`run.py`, `main.py`, runner/models/catalog/tab modules) with no syntax errors (2026-02-25 local run) | done |
-| `source ../../.venv-pyside6/bin/activate && QT_QPA_PLATFORM=offscreen python3 - <<'PY' ... CommandCenterWindow()` | offscreen smoke test constructed `CommandCenterWindow` successfully (`VoiceTerm Command Center (PySide6)`) after isolated venv install (`PySide6 6.10.2`) (2026-02-25 local run) | done |
+| `python3 -m compileall app/pyside6` | historical evidence from the retired 2026-02-25 exploratory GUI scaffold; path removed from active scope on 2026-02-26 | archived |
+| `source ../../.venv-pyside6/bin/activate && QT_QPA_PLATFORM=offscreen python3 - <<'PY' ... CommandCenterWindow()` | historical offscreen smoke for the retired exploratory GUI path; `.venv-pyside6` and `app/pyside6` removed on 2026-02-26 | archived |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c01/summary.md` (2026-02-25 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c02/summary.md` (2026-02-25 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label ralph-wiggum-max-swarm-20260225-c03` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c03/summary.md` (2026-02-25 local run) | done |

@@ -646,14 +646,20 @@ pub(super) fn format_button(
     highlight: &str,
     focused: bool,
 ) -> String {
-    let label_color = if focused { colors.info } else { highlight };
+    let focus_color = focused_button_color(colors, highlight);
+    let display_label = if focused && focus_color.is_empty() {
+        label.to_ascii_uppercase()
+    } else {
+        label.to_string()
+    };
+    let label_color = if focused { focus_color } else { highlight };
     // Keep one active color context through bracket+label to avoid transient
     // default-color flashes in terminals that repaint aggressively.
-    let mut content = String::with_capacity(16 + label.len());
+    let mut content = String::with_capacity(16 + display_label.len());
     if !label_color.is_empty() {
         content.push_str(label_color);
     }
-    content.push_str(label);
+    content.push_str(&display_label);
     format_shortcut_pill(
         &content,
         colors,
@@ -675,9 +681,24 @@ fn format_shortcut_pill(content: &str, colors: &ThemeColors, bracket_color: &str
     result
 }
 
+#[inline]
+fn focused_button_color<'a>(colors: &'a ThemeColors, highlight: &'a str) -> &'a str {
+    if !colors.warning.is_empty() {
+        colors.warning
+    } else if !colors.info.is_empty() {
+        colors.info
+    } else if !highlight.is_empty() {
+        highlight
+    } else if !colors.border.is_empty() {
+        colors.border
+    } else {
+        colors.dim
+    }
+}
+
 fn pill_bracket_color<'a>(colors: &'a ThemeColors, highlight: &'a str, focused: bool) -> &'a str {
     if focused {
-        colors.info
+        focused_button_color(colors, highlight)
     } else if highlight.is_empty() {
         colors.dim
     } else {

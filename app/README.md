@@ -24,22 +24,10 @@ Platform-specific application launchers for VoiceTerm.
 - PowerShell launcher
 - WSL2 support
 
-## PySide6 Command Center
+## Control-Plane Direction
 
-`pyside6/` - Optional desktop control-plane command center.
+Operator control surfaces stay Rust-first in this repo:
 
-This app is designed as an operator console over existing repository controls.
-It does not replace the Rust runtime overlay.
-
-Primary use cases:
-
-- run `devctl` and governance checks from a tabbed UI
-- view recent GitHub Actions runs
-- run git and ad-hoc terminal commands from one place
-
-Run:
-
-```bash
-python3 -m pip install PySide6
-python3 app/pyside6/run.py
-```
+- runtime UI/voice/PTY behavior is the Rust overlay
+- operator actions route through `devctl` and policy-gated controller commands
+- phone/SSH views consume `controller_state` projections

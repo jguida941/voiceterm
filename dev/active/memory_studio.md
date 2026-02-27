@@ -1,7 +1,7 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19
-Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
+Status: Queued product lane after Theme completion (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 

@@ -162,6 +162,7 @@ types the result into your AI CLI input.
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, `explain last error`
 - **Dev mode tools**: use `--dev` (`DEV` badge), `Ctrl+D` for Dev panel tools, `--dev-log` for JSONL diagnostics
 - **Prompt-safe HUD**: VoiceTerm hides HUD rows during Codex/Claude approval and reply/composer prompts so text stays readable
+- **Latency clarity**: latency badges show completed-turn STT timing and hide while actively recording/processing
 - **Transcript history**: `Ctrl+H` to search and replay past text
 - **Notification history**: `Ctrl+N` to review recent status messages
 - **Saved settings**: stored in `~/.config/voiceterm/config.toml`

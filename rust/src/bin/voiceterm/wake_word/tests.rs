@@ -64,6 +64,23 @@ fn canonicalize_hotword_tokens_merges_common_split_aliases() {
     let codex_alias_tokens: Vec<&str> = codex_alias.iter().map(String::as_str).collect();
     assert_eq!(codex_alias_tokens, vec!["hey", "codex", "please"]);
 
+    let code_alias = canonicalize_hotword_tokens(&["hey", "code"]);
+    let code_alias_tokens: Vec<&str> = code_alias.iter().map(String::as_str).collect();
+    assert_eq!(code_alias_tokens, vec!["hey", "codex"]);
+
+    let code_send_alias = canonicalize_hotword_tokens(&["hey", "code", "send"]);
+    let code_send_alias_tokens: Vec<&str> = code_send_alias.iter().map(String::as_str).collect();
+    assert_eq!(code_send_alias_tokens, vec!["hey", "codex", "send"]);
+
+    let coach_alias = canonicalize_hotword_tokens(&["hey", "coach"]);
+    let coach_alias_tokens: Vec<&str> = coach_alias.iter().map(String::as_str).collect();
+    assert_eq!(coach_alias_tokens, vec!["hey", "codex"]);
+
+    let code_non_wake_alias = canonicalize_hotword_tokens(&["review", "code"]);
+    let code_non_wake_alias_tokens: Vec<&str> =
+        code_non_wake_alias.iter().map(String::as_str).collect();
+    assert_eq!(code_non_wake_alias_tokens, vec!["review", "code"]);
+
     let codec_alias = canonicalize_hotword_tokens(&["codec", "send"]);
     let codec_alias_tokens: Vec<&str> = codec_alias.iter().map(String::as_str).collect();
     assert_eq!(codec_alias_tokens, vec!["codex", "send"]);
@@ -83,6 +100,14 @@ fn canonicalize_hotword_tokens_merges_common_split_aliases() {
     let cloud_alias = canonicalize_hotword_tokens(&["okay", "cloud", "send"]);
     let cloud_alias_tokens: Vec<&str> = cloud_alias.iter().map(String::as_str).collect();
     assert_eq!(cloud_alias_tokens, vec!["okay", "claude", "send"]);
+
+    let claud_alias = canonicalize_hotword_tokens(&["hey", "claud", "send"]);
+    let claud_alias_tokens: Vec<&str> = claud_alias.iter().map(String::as_str).collect();
+    assert_eq!(claud_alias_tokens, vec!["hey", "claude", "send"]);
+
+    let clawed_alias = canonicalize_hotword_tokens(&["hey", "clawed", "send"]);
+    let clawed_alias_tokens: Vec<&str> = clawed_alias.iter().map(String::as_str).collect();
+    assert_eq!(clawed_alias_tokens, vec!["hey", "claude", "send"]);
 }
 
 #[test]
@@ -90,6 +115,9 @@ fn contains_hotword_phrase_detects_supported_aliases() {
     assert!(contains_hotword_phrase("please hey codex start"));
     assert!(contains_hotword_phrase("okay code x"));
     assert!(contains_hotword_phrase("hey codecs start"));
+    assert!(contains_hotword_phrase("hey codes start"));
+    assert!(contains_hotword_phrase("hey code"));
+    assert!(contains_hotword_phrase("hey coach"));
     assert!(contains_hotword_phrase("hey kodak start"));
     assert!(contains_hotword_phrase("hate codex start"));
     assert!(contains_hotword_phrase("okay claude"));
@@ -109,6 +137,7 @@ fn contains_hotword_phrase_detects_supported_aliases() {
     ));
     assert!(!contains_hotword_phrase("hello codec"));
     assert!(!contains_hotword_phrase("random noise words"));
+    assert!(!contains_hotword_phrase("hey code review"));
     assert!(!contains_hotword_phrase(
         "we should review the code x integration details"
     ));
@@ -127,6 +156,14 @@ fn contains_hotword_phrase_detects_supported_aliases() {
 fn detect_wake_event_maps_send_suffix_intent() {
     assert_eq!(
         detect_wake_event("hey codex send"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hey codes sent"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hey coach send"),
         Some(WakeWordEvent::SendStagedInput)
     );
     assert_eq!(
@@ -177,6 +214,14 @@ fn detect_wake_event_maps_send_suffix_intent() {
         detect_wake_event("okay cloud sending"),
         Some(WakeWordEvent::SendStagedInput)
     );
+    assert_eq!(
+        detect_wake_event("hey claud send"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
+    assert_eq!(
+        detect_wake_event("hey clawed send"),
+        Some(WakeWordEvent::SendStagedInput)
+    );
 }
 
 #[test]
@@ -189,6 +234,7 @@ fn detect_wake_event_defaults_to_detection_for_non_send_suffix() {
         detect_wake_event("claude explain this"),
         Some(WakeWordEvent::Detected)
     );
+    assert_eq!(detect_wake_event("hey code"), Some(WakeWordEvent::Detected));
     assert_eq!(
         detect_wake_event("please hey codex start"),
         Some(WakeWordEvent::Detected)
@@ -205,7 +251,7 @@ fn wake_runtime_sync_starts_stops_and_pauses_listener() {
     let _guard = install_spawn_listener_hook(hook_spawn_listener);
     let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
 
-    runtime.sync(true, 0.55, 2000, false);
+    runtime.sync(true, 0.55, 2000, -35.0, false, false);
     assert!(
         runtime.listener.is_some(),
         "expected wake listener to start when enabled"
@@ -220,7 +266,7 @@ fn wake_runtime_sync_starts_stops_and_pauses_listener() {
         "expected exactly one listener spawn"
     );
 
-    runtime.sync(true, 0.55, 2000, true);
+    runtime.sync(true, 0.55, 2000, -35.0, false, true);
     let paused = runtime
         .listener
         .as_ref()
@@ -231,7 +277,7 @@ fn wake_runtime_sync_starts_stops_and_pauses_listener() {
         "expected listener pause flag to track capture-active"
     );
 
-    runtime.sync(false, 0.55, 2000, false);
+    runtime.sync(false, 0.55, 2000, -35.0, false, false);
     assert!(
         runtime.listener.is_none(),
         "expected wake listener to stop when disabled"
@@ -250,10 +296,10 @@ fn wake_runtime_sync_restarts_listener_when_settings_change() {
     let _guard = install_spawn_listener_hook(hook_spawn_listener);
     let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
 
-    runtime.sync(true, 0.40, 2000, false);
-    runtime.sync(true, 0.40, 2000, false);
-    runtime.sync(true, 0.70, 2000, false);
-    runtime.sync(true, 0.70, 3000, false);
+    runtime.sync(true, 0.40, 2000, -35.0, false, false);
+    runtime.sync(true, 0.40, 2000, -35.0, false, false);
+    runtime.sync(true, 0.70, 2000, -35.0, false, false);
+    runtime.sync(true, 0.70, 3000, -35.0, false, false);
 
     assert_eq!(
         SPAWN_LISTENER_CALLS.load(Ordering::Relaxed),
@@ -320,6 +366,48 @@ fn hotword_guardrail_soak_false_positive_and_latency() {
 }
 
 #[test]
+fn wake_runtime_sync_updates_prioritize_send_window_without_unpausing_capture() {
+    let _lock = wake_runtime_test_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = install_spawn_listener_hook(hook_spawn_listener);
+    let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
+
+    runtime.sync(true, 0.55, 2000, -35.0, true, false);
+    let prioritized = runtime
+        .listener
+        .as_ref()
+        .map(|listener| listener.prioritize_send_flag.load(Ordering::Relaxed))
+        .unwrap_or(false);
+    assert!(
+        prioritized,
+        "expected prioritize-send flag to be enabled when staged send window is active"
+    );
+
+    runtime.sync(true, 0.55, 2000, -35.0, true, true);
+    let prioritized_while_capture_active = runtime
+        .listener
+        .as_ref()
+        .map(|listener| listener.prioritize_send_flag.load(Ordering::Relaxed))
+        .unwrap_or(true);
+    assert!(
+        !prioritized_while_capture_active,
+        "expected prioritize-send flag to stay disabled while capture is active"
+    );
+
+    runtime.sync(true, 0.55, 2000, -35.0, false, false);
+    let prioritized_after_clear = runtime
+        .listener
+        .as_ref()
+        .map(|listener| listener.prioritize_send_flag.load(Ordering::Relaxed))
+        .unwrap_or(true);
+    assert!(
+        !prioritized_after_clear,
+        "expected prioritize-send flag to clear when staged send window ends"
+    );
+}
+
+#[test]
 fn sensitivity_mapping_is_monotonic_and_clamped() {
     let low = sensitivity_to_wake_vad_threshold_db(0.0);
     let mid = sensitivity_to_wake_vad_threshold_db(0.5);
@@ -334,4 +422,15 @@ fn sensitivity_mapping_is_monotonic_and_clamped() {
     assert!(mid > high, "expected higher sensitivity to lower dB gate");
     assert_eq!(low, below);
     assert_eq!(high, above);
+}
+
+#[test]
+fn resolve_wake_threshold_tracks_voice_threshold_headroom() {
+    let base = resolve_wake_vad_threshold_db(0.55, -35.0);
+    let stricter_voice = resolve_wake_vad_threshold_db(0.55, -45.0);
+    let less_sensitive_voice = resolve_wake_vad_threshold_db(0.55, -20.0);
+
+    assert!(stricter_voice < base);
+    assert!(less_sensitive_voice <= -24.0);
+    assert!(less_sensitive_voice >= -62.0);
 }

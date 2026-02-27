@@ -39,7 +39,7 @@ fn parse_arrow_sequence(bytes: &[u8], start: usize) -> Option<(ArrowKey, usize)>
                 if (0x40..=0x7e).contains(&byte) {
                     return None;
                 }
-                if byte.is_ascii_digit() || byte == b';' {
+                if byte.is_ascii_digit() || byte == b';' || byte == b':' {
                     idx += 1;
                     continue;
                 }
@@ -92,7 +92,7 @@ pub(crate) fn is_arrow_escape_noise(bytes: &[u8]) -> bool {
     for &byte in bytes {
         match byte {
             0x1b => saw_escape = true,
-            b'[' | b';' | b'0'..=b'9' | b'A' | b'B' | b'C' | b'D' => {}
+            b'[' | b';' | b':' | b'0'..=b'9' | b'A' | b'B' | b'C' | b'D' => {}
             _ => return false,
         }
     }
@@ -146,6 +146,16 @@ mod tests {
     }
 
     #[test]
+    fn parse_arrow_keys_accepts_colon_parameterized_sequences() {
+        let bytes = [
+            0x1b, b'[', b'1', b';', b'1', b':', b'3', b'A', 0x1b, b'[', b'1', b';', b'1', b':',
+            b'2', b'D',
+        ];
+        let keys = parse_arrow_keys(&bytes);
+        assert_eq!(keys, vec![ArrowKey::Up, ArrowKey::Left]);
+    }
+
+    #[test]
     fn parse_arrow_keys_only_accepts_ss3_sequences() {
         let bytes = [0x1b, b'O', b'A', 0x1b, b'O', b'D'];
         let keys = parse_arrow_keys_only(&bytes).expect("ss3 arrows");
@@ -170,6 +180,7 @@ mod tests {
         assert!(is_arrow_escape_noise(b"\x1b[A"));
         assert!(is_arrow_escape_noise(b"\x1b[B\x1b[C"));
         assert!(is_arrow_escape_noise(b"\x1b[1;2A"));
+        assert!(is_arrow_escape_noise(b"\x1b[1;1:3A"));
         assert!(is_arrow_escape_noise(b"\x1b["));
         assert!(is_arrow_escape_noise(b"\x1b[1;"));
     }

@@ -618,26 +618,35 @@ fn main() -> Result<()> {
         state.config.wake_word,
         state.config.wake_word_sensitivity,
         state.config.wake_word_cooldown_ms,
+        state.status_state.sensitivity_db,
+        false,
         false,
     );
+    let wake_listener_active = deps.wake_word_runtime.is_listener_active();
     state.status_state.wake_word_state = if !state.config.wake_word {
         WakeWordHudState::Off
-    } else if deps.wake_word_runtime.is_listener_active() {
+    } else if wake_listener_active {
         WakeWordHudState::Listening
     } else {
         WakeWordHudState::Unavailable
     };
+    let wake_mode_owns_mic = state.config.wake_word && wake_listener_active;
 
     if state.auto_voice_enabled {
+        let auto_status_msg = if wake_mode_owns_mic {
+            "Auto-voice enabled (wake-word active; idle capture paused)"
+        } else {
+            "Auto-voice enabled"
+        };
         set_status(
             &deps.writer_tx,
             &mut timers.status_clear_deadline,
             &mut state.current_status,
             &mut state.status_state,
-            "Auto-voice enabled",
+            auto_status_msg,
             Some(Duration::from_secs(2)),
         );
-        if deps.voice_manager.is_idle() {
+        if !wake_mode_owns_mic && deps.voice_manager.is_idle() {
             if let Err(err) = start_voice_capture(
                 &mut deps.voice_manager,
                 VoiceCaptureTrigger::Auto,

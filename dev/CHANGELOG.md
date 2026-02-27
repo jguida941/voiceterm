@@ -7,6 +7,13 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.95] - 2026-02-27
+### UX
+
+- Fix overlay arrow-navigation dropouts after terminal keyboard-enhancement mode shifts by accepting colon-parameterized CSI arrow sequences (for example `CSI 1;1:3A`) in shared arrow parsing.
+- Narrow prompt-occlusion suppression to high-confidence interactive approvals/permissions only (single-command approvals, worktree/sandbox permission prompts, multi-tool approval summaries) so normal Codex composer/working text no longer causes VoiceTerm HUD disappear/reappear flicker.
+- Improve wake-word pickup setup by aligning wake VAD to the active mic sensitivity baseline (with wake headroom), relaxing short wake-capture bounds, and expanding `claude` alias matching (`claud`, `clawed`) so wake phrases are easier to trigger without shouting.
+
 ### Code Quality
 
 - Keep `maintainer-lint` green on current Rust toolchains by removing redundant

@@ -827,7 +827,7 @@ fn hidden_launcher_boundary_width_shows_button_at_exact_threshold() {
 }
 
 #[test]
-fn focused_buttons_use_info_brackets() {
+fn focused_buttons_use_warning_focus_brackets() {
     let colors = Theme::Coral.colors();
 
     let mut hidden_state = StatusLineState::new();
@@ -835,20 +835,20 @@ fn focused_buttons_use_info_brackets() {
     let (hidden_line, hidden_buttons) =
         format_hidden_launcher_with_buttons(&hidden_state, &colors, 80);
     assert!(!hidden_buttons.is_empty());
-    assert!(hidden_line.contains(&format!("{}[", colors.info)));
+    assert!(hidden_line.contains(&format!("{}[", colors.warning)));
 
     hidden_state.hud_button_focus = Some(ButtonAction::CollapseHiddenLauncher);
     let (hidden_line_hide, hidden_buttons_hide) =
         format_hidden_launcher_with_buttons(&hidden_state, &colors, 80);
     assert!(!hidden_buttons_hide.is_empty());
-    assert!(hidden_line_hide.contains(&format!("{}[", colors.info)));
+    assert!(hidden_line_hide.contains(&format!("{}[", colors.warning)));
 
     let mut minimal_state = StatusLineState::new();
     minimal_state.hud_button_focus = Some(ButtonAction::HudBack);
     let (minimal_line, minimal_button) =
         format_minimal_strip_with_button(&minimal_state, &colors, 80);
     assert!(minimal_button.is_some());
-    assert!(minimal_line.contains(&format!("{}[", colors.info)));
+    assert!(minimal_line.contains(&format!("{}[", colors.warning)));
 }
 
 #[test]
@@ -985,7 +985,7 @@ fn latency_badge_hides_during_manual_recording_and_processing() {
 }
 
 #[test]
-fn latency_badge_stays_visible_during_auto_recording_and_processing() {
+fn latency_badge_hides_during_auto_recording_and_processing() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.auto_voice_enabled = true;
@@ -994,12 +994,12 @@ fn latency_badge_stays_visible_during_auto_recording_and_processing() {
 
     state.recording_state = RecordingState::Recording;
     let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    assert!(recording_row.contains("412ms"));
+    assert!(!recording_row.contains("412ms"));
 
     state.recording_state = RecordingState::Processing;
     let (processing_row, _) =
         format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    assert!(processing_row.contains("412ms"));
+    assert!(!processing_row.contains("412ms"));
 }
 
 #[test]
@@ -1126,7 +1126,7 @@ fn full_row_focus_marks_exactly_one_button_bracket() {
     let mut state = StatusLineState::new();
     state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
     let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
-    let focused_bracket = format!("{}[", colors.info);
+    let focused_bracket = format!("{}[", colors.warning);
     assert_eq!(count_substring(&row, &focused_bracket), 1);
 }
 
@@ -1141,7 +1141,7 @@ fn compact_row_focus_marks_exactly_one_button_bracket() {
     let (row, positions) =
         format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
     assert_eq!(positions.len(), 6);
-    let focused_bracket = format!("{}[", colors.info);
+    let focused_bracket = format!("{}[", colors.warning);
     assert_eq!(count_substring(&row, &focused_bracket), 1);
 }
 
@@ -1220,12 +1220,21 @@ fn format_button_brackets_track_highlight_color_when_unfocused() {
 }
 
 #[test]
-fn focused_button_uses_info_color_without_bold_emphasis() {
+fn focused_button_uses_warning_color_without_bold_emphasis() {
     let colors = Theme::Coral.colors();
     let focused = format_button(&colors, "send", colors.success, true);
 
     assert!(!focused.contains("\x1b[1m"));
-    assert!(focused.contains(&format!("[{}send", colors.info)));
-    assert!(focused.contains(&format!("{}[", colors.info)));
-    assert!(focused.contains(&format!("{}]", colors.info)));
+    assert!(focused.contains(&format!("[{}send", colors.warning)));
+    assert!(focused.contains(&format!("{}[", colors.warning)));
+    assert!(focused.contains(&format!("{}]", colors.warning)));
+}
+
+#[test]
+fn focused_button_in_none_theme_uses_uppercase_plain_text_label() {
+    let colors = Theme::None.colors();
+    let focused = format_button(&colors, "send", colors.success, true);
+
+    assert_eq!(focused, "[SEND]");
+    assert!(!focused.contains("\x1b["));
 }

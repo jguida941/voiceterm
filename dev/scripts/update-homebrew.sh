@@ -135,6 +135,12 @@ else
     echo "Warning: Formula desc line not found; skipping desc sync."
 fi
 
+# Keep Cargo manifest path aligned with current repo layout.
+# Legacy formulas still reference "#{libexec}/src/Cargo.toml" from the pre-migration tree.
+if grep -q '#{libexec}/src/Cargo.toml' "$FORMULA"; then
+    sedi 's|#{libexec}/src/Cargo.toml|#{libexec}/rust/Cargo.toml|g' "$FORMULA"
+fi
+
 # Keep tap README intentionally minimal and canonical.
 # The main repo hosts full docs; the tap repo should only cover brew-specific entrypoints.
 if [[ -f "$README" ]]; then

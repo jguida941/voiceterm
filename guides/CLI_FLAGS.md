@@ -73,11 +73,13 @@ Wake labels in Full HUD:
 - `Wake: PAUSED` - listener paused during capture/transcription
 - `Wake: ERR` - listener startup failed
 - Mouse is on by default for clickable HUD controls.
-- In Cursor terminal, wheel scrolling stays available while mouse mode is on
-  (`Mouse: ON - scroll preserved in Cursor`).
+- In Cursor terminal, wheel/touchpad scrolling may not move chat history while
+  mouse mode is on (the scrollbar can still be dragged).
 - Wake phrases still work even if auto-voice is paused.
 - Built-in phrases `send`, `send message`, and `submit` send staged text in `insert` mode.
 - In `auto` mode, wake-triggered `send`/`submit` still sends Enter even without staged `insert` text.
+- Latency badges hide during active recording/processing and return after
+  transcription with the latest reliable STT sample.
 - `Ctrl+X` triggers one-shot screenshot capture prompts.
 - Image mode adds an `IMG` HUD badge when persistent mode is enabled.
 
@@ -198,7 +200,7 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `heartbeat` | ribbon |
 | `--hud-border-style <STYLE>` | Full HUD border style: `theme`, `single`, `rounded`, `double`, `heavy`, `none` | theme |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
-| `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) | short |
+| `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) for completed turns | short |
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
 Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.

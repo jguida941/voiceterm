@@ -3026,4 +3026,16 @@ The full technical showcase is consolidated above in Appendix G of this document
 
 #SoftwareEngineering #AI #RustLang #DeveloperTools #OpenSource #AIAssistedDevelopment #DevOps #CICD #SoloDev
 
+### 2026-02-26 - Rust-Only Control-Plane Simplification
+
+- Retired the exploratory `app/pyside6` command-center path and removed
+  `app/pyside6/` from the repository to keep active execution Rust-first.
+- Updated `MP-340` and `dev/active/autonomous_control_plane.md` so active scope
+  is Rust overlay + `devctl` + phone/SSH projections (no active desktop GUI
+  client track).
+- Marked prior PySide6 evidence rows as historical/archived and added a dated
+  de-scope note so old validation evidence remains auditable without implying
+  current support.
+- Updated `app/README.md` to reflect the Rust-first operator/control direction.
+
 </details>
