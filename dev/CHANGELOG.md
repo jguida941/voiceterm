@@ -22,6 +22,13 @@ Note: Some historical entries reference internal documents that are not publishe
   `QUICK_START`, `guides/README`, `guides/USAGE`, `guides/CLI_FLAGS`,
   `guides/INSTALL`, `guides/TROUBLESHOOTING`, and `DEV_INDEX`).
 
+## [1.0.97] - 2026-03-01
+### UX
+
+- Harden JetBrains + Claude HUD behavior by using JediTerm-safe cursor save/restore handling, avoiding JetBrains scroll-region writes, and keeping redraw cursor visibility untouched during status rendering.
+- Improve JetBrains HUD stability under heavy backend output with row-width clamping for single-row banner updates and safer pre-clear handling for Claude output chunks that start with absolute cursor positioning.
+- Keep JetBrains + Claude prompt/HUD separation more stable at startup by reserving one extra Claude gap row in JetBrains terminals.
+
 ## [1.0.96] - 2026-03-01
 ### UX
 

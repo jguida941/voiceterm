@@ -9,11 +9,12 @@ use voiceterm::log_debug;
 
 use super::mouse::{disable_mouse, enable_mouse};
 use super::render::{
-    build_clear_bottom_rows_bytes, clear_overlay_panel, clear_status_banner,
-    clear_status_banner_at, clear_status_line, terminal_family, write_overlay_panel,
-    write_status_banner, write_status_line, TerminalFamily,
+    build_clear_bottom_rows_bytes, build_clear_bottom_rows_cup_only_bytes, clear_overlay_panel,
+    clear_status_banner, clear_status_banner_at, clear_status_line, terminal_family,
+    write_overlay_panel, write_status_banner, write_status_line, TerminalFamily,
 };
 use super::WriterMessage;
+use crate::config::HudBorderStyle;
 use crate::status_line::{format_status_banner, StatusLineState};
 use crate::theme::Theme;
 
@@ -21,9 +22,11 @@ const OUTPUT_FLUSH_INTERVAL_MS: u64 = 16;
 const CURSOR_PRECLEAR_COOLDOWN_MS: u64 = 220;
 #[cfg(test)]
 const CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 180;
+const CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 90;
+const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 260;
 const JETBRAINS_PRECLEAR_COOLDOWN_MS: u64 = 260;
 const CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 320;
-const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 420;
+const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 150;
 const CLAUDE_CURSOR_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 900;
 const CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS: u64 = 450;
 const CLAUDE_IDE_NON_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 700;
@@ -187,9 +190,14 @@ impl DisplayState {
         // On Cursor, skipping this can leave only the changing main row visible
         // while border/buttons rows scroll away under heavy output.
         match terminal_family {
-            TerminalFamily::Cursor | TerminalFamily::JetBrains | TerminalFamily::Other => {
-                self.banner_height > 1
-            }
+            // JetBrains: suppress output-triggered HUD redraw when Claude
+            // is active.  Claude Code's TUI uses DEC save/restore (\x1b7/\x1b8)
+            // in its own rendering; the save slot is shared globally, so our
+            // HUD redraw's \x1b7 can be overwritten by Claude's output before
+            // our \x1b8 fires, leaving the cursor stuck inside the HUD.
+            // The HUD still redraws on timer ticks when output is idle.
+            TerminalFamily::JetBrains => false,
+            TerminalFamily::Cursor | TerminalFamily::Other => self.banner_height > 1,
         }
     }
 }
@@ -252,6 +260,8 @@ fn should_preclear_bottom_rows(
     codex_jetbrains: bool,
     cursor_claude_startup_preclear: bool,
     cursor_claude_banner_preclear: bool,
+    claude_jetbrains_banner_preclear: bool,
+    claude_jetbrains_cup_preclear_safe: bool,
     now: Instant,
     last_preclear_at: Instant,
 ) -> bool {
@@ -259,9 +269,17 @@ fn should_preclear_bottom_rows(
         return false;
     }
     match family {
-        // Keep JetBrains pre-clear for transition-sensitive paths only.
-        // Continuous pre-clear during streaming output can visibly flash.
         TerminalFamily::JetBrains => {
+            if claude_jetbrains_banner_preclear {
+                // JetBrains + Claude: only run pre-clear when the chunk begins
+                // with absolute cursor positioning. This allows a CUP-only
+                // pre-clear (no DEC save/restore slot collision) without
+                // risking prompt/input jumps to row 1.
+                return claude_jetbrains_cup_preclear_safe
+                    && now.duration_since(last_preclear_at)
+                        >= Duration::from_millis(CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS);
+            }
+            // Codex and other backends: keep conservative transition-only pre-clear.
             (status_clear_pending || display.overlay_panel.is_some())
                 && !codex_jetbrains
                 && now.duration_since(last_preclear_at)
@@ -407,6 +425,113 @@ fn contains_cursor_mutation_csi(bytes: &[u8]) -> bool {
     false
 }
 
+fn pty_chunk_starts_with_absolute_cursor_position(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+
+    let mut idx = 0usize;
+    let mut saw_absolute = false;
+    let mut saw_disallowed_before_absolute = false;
+    while idx < bytes.len() {
+        let byte = bytes[idx];
+        if byte == 0x1b {
+            if idx + 1 >= bytes.len() {
+                return false;
+            }
+            match bytes[idx + 1] {
+                b'[' => {
+                    let mut cursor = idx + 2;
+                    while cursor < bytes.len() {
+                        let final_byte = bytes[cursor];
+                        if (0x40..=0x7e).contains(&final_byte) {
+                            if matches!(final_byte, b'H' | b'f' | b'd' | b'G') {
+                                if saw_disallowed_before_absolute {
+                                    return false;
+                                }
+                                saw_absolute = true;
+                                idx = cursor + 1;
+                                break;
+                            }
+                            if !saw_absolute {
+                                // Allow style/mode setup before absolute CUP.
+                                if !matches!(final_byte, b'm' | b'h' | b'l') {
+                                    return false;
+                                }
+                            }
+                            idx = cursor + 1;
+                            break;
+                        }
+                        cursor += 1;
+                    }
+                    if cursor >= bytes.len() {
+                        return false;
+                    }
+                    continue;
+                }
+                b']' => {
+                    // OSC: skip until BEL or ST (ESC \).
+                    let mut cursor = idx + 2;
+                    let mut terminated = false;
+                    while cursor < bytes.len() {
+                        if bytes[cursor] == 0x07 {
+                            terminated = true;
+                            cursor += 1;
+                            break;
+                        }
+                        if bytes[cursor] == 0x1b
+                            && cursor + 1 < bytes.len()
+                            && bytes[cursor + 1] == b'\\'
+                        {
+                            terminated = true;
+                            cursor += 2;
+                            break;
+                        }
+                        cursor += 1;
+                    }
+                    if !terminated {
+                        return false;
+                    }
+                    idx = cursor;
+                    continue;
+                }
+                b'7' | b'8' => {
+                    // Disallow DEC save/restore before first absolute move.
+                    // If we pre-clear first, Claude's leading DECSC would save
+                    // our clear cursor location, then DECRC can jump back into
+                    // HUD rows and smear border fragments into transcript.
+                    if !saw_absolute {
+                        saw_disallowed_before_absolute = true;
+                    }
+                    idx += 2;
+                    continue;
+                }
+                _ => {
+                    idx += 2;
+                    continue;
+                }
+            }
+        }
+
+        if byte.is_ascii_control() {
+            if byte == b'\0' {
+                idx += 1;
+                continue;
+            }
+            // Any non-null control before absolute positioning is unsafe.
+            if !saw_absolute {
+                return false;
+            }
+            idx += 1;
+            continue;
+        }
+
+        // First printable byte must occur after absolute cursor positioning.
+        return saw_absolute;
+    }
+    saw_absolute
+}
+
 fn should_force_non_scroll_banner_redraw(
     claude_flash_profile: bool,
     may_scroll_rows: bool,
@@ -529,6 +654,14 @@ impl WriterState {
                 // otherwise HUD chrome can leak into transcript history.
                 let cursor_claude_banner_preclear =
                     cursor_claude && self.display.overlay_panel.is_none();
+                // JetBrains + Claude: JediTerm does not support DECSTBM scroll
+                // regions, so scrolling PTY output pushes HUD rows upward and
+                // creates stacked ghost copies. Use CUP-only pre-clear only
+                // when Claude starts the chunk with absolute positioning.
+                let claude_jetbrains_banner_preclear =
+                    claude_jetbrains && self.display.overlay_panel.is_none();
+                let claude_jetbrains_cup_preclear_safe = claude_jetbrains_banner_preclear
+                    && pty_chunk_starts_with_absolute_cursor_position(&bytes);
                 let should_preclear = should_preclear_bottom_rows(
                     self.terminal_family,
                     may_scroll_rows,
@@ -537,11 +670,20 @@ impl WriterState {
                     codex_jetbrains,
                     cursor_claude_startup_preclear,
                     cursor_claude_banner_preclear,
+                    claude_jetbrains_banner_preclear,
+                    claude_jetbrains_cup_preclear_safe,
                     now,
                     self.last_preclear_at,
                 );
                 let pre_clear = if should_preclear {
-                    build_clear_bottom_rows_bytes(self.rows, preclear_height(&self.display))
+                    if claude_jetbrains_cup_preclear_safe {
+                        build_clear_bottom_rows_cup_only_bytes(
+                            self.rows,
+                            preclear_height(&self.display),
+                        )
+                    } else {
+                        build_clear_bottom_rows_bytes(self.rows, preclear_height(&self.display))
+                    }
                 } else {
                     Vec::new()
                 };
@@ -583,6 +725,11 @@ impl WriterState {
                         // After pre-clear, the terminal no longer contains prior
                         // banner lines. Force a full repaint instead of line-diff.
                         self.display.force_full_banner_redraw = true;
+                    } else if claude_jetbrains_banner_preclear {
+                        // JetBrains+Claude redraw must stay idle-gated to avoid
+                        // DECSC/DECRC collision while Claude is streaming.
+                        self.display.force_full_banner_redraw = true;
+                        self.needs_redraw = true;
                     }
                 }
                 self.last_output_at = now;
@@ -608,23 +755,37 @@ impl WriterState {
                     // the cursor briefly sits in HUD rows. Without occasional full
                     // banner rewrites, line-diff redraw can skip repaint and leave
                     // typed fragments visible inside the HUD.
-                    let non_scroll_line_mutation = should_force_non_scroll_banner_redraw(
-                        claude_non_scroll_redraw_profile,
-                        may_scroll_rows,
-                        self.display.enhanced_status.is_some(),
-                        &bytes,
-                        now,
-                        self.last_scroll_redraw_at,
-                    );
-                    if non_scroll_line_mutation {
-                        self.display.force_full_banner_redraw = true;
-                        self.last_scroll_redraw_at = now;
-                    }
+                    //
+                    // JetBrains: skip ALL output-triggered HUD redraws.  Claude
+                    // Code's TUI shares the DEC save/restore slot (\x1b7/\x1b8),
+                    // so redrawing the HUD during active PTY output corrupts
+                    // cursor position.  HUD redraws happen on timer ticks when
+                    // output is idle instead.
+                    let non_scroll_line_mutation = if self.terminal_family
+                        != TerminalFamily::JetBrains
+                    {
+                        let result = should_force_non_scroll_banner_redraw(
+                            claude_non_scroll_redraw_profile,
+                            may_scroll_rows,
+                            self.display.enhanced_status.is_some(),
+                            &bytes,
+                            now,
+                            self.last_scroll_redraw_at,
+                        );
+                        if result {
+                            self.display.force_full_banner_redraw = true;
+                            self.last_scroll_redraw_at = now;
+                        }
+                        result
+                    } else {
+                        false
+                    };
                     // Cursor+Claude: Claude Code redraws its own status hints on
                     // every keystroke echo, actively clearing the bottom rows where
                     // the HUD lives.  The 700ms non-scroll throttle above is too
                     // slow; force an immediate full HUD repaint whenever cursor-
                     // mutating CSI is detected so the HUD doesn't stay erased.
+                    // (Skipped on JetBrains — see note above.)
                     if cursor_claude
                         && !may_scroll_rows
                         && self.display.enhanced_status.is_some()
@@ -633,6 +794,7 @@ impl WriterState {
                         self.display.force_full_banner_redraw = true;
                         self.force_redraw_after_preclear = true;
                     }
+                    // (Skipped on JetBrains — see note above.)
                     let destructive_clear_repaint = cursor_claude
                         && self
                             .display
@@ -656,6 +818,7 @@ impl WriterState {
                     if pre_cleared
                         && self.terminal_family == TerminalFamily::JetBrains
                         && !codex_jetbrains
+                        && !claude_jetbrains
                     {
                         let transition_sensitive_preclear = self.pending.clear_status
                             || self.pending.clear_overlay
@@ -666,11 +829,31 @@ impl WriterState {
                             self.force_redraw_after_preclear = true;
                         }
                     }
-                    let output_redraw_needed = self.display.force_full_banner_redraw
-                        || pre_cleared
-                        || non_scroll_line_mutation
-                        || destructive_clear_repaint
-                        || (may_scroll_rows && !flash_sensitive_scroll_profile);
+                    let output_redraw_needed = if claude_jetbrains {
+                        // JetBrains + Claude: don't redraw the HUD
+                        // synchronously in this output cycle (cursor
+                        // save/restore conflicts with Claude's own
+                        // \x1b7/\x1b8).  Instead, mark force_full so the
+                        // idle-gated redraw in maybe_redraw_status repaints
+                        // all lines (the HUD was scrolled away).  Set
+                        // needs_redraw so the idle check actually fires —
+                        // the since_output < idle_ms guard in
+                        // maybe_redraw_status will defer until output
+                        // settles.
+                        if may_scroll_rows {
+                            self.display.force_full_banner_redraw = true;
+                            self.needs_redraw = true;
+                        }
+                        // Return false so the immediate maybe_redraw_status
+                        // call below doesn't double-set.
+                        false
+                    } else {
+                        self.display.force_full_banner_redraw
+                            || pre_cleared
+                            || non_scroll_line_mutation
+                            || destructive_clear_repaint
+                            || (may_scroll_rows && !flash_sensitive_scroll_profile)
+                    };
                     if output_redraw_needed {
                         self.needs_redraw = true;
                     }
@@ -849,8 +1032,9 @@ impl WriterState {
             WriterMessage::UserInputActivity => {
                 let now = Instant::now();
                 self.last_user_input_at = now;
-                if self.terminal_family == TerminalFamily::Cursor
-                    && is_claude_backend()
+                let cursor_claude =
+                    self.terminal_family == TerminalFamily::Cursor && is_claude_backend();
+                if cursor_claude
                     && self.display.overlay_panel.is_none()
                     && (self.display.enhanced_status.is_some()
                         || self.pending.enhanced_status.is_some())
@@ -910,17 +1094,19 @@ impl WriterState {
         const STATUS_MAX_WAIT_MS: u64 = 150;
         const PRIORITY_STATUS_IDLE_MS: u64 = 12;
         const PRIORITY_STATUS_MAX_WAIT_MS: u64 = 40;
+        let now = Instant::now();
         let claude_cursor_debug = claude_hud_debug_enabled()
             && self.terminal_family == TerminalFamily::Cursor
             && is_claude_backend();
         if !self.needs_redraw {
             if let Some(due) = self.cursor_claude_input_repair_due {
-                if self.terminal_family == TerminalFamily::Cursor
-                    && is_claude_backend()
+                let cursor_claude =
+                    self.terminal_family == TerminalFamily::Cursor && is_claude_backend();
+                if cursor_claude
                     && self.display.overlay_panel.is_none()
                     && (self.display.enhanced_status.is_some()
                         || self.pending.enhanced_status.is_some())
-                    && Instant::now() >= due
+                    && now >= due
                 {
                     self.display.force_full_banner_redraw = true;
                     self.force_redraw_after_preclear = true;
@@ -938,7 +1124,6 @@ impl WriterState {
                 return;
             }
         }
-        let now = Instant::now();
         let since_output = now.duration_since(self.last_output_at);
         let since_draw = now.duration_since(self.last_status_draw_at);
         let suppression_transition_pending =
@@ -995,7 +1180,12 @@ impl WriterState {
         // Prioritize explicit status/overlay updates over passive PTY-driven repaints.
         // This keeps settings navigation and meter changes reactive under heavy backend output.
         let priority_update_pending = self.pending.has_any();
-        let idle_ms = if priority_update_pending {
+        let claude_jetbrains_passive_redraw = self.terminal_family == TerminalFamily::JetBrains
+            && is_claude_backend()
+            && !priority_update_pending;
+        let idle_ms = if claude_jetbrains_passive_redraw {
+            CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS
+        } else if priority_update_pending {
             PRIORITY_STATUS_IDLE_MS
         } else {
             STATUS_IDLE_MS
@@ -1006,10 +1196,20 @@ impl WriterState {
             STATUS_MAX_WAIT_MS
         };
 
+        let should_throttle_for_output =
+            if claude_jetbrains_passive_redraw {
+                // JetBrains+Claude can emit bursty chunks with brief gaps; if we
+                // redraw HUD in those gaps, the next scroll chunk can drag HUD
+                // chrome into transcript lines. Require true idle settle.
+                since_output < Duration::from_millis(idle_ms)
+            } else {
+                since_output < Duration::from_millis(idle_ms)
+                    && since_draw < Duration::from_millis(max_wait_ms)
+            };
+
         if !self.force_redraw_after_preclear
             && !suppression_transition_pending
-            && since_output < Duration::from_millis(idle_ms)
-            && since_draw < Duration::from_millis(max_wait_ms)
+            && should_throttle_for_output
         {
             return;
         }
@@ -1123,7 +1323,16 @@ impl WriterState {
             if let Some(panel) = overlay_panel.as_ref() {
                 let _ = write_overlay_panel(stdout, panel, rows, cols);
             } else if let Some(state) = enhanced_status.as_ref() {
-                let banner = format_status_banner(state, theme, cols as usize);
+                let mut render_state = state.clone();
+                if self.terminal_family == TerminalFamily::JetBrains
+                    && is_claude_backend()
+                    && !render_state.claude_prompt_suppressed
+                {
+                    // Keep full HUD lanes for JetBrains+Claude, but remove the
+                    // outer frame to reduce scroll-smeared border artifacts.
+                    render_state.hud_border_style = HudBorderStyle::None;
+                }
+                let banner = format_status_banner(&render_state, theme, cols as usize);
                 let new_anchor_row = if banner.height == 0 || rows == 0 {
                     None
                 } else {
@@ -1158,8 +1367,11 @@ impl WriterState {
                     (*banner_anchor_row, new_anchor_row)
                 {
                     if previous_anchor != next_anchor && *current_banner_height > 0 {
-                        let _ =
-                            clear_status_banner_at(stdout, previous_anchor, *current_banner_height);
+                        let _ = clear_status_banner_at(
+                            stdout,
+                            previous_anchor,
+                            *current_banner_height,
+                        );
                     }
                 }
                 // Avoid full-frame clear on every redraw; only clear when banner shrinks.
@@ -1193,7 +1405,7 @@ impl WriterState {
                 } else {
                     None
                 };
-                let _ = write_status_banner(stdout, &banner, rows, previous_lines);
+                let _ = write_status_banner(stdout, &banner, rows, cols, previous_lines);
                 *current_banner_lines = banner.lines.clone();
                 *force_full_banner_redraw = false;
             } else if let Some(text) = status.as_deref() {
@@ -1379,6 +1591,7 @@ fn pty_output_may_scroll_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::HudBorderStyle;
     use crate::HudStyle;
     use std::env;
     use std::sync::{Mutex, OnceLock};
@@ -1457,6 +1670,8 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
             now,
             now - Duration::from_millis(JETBRAINS_PRECLEAR_COOLDOWN_MS)
         ));
@@ -1475,6 +1690,8 @@ mod tests {
             true,
             &display,
             true,
+            false,
+            false,
             false,
             false,
             false,
@@ -1498,6 +1715,8 @@ mod tests {
             true,
             false,
             false,
+            false,
+            false,
             Instant::now(),
             Instant::now() - Duration::from_millis(JETBRAINS_PRECLEAR_COOLDOWN_MS)
         ));
@@ -1519,9 +1738,63 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
             now,
             now
         ));
+    }
+
+    #[test]
+    fn should_preclear_bottom_rows_jetbrains_claude_requires_safe_cup_chunk() {
+        let display = DisplayState {
+            enhanced_status: Some(StatusLineState::new()),
+            banner_height: 4,
+            preclear_banner_height: 4,
+            ..DisplayState::default()
+        };
+        let now = Instant::now();
+        assert!(!should_preclear_bottom_rows(
+            TerminalFamily::JetBrains,
+            true,
+            &display,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            now,
+            now
+        ));
+        assert!(should_preclear_bottom_rows(
+            TerminalFamily::JetBrains,
+            true,
+            &display,
+            false,
+            false,
+            false,
+            false,
+            true,
+            true,
+            now,
+            now - Duration::from_millis(CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS)
+        ));
+    }
+
+    #[test]
+    fn pty_chunk_starts_with_absolute_cursor_position_requires_early_cup() {
+        assert!(pty_chunk_starts_with_absolute_cursor_position(
+            b"\x1b[?25l\x1b[12;1Hhello"
+        ));
+        assert!(!pty_chunk_starts_with_absolute_cursor_position(
+            b"\x1b7\x1b[2;3H"
+        ));
+        assert!(!pty_chunk_starts_with_absolute_cursor_position(b"hello"));
+        assert!(!pty_chunk_starts_with_absolute_cursor_position(
+            b"\x1b[2Khello"
+        ));
+        assert!(!pty_chunk_starts_with_absolute_cursor_position(b"\rhello"));
     }
 
     #[test]
@@ -1542,6 +1815,8 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
             now,
             now
         ));
@@ -1549,6 +1824,8 @@ mod tests {
             TerminalFamily::Cursor,
             true,
             &display,
+            false,
+            false,
             false,
             false,
             false,
@@ -1570,6 +1847,8 @@ mod tests {
             TerminalFamily::Cursor,
             true,
             &display,
+            false,
+            false,
             false,
             false,
             false,
@@ -1596,6 +1875,8 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
             now,
             now - Duration::from_millis(CURSOR_PRECLEAR_COOLDOWN_MS)
         ));
@@ -1617,6 +1898,8 @@ mod tests {
             false,
             false,
             true,
+            false,
+            false,
             false,
             now,
             now - Duration::from_millis(CURSOR_PRECLEAR_COOLDOWN_MS)
@@ -1642,6 +1925,8 @@ mod tests {
             false,
             false,
             true,
+            false,
+            false,
             now,
             now
         ));
@@ -1684,6 +1969,8 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
             now,
             now - Duration::from_millis(CURSOR_PRECLEAR_COOLDOWN_MS)
         ));
@@ -1700,6 +1987,8 @@ mod tests {
             TerminalFamily::Other,
             true,
             &display,
+            false,
+            false,
             false,
             false,
             false,
@@ -1913,6 +2202,22 @@ mod tests {
     }
 
     #[test]
+    fn user_input_activity_does_not_schedule_repair_for_jetbrains_claude() {
+        with_backend_label_env(Some("claude"), || {
+            let mut state = WriterState::new();
+            state.terminal_family = TerminalFamily::JetBrains;
+            state.rows = 24;
+            state.cols = 120;
+            state.display.enhanced_status = Some(StatusLineState::new());
+            assert!(state.handle_message(WriterMessage::UserInputActivity));
+            assert!(
+                state.cursor_claude_input_repair_due.is_none(),
+                "JetBrains+Claude should avoid cursor repair timers that can redraw into active output bursts"
+            );
+        });
+    }
+
+    #[test]
     fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
         with_backend_label_env(Some("claude"), || {
             let mut state = WriterState::new();
@@ -1948,6 +2253,69 @@ mod tests {
             assert!(
                 state.cursor_claude_input_repair_due.is_some(),
                 "future repair deadline should survive unrelated redraws"
+            );
+        });
+    }
+
+    #[test]
+    fn maybe_redraw_status_jetbrains_claude_requires_idle_settle_for_passive_redraw() {
+        with_backend_label_env(Some("claude"), || {
+            let mut state = WriterState::new();
+            state.terminal_family = TerminalFamily::JetBrains;
+            state.rows = 24;
+            state.cols = 120;
+            state.display.enhanced_status = Some(StatusLineState::new());
+            state.needs_redraw = true;
+            state.last_output_at = Instant::now()
+                - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS / 2);
+            state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+
+            state.maybe_redraw_status();
+            assert!(
+                state.needs_redraw,
+                "passive JetBrains+Claude redraw should wait until output has been idle long enough"
+            );
+
+            state.last_output_at =
+                Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS + 20);
+            state.maybe_redraw_status();
+            assert!(
+                !state.needs_redraw,
+                "once output settles, passive JetBrains+Claude redraw should proceed"
+            );
+        });
+    }
+
+    #[test]
+    fn jetbrains_claude_keeps_full_hud_content_but_forces_borderless_frame() {
+        with_backend_label_env(Some("claude"), || {
+            let mut state = WriterState::new();
+            state.terminal_family = TerminalFamily::JetBrains;
+            state.rows = 24;
+            state.cols = 120;
+            state.last_output_at = Instant::now() - Duration::from_millis(1_000);
+            state.last_status_draw_at = Instant::now() - Duration::from_millis(1_000);
+
+            let mut next = StatusLineState::new();
+            next.hud_style = HudStyle::Full;
+            next.hud_border_style = HudBorderStyle::Single;
+            next.claude_prompt_suppressed = false;
+            next.message = "Ready".to_string();
+
+            assert!(state.handle_message(WriterMessage::EnhancedStatus(next)));
+            assert_eq!(
+                state.display.banner_height, 4,
+                "JetBrains+Claude should keep full HUD row count"
+            );
+            assert_eq!(state.display.banner_lines.len(), 4);
+            assert!(
+                state.display.banner_lines[0].trim().is_empty(),
+                "top row should be borderless filler"
+            );
+            assert!(
+                state.display.banner_lines[2].contains("rec")
+                    && state.display.banner_lines[2].contains("studio"),
+                "shortcuts row should remain visible in full HUD mode"
             );
         });
     }

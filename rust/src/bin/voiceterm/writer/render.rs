@@ -21,6 +21,12 @@ pub(super) enum TerminalFamily {
 // survives hosts that only implement one variant.
 const SAVE_CURSOR_COMBINED: &[u8] = b"\x1b[s\x1b7";
 const RESTORE_CURSOR_COMBINED: &[u8] = b"\x1b[u\x1b8";
+// DEC-only variants for JetBrains/JediTerm.  JediTerm does NOT implement
+// CSI s / CSI u (ANSI cursor save/restore) — only DEC DECSC/DECRC
+// (\x1b7 / \x1b8) is supported.  Sending unsupported ANSI sequences
+// before DEC can cause JediTerm to misparse the stream, leaving the
+// cursor stuck in the HUD area.  Scroll regions are disabled for
+// JetBrains, so DEC restore resetting scroll margins is a non-issue.
 const SAVE_CURSOR_DEC: &[u8] = b"\x1b7";
 const RESTORE_CURSOR_DEC: &[u8] = b"\x1b8";
 const WRAP_DISABLE: &[u8] = b"\x1b[?7l";
@@ -98,15 +104,13 @@ pub(super) fn terminal_family() -> TerminalFamily {
     *TERMINAL_FAMILY.get_or_init(detect_terminal_family)
 }
 
-pub(super) fn is_jetbrains_terminal() -> bool {
-    terminal_family() == TerminalFamily::JetBrains
-}
-
 fn save_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
     match family {
+        // JetBrains/JediTerm only supports DEC DECSC (\x1b7).  CSI s is
+        // not implemented and sending it can cause parse confusion.
+        // Scroll regions are disabled for JetBrains, so DEC restore
+        // resetting margins is a non-issue.
         TerminalFamily::JetBrains => SAVE_CURSOR_DEC,
-        // Cursor-integrated terminals vary across host shells; combined save/restore
-        // is the most resilient path across ANSI/DEC implementations.
         TerminalFamily::Cursor | TerminalFamily::Other => SAVE_CURSOR_COMBINED,
     }
 }
@@ -118,53 +122,48 @@ fn restore_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
     }
 }
 
-fn save_cursor_sequence() -> &'static [u8] {
-    save_cursor_sequence_for_family(terminal_family())
-}
-
-fn restore_cursor_sequence() -> &'static [u8] {
-    restore_cursor_sequence_for_family(terminal_family())
-}
-
 fn should_disable_autowrap_during_redraw() -> bool {
-    is_jetbrains_terminal()
+    false
 }
 
 fn should_hide_cursor_during_redraw_for_family(family: TerminalFamily) -> bool {
-    // Only hide/show cursor on JetBrains.  On other terminals (especially
-    // when wrapping Claude Code), the CURSOR_SHOW at the end of every redraw
-    // conflicts with the backend's own cursor management — forcing the block
-    // cursor visible when Claude has intentionally hidden it, producing a
-    // flickering white block on every keystroke.  Synchronized-output mode
-    // 2026 (SYNC_BEGIN/SYNC_END) handles flicker prevention without touching
-    // cursor visibility state.
-    matches!(family, TerminalFamily::JetBrains)
-}
-
-fn should_hide_cursor_during_redraw() -> bool {
-    should_hide_cursor_during_redraw_for_family(terminal_family())
+    // Keep cursor visibility untouched on all families. In JetBrains, forcing
+    // hide/show around HUD redraws can leave the input caret missing when a
+    // restore sequence is dropped under rapid refresh.
+    let _ = family;
+    false
 }
 
 fn push_cursor_prefix(sequence: &mut Vec<u8>) {
-    sequence.extend_from_slice(SYNC_BEGIN);
-    sequence.extend_from_slice(save_cursor_sequence());
-    if should_disable_autowrap_during_redraw() {
-        sequence.extend_from_slice(WRAP_DISABLE);
+    let family = terminal_family();
+    if family != TerminalFamily::JetBrains {
+        sequence.extend_from_slice(SYNC_BEGIN);
     }
-    if should_hide_cursor_during_redraw() {
-        sequence.extend_from_slice(CURSOR_HIDE);
+    sequence.extend_from_slice(save_cursor_sequence_for_family(family));
+    if family != TerminalFamily::JetBrains {
+        if should_disable_autowrap_during_redraw() {
+            sequence.extend_from_slice(WRAP_DISABLE);
+        }
+        if should_hide_cursor_during_redraw_for_family(family) {
+            sequence.extend_from_slice(CURSOR_HIDE);
+        }
     }
 }
 
 fn push_cursor_suffix(sequence: &mut Vec<u8>) {
-    if should_disable_autowrap_during_redraw() {
-        sequence.extend_from_slice(WRAP_ENABLE);
+    let family = terminal_family();
+    if family != TerminalFamily::JetBrains {
+        if should_disable_autowrap_during_redraw() {
+            sequence.extend_from_slice(WRAP_ENABLE);
+        }
+        if should_hide_cursor_during_redraw_for_family(family) {
+            sequence.extend_from_slice(CURSOR_SHOW);
+        }
     }
-    sequence.extend_from_slice(restore_cursor_sequence());
-    if should_hide_cursor_during_redraw() {
-        sequence.extend_from_slice(CURSOR_SHOW);
+    sequence.extend_from_slice(restore_cursor_sequence_for_family(family));
+    if family != TerminalFamily::JetBrains {
+        sequence.extend_from_slice(SYNC_END);
     }
-    sequence.extend_from_slice(SYNC_END);
 }
 
 pub(super) fn write_status_line(
@@ -204,13 +203,15 @@ pub(super) fn write_status_banner(
     stdout: &mut dyn Write,
     banner: &StatusBanner,
     rows: u16,
+    cols: u16,
     previous_lines: Option<&[String]>,
 ) -> io::Result<()> {
-    if rows == 0 || banner.height == 0 {
+    if rows == 0 || cols == 0 || banner.height == 0 {
         return Ok(());
     }
     let height = banner.height.min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
+    let row_max_width = banner_row_max_render_width(terminal_family(), height, cols);
 
     let mut sequence = Vec::new();
     let mut any_changed = false;
@@ -228,7 +229,8 @@ pub(super) fn write_status_banner(
         }
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
-        sequence.extend_from_slice(line.as_bytes()); // Write content
+        let rendered = truncate_ansi_line(line, row_max_width);
+        sequence.extend_from_slice(rendered.as_bytes()); // Write content
         sequence.extend_from_slice(b"\x1b[K"); // Clear any trailing stale content
     }
 
@@ -244,13 +246,35 @@ pub(super) fn write_status_banner(
     // bar.  The paired reset lives in clear_status_banner().  DO NOT remove
     // either side without removing the other — mismatched scroll regions break
     // terminal output.
-    let scroll_bottom = rows.saturating_sub(height as u16);
-    if scroll_bottom >= 1 {
-        sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
+    //
+    // EXCEPTION: JetBrains/JediTerm does NOT support scroll regions correctly.
+    // Setting DECSTBM causes stacked/duplicated HUD frames and garbled approval
+    // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
+    // is sufficient for JetBrains — skip the scroll region there.
+    if terminal_family() != TerminalFamily::JetBrains {
+        let scroll_bottom = rows.saturating_sub(height as u16);
+        if scroll_bottom >= 1 {
+            sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
+        }
     }
 
     push_cursor_suffix(&mut sequence);
+
     stdout.write_all(&sequence)
+}
+
+fn banner_row_max_render_width(family: TerminalFamily, banner_height: usize, cols: u16) -> usize {
+    let cols = cols as usize;
+    if cols == 0 {
+        return 0;
+    }
+    if family == TerminalFamily::JetBrains && banner_height <= 1 {
+        // JetBrains can still auto-wrap single-row HUD strips under rapid redraw.
+        // Keep a one-column safety margin so status refreshes cannot scroll-stretch.
+        cols.saturating_sub(1).max(1)
+    } else {
+        cols
+    }
 }
 
 /// Build escape bytes that clear the bottom `height` rows of the terminal.
@@ -272,6 +296,27 @@ pub(super) fn build_clear_bottom_rows_bytes(rows: u16, height: usize) -> Vec<u8>
         sequence.extend_from_slice(b"\x1b[2K");
     }
     push_cursor_suffix(&mut sequence);
+    sequence
+}
+
+/// Build bottom-row clear bytes without cursor save/restore.
+///
+/// JetBrains+Claude uses DEC save/restore (`\x1b7`/`\x1b8`) internally for its
+/// own UI; using the same slot in VoiceTerm pre-clear can corrupt Claude's
+/// cursor state. This variant is CUP-only and should only be used when the
+/// following PTY chunk starts with an absolute cursor-positioning sequence.
+pub(super) fn build_clear_bottom_rows_cup_only_bytes(rows: u16, height: usize) -> Vec<u8> {
+    if rows == 0 || height == 0 {
+        return Vec::new();
+    }
+    let clear_height = height.min(rows as usize);
+    let start_row = rows.saturating_sub(clear_height as u16).saturating_add(1);
+    let mut sequence = Vec::new();
+    for idx in 0..clear_height {
+        let row = start_row + idx as u16;
+        sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(b"\x1b[2K");
+    }
     sequence
 }
 
@@ -302,7 +347,10 @@ pub(super) fn clear_status_banner(
     // now that the HUD is removed.  This is the paired reset for the scroll
     // region set in write_status_banner().  DO NOT remove — without this reset,
     // the terminal stays locked to a smaller scroll area after the HUD clears.
-    sequence.extend_from_slice(format!("\x1b[1;{rows}r").as_bytes());
+    // Skipped on JetBrains/JediTerm (see write_status_banner for rationale).
+    if terminal_family() != TerminalFamily::JetBrains {
+        sequence.extend_from_slice(format!("\x1b[1;{rows}r").as_bytes());
+    }
 
     push_cursor_suffix(&mut sequence);
     stdout.write_all(&sequence)
@@ -512,8 +560,20 @@ mod tests {
     }
 
     #[test]
-    fn cursor_hide_policy_is_jetbrains_only() {
-        assert!(should_hide_cursor_during_redraw_for_family(
+    fn jetbrains_terminal_uses_dec_only_cursor_save_restore_sequences() {
+        assert_eq!(
+            save_cursor_sequence_for_family(TerminalFamily::JetBrains),
+            SAVE_CURSOR_DEC
+        );
+        assert_eq!(
+            restore_cursor_sequence_for_family(TerminalFamily::JetBrains),
+            RESTORE_CURSOR_DEC
+        );
+    }
+
+    #[test]
+    fn cursor_hide_policy_keeps_visibility_unchanged_for_all_terminals() {
+        assert!(!should_hide_cursor_during_redraw_for_family(
             TerminalFamily::JetBrains
         ));
         assert!(!should_hide_cursor_during_redraw_for_family(
@@ -534,7 +594,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[21;1H"));
         assert!(output.contains("\u{1b}[K"));
@@ -545,7 +605,7 @@ mod tests {
         let mut buf = Vec::new();
         let banner = StatusBanner::new(vec!["minimal hud".to_string()]);
 
-        write_status_banner(&mut buf, &banner, 24, None).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[24;1H"));
         assert!(output.contains("\u{1b}[K"));
@@ -578,7 +638,7 @@ mod tests {
             "bottom".to_string(),
         ]);
 
-        write_status_banner(&mut buf, &banner, 24, Some(&previous)).unwrap();
+        write_status_banner(&mut buf, &banner, 24, 80, Some(&previous)).unwrap();
         let output = String::from_utf8_lossy(&buf);
 
         // Only row 22 (the main row in a 4-line banner at 24 rows) should redraw.
@@ -586,5 +646,33 @@ mod tests {
         assert!(!output.contains("\u{1b}[21;1H"));
         assert!(!output.contains("\u{1b}[23;1H"));
         assert!(!output.contains("\u{1b}[24;1H"));
+    }
+
+    #[test]
+    fn banner_row_max_render_width_applies_jetbrains_single_row_safety_margin() {
+        assert_eq!(
+            banner_row_max_render_width(TerminalFamily::JetBrains, 1, 80),
+            79
+        );
+        assert_eq!(
+            banner_row_max_render_width(TerminalFamily::JetBrains, 4, 80),
+            80
+        );
+        assert_eq!(
+            banner_row_max_render_width(TerminalFamily::Cursor, 1, 80),
+            80
+        );
+    }
+
+    #[test]
+    fn cup_only_bottom_clear_avoids_cursor_save_restore_sequences() {
+        let output = build_clear_bottom_rows_cup_only_bytes(24, 2);
+        let rendered = String::from_utf8_lossy(&output);
+        assert!(rendered.contains("\u{1b}[23;1H"));
+        assert!(rendered.contains("\u{1b}[24;1H"));
+        assert!(!rendered.contains("\u{1b}[s"));
+        assert!(!rendered.contains("\u{1b}[u"));
+        assert!(!rendered.contains("\u{1b}7"));
+        assert!(!rendered.contains("\u{1b}8"));
     }
 }

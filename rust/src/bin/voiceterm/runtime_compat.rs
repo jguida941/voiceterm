@@ -11,7 +11,11 @@ use std::env;
 // benefits from extra bottom spacing so composer/prompt rows stay above HUD.
 const CLAUDE_EXTRA_GAP_ROWS_DEFAULT: usize = 5;
 const CLAUDE_EXTRA_GAP_ROWS_CURSOR: usize = 12;
-const CLAUDE_EXTRA_GAP_ROWS_JETBRAINS: usize = 0;
+// JetBrains HUD overlap buffer: JediTerm does not support DECSTBM scroll
+// regions, so the only separation between Claude's prompt and the HUD is the
+// reserved-row subtraction.  1 row provides a minimal buffer zone without
+// stealing too much viewport from Claude's TUI at startup.
+const CLAUDE_EXTRA_GAP_ROWS_JETBRAINS: usize = 1;
 const CLAUDE_EXTRA_GAP_ROWS_MAX: usize = 20;
 const HUD_SAFETY_GAP_ROWS_DEFAULT: usize = 0;
 const HUD_SAFETY_GAP_ROWS_CURSOR: usize = 0;
