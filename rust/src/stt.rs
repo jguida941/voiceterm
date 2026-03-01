@@ -40,7 +40,9 @@ mod platform {
     use anyhow::{Context, Result};
     use std::os::raw::{c_char, c_uint, c_void};
     use std::sync::Once;
-    use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+    use whisper_rs::{
+        FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
+    };
 
     /// Whisper model context for speech-to-text transcription.
     ///
@@ -48,6 +50,7 @@ mod platform {
     /// for all transcription requests to avoid repeated model loading.
     pub struct Transcriber {
         ctx: WhisperContext,
+        state: Option<WhisperState>,
     }
 
     impl Transcriber {
@@ -64,20 +67,30 @@ mod platform {
             let ctx =
                 WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
                     .context("failed to load whisper model")?;
-            Ok(Self { ctx })
+            Ok(Self { ctx, state: None })
+        }
+
+        fn state_mut(&mut self) -> Result<&mut WhisperState> {
+            if self.state.is_none() {
+                self.state = Some(
+                    self.ctx
+                        .create_state()
+                        .context("failed to create whisper state")?,
+                );
+            }
+            self.state
+                .as_mut()
+                .context("whisper state should exist after initialization")
         }
 
         /// Run transcription for the captured PCM samples and return the concatenated text.
         ///
         /// # Errors
         ///
-        /// Returns an error if Whisper state allocation fails, decoding fails, or
-        /// inference cannot complete for the provided samples.
-        pub fn transcribe(&self, samples: &[f32], config: &AppConfig) -> Result<String> {
-            let mut state = self
-                .ctx
-                .create_state()
-                .context("failed to create whisper state")?;
+        /// Returns an error if Whisper state initialization fails, decoding
+        /// fails, or inference cannot complete for the provided samples.
+        pub fn transcribe(&mut self, samples: &[f32], config: &AppConfig) -> Result<String> {
+            let state = self.state_mut()?;
             let beam_size = i32::try_from(config.whisper_beam_size).unwrap_or(1);
             let mut params = if config.whisper_beam_size > 1 {
                 FullParams::new(SamplingStrategy::BeamSearch {
@@ -108,6 +121,9 @@ mod platform {
             params.set_print_special(false);
             params.set_print_realtime(false);
             params.set_translate(false);
+            // We only need raw text for command prompts; skipping timestamp decoding
+            // trims inference work and lowers end-to-end transcript latency.
+            params.set_no_timestamps(true);
             params.set_token_timestamps(false);
             state.full(params, samples)?;
             let mut transcript = String::new();
@@ -178,7 +194,7 @@ mod platform {
         /// # Errors
         ///
         /// Always returns an error because this target does not support Whisper.
-        pub fn transcribe(&self, _: &[f32], _: &AppConfig) -> Result<String> {
+        pub fn transcribe(&mut self, _: &[f32], _: &AppConfig) -> Result<String> {
             Err(anyhow!(
                 "Whisper transcription is currently supported only on Unix-like platforms"
             ))

@@ -121,7 +121,7 @@ Simple flow:
 | `Ctrl+H` | Open history (`mic`/`you`/`ai`) |
 | `Ctrl+N` | Open notifications history |
 | `Ctrl+O` | Open settings |
-| `Ctrl+D` | Toggle Dev panel (`--dev` only) |
+| `Ctrl+D` | Toggle Dev panel (`--dev` only; otherwise EOF goes to backend CLI) |
 | `Ctrl+Y` | Open Theme Studio |
 | `Ctrl+U` | Cycle HUD style (Full -> Minimal -> Hidden) |
 | `?` | Open shortcut help overlay |
@@ -232,11 +232,15 @@ What you get:
 - Default launch stays unchanged when the flag is not present.
 - Full HUD shows `DEV` when guard mode is active.
 - `Ctrl+D` toggles the in-session Dev panel.
+- Without `--dev`, `Ctrl+D` is forwarded as EOF (`0x04`) to the backend CLI and may close/exit that session.
 - The panel shows live counters plus `Dev Tools` commands (`status`, `report`, `triage`, `security`, `sync`) through an allowlisted async broker.
 - `sync` is mutating and requires a second `Enter` confirmation before it runs.
 - `--dev-log` writes per-session JSONL event logs to `<dev-path>/sessions/`.
 - `--dev-path` requires `--dev --dev-log`.
 - Mutating commands like `sync` require explicit confirmation before execution.
+
+Detailed Dev panel command guide:
+[DEV_MODE.md](DEV_MODE.md)
 
 ## Transcript History
 

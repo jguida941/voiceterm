@@ -22,7 +22,7 @@ pub(super) fn handle_output_chunk(
     }
     let now = Instant::now();
     if !data.is_empty() {
-        state.suppress_startup_escape_input = false;
+        state.ui.suppress_startup_escape_input = false;
         state.transcript_history.ingest_backend_output_bytes(&data);
         if let Some(logger) = state.session_memory_logger.as_mut() {
             logger.record_backend_output_bytes(&data);
@@ -32,23 +32,13 @@ pub(super) fn handle_output_chunk(
             ingestor.ingest_assistant_output(text.as_ref());
         }
     }
-    state.prompt_tracker.feed_output(&data);
-    // Feed PTY output to Claude prompt detector for HUD occlusion prevention.
-    if state.claude_prompt_detector.feed_output(&data) {
-        // A new interactive prompt was just detected; suppress HUD and free row budget.
-        set_claude_prompt_suppression(state, deps, true);
-    } else if state.status_state.claude_prompt_suppressed
-        && !state.claude_prompt_detector.should_suppress_hud()
-    {
-        // Suppression expired (timeout); restore HUD and normal row reservation.
-        set_claude_prompt_suppression(state, deps, false);
-    }
+    feed_prompt_output_and_sync(state, timers, deps, now, &data);
     // Avoid a one-frame "Responding -> Idle" flash on the first echoed bytes after send.
     // Only leave Responding when prompt/idle heuristics report the turn is actually ready.
     if !data.is_empty()
         && state.status_state.recording_state == RecordingState::Responding
         && crate::transcript::transcript_ready(
-            &state.prompt_tracker,
+            &state.prompt.tracker,
             timers.last_enter_at,
             now,
             deps.transcript_idle_timeout,
@@ -59,8 +49,8 @@ pub(super) fn handle_output_chunk(
             &deps.writer_tx,
             &deps.button_registry,
             &state.status_state,
-            state.overlay_mode,
-            state.terminal_cols,
+            state.ui.overlay_mode,
+            state.ui.terminal_cols,
             state.theme,
         );
     }
@@ -74,7 +64,7 @@ pub(super) fn handle_output_chunk(
         };
         try_flush_pending(
             &mut state.pending_transcripts,
-            &state.prompt_tracker,
+            &state.prompt.tracker,
             &mut timers.last_enter_at,
             &mut io,
             now,
@@ -84,7 +74,7 @@ pub(super) fn handle_output_chunk(
     match deps.writer_tx.try_send(WriterMessage::PtyOutput(data)) {
         Ok(()) => {}
         Err(TrySendError::Full(WriterMessage::PtyOutput(bytes))) => {
-            state.pending_pty_output = Some(bytes);
+            state.pty_buffer.pending_output = Some(bytes);
         }
         Err(TrySendError::Full(_)) => {
             log_debug("writer queue returned unexpected message variant for PTY output");
@@ -94,7 +84,7 @@ pub(super) fn handle_output_chunk(
         }
     }
     drain_voice_messages_once(state, timers, deps, now);
-    if output_disconnected && state.pending_pty_output.is_none() {
+    if output_disconnected && state.pty_buffer.pending_output.is_none() {
         *running = false;
     }
 }

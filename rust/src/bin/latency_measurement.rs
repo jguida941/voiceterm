@@ -309,7 +309,7 @@ fn measure_synthetic_run(
     let transcript = if synthetic_cfg.skip_stt {
         String::new()
     } else if let Some(transcriber) = transcriber {
-        let guard = transcriber
+        let mut guard = transcriber
             .lock()
             .map_err(|_| anyhow!("transcriber lock poisoned"))?;
         guard.transcribe(&capture.audio, config)?

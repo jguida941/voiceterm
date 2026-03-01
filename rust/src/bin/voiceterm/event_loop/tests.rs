@@ -14,6 +14,10 @@ use crate::dev_command::{
     DevCommandCompletion, DevCommandKind, DevCommandStatus, DevPanelCommandState, DevTerminalPacket,
 };
 use crate::dev_panel::dev_panel_height;
+use crate::event_state::{
+    PromptRuntimeState, PtyBufferState, SettingsRuntimeState, ThemeStudioRuntimeState,
+    UiRuntimeState,
+};
 use crate::memory::{MemoryIngestor, MemoryMode};
 use crate::prompt::{PromptLogger, PromptTracker};
 use crate::session_stats::SessionStats;
@@ -40,6 +44,19 @@ thread_local! {
     static CANCEL_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
     static WAKE_CAPTURE_LOG_CALLS: Cell<usize> = const { Cell::new(0) };
     static DRAIN_CALLS: Cell<usize> = const { Cell::new(0) };
+}
+
+struct PromptRollingOverrideGuard;
+
+impl Drop for PromptRollingOverrideGuard {
+    fn drop(&mut self) {
+        super::prompt_occlusion::set_test_rolling_detector_override(None);
+    }
+}
+
+fn install_prompt_rolling_override(enabled: bool) -> PromptRollingOverrideGuard {
+    super::prompt_occlusion::set_test_rolling_detector_override(Some(enabled));
+    PromptRollingOverrideGuard
 }
 
 struct TrySendHookGuard;
@@ -234,6 +251,14 @@ fn hook_terminal_size_80x24() -> io::Result<(u16, u16)> {
     Ok((80, 24))
 }
 
+fn hook_terminal_size_100x30() -> io::Result<(u16, u16)> {
+    Ok((100, 30))
+}
+
+fn hook_terminal_size_0x0() -> io::Result<(u16, u16)> {
+    Ok((0, 0))
+}
+
 fn hook_start_capture_count(
     _: &mut crate::voice_control::VoiceManager,
     trigger: VoiceCaptureTrigger,
@@ -333,42 +358,56 @@ fn build_harness(
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
         theme,
-        overlay_mode: OverlayMode::None,
-        settings_menu: SettingsMenuState::new(),
+        ui: UiRuntimeState {
+            overlay_mode: OverlayMode::None,
+            terminal_rows: 24,
+            terminal_cols: 80,
+            suppress_startup_escape_input: false,
+        },
+        settings: SettingsRuntimeState {
+            menu: SettingsMenuState::new(),
+        },
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
-        theme_studio_selected: 0,
-        theme_studio_page: crate::theme_studio::StudioPage::Home,
-        theme_studio_colors_editor: None,
-        theme_studio_borders_page: crate::theme_studio::BordersPageState::new(),
-        theme_studio_components_editor: crate::theme_studio::ComponentsEditorState::new(),
-        theme_studio_preview_page: crate::theme_studio::PreviewPageState::new(),
-        theme_studio_export_page: crate::theme_studio::ExportPageState::new(),
-        theme_studio_undo_history: Vec::new(),
-        theme_studio_redo_history: Vec::new(),
-        theme_picker_selected: theme_index_from_theme(theme),
-        theme_picker_digits: String::new(),
+        theme_studio: ThemeStudioRuntimeState {
+            selected: 0,
+            page: crate::theme_studio::StudioPage::Home,
+            colors_editor: None,
+            borders_page: crate::theme_studio::BordersPageState::new(),
+            components_editor: crate::theme_studio::ComponentsEditorState::new(),
+            preview_page: crate::theme_studio::PreviewPageState::new(),
+            export_page: crate::theme_studio::ExportPageState::new(),
+            undo_history: Vec::new(),
+            redo_history: Vec::new(),
+            picker_selected: theme_index_from_theme(theme),
+            picker_digits: String::new(),
+        },
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
         dev_mode_stats: None,
         dev_event_logger: None,
         dev_panel_commands: DevPanelCommandState::default(),
-        prompt_tracker,
-        terminal_rows: 24,
-        terminal_cols: 80,
+        prompt: PromptRuntimeState {
+            tracker: prompt_tracker,
+            occlusion_detector: crate::prompt::ClaudePromptDetector::new(false),
+            non_rolling_approval_window: VecDeque::with_capacity(1024),
+            non_rolling_approval_window_last_update: None,
+            non_rolling_release_armed: false,
+            non_rolling_sticky_hold_until: None,
+        },
         last_recording_duration: 0.0,
         meter_floor_started_at: None,
         processing_spinner_index: 0,
-        pending_pty_output: None,
-        pending_pty_input: VecDeque::new(),
-        pending_pty_input_offset: 0,
-        pending_pty_input_bytes: 0,
-        suppress_startup_escape_input: false,
+        pty_buffer: PtyBufferState {
+            pending_output: None,
+            pending_input: VecDeque::new(),
+            pending_input_offset: 0,
+            pending_input_bytes: 0,
+        },
         force_send_on_next_transcript: false,
         transcript_history: crate::transcript_history::TranscriptHistory::new(),
         transcript_history_state: crate::transcript_history::TranscriptHistoryState::new(),
         session_memory_logger: None,
-        claude_prompt_detector: crate::prompt::ClaudePromptDetector::new(false),
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor: None,
@@ -380,6 +419,7 @@ fn build_harness(
         theme_picker_digit_deadline: None,
         status_clear_deadline: None,
         preview_clear_deadline: None,
+        prompt_suppression_release_not_before: None,
         last_auto_trigger_at: None,
         last_enter_at: None,
         recording_started_at: None,
@@ -390,6 +430,7 @@ fn build_harness(
         last_wake_hud_tick: now,
         last_toast_tick: now,
         last_theme_file_poll: now,
+        last_terminal_geometry_poll: now,
     };
 
     let deps = EventLoopDeps {
@@ -416,6 +457,7 @@ fn build_harness(
 
 fn settings_overlay_row_y(state: &EventLoopState, item: SettingsItem) -> u16 {
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(settings_overlay_height() as u16)
         .saturating_add(1);
@@ -431,14 +473,14 @@ fn settings_overlay_row_y(state: &EventLoopState, item: SettingsItem) -> u16 {
 }
 
 fn centered_overlay_click_x(state: &EventLoopState) -> u16 {
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
     u16::try_from(centered_left.saturating_add(2)).expect("overlay x fits in u16")
 }
 
 fn centered_settings_overlay_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
     let x = centered_left.saturating_add(rel_x).saturating_sub(1);
@@ -456,6 +498,7 @@ fn settings_slider_click_x(state: &EventLoopState, slider_offset: usize) -> u16 
 fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
     let overlay_height = settings_overlay_height() as u16;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(overlay_height)
         .saturating_add(1);
@@ -463,7 +506,7 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
         .saturating_add(overlay_height.saturating_sub(1))
         .saturating_sub(1);
 
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);
     let inner_width = settings_overlay_inner_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
@@ -492,6 +535,7 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
 
 fn theme_picker_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(theme_picker_height() as u16)
         .saturating_add(1);
@@ -502,7 +546,7 @@ fn theme_picker_overlay_row_y(state: &EventLoopState, option_index: usize) -> u1
 }
 
 fn centered_theme_picker_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = theme_picker_total_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
     let x = centered_left.saturating_add(rel_x).saturating_sub(1);
@@ -511,6 +555,7 @@ fn centered_theme_picker_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize)
 
 fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u16 {
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(theme_studio_height() as u16)
         .saturating_add(1);
@@ -521,7 +566,7 @@ fn theme_studio_overlay_row_y(state: &EventLoopState, option_index: usize) -> u1
 }
 
 fn centered_theme_studio_rel_x_to_screen_x(state: &EventLoopState, rel_x: usize) -> u16 {
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = theme_studio_total_width_for_terminal(cols);
     let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
     let x = centered_left.saturating_add(rel_x).saturating_sub(1);
@@ -541,6 +586,7 @@ fn hud_button_click_coords(
         .expect("button should be registered");
     let x = button.start_x + (button.end_x.saturating_sub(button.start_x) / 2);
     let y = state
+        .ui
         .terminal_rows
         .saturating_sub(button.y)
         .saturating_add(1);
@@ -559,21 +605,21 @@ fn flush_pending_pty_output_requeues_when_writer_is_full() {
     deps.writer_tx
         .try_send(WriterMessage::ClearStatus)
         .expect("fill bounded writer channel");
-    state.pending_pty_output = Some(vec![1, 2, 3]);
+    state.pty_buffer.pending_output = Some(vec![1, 2, 3]);
 
     assert!(!flush_pending_pty_output(&mut state, &deps));
-    assert_eq!(state.pending_pty_output, Some(vec![1, 2, 3]));
+    assert_eq!(state.pty_buffer.pending_output, Some(vec![1, 2, 3]));
 }
 
 #[test]
 fn flush_pending_pty_output_returns_false_when_writer_is_disconnected() {
     let (mut state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     drop(writer_rx);
-    state.pending_pty_output = Some(vec![9, 8, 7]);
+    state.pty_buffer.pending_output = Some(vec![9, 8, 7]);
 
     assert!(!flush_pending_pty_output(&mut state, &deps));
     assert!(
-        state.pending_pty_output.is_none(),
+        state.pty_buffer.pending_output.is_none(),
         "disconnected writes should not keep stale pending output"
     );
 }
@@ -581,26 +627,26 @@ fn flush_pending_pty_output_returns_false_when_writer_is_disconnected() {
 #[test]
 fn flush_pending_pty_input_empty_queue_resets_counters() {
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input_offset = 3;
-    state.pending_pty_input_bytes = 9;
+    state.pty_buffer.pending_input_offset = 3;
+    state.pty_buffer.pending_input_bytes = 9;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
-    assert_eq!(state.pending_pty_input_offset, 0);
-    assert_eq!(state.pending_pty_input_bytes, 0);
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 0);
 }
 
 #[test]
 fn flush_pending_pty_input_pops_front_when_offset_reaches_chunk_end() {
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(vec![1, 2]);
-    state.pending_pty_input.push_back(vec![3]);
-    state.pending_pty_input_offset = 2;
-    state.pending_pty_input_bytes = 1;
+    state.pty_buffer.pending_input.push_back(vec![1, 2]);
+    state.pty_buffer.pending_input.push_back(vec![3]);
+    state.pty_buffer.pending_input_offset = 2;
+    state.pty_buffer.pending_input_bytes = 1;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
-    assert!(state.pending_pty_input.is_empty());
-    assert_eq!(state.pending_pty_input_offset, 0);
-    assert_eq!(state.pending_pty_input_bytes, 0);
+    assert!(state.pty_buffer.pending_input.is_empty());
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 0);
 }
 
 #[test]
@@ -613,34 +659,34 @@ fn event_loop_constants_match_expected_limits() {
 fn flush_pending_pty_input_treats_would_block_as_retryable() {
     let _hook = install_try_send_hook(hook_would_block);
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(vec![1, 2, 3]);
-    state.pending_pty_input_bytes = 3;
+    state.pty_buffer.pending_input.push_back(vec![1, 2, 3]);
+    state.pty_buffer.pending_input_bytes = 3;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
-    assert_eq!(state.pending_pty_input_offset, 0);
-    assert_eq!(state.pending_pty_input_bytes, 3);
-    assert_eq!(state.pending_pty_input.len(), 1);
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 3);
+    assert_eq!(state.pty_buffer.pending_input.len(), 1);
 }
 
 #[test]
 fn flush_pending_pty_input_treats_interrupted_as_retryable() {
     let _hook = install_try_send_hook(hook_interrupted);
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(vec![7, 8]);
-    state.pending_pty_input_bytes = 2;
+    state.pty_buffer.pending_input.push_back(vec![7, 8]);
+    state.pty_buffer.pending_input_bytes = 2;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
-    assert_eq!(state.pending_pty_input_offset, 0);
-    assert_eq!(state.pending_pty_input_bytes, 2);
-    assert_eq!(state.pending_pty_input.len(), 1);
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 2);
+    assert_eq!(state.pty_buffer.pending_input.len(), 1);
 }
 
 #[test]
 fn flush_pending_pty_input_returns_false_for_non_retry_errors() {
     let _hook = install_try_send_hook(hook_broken_pipe);
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(vec![7, 8]);
-    state.pending_pty_input_bytes = 2;
+    state.pty_buffer.pending_input.push_back(vec![7, 8]);
+    state.pty_buffer.pending_input_bytes = 2;
 
     assert!(!flush_pending_pty_input(&mut state, &mut deps));
 }
@@ -649,12 +695,12 @@ fn flush_pending_pty_input_returns_false_for_non_retry_errors() {
 fn flush_pending_pty_input_does_not_write_empty_slice_when_offset_is_at_chunk_end() {
     let _hook = install_try_send_hook(hook_non_empty_full_write);
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(vec![1, 2]);
-    state.pending_pty_input_offset = 2;
-    state.pending_pty_input_bytes = 0;
+    state.pty_buffer.pending_input.push_back(vec![1, 2]);
+    state.pty_buffer.pending_input_offset = 2;
+    state.pty_buffer.pending_input_bytes = 0;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
-    assert!(state.pending_pty_input.is_empty());
+    assert!(state.pty_buffer.pending_input.is_empty());
 }
 
 #[test]
@@ -662,16 +708,16 @@ fn flush_pending_pty_input_drains_many_single_byte_chunks_within_attempt_budget(
     let _hook = install_try_send_hook(hook_one_byte);
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     for _ in 0..12 {
-        state.pending_pty_input.push_back(vec![b'x']);
+        state.pty_buffer.pending_input.push_back(vec![b'x']);
     }
-    state.pending_pty_input_bytes = 12;
+    state.pty_buffer.pending_input_bytes = 12;
 
     assert!(flush_pending_pty_input(&mut state, &mut deps));
     assert!(
-        state.pending_pty_input.is_empty(),
+        state.pty_buffer.pending_input.is_empty(),
         "single-byte writes should clear this queue within 16 attempts"
     );
-    assert_eq!(state.pending_pty_input_bytes, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 0);
 }
 
 #[test]
@@ -681,9 +727,9 @@ fn write_or_queue_pty_input_queues_remainder_after_partial_write() {
     let bytes = vec![1, 2, 3, 4];
 
     assert!(write_or_queue_pty_input(&mut state, &mut deps, bytes));
-    assert_eq!(state.pending_pty_input_bytes, 3);
-    assert_eq!(state.pending_pty_input.len(), 1);
-    assert_eq!(state.pending_pty_input.front(), Some(&vec![2, 3, 4]));
+    assert_eq!(state.pty_buffer.pending_input_bytes, 3);
+    assert_eq!(state.pty_buffer.pending_input.len(), 1);
+    assert_eq!(state.pty_buffer.pending_input.front(), Some(&vec![2, 3, 4]));
 }
 
 #[test]
@@ -697,8 +743,8 @@ fn write_or_queue_pty_input_queues_all_bytes_on_would_block() {
         &mut deps,
         bytes.clone()
     ));
-    assert_eq!(state.pending_pty_input_bytes, bytes.len());
-    assert_eq!(state.pending_pty_input.front(), Some(&bytes));
+    assert_eq!(state.pty_buffer.pending_input_bytes, bytes.len());
+    assert_eq!(state.pty_buffer.pending_input.front(), Some(&bytes));
 }
 
 #[test]
@@ -712,10 +758,10 @@ fn write_or_queue_pty_input_returns_false_on_non_retryable_error() {
         vec![1, 2, 3]
     ));
     assert!(
-        state.pending_pty_input.is_empty(),
+        state.pty_buffer.pending_input.is_empty(),
         "non-retry errors should not queue bytes"
     );
-    assert_eq!(state.pending_pty_input_bytes, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 0);
 }
 
 #[test]
@@ -724,9 +770,9 @@ fn write_or_queue_pty_input_returns_true_for_live_session() {
     let bytes = b"hello".to_vec();
 
     assert!(write_or_queue_pty_input(&mut state, &mut deps, bytes));
-    assert_eq!(state.pending_pty_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
     assert!(
-        state.pending_pty_input_bytes <= 5,
+        state.pty_buffer.pending_input_bytes <= 5,
         "live writes may flush immediately but should not overcount pending bytes"
     );
 }
@@ -805,12 +851,12 @@ fn handle_output_chunk_ingests_lossy_text_for_invalid_utf8_bytes() {
 #[test]
 fn run_periodic_tasks_clears_theme_digits_outside_picker_mode() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
-    state.theme_picker_digits = "12".to_string();
+    state.ui.overlay_mode = OverlayMode::None;
+    state.theme_studio.picker_digits = "12".to_string();
     timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_secs(1));
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
-    assert!(state.theme_picker_digits.is_empty());
+    assert!(state.theme_studio.picker_digits.is_empty());
     assert!(timers.theme_picker_digit_deadline.is_none());
 }
 
@@ -833,13 +879,13 @@ fn drain_voice_messages_once_invokes_installed_hook() {
 #[test]
 fn sync_overlay_winsize_updates_cached_terminal_dimensions() {
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.terminal_rows = 0;
-    state.terminal_cols = 0;
+    state.ui.terminal_rows = 0;
+    state.ui.terminal_cols = 0;
 
     sync_overlay_winsize(&mut state, &mut deps);
 
-    assert!(state.terminal_rows > 0);
-    assert!(state.terminal_cols > 0);
+    assert!(state.ui.terminal_rows > 0);
+    assert!(state.ui.terminal_cols > 0);
 }
 
 #[test]
@@ -901,12 +947,12 @@ fn render_settings_overlay_for_state_sends_show_overlay_message() {
 #[test]
 fn close_overlay_sets_none_and_sends_clear_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     while writer_rx.try_recv().is_ok() {}
 
     close_overlay(&mut state, &mut deps, false);
 
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("clear overlay message")
@@ -919,12 +965,12 @@ fn close_overlay_sets_none_and_sends_clear_overlay() {
 #[test]
 fn open_help_overlay_sets_mode_and_renders_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     while writer_rx.try_recv().is_ok() {}
 
     open_help_overlay(&mut state, &mut deps);
 
-    assert_eq!(state.overlay_mode, OverlayMode::Help);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Help);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("help overlay render")
@@ -937,7 +983,7 @@ fn open_help_overlay_sets_mode_and_renders_overlay() {
 #[test]
 fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     state.config.dev_mode = true;
     let mut running = true;
 
@@ -950,7 +996,7 @@ fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::DevPanel);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::DevPanel);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("dev panel render")
@@ -967,7 +1013,7 @@ fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
 fn dev_panel_toggle_closes_overlay_when_open() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     while writer_rx.try_recv().is_ok() {}
     let mut running = true;
 
@@ -980,7 +1026,7 @@ fn dev_panel_toggle_closes_overlay_when_open() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("clear overlay message")
@@ -994,7 +1040,7 @@ fn dev_panel_toggle_closes_overlay_when_open() {
 fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
     let _guard = install_try_send_hook(hook_would_block);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     state.config.dev_mode = false;
     let mut running = true;
 
@@ -1007,16 +1053,16 @@ fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
-    assert_eq!(state.pending_pty_input_bytes, 1);
-    assert_eq!(state.pending_pty_input.front(), Some(&vec![0x04]));
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 1);
+    assert_eq!(state.pty_buffer.pending_input.front(), Some(&vec![0x04]));
 }
 
 #[test]
 fn dev_panel_arrow_navigation_moves_command_selection() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     state.dev_panel_commands.select_index(0);
     let mut running = true;
 
@@ -1039,7 +1085,7 @@ fn dev_panel_arrow_navigation_moves_command_selection() {
 fn dev_panel_numeric_selection_supports_extended_command_set() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     state.dev_panel_commands.select_index(0);
     let mut running = true;
 
@@ -1062,7 +1108,7 @@ fn dev_panel_numeric_selection_supports_extended_command_set() {
 fn dev_panel_sync_requires_confirmation_before_run() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     state.dev_panel_commands.select_index(5);
     let mut running = true;
 
@@ -1113,7 +1159,7 @@ fn apply_terminal_packet_completion_stages_draft_text() {
     assert!(message.contains("staged"));
     assert!(state.status_state.insert_pending_send);
     assert_eq!(
-        state.pending_pty_input_bytes,
+        state.pty_buffer.pending_input_bytes,
         "propose bounded remediation".len()
     );
 }
@@ -1158,7 +1204,7 @@ fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
     assert!(message.contains("auto-sent"));
     assert!(!state.status_state.insert_pending_send);
     assert_eq!(
-        state.pending_pty_input_bytes,
+        state.pty_buffer.pending_input_bytes,
         "all clear, continue".len() + 1
     );
     assert!(timers.last_enter_at.is_some());
@@ -1168,7 +1214,7 @@ fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
 fn dev_panel_second_sync_enter_without_broker_reports_unavailable() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     state.dev_panel_commands.select_index(5);
     let mut running = true;
 
@@ -1199,12 +1245,12 @@ fn dev_panel_second_sync_enter_without_broker_reports_unavailable() {
 #[test]
 fn open_settings_overlay_sets_mode_and_renders_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     while writer_rx.try_recv().is_ok() {}
 
     open_settings_overlay(&mut state, &mut deps);
 
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("settings overlay render")
@@ -1217,15 +1263,15 @@ fn open_settings_overlay_sets_mode_and_renders_overlay() {
 #[test]
 fn open_theme_picker_overlay_sets_mode_resets_picker_and_renders_overlay() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
-    state.theme_picker_digits = "12".to_string();
+    state.ui.overlay_mode = OverlayMode::None;
+    state.theme_studio.picker_digits = "12".to_string();
     timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_secs(1));
     while writer_rx.try_recv().is_ok() {}
 
     open_theme_picker_overlay(&mut state, &mut timers, &mut deps);
 
-    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
-    assert!(state.theme_picker_digits.is_empty());
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
+    assert!(state.theme_studio.picker_digits.is_empty());
     assert!(timers.theme_picker_digit_deadline.is_none());
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
@@ -1239,8 +1285,8 @@ fn open_theme_picker_overlay_sets_mode_resets_picker_and_renders_overlay() {
 #[test]
 fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
     let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
-    state.theme_studio_selected = 1;
+    state.ui.overlay_mode = OverlayMode::None;
+    state.theme_studio.selected = 1;
     state.status_state.hud_style = HudStyle::Hidden;
     state.config.hud_border_style = crate::config::HudBorderStyle::Double;
     state.config.hud_right_panel = crate::config::HudRightPanel::Dots;
@@ -1249,7 +1295,7 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
 
     open_theme_studio_overlay(&mut state, &mut deps);
 
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("theme studio overlay render")
@@ -1269,7 +1315,7 @@ fn open_theme_studio_overlay_sets_mode_and_renders_overlay() {
 #[test]
 fn theme_picker_hotkey_opens_theme_studio_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     let mut running = true;
 
     handle_input_event(
@@ -1281,14 +1327,14 @@ fn theme_picker_hotkey_opens_theme_studio_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
 }
 
 #[test]
 fn theme_studio_enter_on_theme_picker_row_opens_theme_picker_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 0;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 0;
     let mut running = true;
 
     handle_input_event(
@@ -1300,14 +1346,14 @@ fn theme_studio_enter_on_theme_picker_row_opens_theme_picker_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
 }
 
 #[test]
 fn theme_studio_enter_on_hud_style_row_cycles_style_and_stays_open() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 1; // HUD style
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 1; // HUD style
     state.status_state.hud_style = HudStyle::Full;
     let mut running = true;
 
@@ -1320,15 +1366,15 @@ fn theme_studio_enter_on_hud_style_row_cycles_style_and_stays_open() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     assert_eq!(state.status_state.hud_style, HudStyle::Minimal);
 }
 
 #[test]
 fn theme_studio_arrow_left_on_hud_style_row_cycles_backward() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 1; // HUD style
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 1; // HUD style
     state.status_state.hud_style = HudStyle::Minimal;
     let mut running = true;
 
@@ -1341,7 +1387,7 @@ fn theme_studio_arrow_left_on_hud_style_row_cycles_backward() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     assert_eq!(state.status_state.hud_style, HudStyle::Full);
 }
 
@@ -1350,8 +1396,8 @@ fn theme_studio_enter_on_glyph_profile_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 5; // Glyph profile
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 5; // Glyph profile
     let mut running = true;
 
     handle_input_event(
@@ -1363,7 +1409,7 @@ fn theme_studio_enter_on_glyph_profile_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.glyph_set_override,
@@ -1376,8 +1422,8 @@ fn theme_studio_arrow_right_on_indicator_set_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 6; // Indicator set
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 6; // Indicator set
     let mut running = true;
 
     handle_input_event(
@@ -1389,7 +1435,7 @@ fn theme_studio_arrow_right_on_indicator_set_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.indicator_set_override,
@@ -1402,8 +1448,8 @@ fn theme_studio_enter_on_progress_spinner_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 7; // Progress spinner
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 7; // Progress spinner
     let mut running = true;
 
     handle_input_event(
@@ -1415,7 +1461,7 @@ fn theme_studio_enter_on_progress_spinner_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.progress_style_override,
@@ -1428,8 +1474,8 @@ fn theme_studio_enter_on_progress_bars_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 8; // Progress bars
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 8; // Progress bars
     let mut running = true;
 
     handle_input_event(
@@ -1441,7 +1487,7 @@ fn theme_studio_enter_on_progress_bars_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.progress_bar_family_override,
@@ -1454,8 +1500,8 @@ fn theme_studio_enter_on_theme_borders_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 9; // Theme borders
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 9; // Theme borders
     let mut running = true;
 
     handle_input_event(
@@ -1467,7 +1513,7 @@ fn theme_studio_enter_on_theme_borders_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.border_style_override,
@@ -1480,8 +1526,8 @@ fn theme_studio_enter_on_voice_scene_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 10; // Voice scene
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 10; // Voice scene
     let mut running = true;
 
     handle_input_event(
@@ -1493,7 +1539,7 @@ fn theme_studio_enter_on_voice_scene_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.voice_scene_style_override,
@@ -1506,8 +1552,8 @@ fn theme_studio_enter_on_toast_position_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 11; // Toast position
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 11; // Toast position
     let mut running = true;
 
     handle_input_event(
@@ -1519,7 +1565,7 @@ fn theme_studio_enter_on_toast_position_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.toast_position_override,
@@ -1532,8 +1578,8 @@ fn theme_studio_enter_on_startup_splash_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 12; // Startup splash
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 12; // Startup splash
     let mut running = true;
 
     handle_input_event(
@@ -1545,7 +1591,7 @@ fn theme_studio_enter_on_startup_splash_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.startup_style_override,
@@ -1558,8 +1604,8 @@ fn theme_studio_enter_on_toast_severity_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 13; // Toast severity
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 13; // Toast severity
     let mut running = true;
 
     handle_input_event(
@@ -1571,7 +1617,7 @@ fn theme_studio_enter_on_toast_severity_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.toast_severity_mode_override,
@@ -1584,8 +1630,8 @@ fn theme_studio_enter_on_banner_style_row_cycles_runtime_override() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 14; // Banner style
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 14; // Banner style
     let mut running = true;
 
     handle_input_event(
@@ -1597,7 +1643,7 @@ fn theme_studio_enter_on_banner_style_row_cycles_runtime_override() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.banner_style_override,
@@ -1610,8 +1656,8 @@ fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 5; // Glyph profile
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 5; // Glyph profile
     let mut running = true;
 
     handle_input_event(
@@ -1625,10 +1671,10 @@ fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
         crate::theme::runtime_style_pack_overrides().glyph_set_override,
         Some(RuntimeGlyphSetOverride::Unicode)
     );
-    assert_eq!(state.theme_studio_undo_history.len(), 1);
-    assert!(state.theme_studio_redo_history.is_empty());
+    assert_eq!(state.theme_studio.undo_history.len(), 1);
+    assert!(state.theme_studio.redo_history.is_empty());
 
-    state.theme_studio_selected = 15; // Undo edit
+    state.theme_studio.selected = 15; // Undo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1638,13 +1684,13 @@ fn theme_studio_enter_on_undo_row_reverts_latest_runtime_override_edit() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     assert_eq!(
         crate::theme::runtime_style_pack_overrides().glyph_set_override,
         None
     );
-    assert!(state.theme_studio_undo_history.is_empty());
-    assert_eq!(state.theme_studio_redo_history.len(), 1);
+    assert!(state.theme_studio.undo_history.is_empty());
+    assert_eq!(state.theme_studio.redo_history.len(), 1);
 }
 
 #[test]
@@ -1652,10 +1698,10 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
     let mut running = true;
 
-    state.theme_studio_selected = 5; // Glyph profile
+    state.theme_studio.selected = 5; // Glyph profile
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1663,7 +1709,7 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
         InputEvent::EnterKey,
         &mut running,
     );
-    state.theme_studio_selected = 15; // Undo edit
+    state.theme_studio.selected = 15; // Undo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1672,7 +1718,7 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
         &mut running,
     );
 
-    state.theme_studio_selected = 16; // Redo edit
+    state.theme_studio.selected = 16; // Redo edit
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1682,13 +1728,13 @@ fn theme_studio_enter_on_redo_row_reapplies_runtime_override_edit() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     assert_eq!(
         crate::theme::runtime_style_pack_overrides().glyph_set_override,
         Some(RuntimeGlyphSetOverride::Unicode)
     );
-    assert_eq!(state.theme_studio_undo_history.len(), 1);
-    assert!(state.theme_studio_redo_history.is_empty());
+    assert_eq!(state.theme_studio.undo_history.len(), 1);
+    assert!(state.theme_studio.redo_history.is_empty());
 }
 
 #[test]
@@ -1696,10 +1742,10 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
     let mut running = true;
 
-    state.theme_studio_selected = 5; // Glyph profile
+    state.theme_studio.selected = 5; // Glyph profile
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1707,7 +1753,7 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
         InputEvent::EnterKey,
         &mut running,
     );
-    state.theme_studio_selected = 6; // Indicator set
+    state.theme_studio.selected = 6; // Indicator set
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1724,7 +1770,7 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
         Some(RuntimeIndicatorSetOverride::Ascii)
     );
 
-    state.theme_studio_selected = 17; // Rollback edits
+    state.theme_studio.selected = 17; // Rollback edits
     handle_input_event(
         &mut state,
         &mut timers,
@@ -1734,13 +1780,13 @@ fn theme_studio_enter_on_rollback_row_clears_runtime_overrides() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     assert_eq!(
         crate::theme::runtime_style_pack_overrides(),
         RuntimeStylePackOverrides::default()
     );
-    assert!(state.theme_studio_undo_history.len() >= 2);
-    assert!(state.theme_studio_redo_history.is_empty());
+    assert!(state.theme_studio.undo_history.len() >= 2);
+    assert!(state.theme_studio.redo_history.is_empty());
 }
 
 #[test]
@@ -1748,16 +1794,17 @@ fn theme_studio_colors_page_arrow_right_on_indicator_selector_cycles_runtime_ove
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
-    state.theme_studio_colors_editor =
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio.colors_editor =
         Some(crate::theme_studio::ColorsEditorState::new(state.theme));
     let mut running = true;
 
     let color_field_count = crate::theme_studio::ColorField::ALL.len();
     {
         let editor = state
-            .theme_studio_colors_editor
+            .theme_studio
+            .colors_editor
             .as_mut()
             .expect("colors editor is initialized");
         editor.selected = color_field_count;
@@ -1773,14 +1820,15 @@ fn theme_studio_colors_page_arrow_right_on_indicator_selector_cycles_runtime_ove
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.indicator_set_override,
         Some(RuntimeIndicatorSetOverride::Ascii)
     );
     let editor = state
-        .theme_studio_colors_editor
+        .theme_studio
+        .colors_editor
         .as_ref()
         .expect("colors editor persists");
     assert_eq!(
@@ -1795,16 +1843,17 @@ fn theme_studio_colors_page_arrow_right_on_glyph_selector_cycles_runtime_overrid
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
-    state.theme_studio_colors_editor =
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio.colors_editor =
         Some(crate::theme_studio::ColorsEditorState::new(state.theme));
     let mut running = true;
 
     let color_field_count = crate::theme_studio::ColorField::ALL.len();
     {
         let editor = state
-            .theme_studio_colors_editor
+            .theme_studio
+            .colors_editor
             .as_mut()
             .expect("colors editor is initialized");
         editor.selected = color_field_count + 1;
@@ -1820,14 +1869,15 @@ fn theme_studio_colors_page_arrow_right_on_glyph_selector_cycles_runtime_overrid
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let overrides = crate::theme::runtime_style_pack_overrides();
     assert_eq!(
         overrides.glyph_set_override,
         Some(RuntimeGlyphSetOverride::Unicode)
     );
     let editor = state
-        .theme_studio_colors_editor
+        .theme_studio
+        .colors_editor
         .as_ref()
         .expect("colors editor persists");
     assert_eq!(editor.glyph_set, Some(RuntimeGlyphSetOverride::Unicode));
@@ -1839,16 +1889,17 @@ fn theme_studio_colors_page_enter_on_indicator_selector_is_noop_for_picker() {
     let _override_guard =
         install_runtime_style_pack_overrides(RuntimeStylePackOverrides::default());
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_page = crate::theme_studio::StudioPage::Colors;
-    state.theme_studio_colors_editor =
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.page = crate::theme_studio::StudioPage::Colors;
+    state.theme_studio.colors_editor =
         Some(crate::theme_studio::ColorsEditorState::new(state.theme));
     let mut running = true;
 
     let color_field_count = crate::theme_studio::ColorField::ALL.len();
     {
         let editor = state
-            .theme_studio_colors_editor
+            .theme_studio
+            .colors_editor
             .as_mut()
             .expect("colors editor is initialized");
         editor.selected = color_field_count;
@@ -1864,9 +1915,10 @@ fn theme_studio_colors_page_enter_on_indicator_selector_is_noop_for_picker() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
     let editor = state
-        .theme_studio_colors_editor
+        .theme_studio
+        .colors_editor
         .as_ref()
         .expect("colors editor persists");
     assert!(editor.picker.is_none());
@@ -1880,18 +1932,18 @@ fn theme_studio_colors_page_enter_on_indicator_selector_is_noop_for_picker() {
 fn reset_theme_picker_selection_resets_index_and_digits() {
     let (mut state, mut timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.theme = Theme::Codex;
-    state.theme_picker_selected = theme_index_from_theme(Theme::Claude);
-    state.theme_picker_digits = "12".to_string();
+    state.theme_studio.picker_selected = theme_index_from_theme(Theme::Claude);
+    state.theme_studio.picker_digits = "12".to_string();
     timers.theme_picker_digit_deadline = Some(Instant::now() + Duration::from_millis(300));
 
     reset_theme_picker_selection(&mut state, &mut timers);
 
     let expected_theme = style_pack_theme_lock().unwrap_or(state.theme);
     assert_eq!(
-        state.theme_picker_selected,
+        state.theme_studio.picker_selected,
         theme_index_from_theme(expected_theme)
     );
-    assert!(state.theme_picker_digits.is_empty());
+    assert!(state.theme_studio.picker_digits.is_empty());
     assert!(timers.theme_picker_digit_deadline.is_none());
 }
 
@@ -1904,7 +1956,7 @@ fn apply_settings_item_action_theme_zero_direction_matches_positive_step() {
     zero_state.status_state.hud_style = HudStyle::Full;
     plus_state.status_state.hud_style = HudStyle::Full;
 
-    let zero_overlay = zero_state.overlay_mode;
+    let zero_overlay = zero_state.ui.overlay_mode;
     {
         let mut zero_ctx = settings_action_context(
             &mut zero_state,
@@ -1919,7 +1971,7 @@ fn apply_settings_item_action_theme_zero_direction_matches_positive_step() {
         ));
     }
 
-    let plus_overlay = plus_state.overlay_mode;
+    let plus_overlay = plus_state.ui.overlay_mode;
     {
         let mut plus_ctx = settings_action_context(
             &mut plus_state,
@@ -1949,7 +2001,7 @@ fn apply_settings_item_action_theme_negative_direction_differs_from_positive_ste
     minus_state.status_state.hud_style = HudStyle::Full;
     plus_state.status_state.hud_style = HudStyle::Full;
 
-    let minus_overlay = minus_state.overlay_mode;
+    let minus_overlay = minus_state.ui.overlay_mode;
     {
         let mut minus_ctx = settings_action_context(
             &mut minus_state,
@@ -1964,7 +2016,7 @@ fn apply_settings_item_action_theme_negative_direction_differs_from_positive_ste
         ));
     }
 
-    let plus_overlay = plus_state.overlay_mode;
+    let plus_overlay = plus_state.ui.overlay_mode;
     {
         let mut plus_ctx = settings_action_context(
             &mut plus_state,
@@ -2336,7 +2388,7 @@ fn wake_word_detection_is_ignored_when_overlay_is_open() {
     let _capture = install_start_capture_hook(hook_start_capture_count);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.wake_word = true;
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
 
     input_dispatch::handle_wake_word_detection(
         &mut state,
@@ -2352,8 +2404,8 @@ fn wake_word_detection_is_ignored_when_overlay_is_open() {
 fn run_periodic_tasks_sigwinch_no_size_change_skips_resize_messages() {
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.terminal_cols = 80;
-    state.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
     assert!(
@@ -2366,8 +2418,8 @@ fn run_periodic_tasks_sigwinch_no_size_change_skips_resize_messages() {
 fn run_periodic_tasks_sigwinch_single_dimension_change_triggers_resize() {
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.terminal_cols = 80;
-    state.terminal_rows = 1;
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 1;
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
     let msg = writer_rx
@@ -2380,8 +2432,48 @@ fn run_periodic_tasks_sigwinch_single_dimension_change_triggers_resize() {
         }
         other => panic!("unexpected writer message: {other:?}"),
     }
-    assert_eq!(state.terminal_cols, 80);
-    assert_eq!(state.terminal_rows, 24);
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
+}
+
+#[test]
+fn run_periodic_tasks_geometry_poll_without_sigwinch_triggers_resize() {
+    let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_100x30);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+    timers.last_terminal_geometry_poll = Instant::now() - Duration::from_millis(1000);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+    let msg = writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("resize message");
+    match msg {
+        WriterMessage::Resize { rows, cols } => {
+            assert_eq!(rows, 30);
+            assert_eq!(cols, 100);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+    assert_eq!(state.ui.terminal_cols, 100);
+    assert_eq!(state.ui.terminal_rows, 30);
+}
+
+#[test]
+fn run_periodic_tasks_geometry_poll_ignores_zero_size_probe() {
+    let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_0x0);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+    timers.last_terminal_geometry_poll = Instant::now() - Duration::from_millis(1000);
+
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "zero-size probes should not emit resize events when cached geometry is valid"
+    );
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
 }
 
 #[test]
@@ -2402,12 +2494,12 @@ fn run_periodic_tasks_updates_recording_duration() {
 fn run_periodic_tasks_keeps_theme_digits_when_picker_deadline_not_reached() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
-    state.overlay_mode = OverlayMode::ThemePicker;
-    state.theme_picker_digits = "12".to_string();
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_digits = "12".to_string();
     timers.theme_picker_digit_deadline = Some(now + Duration::from_secs(1));
 
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert_eq!(state.theme_picker_digits, "12");
+    assert_eq!(state.theme_studio.picker_digits, "12");
     assert_eq!(
         timers.theme_picker_digit_deadline,
         Some(now + Duration::from_secs(1))
@@ -2641,7 +2733,7 @@ fn run_periodic_tasks_wake_badge_does_not_pulse_redraw_while_listening() {
 
     let now = Instant::now();
     state.config.wake_word = true;
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     state.status_state.hud_style = HudStyle::Full;
     state.status_state.wake_word_state = WakeWordHudState::Listening;
     timers.last_wake_hud_tick = now - Duration::from_secs(1);
@@ -2831,54 +2923,54 @@ fn flush_pending_output_or_continue_keeps_running_when_output_requeues() {
     deps.writer_tx
         .try_send(WriterMessage::ClearStatus)
         .expect("fill bounded writer channel");
-    state.pending_pty_output = Some(b"abc".to_vec());
+    state.pty_buffer.pending_output = Some(b"abc".to_vec());
 
     assert!(flush_pending_output_or_continue(&mut state, &deps));
-    assert_eq!(state.pending_pty_output, Some(b"abc".to_vec()));
+    assert_eq!(state.pty_buffer.pending_output, Some(b"abc".to_vec()));
 }
 
 #[test]
 fn flush_pending_output_or_continue_stops_when_writer_disconnected_and_output_drained() {
     let (mut state, _timers, deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     drop(writer_rx);
-    state.pending_pty_output = Some(b"abc".to_vec());
+    state.pty_buffer.pending_output = Some(b"abc".to_vec());
 
     assert!(!flush_pending_output_or_continue(&mut state, &deps));
-    assert!(state.pending_pty_output.is_none());
+    assert!(state.pty_buffer.pending_output.is_none());
 }
 
 #[test]
 fn flush_pending_output_or_continue_keeps_running_when_flush_succeeds() {
     let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_output = Some(b"ok".to_vec());
+    state.pty_buffer.pending_output = Some(b"ok".to_vec());
 
     assert!(flush_pending_output_or_continue(&mut state, &deps));
-    assert!(state.pending_pty_output.is_none());
+    assert!(state.pty_buffer.pending_output.is_none());
 }
 
 #[test]
 fn run_event_loop_flushes_pending_input_before_exit() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_input.push_back(b"hello".to_vec());
-    state.pending_pty_input_bytes = 5;
+    state.pty_buffer.pending_input.push_back(b"hello".to_vec());
+    state.pty_buffer.pending_input_bytes = 5;
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
-    assert!(state.pending_pty_input.is_empty());
-    assert_eq!(state.pending_pty_input_offset, 0);
-    assert_eq!(state.pending_pty_input_bytes, 0);
+    assert!(state.pty_buffer.pending_input.is_empty());
+    assert_eq!(state.pty_buffer.pending_input_offset, 0);
+    assert_eq!(state.pty_buffer.pending_input_bytes, 0);
 }
 
 #[test]
 fn run_event_loop_flushes_pending_output_even_when_writer_is_disconnected() {
     let (mut state, mut timers, mut deps, writer_rx, input_tx) = build_harness("cat", &[], 8);
     drop(writer_rx);
-    state.pending_pty_output = Some(b"leftover".to_vec());
+    state.pty_buffer.pending_output = Some(b"leftover".to_vec());
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
     assert!(
-        state.pending_pty_output.is_none(),
+        state.pty_buffer.pending_output.is_none(),
         "pending output should be consumed even when writer is disconnected"
     );
 }
@@ -2886,11 +2978,11 @@ fn run_event_loop_flushes_pending_output_even_when_writer_is_disconnected() {
 #[test]
 fn run_event_loop_flushes_pending_output_on_success_path() {
     let (mut state, mut timers, mut deps, writer_rx, input_tx) = build_harness("cat", &[], 8);
-    state.pending_pty_output = Some(b"ok".to_vec());
+    state.pty_buffer.pending_output = Some(b"ok".to_vec());
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
-    assert!(state.pending_pty_output.is_none());
+    assert!(state.pty_buffer.pending_output.is_none());
     match writer_rx
         .recv_timeout(Duration::from_millis(200))
         .expect("writer output")
@@ -2926,8 +3018,9 @@ fn run_event_loop_processes_multiple_input_events_before_exit() {
 #[test]
 fn run_event_loop_help_overlay_mouse_body_click_keeps_overlay_open() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Help;
+    state.ui.overlay_mode = OverlayMode::Help;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(help_overlay_height() as u16)
         .saturating_add(1);
@@ -2940,14 +3033,14 @@ fn run_event_loop_help_overlay_mouse_body_click_keeps_overlay_open() {
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
-    assert_eq!(state.overlay_mode, OverlayMode::Help);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Help);
 }
 
 #[test]
 fn help_overlay_unhandled_bytes_close_overlay_and_replay_input() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Help;
+    state.ui.overlay_mode = OverlayMode::Help;
 
     let mut running = true;
     handle_input_event(
@@ -2959,14 +3052,14 @@ fn help_overlay_unhandled_bytes_close_overlay_and_replay_input() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
 }
 
 #[test]
 fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Help;
+    state.ui.overlay_mode = OverlayMode::Help;
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.recording_state = RecordingState::Idle;
@@ -2982,14 +3075,14 @@ fn help_overlay_unhandled_ctrl_e_closes_overlay_and_replays_action() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     assert_eq!(state.current_status.as_deref(), Some("Nothing to finalize"));
 }
 
 #[test]
 fn transcript_history_overlay_ignores_escape_noise_in_search() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state.ui.overlay_mode = OverlayMode::TranscriptHistory;
     state.transcript_history.push("alpha".to_string());
     state
         .transcript_history_state
@@ -3012,7 +3105,7 @@ fn transcript_history_overlay_ignores_escape_noise_in_search() {
 fn transcript_history_overlay_enter_on_assistant_entry_does_not_replay() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state.ui.overlay_mode = OverlayMode::TranscriptHistory;
     state
         .transcript_history
         .ingest_backend_output_bytes(b"assistant output\n");
@@ -3030,7 +3123,7 @@ fn transcript_history_overlay_enter_on_assistant_entry_does_not_replay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::TranscriptHistory);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::TranscriptHistory);
     assert_eq!(
         state.current_status.as_deref(),
         Some("Selected entry is output-only (not replayable)")
@@ -3042,7 +3135,7 @@ fn transcript_history_overlay_enter_on_assistant_entry_does_not_replay() {
 fn toggle_hud_style_in_help_overlay_does_not_render_settings_overlay() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
-    state.overlay_mode = OverlayMode::Help;
+    state.ui.overlay_mode = OverlayMode::Help;
 
     let mut running = true;
     handle_input_event(
@@ -3054,7 +3147,7 @@ fn toggle_hud_style_in_help_overlay_does_not_render_settings_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Help);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Help);
     let rendered_settings_overlay = writer_rx
         .try_iter()
         .any(|msg| matches!(msg, WriterMessage::ShowOverlay { height, .. } if height == settings_overlay_height()));
@@ -3067,8 +3160,9 @@ fn toggle_hud_style_in_help_overlay_does_not_render_settings_overlay() {
 #[test]
 fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemePicker;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(theme_picker_height() as u16)
         .saturating_add(1);
@@ -3081,7 +3175,7 @@ fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     assert_ne!(state.theme, Theme::Codex);
 }
 
@@ -3090,8 +3184,8 @@ fn theme_picker_enter_with_invalid_selection_keeps_overlay_open_and_rerenders() 
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
-    state.overlay_mode = OverlayMode::ThemePicker;
-    state.theme_picker_selected = THEME_OPTIONS.len() + 10;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_selected = THEME_OPTIONS.len() + 10;
     let original_theme = state.theme;
     let mut running = true;
 
@@ -3104,9 +3198,9 @@ fn theme_picker_enter_with_invalid_selection_keeps_overlay_open_and_rerenders() 
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
     assert_eq!(state.theme, original_theme);
-    assert!(state.theme_picker_digits.is_empty());
+    assert!(state.theme_studio.picker_digits.is_empty());
     let rendered = writer_rx
         .try_iter()
         .any(|message| matches!(message, WriterMessage::ShowOverlay { .. }));
@@ -3121,14 +3215,14 @@ fn handle_output_chunk_empty_data_keeps_responding_state_and_suppress_flag() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
-    state.suppress_startup_escape_input = true;
+    state.ui.suppress_startup_escape_input = true;
     state.status_state.recording_state = RecordingState::Responding;
     let mut running = true;
 
     handle_output_chunk(&mut state, &mut timers, &mut deps, Vec::new(), &mut running);
 
     assert!(running);
-    assert!(state.suppress_startup_escape_input);
+    assert!(state.ui.suppress_startup_escape_input);
     assert_eq!(
         state.status_state.recording_state,
         RecordingState::Responding
@@ -3140,7 +3234,7 @@ fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
-    state.suppress_startup_escape_input = true;
+    state.ui.suppress_startup_escape_input = true;
     state.status_state.recording_state = RecordingState::Idle;
     let mut running = true;
 
@@ -3153,7 +3247,7 @@ fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
     );
 
     assert!(running);
-    assert!(!state.suppress_startup_escape_input);
+    assert!(!state.ui.suppress_startup_escape_input);
     assert_eq!(state.status_state.recording_state, RecordingState::Idle);
     let messages: Vec<_> = writer_rx.try_iter().collect();
     assert_eq!(
@@ -3165,6 +3259,439 @@ fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
         WriterMessage::PtyOutput(bytes) => assert_eq!(bytes, b"ok"),
         other => panic!("unexpected writer message: {other:?}"),
     }
+}
+
+#[test]
+fn handle_output_chunk_bash_approval_card_suppresses_hud() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Bash command\nThis command requires approval\nDo you want to proceed?\n1. Yes\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+    let (rows, _) = deps.session.current_winsize();
+    assert_eq!(rows, 24);
+}
+
+#[test]
+fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. Yes, and don't ask again for this command\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "explicit approval card must suppress HUD even if backend label guard is unavailable"
+    );
+}
+
+#[test]
+fn nonrolling_long_wrapped_approval_card_still_suppresses() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut payload = String::from("This command requires approval\nDo you want to proceed?\n");
+    payload.push_str("1. Yes\n");
+    for _ in 0..40 {
+        payload.push_str("/Users/jguida941/testing_upgrade/codex-voice/rust\n");
+    }
+    payload.push_str("2. Yes, and don't ask again for Web Search commands in this directory\n");
+    payload.push_str("3. No\n");
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        payload.into_bytes(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "wrapped approval cards must still suppress HUD on non-rolling hosts"
+    );
+}
+
+#[test]
+fn nonrolling_prompt_question_line_suppresses_before_numbered_options() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Tool use\nDo you want to proceed?\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "prompt question line should suppress immediately before numbered options land"
+    );
+}
+
+#[test]
+fn nonrolling_tool_activity_hint_does_not_suppress_without_approval_card() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Web Search(\"best terminal emulators\")\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "tool activity text alone must not hide HUD on non-rolling hosts"
+    );
+}
+
+#[test]
+fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. Yes, and don't ask again for this command\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "approval card should suppress HUD in non-rolling mode"
+    );
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"1".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Approval accepted. Continuing execution...\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(20),
+    );
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "sticky hold should keep HUD suppressed for rapid back-to-back approval cards"
+    );
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(1200),
+    );
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "HUD should unsuppress after sticky hold elapses and approval window remains drained"
+    );
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Recap: earlier output included \"Do you want to proceed?\" before approval.\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "stale explicit phrase without numbered approval options must not resuppress HUD"
+    );
+}
+
+#[test]
+fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"1".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+
+    // A tiny post-input echo should not clear the approval window immediately.
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"1\n".to_vec(),
+        &mut running,
+    );
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        Instant::now() + Duration::from_millis(25),
+    );
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "HUD should stay suppressed until substantial post-input output confirms prompt exit"
+    );
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Approval accepted. Continuing execution...\n".to_vec(),
+        &mut running,
+    );
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(50),
+    );
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "sticky hold should prevent early unsuppress after substantial output"
+    );
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(1200),
+    );
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "HUD should unsuppress after sticky hold elapses and no approval card remains"
+    );
+}
+
+#[test]
+fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
+    let _rolling_override = install_prompt_rolling_override(false);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "test".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"1".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Approval accepted. Continuing execution...\n".to_vec(),
+        &mut running,
+    );
+    let first_now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        first_now + Duration::from_millis(100),
+    );
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "first sticky hold should prevent unsuppress while next approval card may arrive"
+    );
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n".to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "second approval card should stay in suppressed state without an unsuppress gap"
+    );
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"1".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Approval accepted. Final step complete.\n".to_vec(),
+        &mut running,
+    );
+
+    let second_now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        second_now + Duration::from_millis(100),
+    );
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        second_now + Duration::from_millis(1200),
+    );
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "HUD should restore once final sticky hold elapses"
+    );
+}
+
+#[test]
+fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Bash(echo $SHELL)\n".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(1200),
+    );
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
 }
 
 #[test]
@@ -3198,7 +3725,7 @@ fn handle_output_chunk_non_empty_responding_transitions_to_idle_when_prompt_is_r
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
 
-    state.prompt_tracker = PromptTracker::new(
+    state.prompt.tracker = PromptTracker::new(
         Some(Regex::new(r"^codex> ?$").expect("prompt regex")),
         true,
         PromptLogger::new(None),
@@ -3222,7 +3749,7 @@ fn handle_output_chunk_non_empty_responding_transitions_to_idle_when_prompt_is_r
 #[test]
 fn settings_overlay_mouse_click_cycles_setting_value() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     state.config.latency_display = LatencyDisplayMode::Short;
     state.status_state.latency_display = LatencyDisplayMode::Short;
     let latency_row = settings_overlay_row_y(&state, SettingsItem::Latency);
@@ -3240,7 +3767,7 @@ fn settings_overlay_mouse_click_cycles_setting_value() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert_eq!(
         state.status_state.latency_display,
         LatencyDisplayMode::Label
@@ -3249,13 +3776,13 @@ fn settings_overlay_mouse_click_cycles_setting_value() {
         .iter()
         .position(|item| *item == SettingsItem::Latency)
         .expect("latency index");
-    assert_eq!(state.settings_menu.selected, latency_index);
+    assert_eq!(state.settings.menu.selected, latency_index);
 }
 
 #[test]
 fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     state.config.latency_display = LatencyDisplayMode::Short;
     state.status_state.latency_display = LatencyDisplayMode::Short;
     let latency_row = settings_overlay_row_y(&state, SettingsItem::Latency);
@@ -3274,7 +3801,7 @@ fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert_eq!(
         state.status_state.latency_display,
         LatencyDisplayMode::Label
@@ -3284,7 +3811,7 @@ fn settings_overlay_mouse_click_cycles_setting_value_with_centered_offset_x() {
 #[test]
 fn settings_overlay_mouse_click_adjusts_sensitivity_with_centered_offset_x() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     state.status_state.sensitivity_db = -55.0;
     let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::Sensitivity);
     let click_x = centered_overlay_click_x(&state);
@@ -3302,14 +3829,14 @@ fn settings_overlay_mouse_click_adjusts_sensitivity_with_centered_offset_x() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert_eq!(state.status_state.sensitivity_db, -50.0);
 }
 
 #[test]
 fn settings_overlay_mouse_click_sensitivity_slider_left_moves_more_sensitive() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     state.status_state.sensitivity_db = -55.0;
     state.config.app.voice_vad_threshold_db = -55.0;
     let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::Sensitivity);
@@ -3328,7 +3855,7 @@ fn settings_overlay_mouse_click_sensitivity_slider_left_moves_more_sensitive() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert_eq!(state.status_state.sensitivity_db, -60.0);
     assert_eq!(
         state.current_status.as_deref(),
@@ -3339,7 +3866,7 @@ fn settings_overlay_mouse_click_sensitivity_slider_left_moves_more_sensitive() {
 #[test]
 fn settings_overlay_mouse_click_wake_sensitivity_slider_left_moves_less_sensitive() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     state.config.wake_word_sensitivity = 0.55;
     let sensitivity_row = settings_overlay_row_y(&state, SettingsItem::WakeSensitivity);
     let click_x = settings_slider_click_x(&state, 1);
@@ -3357,14 +3884,14 @@ fn settings_overlay_mouse_click_wake_sensitivity_slider_left_moves_less_sensitiv
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert!((state.config.wake_word_sensitivity - 0.50).abs() < f32::EPSILON);
 }
 
 #[test]
 fn settings_overlay_mouse_click_selects_read_only_row_without_state_change() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     let initial_auto_voice = state.auto_voice_enabled;
     let backend_row = settings_overlay_row_y(&state, SettingsItem::Backend);
 
@@ -3381,19 +3908,19 @@ fn settings_overlay_mouse_click_selects_read_only_row_without_state_change() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
     assert_eq!(state.auto_voice_enabled, initial_auto_voice);
     let backend_index = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Backend)
         .expect("backend index");
-    assert_eq!(state.settings_menu.selected, backend_index);
+    assert_eq!(state.settings.menu.selected, backend_index);
 }
 
 #[test]
 fn settings_overlay_mouse_click_close_row_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     let close_row = settings_overlay_row_y(&state, SettingsItem::Close);
 
     let mut running = true;
@@ -3406,13 +3933,13 @@ fn settings_overlay_mouse_click_close_row_closes_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
 }
 
 #[test]
 fn settings_overlay_mouse_click_quit_row_stops_event_loop() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     let quit_row = settings_overlay_row_y(&state, SettingsItem::Quit);
 
     let mut running = true;
@@ -3430,7 +3957,7 @@ fn settings_overlay_mouse_click_quit_row_stops_event_loop() {
 #[test]
 fn settings_overlay_mouse_click_footer_close_prefix_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     let (x, y) = settings_overlay_footer_close_click(&state);
 
     let mut running = true;
@@ -3443,23 +3970,24 @@ fn settings_overlay_mouse_click_footer_close_prefix_closes_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
 }
 
 #[test]
 fn settings_overlay_mouse_click_footer_outside_close_prefix_keeps_overlay_open() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
 
     let overlay_height = settings_overlay_height() as u16;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(overlay_height)
         .saturating_add(1);
     let footer_y = overlay_top_y
         .saturating_add(overlay_height.saturating_sub(1))
         .saturating_sub(1);
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);
     let x = centered_settings_overlay_rel_x_to_screen_x(&state, overlay_width.saturating_sub(2));
 
@@ -3473,14 +4001,14 @@ fn settings_overlay_mouse_click_footer_outside_close_prefix_keeps_overlay_open()
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
 }
 
 #[test]
 fn settings_overlay_enter_backend_row_keeps_overlay_open() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = SETTINGS_ITEMS
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Backend)
         .expect("backend index");
@@ -3495,15 +4023,15 @@ fn settings_overlay_enter_backend_row_keeps_overlay_open() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
 }
 
 #[test]
 fn settings_overlay_enter_backend_row_does_not_redraw() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = SETTINGS_ITEMS
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Backend)
         .expect("backend index");
@@ -3531,8 +4059,8 @@ fn settings_overlay_enter_backend_row_does_not_redraw() {
 fn settings_overlay_enter_actionable_row_redraws_overlay() {
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     while writer_rx.try_recv().is_ok() {}
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = SETTINGS_ITEMS
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Latency)
         .expect("latency index");
@@ -3558,8 +4086,8 @@ fn settings_overlay_enter_actionable_row_redraws_overlay() {
 #[test]
 fn settings_overlay_enter_close_row_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = SETTINGS_ITEMS
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Close)
         .expect("close index");
@@ -3574,14 +4102,14 @@ fn settings_overlay_enter_close_row_closes_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
 }
 
 #[test]
 fn settings_overlay_enter_quit_row_stops_event_loop() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = SETTINGS_ITEMS
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Quit)
         .expect("quit index");
@@ -3601,7 +4129,7 @@ fn settings_overlay_enter_quit_row_stops_event_loop() {
 #[test]
 fn settings_overlay_escape_bytes_close_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
 
     let mut running = true;
     handle_input_event(
@@ -3613,17 +4141,17 @@ fn settings_overlay_escape_bytes_close_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
 }
 
 #[test]
 fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
     let (mut left_state, mut left_timers, mut left_deps, left_writer_rx, _left_input_tx) =
         build_harness("cat", &[], 8);
-    left_state.overlay_mode = OverlayMode::Settings;
+    left_state.ui.overlay_mode = OverlayMode::Settings;
     left_state.config.latency_display = LatencyDisplayMode::Short;
     left_state.status_state.latency_display = LatencyDisplayMode::Short;
-    left_state.settings_menu.selected = SETTINGS_ITEMS
+    left_state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Latency)
         .expect("latency index");
@@ -3646,10 +4174,10 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
 
     let (mut right_state, mut right_timers, mut right_deps, right_writer_rx, _right_input_tx) =
         build_harness("cat", &[], 8);
-    right_state.overlay_mode = OverlayMode::Settings;
+    right_state.ui.overlay_mode = OverlayMode::Settings;
     right_state.config.latency_display = LatencyDisplayMode::Short;
     right_state.status_state.latency_display = LatencyDisplayMode::Short;
-    right_state.settings_menu.selected = SETTINGS_ITEMS
+    right_state.settings.menu.selected = SETTINGS_ITEMS
         .iter()
         .position(|item| *item == SettingsItem::Latency)
         .expect("latency index");
@@ -3675,8 +4203,8 @@ fn settings_overlay_arrow_left_and_right_take_different_paths_and_redraw() {
 #[test]
 fn theme_picker_escape_bytes_close_and_clear_digits() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemePicker;
-    state.theme_picker_digits = "12".to_string();
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_digits = "12".to_string();
 
     let mut running = true;
     handle_input_event(
@@ -3688,8 +4216,8 @@ fn theme_picker_escape_bytes_close_and_clear_digits() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
-    assert!(state.theme_picker_digits.is_empty());
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
+    assert!(state.theme_studio.picker_digits.is_empty());
 }
 
 #[test]
@@ -3699,8 +4227,8 @@ fn theme_picker_arrow_left_and_right_move_selection_in_opposite_directions() {
 
     let (mut left_state, mut left_timers, mut left_deps, _left_writer_rx, _left_input_tx) =
         build_harness("cat", &[], 8);
-    left_state.overlay_mode = OverlayMode::ThemePicker;
-    left_state.theme_picker_selected = 1;
+    left_state.ui.overlay_mode = OverlayMode::ThemePicker;
+    left_state.theme_studio.picker_selected = 1;
     let mut running = true;
     handle_input_event(
         &mut left_state,
@@ -3710,12 +4238,12 @@ fn theme_picker_arrow_left_and_right_move_selection_in_opposite_directions() {
         &mut running,
     );
     assert!(running);
-    let left_selected = left_state.theme_picker_selected;
+    let left_selected = left_state.theme_studio.picker_selected;
 
     let (mut right_state, mut right_timers, mut right_deps, _right_writer_rx, _right_input_tx) =
         build_harness("cat", &[], 8);
-    right_state.overlay_mode = OverlayMode::ThemePicker;
-    right_state.theme_picker_selected = 1;
+    right_state.ui.overlay_mode = OverlayMode::ThemePicker;
+    right_state.theme_studio.picker_selected = 1;
     let mut running = true;
     handle_input_event(
         &mut right_state,
@@ -3725,7 +4253,7 @@ fn theme_picker_arrow_left_and_right_move_selection_in_opposite_directions() {
         &mut running,
     );
     assert!(running);
-    let right_selected = right_state.theme_picker_selected;
+    let right_selected = right_state.theme_studio.picker_selected;
 
     assert_ne!(left_selected, right_selected);
     assert_eq!(left_selected, 0);
@@ -3735,7 +4263,7 @@ fn theme_picker_arrow_left_and_right_move_selection_in_opposite_directions() {
 #[test]
 fn theme_picker_numeric_input_keeps_three_digits_and_clears_after_fourth() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemePicker;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
 
     let mut running = true;
     handle_input_event(
@@ -3746,7 +4274,7 @@ fn theme_picker_numeric_input_keeps_three_digits_and_clears_after_fourth() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.theme_picker_digits, "123");
+    assert_eq!(state.theme_studio.picker_digits, "123");
 
     let before = Instant::now();
     handle_input_event(
@@ -3757,7 +4285,7 @@ fn theme_picker_numeric_input_keeps_three_digits_and_clears_after_fourth() {
         &mut running,
     );
     assert!(running);
-    assert!(state.theme_picker_digits.is_empty());
+    assert!(state.theme_studio.picker_digits.is_empty());
     let deadline = timers
         .theme_picker_digit_deadline
         .expect("digit deadline should still be refreshed");
@@ -3773,8 +4301,8 @@ fn theme_picker_single_digit_waits_when_longer_match_exists() {
         return;
     }
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemePicker;
-    state.theme_picker_selected = 5;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_selected = 5;
 
     let mut running = true;
     handle_input_event(
@@ -3786,17 +4314,18 @@ fn theme_picker_single_digit_waits_when_longer_match_exists() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
-    assert_eq!(state.theme_picker_selected, 5);
-    assert_eq!(state.theme_picker_digits, "1");
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_studio.picker_selected, 5);
+    assert_eq!(state.theme_studio.picker_digits, "1");
 }
 
 #[test]
 fn overlay_mouse_click_outside_vertical_bounds_is_ignored() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = 0;
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = 0;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(settings_overlay_height() as u16)
         .saturating_add(1);
@@ -3814,17 +4343,17 @@ fn overlay_mouse_click_outside_vertical_bounds_is_ignored() {
     );
 
     assert!(running);
-    assert_eq!(state.settings_menu.selected, 0);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.settings.menu.selected, 0);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
 }
 
 #[test]
 fn overlay_mouse_click_outside_horizontal_bounds_is_ignored() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = 0;
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = 0;
     let row = settings_overlay_row_y(&state, SettingsItem::Latency);
-    let click_x = state.terminal_cols;
+    let click_x = state.ui.terminal_cols;
 
     let mut running = true;
     handle_input_event(
@@ -3836,18 +4365,18 @@ fn overlay_mouse_click_outside_horizontal_bounds_is_ignored() {
     );
 
     assert!(running);
-    assert_eq!(state.settings_menu.selected, 0);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.settings.menu.selected, 0);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
 }
 
 #[test]
 fn theme_picker_mouse_click_on_border_columns_does_not_select_option() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemePicker;
-    state.theme_picker_selected = 2;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_selected = 2;
     let row = theme_picker_overlay_row_y(&state, 0);
     let left_border_x = centered_theme_picker_rel_x_to_screen_x(&state, 1);
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = theme_picker_total_width_for_terminal(cols);
     let right_border_x = centered_theme_picker_rel_x_to_screen_x(&state, overlay_width);
 
@@ -3863,7 +4392,7 @@ fn theme_picker_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.theme_picker_selected, 2);
+    assert_eq!(state.theme_studio.picker_selected, 2);
 
     handle_input_event(
         &mut state,
@@ -3876,17 +4405,17 @@ fn theme_picker_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.theme_picker_selected, 2);
+    assert_eq!(state.theme_studio.picker_selected, 2);
 }
 
 #[test]
 fn theme_studio_mouse_click_on_border_columns_does_not_select_option() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 4;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 4;
     let row = theme_studio_overlay_row_y(&state, 0);
     let left_border_x = centered_theme_studio_rel_x_to_screen_x(&state, 1);
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = theme_studio_total_width_for_terminal(cols);
     let right_border_x = centered_theme_studio_rel_x_to_screen_x(&state, overlay_width);
 
@@ -3902,8 +4431,8 @@ fn theme_studio_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
-    assert_eq!(state.theme_studio_selected, 4);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio.selected, 4);
 
     handle_input_event(
         &mut state,
@@ -3916,15 +4445,15 @@ fn theme_studio_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
-    assert_eq!(state.theme_studio_selected, 4);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio.selected, 4);
 }
 
 #[test]
 fn theme_studio_mouse_click_on_theme_picker_row_opens_theme_picker_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 6;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 6;
     let row = theme_studio_overlay_row_y(&state, 0);
     let interior_x = centered_theme_studio_rel_x_to_screen_x(&state, 3);
 
@@ -3941,16 +4470,17 @@ fn theme_studio_mouse_click_on_theme_picker_row_opens_theme_picker_overlay() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemePicker);
-    assert_eq!(state.theme_studio_selected, 0);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_studio.selected, 0);
 }
 
 #[test]
 fn theme_studio_mouse_click_above_option_rows_does_not_activate_selection() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::ThemeStudio;
-    state.theme_studio_selected = 6;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 6;
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(theme_studio_height() as u16)
         .saturating_add(1);
@@ -3972,18 +4502,18 @@ fn theme_studio_mouse_click_above_option_rows_does_not_activate_selection() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ThemeStudio);
-    assert_eq!(state.theme_studio_selected, 6);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio.selected, 6);
 }
 
 #[test]
 fn settings_mouse_click_on_border_columns_does_not_select_option() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = 0;
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = 0;
     let row = settings_overlay_row_y(&state, SettingsItem::Latency);
     let left_border_x = centered_settings_overlay_rel_x_to_screen_x(&state, 1);
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
     let overlay_width = settings_overlay_width_for_terminal(cols);
     let right_border_x = centered_settings_overlay_rel_x_to_screen_x(&state, overlay_width);
 
@@ -3999,7 +4529,7 @@ fn settings_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.settings_menu.selected, 0);
+    assert_eq!(state.settings.menu.selected, 0);
 
     handle_input_event(
         &mut state,
@@ -4012,14 +4542,14 @@ fn settings_mouse_click_on_border_columns_does_not_select_option() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.settings_menu.selected, 0);
+    assert_eq!(state.settings.menu.selected, 0);
 }
 
 #[test]
 fn settings_mouse_click_zero_column_is_ignored() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::Settings;
-    state.settings_menu.selected = 0;
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = 0;
     let row = settings_overlay_row_y(&state, SettingsItem::Latency);
 
     let mut running = true;
@@ -4032,19 +4562,19 @@ fn settings_mouse_click_zero_column_is_ignored() {
     );
 
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::Settings);
-    assert_eq!(state.settings_menu.selected, 0);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.settings.menu.selected, 0);
 }
 
 #[test]
 fn run_event_loop_does_not_run_periodic_before_first_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, input_tx) = build_harness("cat", &[], 8);
-    state.overlay_mode = OverlayMode::None;
-    state.theme_picker_digits = "12".to_string();
+    state.ui.overlay_mode = OverlayMode::None;
+    state.theme_studio.picker_digits = "12".to_string();
     input_tx.send(InputEvent::Exit).expect("queue exit event");
 
     run_event_loop(&mut state, &mut timers, &mut deps);
-    assert_eq!(state.theme_picker_digits, "12");
+    assert_eq!(state.theme_studio.picker_digits, "12");
 }
 
 #[test]
@@ -4071,7 +4601,7 @@ fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
     {
         let _hook = install_try_send_hook(hook_count_writes);
         let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-        state.suppress_startup_escape_input = true;
+        state.ui.suppress_startup_escape_input = true;
         let mut running = true;
         handle_input_event(
             &mut state,
@@ -4087,7 +4617,7 @@ fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
     {
         let _hook = install_try_send_hook(hook_count_writes);
         let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-        state.suppress_startup_escape_input = false;
+        state.ui.suppress_startup_escape_input = false;
         state.status_state.hud_button_focus = None;
         let mut running = true;
         handle_input_event(
@@ -4098,8 +4628,8 @@ fn suppress_startup_escape_only_blocks_arrow_noise_when_enabled() {
             &mut running,
         );
         assert!(running);
-        assert!(state.status_state.hud_button_focus.is_some());
-        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+        assert!(state.status_state.hud_button_focus.is_none());
+        HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
     }
 }
 
@@ -4191,7 +4721,7 @@ fn insert_mode_without_pending_text_keeps_hud_arrow_focus_navigation() {
 }
 
 #[test]
-fn up_arrow_moves_focus_and_is_not_forwarded_to_pty() {
+fn up_arrow_without_hud_focus_is_forwarded_to_pty() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_button_focus = None;
@@ -4206,18 +4736,47 @@ fn up_arrow_moves_focus_and_is_not_forwarded_to_pty() {
     );
 
     assert!(running);
-    assert!(state.status_state.hud_button_focus.is_some());
-    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1));
 }
 
 #[test]
-fn insert_mode_with_pending_text_keeps_up_and_down_for_hud_navigation() {
+fn insert_mode_with_pending_text_forwards_up_and_down_to_pty() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.voice_send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.send_mode = crate::config::VoiceSendMode::Insert;
     state.status_state.insert_pending_send = true;
     state.status_state.hud_button_focus = None;
+    let mut running = true;
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+    let focus_after_up = state.status_state.hud_button_focus;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[B".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(focus_after_up.is_none());
+    assert!(state.status_state.hud_button_focus.is_none());
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 2));
+}
+
+#[test]
+fn up_and_down_navigate_hud_when_focus_already_active() {
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
     let mut running = true;
 
     handle_input_event(
@@ -4265,8 +4824,9 @@ fn empty_bytes_keep_claude_prompt_suppression_enabled() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let mut running = true;
 
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
+    timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
 
     handle_input_event(
         &mut state,
@@ -4281,26 +4841,192 @@ fn empty_bytes_keep_claude_prompt_suppression_enabled() {
 }
 
 #[test]
-fn non_empty_bytes_clear_claude_prompt_suppression() {
+fn non_confirmation_bytes_keep_claude_prompt_suppression() {
+    for bytes in [
+        b"x".as_slice(),
+        b"a".as_slice(),
+        b"d".as_slice(),
+        b"q".as_slice(),
+    ] {
+        let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+        state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+        let mut running = true;
+
+        let detected = state
+            .prompt
+            .occlusion_detector
+            .feed_output(b"Do you want to proceed? (y/n)\n");
+        assert!(detected);
+        super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+        assert!(state.status_state.claude_prompt_suppressed);
+        timers.prompt_suppression_release_not_before =
+            Some(Instant::now() + Duration::from_secs(3));
+
+        handle_input_event(
+            &mut state,
+            &mut timers,
+            &mut deps,
+            InputEvent::Bytes(bytes.to_vec()),
+            &mut running,
+        );
+
+        assert!(running);
+        assert!(state.status_state.claude_prompt_suppressed);
+    }
+}
+
+#[test]
+fn confirmation_bytes_defer_claude_prompt_clear_until_periodic_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
     let mut running = true;
 
     let detected = state
-        .claude_prompt_detector
+        .prompt
+        .occlusion_detector
         .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+    timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"y".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    // Input marks detector resolved, but suppression is cleared on the next loop tick
+    // to avoid same-frame redraw collisions with backend approval UI repaint.
+    assert!(state.status_state.claude_prompt_suppressed);
+    let now = Instant::now();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(state.status_state.claude_prompt_suppressed);
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    let mut running = true;
+
+    let detected = state
+        .prompt
+        .occlusion_detector
+        .feed_output(b"This command requires approval\nDo you want to proceed?\n");
+    assert!(detected);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+    timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"2".to_vec()),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+    let now = Instant::now();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(state.status_state.claude_prompt_suppressed);
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn enter_key_defer_claude_prompt_clear_until_periodic_tick() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    let mut running = true;
+
+    let detected = state
+        .prompt
+        .occlusion_detector
+        .feed_output(b"This command requires approval\nDo you want to proceed?\n");
+    assert!(detected);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+    timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
+
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::EnterKey,
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+    let now = Instant::now();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(state.status_state.claude_prompt_suppressed);
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn enter_key_resolution_does_not_re_suppress_on_empty_output() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+    let mut running = true;
+
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"Done. Press Enter to continue to Bash command 4/10.".to_vec(),
+        &mut running,
+    );
+    assert!(running);
     assert!(state.status_state.claude_prompt_suppressed);
 
     handle_input_event(
         &mut state,
         &mut timers,
         &mut deps,
-        InputEvent::Bytes(b"x".to_vec()),
+        InputEvent::EnterKey,
         &mut running,
     );
+    assert!(running);
 
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+
+    // Empty output should not re-trigger suppression from stale detector buffers.
+    handle_output_chunk(&mut state, &mut timers, &mut deps, Vec::new(), &mut running);
     assert!(running);
     assert!(!state.status_state.claude_prompt_suppressed);
 }
@@ -4308,21 +5034,22 @@ fn non_empty_bytes_clear_claude_prompt_suppression() {
 #[test]
 fn reply_composer_marker_does_not_enable_prompt_suppression() {
     let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
-    let detected = state.claude_prompt_detector.feed_output("❯ ".as_bytes());
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    let detected = state.prompt.occlusion_detector.feed_output("❯ ".as_bytes());
     assert!(!detected);
-    assert!(!state.claude_prompt_detector.should_suppress_hud());
+    assert!(!state.prompt.occlusion_detector.should_suppress_hud());
 }
 
 #[test]
 fn codex_generate_command_hint_does_not_enable_prompt_suppression() {
     let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
     let detected = state
-        .claude_prompt_detector
+        .prompt
+        .occlusion_detector
         .feed_output("⌘K to generate command".as_bytes());
     assert!(!detected);
-    assert!(!state.claude_prompt_detector.should_suppress_hud());
+    assert!(!state.prompt.occlusion_detector.should_suppress_hud());
 }
 
 #[test]
@@ -4390,7 +5117,7 @@ fn decrease_sensitivity_event_moves_threshold_down() {
 fn enter_key_non_theme_focus_keeps_theme_picker_digits() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
-    state.theme_picker_digits = "12".to_string();
+    state.theme_studio.picker_digits = "12".to_string();
     let mut running = true;
     handle_input_event(
         &mut state,
@@ -4400,7 +5127,7 @@ fn enter_key_non_theme_focus_keeps_theme_picker_digits() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.theme_picker_digits, "12");
+    assert_eq!(state.theme_studio.picker_digits, "12");
 }
 
 #[test]
@@ -4436,12 +5163,12 @@ fn mouse_click_non_theme_button_keeps_theme_picker_digits() {
     update_button_registry(
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
     let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::ToggleSendMode);
-    state.theme_picker_digits = "12".to_string();
+    state.theme_studio.picker_digits = "12".to_string();
 
     let mut running = true;
     handle_input_event(
@@ -4453,7 +5180,7 @@ fn mouse_click_non_theme_button_keeps_theme_picker_digits() {
     );
 
     assert!(running);
-    assert_eq!(state.theme_picker_digits, "12");
+    assert_eq!(state.theme_studio.picker_digits, "12");
 }
 
 #[test]
@@ -4547,8 +5274,8 @@ fn hidden_hide_mouse_click_collapses_launcher_and_emits_status_redraw() {
     update_button_registry(
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
     let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::CollapseHiddenLauncher);
@@ -4585,8 +5312,8 @@ fn hidden_open_mouse_click_expands_collapsed_launcher_and_emits_status_redraw() 
     update_button_registry(
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
     let (x, y) = hud_button_click_coords(&state, &deps, ButtonAction::ToggleHudStyle);
@@ -4721,53 +5448,118 @@ fn run_event_loop_ctrl_e_without_pending_insert_text_reports_nothing_to_finalize
 }
 
 #[test]
-fn set_claude_prompt_suppression_keeps_pty_row_budget_stable() {
+fn set_claude_prompt_suppression_expands_pty_row_budget() {
     let (mut state, _timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_style = HudStyle::Full;
-    state.terminal_rows = 24;
-    state.terminal_cols = 80;
-    let expected_rows = 24u16
-        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
-        .max(1);
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+    assert_eq!(status_banner_height(80, HudStyle::Full), 4);
+    let reserved = crate::terminal::reserved_rows_for_mode(
+        OverlayMode::None,
+        state.ui.terminal_cols,
+        state.status_state.hud_style,
+        false,
+    ) as u16;
+    let unsuppressed_rows = state.ui.terminal_rows.saturating_sub(reserved).max(1);
 
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
     let (suppressed_rows, _) = deps.session.current_winsize();
-    assert_eq!(suppressed_rows, expected_rows);
+    assert_eq!(suppressed_rows, 24);
 
-    set_claude_prompt_suppression(&mut state, &mut deps, false);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, false);
     assert!(!state.status_state.claude_prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
-    assert_eq!(restored_rows, expected_rows);
+    assert_eq!(restored_rows, unsuppressed_rows);
+}
+
+#[test]
+fn set_claude_prompt_suppression_clears_hud_before_status_update() {
+    let (mut state, _timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    while writer_rx.try_recv().is_ok() {}
+
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("suppression should first clear status")
+    {
+        WriterMessage::ClearStatus => {}
+        other => panic!("expected ClearStatus, got {other:?}"),
+    }
+
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("suppression should then send enhanced status")
+    {
+        WriterMessage::EnhancedStatus(status) => {
+            assert!(status.claude_prompt_suppressed);
+        }
+        other => panic!("expected EnhancedStatus, got {other:?}"),
+    }
+
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, false);
+
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("unsuppression should first clear status")
+    {
+        WriterMessage::ClearStatus => {}
+        other => panic!("expected ClearStatus, got {other:?}"),
+    }
+
+    match writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("unsuppression should then send enhanced status")
+    {
+        WriterMessage::EnhancedStatus(status) => {
+            assert!(!status.claude_prompt_suppressed);
+        }
+        other => panic!("expected EnhancedStatus, got {other:?}"),
+    }
 }
 
 #[test]
 fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.claude_prompt_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
-    state.terminal_rows = 24;
-    state.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
 
     // Activate suppression and row-budget expansion.
     let detected = state
-        .claude_prompt_detector
+        .prompt
+        .occlusion_detector
         .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
-    set_claude_prompt_suppression(&mut state, &mut deps, true);
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+    timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
     let (suppressed_rows, _) = deps.session.current_winsize();
-    let expected_rows = 24u16
-        .saturating_sub(status_banner_height(80, HudStyle::Full) as u16)
-        .max(1);
-    assert_eq!(suppressed_rows, expected_rows);
+    let reserved = crate::terminal::reserved_rows_for_mode(
+        OverlayMode::None,
+        state.ui.terminal_cols,
+        state.status_state.hud_style,
+        false,
+    ) as u16;
+    let unsuppressed_rows = state.ui.terminal_rows.saturating_sub(reserved).max(1);
+    assert_eq!(suppressed_rows, 24);
 
     // Detector resolved via user input path, but no fresh output chunk arrives.
-    state.claude_prompt_detector.on_user_input();
-    run_periodic_tasks(&mut state, &mut timers, &mut deps, Instant::now());
+    state.prompt.occlusion_detector.on_user_input();
+    let now = Instant::now();
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
+    assert!(state.status_state.claude_prompt_suppressed);
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
 
     assert!(!state.status_state.claude_prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
-    assert_eq!(restored_rows, expected_rows);
+    assert_eq!(restored_rows, unsuppressed_rows);
 }
 
 #[test]
@@ -4783,7 +5575,7 @@ fn toast_history_toggle_opens_and_closes_overlay() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::ToastHistory);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ToastHistory);
 
     handle_input_event(
         &mut state,
@@ -4793,7 +5585,7 @@ fn toast_history_toggle_opens_and_closes_overlay() {
         &mut running,
     );
     assert!(running);
-    assert_eq!(state.overlay_mode, OverlayMode::None);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
 }
 
 #[test]
@@ -4878,7 +5670,7 @@ fn non_interference_ctrl_d_sends_eof_byte_when_dev_mode_off() {
     let _guard = install_try_send_hook(hook_would_block);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = false;
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     let mut running = true;
 
     handle_input_event(
@@ -4894,17 +5686,17 @@ fn non_interference_ctrl_d_sends_eof_byte_when_dev_mode_off() {
         "session must remain running after Ctrl+D in non-dev mode"
     );
     assert_eq!(
-        state.overlay_mode,
+        state.ui.overlay_mode,
         OverlayMode::None,
         "overlay must stay None when dev_mode is off"
     );
     assert_eq!(
-        state.pending_pty_input.front(),
+        state.pty_buffer.pending_input.front(),
         Some(&vec![0x04]),
         "Ctrl+D must queue the EOF byte (0x04) to the PTY"
     );
     assert_eq!(
-        state.pending_pty_input_bytes, 1,
+        state.pty_buffer.pending_input_bytes, 1,
         "exactly one byte (EOF) should be queued"
     );
 }
@@ -4931,7 +5723,7 @@ fn non_interference_overlay_never_becomes_dev_panel_when_dev_mode_off() {
     for evt in probe_events {
         handle_input_event(&mut state, &mut timers, &mut deps, evt, &mut running);
         assert_ne!(
-            state.overlay_mode,
+            state.ui.overlay_mode,
             OverlayMode::DevPanel,
             "overlay must never transition to DevPanel when dev_mode is off"
         );
@@ -4979,7 +5771,7 @@ fn non_interference_dev_panel_toggle_opens_panel_when_dev_mode_on() {
     // dev_mode is enabled, confirming the guard correctly distinguishes modes.
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = true;
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     let mut running = true;
 
     handle_input_event(
@@ -4992,7 +5784,7 @@ fn non_interference_dev_panel_toggle_opens_panel_when_dev_mode_on() {
 
     assert!(running);
     assert_eq!(
-        state.overlay_mode,
+        state.ui.overlay_mode,
         OverlayMode::DevPanel,
         "overlay must switch to DevPanel when dev_mode is on"
     );
@@ -5012,7 +5804,7 @@ fn non_interference_dev_panel_toggle_opens_panel_when_dev_mode_on() {
     }
     // Confirm PTY did NOT receive the EOF byte.
     assert!(
-        state.pending_pty_input.is_empty(),
+        state.pty_buffer.pending_input.is_empty(),
         "PTY input queue must be empty when dev panel opens"
     );
 }
@@ -5024,7 +5816,7 @@ fn non_interference_poll_dev_commands_is_noop_when_broker_absent() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = false;
     let status_before = state.current_status.clone();
-    let overlay_before = state.overlay_mode;
+    let overlay_before = state.ui.overlay_mode;
 
     assert!(deps.dev_command_broker.is_none());
     poll_dev_command_updates(&mut state, &mut timers, &mut deps);
@@ -5034,7 +5826,7 @@ fn non_interference_poll_dev_commands_is_noop_when_broker_absent() {
         "status must not change when broker is absent"
     );
     assert_eq!(
-        state.overlay_mode, overlay_before,
+        state.ui.overlay_mode, overlay_before,
         "overlay must not change when broker is absent"
     );
 }
@@ -5045,7 +5837,7 @@ fn non_interference_request_dev_command_rejected_when_dev_mode_off() {
     // leaving all command state untouched.
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.config.dev_mode = false;
-    state.overlay_mode = OverlayMode::DevPanel; // force overlay open
+    state.ui.overlay_mode = OverlayMode::DevPanel; // force overlay open
     state.dev_panel_commands.select_index(0);
 
     request_selected_dev_panel_command(&mut state, &mut timers, &mut deps);
@@ -5085,7 +5877,7 @@ fn non_interference_default_harness_mirrors_non_dev_session() {
         "dev_command_broker must be None"
     );
     assert_eq!(
-        state.overlay_mode,
+        state.ui.overlay_mode,
         OverlayMode::None,
         "overlay must start as None"
     );

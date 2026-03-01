@@ -5,6 +5,7 @@ mod input_dispatch;
 mod output_dispatch;
 mod overlay_dispatch;
 mod periodic_tasks;
+mod prompt_occlusion;
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -34,6 +35,7 @@ use crate::overlays::{
     OverlayMode,
 };
 use crate::prompt::should_auto_trigger;
+use crate::runtime_compat::{self, BackendFamily, TerminalHost};
 use crate::settings::{
     settings_overlay_footer, settings_overlay_height, settings_overlay_inner_width_for_terminal,
     settings_overlay_width_for_terminal, SettingsItem, SETTINGS_ITEMS, SETTINGS_OPTION_START_ROW,
@@ -81,6 +83,10 @@ use overlay_dispatch::{
     render_toast_history_overlay_for_state, render_transcript_history_overlay_for_state,
 };
 use periodic_tasks::run_periodic_tasks;
+use prompt_occlusion::{
+    clear_expired_prompt_suppression, feed_prompt_output_and_sync,
+    register_prompt_resolution_candidate,
+};
 
 const EVENT_LOOP_IDLE_MS: u64 = 20;
 const THEME_PICKER_NUMERIC_TIMEOUT_MS: u64 = 350;
@@ -282,7 +288,7 @@ fn drain_voice_messages_once(
         status_state: &mut state.status_state,
         session_stats: &mut state.session_stats,
         pending_transcripts: &mut state.pending_transcripts,
-        prompt_tracker: &mut state.prompt_tracker,
+        prompt_tracker: &mut state.prompt.tracker,
         last_enter_at: &mut timers.last_enter_at,
         now,
         transcript_idle_timeout: deps.transcript_idle_timeout,
@@ -313,38 +319,11 @@ fn drain_voice_messages_once(
 fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
     update_pty_winsize(
         &mut deps.session,
-        &mut state.terminal_rows,
-        &mut state.terminal_cols,
-        state.overlay_mode,
+        &mut state.ui.terminal_rows,
+        &mut state.ui.terminal_cols,
+        state.ui.overlay_mode,
         state.status_state.hud_style,
         state.status_state.claude_prompt_suppressed,
-    );
-}
-
-fn set_claude_prompt_suppression(
-    state: &mut EventLoopState,
-    deps: &mut EventLoopDeps,
-    suppressed: bool,
-) {
-    if state.status_state.claude_prompt_suppressed == suppressed {
-        return;
-    }
-    state.status_state.claude_prompt_suppressed = suppressed;
-    apply_pty_winsize(
-        &mut deps.session,
-        state.terminal_rows,
-        state.terminal_cols,
-        state.overlay_mode,
-        state.status_state.hud_style,
-        state.status_state.claude_prompt_suppressed,
-    );
-    send_enhanced_status_with_buttons(
-        &deps.writer_tx,
-        &deps.button_registry,
-        &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
-        state.theme,
     );
 }
 
@@ -355,28 +334,29 @@ fn refresh_button_registry_if_mouse(state: &EventLoopState, deps: &EventLoopDeps
     update_button_registry(
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
 }
 
 fn reset_theme_picker_digits(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
-    state.theme_picker_digits.clear();
+    state.theme_studio.picker_digits.clear();
     timers.theme_picker_digit_deadline = None;
 }
 
 fn reset_theme_picker_selection(state: &mut EventLoopState, timers: &mut EventLoopTimers) {
     let selection_theme = style_pack_theme_lock().unwrap_or(state.theme);
-    state.theme_picker_selected = theme_index_from_theme(selection_theme);
+    state.theme_studio.picker_selected = theme_index_from_theme(selection_theme);
     reset_theme_picker_digits(state, timers);
 }
 
 fn reset_theme_studio_selection(state: &mut EventLoopState) {
-    state.theme_studio_selected = state
-        .theme_studio_selected
+    state.theme_studio.selected = state
+        .theme_studio
+        .selected
         .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
-    state.theme_studio_page = crate::theme_studio::StudioPage::Home;
+    state.theme_studio.page = crate::theme_studio::StudioPage::Home;
 }
 
 fn settings_action_context<'a>(
@@ -405,8 +385,8 @@ fn settings_action_context<'a>(
         hud: SettingsHudContext {
             button_registry: &deps.button_registry,
             overlay_mode,
-            terminal_rows: &mut state.terminal_rows,
-            terminal_cols: &mut state.terminal_cols,
+            terminal_rows: &mut state.ui.terminal_rows,
+            terminal_cols: &mut state.ui.terminal_cols,
             theme: &mut state.theme,
             pty_session: Some(&mut deps.session),
         },
@@ -499,11 +479,11 @@ fn button_action_context<'a>(
     deps: &'a mut EventLoopDeps,
 ) -> ButtonActionContext<'a> {
     ButtonActionContext {
-        overlay_mode: &mut state.overlay_mode,
-        settings_menu: &mut state.settings_menu,
-        theme_studio_selected: &mut state.theme_studio_selected,
-        theme_studio_undo_history: &mut state.theme_studio_undo_history,
-        theme_studio_redo_history: &mut state.theme_studio_redo_history,
+        overlay_mode: &mut state.ui.overlay_mode,
+        settings_menu: &mut state.settings.menu,
+        theme_studio_selected: &mut state.theme_studio.selected,
+        theme_studio_undo_history: &mut state.theme_studio.undo_history,
+        theme_studio_redo_history: &mut state.theme_studio.redo_history,
         config: &mut state.config,
         status_state: &mut state.status_state,
         auto_voice_enabled: &mut state.auto_voice_enabled,
@@ -517,8 +497,8 @@ fn button_action_context<'a>(
         preview_clear_deadline: &mut timers.preview_clear_deadline,
         last_meter_update: &mut timers.last_meter_update,
         last_auto_trigger_at: &mut timers.last_auto_trigger_at,
-        terminal_rows: &mut state.terminal_rows,
-        terminal_cols: &mut state.terminal_cols,
+        terminal_rows: &mut state.ui.terminal_rows,
+        terminal_cols: &mut state.ui.terminal_cols,
         backend_label: &deps.backend_label,
         theme: &mut state.theme,
         button_registry: &deps.button_registry,
@@ -526,13 +506,13 @@ fn button_action_context<'a>(
 }
 
 fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {
-    let Some(pending) = state.pending_pty_output.take() else {
+    let Some(pending) = state.pty_buffer.pending_output.take() else {
         return true;
     };
     match deps.writer_tx.try_send(WriterMessage::PtyOutput(pending)) {
         Ok(()) => true,
         Err(TrySendError::Full(WriterMessage::PtyOutput(bytes))) => {
-            state.pending_pty_output = Some(bytes);
+            state.pty_buffer.pending_output = Some(bytes);
             false
         }
         Err(TrySendError::Full(_)) => {
@@ -545,33 +525,36 @@ fn flush_pending_pty_output(state: &mut EventLoopState, deps: &EventLoopDeps) ->
 
 fn flush_pending_pty_input(state: &mut EventLoopState, deps: &mut EventLoopDeps) -> bool {
     for _ in 0..PTY_INPUT_FLUSH_ATTEMPTS {
-        let Some(front_len) = state.pending_pty_input.front().map(Vec::len) else {
-            state.pending_pty_input_offset = 0;
-            state.pending_pty_input_bytes = 0;
+        let Some(front_len) = state.pty_buffer.pending_input.front().map(Vec::len) else {
+            state.pty_buffer.pending_input_offset = 0;
+            state.pty_buffer.pending_input_bytes = 0;
             return true;
         };
-        if state.pending_pty_input_offset >= front_len {
-            state.pending_pty_input.pop_front();
-            state.pending_pty_input_offset = 0;
+        if state.pty_buffer.pending_input_offset >= front_len {
+            state.pty_buffer.pending_input.pop_front();
+            state.pty_buffer.pending_input_offset = 0;
             continue;
         }
         let write_result = {
-            let Some(front) = state.pending_pty_input.front() else {
-                state.pending_pty_input_offset = 0;
-                state.pending_pty_input_bytes = 0;
+            let Some(front) = state.pty_buffer.pending_input.front() else {
+                state.pty_buffer.pending_input_offset = 0;
+                state.pty_buffer.pending_input_bytes = 0;
                 return true;
             };
-            try_send_pty_bytes(&mut deps.session, &front[state.pending_pty_input_offset..])
-                .map(|written| (written, front.len()))
+            try_send_pty_bytes(
+                &mut deps.session,
+                &front[state.pty_buffer.pending_input_offset..],
+            )
+            .map(|written| (written, front.len()))
         };
         match write_result {
             Ok((written, front_len)) => {
-                state.pending_pty_input_bytes =
-                    state.pending_pty_input_bytes.saturating_sub(written);
-                state.pending_pty_input_offset += written;
-                if state.pending_pty_input_offset >= front_len {
-                    state.pending_pty_input.pop_front();
-                    state.pending_pty_input_offset = 0;
+                state.pty_buffer.pending_input_bytes =
+                    state.pty_buffer.pending_input_bytes.saturating_sub(written);
+                state.pty_buffer.pending_input_offset += written;
+                if state.pty_buffer.pending_input_offset >= front_len {
+                    state.pty_buffer.pending_input.pop_front();
+                    state.pty_buffer.pending_input_offset = 0;
                 }
             }
             Err(err) => {
@@ -594,6 +577,9 @@ fn write_or_queue_pty_input(
     if bytes.is_empty() {
         return true;
     }
+    if should_emit_user_input_activity(&deps.backend_label) {
+        let _ = deps.writer_tx.try_send(WriterMessage::UserInputActivity);
+    }
     state.transcript_history.ingest_user_input_bytes(&bytes);
     if let Some(logger) = state.session_memory_logger.as_mut() {
         logger.record_user_input_bytes(&bytes);
@@ -602,7 +588,7 @@ fn write_or_queue_pty_input(
         let text = String::from_utf8_lossy(&bytes);
         ingestor.ingest_user_input(text.as_ref());
     }
-    if state.pending_pty_input.is_empty() {
+    if state.pty_buffer.pending_input.is_empty() {
         match try_send_pty_bytes(&mut deps.session, &bytes) {
             Ok(written) => {
                 let Some(remaining) = bytes.get(written..) else {
@@ -610,17 +596,20 @@ fn write_or_queue_pty_input(
                     return false;
                 };
                 if !remaining.is_empty() {
-                    state.pending_pty_input.push_back(remaining.to_vec());
-                    state.pending_pty_input_bytes = state
-                        .pending_pty_input_bytes
+                    state.pty_buffer.pending_input.push_back(remaining.to_vec());
+                    state.pty_buffer.pending_input_bytes = state
+                        .pty_buffer
+                        .pending_input_bytes
                         .saturating_add(remaining.len());
                 }
             }
             Err(err) => {
                 if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::Interrupted {
-                    state.pending_pty_input_bytes =
-                        state.pending_pty_input_bytes.saturating_add(bytes.len());
-                    state.pending_pty_input.push_back(bytes);
+                    state.pty_buffer.pending_input_bytes = state
+                        .pty_buffer
+                        .pending_input_bytes
+                        .saturating_add(bytes.len());
+                    state.pty_buffer.pending_input.push_back(bytes);
                 } else {
                     log_debug(&format!("failed to write to PTY: {err}"));
                     return false;
@@ -628,18 +617,26 @@ fn write_or_queue_pty_input(
             }
         }
     } else {
-        state.pending_pty_input_bytes = state.pending_pty_input_bytes.saturating_add(bytes.len());
-        state.pending_pty_input.push_back(bytes);
+        state.pty_buffer.pending_input_bytes = state
+            .pty_buffer
+            .pending_input_bytes
+            .saturating_add(bytes.len());
+        state.pty_buffer.pending_input.push_back(bytes);
     }
     flush_pending_pty_input(state, deps)
 }
 
+fn should_emit_user_input_activity(backend_label: &str) -> bool {
+    BackendFamily::from_label(backend_label) == BackendFamily::Claude
+        && runtime_compat::detect_terminal_host() == TerminalHost::Cursor
+}
+
 fn flush_pending_output_or_continue(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {
-    if state.pending_pty_output.is_none() {
+    if state.pty_buffer.pending_output.is_none() {
         return true;
     }
     let flush_ok = flush_pending_pty_output(state, deps);
-    flush_ok || state.pending_pty_output.is_some()
+    flush_ok || state.pty_buffer.pending_output.is_some()
 }
 
 pub(crate) fn run_event_loop(
@@ -664,17 +661,17 @@ pub(crate) fn run_event_loop(
             running = false;
             continue;
         }
-        let select_timeout = if state.pending_pty_output.is_some() {
+        let select_timeout = if state.pty_buffer.pending_output.is_some() {
             Duration::from_millis(PENDING_OUTPUT_RETRY_MS)
         } else {
             tick_interval
         };
-        let output_guard = if state.pending_pty_output.is_some() {
+        let output_guard = if state.pty_buffer.pending_output.is_some() {
             Some(never::<Vec<u8>>())
         } else {
             None
         };
-        let input_guard = if state.pending_pty_input_bytes >= PTY_INPUT_MAX_BUFFER_BYTES {
+        let input_guard = if state.pty_buffer.pending_input_bytes >= PTY_INPUT_MAX_BUFFER_BYTES {
             Some(never::<InputEvent>())
         } else {
             None
@@ -706,6 +703,10 @@ pub(crate) fn run_event_loop(
             }
             default(select_timeout) => {}
         }
+    }
+    // Flush any buffered memory events before shutdown.
+    if let Some(ref mut ingestor) = state.memory_ingestor {
+        ingestor.flush();
     }
 }
 

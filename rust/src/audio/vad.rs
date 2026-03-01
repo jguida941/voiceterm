@@ -42,7 +42,7 @@ impl Default for VadConfig {
             silence_duration_ms: 500,
             max_recording_duration_ms: 10_000,
             min_recording_duration_ms: 200,
-            lookback_ms: 500,
+            lookback_ms: 200,
             buffer_ms: 10_000,
             channel_capacity: 64,
             smoothing_frames: 3,

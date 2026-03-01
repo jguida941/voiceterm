@@ -19,7 +19,7 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    let overlay_height = match state.overlay_mode {
+    let overlay_height = match state.ui.overlay_mode {
         OverlayMode::DevPanel => dev_panel_height(),
         OverlayMode::Help => help_overlay_height(),
         OverlayMode::ThemeStudio => theme_studio_height(),
@@ -34,20 +34,21 @@ pub(super) fn handle_overlay_mouse_click(
     if overlay_height == 0 {
         return;
     }
-    if state.terminal_rows == 0 {
+    if state.ui.terminal_rows == 0 {
         return;
     }
     let overlay_top_y = state
+        .ui
         .terminal_rows
         .saturating_sub(overlay_height as u16)
         .saturating_add(1);
-    if !(overlay_top_y..=state.terminal_rows).contains(&y) {
+    if !(overlay_top_y..=state.ui.terminal_rows).contains(&y) {
         return;
     }
     let overlay_row = (y - overlay_top_y) as usize + 1;
-    let cols = resolved_cols(state.terminal_cols) as usize;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
 
-    let (overlay_width, inner_width, footer_title) = match state.overlay_mode {
+    let (overlay_width, inner_width, footer_title) = match state.ui.overlay_mode {
         OverlayMode::DevPanel => (
             dev_panel_width_for_terminal(cols),
             dev_panel_inner_width_for_terminal(cols),
@@ -125,7 +126,7 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    if state.overlay_mode == OverlayMode::ThemePicker {
+    if state.ui.overlay_mode == OverlayMode::ThemePicker {
         let options_start = THEME_PICKER_OPTION_START_ROW;
         let options_end = options_start.saturating_add(THEME_OPTIONS.len().saturating_sub(1));
         if overlay_row >= options_start
@@ -139,7 +140,7 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    if state.overlay_mode == OverlayMode::ThemeStudio {
+    if state.ui.overlay_mode == OverlayMode::ThemeStudio {
         let options_start = THEME_STUDIO_OPTION_START_ROW;
         let options_end = options_start.saturating_add(THEME_STUDIO_ITEMS.len().saturating_sub(1));
         if overlay_row >= options_start
@@ -147,16 +148,16 @@ pub(super) fn handle_overlay_mouse_click(
             && rel_x > 1
             && rel_x < overlay_width
         {
-            state.theme_studio_selected = overlay_row.saturating_sub(options_start);
+            state.theme_studio.selected = overlay_row.saturating_sub(options_start);
             super::theme_studio_input::apply_theme_studio_selection(state, timers, deps, running);
-            if state.overlay_mode == OverlayMode::ThemeStudio {
+            if state.ui.overlay_mode == OverlayMode::ThemeStudio {
                 render_theme_studio_overlay_for_state(state, deps);
             }
         }
         return;
     }
 
-    if state.overlay_mode == OverlayMode::TranscriptHistory {
+    if state.ui.overlay_mode == OverlayMode::TranscriptHistory {
         let entry_start = crate::transcript_history::TRANSCRIPT_HISTORY_ENTRY_START_ROW;
         let visible = transcript_history_visible_rows();
         let entry_end = entry_start.saturating_add(visible.saturating_sub(1));
@@ -175,7 +176,7 @@ pub(super) fn handle_overlay_mouse_click(
         return;
     }
 
-    if state.overlay_mode == OverlayMode::Settings {
+    if state.ui.overlay_mode == OverlayMode::Settings {
         let options_start = SETTINGS_OPTION_START_ROW;
         let options_end = options_start.saturating_add(SETTINGS_ITEMS.len().saturating_sub(1));
         if overlay_row < options_start
@@ -187,9 +188,9 @@ pub(super) fn handle_overlay_mouse_click(
         }
 
         let selected_idx = overlay_row.saturating_sub(options_start);
-        state.settings_menu.selected = selected_idx.min(SETTINGS_ITEMS.len().saturating_sub(1));
+        state.settings.menu.selected = selected_idx.min(SETTINGS_ITEMS.len().saturating_sub(1));
 
-        let selected = state.settings_menu.selected_item();
+        let selected = state.settings.menu.selected_item();
         match selected {
             SettingsItem::Backend | SettingsItem::Pipeline => {}
             SettingsItem::Close => {
@@ -208,12 +209,12 @@ pub(super) fn handle_overlay_mouse_click(
                     deps,
                     selected,
                     direction,
-                    state.overlay_mode,
+                    state.ui.overlay_mode,
                 );
             }
         }
 
-        if state.overlay_mode == OverlayMode::Settings {
+        if state.ui.overlay_mode == OverlayMode::Settings {
             render_settings_overlay_for_state(state, deps);
         }
     }

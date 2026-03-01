@@ -13,11 +13,11 @@ pub(super) fn handle_input_event(
 ) {
     let mut pending_event = Some(evt);
     while let Some(current_event) = pending_event.take() {
-        if state.overlay_mode != OverlayMode::None {
-            let overlay_before = state.overlay_mode;
+        if state.ui.overlay_mode != OverlayMode::None {
+            let overlay_before = state.ui.overlay_mode;
             let replay =
                 overlay::handle_overlay_input_event(state, timers, deps, current_event, running);
-            pending_event = if replay.is_some() && state.overlay_mode == overlay_before {
+            pending_event = if replay.is_some() && state.ui.overlay_mode == overlay_before {
                 // Prevent replay loops if an overlay handler returns an event
                 // without actually transitioning out of overlay mode.
                 None
@@ -37,7 +37,7 @@ pub(super) fn handle_input_event(
                 open_theme_studio_overlay(state, deps);
             }
             InputEvent::QuickThemeCycle => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.cycle_theme(1);
                 });
@@ -65,7 +65,7 @@ pub(super) fn handle_input_event(
                 open_toast_history_overlay(state, deps);
             }
             InputEvent::ToggleHudStyle => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.cycle_hud_style(1);
                 });
@@ -73,19 +73,24 @@ pub(super) fn handle_input_event(
                 refresh_button_registry_if_mouse(state, deps);
             }
             InputEvent::Bytes(bytes) => {
-                if state.suppress_startup_escape_input && is_arrow_escape_noise(&bytes) {
+                if state.ui.suppress_startup_escape_input && is_arrow_escape_noise(&bytes) {
                     return;
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
                     let preserve_caret = should_preserve_terminal_caret_navigation(state);
+                    let hud_focus_active = state.status_state.hud_button_focus.is_some();
                     let mut moved = false;
                     for key in keys {
-                        let direction = hud_navigation_direction_from_arrow(key, preserve_caret);
+                        let direction = hud_navigation_direction_from_arrow(
+                            key,
+                            preserve_caret,
+                            hud_focus_active,
+                        );
                         if direction != 0
                             && advance_hud_button_focus(
                                 &mut state.status_state,
-                                state.overlay_mode,
-                                state.terminal_cols,
+                                state.ui.overlay_mode,
+                                state.ui.terminal_cols,
                                 state.theme,
                                 direction,
                             )
@@ -98,8 +103,8 @@ pub(super) fn handle_input_event(
                             &deps.writer_tx,
                             &deps.button_registry,
                             &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
+                            state.ui.overlay_mode,
+                            state.ui.terminal_cols,
                             state.theme,
                         );
                         return;
@@ -107,13 +112,10 @@ pub(super) fn handle_input_event(
                 }
 
                 state.status_state.hud_button_focus = None;
-                // Clear prompt suppression once any user input is sent.
-                if state.status_state.claude_prompt_suppressed
-                    && state.claude_prompt_detector.should_resolve_on_input(&bytes)
-                {
-                    state.claude_prompt_detector.on_user_input();
-                    set_claude_prompt_suppression(state, deps, false);
-                }
+                // Resolve prompt suppression according to prompt type policy.
+                register_prompt_resolution_candidate(state, timers, &bytes);
+                // Defer HUD re-enable to periodic/output dispatch so we do not redraw the
+                // banner on the same keypress frame that backend approval UIs are repainting.
                 let mark_insert_pending =
                     state.config.voice_send_mode == VoiceSendMode::Insert && !bytes.is_empty();
                 if !write_or_queue_pty_input(state, deps, bytes) {
@@ -156,37 +158,36 @@ pub(super) fn handle_input_event(
                 }
             }
             InputEvent::ToggleAutoVoice => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.toggle_auto_voice();
                 });
                 refresh_button_registry_if_mouse(state, deps);
             }
             InputEvent::ToggleSendMode => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.toggle_send_mode();
                 });
                 refresh_button_registry_if_mouse(state, deps);
             }
             InputEvent::IncreaseSensitivity => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.adjust_sensitivity(5.0);
                 });
             }
             InputEvent::DecreaseSensitivity => {
-                let overlay_mode = state.overlay_mode;
+                let overlay_mode = state.ui.overlay_mode;
                 run_settings_action(state, timers, deps, overlay_mode, |settings_ctx| {
                     settings_ctx.adjust_sensitivity(-5.0);
                 });
             }
             InputEvent::EnterKey => {
-                // User responded to a potential Claude prompt; clear HUD suppression.
-                if state.status_state.claude_prompt_suppressed {
-                    state.claude_prompt_detector.on_user_input();
-                    set_claude_prompt_suppression(state, deps, false);
-                }
+                // Treat Enter as prompt-resolution input, but defer HUD re-enable
+                // to periodic/output reconciliation to avoid same-frame occlusion
+                // over approval options and tool cards.
+                register_prompt_resolution_candidate(state, timers, b"\r");
                 if let Some(action) = state.status_state.hud_button_focus {
                     state.status_state.hud_button_focus = None;
                     if action != ButtonAction::ToggleAutoVoice {
@@ -201,8 +202,8 @@ pub(super) fn handle_input_event(
                             &deps.writer_tx,
                             &deps.button_registry,
                             &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
+                            state.ui.overlay_mode,
+                            state.ui.terminal_cols,
                             state.theme,
                         );
                         return;
@@ -213,8 +214,8 @@ pub(super) fn handle_input_event(
                         &deps.writer_tx,
                         &deps.button_registry,
                         &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
+                        state.ui.overlay_mode,
+                        state.ui.terminal_cols,
                         state.theme,
                     );
                 }
@@ -233,7 +234,7 @@ pub(super) fn handle_input_event(
                     return;
                 }
 
-                if let Some(action) = deps.button_registry.find_at(x, y, state.terminal_rows) {
+                if let Some(action) = deps.button_registry.find_at(x, y, state.ui.terminal_rows) {
                     if action == ButtonAction::ThemePicker {
                         reset_theme_studio_selection(state);
                     }
@@ -246,8 +247,8 @@ pub(super) fn handle_input_event(
                         &deps.writer_tx,
                         &deps.button_registry,
                         &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
+                        state.ui.overlay_mode,
+                        state.ui.terminal_cols,
                         state.theme,
                     );
                 }
@@ -264,7 +265,7 @@ pub(super) fn handle_wake_word_detection(
 ) {
     // Auto-voice pause is a guard for idle auto-triggering only; explicit wake
     // phrases should still arm capture.
-    if !state.config.wake_word || state.overlay_mode != OverlayMode::None {
+    if !state.config.wake_word || state.ui.overlay_mode != OverlayMode::None {
         return;
     }
     match wake_event {
@@ -426,11 +427,15 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
-fn hud_navigation_direction_from_arrow(key: ArrowKey, preserve_terminal_caret: bool) -> i32 {
+fn hud_navigation_direction_from_arrow(
+    key: ArrowKey,
+    preserve_terminal_caret: bool,
+    hud_focus_active: bool,
+) -> i32 {
     match key {
-        // Up/down remain HUD navigation keys even when insert-mode text is staged.
-        ArrowKey::Up => -1,
-        ArrowKey::Down => 1,
+        // Keep up/down available for backend prompt menus unless HUD focus is active.
+        ArrowKey::Up if hud_focus_active => -1,
+        ArrowKey::Down if hud_focus_active => 1,
         ArrowKey::Left if !preserve_terminal_caret => -1,
         ArrowKey::Right if !preserve_terminal_caret => 1,
         _ => 0,

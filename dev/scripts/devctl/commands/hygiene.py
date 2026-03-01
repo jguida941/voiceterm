@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple
 
 from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
+from ..reports_retention import build_reports_hygiene_guard
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
@@ -170,7 +171,8 @@ def run(args) -> int:
                 + "; ".join(fix_report["failed"]),
             ]
     runtime_processes = _audit_runtime_processes()
-    sections = [archive, adr, scripts, runtime_processes]
+    reports = build_reports_hygiene_guard(REPO_ROOT)
+    sections = [archive, adr, scripts, runtime_processes, reports]
 
     error_count = sum(len(section["errors"]) for section in sections)
     warning_count = sum(len(section["warnings"]) for section in sections)
@@ -186,6 +188,7 @@ def run(args) -> int:
         "adr": adr,
         "scripts": scripts,
         "runtime_processes": runtime_processes,
+        "reports": reports,
         "fix": fix_report,
     }
 
@@ -221,6 +224,17 @@ def run(args) -> int:
         lines.extend(
             f"- warning: {message}" for message in runtime_processes["warnings"]
         )
+        lines.append("")
+        lines.append("## Reports")
+        lines.append(f"- reports root: {reports['reports_root']}")
+        lines.append(f"- reports root exists: {reports['reports_root_exists']}")
+        lines.append(f"- managed run dirs: {reports['managed_run_dirs']}")
+        lines.append(f"- stale cleanup candidates: {reports['candidate_count']}")
+        lines.append(
+            f"- reclaim estimate: {reports['candidate_reclaim_human']}"
+        )
+        lines.extend(f"- error: {message}" for message in reports["errors"])
+        lines.extend(f"- warning: {message}" for message in reports["warnings"])
         if fix_report["requested"]:
             lines.append("")
             lines.append("## Fix")

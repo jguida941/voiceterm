@@ -9,6 +9,7 @@ pub(crate) struct InputParser {
     pending: Vec<u8>,
     skip_lf: bool,
     esc_buffer: Option<Vec<u8>>,
+    in_bracketed_paste: bool,
     mouse_press_seen: bool,
 }
 
@@ -18,6 +19,7 @@ impl InputParser {
             pending: Vec::new(),
             skip_lf: false,
             esc_buffer: None,
+            in_bracketed_paste: false,
             mouse_press_seen: false,
         }
     }
@@ -25,6 +27,10 @@ impl InputParser {
     pub(crate) fn consume_bytes(&mut self, bytes: &[u8], out: &mut Vec<InputEvent>) {
         for &byte in bytes {
             if self.consume_escape(byte, out) {
+                continue;
+            }
+            if self.in_bracketed_paste {
+                self.pending.push(byte);
                 continue;
             }
             if self.skip_lf {
@@ -147,6 +153,8 @@ impl InputParser {
 
     fn consume_escape(&mut self, byte: u8, out: &mut Vec<InputEvent>) -> bool {
         const MAX_CSI_LEN: usize = 32;
+        const BRACKETED_PASTE_START: &[u8] = b"\x1b[200~";
+        const BRACKETED_PASTE_END: &[u8] = b"\x1b[201~";
 
         if let Some(ref mut buffer) = self.esc_buffer {
             buffer.push(byte);
@@ -157,6 +165,19 @@ impl InputParser {
             }
 
             if buffer.get(1) == Some(&b'[') {
+                if buffer.len() >= 3 && is_csi_final(byte) {
+                    if buffer.as_slice() == BRACKETED_PASTE_START {
+                        self.in_bracketed_paste = true;
+                        self.esc_buffer = None;
+                        return true;
+                    }
+                    if buffer.as_slice() == BRACKETED_PASTE_END {
+                        self.in_bracketed_paste = false;
+                        self.esc_buffer = None;
+                        return true;
+                    }
+                }
+
                 // X10 mouse protocol: ESC [ M Cb Cx Cy (fixed 6-byte sequence).
                 // Keep buffering after the early 'M' byte until full length arrives.
                 if is_x10_mouse_prefix(buffer) {
@@ -430,6 +451,27 @@ mod tests {
         parser.flush_pending(&mut out);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0], InputEvent::Bytes(b"\x1b[A".to_vec()));
+    }
+
+    #[test]
+    fn input_parser_strips_bracketed_paste_wrappers() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[200~hello world\x1b[201~", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"hello world".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_keeps_newlines_and_controls_literal_inside_bracketed_paste() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[200~line1\nline2\r\n\x12\x1b[201~", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(
+            out,
+            vec![InputEvent::Bytes(b"line1\nline2\r\n\x12".to_vec())]
+        );
     }
 
     #[test]

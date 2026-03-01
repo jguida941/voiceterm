@@ -3,12 +3,12 @@
 use super::*;
 
 pub(super) fn render_help_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     show_help_overlay(&deps.writer_tx, state.theme, cols);
 }
 
 pub(super) fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     let snapshot = state
         .dev_mode_stats
         .as_ref()
@@ -25,12 +25,12 @@ pub(super) fn render_dev_panel_overlay_for_state(state: &EventLoopState, deps: &
 }
 
 pub(super) fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     let locked_theme = style_pack_theme_lock();
     let display_theme = locked_theme.unwrap_or(state.theme);
     let selected_idx = locked_theme
         .map(theme_index_from_theme)
-        .unwrap_or(state.theme_picker_selected);
+        .unwrap_or(state.theme_studio.picker_selected);
     show_theme_picker_overlay(
         &deps.writer_tx,
         display_theme,
@@ -43,13 +43,14 @@ pub(super) fn render_theme_picker_overlay_for_state(state: &EventLoopState, deps
 pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     use crate::theme_studio::{format_tab_bar, StudioPage};
 
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
 
-    match state.theme_studio_page {
+    match state.theme_studio.page {
         StudioPage::Home => {
             // Original home page rendering — unchanged.
             let selected = state
-                .theme_studio_selected
+                .theme_studio
+                .selected
                 .min(THEME_STUDIO_ITEMS.len().saturating_sub(1));
             let style_pack_overrides = runtime_style_pack_overrides();
             let view = ThemeStudioView {
@@ -69,8 +70,8 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
                 startup_style_override: style_pack_overrides.startup_style_override,
                 toast_severity_mode_override: style_pack_overrides.toast_severity_mode_override,
                 banner_style_override: style_pack_overrides.banner_style_override,
-                undo_available: !state.theme_studio_undo_history.is_empty(),
-                redo_available: !state.theme_studio_redo_history.is_empty(),
+                undo_available: !state.theme_studio.undo_history.is_empty(),
+                redo_available: !state.theme_studio.redo_history.is_empty(),
                 runtime_overrides_dirty: style_pack_overrides
                     != RuntimeStylePackOverrides::default(),
             };
@@ -84,7 +85,7 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
 
             let page_lines: Vec<String> = match page {
                 StudioPage::Colors => {
-                    if let Some(ref editor) = state.theme_studio_colors_editor {
+                    if let Some(ref editor) = state.theme_studio.colors_editor {
                         editor.render(colors.info, colors.dim, colors.reset)
                     } else {
                         vec![" (open Colors page to initialize editor)".to_string()]
@@ -92,17 +93,18 @@ pub(super) fn render_theme_studio_overlay_for_state(state: &EventLoopState, deps
                 }
                 StudioPage::Borders => {
                     state
-                        .theme_studio_borders_page
+                        .theme_studio
+                        .borders_page
                         .render(colors.info, colors.dim, colors.reset)
                 }
-                StudioPage::Components => state.theme_studio_components_editor.render(
+                StudioPage::Components => state.theme_studio.components_editor.render(
                     colors.info,
                     colors.dim,
                     colors.reset,
                 ),
-                StudioPage::Preview => state.theme_studio_preview_page.render(&colors),
+                StudioPage::Preview => state.theme_studio.preview_page.render(&colors),
                 StudioPage::Export => {
-                    let ep = &state.theme_studio_export_page;
+                    let ep = &state.theme_studio.export_page;
                     let mut lines: Vec<String> = crate::theme_studio::ExportAction::ALL
                         .iter()
                         .enumerate()
@@ -159,7 +161,7 @@ pub(super) fn render_transcript_history_overlay_for_state(
     state: &EventLoopState,
     deps: &EventLoopDeps,
 ) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     show_transcript_history_overlay(
         &deps.writer_tx,
         &state.transcript_history,
@@ -170,17 +172,17 @@ pub(super) fn render_transcript_history_overlay_for_state(
 }
 
 pub(super) fn render_toast_history_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     show_toast_history_overlay(&deps.writer_tx, &state.toast_center, state.theme, cols);
 }
 
 pub(super) fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
-    let cols = resolved_cols(state.terminal_cols);
+    let cols = resolved_cols(state.ui.terminal_cols);
     show_settings_overlay(
         &deps.writer_tx,
         state.theme,
         cols,
-        &state.settings_menu,
+        &state.settings.menu,
         &state.config,
         &state.status_state,
         &deps.backend_label,
@@ -192,7 +194,7 @@ pub(super) fn close_overlay(
     deps: &mut EventLoopDeps,
     refresh_buttons: bool,
 ) {
-    state.overlay_mode = OverlayMode::None;
+    state.ui.overlay_mode = OverlayMode::None;
     let _ = deps.writer_tx.send(WriterMessage::ClearOverlay);
     sync_overlay_winsize(state, deps);
     if refresh_buttons {
@@ -201,19 +203,19 @@ pub(super) fn close_overlay(
 }
 
 pub(super) fn open_help_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.overlay_mode = OverlayMode::Help;
+    state.ui.overlay_mode = OverlayMode::Help;
     sync_overlay_winsize(state, deps);
     render_help_overlay_for_state(state, deps);
 }
 
 pub(super) fn open_dev_panel_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.overlay_mode = OverlayMode::DevPanel;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
     sync_overlay_winsize(state, deps);
     render_dev_panel_overlay_for_state(state, deps);
 }
 
 pub(super) fn open_settings_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.overlay_mode = OverlayMode::Settings;
+    state.ui.overlay_mode = OverlayMode::Settings;
     sync_overlay_winsize(state, deps);
     render_settings_overlay_for_state(state, deps);
 }
@@ -223,14 +225,14 @@ pub(super) fn open_theme_picker_overlay(
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
-    state.overlay_mode = OverlayMode::ThemePicker;
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
     sync_overlay_winsize(state, deps);
     reset_theme_picker_selection(state, timers);
     render_theme_picker_overlay_for_state(state, deps);
 }
 
 pub(super) fn open_theme_studio_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.overlay_mode = OverlayMode::ThemeStudio;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
     reset_theme_studio_selection(state);
     sync_overlay_winsize(state, deps);
     render_theme_studio_overlay_for_state(state, deps);
@@ -240,7 +242,7 @@ pub(super) fn open_transcript_history_overlay(
     state: &mut EventLoopState,
     deps: &mut EventLoopDeps,
 ) {
-    state.overlay_mode = OverlayMode::TranscriptHistory;
+    state.ui.overlay_mode = OverlayMode::TranscriptHistory;
     state.transcript_history.flush_pending_stream_lines();
     state
         .transcript_history_state
@@ -250,7 +252,7 @@ pub(super) fn open_transcript_history_overlay(
 }
 
 pub(super) fn open_toast_history_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
-    state.overlay_mode = OverlayMode::ToastHistory;
+    state.ui.overlay_mode = OverlayMode::ToastHistory;
     sync_overlay_winsize(state, deps);
     render_toast_history_overlay_for_state(state, deps);
 }

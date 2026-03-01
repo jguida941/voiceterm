@@ -381,6 +381,9 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 python3 dev/scripts/devctl.py hygiene
 # Optional: remove detected dev/scripts/**/__pycache__ dirs after local test runs
 python3 dev/scripts/devctl.py hygiene --fix
+# Report-retention cleanup flow (run when hygiene warns about stale/heavy reports)
+python3 dev/scripts/devctl.py reports-cleanup --dry-run
+python3 dev/scripts/devctl.py reports-cleanup --max-age-days 30 --keep-recent 10 --yes
 
 # Audit metrics summary + charts (scientific audit-cycle evidence)
 python3 dev/scripts/audits/audit_metrics.py \
@@ -507,7 +510,8 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance and flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`); `--fix` also removes detected `dev/scripts/**/__pycache__` directories.
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`), and warns when managed `dev/reports/**` artifacts become stale/heavy; `--fix` also removes detected `dev/scripts/**/__pycache__` directories.
+- `python3 dev/scripts/devctl.py reports-cleanup --dry-run` previews retention cleanup candidates when hygiene warns on report drift.
 - `python3 dev/scripts/checks/check_agents_contract.py`
 - `python3 dev/scripts/checks/check_active_plan_sync.py`
 - `python3 dev/scripts/checks/check_release_version_parity.py`

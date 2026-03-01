@@ -39,7 +39,7 @@ pub(super) fn handle_overlay_input_event(
     evt: InputEvent,
     running: &mut bool,
 ) -> Option<InputEvent> {
-    match (state.overlay_mode, evt) {
+    match (state.ui.overlay_mode, evt) {
         (_, InputEvent::Exit) => {
             *running = false;
             None
@@ -69,7 +69,7 @@ pub(super) fn handle_overlay_input_event(
                     render_settings_overlay_for_state(state, deps);
                 }
                 OverlayMode::ThemePicker => {
-                    state.theme_picker_selected = theme_index_from_theme(state.theme);
+                    state.theme_studio.picker_selected = theme_index_from_theme(state.theme);
                     render_theme_picker_overlay_for_state(state, deps);
                 }
                 OverlayMode::ThemeStudio => {
@@ -102,7 +102,7 @@ pub(super) fn handle_overlay_input_event(
         }
         (OverlayMode::Settings, InputEvent::EnterKey) => {
             let mut should_redraw = false;
-            let selected = state.settings_menu.selected_item();
+            let selected = state.settings.menu.selected_item();
             match selected {
                 SettingsItem::Backend | SettingsItem::Pipeline => {}
                 SettingsItem::Close => {
@@ -116,11 +116,11 @@ pub(super) fn handle_overlay_input_event(
                         deps,
                         selected,
                         0,
-                        state.overlay_mode,
+                        state.ui.overlay_mode,
                     );
                 }
             }
-            if state.overlay_mode == OverlayMode::Settings && should_redraw {
+            if state.ui.overlay_mode == OverlayMode::Settings && should_redraw {
                 render_settings_overlay_for_state(state, deps);
             }
             None
@@ -133,33 +133,33 @@ pub(super) fn handle_overlay_input_event(
                 for key in parse_arrow_keys(&bytes) {
                     match key {
                         ArrowKey::Up => {
-                            state.settings_menu.move_up();
+                            state.settings.menu.move_up();
                             should_redraw = true;
                         }
                         ArrowKey::Down => {
-                            state.settings_menu.move_down();
+                            state.settings.menu.move_down();
                             should_redraw = true;
                         }
                         ArrowKey::Left => {
-                            let selected = state.settings_menu.selected_item();
+                            let selected = state.settings.menu.selected_item();
                             should_redraw |= run_settings_item_action(
                                 state,
                                 timers,
                                 deps,
                                 selected,
                                 -1,
-                                state.overlay_mode,
+                                state.ui.overlay_mode,
                             );
                         }
                         ArrowKey::Right => {
-                            let selected = state.settings_menu.selected_item();
+                            let selected = state.settings.menu.selected_item();
                             should_redraw |= run_settings_item_action(
                                 state,
                                 timers,
                                 deps,
                                 selected,
                                 1,
-                                state.overlay_mode,
+                                state.ui.overlay_mode,
                             );
                         }
                     }
@@ -212,7 +212,7 @@ pub(super) fn handle_overlay_input_event(
         }
         (OverlayMode::DevPanel, InputEvent::EnterKey) => {
             request_selected_dev_panel_command(state, timers, deps);
-            if state.overlay_mode == OverlayMode::DevPanel {
+            if state.ui.overlay_mode == OverlayMode::DevPanel {
                 render_dev_panel_overlay_for_state(state, deps);
             }
             None
@@ -249,7 +249,7 @@ pub(super) fn handle_overlay_input_event(
                     }
                 }
 
-                if should_redraw && state.overlay_mode == OverlayMode::DevPanel {
+                if should_redraw && state.ui.overlay_mode == OverlayMode::DevPanel {
                     render_dev_panel_overlay_for_state(state, deps);
                 }
             }
@@ -277,7 +277,7 @@ pub(super) fn handle_overlay_input_event(
             None
         }
         (OverlayMode::ThemePicker, InputEvent::EnterKey) => {
-            apply_theme_picker_selection(state, timers, deps, state.theme_picker_selected);
+            apply_theme_picker_selection(state, timers, deps, state.theme_studio.picker_selected);
             reset_theme_picker_digits(state, timers);
             None
         }
@@ -286,7 +286,7 @@ pub(super) fn handle_overlay_input_event(
                 close_overlay(state, deps, false);
                 reset_theme_picker_digits(state, timers);
             } else if let Some(locked_theme) = style_pack_theme_lock() {
-                state.theme_picker_selected = theme_index_from_theme(locked_theme);
+                state.theme_studio.picker_selected = theme_index_from_theme(locked_theme);
                 reset_theme_picker_digits(state, timers);
                 render_theme_picker_overlay_for_state(state, deps);
             } else if let Some(keys) = parse_arrow_keys_only(&bytes) {
@@ -299,11 +299,12 @@ pub(super) fn handle_overlay_input_event(
                     };
                     if direction != 0 && total > 0 {
                         let total_i64 = i64::try_from(total).unwrap_or(1);
-                        let selected_i64 = i64::try_from(state.theme_picker_selected).unwrap_or(0);
+                        let selected_i64 =
+                            i64::try_from(state.theme_studio.picker_selected).unwrap_or(0);
                         let next_i64 = (selected_i64 + i64::from(direction)).rem_euclid(total_i64);
                         let next = usize::try_from(next_i64).unwrap_or(0);
-                        if next != state.theme_picker_selected {
-                            state.theme_picker_selected = next;
+                        if next != state.theme_studio.picker_selected {
+                            state.theme_studio.picker_selected = next;
                             moved = true;
                         }
                     }
@@ -319,18 +320,19 @@ pub(super) fn handle_overlay_input_event(
                     .map(|b| *b as char)
                     .collect();
                 if !digits.is_empty() {
-                    state.theme_picker_digits.push_str(&digits);
-                    if state.theme_picker_digits.len() > 3 {
+                    state.theme_studio.picker_digits.push_str(&digits);
+                    if state.theme_studio.picker_digits.len() > 3 {
                         reset_theme_picker_digits(state, timers);
                     }
                     let now = Instant::now();
                     timers.theme_picker_digit_deadline =
                         Some(now + Duration::from_millis(THEME_PICKER_NUMERIC_TIMEOUT_MS));
-                    if let Some(idx) =
-                        theme_picker_parse_index(&state.theme_picker_digits, THEME_OPTIONS.len())
-                    {
+                    if let Some(idx) = theme_picker_parse_index(
+                        &state.theme_studio.picker_digits,
+                        THEME_OPTIONS.len(),
+                    ) {
                         if !theme_picker_has_longer_match(
-                            &state.theme_picker_digits,
+                            &state.theme_studio.picker_digits,
                             THEME_OPTIONS.len(),
                         ) {
                             apply_theme_picker_selection(state, timers, deps, idx);
@@ -521,16 +523,16 @@ fn apply_theme_picker_selection(
         &mut state.current_status,
         &mut state.status_state,
         &mut deps.session,
-        &mut state.terminal_rows,
-        &mut state.terminal_cols,
-        &mut state.overlay_mode,
+        &mut state.ui.terminal_rows,
+        &mut state.ui.terminal_cols,
+        &mut state.ui.overlay_mode,
     ) {
-        state.theme_picker_selected = theme_index_from_theme(state.theme);
+        state.theme_studio.picker_selected = theme_index_from_theme(state.theme);
         refresh_button_registry_if_mouse(state, deps);
         save_persistent_config(state);
-    } else if state.overlay_mode == OverlayMode::ThemePicker {
+    } else if state.ui.overlay_mode == OverlayMode::ThemePicker {
         if let Some(locked_theme) = style_pack_theme_lock() {
-            state.theme_picker_selected = theme_index_from_theme(locked_theme);
+            state.theme_studio.picker_selected = theme_index_from_theme(locked_theme);
         }
         render_theme_picker_overlay_for_state(state, deps);
     }

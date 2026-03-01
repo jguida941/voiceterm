@@ -23,6 +23,7 @@ Use this directory for repeatable, evidence-backed system audits.
 ## Current entry points
 
 - Baseline runbook: `2026-02-24-autonomy-baseline-audit.md`
+- Terminal overlay regression audit: `2026-02-27-terminal-overlay-regression-audit.md`
 - Automation debt register: `AUTOMATION_DEBT_REGISTER.md`
 - Metrics schema: `METRICS_SCHEMA.md`
 - Event template: `templates/audit_events_template.jsonl`

@@ -12,7 +12,7 @@ pub const DEFAULT_VOICE_SILENCE_TAIL_MS: u64 = 1000;
 /// Default minimum detected speech before STT starts (milliseconds).
 pub const DEFAULT_VOICE_MIN_SPEECH_MS: u64 = 300;
 /// Default silence lookback preserved before trimming (milliseconds).
-pub const DEFAULT_VOICE_LOOKBACK_MS: u64 = 500;
+pub const DEFAULT_VOICE_LOOKBACK_MS: u64 = 200;
 /// Default rolling audio buffer budget (milliseconds).
 pub const DEFAULT_VOICE_BUFFER_MS: u64 = 30_000;
 /// Default bounded frame-channel capacity between capture and processing.

@@ -4,6 +4,66 @@ use super::*;
 
 const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
 const TOAST_TICK_INTERVAL_MS: u64 = 250;
+const TERMINAL_GEOMETRY_POLL_INTERVAL_MS: u64 = 250;
+
+fn normalize_measured_terminal_size(
+    cached_cols: u16,
+    cached_rows: u16,
+    measured: Option<(u16, u16)>,
+) -> Option<(u16, u16)> {
+    let (observed_cols, observed_rows) = measured.unwrap_or((cached_cols, cached_rows));
+    let cols = if observed_cols == 0 {
+        crate::terminal::resolved_cols(cached_cols)
+    } else {
+        observed_cols
+    };
+    let rows = if observed_rows == 0 {
+        crate::terminal::resolved_rows(cached_rows)
+    } else {
+        observed_rows
+    };
+    if cols == 0 || rows == 0 {
+        None
+    } else {
+        Some((cols, rows))
+    }
+}
+
+fn reconcile_terminal_geometry(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    cols: u16,
+    rows: u16,
+) {
+    // JetBrains terminals can emit SIGWINCH without a geometry delta.
+    // Skip no-op resize work so we avoid redraw flicker and redundant backend SIGWINCH.
+    let size_changed = state.ui.terminal_cols != cols || state.ui.terminal_rows != rows;
+    if !size_changed {
+        return;
+    }
+    state.ui.terminal_cols = cols;
+    state.ui.terminal_rows = rows;
+    apply_pty_winsize(
+        &mut deps.session,
+        rows,
+        cols,
+        state.ui.overlay_mode,
+        state.status_state.hud_style,
+        state.status_state.claude_prompt_suppressed,
+    );
+    let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
+    refresh_button_registry_if_mouse(state, deps);
+    match state.ui.overlay_mode {
+        OverlayMode::DevPanel => render_dev_panel_overlay_for_state(state, deps),
+        OverlayMode::Help => render_help_overlay_for_state(state, deps),
+        OverlayMode::ThemeStudio => render_theme_studio_overlay_for_state(state, deps),
+        OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
+        OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
+        OverlayMode::TranscriptHistory => render_transcript_history_overlay_for_state(state, deps),
+        OverlayMode::ToastHistory => render_toast_history_overlay_for_state(state, deps),
+        OverlayMode::None => {}
+    }
+}
 
 pub(super) fn run_periodic_tasks(
     state: &mut EventLoopState,
@@ -13,46 +73,21 @@ pub(super) fn run_periodic_tasks(
 ) {
     poll_dev_command_updates(state, timers, deps);
 
-    if state.status_state.claude_prompt_suppressed
-        && !state.claude_prompt_detector.should_suppress_hud()
-    {
-        // Timeout-based clear path, even when no new PTY output arrives.
-        set_claude_prompt_suppression(state, deps, false);
-    }
+    // Timeout-based clear path, even when no new PTY output arrives.
+    clear_expired_prompt_suppression(state, timers, deps, now);
 
-    if take_sigwinch_flag() {
-        if let Ok((cols, rows)) = read_terminal_size() {
-            // JetBrains terminals can emit SIGWINCH without a geometry delta.
-            // Skip no-op resize work so we avoid redraw flicker and redundant backend SIGWINCH.
-            let size_changed = state.terminal_cols != cols || state.terminal_rows != rows;
-            if size_changed {
-                state.terminal_cols = cols;
-                state.terminal_rows = rows;
-                apply_pty_winsize(
-                    &mut deps.session,
-                    rows,
-                    cols,
-                    state.overlay_mode,
-                    state.status_state.hud_style,
-                    state.status_state.claude_prompt_suppressed,
-                );
-                let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
-                refresh_button_registry_if_mouse(state, deps);
-                match state.overlay_mode {
-                    OverlayMode::DevPanel => render_dev_panel_overlay_for_state(state, deps),
-                    OverlayMode::Help => render_help_overlay_for_state(state, deps),
-                    OverlayMode::ThemeStudio => render_theme_studio_overlay_for_state(state, deps),
-                    OverlayMode::ThemePicker => render_theme_picker_overlay_for_state(state, deps),
-                    OverlayMode::Settings => render_settings_overlay_for_state(state, deps),
-                    OverlayMode::TranscriptHistory => {
-                        render_transcript_history_overlay_for_state(state, deps)
-                    }
-                    OverlayMode::ToastHistory => {
-                        render_toast_history_overlay_for_state(state, deps)
-                    }
-                    OverlayMode::None => {}
-                }
-            }
+    let sigwinch = take_sigwinch_flag();
+    let geometry_poll_due = now.duration_since(timers.last_terminal_geometry_poll)
+        >= Duration::from_millis(TERMINAL_GEOMETRY_POLL_INTERVAL_MS);
+    if sigwinch || geometry_poll_due {
+        timers.last_terminal_geometry_poll = now;
+        let measured = read_terminal_size().ok();
+        if let Some((cols, rows)) = normalize_measured_terminal_size(
+            state.ui.terminal_cols,
+            state.ui.terminal_rows,
+            measured,
+        ) {
+            reconcile_terminal_geometry(state, deps, cols, rows);
         }
     }
 
@@ -82,11 +117,11 @@ pub(super) fn run_periodic_tasks(
                             &deps.writer_tx,
                             &deps.button_registry,
                             &state.status_state,
-                            state.overlay_mode,
-                            state.terminal_cols,
+                            state.ui.overlay_mode,
+                            state.ui.terminal_cols,
                             state.theme,
                         );
-                        match state.overlay_mode {
+                        match state.ui.overlay_mode {
                             OverlayMode::ThemeStudio => {
                                 render_theme_studio_overlay_for_state(state, deps);
                             }
@@ -104,12 +139,12 @@ pub(super) fn run_periodic_tasks(
         }
     }
 
-    if state.overlay_mode != OverlayMode::ThemePicker {
+    if state.ui.overlay_mode != OverlayMode::ThemePicker {
         reset_theme_picker_digits(state, timers);
     } else if let Some(deadline) = timers.theme_picker_digit_deadline {
         if now >= deadline {
             if let Some(idx) =
-                theme_picker_parse_index(&state.theme_picker_digits, THEME_OPTIONS.len())
+                theme_picker_parse_index(&state.theme_studio.picker_digits, THEME_OPTIONS.len())
             {
                 if apply_theme_picker_index(
                     idx,
@@ -120,11 +155,11 @@ pub(super) fn run_periodic_tasks(
                     &mut state.current_status,
                     &mut state.status_state,
                     &mut deps.session,
-                    &mut state.terminal_rows,
-                    &mut state.terminal_cols,
-                    &mut state.overlay_mode,
+                    &mut state.ui.terminal_rows,
+                    &mut state.ui.terminal_cols,
+                    &mut state.ui.overlay_mode,
                 ) {
-                    state.theme_picker_selected = theme_index_from_theme(state.theme);
+                    state.theme_studio.picker_selected = theme_index_from_theme(state.theme);
                 }
             }
             reset_theme_picker_digits(state, timers);
@@ -144,8 +179,8 @@ pub(super) fn run_periodic_tasks(
                         &deps.writer_tx,
                         &deps.button_registry,
                         &state.status_state,
-                        state.overlay_mode,
-                        state.terminal_cols,
+                        state.ui.overlay_mode,
+                        state.ui.terminal_cols,
                         state.theme,
                     );
                 }
@@ -192,8 +227,8 @@ pub(super) fn run_periodic_tasks(
             &deps.writer_tx,
             &deps.button_registry,
             &state.status_state,
-            state.overlay_mode,
-            state.terminal_cols,
+            state.ui.overlay_mode,
+            state.ui.terminal_cols,
             state.theme,
         );
     }
@@ -212,8 +247,8 @@ pub(super) fn run_periodic_tasks(
             &deps.writer_tx,
             &deps.button_registry,
             &state.status_state,
-            state.overlay_mode,
-            state.terminal_cols,
+            state.ui.overlay_mode,
+            state.ui.terminal_cols,
             state.theme,
         );
     }
@@ -227,13 +262,13 @@ pub(super) fn run_periodic_tasks(
                 &deps.writer_tx,
                 &deps.button_registry,
                 &state.status_state,
-                state.overlay_mode,
-                state.terminal_cols,
+                state.ui.overlay_mode,
+                state.ui.terminal_cols,
                 state.theme,
             );
         }
     }
-    state.prompt_tracker.on_idle(now, deps.auto_idle_timeout);
+    state.prompt.tracker.on_idle(now, deps.auto_idle_timeout);
 
     drain_voice_messages_once(state, timers, deps, now);
 
@@ -265,7 +300,7 @@ pub(super) fn run_periodic_tasks(
         };
         try_flush_pending(
             &mut state.pending_transcripts,
-            &state.prompt_tracker,
+            &state.prompt.tracker,
             &mut timers.last_enter_at,
             &mut io,
             now,
@@ -280,7 +315,7 @@ pub(super) fn run_periodic_tasks(
         && !wake_mode_owns_mic
         && deps.voice_manager.is_idle()
         && should_auto_trigger(
-            &state.prompt_tracker,
+            &state.prompt.tracker,
             now,
             deps.auto_idle_timeout,
             timers.last_auto_trigger_at,
@@ -311,15 +346,15 @@ pub(super) fn run_periodic_tasks(
     if now.duration_since(timers.last_toast_tick) >= Duration::from_millis(TOAST_TICK_INTERVAL_MS) {
         timers.last_toast_tick = now;
         if state.toast_center.tick() {
-            if state.overlay_mode == OverlayMode::ToastHistory {
+            if state.ui.overlay_mode == OverlayMode::ToastHistory {
                 render_toast_history_overlay_for_state(state, deps);
             }
             send_enhanced_status_with_buttons(
                 &deps.writer_tx,
                 &deps.button_registry,
                 &state.status_state,
-                state.overlay_mode,
-                state.terminal_cols,
+                state.ui.overlay_mode,
+                state.ui.terminal_cols,
                 state.theme,
             );
         }
@@ -334,8 +369,8 @@ pub(super) fn run_periodic_tasks(
                     &deps.writer_tx,
                     &deps.button_registry,
                     &state.status_state,
-                    state.overlay_mode,
-                    state.terminal_cols,
+                    state.ui.overlay_mode,
+                    state.ui.terminal_cols,
                     state.theme,
                 );
             }
@@ -356,8 +391,8 @@ pub(super) fn run_periodic_tasks(
                 &deps.writer_tx,
                 &deps.button_registry,
                 &state.status_state,
-                state.overlay_mode,
-                state.terminal_cols,
+                state.ui.overlay_mode,
+                state.ui.terminal_cols,
                 state.theme,
             );
         }
@@ -381,7 +416,7 @@ fn maybe_capture_status_toast(state: &mut EventLoopState, deps: &mut EventLoopDe
     };
     state.toast_center.push(severity, status.clone());
     state.last_toast_status = Some(status);
-    if state.overlay_mode == OverlayMode::ToastHistory {
+    if state.ui.overlay_mode == OverlayMode::ToastHistory {
         render_toast_history_overlay_for_state(state, deps);
     }
 }
@@ -404,8 +439,8 @@ fn maybe_expire_stale_latency(state: &mut EventLoopState, deps: &EventLoopDeps, 
         &deps.writer_tx,
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
 }
@@ -451,8 +486,8 @@ fn update_wake_word_hud_state(
         &deps.writer_tx,
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
 }

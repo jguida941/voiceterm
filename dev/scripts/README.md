@@ -169,6 +169,9 @@ python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control
 # Clean local failure triage bundles only after CI is green
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --dry-run
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --yes
+# Clean stale run artifacts under dev/reports with retention safeguards
+python3 dev/scripts/devctl.py reports-cleanup --dry-run
+python3 dev/scripts/devctl.py reports-cleanup --max-age-days 30 --keep-recent 10 --yes
 # Generate a guard-driven remediation scaffold for Rust modularity/pattern debt
 python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md
 # Commit-range scoped scaffold generation (useful in CI/PR review lanes)
@@ -189,6 +192,8 @@ python3 dev/scripts/devctl.py data-science --format md --output /tmp/data-scienc
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --ci-branch develop --ci-event push --ci-workflow "Rust TUI CI" --dry-run
 # Optional: override the default cleanup root guard (still restricted to dev/reports/**)
 python3 dev/scripts/devctl.py failure-cleanup --directory dev/reports/archive-failures --allow-outside-failure-root --dry-run
+# Optional: tighten retention when report growth spikes
+python3 dev/scripts/devctl.py reports-cleanup --max-age-days 14 --keep-recent 5 --dry-run
 # Workflow note: failure-triage branch scope defaults to develop/master and can be overridden
 # with GitHub repo variable FAILURE_TRIAGE_BRANCHES (comma-separated branch names, no spaces).
 
@@ -309,7 +314,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + stale-path audit)
-- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
+- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); includes automatic report-retention drift warnings for stale `dev/reports/**` run artifacts; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
@@ -337,6 +342,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `autonomy-report`: human-readable autonomy digest builder that scans loop/watch artifacts, writes dated bundles under `dev/reports/autonomy/library/<label>`, and emits summary markdown/json plus optional matplotlib charts
 - `autonomy-swarm`: adaptive swarm orchestrator that sizes agent count from change/question metadata (with optional token-budget cap), runs per-agent bounded `autonomy-loop` lanes in parallel, reserves a default `AGENT-REVIEW` lane for post-audit review when execution runs with >1 lane, writes one dated swarm bundle under `dev/reports/autonomy/swarms/<label>`, and by default runs a post-audit digest bundle under `dev/reports/autonomy/library/<label>-digest` (use `--no-post-audit` and/or `--no-reviewer-lane` to disable; non-report modes require `--fix-command`)
 - `failure-cleanup`: guarded cleanup for local failure triage bundles (`dev/reports/failures`) with default path-root enforcement, optional override constrained to `dev/reports/**` (`--allow-outside-failure-root`), optional scoped CI gate filters (`--ci-branch`, `--ci-workflow`, `--ci-event`, `--ci-sha`), plus dry-run/confirmation controls
+- `reports-cleanup`: retention-based cleanup for stale run artifacts under managed `dev/reports/**` roots (default `max-age-days=30`, `keep-recent=10`) with protected paths, preview mode (`--dry-run`), and explicit confirmation/`--yes` before deletion
 - `audit-scaffold`: build/update `dev/active/RUST_AUDIT_FINDINGS.md` from guard findings (with safe output path and overwrite guards)
 - `list`: command/profile inventory
 
@@ -352,6 +358,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance and active-plan sync |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
 | `hygiene --fix` | after local test runs leave Python caches | clears `dev/scripts/**/__pycache__` safely and re-checks hygiene |
+| `reports-cleanup --dry-run` | hygiene warns that report artifacts are stale/heavy | previews what retention cleanup would remove without deleting anything |
 | `security` | you changed dependencies or security-sensitive code | catches advisory/policy issues |
 | `triage --ci` | CI failed and you need an actionable summary | creates a clean failure summary for humans/AI |
 | `triage-loop --branch develop --mode plan-then-fix --max-attempts 3` | you want bounded automation over medium/high backlog | runs report/fix retry loop with deterministic md/json artifacts |
@@ -477,6 +484,10 @@ consistent:
   the `mutation-loop` command.
 - `dev/scripts/devctl/failure_cleanup_parser.py`: shared CLI parser wiring for
   the `failure-cleanup` command.
+- `dev/scripts/devctl/reports_cleanup_parser.py`: shared CLI parser wiring for
+  the `reports-cleanup` command.
+- `dev/scripts/devctl/reports_retention.py`: shared report-retention planning
+  helpers used by both `hygiene` warnings and `reports-cleanup`.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
   toggles/normalization.
 - `dev/scripts/devctl/commands/check_steps.py`: shared `check` step-spec
@@ -531,6 +542,9 @@ consistent:
   local failure triage artifact directories with default root guard, optional
   scoped CI-green filters, and explicit override mode for non-default cleanup
   roots under `dev/reports/**`.
+- `dev/scripts/devctl/commands/reports_cleanup.py`: retention-based stale
+  report cleanup command for managed run-artifact roots under `dev/reports/**`
+  with protected paths, dry-run preview, and confirmation-safe deletion flow.
 - `dev/scripts/devctl/commands/audit_scaffold.py`: guard-driven remediation
   scaffold generator for Rust modularity/pattern drift; aggregates JSON outputs
   from `check_code_shape.py`, `check_rust_lint_debt.py`,

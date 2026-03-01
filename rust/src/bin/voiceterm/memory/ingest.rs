@@ -2,6 +2,13 @@
 //!
 //! Normalizes raw inputs (transcripts, PTY I/O, devtool output) into
 //! canonical [`MemoryEvent`] envelopes and routes them to storage.
+//!
+//! Key behaviors:
+//! - ANSI escape sequences are stripped before persistence
+//! - Noise events (whitespace-only, very short) are discarded
+//! - Events are buffered and flushed periodically (not on every call)
+//! - File rotation enforced at ~10 MB via [`JsonlWriter`]
+//! - Retention GC runs on startup recovery
 
 use super::schema::validate_event;
 use super::store::jsonl::JsonlWriter;
@@ -10,6 +17,17 @@ use super::types::*;
 
 use std::io;
 use std::path::Path;
+use std::time::Instant;
+
+/// Minimum meaningful text length after ANSI stripping (bytes).
+/// Events shorter than this are considered noise and dropped.
+const MIN_TEXT_LEN: usize = 2;
+
+/// Number of events to buffer before flushing to disk.
+const FLUSH_BUFFER_SIZE: usize = 50;
+
+/// Maximum time between flushes (seconds).
+const FLUSH_INTERVAL_SECS: u64 = 5;
 
 /// Memory ingestion pipeline with dual-write to JSONL + in-memory index.
 #[derive(Debug)]
@@ -21,6 +39,10 @@ pub(crate) struct MemoryIngestor {
     mode: MemoryMode,
     events_ingested: u64,
     events_rejected: u64,
+    /// Buffered events waiting to be flushed to JSONL.
+    write_buffer: Vec<MemoryEvent>,
+    /// Last time the buffer was flushed to disk.
+    last_flush: Instant,
 }
 
 impl MemoryIngestor {
@@ -46,11 +68,14 @@ impl MemoryIngestor {
             mode,
             events_ingested: 0,
             events_rejected: 0,
+            write_buffer: Vec::with_capacity(FLUSH_BUFFER_SIZE),
+            last_flush: Instant::now(),
         })
     }
 
     /// Ingest a voice transcript.
     pub(crate) fn ingest_transcript(&mut self, text: &str) {
+        // Transcripts are already clean text from STT — no ANSI stripping needed.
         self.ingest_event_raw(
             EventSource::VoiceCapture,
             EventType::VoiceTranscript,
@@ -65,11 +90,15 @@ impl MemoryIngestor {
 
     /// Ingest a user PTY input line.
     pub(crate) fn ingest_user_input(&mut self, text: &str) {
+        let cleaned = strip_ansi(text);
+        if is_noise(&cleaned) {
+            return;
+        }
         self.ingest_event_raw(
             EventSource::PtyInput,
             EventType::ChatTurn,
             EventRole::User,
-            text,
+            &cleaned,
             0.5,
             &[],
             &[],
@@ -79,11 +108,15 @@ impl MemoryIngestor {
 
     /// Ingest a backend/assistant output line.
     pub(crate) fn ingest_assistant_output(&mut self, text: &str) {
+        let cleaned = strip_ansi(text);
+        if is_noise(&cleaned) {
+            return;
+        }
         self.ingest_event_raw(
             EventSource::PtyOutput,
             EventType::ChatTurn,
             EventRole::Assistant,
-            text,
+            &cleaned,
             0.4,
             &[],
             &[],
@@ -142,9 +175,14 @@ impl MemoryIngestor {
             return;
         }
 
-        // Persist to JSONL (errors are non-fatal).
-        if let Some(ref mut writer) = self.jsonl_writer {
-            let _ = writer.append(&event);
+        // Buffer for batched JSONL writes.
+        self.write_buffer.push(event.clone());
+
+        // Flush if buffer is full or enough time has passed.
+        if self.write_buffer.len() >= FLUSH_BUFFER_SIZE
+            || self.last_flush.elapsed().as_secs() >= FLUSH_INTERVAL_SECS
+        {
+            self.flush_buffer();
         }
 
         // Index in memory.
@@ -152,8 +190,30 @@ impl MemoryIngestor {
         self.events_ingested += 1;
     }
 
+    /// Flush buffered events to the JSONL writer.
+    fn flush_buffer(&mut self) {
+        if self.write_buffer.is_empty() {
+            return;
+        }
+        if let Some(ref mut writer) = self.jsonl_writer {
+            for event in self.write_buffer.drain(..) {
+                let _ = writer.append(&event);
+            }
+            let _ = writer.flush();
+        } else {
+            self.write_buffer.clear();
+        }
+        self.last_flush = Instant::now();
+    }
+
+    /// Force-flush any buffered events to disk. Call this on shutdown
+    /// or when the event loop is idle.
+    pub(crate) fn flush(&mut self) {
+        self.flush_buffer();
+    }
+
     /// Recover events from a JSONL file into the in-memory index.
-    /// Returns the number of events loaded.
+    /// Runs retention GC after loading. Returns the number of events loaded.
     pub(crate) fn recover_from_jsonl(&mut self, path: &Path) -> usize {
         let events = match super::store::jsonl::read_all_events(path) {
             Ok(evts) => evts,
@@ -161,12 +221,19 @@ impl MemoryIngestor {
         };
         let cap = super::governance::MAX_INDEX_EVENTS;
         let skip = events.len().saturating_sub(cap);
-        let mut count = 0;
+        let mut count: usize = 0;
         for event in events.into_iter().skip(skip) {
             self.index.insert(event);
             count += 1;
         }
-        count
+        // Run retention GC on recovered events.
+        let now_ts = super::types::iso_timestamp();
+        let deprecated = super::governance::run_gc(
+            &mut self.index,
+            super::governance::GovernanceConfig::default().retention,
+            &now_ts,
+        );
+        count.saturating_sub(deprecated)
     }
 
     /// Access the in-memory index for queries.
@@ -209,6 +276,34 @@ impl MemoryIngestor {
     pub(crate) fn project_id(&self) -> &str {
         &self.project_id
     }
+}
+
+impl Drop for MemoryIngestor {
+    fn drop(&mut self) {
+        // Flush remaining buffered events on shutdown.
+        self.flush_buffer();
+    }
+}
+
+/// Strip ANSI escape sequences from text, returning only visible content.
+fn strip_ansi(text: &str) -> String {
+    // strip() returns Vec<u8>.
+    let stripped = strip_ansi_escapes::strip(text);
+    String::from_utf8_lossy(&stripped).into_owned()
+}
+
+/// Returns true if text is noise that shouldn't be stored as memory.
+/// Noise includes: whitespace-only, very short strings, pure control characters.
+fn is_noise(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.len() < MIN_TEXT_LEN {
+        return true;
+    }
+    // Skip strings that are only non-printable / control chars after stripping.
+    if trimmed.chars().all(|c| c.is_control() || c == '\x1b') {
+        return true;
+    }
+    false
 }
 
 #[cfg(test)]
@@ -356,6 +451,7 @@ mod tests {
             writer_ing.ingest_transcript("event two");
             writer_ing.ingest_transcript("event three");
             assert_eq!(writer_ing.events_ingested(), 3);
+            writer_ing.flush();
         }
 
         let mut reader_ing = make_ingestor(MemoryMode::Assist);
@@ -402,6 +498,7 @@ mod tests {
                     .append(&event)
                     .unwrap_or_else(|err| panic!("append failed: {err}"));
             }
+            writer.flush().unwrap();
         }
 
         let mut reader_ing = make_ingestor(MemoryMode::Assist);
@@ -430,6 +527,7 @@ mod tests {
             .expect("create ingestor");
             ing.ingest_transcript("persisted event");
             assert_eq!(ing.events_ingested(), 1);
+            ing.flush();
         }
 
         // Verify JSONL file has content.
@@ -451,5 +549,46 @@ mod tests {
         assert!(recent[0].text.contains("[REDACTED_TOKEN]"));
         assert!(!recent[0].text.contains("sk-supersecret"));
         assert!(!recent[0].text.contains("ghp_privatevalue"));
+    }
+
+    #[test]
+    fn ansi_escape_sequences_are_stripped() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        // Simulate PTY output with ANSI color codes.
+        ing.ingest_assistant_output("\x1b[32mHello World\x1b[0m");
+        assert_eq!(ing.events_ingested(), 1);
+        let recent = ing.index().recent(1);
+        assert_eq!(recent[0].text, "Hello World");
+    }
+
+    #[test]
+    fn pure_escape_sequences_are_dropped() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        // Simulate cursor-move-only PTY output.
+        ing.ingest_assistant_output("\x1b[?2004h\x1b[>7u\x1b[?1004h");
+        assert_eq!(ing.events_ingested(), 0);
+    }
+
+    #[test]
+    fn short_noise_is_dropped() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        ing.ingest_user_input("x");
+        assert_eq!(ing.events_ingested(), 0);
+    }
+
+    #[test]
+    fn strip_ansi_removes_color_codes() {
+        let input = "\x1b[1m\x1b[38;2;202;202;202mPlanning\x1b[0m";
+        let result = strip_ansi(input);
+        assert_eq!(result, "Planning");
+    }
+
+    #[test]
+    fn is_noise_detects_empty_after_strip() {
+        assert!(is_noise(""));
+        assert!(is_noise("  "));
+        assert!(is_noise("x"));
+        assert!(!is_noise("hello"));
+        assert!(!is_noise("git status"));
     }
 }

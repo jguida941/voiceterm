@@ -10,12 +10,12 @@ pub(super) fn handle_theme_studio_enter_key(
     running: &mut bool,
 ) {
     use crate::theme_studio::StudioPage;
-    match state.theme_studio_page {
+    match state.theme_studio.page {
         StudioPage::Home => {
             apply_theme_studio_selection(state, timers, deps, running);
         }
         StudioPage::Colors => {
-            if let Some(editor) = state.theme_studio_colors_editor.as_mut() {
+            if let Some(editor) = state.theme_studio.colors_editor.as_mut() {
                 if editor.is_color_field_selected() {
                     if let Some(picker) = editor.picker.as_mut() {
                         if picker.hex_entry_mode && !picker.apply_hex_buffer() {
@@ -39,7 +39,7 @@ pub(super) fn handle_theme_studio_enter_key(
         }
         StudioPage::Borders => {
             // Apply the selected border style override.
-            let option = state.theme_studio_borders_page.selected_option();
+            let option = state.theme_studio.borders_page.selected_option();
             let border_override = match option {
                 crate::theme_studio::BorderOption::Single => {
                     Some(crate::theme::RuntimeBorderStyleOverride::Single)
@@ -63,7 +63,7 @@ pub(super) fn handle_theme_studio_enter_key(
             render_theme_studio_overlay_for_state(state, deps);
         }
         StudioPage::Components => {
-            state.theme_studio_components_editor.toggle_expand();
+            state.theme_studio.components_editor.toggle_expand();
             render_theme_studio_overlay_for_state(state, deps);
         }
         StudioPage::Preview => {
@@ -72,7 +72,7 @@ pub(super) fn handle_theme_studio_enter_key(
         }
         StudioPage::Export => {
             let theme = state.theme;
-            let status = state.theme_studio_export_page.execute(theme, None);
+            let status = state.theme_studio.export_page.execute(theme, None);
             let _ = status; // status is rendered in the overlay redraw below
             render_theme_studio_overlay_for_state(state, deps);
         }
@@ -88,8 +88,8 @@ pub(super) fn handle_theme_studio_bytes(
     use crate::theme_studio::StudioPage;
     if bytes == [0x1b] {
         // Esc: if color picker is open, close it; otherwise close overlay.
-        if state.theme_studio_page == StudioPage::Colors {
-            if let Some(editor) = state.theme_studio_colors_editor.as_mut() {
+        if state.theme_studio.page == StudioPage::Colors {
+            if let Some(editor) = state.theme_studio.colors_editor.as_mut() {
                 if editor.picker.is_some() {
                     editor.picker = None;
                     render_theme_studio_overlay_for_state(state, deps);
@@ -107,7 +107,7 @@ pub(super) fn handle_theme_studio_bytes(
 
     if bytes == [0x09] {
         // Tab: switch to next studio page.
-        state.theme_studio_page = state.theme_studio_page.next();
+        state.theme_studio.page = state.theme_studio.page.next();
         ensure_studio_page_state(state);
         render_theme_studio_overlay_for_state(state, deps);
         return;
@@ -115,28 +115,28 @@ pub(super) fn handle_theme_studio_bytes(
 
     if bytes == [0x1b, 0x5b, 0x5a] {
         // Shift+Tab (ESC [ Z): switch to previous studio page.
-        state.theme_studio_page = state.theme_studio_page.prev();
+        state.theme_studio.page = state.theme_studio.page.prev();
         ensure_studio_page_state(state);
         render_theme_studio_overlay_for_state(state, deps);
         return;
     }
 
     let mut should_redraw = false;
-    match state.theme_studio_page {
+    match state.theme_studio.page {
         StudioPage::Home => {
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        if state.theme_studio_selected > 0 {
-                            state.theme_studio_selected =
-                                state.theme_studio_selected.saturating_sub(1);
+                        if state.theme_studio.selected > 0 {
+                            state.theme_studio.selected =
+                                state.theme_studio.selected.saturating_sub(1);
                             should_redraw = true;
                         }
                     }
                     ArrowKey::Down => {
                         let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
-                        if state.theme_studio_selected < max {
-                            state.theme_studio_selected += 1;
+                        if state.theme_studio.selected < max {
+                            state.theme_studio.selected += 1;
                             should_redraw = true;
                         }
                     }
@@ -150,7 +150,7 @@ pub(super) fn handle_theme_studio_bytes(
             }
         }
         StudioPage::Colors => {
-            if let Some(editor) = state.theme_studio_colors_editor.as_mut() {
+            if let Some(editor) = state.theme_studio.colors_editor.as_mut() {
                 if editor.picker.is_some() {
                     should_redraw |= handle_color_picker_text_input(editor, bytes);
                     let mut color_changed = false;
@@ -240,11 +240,11 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_borders_page.select_prev();
+                        state.theme_studio.borders_page.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        state.theme_studio_borders_page.select_next();
+                        state.theme_studio.borders_page.select_next();
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -255,12 +255,12 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_components_editor.select_prev();
+                        state.theme_studio.components_editor.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        let max = state.theme_studio_components_editor.group_count();
-                        state.theme_studio_components_editor.select_next(max);
+                        let max = state.theme_studio.components_editor.group_count();
+                        state.theme_studio.components_editor.select_next(max);
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -271,11 +271,11 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_preview_page.scroll_up();
+                        state.theme_studio.preview_page.scroll_up();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        state.theme_studio_preview_page.scroll_down(20, 10);
+                        state.theme_studio.preview_page.scroll_down(20, 10);
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -286,11 +286,11 @@ pub(super) fn handle_theme_studio_bytes(
             for key in parse_arrow_keys(bytes) {
                 match key {
                     ArrowKey::Up => {
-                        state.theme_studio_export_page.select_prev();
+                        state.theme_studio.export_page.select_prev();
                         should_redraw = true;
                     }
                     ArrowKey::Down => {
-                        state.theme_studio_export_page.select_next();
+                        state.theme_studio.export_page.select_next();
                         should_redraw = true;
                     }
                     ArrowKey::Left | ArrowKey::Right => {}
@@ -307,8 +307,8 @@ pub(super) fn handle_theme_studio_bytes(
 /// Lazily initialize page-specific state when switching studio pages.
 pub(super) fn ensure_studio_page_state(state: &mut EventLoopState) {
     use crate::theme_studio::{ColorsEditorState, StudioPage};
-    if state.theme_studio_page == StudioPage::Colors && state.theme_studio_colors_editor.is_none() {
-        state.theme_studio_colors_editor = Some(ColorsEditorState::new(state.theme));
+    if state.theme_studio.page == StudioPage::Colors && state.theme_studio.colors_editor.is_none() {
+        state.theme_studio.colors_editor = Some(ColorsEditorState::new(state.theme));
     }
 }
 
@@ -366,7 +366,7 @@ fn apply_theme_studio_adjustment(
     deps: &mut EventLoopDeps,
     direction: i32,
 ) -> bool {
-    match theme_studio_item_at(state.theme_studio_selected) {
+    match theme_studio_item_at(state.theme_studio.selected) {
         ThemeStudioItem::HudStyle => super::run_settings_item_action(
             state,
             timers,
@@ -513,7 +513,7 @@ pub(super) fn apply_theme_studio_selection(
     deps: &mut EventLoopDeps,
     running: &mut bool,
 ) {
-    match theme_studio_item_at(state.theme_studio_selected) {
+    match theme_studio_item_at(state.theme_studio.selected) {
         ThemeStudioItem::ThemePicker => {
             open_theme_picker_overlay(state, timers, deps);
         }
@@ -532,14 +532,14 @@ pub(super) fn apply_theme_studio_selection(
         | ThemeStudioItem::ToastSeverity
         | ThemeStudioItem::BannerStyle => {
             if apply_theme_studio_adjustment(state, timers, deps, 1)
-                && state.overlay_mode == OverlayMode::ThemeStudio
+                && state.ui.overlay_mode == OverlayMode::ThemeStudio
             {
                 render_theme_studio_overlay_for_state(state, deps);
             }
         }
         ThemeStudioItem::UndoEdit | ThemeStudioItem::RedoEdit | ThemeStudioItem::RollbackEdits => {
             if apply_theme_studio_adjustment(state, timers, deps, 0)
-                && state.overlay_mode == OverlayMode::ThemeStudio
+                && state.ui.overlay_mode == OverlayMode::ThemeStudio
             {
                 render_theme_studio_overlay_for_state(state, deps);
             }
@@ -573,28 +573,28 @@ fn apply_theme_studio_runtime_override_edit(
     if next == previous {
         return false;
     }
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, previous);
-    state.theme_studio_redo_history.clear();
+    push_theme_studio_history_entry(&mut state.theme_studio.undo_history, previous);
+    state.theme_studio.redo_history.clear();
     crate::theme::set_runtime_style_pack_overrides(next);
     true
 }
 
 fn theme_studio_undo_runtime_override_edit(state: &mut EventLoopState) -> bool {
-    let Some(previous) = state.theme_studio_undo_history.pop() else {
+    let Some(previous) = state.theme_studio.undo_history.pop() else {
         return false;
     };
     let current = crate::theme::runtime_style_pack_overrides();
-    push_theme_studio_history_entry(&mut state.theme_studio_redo_history, current);
+    push_theme_studio_history_entry(&mut state.theme_studio.redo_history, current);
     crate::theme::set_runtime_style_pack_overrides(previous);
     true
 }
 
 fn theme_studio_redo_runtime_override_edit(state: &mut EventLoopState) -> bool {
-    let Some(next) = state.theme_studio_redo_history.pop() else {
+    let Some(next) = state.theme_studio.redo_history.pop() else {
         return false;
     };
     let current = crate::theme::runtime_style_pack_overrides();
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
+    push_theme_studio_history_entry(&mut state.theme_studio.undo_history, current);
     crate::theme::set_runtime_style_pack_overrides(next);
     true
 }
@@ -605,8 +605,8 @@ fn theme_studio_rollback_runtime_override_edits(state: &mut EventLoopState) -> b
     if current == defaults {
         return false;
     }
-    push_theme_studio_history_entry(&mut state.theme_studio_undo_history, current);
-    state.theme_studio_redo_history.clear();
+    push_theme_studio_history_entry(&mut state.theme_studio.undo_history, current);
+    state.theme_studio.redo_history.clear();
     crate::theme::set_runtime_style_pack_overrides(defaults);
     true
 }

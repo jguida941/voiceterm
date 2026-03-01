@@ -271,7 +271,7 @@ pub(super) fn poll_dev_command_updates(
         state.dev_panel_commands.apply_update(update);
     }
 
-    if state.overlay_mode == OverlayMode::DevPanel {
+    if state.ui.overlay_mode == OverlayMode::DevPanel {
         render_dev_panel_overlay_for_state(state, deps);
     }
 }

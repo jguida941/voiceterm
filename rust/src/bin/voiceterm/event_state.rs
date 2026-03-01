@@ -38,48 +38,77 @@ pub(crate) type ThemePickerSelectionIndex = usize;
 pub(crate) type SpinnerFrameIndex = usize;
 pub(crate) type InputBufferOffset = usize;
 
+/// Prompt-readiness and occlusion state owned by the event loop.
+pub(crate) struct PromptRuntimeState {
+    pub(crate) tracker: PromptTracker,
+    pub(crate) occlusion_detector: ClaudePromptDetector,
+    pub(crate) non_rolling_approval_window: VecDeque<u8>,
+    pub(crate) non_rolling_approval_window_last_update: Option<Instant>,
+    pub(crate) non_rolling_release_armed: bool,
+    pub(crate) non_rolling_sticky_hold_until: Option<Instant>,
+}
+
+/// PTY input/output buffering state owned by the event loop.
+pub(crate) struct PtyBufferState {
+    pub(crate) pending_output: Option<Vec<u8>>,
+    pub(crate) pending_input: VecDeque<Vec<u8>>,
+    pub(crate) pending_input_offset: InputBufferOffset,
+    pub(crate) pending_input_bytes: usize,
+}
+
+/// Overlay mode and terminal geometry state.
+pub(crate) struct UiRuntimeState {
+    pub(crate) overlay_mode: OverlayMode,
+    pub(crate) terminal_rows: u16,
+    pub(crate) terminal_cols: u16,
+    pub(crate) suppress_startup_escape_input: bool,
+}
+
+/// Settings overlay selection and navigation state.
+pub(crate) struct SettingsRuntimeState {
+    pub(crate) menu: SettingsMenuState,
+}
+
+/// Theme Studio + Theme Picker runtime state.
+pub(crate) struct ThemeStudioRuntimeState {
+    pub(crate) selected: ThemeStudioSelectionIndex,
+    pub(crate) page: StudioPage,
+    pub(crate) colors_editor: Option<ColorsEditorState>,
+    pub(crate) borders_page: BordersPageState,
+    pub(crate) components_editor: ComponentsEditorState,
+    pub(crate) preview_page: PreviewPageState,
+    pub(crate) export_page: ExportPageState,
+    pub(crate) undo_history: Vec<RuntimeStylePackOverrides>,
+    pub(crate) redo_history: Vec<RuntimeStylePackOverrides>,
+    pub(crate) picker_selected: ThemePickerSelectionIndex,
+    pub(crate) picker_digits: String,
+}
+
 pub(crate) struct EventLoopState {
     pub(crate) config: OverlayConfig,
     pub(crate) status_state: StatusLineState,
     pub(crate) auto_voice_enabled: bool,
     pub(crate) auto_voice_paused_by_user: bool,
     pub(crate) theme: Theme,
-    pub(crate) overlay_mode: OverlayMode,
-    pub(crate) settings_menu: SettingsMenuState,
+    pub(crate) ui: UiRuntimeState,
+    pub(crate) settings: SettingsRuntimeState,
     pub(crate) meter_levels: VecDeque<f32>,
-    pub(crate) theme_studio_selected: ThemeStudioSelectionIndex,
-    pub(crate) theme_studio_page: StudioPage,
-    pub(crate) theme_studio_colors_editor: Option<ColorsEditorState>,
-    pub(crate) theme_studio_borders_page: BordersPageState,
-    pub(crate) theme_studio_components_editor: ComponentsEditorState,
-    pub(crate) theme_studio_preview_page: PreviewPageState,
-    pub(crate) theme_studio_export_page: ExportPageState,
-    pub(crate) theme_studio_undo_history: Vec<RuntimeStylePackOverrides>,
-    pub(crate) theme_studio_redo_history: Vec<RuntimeStylePackOverrides>,
-    pub(crate) theme_picker_selected: ThemePickerSelectionIndex,
-    pub(crate) theme_picker_digits: String,
+    pub(crate) theme_studio: ThemeStudioRuntimeState,
     pub(crate) current_status: Option<String>,
     pub(crate) pending_transcripts: VecDeque<PendingTranscript>,
     pub(crate) session_stats: SessionStats,
     pub(crate) dev_mode_stats: Option<DevModeStats>,
     pub(crate) dev_event_logger: Option<DevEventJsonlWriter>,
     pub(crate) dev_panel_commands: DevPanelCommandState,
-    pub(crate) prompt_tracker: PromptTracker,
-    pub(crate) terminal_rows: u16,
-    pub(crate) terminal_cols: u16,
+    pub(crate) prompt: PromptRuntimeState,
     pub(crate) last_recording_duration: f32,
     pub(crate) meter_floor_started_at: Option<Instant>,
     pub(crate) processing_spinner_index: SpinnerFrameIndex,
-    pub(crate) pending_pty_output: Option<Vec<u8>>,
-    pub(crate) pending_pty_input: VecDeque<Vec<u8>>,
-    pub(crate) pending_pty_input_offset: InputBufferOffset,
-    pub(crate) pending_pty_input_bytes: usize,
-    pub(crate) suppress_startup_escape_input: bool,
+    pub(crate) pty_buffer: PtyBufferState,
     pub(crate) force_send_on_next_transcript: bool,
     pub(crate) transcript_history: TranscriptHistory,
     pub(crate) transcript_history_state: TranscriptHistoryState,
     pub(crate) session_memory_logger: Option<SessionMemoryLogger>,
-    pub(crate) claude_prompt_detector: ClaudePromptDetector,
     pub(crate) last_toast_status: Option<String>,
     pub(crate) toast_center: ToastCenter,
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
@@ -90,6 +119,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) theme_picker_digit_deadline: Option<Instant>,
     pub(crate) status_clear_deadline: Option<Instant>,
     pub(crate) preview_clear_deadline: Option<Instant>,
+    pub(crate) prompt_suppression_release_not_before: Option<Instant>,
     pub(crate) last_auto_trigger_at: Option<Instant>,
     pub(crate) last_enter_at: Option<Instant>,
     pub(crate) recording_started_at: Option<Instant>,
@@ -100,6 +130,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_wake_hud_tick: Instant,
     pub(crate) last_toast_tick: Instant,
     pub(crate) last_theme_file_poll: Instant,
+    pub(crate) last_terminal_geometry_poll: Instant,
 }
 
 pub(crate) struct EventLoopDeps {

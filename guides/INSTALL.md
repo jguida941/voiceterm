@@ -6,6 +6,7 @@ Best default: Homebrew on macOS/Linux.
 Related docs:
 [Quick Start](../QUICK_START.md) |
 [Usage](USAGE.md) |
+[Dev Mode Guide](DEV_MODE.md) |
 [Troubleshooting](TROUBLESHOOTING.md) |
 [CLI Flags](CLI_FLAGS.md)
 

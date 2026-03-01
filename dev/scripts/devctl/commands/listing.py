@@ -36,6 +36,7 @@ COMMANDS = [
     "autonomy-swarm",
     "mutation-loop",
     "failure-cleanup",
+    "reports-cleanup",
     "audit-scaffold",
     "cihub-setup",
     "security",

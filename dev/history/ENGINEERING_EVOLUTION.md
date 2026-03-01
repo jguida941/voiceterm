@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-25
+**Last Updated:** 2026-02-27
 
 ## At a Glance
 
@@ -228,6 +228,55 @@ Evidence:
 
 Inference: CI lanes now stay portable across hosted-runner label catalog
 changes and mixed workspace-layout branches without manual rerun-only fixes.
+
+### Recent Governance Update (2026-02-27, Prompt-Occlusion Runtime Cohesion)
+
+Fact: Prompt-occlusion suppression transitions are now centralized under one
+event-loop runtime module so output detection, input resolution, and timeout
+clear paths share a single side-effect owner.
+
+Evidence:
+
+- `rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs` (shared suppression
+  apply/sync/resolve/clear helpers)
+- `rust/src/bin/voiceterm/event_loop/output_dispatch.rs` (output-driven
+  suppression flow now routed through shared controller)
+- `rust/src/bin/voiceterm/event_loop/input_dispatch.rs` (input-side resolve and
+  Enter clear paths now routed through shared controller)
+- `rust/src/bin/voiceterm/event_loop/periodic_tasks.rs` (timeout clear now uses
+  explicit clear-only reconciliation helper)
+- `dev/active/MASTER_PLAN.md`, `dev/active/naming_api_cohesion.md`
+  (`MP-267` progress/evidence traceability updates)
+
+Inference: Backend/terminal-specific suppression behavior is less likely to
+drift across dispatch paths because state transitions are no longer duplicated
+in multiple event-loop files.
+
+### Recent Governance Update (2026-02-27, Reports Retention Control Plane)
+
+Fact: `devctl` now has a dedicated reports-retention cleanup command and
+automatic hygiene warnings for stale report artifact growth.
+
+Evidence:
+
+- `dev/scripts/devctl/reports_retention.py` (shared retention planner with
+  managed-root allowlist, protected-path exclusions, and reclaim estimation)
+- `dev/scripts/devctl/commands/reports_cleanup.py` (`reports-cleanup` command
+  with dry-run preview and confirmation/`--yes` deletion path)
+- `dev/scripts/devctl/reports_cleanup_parser.py`, `dev/scripts/devctl/cli.py`,
+  `dev/scripts/devctl/commands/listing.py` (CLI/parser/command inventory
+  wiring)
+- `dev/scripts/devctl/commands/hygiene.py` (always-on stale report drift
+  warnings in hygiene output)
+- `dev/scripts/devctl/tests/test_reports_cleanup.py`,
+  `dev/scripts/devctl/tests/test_hygiene.py` (parser/retention/delete and
+  hygiene-warning regression coverage)
+- `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`,
+  `dev/active/MASTER_PLAN.md` (`MP-306` execution/docs traceability)
+
+Inference: Report cleanup no longer depends on maintainer memory; routine
+`hygiene` runs surface stale growth early, and cleanup remains guarded by
+retention policy plus explicit delete confirmation.
 
 ### Recent Governance Update (2026-02-25, Release Attestation + Scorecard Workflow Stability)
 

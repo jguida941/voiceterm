@@ -23,6 +23,7 @@ Fast first checks:
 | Wake phrase does not trigger capture | Verify wake mode and phrase match | [Wake-word enabled but no wake triggers yet](#wake-word-enabled-but-no-wake-triggers-yet) |
 | Auto-voice not triggering | Check prompt detection | [Backend Issues](#backend-issues) |
 | Dev panel not opening | Verify `--dev` flag at launch | [Backend Issues](#backend-issues) |
+| Dev panel output is confusing or inserts packet text | Use the Dev Mode command guide | [Backend Issues](#backend-issues) |
 | Transcript queued while backend is busy | Wait for prompt or tune regex | [Backend Issues](#backend-issues) |
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
@@ -374,6 +375,16 @@ Auto-voice waits for prompt readiness before listening again.
    ```
 
 3. Inspect the prompt log and adjust regex.
+
+### Dev panel output is confusing or inserts packet text
+
+1. Open the Dev guide:
+   [DEV_MODE.md](DEV_MODE.md)
+2. Confirm `DEV` badge is visible (you launched with `--dev`).
+3. Read-only tools: `status`, `report`, `triage`, `loop-packet`, `security`.
+4. Mutating tool: `sync` (requires second `Enter` confirmation).
+5. `loop-packet` can stage generated draft text into the active terminal input;
+   run it only when you want packet draft text inserted.
 
 ### Wake-word enabled but no wake triggers yet
 

@@ -42,6 +42,7 @@ from .commands import (
     path_rewrite,
     phone_status,
     pypi,
+    reports_cleanup,
     release,
     release_notes,
     report,
@@ -65,6 +66,7 @@ from .loop_packet_parser import add_loop_packet_parser
 from .mutation_loop_parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
+from .reports_cleanup_parser import add_reports_cleanup_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
 from .triage_loop_parser import add_triage_loop_parser
@@ -97,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_autonomy_run_parser(sub)
     add_mutation_loop_parser(sub)
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
+    add_reports_cleanup_parser(sub)
     add_sync_parser(sub)
     add_integrations_sync_parser(sub)
     add_integrations_import_parser(sub)
@@ -139,6 +142,7 @@ COMMAND_HANDLERS = {
     "integrations-import": integrations_import.run,
     "security": security.run,
     "failure-cleanup": failure_cleanup.run,
+    "reports-cleanup": reports_cleanup.run,
     "audit-scaffold": audit_scaffold.run,
 }
 

@@ -377,7 +377,7 @@ fn capture_voice_native(
     log_debug("capture_voice_native: Starting transcription");
     let stt_start = Instant::now();
     let transcript = {
-        let transcriber_guard = transcriber
+        let mut transcriber_guard = transcriber
             .lock()
             .map_err(|_| anyhow!("transcriber lock poisoned"))?;
         // Output suppression is now handled inside transcribe() method

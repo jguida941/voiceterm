@@ -83,7 +83,7 @@ Use `voiceterm --claude` to target Claude.
 - `Ctrl+E` - stop recording early and keep the text in input (does not send)
 - `Ctrl+T` - toggle send mode (auto vs insert)
 - `Ctrl+V` - toggle auto-voice (disabling cancels running capture)
-- `Ctrl+D` - open/close Dev panel (`--dev` only)
+- `Ctrl+D` - open/close Dev panel (`--dev` only; otherwise EOF is sent to the backend CLI)
 - `Ctrl+Q` - quit VoiceTerm
 
 In `auto` mode, text is typed and submitted.
@@ -154,6 +154,9 @@ voiceterm --mic-meter
 voiceterm --logs
 ```
 
+If you press `Ctrl+D` without `--dev`, VoiceTerm forwards EOF (`0x04`) to the
+wrapped CLI and that session may close.
+
 Style-pack note:
 
 - `VOICETERM_STYLE_PACK_JSON` can set `components.overlay_border` for overlays
@@ -162,6 +165,7 @@ Style-pack note:
   save (about 500ms poll interval).
 
 See [guides/CLI_FLAGS.md](guides/CLI_FLAGS.md) for the full option reference.
+For Dev panel command behavior and outputs, see [guides/DEV_MODE.md](guides/DEV_MODE.md).
 
 ## 7) Need help?
 

@@ -14,6 +14,7 @@ Use this with:
 `devctl` is the maintainer entrypoint for:
 
 1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
+   plus report-retention cleanup (`reports-cleanup`)
 2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
 3. Release verification and distribution (`ship`, `release`, `pypi`, `homebrew`)
 4. Orchestration guardrails (`orchestrate-status`, `orchestrate-watch`)
@@ -30,6 +31,8 @@ plan-scoped swarm pipeline.
 python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+# Run this when hygiene warns about stale report growth
+python3 dev/scripts/devctl.py reports-cleanup --dry-run
 python3 dev/scripts/devctl.py triage --ci --format md
 ```
 
@@ -59,6 +62,23 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --
 - `status --ci --require-ci`
 - `CI=1 check_coderabbit_gate.py --branch master`
 - `CI=1 check_coderabbit_ralph_gate.py --branch master`
+
+## Report Retention Guard
+
+`hygiene` now warns when managed report artifacts become stale or oversized.
+
+Cleanup flow:
+
+```bash
+python3 dev/scripts/devctl.py reports-cleanup --dry-run
+python3 dev/scripts/devctl.py reports-cleanup --max-age-days 30 --keep-recent 10 --yes
+```
+
+Safety model:
+
+1. cleanup is restricted to managed ephemeral run roots under `dev/reports/**`
+2. protected paths (`audits`, `data_science/latest`, queue/controller-state) are never deleted
+3. retention keeps the newest `--keep-recent` directories per managed root even if they are old
 
 ## Always-On Ralph Loop
 

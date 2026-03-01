@@ -82,6 +82,34 @@ pub(crate) fn count_gc_candidates(
         .count()
 }
 
+/// Run garbage collection: deprecate events older than the retention limit.
+/// Returns the number of events deprecated.
+pub(crate) fn run_gc(
+    index: &mut MemoryIndex,
+    retention: RetentionPolicy,
+    current_ts: &str,
+) -> usize {
+    let Some(max_days) = retention.as_days() else {
+        return 0;
+    };
+
+    let cutoff = compute_cutoff_ts(current_ts, max_days);
+    let all = index.all_eligible();
+    let gc_ids: Vec<String> = all
+        .iter()
+        .filter(|e| e.ts.as_str() < cutoff.as_str())
+        .map(|e| e.event_id.clone())
+        .collect();
+
+    let mut removed = 0;
+    for id in &gc_ids {
+        if index.set_retrieval_state(id, RetrievalState::Deprecated) {
+            removed += 1;
+        }
+    }
+    removed
+}
+
 /// Compute a cutoff timestamp by subtracting days from a reference ISO timestamp.
 fn compute_cutoff_ts(reference_ts: &str, days: u32) -> String {
     // Parse the date portion and subtract days.

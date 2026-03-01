@@ -35,6 +35,7 @@ mod overlay_frame;
 mod overlays;
 mod persistent_config;
 mod prompt;
+mod runtime_compat;
 mod session_memory;
 mod session_stats;
 mod settings;
@@ -85,12 +86,14 @@ use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stat
 use crate::config::{HudStyle, OverlayConfig};
 use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
 use crate::event_loop::run_event_loop;
-use crate::event_state::{EventLoopDeps, EventLoopState, EventLoopTimers};
+use crate::event_state::{
+    EventLoopDeps, EventLoopState, EventLoopTimers, PromptRuntimeState, PtyBufferState,
+    SettingsRuntimeState, ThemeStudioRuntimeState, UiRuntimeState,
+};
 use crate::hud::HudRegistry;
 use crate::input::spawn_input_thread;
 use crate::prompt::{
-    backend_supports_prompt_occlusion_guard, resolve_prompt_log, resolve_prompt_regex,
-    ClaudePromptDetector, PromptLogger, PromptTracker,
+    resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
 };
 use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::{format_session_stats, SessionStats};
@@ -117,47 +120,6 @@ const JETBRAINS_METER_UPDATE_MS: u64 = 90;
 const THREAD_JOIN_POLL_MS: u64 = 10;
 const WRITER_SHUTDOWN_JOIN_TIMEOUT_MS: u64 = 500;
 const INPUT_SHUTDOWN_JOIN_TIMEOUT_MS: u64 = 100;
-
-fn contains_jetbrains_hint(value: &str) -> bool {
-    let value = value.to_ascii_lowercase();
-    value.contains("jetbrains")
-        || value.contains("jediterm")
-        || value.contains("pycharm")
-        || value.contains("intellij")
-        || value.contains("idea")
-}
-
-fn is_jetbrains_terminal() -> bool {
-    const HINT_KEYS: &[&str] = &[
-        "PYCHARM_HOSTED",
-        "JETBRAINS_IDE",
-        "IDEA_INITIAL_DIRECTORY",
-        "IDEA_INITIAL_PROJECT",
-        "CLION_IDE",
-        "WEBSTORM_IDE",
-    ];
-
-    if HINT_KEYS
-        .iter()
-        .any(|key| env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false))
-    {
-        return true;
-    }
-
-    if let Ok(term_program) = env::var("TERM_PROGRAM") {
-        if contains_jetbrains_hint(&term_program) {
-            return true;
-        }
-    }
-
-    if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
-        if contains_jetbrains_hint(&terminal_emulator) {
-            return true;
-        }
-    }
-
-    false
-}
 
 fn apply_jetbrains_meter_floor(base_ms: u64, is_jetbrains: bool) -> u64 {
     if is_jetbrains {
@@ -201,7 +163,7 @@ fn resolved_meter_update_ms(hud_registry: &HudRegistry) -> u64 {
         .min_tick_interval()
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(METER_UPDATE_MS);
-    apply_jetbrains_meter_floor(base_ms, is_jetbrains_terminal())
+    apply_jetbrains_meter_floor(base_ms, runtime_compat::is_jetbrains_terminal())
 }
 
 fn join_thread_with_timeout(name: &str, handle: thread::JoinHandle<()>, timeout: Duration) {
@@ -266,6 +228,7 @@ fn main() -> Result<()> {
     let sound_on_error = resolve_sound_flag(config.app.sounds, config.app.sound_on_error);
     let backend = config.resolve_backend();
     let backend_label = backend.label.clone();
+    env::set_var("VOICETERM_BACKEND_LABEL", &backend_label);
     let theme = style_pack_theme_lock().unwrap_or_else(|| config.theme_for_backend(&backend_label));
     if config.app.doctor {
         let mut report = base_doctor_report(&config.app, "voiceterm");
@@ -530,44 +493,56 @@ fn main() -> Result<()> {
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
         theme,
-        overlay_mode: OverlayMode::None,
-        settings_menu: SettingsMenuState::new(),
+        ui: UiRuntimeState {
+            overlay_mode: OverlayMode::None,
+            terminal_rows,
+            terminal_cols,
+            suppress_startup_escape_input: true,
+        },
+        settings: SettingsRuntimeState {
+            menu: SettingsMenuState::new(),
+        },
         meter_levels: VecDeque::with_capacity(METER_HISTORY_MAX),
-        theme_studio_selected: 0,
-        theme_studio_page: crate::theme_studio::StudioPage::Home,
-        theme_studio_colors_editor: None,
-        theme_studio_borders_page: crate::theme_studio::BordersPageState::new(),
-        theme_studio_components_editor: crate::theme_studio::ComponentsEditorState::new(),
-        theme_studio_preview_page: crate::theme_studio::PreviewPageState::new(),
-        theme_studio_export_page: crate::theme_studio::ExportPageState::new(),
-        theme_studio_undo_history: Vec::new(),
-        theme_studio_redo_history: Vec::new(),
-        theme_picker_selected: theme_index_from_theme(theme),
-        theme_picker_digits: String::new(),
+        theme_studio: ThemeStudioRuntimeState {
+            selected: 0,
+            page: crate::theme_studio::StudioPage::Home,
+            colors_editor: None,
+            borders_page: crate::theme_studio::BordersPageState::new(),
+            components_editor: crate::theme_studio::ComponentsEditorState::new(),
+            preview_page: crate::theme_studio::PreviewPageState::new(),
+            export_page: crate::theme_studio::ExportPageState::new(),
+            undo_history: Vec::new(),
+            redo_history: Vec::new(),
+            picker_selected: theme_index_from_theme(theme),
+            picker_digits: String::new(),
+        },
         current_status: None,
         pending_transcripts: VecDeque::new(),
         session_stats: SessionStats::new(),
         dev_mode_stats,
         dev_event_logger,
         dev_panel_commands: DevPanelCommandState::default(),
-        prompt_tracker,
-        terminal_rows,
-        terminal_cols,
+        prompt: PromptRuntimeState {
+            tracker: prompt_tracker,
+            occlusion_detector: ClaudePromptDetector::new_for_backend(&backend_label),
+            non_rolling_approval_window: VecDeque::with_capacity(1024),
+            non_rolling_approval_window_last_update: None,
+            non_rolling_release_armed: false,
+            non_rolling_sticky_hold_until: None,
+        },
         last_recording_duration: 0.0_f32,
         meter_floor_started_at: None,
         processing_spinner_index: 0,
-        pending_pty_output: None,
-        pending_pty_input: VecDeque::new(),
-        pending_pty_input_offset: 0,
-        pending_pty_input_bytes: 0,
-        suppress_startup_escape_input: true,
+        pty_buffer: PtyBufferState {
+            pending_output: None,
+            pending_input: VecDeque::new(),
+            pending_input_offset: 0,
+            pending_input_bytes: 0,
+        },
         force_send_on_next_transcript: false,
         transcript_history: transcript_history::TranscriptHistory::new(),
         transcript_history_state: transcript_history::TranscriptHistoryState::new(),
         session_memory_logger,
-        claude_prompt_detector: ClaudePromptDetector::new(backend_supports_prompt_occlusion_guard(
-            &backend_label,
-        )),
         last_toast_status: None,
         toast_center: crate::toast::ToastCenter::new(),
         memory_ingestor,
@@ -584,6 +559,7 @@ fn main() -> Result<()> {
         theme_picker_digit_deadline: None,
         status_clear_deadline: None,
         preview_clear_deadline: None,
+        prompt_suppression_release_not_before: None,
         last_auto_trigger_at: None,
         last_enter_at: None,
         recording_started_at: None,
@@ -594,6 +570,7 @@ fn main() -> Result<()> {
         last_wake_hud_tick: Instant::now(),
         last_toast_tick: Instant::now(),
         last_theme_file_poll: Instant::now(),
+        last_terminal_geometry_poll: Instant::now(),
     };
     let mut deps = EventLoopDeps {
         session,
@@ -613,6 +590,21 @@ fn main() -> Result<()> {
         voice_macros,
         dev_command_broker,
     };
+
+    let claude_jetbrains_startup_guard =
+        runtime_compat::should_enable_claude_startup_guard(&deps.backend_label);
+    if claude_jetbrains_startup_guard {
+        state.prompt.occlusion_detector.activate_startup_guard();
+        state.status_state.claude_prompt_suppressed = true;
+        apply_pty_winsize(
+            &mut deps.session,
+            state.ui.terminal_rows,
+            state.ui.terminal_cols,
+            state.ui.overlay_mode,
+            state.status_state.hud_style,
+            true,
+        );
+    }
 
     deps.wake_word_runtime.sync(
         state.config.wake_word,
@@ -685,8 +677,8 @@ fn main() -> Result<()> {
         &deps.writer_tx,
         &deps.button_registry,
         &state.status_state,
-        state.overlay_mode,
-        state.terminal_cols,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
         state.theme,
     );
 
@@ -774,16 +766,6 @@ mod tests {
     }
 
     #[test]
-    fn jetbrains_hint_detection_matches_known_values() {
-        assert!(contains_jetbrains_hint("JetBrains Gateway"));
-        assert!(contains_jetbrains_hint("JetBrains-JediTerm"));
-        assert!(contains_jetbrains_hint("PyCharm"));
-        assert!(contains_jetbrains_hint("IntelliJ"));
-        assert!(!contains_jetbrains_hint("xterm-256color"));
-        assert!(!contains_jetbrains_hint("cursor"));
-    }
-
-    #[test]
     fn jetbrains_meter_floor_applies_only_in_jetbrains() {
         assert_eq!(
             apply_jetbrains_meter_floor(80, true),
@@ -795,6 +777,22 @@ mod tests {
             "higher explicit intervals should be preserved"
         );
         assert_eq!(apply_jetbrains_meter_floor(80, false), 80);
+    }
+
+    #[test]
+    fn startup_guard_enabled_only_for_claude_on_jetbrains() {
+        with_jetbrains_env(&[("PYCHARM_HOSTED", Some("1"))], || {
+            assert!(runtime_compat::should_enable_claude_startup_guard("claude"));
+            assert!(runtime_compat::should_enable_claude_startup_guard(
+                "Claude Code"
+            ));
+            assert!(!runtime_compat::should_enable_claude_startup_guard("codex"));
+        });
+        with_jetbrains_env(&[], || {
+            assert!(!runtime_compat::should_enable_claude_startup_guard(
+                "claude"
+            ));
+        });
     }
 
     #[test]
@@ -827,20 +825,20 @@ mod tests {
     #[test]
     fn is_jetbrains_terminal_detects_and_rejects_expected_env_values() {
         with_jetbrains_env(&[], || {
-            assert!(!is_jetbrains_terminal());
+            assert!(!runtime_compat::is_jetbrains_terminal());
         });
 
         with_jetbrains_env(&[("PYCHARM_HOSTED", Some("1"))], || {
-            assert!(is_jetbrains_terminal());
+            assert!(runtime_compat::is_jetbrains_terminal());
         });
 
         with_jetbrains_env(&[("TERM_PROGRAM", Some("JetBrains-JediTerm"))], || {
-            assert!(is_jetbrains_terminal());
+            assert!(runtime_compat::is_jetbrains_terminal());
         });
 
         with_jetbrains_env(&[("PYCHARM_HOSTED", Some(""))], || {
             assert!(
-                !is_jetbrains_terminal(),
+                !runtime_compat::is_jetbrains_terminal(),
                 "empty hint values should not be treated as JetBrains terminals"
             );
         });

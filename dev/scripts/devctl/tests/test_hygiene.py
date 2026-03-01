@@ -100,10 +100,25 @@ class HygieneAuditTests(unittest.TestCase):
         "dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes",
         return_value=([], []),
     )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene.build_reports_hygiene_guard",
+        return_value={
+            "reports_root": "dev/reports",
+            "reports_root_exists": True,
+            "managed_run_dirs": 0,
+            "candidate_count": 0,
+            "candidate_reclaim_bytes": 0,
+            "candidate_reclaim_human": "0 B",
+            "warnings": [],
+            "errors": [],
+            "subroots": [],
+        },
+    )
     @mock.patch("dev.scripts.devctl.commands.hygiene.write_output")
     def test_run_with_fix_clears_pycache_warning(
         self,
         write_output_mock: mock.Mock,
+        _reports_guard_mock: mock.Mock,
         _scan_mock: mock.Mock,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -254,6 +269,71 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertEqual(report["total_detected"], 0)
         self.assertTrue(report["errors"])
         self.assertIn("Runtime process sweep unavailable in CI", report["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.hygiene.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene.build_reports_hygiene_guard",
+        return_value={
+            "reports_root": "dev/reports",
+            "reports_root_exists": True,
+            "managed_run_dirs": 220,
+            "candidate_count": 35,
+            "candidate_reclaim_bytes": 1048576,
+            "candidate_reclaim_human": "1.0 MB",
+            "warnings": [
+                "Report retention drift: run reports-cleanup --dry-run to review stale artifacts."
+            ],
+            "errors": [],
+            "subroots": [],
+        },
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes",
+        return_value=([], []),
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_scripts",
+        return_value={
+            "top_level_scripts": [],
+            "check_scripts": [],
+            "pycache_dirs": [],
+            "warnings": [],
+            "errors": [],
+        },
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_adrs",
+        return_value={"total_adrs": 0, "warnings": [], "errors": []},
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.hygiene._audit_archive",
+        return_value={"total_entries": 0, "warnings": [], "errors": []},
+    )
+    def test_hygiene_includes_reports_retention_warning(
+        self,
+        _archive_mock: mock.Mock,
+        _adr_mock: mock.Mock,
+        _scripts_mock: mock.Mock,
+        _scan_mock: mock.Mock,
+        _reports_mock: mock.Mock,
+        write_output_mock: mock.Mock,
+    ) -> None:
+        args = SimpleNamespace(
+            fix=False,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        rc = hygiene.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertIn("reports", payload)
+        self.assertEqual(payload["reports"]["candidate_count"], 35)
+        self.assertGreaterEqual(payload["warning_count"], 1)
+        self.assertIn("reports-cleanup", payload["reports"]["warnings"][0])
 
 
 if __name__ == "__main__":

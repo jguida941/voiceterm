@@ -7,9 +7,10 @@ Start here for user docs.
 1. [`../QUICK_START.md`](../QUICK_START.md) - fastest first run.
 2. [`INSTALL.md`](INSTALL.md) - install options.
 3. [`USAGE.md`](USAGE.md) - controls and daily use.
-4. [`CLI_FLAGS.md`](CLI_FLAGS.md) - all flags and env vars.
-5. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) - common issues and fixes.
-6. [`WHISPER.md`](WHISPER.md) - model and language help.
+4. [`DEV_MODE.md`](DEV_MODE.md) - Dev panel guide (`--dev`, commands, guardrails).
+5. [`CLI_FLAGS.md`](CLI_FLAGS.md) - all flags and env vars.
+6. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) - common issues and fixes.
+7. [`WHISPER.md`](WHISPER.md) - model and language help.
 
 ## Find Docs by Goal
 
@@ -18,6 +19,7 @@ Start here for user docs.
 | Install quickly | [`../QUICK_START.md`](../QUICK_START.md) |
 | Compare install methods (Homebrew/PyPI/source/app) | [`INSTALL.md`](INSTALL.md) |
 | Learn controls and daily workflow | [`USAGE.md`](USAGE.md) |
+| Understand Dev panel commands and output | [`DEV_MODE.md`](DEV_MODE.md) |
 | Configure wake mode and hands-free send | [`USAGE.md#voice-modes`](USAGE.md#voice-modes) and [`CLI_FLAGS.md#voice-behavior`](CLI_FLAGS.md#voice-behavior) |
 | Find exact CLI flags and env vars | [`CLI_FLAGS.md`](CLI_FLAGS.md) |
 | Diagnose runtime issues | [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) |

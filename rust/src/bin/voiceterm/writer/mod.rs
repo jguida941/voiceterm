@@ -47,6 +47,9 @@ pub(crate) enum WriterMessage {
     EnableMouse,
     /// Disable mouse tracking
     DisableMouse,
+    /// User typed into the backend prompt/composer.
+    /// Used to temporarily defer non-urgent HUD redraws in Claude Cursor.
+    UserInputActivity,
     Shutdown,
 }
 

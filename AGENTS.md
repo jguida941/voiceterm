@@ -605,7 +605,7 @@ Core commands:
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
-- `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
+- `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep, and report-retention drift warnings for stale managed `dev/reports/**` run artifacts; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
@@ -637,6 +637,7 @@ Core commands:
 - `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
+- `reports-cleanup` (retention-based cleanup for stale run artifacts under managed `dev/reports/**` roots with protected-path exclusions, dry-run preview, and explicit confirmation/`--yes` delete flow)
 - `audit-scaffold`
   - Builds/updates `dev/active/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
@@ -665,6 +666,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py autonomy-swarm --question-file <plan.md> --adaptive --min-agents 4 --max-agents 20 --plan-only --format md` | you want one governed worker-allocation decision before launching Claude/Codex lanes | computes metadata-driven agent sizing with rationale and emits a deterministic swarm plan artifact |
 | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file <plan.md> --mode report-only --run-label <label> --format md` | you want one-command live swarm execution with built-in review lane and digest | runs bounded worker fanout, reserves default `AGENT-REVIEW` when possible, and auto-runs post-audit digest artifacts |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
+| `python3 dev/scripts/devctl.py reports-cleanup --dry-run` | hygiene warns report artifacts are stale/heavy | previews retention cleanup candidates under managed `dev/reports/**` roots |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 
@@ -712,6 +714,8 @@ Implementation note for maintainers:
   `dev/scripts/devctl/autonomy_run_helpers.py` (`swarm_run` shared scope/prompt/governance/plan-update helpers),
   `dev/scripts/devctl/autonomy_run_render.py` (`swarm_run` markdown renderer),
   `dev/scripts/devctl/failure_cleanup_parser.py` (failure-cleanup parser wiring),
+  `dev/scripts/devctl/reports_cleanup_parser.py` (reports-cleanup parser wiring),
+  `dev/scripts/devctl/reports_retention.py` (shared report-retention planner used by hygiene + reports-cleanup),
   `dev/scripts/devctl/commands/audit_scaffold.py` (guard-to-remediation scaffold generation),
   `dev/scripts/devctl/triage_support.py` (triage rendering + bundle helpers),
   `dev/scripts/devctl/triage_enrich.py` (triage owner/category/severity enrichment),
@@ -735,7 +739,9 @@ Implementation note for maintainers:
   `dev/scripts/devctl/commands/integrations_sync.py` (policy-guarded external-source sync/status command),
   `dev/scripts/devctl/commands/integrations_import.py` (allowlisted selective external-source importer + audit log),
   `dev/scripts/devctl/commands/cihub_setup.py` (allowlisted CIHub setup command implementation),
-  `dev/scripts/devctl/commands/failure_cleanup.py` (guarded failure-artifact cleanup), and `dev/scripts/devctl/commands/ship_common.py` /
+  `dev/scripts/devctl/commands/failure_cleanup.py` (guarded failure-artifact cleanup),
+  `dev/scripts/devctl/commands/reports_cleanup.py` (retention-based stale report cleanup),
+  and `dev/scripts/devctl/commands/ship_common.py` /
   `dev/scripts/devctl/commands/ship_steps.py` (release-step helpers), plus
   `dev/scripts/devctl/common.py` for shared command-execution failure handling.
   Keep new logic in these helpers to avoid command drift.

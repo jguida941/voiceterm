@@ -95,7 +95,9 @@ Wake labels in Full HUD:
 
 When enabled, Full HUD shows a `DEV` badge.
 `Ctrl+D` toggles the in-session Dev panel.
+Without `--dev`, `Ctrl+D` is forwarded as EOF (`0x04`) to the backend CLI.
 With `--dev-log`, VoiceTerm writes JSONL session files under `<dev-path>/sessions/`.
+For command-by-command Dev panel behavior, see [DEV_MODE.md](DEV_MODE.md).
 
 ---
 
@@ -177,7 +179,7 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--voice-max-capture-ms <MS>` | Max recording duration (max 60000) | 30000 |
 | `--voice-silence-tail-ms <MS>` | Silence duration to stop recording | 1000 |
 | `--voice-min-speech-ms-before-stt <MS>` | Minimum speech before STT starts | 300 |
-| `--voice-lookback-ms <MS>` | Audio kept before silence stop | 500 |
+| `--voice-lookback-ms <MS>` | Audio kept before silence stop | 200 |
 | `--voice-buffer-ms <MS>` | Total audio buffer (max 120000) | 30000 |
 | `--voice-sample-rate <HZ>` | Audio sample rate | 16000 |
 | `--voice-vad-frame-ms <MS>` | VAD frame size | 20 |

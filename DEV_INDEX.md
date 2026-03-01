@@ -10,6 +10,7 @@ Start here for developer docs.
 - [Engineering History](dev/history/ENGINEERING_EVOLUTION.md)
 - [ADRs](dev/adr/README.md)
 - [Changelog](dev/CHANGELOG.md)
+- [Dev Mode Guide](guides/DEV_MODE.md)
 
 ## Active plans and runbooks
 

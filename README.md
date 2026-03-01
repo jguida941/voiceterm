@@ -160,7 +160,7 @@ types the result into your AI CLI input.
 
 - **Voice macros**: expand phrases from `.voiceterm/macros.yaml` (toggle in Settings)
 - **Voice navigation**: spoken `scroll`, `send`, `show last error`, `copy last error`, `explain last error`
-- **Dev mode tools**: use `--dev` (`DEV` badge), `Ctrl+D` for Dev panel tools, `--dev-log` for JSONL diagnostics
+- **Dev mode tools**: launch with `--dev` first (look for `DEV` badge), then use `Ctrl+D` for Dev panel tools; add `--dev-log` for JSONL diagnostics
 - **Prompt-safe HUD**: VoiceTerm hides HUD rows during Codex/Claude approval and reply/composer prompts so text stays readable
 - **Latency clarity**: latency badges show completed-turn STT timing and hide while actively recording/processing
 - **Transcript history**: `Ctrl+H` to search and replay past text
@@ -170,6 +170,11 @@ types the result into your AI CLI input.
 - **Style-pack border settings**: `VOICETERM_STYLE_PACK_JSON` supports `components.overlay_border` and `components.hud_border` (HUD applies when border mode is `theme`)
 
 For full behavior details and controls, see [guides/USAGE.md](guides/USAGE.md).
+
+Important: if you did not launch with `--dev`, `Ctrl+D` is forwarded to the
+wrapped CLI as EOF (`0x04`) and can close/exit that CLI session.
+
+Dev panel usage guide: [guides/DEV_MODE.md](guides/DEV_MODE.md)
 
 ## Supported AI CLIs
 

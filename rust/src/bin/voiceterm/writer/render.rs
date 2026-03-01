@@ -5,19 +5,33 @@ use crate::status_line::StatusBanner;
 use crate::status_style::StatusType;
 use crate::theme::Theme;
 
-use super::sanitize::{sanitize_status, status_text_display_width, truncate_status};
+use super::sanitize::{
+    sanitize_status, status_text_display_width, truncate_ansi_line, truncate_status,
+};
 use super::state::OverlayPanel;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum TerminalFamily {
+    JetBrains,
+    Cursor,
+    Other,
+}
+
+// Use combined ANSI+DEC for non-JetBrains terminals so cursor save/restore
+// survives hosts that only implement one variant.
 const SAVE_CURSOR_COMBINED: &[u8] = b"\x1b[s\x1b7";
 const RESTORE_CURSOR_COMBINED: &[u8] = b"\x1b[u\x1b8";
 const SAVE_CURSOR_DEC: &[u8] = b"\x1b7";
 const RESTORE_CURSOR_DEC: &[u8] = b"\x1b8";
-const SAVE_CURSOR_ANSI: &[u8] = b"\x1b[s";
-const RESTORE_CURSOR_ANSI: &[u8] = b"\x1b[u";
 const WRAP_DISABLE: &[u8] = b"\x1b[?7l";
 const WRAP_ENABLE: &[u8] = b"\x1b[?7h";
 const CURSOR_HIDE: &[u8] = b"\x1b[?25l";
 const CURSOR_SHOW: &[u8] = b"\x1b[?25h";
+/// Synchronized-output mode 2026: terminal buffers all writes between
+/// BSU/ESU and renders them as a single atomic frame.  Terminals that
+/// do not support it silently ignore the sequence.
+const SYNC_BEGIN: &[u8] = b"\x1b[?2026h";
+const SYNC_END: &[u8] = b"\x1b[?2026l";
 
 fn contains_jetbrains_hint(value: &str) -> bool {
     let value = value.to_ascii_lowercase();
@@ -32,100 +46,107 @@ fn contains_cursor_hint(value: &str) -> bool {
     value.to_ascii_lowercase().contains("cursor")
 }
 
-pub(super) fn is_jetbrains_terminal() -> bool {
-    static IS_JETBRAINS: OnceLock<bool> = OnceLock::new();
-    *IS_JETBRAINS.get_or_init(|| {
-        const HINT_KEYS: &[&str] = &[
-            "PYCHARM_HOSTED",
-            "JETBRAINS_IDE",
-            "IDEA_INITIAL_DIRECTORY",
-            "IDEA_INITIAL_PROJECT",
-            "CLION_IDE",
-            "WEBSTORM_IDE",
-        ];
+fn detect_terminal_family() -> TerminalFamily {
+    const JETBRAINS_HINT_KEYS: &[&str] = &[
+        "PYCHARM_HOSTED",
+        "JETBRAINS_IDE",
+        "IDEA_INITIAL_DIRECTORY",
+        "IDEA_INITIAL_PROJECT",
+        "CLION_IDE",
+        "WEBSTORM_IDE",
+    ];
 
-        if HINT_KEYS
-            .iter()
-            .any(|key| env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false))
-        {
-            return true;
-        }
+    if JETBRAINS_HINT_KEYS
+        .iter()
+        .any(|key| env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false))
+    {
+        return TerminalFamily::JetBrains;
+    }
 
-        if let Ok(term_program) = env::var("TERM_PROGRAM") {
-            if contains_jetbrains_hint(&term_program) {
-                return true;
+    for key in ["TERM_PROGRAM", "TERMINAL_EMULATOR"] {
+        if let Ok(value) = env::var(key) {
+            if contains_jetbrains_hint(&value) {
+                return TerminalFamily::JetBrains;
             }
         }
+    }
 
-        if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
-            if contains_jetbrains_hint(&terminal_emulator) {
-                return true;
+    for key in ["TERM_PROGRAM", "TERMINAL_EMULATOR"] {
+        if let Ok(value) = env::var(key) {
+            if contains_cursor_hint(&value) {
+                return TerminalFamily::Cursor;
             }
         }
+    }
 
-        false
-    })
+    for key in [
+        "CURSOR_TRACE_ID",
+        "CURSOR_APP_VERSION",
+        "CURSOR_VERSION",
+        "CURSOR_BUILD_VERSION",
+    ] {
+        if env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false) {
+            return TerminalFamily::Cursor;
+        }
+    }
+
+    TerminalFamily::Other
 }
 
-fn is_cursor_terminal() -> bool {
-    static IS_CURSOR: OnceLock<bool> = OnceLock::new();
-    *IS_CURSOR.get_or_init(|| {
-        if let Ok(term_program) = env::var("TERM_PROGRAM") {
-            if contains_cursor_hint(&term_program) {
-                return true;
-            }
-        }
+pub(super) fn terminal_family() -> TerminalFamily {
+    static TERMINAL_FAMILY: OnceLock<TerminalFamily> = OnceLock::new();
+    *TERMINAL_FAMILY.get_or_init(detect_terminal_family)
+}
 
-        if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
-            if contains_cursor_hint(&terminal_emulator) {
-                return true;
-            }
-        }
+pub(super) fn is_jetbrains_terminal() -> bool {
+    terminal_family() == TerminalFamily::JetBrains
+}
 
-        for key in [
-            "CURSOR_TRACE_ID",
-            "CURSOR_APP_VERSION",
-            "CURSOR_VERSION",
-            "CURSOR_BUILD_VERSION",
-        ] {
-            if env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false) {
-                return true;
-            }
-        }
+fn save_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
+    match family {
+        TerminalFamily::JetBrains => SAVE_CURSOR_DEC,
+        // Cursor-integrated terminals vary across host shells; combined save/restore
+        // is the most resilient path across ANSI/DEC implementations.
+        TerminalFamily::Cursor | TerminalFamily::Other => SAVE_CURSOR_COMBINED,
+    }
+}
 
-        false
-    })
+fn restore_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
+    match family {
+        TerminalFamily::JetBrains => RESTORE_CURSOR_DEC,
+        TerminalFamily::Cursor | TerminalFamily::Other => RESTORE_CURSOR_COMBINED,
+    }
 }
 
 fn save_cursor_sequence() -> &'static [u8] {
-    if is_jetbrains_terminal() {
-        SAVE_CURSOR_DEC
-    } else if is_cursor_terminal() {
-        SAVE_CURSOR_ANSI
-    } else {
-        SAVE_CURSOR_COMBINED
-    }
+    save_cursor_sequence_for_family(terminal_family())
 }
 
 fn restore_cursor_sequence() -> &'static [u8] {
-    if is_jetbrains_terminal() {
-        RESTORE_CURSOR_DEC
-    } else if is_cursor_terminal() {
-        RESTORE_CURSOR_ANSI
-    } else {
-        RESTORE_CURSOR_COMBINED
-    }
+    restore_cursor_sequence_for_family(terminal_family())
 }
 
 fn should_disable_autowrap_during_redraw() -> bool {
     is_jetbrains_terminal()
 }
 
+fn should_hide_cursor_during_redraw_for_family(family: TerminalFamily) -> bool {
+    // Only hide/show cursor on JetBrains.  On other terminals (especially
+    // when wrapping Claude Code), the CURSOR_SHOW at the end of every redraw
+    // conflicts with the backend's own cursor management — forcing the block
+    // cursor visible when Claude has intentionally hidden it, producing a
+    // flickering white block on every keystroke.  Synchronized-output mode
+    // 2026 (SYNC_BEGIN/SYNC_END) handles flicker prevention without touching
+    // cursor visibility state.
+    matches!(family, TerminalFamily::JetBrains)
+}
+
 fn should_hide_cursor_during_redraw() -> bool {
-    is_jetbrains_terminal()
+    should_hide_cursor_during_redraw_for_family(terminal_family())
 }
 
 fn push_cursor_prefix(sequence: &mut Vec<u8>) {
+    sequence.extend_from_slice(SYNC_BEGIN);
     sequence.extend_from_slice(save_cursor_sequence());
     if should_disable_autowrap_during_redraw() {
         sequence.extend_from_slice(WRAP_DISABLE);
@@ -143,6 +164,7 @@ fn push_cursor_suffix(sequence: &mut Vec<u8>) {
     if should_hide_cursor_during_redraw() {
         sequence.extend_from_slice(CURSOR_SHOW);
     }
+    sequence.extend_from_slice(SYNC_END);
 }
 
 pub(super) fn write_status_line(
@@ -267,6 +289,30 @@ pub(super) fn clear_status_banner(
     stdout.write_all(&sequence)
 }
 
+/// Clear a status-banner frame anchored at an explicit start row.
+///
+/// This is used when the writer detects that banner anchor drifted (for example
+/// from stale geometry) and needs to scrub an old frame that is no longer at
+/// the current terminal bottom rows.
+pub(super) fn clear_status_banner_at(
+    stdout: &mut dyn Write,
+    start_row: u16,
+    height: usize,
+) -> io::Result<()> {
+    if start_row == 0 || height == 0 {
+        return Ok(());
+    }
+    let mut sequence = Vec::new();
+    push_cursor_prefix(&mut sequence);
+    for idx in 0..height {
+        let row = start_row.saturating_add(idx as u16);
+        sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(b"\x1b[2K");
+    }
+    push_cursor_suffix(&mut sequence);
+    stdout.write_all(&sequence)
+}
+
 pub(super) fn clear_status_line(stdout: &mut dyn Write, rows: u16, cols: u16) -> io::Result<()> {
     if rows == 0 || cols == 0 {
         return Ok(());
@@ -283,10 +329,12 @@ pub(super) fn write_overlay_panel(
     stdout: &mut dyn Write,
     panel: &OverlayPanel,
     rows: u16,
+    cols: u16,
 ) -> io::Result<()> {
-    if rows == 0 {
+    if rows == 0 || cols == 0 {
         return Ok(());
     }
+    let max_width = cols as usize;
     let lines: Vec<&str> = panel.content.lines().collect();
     let height = panel.height.min(lines.len()).min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
@@ -295,7 +343,8 @@ pub(super) fn write_overlay_panel(
     for (idx, line) in lines.iter().take(height).enumerate() {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
-        sequence.extend_from_slice(line.as_bytes());
+        let truncated = truncate_ansi_line(line, max_width);
+        sequence.extend_from_slice(truncated.as_bytes());
         sequence.extend_from_slice(b"\x1b[K");
     }
     push_cursor_suffix(&mut sequence);
@@ -432,6 +481,31 @@ mod tests {
     }
 
     #[test]
+    fn cursor_terminal_uses_combined_cursor_save_restore_sequences() {
+        assert_eq!(
+            save_cursor_sequence_for_family(TerminalFamily::Cursor),
+            SAVE_CURSOR_COMBINED
+        );
+        assert_eq!(
+            restore_cursor_sequence_for_family(TerminalFamily::Cursor),
+            RESTORE_CURSOR_COMBINED
+        );
+    }
+
+    #[test]
+    fn cursor_hide_policy_is_jetbrains_only() {
+        assert!(should_hide_cursor_during_redraw_for_family(
+            TerminalFamily::JetBrains
+        ));
+        assert!(!should_hide_cursor_during_redraw_for_family(
+            TerminalFamily::Cursor
+        ));
+        assert!(!should_hide_cursor_during_redraw_for_family(
+            TerminalFamily::Other
+        ));
+    }
+
+    #[test]
     fn write_status_banner_full_hud_clears_trailing_content() {
         let mut buf = Vec::new();
         let banner = StatusBanner::new(vec![
@@ -456,6 +530,17 @@ mod tests {
         let output = String::from_utf8_lossy(&buf);
         assert!(output.contains("\u{1b}[24;1H"));
         assert!(output.contains("\u{1b}[K"));
+    }
+
+    #[test]
+    fn clear_status_banner_at_clears_expected_rows() {
+        let mut buf = Vec::new();
+        clear_status_banner_at(&mut buf, 10, 3).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert!(output.contains("\u{1b}[10;1H"));
+        assert!(output.contains("\u{1b}[11;1H"));
+        assert!(output.contains("\u{1b}[12;1H"));
+        assert!(output.contains("\u{1b}[2K"));
     }
 
     #[test]

@@ -7,6 +7,21 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Runtime Hardening
+
+- Reuse native Whisper inference state across voice captures to avoid per-transcription state allocation overhead in the STT path.
+- Reduce the default `--voice-lookback-ms` from `500` to `200` so less trailing silence is sent to Whisper by default.
+
+### Documentation
+
+- Add a dedicated Dev Mode guide (`guides/DEV_MODE.md`) with command-by-command
+  Dev panel behavior (`status`, `report`, `triage`, `loop-packet`, `security`,
+  `sync`), panel field explanations (`Active`, `Last`), and troubleshooting for
+  `json-error` output and packet-text staging behavior.
+- Link the new Dev Mode guide from core user entry points (`README`,
+  `QUICK_START`, `guides/README`, `guides/USAGE`, `guides/CLI_FLAGS`,
+  `guides/INSTALL`, `guides/TROUBLESHOOTING`, and `DEV_INDEX`).
+
 ## [1.0.95] - 2026-02-27
 ### UX
 

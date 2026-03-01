@@ -84,6 +84,11 @@ Out of scope:
 - 2026-02-25: Extracted shared Theme Studio list navigation to
   `rust/src/bin/voiceterm/theme_studio/nav.rs` and standardized page state APIs
   + input dispatch on `select_prev`/`select_next` naming.
+- 2026-02-27: Extracted prompt-occlusion transition handling from
+  `event_loop.rs` into `event_loop/prompt_occlusion.rs` so PTY-output
+  detection, timeout-based reconciliation, and input-driven resolve/clear paths
+  share one runtime owner instead of duplicating suppression mutations across
+  `output_dispatch`, `periodic_tasks`, and `input_dispatch`.
 
 ## Audit Evidence
 
@@ -98,3 +103,6 @@ Out of scope:
 | `python3 dev/scripts/devctl.py hygiene --fix` | hygiene passed (`ok: True`) and removed transient `__pycache__` dirs from local compile pass | done |
 | `rg -n "autonomy-run" AGENTS.md dev/ARCHITECTURE.md dev/DEVELOPMENT.md .github/workflows/README.md .github/workflows/autonomy_run.yml dev/active/MASTER_PLAN.md` | active command-surface drift inventory captured; retained hits are historical evidence only where explicitly noted | done |
 | `python3 dev/scripts/devctl.py swarm_run --help` | canonical command surfaces in CLI help and option set includes feedback controls | done |
+| `cd rust && cargo check --bin voiceterm` | pass after extracting prompt-occlusion controller module and rewiring event-loop call paths | done |
+| `cd rust && cargo test --bin voiceterm` | `1240 passed; 0 failed` after prompt-occlusion modularization pass | done |
+| `cd rust && cargo fmt --check` | pass after formatting touchpoints in modularized event-loop files | done |
