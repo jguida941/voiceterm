@@ -23,7 +23,7 @@ const CURSOR_PRECLEAR_COOLDOWN_MS: u64 = 220;
 #[cfg(test)]
 const CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 180;
 const CLAUDE_JETBRAINS_BANNER_PRECLEAR_COOLDOWN_MS: u64 = 90;
-const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 260;
+const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 500;
 const JETBRAINS_PRECLEAR_COOLDOWN_MS: u64 = 260;
 const CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 320;
 const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 150;
@@ -761,25 +761,24 @@ impl WriterState {
                     // so redrawing the HUD during active PTY output corrupts
                     // cursor position.  HUD redraws happen on timer ticks when
                     // output is idle instead.
-                    let non_scroll_line_mutation = if self.terminal_family
-                        != TerminalFamily::JetBrains
-                    {
-                        let result = should_force_non_scroll_banner_redraw(
-                            claude_non_scroll_redraw_profile,
-                            may_scroll_rows,
-                            self.display.enhanced_status.is_some(),
-                            &bytes,
-                            now,
-                            self.last_scroll_redraw_at,
-                        );
-                        if result {
-                            self.display.force_full_banner_redraw = true;
-                            self.last_scroll_redraw_at = now;
-                        }
-                        result
-                    } else {
-                        false
-                    };
+                    let non_scroll_line_mutation =
+                        if self.terminal_family != TerminalFamily::JetBrains {
+                            let result = should_force_non_scroll_banner_redraw(
+                                claude_non_scroll_redraw_profile,
+                                may_scroll_rows,
+                                self.display.enhanced_status.is_some(),
+                                &bytes,
+                                now,
+                                self.last_scroll_redraw_at,
+                            );
+                            if result {
+                                self.display.force_full_banner_redraw = true;
+                                self.last_scroll_redraw_at = now;
+                            }
+                            result
+                        } else {
+                            false
+                        };
                     // Cursor+Claude: Claude Code redraws its own status hints on
                     // every keystroke echo, actively clearing the bottom rows where
                     // the HUD lives.  The 700ms non-scroll throttle above is too
@@ -1180,10 +1179,15 @@ impl WriterState {
         // Prioritize explicit status/overlay updates over passive PTY-driven repaints.
         // This keeps settings navigation and meter changes reactive under heavy backend output.
         let priority_update_pending = self.pending.has_any();
-        let claude_jetbrains_passive_redraw = self.terminal_family == TerminalFamily::JetBrains
-            && is_claude_backend()
-            && !priority_update_pending;
-        let idle_ms = if claude_jetbrains_passive_redraw {
+        let claude_jetbrains =
+            self.terminal_family == TerminalFamily::JetBrains && is_claude_backend();
+        let claude_jetbrains_idle_gated_redraw = claude_jetbrains
+            && !self.force_redraw_after_preclear
+            && self.pending.overlay_panel.is_none()
+            && !self.pending.clear_overlay
+            && !self.pending.clear_status
+            && !suppression_transition_pending;
+        let idle_ms = if claude_jetbrains_idle_gated_redraw {
             CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS
         } else if priority_update_pending {
             PRIORITY_STATUS_IDLE_MS
@@ -1196,16 +1200,15 @@ impl WriterState {
             STATUS_MAX_WAIT_MS
         };
 
-        let should_throttle_for_output =
-            if claude_jetbrains_passive_redraw {
-                // JetBrains+Claude can emit bursty chunks with brief gaps; if we
-                // redraw HUD in those gaps, the next scroll chunk can drag HUD
-                // chrome into transcript lines. Require true idle settle.
-                since_output < Duration::from_millis(idle_ms)
-            } else {
-                since_output < Duration::from_millis(idle_ms)
-                    && since_draw < Duration::from_millis(max_wait_ms)
-            };
+        let should_throttle_for_output = if claude_jetbrains_idle_gated_redraw {
+            // JetBrains+Claude can emit bursty chunks with brief gaps; if we
+            // redraw HUD in those gaps, the next scroll chunk can drag HUD
+            // chrome into transcript lines. Require true idle settle.
+            since_output < Duration::from_millis(idle_ms)
+        } else {
+            since_output < Duration::from_millis(idle_ms)
+                && since_draw < Duration::from_millis(max_wait_ms)
+        };
 
         if !self.force_redraw_after_preclear
             && !suppression_transition_pending
@@ -1367,11 +1370,8 @@ impl WriterState {
                     (*banner_anchor_row, new_anchor_row)
                 {
                     if previous_anchor != next_anchor && *current_banner_height > 0 {
-                        let _ = clear_status_banner_at(
-                            stdout,
-                            previous_anchor,
-                            *current_banner_height,
-                        );
+                        let _ =
+                            clear_status_banner_at(stdout, previous_anchor, *current_banner_height);
                     }
                 }
                 // Avoid full-frame clear on every redraw; only clear when banner shrinks.
@@ -2266,8 +2266,8 @@ mod tests {
             state.cols = 120;
             state.display.enhanced_status = Some(StatusLineState::new());
             state.needs_redraw = true;
-            state.last_output_at = Instant::now()
-                - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS / 2);
+            state.last_output_at =
+                Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS / 2);
             state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
 
             state.maybe_redraw_status();
@@ -2498,23 +2498,21 @@ mod tests {
 
     #[test]
     fn jetbrains_scroll_output_redraw_state_matches_backend_policy() {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.display.banner_height = 4;
-        state.display.force_full_banner_redraw = false;
+        with_backend_label_env(Some("claude"), || {
+            let mut state = WriterState::new();
+            state.terminal_family = TerminalFamily::JetBrains;
+            state.rows = 24;
+            state.cols = 120;
+            state.display.enhanced_status = Some(StatusLineState::new());
+            state.display.banner_height = 4;
+            state.display.force_full_banner_redraw = false;
 
-        assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'\n'])));
-        if is_codex_backend() {
-            assert!(state.needs_redraw);
-        } else {
+            assert!(state.handle_message(WriterMessage::PtyOutput(vec![b'\n'])));
             // Claude/JetBrains keeps redraw pending (instead of forcing every
             // pre-clear to repaint immediately) to reduce visible flashing.
             assert!(state.needs_redraw);
             assert!(!state.force_redraw_after_preclear);
-        }
+        });
     }
 
     #[test]

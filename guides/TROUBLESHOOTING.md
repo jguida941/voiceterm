@@ -28,6 +28,7 @@ Fast first checks:
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| Prompt text turns dark in JetBrains + Claude | Verify `v1.0.98+` and collect logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme file edits do not apply | Verify `--theme-file` / `VOICETERM_THEME_FILE` and check logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
@@ -485,6 +486,7 @@ Section shortcuts:
 - [Meter looks too loud](#meter-looks-too-loud-for-normal-speech)
 - [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals)
 - [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
+- [Prompt text turns dark in JetBrains + Claude](#prompt-text-turns-dark-in-jetbrains--claude)
 - [Theme Studio fallback line](#theme-studio-shows-fallback-line)
 - [Startup banner lingers](#startup-banner-lingers-in-ide-terminal)
 - [Theme colors look muted](#theme-colors-look-muted-in-ide-terminal)
@@ -668,6 +670,25 @@ If HUD rapidly flashes in JetBrains but not Cursor/VS Code:
    reduce random `|`/block cursor artifact flashes over HUD rows.
 3. Reproduce with `voiceterm --logs`.
 4. Share logs + terminal app/version if it persists.
+
+### Prompt text turns dark in JetBrains + Claude
+
+If typed prompt/composer text appears dark or inherits HUD colors in JetBrains:
+
+1. Verify version:
+
+   ```bash
+   voiceterm --version
+   ```
+
+2. Update to `v1.0.98+`, which resets HUD attributes before clear-to-EOL.
+3. Reproduce once with logs:
+
+   ```bash
+   voiceterm --logs
+   ```
+
+4. If it still occurs, share `${TMPDIR:-/tmp}/voiceterm_tui.log` and IDE version.
 
 ### PTY exit write error in logs
 

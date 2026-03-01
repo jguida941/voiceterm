@@ -192,6 +192,9 @@ pub(super) fn write_status_line(
     push_cursor_prefix(&mut sequence);
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
     sequence.extend_from_slice(formatted.as_bytes());
+    // Always reset attributes before clearing trailing space so prompt/input
+    // text cannot inherit a stale HUD color context.
+    sequence.extend_from_slice(b"\x1b[0m");
     // Clear only the remainder of the line to avoid clear-then-paint flicker.
     sequence.extend_from_slice(b"\x1b[K");
     push_cursor_suffix(&mut sequence);
@@ -231,6 +234,9 @@ pub(super) fn write_status_banner(
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
         let rendered = truncate_ansi_line(line, row_max_width);
         sequence.extend_from_slice(rendered.as_bytes()); // Write content
+                                                         // Ensure clear-to-EOL runs in default attributes so the prompt row
+                                                         // never picks up dim/hidden HUD styling.
+        sequence.extend_from_slice(b"\x1b[0m");
         sequence.extend_from_slice(b"\x1b[K"); // Clear any trailing stale content
     }
 

@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-02-27
+**Last Updated:** 2026-03-01
 
 ## At a Glance
 
@@ -153,6 +153,26 @@ Inference: These screenshots improve readability for users. They show current UI
 3. Verify you are not reintroducing a previously reverted pattern.
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
 5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
+
+### Recent Governance Update (2026-03-01, v1.0.98 Release Gate Alignment)
+
+Fact: Release `v1.0.98` execution now tracks the stricter docs-governance path
+end-to-end: release metadata prep, changelog + active-plan sync, and mandatory
+user-facing docs updates before tag/publish gates pass.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/release_prep.py` (release metadata prep for
+  version/changelog/master-plan snapshot updates)
+- `dev/CHANGELOG.md` (`1.0.98` entry includes JetBrains+Claude HUD rendering
+  fixes and release notes)
+- `dev/active/MASTER_PLAN.md` (`MP-226` follow-up evidence updated in active
+  tracker)
+- `guides/TROUBLESHOOTING.md` (user-facing JetBrains+Claude prompt-text
+  troubleshooting guidance added)
+
+Inference: Release runs now fail fast when governance/docs evidence is
+incomplete, which keeps runtime hotfix releases and user guidance synchronized.
 
 ### Recent Governance Update (2026-02-25, Ralph Fix Policy + Escalation)
 

@@ -15,8 +15,8 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-03-01)
-- Last tagged release: `v1.0.97` (2026-03-01)
-- Current release target: `post-v1.0.97 planning`
+- Last tagged release: `v1.0.98` (2026-03-01)
+- Current release target: `post-v1.0.98 planning`
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: sequential execution with one primary product lane at a
@@ -270,6 +270,7 @@ Create these ADRs in order so agents/dev do not lose architectural scope.
   - 2026-03-01 rapid-approval hold + frame/log correlation follow-up: non-rolling input-resolution now arms an explicit sticky suppression hold window to avoid unsuppress gaps between consecutive approval cards, and `claude_hud_stress.py` now records frame timestamps plus bottom-row HUD visibility and correlates each frame to suppression-transition/redraw-commit log events for deterministic overlap attribution (see `dev/audits/2026-02-27-terminal-overlay-regression-audit.md` A2.11). Local stress execution in this sandbox remains blocked by detached `screen` session startup failure, so fresh artifact generation is still pending a full terminal host.
   - 2026-03-01 wrapped-approval depth + anomaly-capture follow-up: expanded non-rolling approval scan depth (`2048 -> 8192` bytes, `12 -> 64` lines) so long wrapped option cards in Cursor prompt UIs continue matching numbered approval semantics, and added explicit anomaly logging for `explicit approval hint seen without numbered-match` to surface residual detector misses in runtime logs instead of relying on screenshots alone (see `dev/audits/2026-02-27-terminal-overlay-regression-audit.md` A2.12).
   - 2026-03-01 overlay occlusion closure follow-up: PTY startup winsize is now derived from measured terminal geometry before backend spawn (HUD-aware from frame 1), writer HUD rendering now fences PTY scrolling above reserved HUD rows via scroll-region controls, and resize transitions now force immediate redraw after pre-clear so grow/shrink cycles do not leave input rows hidden until another keypress.
+  - 2026-03-01 JetBrains+Claude rendering follow-up: status/banner clear-to-EOL paths now reset ANSI attributes before trimming trailing columns so dark HUD style attributes cannot leak into typed prompt text, and JetBrains Claude extra gap rows now default to `2` for safer startup prompt/HUD separation.
 - [x] MP-285 Standardize HUD policy across all backends: removed Gemini-specific compaction logic to ensure a consistent 4-row Full HUD experience and unified flicker-reduction behavior across Codex, Claude, and Gemini backends.
 
 ## Phase 2B - Rust Hardening Audit (Pre-Execution + Implementation)

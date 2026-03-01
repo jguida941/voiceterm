@@ -7,6 +7,13 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.98] - 2026-03-01
+### UX
+
+- Prevent Claude/Codex prompt text color inheritance from HUD paint sequences by resetting ANSI attributes before clear-to-EOL writes in status-line and banner rendering.
+- Increase JetBrains + Claude reserved prompt/HUD gap rows (`1 -> 2`) for safer first-input separation in IDE terminals.
+- Tighten JetBrains + Claude passive HUD redraw gating during bursty output so status repaint waits for a clearer idle window.
+
 ### Runtime Hardening
 
 - Reuse native Whisper inference state across voice captures to avoid per-transcription state allocation overhead in the STT path.

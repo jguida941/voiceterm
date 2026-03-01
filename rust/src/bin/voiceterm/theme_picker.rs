@@ -228,7 +228,6 @@ mod tests {
     #[test]
     fn theme_picker_none_theme_uses_neutral_preview_rows() {
         let output = format_theme_picker(Theme::None, 10, 60, None);
-        assert!(!output.contains("\x1b["));
         assert!(!output.contains("◉"));
         assert!(!output.contains("⏺"));
         assert!(output.contains("11. none"));

@@ -3281,7 +3281,17 @@ fn handle_output_chunk_bash_approval_card_suppresses_hud() {
     assert!(running);
     assert!(state.status_state.claude_prompt_suppressed);
     let (rows, _) = deps.session.current_winsize();
-    assert_eq!(rows, 24);
+    let expected_suppressed_rows = state
+        .ui
+        .terminal_rows
+        .saturating_sub(crate::terminal::reserved_rows_for_mode(
+            OverlayMode::None,
+            state.ui.terminal_cols,
+            state.status_state.hud_style,
+            true,
+        ) as u16)
+        .max(1);
+    assert_eq!(rows, expected_suppressed_rows);
 }
 
 #[test]
@@ -5465,7 +5475,17 @@ fn set_claude_prompt_suppression_expands_pty_row_budget() {
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
     let (suppressed_rows, _) = deps.session.current_winsize();
-    assert_eq!(suppressed_rows, 24);
+    let expected_suppressed_rows = state
+        .ui
+        .terminal_rows
+        .saturating_sub(crate::terminal::reserved_rows_for_mode(
+            OverlayMode::None,
+            state.ui.terminal_cols,
+            state.status_state.hud_style,
+            true,
+        ) as u16)
+        .max(1);
+    assert_eq!(suppressed_rows, expected_suppressed_rows);
 
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, false);
     assert!(!state.status_state.claude_prompt_suppressed);
@@ -5543,7 +5563,17 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
         false,
     ) as u16;
     let unsuppressed_rows = state.ui.terminal_rows.saturating_sub(reserved).max(1);
-    assert_eq!(suppressed_rows, 24);
+    let expected_suppressed_rows = state
+        .ui
+        .terminal_rows
+        .saturating_sub(crate::terminal::reserved_rows_for_mode(
+            OverlayMode::None,
+            state.ui.terminal_cols,
+            state.status_state.hud_style,
+            true,
+        ) as u16)
+        .max(1);
+    assert_eq!(suppressed_rows, expected_suppressed_rows);
 
     // Detector resolved via user input path, but no fresh output chunk arrives.
     state.prompt.occlusion_detector.on_user_input();
