@@ -62,7 +62,7 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 |---------|-------------|--------|
 | Codex | `voiceterm` or `voiceterm --codex` | Supported |
 | Claude Code | `voiceterm --claude` | Supported |
-| Gemini CLI | `voiceterm --gemini` | Experimental (supported; compact HUD layout) |
+| Gemini CLI | `voiceterm --gemini` | Experimental (supported) |
 | Aider | `voiceterm --backend aider` | Experimental (untested) |
 | OpenCode | `voiceterm --backend opencode` | Experimental (untested) |
 
@@ -460,9 +460,10 @@ Advanced theme options (optional):
 | Minimal | `--hud-style minimal` or `--minimal-hud` | Single-line strip |
 | Hidden | `--hud-style hidden` | Muted launcher row when idle (`open` + `hide` controls), muted recording indicator when active |
 
-Backend-specific layout note:
+Runtime layout note:
 
-- In Gemini sessions (`voiceterm --gemini`), selecting `Full` HUD uses a compact single-row layout to keep Gemini's input textbox readable in tighter terminals.
+- Full HUD row policy is unified across Codex, Claude, and Gemini.
+- For Codex/Claude prompt safety, HUD suppression now targets high-confidence interactive approval cards instead of generic composer/hint text.
 
 Hidden launcher controls:
 

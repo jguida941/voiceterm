@@ -830,6 +830,7 @@ impl WriterState {
                 self.cursor_startup_scroll_preclear_pending = true;
                 if self.display.has_any() || self.pending.has_any() {
                     self.needs_redraw = true;
+                    self.force_redraw_after_preclear = true;
                 }
                 self.maybe_redraw_status();
             }

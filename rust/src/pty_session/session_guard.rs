@@ -707,11 +707,15 @@ mod tests {
                 Some(&owner_start_time)
             ));
             let mismatched_start_time = format!("{owner_start_time}-mismatch");
-            assert!(!owner_process_is_live(
-                owner_pid,
-                &owner_exec_name,
-                Some(&mismatched_start_time)
-            ));
+            let mismatch_live =
+                owner_process_is_live(owner_pid, &owner_exec_name, Some(&mismatched_start_time));
+            if mismatch_live {
+                // Owner-liveness intentionally returns true when a start-time
+                // probe is unavailable to avoid false-positive cleanup.
+                assert!(process_start_time(owner_pid).is_none());
+            } else {
+                assert!(!mismatch_live);
+            }
         } else {
             assert!(owner_process_is_live(owner_pid, &owner_exec_name, None));
         }

@@ -48,6 +48,8 @@ fn start_pty_session(
     working_dir: &str,
     args: &[String],
     term_value: &str,
+    initial_rows: u16,
+    initial_cols: u16,
     spawn_reader: fn(RawFd, Sender<Vec<u8>>) -> thread::JoinHandle<()>,
 ) -> Result<PtySessionInit> {
     session_guard::cleanup_stale_sessions();
@@ -69,7 +71,7 @@ fn start_pty_session(
     // set_nonblocking only touches the returned master fd.
     unsafe {
         let (master_fd, lifeline_write_fd, child_pid) =
-            spawn_pty_child(&argv, &cwd, &term_value_cstr)?;
+            spawn_pty_child(&argv, &cwd, &term_value_cstr, initial_rows, initial_cols)?;
         set_nonblocking(master_fd)?;
         session_guard::register_session(master_fd, child_pid, cli_cmd);
 
@@ -162,8 +164,18 @@ impl PtyCliSession {
         working_dir: &str,
         args: &[String],
         term_value: &str,
+        initial_rows: u16,
+        initial_cols: u16,
     ) -> Result<Self> {
-        let init = start_pty_session(cli_cmd, working_dir, args, term_value, spawn_reader_thread)?;
+        let init = start_pty_session(
+            cli_cmd,
+            working_dir,
+            args,
+            term_value,
+            initial_rows,
+            initial_cols,
+            spawn_reader_thread,
+        )?;
         Ok(Self {
             master_fd: init.master_fd,
             lifeline_write_fd: init.lifeline_write_fd,
@@ -307,12 +319,16 @@ impl PtyOverlaySession {
         working_dir: &str,
         args: &[String],
         term_value: &str,
+        initial_rows: u16,
+        initial_cols: u16,
     ) -> Result<Self> {
         let init = start_pty_session(
             cli_cmd,
             working_dir,
             args,
             term_value,
+            initial_rows,
+            initial_cols,
             spawn_passthrough_reader_thread,
         )?;
         Ok(Self {
@@ -445,6 +461,17 @@ fn is_benign_shutdown_write_error(err: &anyhow::Error) -> bool {
 
 /// Forks and execs a child process under a new PTY.
 ///
+/// # CRITICAL — HUD overlap fix
+///
+/// `initial_rows` and `initial_cols` MUST be passed from the caller with the
+/// correct terminal size **minus HUD reserved rows**.  DO NOT revert these
+/// parameters back to hardcoded 24×80.  When the child (e.g. Claude Code)
+/// starts, it reads `process.stdout.rows` exactly once to lay out its TUI.
+/// If the PTY is created at full terminal height, the input prompt lands on
+/// the same row as the HUD, causing persistent overlap that no later
+/// SIGWINCH can reliably fix.  See `main.rs` where `reserved_rows_for_mode`
+/// is computed before PTY creation.
+///
 /// # Safety
 ///
 /// This function performs low-level PTY allocation and process forking.
@@ -459,15 +486,19 @@ pub(super) unsafe fn spawn_pty_child(
     argv: &[CString],
     working_dir: &CString,
     term_value: &CString,
+    initial_rows: u16,
+    initial_cols: u16,
 ) -> Result<(RawFd, RawFd, i32)> {
     let mut master_fd: RawFd = -1;
     let mut slave_fd: RawFd = -1;
     let mut lifeline_fds = [-1; 2];
 
-    // Set a proper terminal size - some backends check this for terminal detection.
+    // Use the caller-supplied terminal size so the child process starts with the
+    // correct geometry.  Falling back to 24x80 when callers pass zero keeps
+    // backwards-compatible behaviour for tests and non-overlay sessions.
     let mut winsize = libc::winsize {
-        ws_row: 24,
-        ws_col: 80,
+        ws_row: if initial_rows > 0 { initial_rows } else { 24 },
+        ws_col: if initial_cols > 0 { initial_cols } else { 80 },
         ws_xpixel: 0,
         ws_ypixel: 0,
     };

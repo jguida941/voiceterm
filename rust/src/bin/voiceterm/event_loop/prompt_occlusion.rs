@@ -589,7 +589,6 @@ pub(super) fn feed_prompt_output_and_sync(
         .is_some_and(|window| chunk_contains_live_approval_card_hint(window));
     let non_rolling_approval_hint = explicit_approval_hint_chunk
         || numbered_approval_hint_chunk
-        || (explicit_approval_hint_chunk && numbered_approval_hint_window)
         || (explicit_approval_hint_window && numbered_approval_hint_window)
         || non_rolling_live_approval_window_hint;
     let approval_hint_seen = if use_rolling_detector {

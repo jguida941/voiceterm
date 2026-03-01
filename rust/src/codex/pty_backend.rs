@@ -111,6 +111,8 @@ impl CodexCliBackend {
             wd_str,
             &pty_args,
             &self.config.term_value,
+            24,
+            80,
         ) {
             Ok(mut session) => {
                 log_debug("PTY session created, checking responsiveness...");

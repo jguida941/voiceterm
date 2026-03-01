@@ -307,14 +307,13 @@ If Claude tool actions run without approval prompts, check whether
 3. Avoid using skip-permissions mode with untrusted repositories or with
    credentials/secrets available in your shell environment.
 
-### Codex or Claude reply rows are occluded
+### Codex or Claude approval prompts are occluded
 
-VoiceTerm suppresses HUD rows when Codex/Claude interactive prompts are
-detected (approval walls plus reply/composer prompt markers), so your active
-reply area stays visible. For reply/composer prompts, suppression stays active
-while you type and clears when the prompt is submitted or canceled.
+VoiceTerm suppresses HUD rows when high-confidence Codex/Claude approval cards
+are detected (for example `This command requires approval` / `Do you want to proceed?`
+with numbered options). Generic composer/hint text no longer triggers suppression.
 
-If reply rows still look clipped or overlapped:
+If approval rows still look clipped or overlapped:
 
 1. Confirm version:
 
@@ -535,7 +534,7 @@ Theme Studio, or picker rows:
 4. Upgrade to the latest build where enhanced colon-parameterized arrow CSI
    forms are normalized for overlay navigation.
 
-### Codex composer/input row gets covered by HUD
+### Codex or Claude input row gets covered by HUD
 
 If the chat/composer row (for example the `⌘K to generate command` hint area)
 is obscured by the VoiceTerm banner:
@@ -552,8 +551,15 @@ is obscured by the VoiceTerm banner:
 4. If needed as a temporary workaround, switch HUD style to `Minimal` (`Ctrl+U`)
    while the interactive composer is active.
 
-Note: VoiceTerm suppression now targets high-confidence approval/permission
-prompts only. Normal composer/hint text should not hide the HUD.
+VoiceTerm also fences PTY scrolling above the HUD while banner rows are active.
+If overlap still appears in your terminal host, try a temporary row-budget
+override and capture logs for follow-up:
+
+```bash
+VOICETERM_CLAUDE_EXTRA_GAP_ROWS=14 voiceterm --logs --claude
+# or
+VOICETERM_HUD_SAFETY_GAP_ROWS=2 voiceterm --logs
+```
 
 ### Ctrl+G quick theme cycle does not work
 

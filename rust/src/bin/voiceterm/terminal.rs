@@ -102,6 +102,23 @@ pub(crate) fn resolved_rows(cached: u16) -> u16 {
     }
 }
 
+/// CRITICAL — HUD overlap fix: Returns `(terminal_rows, terminal_cols,
+/// pty_rows, pty_cols)` with the PTY rows reduced by the HUD reservation.
+/// This MUST be called before `PtyOverlaySession::new()`.  DO NOT remove the
+/// reserved-row subtraction or move PTY creation before this call — backends
+/// like Claude Code cache `process.stdout.rows` at startup and will lay out
+/// their input prompt on the HUD rows, causing persistent overlap that no
+/// later SIGWINCH can reliably fix.
+pub(crate) fn startup_pty_geometry(hud_style: HudStyle) -> (u16, u16, u16, u16) {
+    match terminal_size() {
+        Ok((cols, rows)) => {
+            let reserved = reserved_rows_for_mode(OverlayMode::None, cols, hud_style, false) as u16;
+            (rows, cols, rows.saturating_sub(reserved).max(1), cols)
+        }
+        Err(_) => (0, 0, 24, 80),
+    }
+}
+
 pub(crate) fn reserved_rows_for_mode(
     mode: OverlayMode,
     cols: u16,
@@ -345,7 +362,7 @@ mod tests {
     #[test]
     fn apply_pty_winsize_updates_session_size() {
         let mut session =
-            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80).expect("pty session");
         let rows = 30;
         let cols = 100;
         apply_pty_winsize(
@@ -379,7 +396,7 @@ mod tests {
     #[test]
     fn update_pty_winsize_updates_cached_dimensions() {
         let mut session =
-            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80).expect("pty session");
         let mut rows = 0;
         let mut cols = 0;
         update_pty_winsize(

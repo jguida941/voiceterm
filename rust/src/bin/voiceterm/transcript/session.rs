@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn transcript_session_impl_sends_text() {
         let mut session =
-            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80).expect("pty session");
         TranscriptSession::send_text(&mut session, "ping\n").expect("send text");
         assert!(recv_output_contains(&session.output_rx, "ping"));
     }
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn transcript_session_impl_sends_text_with_newline() {
         let mut session =
-            PtyOverlaySession::new("cat", ".", &[], "xterm-256color").expect("pty session");
+            PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80).expect("pty session");
         TranscriptSession::send_text_with_newline(&mut session, "pong")
             .expect("send text with newline");
         assert!(recv_output_contains(&session.output_rx, "pong"));

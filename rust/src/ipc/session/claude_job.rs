@@ -68,7 +68,7 @@ fn start_claude_pty_job(
     term_value: &str,
 ) -> Result<ClaudeJob, String> {
     let working_dir = current_working_dir_string();
-    let session = PtyCliSession::new(claude_cmd, &working_dir, args, term_value)
+    let session = PtyCliSession::new(claude_cmd, &working_dir, args, term_value, 24, 80)
         .map_err(|err| format!("Failed to start Claude PTY: {err:#}"))?;
     log_debug("Claude job started (PTY)");
     Ok(new_claude_job(ClaudeJobOutput::Pty { session }))

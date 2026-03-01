@@ -22,6 +22,23 @@ Note: Some historical entries reference internal documents that are not publishe
   `QUICK_START`, `guides/README`, `guides/USAGE`, `guides/CLI_FLAGS`,
   `guides/INSTALL`, `guides/TROUBLESHOOTING`, and `DEV_INDEX`).
 
+## [1.0.96] - 2026-03-01
+### UX
+
+- Keep the active Codex/Claude input row visible during long summaries/tool turns by fencing PTY scrolling above active HUD rows (writer now sets/restores terminal scroll region with HUD lifecycle).
+- Improve Claude approval-card prompt safety in non-rolling terminals by hardening explicit + numbered approval hint handling and keeping suppression anchored to live approval windows.
+- Fix Cursor/Claude grow-resize redraw timing so HUD repaint is not deferred behind recent-typing hold windows.
+
+### Runtime Hardening
+
+- Start PTY sessions with HUD-aware initial winsize (terminal rows minus reserved HUD rows) so backend UIs do not briefly start at full-height and overlap bottom HUD space.
+- Expand PTY spawn API to accept initial rows/cols explicitly (`PtyCliSession::new` / `PtyOverlaySession::new`) and update all call sites/tests for deterministic startup geometry.
+
+### Documentation
+
+- Update README/Usage/Troubleshooting/Architecture guidance for the current prompt-safety policy (approval-focused suppression), scroll-region HUD isolation, and resize redraw behavior.
+- Document HUD compatibility overrides and diagnostics in CLI env docs (`VOICETERM_CLAUDE_EXTRA_GAP_ROWS`, `VOICETERM_HUD_SAFETY_GAP_ROWS`, `VOICETERM_DEBUG_CLAUDE_HUD`).
+
 ## [1.0.95] - 2026-02-27
 ### UX
 

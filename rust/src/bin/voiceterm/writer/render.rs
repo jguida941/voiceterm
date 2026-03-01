@@ -236,6 +236,19 @@ pub(super) fn write_status_banner(
         return Ok(());
     }
 
+    // CRITICAL — HUD overlap fix: Set scroll region to confine PTY scrolling
+    // above the HUD.  This is the same technique tmux uses for its status bar
+    // — the child process can only scroll within rows 1..=(rows - height),
+    // keeping the HUD rows untouched by normal terminal output.  Without this,
+    // Claude Code's output scrolls into the HUD area and overlaps the status
+    // bar.  The paired reset lives in clear_status_banner().  DO NOT remove
+    // either side without removing the other — mismatched scroll regions break
+    // terminal output.
+    let scroll_bottom = rows.saturating_sub(height as u16);
+    if scroll_bottom >= 1 {
+        sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
+    }
+
     push_cursor_suffix(&mut sequence);
     stdout.write_all(&sequence)
 }
@@ -284,6 +297,12 @@ pub(super) fn clear_status_banner(
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
         sequence.extend_from_slice(b"\x1b[2K"); // Clear line
     }
+
+    // CRITICAL — HUD overlap fix: Reset scroll region to the full terminal
+    // now that the HUD is removed.  This is the paired reset for the scroll
+    // region set in write_status_banner().  DO NOT remove — without this reset,
+    // the terminal stays locked to a smaller scroll area after the HUD clears.
+    sequence.extend_from_slice(format!("\x1b[1;{rows}r").as_bytes());
 
     push_cursor_suffix(&mut sequence);
     stdout.write_all(&sequence)

@@ -62,7 +62,6 @@ pub(crate) use overlays::OverlayMode;
 use anyhow::{bail, Result};
 use clap::Parser;
 use crossbeam_channel::bounded;
-use crossterm::terminal::size as terminal_size;
 use std::collections::VecDeque;
 use std::env;
 use std::io::{self, Write};
@@ -101,7 +100,7 @@ use crate::settings::SettingsMenuState;
 use crate::status_line::{
     Pipeline, StatusLineState, VoiceMode, WakeWordHudState, METER_HISTORY_MAX,
 };
-use crate::terminal::{apply_pty_winsize, install_sigwinch_handler};
+use crate::terminal::{apply_pty_winsize, install_sigwinch_handler, startup_pty_geometry};
 use crate::theme::style_pack_theme_lock;
 use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
@@ -357,11 +356,21 @@ fn main() -> Result<()> {
     let terminal_guard = TerminalRestoreGuard::new();
     terminal_guard.enable_raw_mode()?;
 
+    let initial_hud_style = if config.minimal_hud {
+        HudStyle::Minimal
+    } else {
+        config.hud_style
+    };
+    let (terminal_rows, terminal_cols, initial_pty_rows, initial_pty_cols) =
+        startup_pty_geometry(initial_hud_style);
+
     let mut session = PtyOverlaySession::new(
         &backend.command,
         &working_dir,
         &backend.args,
         &config.app.term_value,
+        initial_pty_rows,
+        initial_pty_cols,
     )?;
 
     let (writer_tx, writer_rx) = bounded(WRITER_CHANNEL_CAPACITY);
@@ -373,27 +382,19 @@ fn main() -> Result<()> {
     // Button registry for tracking clickable button positions (mouse is on by default)
     let button_registry = ButtonRegistry::new();
 
-    // Compute initial HUD style (handle --minimal-hud shorthand)
-    let initial_hud_style = if config.minimal_hud {
-        HudStyle::Minimal
-    } else {
-        config.hud_style
-    };
-
-    let mut terminal_cols = 0u16;
-    let mut terminal_rows = 0u16;
-    if let Ok((cols, rows)) = terminal_size() {
-        terminal_cols = cols;
-        terminal_rows = rows;
+    if terminal_rows > 0 && terminal_cols > 0 {
         apply_pty_winsize(
             &mut session,
-            rows,
-            cols,
+            terminal_rows,
+            terminal_cols,
             OverlayMode::None,
             initial_hud_style,
             false,
         );
-        let _ = writer_tx.send(WriterMessage::Resize { rows, cols });
+        let _ = writer_tx.send(WriterMessage::Resize {
+            rows: terminal_rows,
+            cols: terminal_cols,
+        });
     }
 
     let (input_tx, input_rx) = bounded(INPUT_CHANNEL_CAPACITY);

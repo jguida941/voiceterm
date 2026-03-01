@@ -426,7 +426,7 @@ fn write_stub_script(contents: &str) -> std::path::PathBuf {
 #[cfg(unix)]
 fn new_test_pty_session() -> crate::pty_session::PtyCliSession {
     let args: Vec<String> = Vec::new();
-    crate::pty_session::PtyCliSession::new("/bin/cat", ".", &args, "xterm-256color")
+    crate::pty_session::PtyCliSession::new("/bin/cat", ".", &args, "xterm-256color", 24, 80)
         .expect("pty session")
 }
 

@@ -140,7 +140,7 @@ fn spawn_pty_holder_for_crash_test() -> (i32, i32) {
             let argv = vec![cmd];
 
             let (master_fd, _lifeline_write_fd, pty_child_pid) =
-                spawn_pty_child(&argv, &cwd, &term).unwrap_or_else(|_| libc::_exit(1));
+                spawn_pty_child(&argv, &cwd, &term, 24, 80).unwrap_or_else(|_| libc::_exit(1));
             let bytes = pty_child_pid.to_ne_bytes();
             let wrote = libc::write(
                 pid_pipe[1],

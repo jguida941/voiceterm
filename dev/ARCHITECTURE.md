@@ -550,6 +550,7 @@ that auto-voice can start recording.
 
 - Uses `openpty` to create a PTY pair and forks the backend CLI into the child side.
 - The child calls `setsid()`, so the backend runs as a session/process-group leader.
+- `main.rs` measures terminal geometry before PTY spawn and passes an initial winsize to `PtyOverlaySession::new(...)` so the backend starts with HUD-aware rows instead of a temporary full-height PTY.
 
 ### Terminal queries
 
@@ -557,7 +558,8 @@ that auto-voice can start recording.
 
 ### Window resize
 
-- On `SIGWINCH`, VoiceTerm calls `ioctl(TIOCSWINSZ)` to update the PTY size and forwards `SIGWINCH` to the PTY process group (with a direct-PID fallback).
+- On `SIGWINCH`, VoiceTerm recalculates reserved HUD/overlay rows, applies `ioctl(TIOCSWINSZ)` to the PTY, and forwards `SIGWINCH` to the PTY process group (with a direct-PID fallback).
+- Writer-side resize handling clears stale HUD rows at the old geometry and forces an immediate redraw, so grow/shrink transitions do not wait behind typing-hold deferral windows.
 
 ### Cleanup on drop
 
@@ -574,6 +576,7 @@ All terminal output is serialized through one **writer thread** to avoid
 interleaving PTY output with the status line or help overlay. The status line
 and overlay use ANSI save/restore sequences and redraw only after quiet output
 intervals to avoid corrupting the backend's screen.
+- While HUD rows are active, the writer sets a terminal scroll region (`CSI 1;<n>r`) above the HUD so backend scrolling cannot push output through reserved bottom rows. Clearing the HUD restores the full-terminal scroll region.
 
 ## Visual System (Overlay)
 
@@ -605,7 +608,7 @@ intervals to avoid corrupting the backend's screen.
 - **Help overlay** -- toggled with `?`, rendered by the writer thread above the status line.
 - **Transcript history overlay** -- toggled with `Ctrl+H`, supports type-to-filter search, stores source-tagged entries (`mic`, `you`, `ai`) from PTY input/output streams, and only replays replayable rows (`mic`/`you`) into active PTY input.
 - **Session memory logging** (`--session-memory`) -- writes newline-delimited `user`/`assistant` records to markdown for project-local conversation archives.
-- **Codex/Claude prompt safety** -- enforced by `prompt/claude_prompt_detect.rs`: interactive approval/permission prompts and reply/composer prompt markers trigger temporary HUD suppression (zero reserved rows) and automatic restore on user response or timeout.
+- **Codex/Claude prompt safety** -- enforced by `prompt/claude_prompt_detect.rs` and `event_loop/prompt_occlusion.rs`: high-confidence approval/permission prompts trigger temporary HUD suppression (zero reserved rows) with non-rolling approval-window matching, then auto-restore on user response or timeout.
 - **Mic meter output** (`--mic-meter`) -- renders a bar display for ambient/speech levels.
 - **Session summary** -- prints on exit when activity is present.
 

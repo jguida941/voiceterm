@@ -1,8 +1,8 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-02-24T17:46:59.278803  
+**Generated:** 2026-03-01T07:08:21.560345  
 **Trigger:** check-ai-guard  
-**Trigger steps:** rust-lint-debt-guard,rust-best-practices-guard  
+**Trigger steps:** code-shape-guard  
 **Diff range:** working-tree vs HEAD
 
 ---
@@ -36,32 +36,25 @@ planning and implementation, not a historical archive.
 
 | Guard | Focus | Severity | Return | Violations | Status |
 |---|---|---|---:|---:|---|
-| `code-shape-guard` | modularity | high | 0 | 0 | clean |
-| `rust-lint-debt-guard` | lint debt | high | 1 | 1 | needs remediation |
-| `rust-best-practices-guard` | best practices | high | 1 | 1 | needs remediation |
+| `code-shape-guard` | modularity | high | 1 | 2 | needs remediation |
+| `rust-lint-debt-guard` | lint debt | high | 0 | 0 | clean |
+| `rust-best-practices-guard` | best practices | high | 0 | 0 | clean |
 | `rust-audit-patterns-guard` | known audit regressions | critical | 0 | 0 | clean |
 | `rust-security-footguns-guard` | security footguns | critical | 0 | 0 | clean |
 
 ## Findings
 
-### rust-lint-debt-guard
-- Focus: lint debt
+### code-shape-guard
+- Focus: modularity
 - Severity: high
 - Return code: 1
 - Violations:
-- `rust/src/bin/voiceterm/theme_studio/borders_page.rs` (allow_attrs +2)
-
-### rust-best-practices-guard
-- Focus: best practices
-- Severity: high
-- Return code: 1
-- Violations:
-- `rust/src/bin/voiceterm/theme_studio/borders_page.rs` (allow_without_reason +2)
+- `rust/src/bin/voiceterm/main.rs` (crossed_soft_limit)
+- `rust/src/bin/voiceterm/writer/state.rs` (hard_locked_file_grew)
 
 ## Remediation Actions
 
-- [ ] Reduce newly introduced `#[allow(...)]` and non-test `unwrap/expect` growth reported by `rust-lint-debt-guard`.
-- [ ] Add missing `reason=` for `#[allow(...)]`, document `unsafe` with `SAFETY:` comments, and add `# Safety` docs for public `unsafe fn` where reported.
+- [ ] Refactor oversized or growth-violating files listed by `code-shape-guard` into narrower modules/helpers.
 
 ## Verification Checklist
 

@@ -287,6 +287,9 @@ interactive approval prompts.
 | `VOICETERM_LOG_CONTENT` | Allow content in logs | unset |
 | `VOICETERM_TRACE_LOG` | Structured trace log path | unset |
 | `VOICETERM_DEBUG_INPUT` | Log raw input bytes/events (for terminal compatibility debugging) | unset |
+| `VOICETERM_DEBUG_CLAUDE_HUD` | Enable Claude HUD suppression/redraw diagnostics | unset |
+| `VOICETERM_CLAUDE_EXTRA_GAP_ROWS` | Override extra reserved HUD gap rows for Claude prompt safety (`0..20`) | host default |
+| `VOICETERM_HUD_SAFETY_GAP_ROWS` | Override global HUD safety gap rows (`0..6`) | host default |
 | `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` | unset |
 | `CLAUDE_CMD` | Override Claude CLI path | unset |
 | `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`) | unset |

@@ -373,9 +373,15 @@ mod tests {
 
     #[test]
     fn deliver_transcript_injects_into_pty() {
-        let mut session =
-            voiceterm::pty_session::PtyOverlaySession::new("cat", ".", &[], "xterm-256color")
-                .expect("pty session");
+        let mut session = voiceterm::pty_session::PtyOverlaySession::new(
+            "cat",
+            ".",
+            &[],
+            "xterm-256color",
+            24,
+            80,
+        )
+        .expect("pty session");
         let (writer_tx, _writer_rx) = crossbeam_channel::bounded(8);
         let mut deadline = None;
         let mut current_status = None;

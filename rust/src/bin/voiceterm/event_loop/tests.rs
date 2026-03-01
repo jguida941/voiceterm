@@ -346,8 +346,8 @@ fn build_harness(
     let wake_word_rx = wake_word_runtime.receiver();
     let live_meter = voice_manager.meter();
     let arg_vec: Vec<String> = args.iter().map(|arg| (*arg).to_string()).collect();
-    let session =
-        PtyOverlaySession::new(cmd, ".", &arg_vec, "xterm-256color").expect("start pty session");
+    let session = PtyOverlaySession::new(cmd, ".", &arg_vec, "xterm-256color", 24, 80)
+        .expect("start pty session");
 
     let (writer_tx, writer_rx) = bounded(writer_capacity);
     let (input_tx, input_rx) = bounded(16);
