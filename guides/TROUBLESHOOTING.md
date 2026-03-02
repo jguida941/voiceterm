@@ -494,6 +494,9 @@ Section shortcuts:
 - [Style-pack preview payload not applying](#style-pack-preview-payload-not-applying)
 - [PTY exit write error in logs](#pty-exit-write-error-in-logs)
 
+Before debugging host-specific issues, confirm your IDE host is listed in
+[USAGE.md -> IDE Compatibility](USAGE.md#ide-compatibility).
+
 <details>
 <summary>Expand Terminal and IDE Issues</summary>
 

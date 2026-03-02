@@ -8,11 +8,11 @@ permissions:
 on:
   push:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
 
 concurrency:
@@ -58,6 +58,9 @@ jobs:
 
       - name: cargo test
         run: cargo test --workspace --all-features -- --nocapture
+
+      - name: cargo doc
+        run: cargo doc --workspace --no-deps --all-features
 
       - name: Render CI badge
         if: always()

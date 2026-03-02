@@ -73,3 +73,84 @@ class CheckCodeShapeGuidanceTests(TestCase):
             current_lines=0,
         )
         self.assertNotIn("shape audit", violation["guidance"])
+
+    def test_evaluate_shape_new_file_exceeds_soft_limit(self) -> None:
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/new_tool.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            base_lines=None,
+            current_lines=400,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "new_file_exceeds_soft_limit")
+
+    def test_evaluate_shape_crossed_soft_limit(self) -> None:
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            base_lines=340,
+            current_lines=351,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "crossed_soft_limit")
+
+    def test_evaluate_shape_crossed_hard_limit(self) -> None:
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            base_lines=645,
+            current_lines=651,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "crossed_hard_limit")
+
+    def test_evaluate_shape_hard_locked_file_grew(self) -> None:
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            base_lines=700,
+            current_lines=701,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "hard_locked_file_grew")
+
+    def test_evaluate_shape_oversize_growth_budget(self) -> None:
+        oversize = self.script.ShapePolicy(
+            soft_limit=350,
+            hard_limit=650,
+            oversize_growth_limit=10,
+            hard_lock_growth_limit=10,
+        )
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=oversize,
+            policy_source="language_default:.py",
+            base_lines=400,
+            current_lines=412,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "oversize_file_growth_exceeded_budget")
+
+    def test_evaluate_shape_returns_none_when_within_budget(self) -> None:
+        violation = self.script._evaluate_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            base_lines=200,
+            current_lines=210,
+        )
+        self.assertIsNone(violation)
+
+    def test_evaluate_absolute_shape_flags_hard_limit(self) -> None:
+        violation = self.script._evaluate_absolute_shape(
+            path=Path("dev/scripts/example.py"),
+            policy=self.policy,
+            policy_source="language_default:.py",
+            current_lines=900,
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "absolute_hard_limit_exceeded")

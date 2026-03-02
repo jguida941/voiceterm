@@ -41,6 +41,7 @@ Use docs like this:
 - **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
 - **`dev/active/theme_upgrade.md`** -- Theme and overlay plan.
+- **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
 - **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- multi-agent worktree runbook for this cycle.
 
@@ -97,6 +98,15 @@ CI runs the same checks, so local failures are faster to fix.
 
 Latency guard note:
 - `dev/scripts/tests/measure_latency.sh` now resolves `rust/` first and falls back to legacy `src/`, so mixed-layout branches run the same guard command without path edits.
+- For human demos or quick A/B validation of STT path speed, run
+  `dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3` to compare
+  Rust-native STT vs Python fallback using the same harness.
+- For strict apples-to-apples STT benchmarking (same WAV + same model), run
+  `dev/scripts/tests/compare_python_rust_stt_strict.sh --count 3 --secs 3 --whisper-model base.en`.
+- If Python fallback dependencies are missing, add
+  `--auto-install-whisper` to bootstrap `openai-whisper` automatically in the
+  current Python environment (interactive runs also prompt by default unless
+  `--no-auto-install-whisper` is passed).
 
 ### Docs and governance changes
 
@@ -262,6 +272,15 @@ cd rust && cargo test --bin voiceterm
 
 # Perf smoke (voice metrics)
 cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
+
+# Interactive voice-path speed comparison (Rust native vs Python fallback)
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3
+# Auto-bootstrap whisper CLI if the Python fallback dependency is missing
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --auto-install-whisper
+# Short aliases to avoid wrapped long options in narrow terminals
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --secs 3 --tail-ms 1500 --max-capture-ms 45000
+# Strict STT-only benchmark (same audio + same model for both engines)
+dev/scripts/tests/compare_python_rust_stt_strict.sh --count 3 --secs 3 --whisper-model base.en
 
 # Wake-word regression + soak guardrails
 bash dev/scripts/tests/wake_word_guard.sh

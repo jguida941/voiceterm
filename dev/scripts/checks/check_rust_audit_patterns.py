@@ -6,16 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SOURCE_ROOT_CANDIDATES = (
-    REPO_ROOT / "rust" / "src",
-    REPO_ROOT / "src" / "src",
-    REPO_ROOT / "src",
-)
+SOURCE_ROOT = REPO_ROOT / "rust" / "src"
+SOURCE_ROOT_RELATIVE = SOURCE_ROOT.relative_to(REPO_ROOT)
 
 PATTERNS = {
     "utf8_prefix_slice": re.compile(
@@ -30,22 +28,76 @@ PATTERNS = {
 }
 
 
-def _source_roots() -> list[Path]:
-    return [path for path in SOURCE_ROOT_CANDIDATES if path.exists()]
+def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        args,
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
+    return result
 
 
-def _iter_rust_paths(roots: list[Path]) -> list[Path]:
+def _validate_ref(ref: str) -> None:
+    _run_git(["git", "rev-parse", "--verify", ref], check=True)
+
+
+def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
+    if since_ref:
+        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", since_ref, head_ref]
+    else:
+        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
+
+    changed = {
+        Path(line.strip())
+        for line in _run_git(diff_cmd).stdout.splitlines()
+        if line.strip()
+    }
+
+    if since_ref is None:
+        untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"])
+        for line in untracked.stdout.splitlines():
+            if line.strip():
+                changed.add(Path(line.strip()))
+
+    return sorted(changed)
+
+
+def _iter_rust_paths() -> list[Path]:
+    if not SOURCE_ROOT.exists():
+        return []
     paths: set[Path] = set()
-    for root in roots:
-        for path in root.rglob("*.rs"):
-            if "target" in path.parts:
-                continue
-            paths.add(path)
+    for path in SOURCE_ROOT.rglob("*.rs"):
+        if "target" in path.parts:
+            continue
+        paths.add(path)
     return sorted(paths)
 
 
-def _read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8", errors="replace")
+def _is_runtime_source_path(path: Path) -> bool:
+    """Return True if *path* (repo-relative) is under SOURCE_ROOT."""
+    try:
+        path.relative_to(SOURCE_ROOT_RELATIVE)
+        return True
+    except ValueError:
+        return False
+
+
+def _read_text_from_worktree(path: Path) -> str | None:
+    full_path = REPO_ROOT / path
+    if not full_path.exists():
+        return None
+    return full_path.read_text(encoding="utf-8", errors="replace")
+
+
+def _read_text_from_ref(path: Path, ref: str) -> str | None:
+    result = _run_git(["git", "show", f"{ref}:{path}"], check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout
 
 
 def _count_metrics(text: str | None) -> dict[str, int]:
@@ -61,13 +113,19 @@ def _has_positive_metrics(metrics: dict[str, int]) -> bool:
 def _render_md(report: dict) -> str:
     lines = ["# check_rust_audit_patterns", ""]
     lines.append(f"- ok: {report['ok']}")
-    lines.append(f"- source_roots: {', '.join(report['source_roots']) or 'none'}")
+    lines.append(f"- mode: {report['mode']}")
+    if report.get("since_ref"):
+        lines.append(f"- since_ref: {report['since_ref']}")
+        lines.append(f"- head_ref: {report['head_ref']}")
+    lines.append(f"- source_root: {report['source_root']}")
     lines.append(f"- files_considered: {report['files_considered']}")
     lines.append(f"- violations: {len(report['violations'])}")
     lines.append(
         "- aggregate: "
         + ", ".join(f"{name}={count}" for name, count in report["totals"].items())
     )
+    if report.get("stale_pattern_warning"):
+        lines.append(f"- stale_pattern_warning: {report['stale_pattern_warning']}")
     if report.get("error"):
         lines.append(f"- error: {report['error']}")
     if report["violations"]:
@@ -88,6 +146,8 @@ def _render_md(report: dict) -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--since-ref", help="Compare against this git ref")
+    parser.add_argument("--head-ref", default="HEAD", help="Head ref (only used with --since-ref)")
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -95,39 +155,77 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_parser().parse_args()
 
-    roots = _source_roots()
-    paths = _iter_rust_paths(roots)
     violations: list[dict] = []
     totals = {name: 0 for name in PATTERNS}
     error: str | None = None
+    stale_pattern_warning: str | None = None
+    files_considered = 0
+    mode = "commit-range" if args.since_ref else "working-tree"
 
-    if not paths:
-        root_labels = [path.relative_to(REPO_ROOT).as_posix() for path in roots]
-        error = (
-            "no Rust source files discovered under configured roots "
-            f"({', '.join(root_labels) or 'none'})"
+    try:
+        if args.since_ref:
+            _validate_ref(args.since_ref)
+            _validate_ref(args.head_ref)
+
+        if args.since_ref:
+            changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
+        else:
+            changed_paths = _list_changed_paths(None, "HEAD")
+
+        for path in changed_paths:
+            if not str(path).endswith(".rs"):
+                continue
+            if "target" in path.parts:
+                continue
+            if not _is_runtime_source_path(path):
+                continue
+
+            files_considered += 1
+
+            if args.since_ref:
+                current_text = _read_text_from_ref(path, args.head_ref)
+            else:
+                current_text = _read_text_from_worktree(path)
+
+            metrics = _count_metrics(current_text)
+            for name, value in metrics.items():
+                totals[name] += value
+            if _has_positive_metrics(metrics):
+                violations.append(
+                    {
+                        "path": str(path),
+                        "metrics": metrics,
+                    }
+                )
+
+    except Exception as exc:
+        error = str(exc)
+
+    if not error and files_considered > 0 and all(v == 0 for v in totals.values()):
+        file_noun = "file" if files_considered == 1 else "files"
+        stale_pattern_warning = (
+            f"all {len(PATTERNS)} audit patterns matched zero times across "
+            f"{files_considered} {file_noun}; patterns may be stale or source "
+            "may have been fully remediated"
         )
 
-    for path in paths:
-        text = _read_text(path)
-        metrics = _count_metrics(text)
-        for name, value in metrics.items():
-            totals[name] += value
-        if _has_positive_metrics(metrics):
-            violations.append(
-                {
-                    "path": path.relative_to(REPO_ROOT).as_posix(),
-                    "metrics": metrics,
-                }
-            )
+    source_root_label = (
+        SOURCE_ROOT.relative_to(REPO_ROOT).as_posix()
+        if SOURCE_ROOT.exists()
+        else "missing"
+    )
 
     report = {
         "command": "check_rust_audit_patterns",
         "timestamp": datetime.now().isoformat(),
+        "mode": mode if not error else "error",
+        "since_ref": args.since_ref,
+        "head_ref": args.head_ref if args.since_ref else None,
         "ok": len(violations) == 0 and error is None,
         "error": error,
-        "source_roots": [path.relative_to(REPO_ROOT).as_posix() for path in roots],
-        "files_considered": len(paths),
+        "stale_pattern_warning": stale_pattern_warning,
+        "source_root": source_root_label,
+        "files_considered": files_considered,
         "totals": totals,
         "violations": violations,
     }

@@ -1,9 +1,4 @@
-"""`devctl check` command.
-
-This command runs local quality gates (fmt, clippy, tests, build, and optional
-extra guards). The release profile also runs strict remote CI/CodeRabbit
-verification gates.
-"""
+"""`devctl check` command."""
 
 from __future__ import annotations
 
@@ -32,6 +27,7 @@ from .check_progress import count_quality_steps, emit_progress
 from .check_steps import build_step_spec, run_step_specs
 from .check_support import (
     AI_GUARD_CHECKS,
+    build_ai_guard_cmd,
     maybe_emit_ai_guard_scaffold,
     resolve_perf_log_path,
 )
@@ -40,12 +36,10 @@ from .mutants import build_mutants_cmd
 
 
 def _parse_etime_seconds(raw: str) -> int | None:
-    """Kept for test compatibility; delegates to shared process-sweep parsing."""
     return parse_etime_seconds_for_compat(raw)
 
 
 def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> dict:
-    """Compatibility wrapper so tests can patch check-module dependencies."""
     return cleanup_orphaned_voiceterm_test_binaries(
         step_name,
         dry_run=dry_run,
@@ -168,8 +162,14 @@ def run(args) -> int:
             setup_phase_specs.append(make_step_spec("clippy", clippy_cmd, cwd=SRC_DIR))
 
         if settings["with_ai_guard"]:
+            since_ref = getattr(args, "since_ref", None)
+            head_ref = getattr(args, "head_ref", "HEAD")
             setup_phase_specs.extend(
-                make_step_spec(name, check_script_cmd(script_id), cwd=REPO_ROOT)
+                make_step_spec(
+                    name,
+                    build_ai_guard_cmd(script_id, since_ref=since_ref, head_ref=head_ref),
+                    cwd=REPO_ROOT,
+                )
                 for name, script_id in AI_GUARD_CHECKS
             )
 

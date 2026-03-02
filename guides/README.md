@@ -19,6 +19,7 @@ Start here for user docs.
 | Install quickly | [`../QUICK_START.md`](../QUICK_START.md) |
 | Compare install methods (Homebrew/PyPI/source/app) | [`INSTALL.md`](INSTALL.md) |
 | Learn controls and daily workflow | [`USAGE.md`](USAGE.md) |
+| Check current IDE compatibility | [`USAGE.md#ide-compatibility`](USAGE.md#ide-compatibility) |
 | Understand Dev panel commands and output | [`DEV_MODE.md`](DEV_MODE.md) |
 | Configure wake mode and hands-free send | [`USAGE.md#voice-modes`](USAGE.md#voice-modes) and [`CLI_FLAGS.md#voice-behavior`](CLI_FLAGS.md#voice-behavior) |
 | Find exact CLI flags and env vars | [`CLI_FLAGS.md`](CLI_FLAGS.md) |

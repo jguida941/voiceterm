@@ -7,122 +7,25 @@ import argparse
 import json
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from code_shape_policy import (
+        BEST_PRACTICE_DOCS,
+        SHAPE_AUDIT_GUIDANCE,
+        ShapePolicy,
+        policy_for_path,
+    )
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.code_shape_policy import (
+        BEST_PRACTICE_DOCS,
+        SHAPE_AUDIT_GUIDANCE,
+        ShapePolicy,
+        policy_for_path,
+    )
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
-@dataclass(frozen=True)
-class ShapePolicy:
-    soft_limit: int
-    hard_limit: int
-    oversize_growth_limit: int
-    hard_lock_growth_limit: int
-
-
-LANGUAGE_POLICIES: dict[str, ShapePolicy] = {
-    # Existing Rust runtime has a few legacy oversized files; this guard is
-    # intentionally non-regressive and blocks new oversize growth.
-    ".rs": ShapePolicy(
-        soft_limit=900,
-        hard_limit=1400,
-        oversize_growth_limit=40,
-        hard_lock_growth_limit=0,
-    ),
-    ".py": ShapePolicy(
-        soft_limit=350,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-}
-
-BEST_PRACTICE_DOCS: dict[str, tuple[str, ...]] = {
-    ".rs": (
-        "https://doc.rust-lang.org/book/",
-        "https://rust-lang.github.io/api-guidelines/",
-    ),
-    ".py": (
-        "https://docs.python.org/3/",
-        "https://peps.python.org/pep-0008/",
-    ),
-}
-
-SHAPE_AUDIT_GUIDANCE = (
-    "Run a shape audit before merge: identify modularization or consolidation opportunities. "
-    "Do not bypass shape limits with readability-reducing code-golf edits."
-)
-
-# Phase 3C hotspot budgets (MP-265): these files must not grow while staged
-# decomposition work is active.
-PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
-    "rust/src/bin/voiceterm/event_loop/input_dispatch.rs": ShapePolicy(
-        soft_limit=1200,
-        hard_limit=1561,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/status_line/buttons.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/theme/rule_profile.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
-        soft_limit=750,
-        hard_limit=950,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/transcript_history.rs": ShapePolicy(
-        soft_limit=750,
-        hard_limit=950,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_code_shape.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_multi_agent_sync.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-}
-
-
-def _policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:
-    override = PATH_POLICY_OVERRIDES.get(path.as_posix())
-    if override is not None:
-        return override, f"path_override:{path.as_posix()}"
-    policy = LANGUAGE_POLICIES.get(path.suffix)
-    if policy is None:
-        return None, None
-    return policy, f"language_default:{path.suffix}"
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -161,6 +64,27 @@ def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
                 changed.add(Path(line.strip()))
 
     return sorted(changed)
+
+
+def _list_all_source_paths() -> list[Path]:
+    paths: set[Path] = set()
+    for line in _run_git(["git", "ls-files"]).stdout.splitlines():
+        if not line.strip():
+            continue
+        path = Path(line.strip())
+        policy, _ = policy_for_path(path)
+        if policy is not None:
+            paths.add(path)
+
+    for line in _run_git(["git", "ls-files", "--others", "--exclude-standard"]).stdout.splitlines():
+        if not line.strip():
+            continue
+        path = Path(line.strip())
+        policy, _ = policy_for_path(path)
+        if policy is not None:
+            paths.add(path)
+
+    return sorted(paths)
 
 
 def _is_test_path(path: Path) -> bool:
@@ -322,6 +246,38 @@ def _evaluate_shape(
     return None
 
 
+def _evaluate_absolute_shape(
+    *,
+    path: Path,
+    policy: ShapePolicy,
+    policy_source: str,
+    current_lines: int | None,
+) -> dict | None:
+    if current_lines is None:
+        return _violation(
+            path=path,
+            reason="current_file_missing",
+            guidance="File is missing in current tree; rerun after resolving rename/delete state.",
+            policy=policy,
+            policy_source=policy_source,
+            base_lines=None,
+            current_lines=0,
+        )
+
+    if current_lines > policy.hard_limit:
+        return _violation(
+            path=path,
+            reason="absolute_hard_limit_exceeded",
+            guidance="File exceeds absolute hard limit; split modules or lower file size before merge.",
+            policy=policy,
+            policy_source=policy_source,
+            base_lines=None,
+            current_lines=current_lines,
+        )
+
+    return None
+
+
 def _render_md(report: dict) -> str:
     lines = ["# check_code_shape", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -354,6 +310,11 @@ def _render_md(report: dict) -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--absolute",
+        action="store_true",
+        help="Scan all tracked/untracked source files against absolute hard limits.",
+    )
     parser.add_argument("--since-ref", help="Compare against this git ref")
     parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
     parser.add_argument("--format", choices=("md", "json"), default="md")
@@ -363,11 +324,28 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_parser().parse_args()
 
+    if args.absolute and args.since_ref:
+        error_report = {
+            "command": "check_code_shape",
+            "timestamp": datetime.now().isoformat(),
+            "ok": False,
+            "error": "--absolute cannot be combined with --since-ref/--head-ref",
+        }
+        if args.format == "json":
+            print(json.dumps(error_report, indent=2))
+        else:
+            print("# check_code_shape\n")
+            print(f"- ok: False\n- error: {error_report['error']}")
+        return 2
+
     try:
-        if args.since_ref:
-            _validate_ref(args.since_ref)
-            _validate_ref(args.head_ref)
-        changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
+        if args.absolute:
+            changed_paths = _list_all_source_paths()
+        else:
+            if args.since_ref:
+                _validate_ref(args.since_ref)
+                _validate_ref(args.head_ref)
+            changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
     except RuntimeError as exc:
         error_report = {
             "command": "check_code_shape",
@@ -382,7 +360,7 @@ def main() -> int:
             print(f"- ok: False\n- error: {error_report['error']}")
         return 2
 
-    mode = "commit-range" if args.since_ref else "working-tree"
+    mode = "absolute" if args.absolute else ("commit-range" if args.since_ref else "working-tree")
     violations: list[dict] = []
     files_skipped_non_source = 0
     files_skipped_tests = 0
@@ -390,7 +368,7 @@ def main() -> int:
     files_using_path_overrides = 0
 
     for path in changed_paths:
-        policy, policy_source = _policy_for_path(path)
+        policy, policy_source = policy_for_path(path)
         if policy is None:
             files_skipped_non_source += 1
             continue
@@ -402,20 +380,28 @@ def main() -> int:
         if policy_source and policy_source.startswith("path_override:"):
             files_using_path_overrides += 1
 
-        if args.since_ref:
-            base_lines = _count_lines(_read_text_from_ref(path, args.since_ref))
-            current_lines = _count_lines(_read_text_from_ref(path, args.head_ref))
+        if args.absolute:
+            violation = _evaluate_absolute_shape(
+                path=path,
+                policy=policy,
+                policy_source=policy_source or "unknown",
+                current_lines=_count_lines(_read_text_from_worktree(path)),
+            )
         else:
-            base_lines = _count_lines(_read_text_from_ref(path, "HEAD"))
-            current_lines = _count_lines(_read_text_from_worktree(path))
+            if args.since_ref:
+                base_lines = _count_lines(_read_text_from_ref(path, args.since_ref))
+                current_lines = _count_lines(_read_text_from_ref(path, args.head_ref))
+            else:
+                base_lines = _count_lines(_read_text_from_ref(path, "HEAD"))
+                current_lines = _count_lines(_read_text_from_worktree(path))
 
-        violation = _evaluate_shape(
-            path=path,
-            policy=policy,
-            policy_source=policy_source or "unknown",
-            base_lines=base_lines,
-            current_lines=current_lines,
-        )
+            violation = _evaluate_shape(
+                path=path,
+                policy=policy,
+                policy_source=policy_source or "unknown",
+                base_lines=base_lines,
+                current_lines=current_lines,
+            )
         if violation:
             violations.append(violation)
 
@@ -423,8 +409,8 @@ def main() -> int:
         "command": "check_code_shape",
         "timestamp": datetime.now().isoformat(),
         "mode": mode,
-        "since_ref": args.since_ref,
-        "head_ref": args.head_ref,
+        "since_ref": args.since_ref if mode == "commit-range" else None,
+        "head_ref": args.head_ref if mode == "commit-range" else None,
         "ok": len(violations) == 0,
         "files_changed": len(changed_paths),
         "files_considered": files_considered,

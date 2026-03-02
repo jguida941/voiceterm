@@ -55,17 +55,29 @@ pub(super) fn truncate_ansi_line(line: &str, max_display_width: usize) -> String
             // Consume the rest of the escape sequence.
             if let Some(&next) = chars.peek() {
                 if next == '[' {
-                    result.push(chars.next().unwrap());
+                    if let Some(next_char) = chars.next() {
+                        result.push(next_char);
+                    } else {
+                        break;
+                    }
                     // CSI sequence: consume until a letter in '@'..='~'.
                     while let Some(&param) = chars.peek() {
-                        result.push(chars.next().unwrap());
+                        if let Some(next_char) = chars.next() {
+                            result.push(next_char);
+                        } else {
+                            break;
+                        }
                         if param.is_ascii_alphabetic() || ('@'..='~').contains(&param) {
                             break;
                         }
                     }
                 } else {
                     // Non-CSI (e.g. ESC 7 / ESC 8): consume the single char.
-                    result.push(chars.next().unwrap());
+                    if let Some(next_char) = chars.next() {
+                        result.push(next_char);
+                    } else {
+                        break;
+                    }
                 }
             }
             continue;

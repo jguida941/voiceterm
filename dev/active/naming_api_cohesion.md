@@ -40,6 +40,11 @@ Out of scope:
   change in progress/evidence.
 - [ ] Close with docs/governance bundle and final `MP-267` status update.
 
+## Phase Status
+
+- Phase 0 (inventory + first rename/consolidation slices): completed.
+- Phase 1 (continued runtime/tooling cohesion slices): in progress.
+
 ## Initial Inventory (2026-02-25)
 
 ### Naming conflicts

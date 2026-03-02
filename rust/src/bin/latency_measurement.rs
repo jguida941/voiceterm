@@ -9,6 +9,7 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use std::io::{self, IsTerminal, Write};
 use std::sync::mpsc::TryRecvError;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -16,7 +17,7 @@ use voiceterm::audio;
 use voiceterm::codex::{CodexCliBackend, CodexEventKind, CodexJobRunner, CodexRequest};
 use voiceterm::config::AppConfig;
 use voiceterm::stt;
-use voiceterm::voice::{self, VoiceJobMessage};
+use voiceterm::voice::{self, VoiceCaptureSource, VoiceJobMessage};
 
 /// Measure end-to-end latency for voice→Codex pipeline
 #[derive(Debug, Parser)]
@@ -29,6 +30,10 @@ struct Args {
     /// Number of measurements to collect
     #[arg(long, default_value_t = 1)]
     count: usize,
+
+    /// Recording duration in seconds for Python fallback capture
+    #[arg(long)]
+    seconds: Option<u64>,
 
     /// Skip Codex call and only measure voice pipeline
     #[arg(long)]
@@ -49,6 +54,22 @@ struct Args {
     /// Skip STT when using synthetic voice-only runs (CI-friendly; no Whisper model required)
     #[arg(long)]
     skip_stt: bool,
+
+    /// Force Python fallback path for STT benchmarking (real-mic mode only)
+    #[arg(long)]
+    force_python_fallback: bool,
+
+    /// Voice capture hard-stop window override (milliseconds)
+    #[arg(long)]
+    voice_max_capture_ms: Option<u64>,
+
+    /// Trailing silence required before auto-stop (milliseconds)
+    #[arg(long)]
+    voice_silence_tail_ms: Option<u64>,
+
+    /// Minimum detected speech before STT starts (milliseconds)
+    #[arg(long = "voice-min-speech-ms-before-stt")]
+    voice_min_speech_ms_before_stt_start: Option<u64>,
 
     /// Minimum allowed voice capture latency per sample (milliseconds)
     #[arg(long)]
@@ -101,6 +122,7 @@ fn main() -> Result<()> {
 
     // Parse base config from environment/defaults and enable timing logs
     let mut config = AppConfig::parse_from(Vec::<String>::new());
+    apply_config_overrides(&mut config, &args);
     config.validate()?; // This auto-discovers Whisper model and validates all settings
     config.log_timings = true; // Enable detailed timing logs for accurate breakdown
     eprintln!("PTY enabled: {}", config.persistent_codex);
@@ -126,7 +148,10 @@ fn collect_real_measurements(args: &Args, config: &AppConfig) -> Result<Vec<Late
         .context("failed to initialize audio recorder")?;
     let recorder = Arc::new(Mutex::new(recorder));
 
-    let transcriber = if let Some(model_path) = &config.whisper_model_path {
+    let transcriber = if args.force_python_fallback {
+        eprintln!("Force Python fallback enabled; skipping native transcriber initialization.");
+        None
+    } else if let Some(model_path) = &config.whisper_model_path {
         let t = stt::Transcriber::new(model_path).context("failed to load Whisper model")?;
         Some(Arc::new(Mutex::new(t)))
     } else {
@@ -137,8 +162,7 @@ fn collect_real_measurements(args: &Args, config: &AppConfig) -> Result<Vec<Late
     let backend: Arc<dyn CodexJobRunner> = Arc::new(CodexCliBackend::new(config.clone()));
 
     for i in 1..=args.count {
-        eprintln!("\n=== Measurement {}/{} ===", i, args.count);
-        eprintln!("Press Ctrl+R when ready to speak...");
+        wait_for_ready(i, args.count)?;
 
         let measurement = measure_single_run(
             &args.label,
@@ -220,8 +244,12 @@ fn measure_single_run(
     let t1 = Instant::now();
     let voice_total_ms = t1.duration_since(t0).as_millis() as u64;
 
-    let transcript = match message {
-        VoiceJobMessage::Transcript { text, .. } => text,
+    let (transcript, source, metrics) = match message {
+        VoiceJobMessage::Transcript {
+            text,
+            source,
+            metrics,
+        } => (text, source, metrics),
         VoiceJobMessage::Empty { .. } => {
             bail!("Voice capture returned empty transcript");
         }
@@ -230,11 +258,21 @@ fn measure_single_run(
         }
     };
 
-    eprintln!("Voice capture complete: {voice_total_ms} ms");
-    eprintln!("Transcript: {transcript}");
+    let (voice_capture_ms, voice_stt_ms) = match metrics {
+        Some(m) => (m.capture_ms, m.transcribe_ms),
+        None => match source {
+            VoiceCaptureSource::Python => extract_phase_timings("python_pipeline", voice_total_ms),
+            VoiceCaptureSource::Native => extract_phase_timings("voice_capture", voice_total_ms),
+        },
+    };
 
-    // Extract capture and STT timing from logs if available
-    let (voice_capture_ms, voice_stt_ms) = extract_voice_timings(voice_total_ms);
+    eprintln!(
+        "Voice capture complete: {voice_total_ms} ms (capture={} ms, stt={} ms, source={})",
+        voice_capture_ms,
+        voice_stt_ms,
+        source.label()
+    );
+    eprintln!("Transcript: {transcript}");
 
     let (codex_ms, codex_output_chars, total_ms) = if voice_only {
         (None, 0, voice_total_ms)
@@ -428,7 +466,7 @@ fn wait_for_codex_job(mut job: voiceterm::codex::CodexJob) -> Result<String> {
     }
 }
 
-fn extract_voice_timings(total_ms: u64) -> (u64, u64) {
+fn extract_phase_timings(phase: &str, total_ms: u64) -> (u64, u64) {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
@@ -440,7 +478,7 @@ fn extract_voice_timings(total_ms: u64) -> (u64, u64) {
             // Collect last 100 lines and search in reverse
             let lines: Vec<_> = reader.lines().map_while(Result::ok).collect();
             for line in lines.iter().rev().take(100) {
-                if line.contains("timing|phase=voice_capture|") {
+                if line.contains(&format!("timing|phase={phase}|")) {
                     // Parse: timing|phase=voice_capture|record_s=1.234|stt_s=0.567|chars=42
                     let mut record_s = None;
                     let mut stt_s = None;
@@ -474,6 +512,9 @@ fn validate_args(args: &Args) -> Result<()> {
     if args.skip_stt && !args.voice_only {
         bail!("--skip-stt requires --voice-only");
     }
+    if args.force_python_fallback && args.synthetic {
+        bail!("--force-python-fallback is only supported for real microphone mode");
+    }
 
     validate_min_max_pair(
         "voice capture",
@@ -487,6 +528,38 @@ fn validate_args(args: &Args) -> Result<()> {
     )?;
     validate_min_max_pair("voice stt", args.min_voice_stt_ms, args.max_voice_stt_ms)?;
 
+    Ok(())
+}
+
+fn apply_config_overrides(config: &mut AppConfig, args: &Args) {
+    if let Some(seconds) = args.seconds {
+        config.seconds = seconds;
+    }
+    if let Some(ms) = args.voice_max_capture_ms {
+        config.voice_max_capture_ms = ms;
+    }
+    if let Some(ms) = args.voice_silence_tail_ms {
+        config.voice_silence_tail_ms = ms;
+    }
+    if let Some(ms) = args.voice_min_speech_ms_before_stt_start {
+        config.voice_min_speech_ms_before_stt_start = ms;
+    }
+}
+
+fn wait_for_ready(sample: usize, total: usize) -> Result<()> {
+    eprintln!("\n=== Measurement {sample}/{total} ===");
+    if io::stdin().is_terminal() {
+        eprint!("Press Enter when ready to speak...");
+        io::stderr()
+            .flush()
+            .context("failed to flush readiness prompt")?;
+        let mut ready = String::new();
+        io::stdin()
+            .read_line(&mut ready)
+            .context("failed to read readiness input")?;
+    } else {
+        eprintln!("Non-interactive stdin detected; starting capture immediately.");
+    }
     Ok(())
 }
 
@@ -689,11 +762,16 @@ mod tests {
         Args {
             label: "measurement".to_string(),
             count: 1,
+            seconds: None,
             voice_only: true,
             synthetic: true,
             speech_ms: Some(1000),
             silence_ms: Some(700),
             skip_stt: false,
+            force_python_fallback: false,
+            voice_max_capture_ms: None,
+            voice_silence_tail_ms: None,
+            voice_min_speech_ms_before_stt_start: None,
             min_voice_capture_ms: None,
             max_voice_capture_ms: None,
             min_voice_total_ms: None,
@@ -719,6 +797,17 @@ mod tests {
         args.skip_stt = true;
         let err = validate_args(&args).expect_err("expected validation failure");
         assert!(err.to_string().contains("--skip-stt requires --voice-only"));
+    }
+
+    #[test]
+    fn validate_args_rejects_force_python_fallback_with_synthetic() {
+        let mut args = base_args();
+        args.synthetic = true;
+        args.force_python_fallback = true;
+        let err = validate_args(&args).expect_err("expected validation failure");
+        assert!(err
+            .to_string()
+            .contains("--force-python-fallback is only supported for real microphone mode"));
     }
 
     #[test]

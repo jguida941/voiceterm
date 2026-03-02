@@ -1,5 +1,6 @@
 # Rust Workspace Layout Migration (MP-339)
 
+Status: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-339`)
 Execution plan contract: required
 
 ## Scope
@@ -15,6 +16,11 @@ Execution plan contract: required
   - active/user/developer docs that are expected to track current behavior
 - Preserve runtime behavior and release behavior; this is a path/layout migration only.
 - Keep archive records under `dev/archive/` as historical references unless strict tooling checks require an update.
+
+## Phase Status
+
+- Phase 0 (workspace migration and path-contract rewrites): completed.
+- Phase 1 (post-migration guardrail calibration and reruns): completed.
 
 ## Execution Checklist
 

@@ -18,12 +18,16 @@ INFO_PLIST = REPO_ROOT / "app/macos/VoiceTerm.app/Contents/Info.plist"
 
 
 def _read_cargo_version(path: Path) -> str | None:
+    if not path.exists():
+        return None
     text = path.read_text(encoding="utf-8")
     match = re.search(r'^version\s*=\s*"([^\"]+)"', text, re.MULTILINE)
     return match.group(1) if match else None
 
 
 def _read_pyproject_version(path: Path) -> str | None:
+    if not path.exists():
+        return None
     # Prefer TOML parsing when available for correctness.
     try:
         import tomllib  # type: ignore[attr-defined]
@@ -50,6 +54,8 @@ def _read_pyproject_version(path: Path) -> str | None:
 
 
 def _read_plist_versions(path: Path) -> tuple[str | None, str | None]:
+    if not path.exists():
+        return None, None
     with path.open("rb") as handle:
         payload = plistlib.load(handle)
     short_version = payload.get("CFBundleShortVersionString")

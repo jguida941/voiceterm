@@ -5,6 +5,7 @@ Why this exists:
 - sometimes `cargo test` appears to "hang" and people force-stop it, which has
   the same orphan-process risk as a normal interrupt
 - interrupted runs can leave detached `voiceterm-*` test binaries alive
+- interrupted stress harness runs can leave detached `screen` sessions alive
 - both orphaned and stale long-running test processes can keep using CPU/memory
   and make later runs flaky
 - `check` uses this to clean before/after runs; `hygiene` uses it to report leaks
@@ -28,6 +29,14 @@ DEFAULT_STALE_MIN_AGE_SECONDS = 600
 # - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
 # - voiceterm-deadbeef --nocapture
 VOICETERM_TEST_BINARY_RE = re.compile(r"(?:^|/|\s)voiceterm-[0-9a-f]{8,}(?:\s|$)")
+# Match leaked detached stress sessions:
+# - SCREEN -dmS vt_hud_stress_12345 bash -lc ...
+VOICETERM_STRESS_SCREEN_RE = re.compile(
+    r"(?:^|/|\s)(?:SCREEN|screen)\s+-dmS\s+vt_hud_stress_[0-9]+(?:\s|$)"
+)
+VOICETERM_SWEEP_TARGET_RE = re.compile(
+    rf"(?:{VOICETERM_TEST_BINARY_RE.pattern})|(?:{VOICETERM_STRESS_SCREEN_RE.pattern})"
+)
 
 
 def parse_etime_seconds(raw: str) -> int | None:
@@ -117,8 +126,8 @@ def scan_matching_processes(command_regex: Pattern[str], *, skip_pid: int | None
 
 
 def scan_voiceterm_test_binaries(*, skip_pid: int | None = None) -> tuple[list[dict], list[str]]:
-    """Return process rows for VoiceTerm test binaries using canonical matching."""
-    return scan_matching_processes(VOICETERM_TEST_BINARY_RE, skip_pid=skip_pid)
+    """Return process rows for VoiceTerm test binaries and stress sessions."""
+    return scan_matching_processes(VOICETERM_SWEEP_TARGET_RE, skip_pid=skip_pid)
 
 
 def split_orphaned_processes(

@@ -36,7 +36,7 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_mutants": False,
         "with_mutation_score": False,
         "with_wake_guard": False,
-        "with_ai_guard": False,
+        "with_ai_guard": True,
         "with_ci_release_gate": False,
     },
     "prepush": {

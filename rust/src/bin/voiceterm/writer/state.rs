@@ -641,27 +641,27 @@ impl WriterState {
                     self.cols as usize,
                     &mut self.pty_line_col_estimate,
                     &bytes,
-                    // JetBrains Codex frequently uses CR-driven progress/status
-                    // updates. Treat CR bursts as scroll-like so periodic HUD
-                    // redraw still happens without requiring user input.
+                    // Treat CR bursts as scroll-like for Codex/JetBrains HUD cadence.
                     codex_jetbrains,
                 );
                 let now = Instant::now();
                 let cursor_claude_startup_preclear =
                     cursor_claude && self.cursor_startup_scroll_preclear_pending;
-                // Cursor + Claude needs banner pre-clear whenever output can
-                // scroll rows (explicit newline or terminal-width wrapping);
-                // otherwise HUD chrome can leak into transcript history.
                 let cursor_claude_banner_preclear =
                     cursor_claude && self.display.overlay_panel.is_none();
-                // JetBrains + Claude: JediTerm does not support DECSTBM scroll
-                // regions, so scrolling PTY output pushes HUD rows upward and
-                // creates stacked ghost copies. Use CUP-only pre-clear only
-                // when Claude starts the chunk with absolute positioning.
+                // JetBrains+Claude uses CUP-only pre-clear when chunks start
+                // with absolute positioning to avoid stacked HUD ghost rows.
                 let claude_jetbrains_banner_preclear =
                     claude_jetbrains && self.display.overlay_panel.is_none();
                 let claude_jetbrains_cup_preclear_safe = claude_jetbrains_banner_preclear
                     && pty_chunk_starts_with_absolute_cursor_position(&bytes);
+                let preclear_blocked_for_recent_input = claude_jetbrains
+                    && should_defer_non_urgent_redraw_for_recent_input(
+                        self.terminal_family,
+                        claude_backend,
+                        now,
+                        self.last_user_input_at,
+                    );
                 let should_preclear = should_preclear_bottom_rows(
                     self.terminal_family,
                     may_scroll_rows,
@@ -674,7 +674,7 @@ impl WriterState {
                     claude_jetbrains_cup_preclear_safe,
                     now,
                     self.last_preclear_at,
-                );
+                ) && !preclear_blocked_for_recent_input;
                 let pre_clear = if should_preclear {
                     if claude_jetbrains_cup_preclear_safe {
                         build_clear_bottom_rows_cup_only_bytes(

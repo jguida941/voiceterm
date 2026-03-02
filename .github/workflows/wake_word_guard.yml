@@ -12,12 +12,12 @@ concurrency:
 on:
   push:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - "dev/scripts/tests/wake_word_guard.sh"
       - ".github/workflows/wake_word_guard.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - "dev/scripts/tests/wake_word_guard.sh"
       - ".github/workflows/wake_word_guard.yml"
 

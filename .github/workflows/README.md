@@ -21,7 +21,7 @@ For exact run-by-run detail, open the workflow run in GitHub and read:
 
 | Workflow file | What it does | When it runs | Main checks/actions | First local command |
 |---|---|---|---|---|
-| `rust_ci.yml` | Main Rust quality lane. | Push/PR when runtime paths or this workflow change. | `cargo fmt`, `cargo clippy`, `cargo test`, CI badge update. | `python3 dev/scripts/devctl.py check --profile ci` |
+| `rust_ci.yml` | Main Rust quality lane. | Push/PR when runtime paths or this workflow change. | `cargo fmt`, `cargo clippy`, `cargo test`, `cargo doc --workspace --no-deps --all-features`, CI badge update. | `python3 dev/scripts/devctl.py check --profile ci` |
 | `voice_mode_guard.yml` | Protects macro mode + send mode behavior. | Push/PR on runtime path changes. | Targeted `cargo test` checks for macro/send mode paths. | `python3 dev/scripts/devctl.py check --profile ci` |
 | `wake_word_guard.yml` | Protects wake-word behavior. | Push/PR on runtime + wake-word guard script changes. | Runs wake-word guard script. | `bash dev/scripts/tests/wake_word_guard.sh` |
 | `latency_guard.yml` | Protects latency behavior from regressions. | Push/PR on runtime + latency script changes. | Runs synthetic latency guard script. | `./dev/scripts/tests/measure_latency.sh --ci-guard` |
@@ -29,7 +29,7 @@ For exact run-by-run detail, open the workflow run in GitHub and read:
 | `memory_guard.yml` | Protects thread/memory teardown behavior. | Push/PR on runtime path changes. | Targeted memory guard test loop. | `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` |
 | `parser_fuzz_guard.yml` | Protects ANSI/parser boundaries. | Daily schedule, manual run, and push/PR on parser path changes. | Property-style parser boundary tests. | `python3 dev/scripts/devctl.py check --profile prepush` |
 | `lint_hardening.yml` | Stricter Rust lint lane for maintainers. | Push/PR on runtime/devctl path changes. | `devctl check --profile maintainer-lint`. | `python3 dev/scripts/devctl.py check --profile maintainer-lint` |
-| `security_guard.yml` | Security lane for Rust/Python/workflow checks. | Daily schedule, manual run, and push/PR on security/tooling path changes. | Core security tier, Rust audit-pattern guard, workflow security scan, CodeQL analysis. | `python3 dev/scripts/devctl.py security` |
+| `security_guard.yml` | Security lane for Rust/Python/workflow checks. | Daily schedule, manual run, and push/PR on security/tooling path changes. | `cargo deny` policy gate, core security tier, Rust audit-pattern guard, workflow security scan, CodeQL analysis. | `python3 dev/scripts/devctl.py security` |
 | `coverage.yml` | Builds and uploads Rust coverage. | Push on `master`/`develop`, PRs on runtime paths, and manual run. | `cargo llvm-cov` + Codecov upload + LCOV artifact. | `cd rust && cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info` |
 | `mutation-testing.yml` | Nightly mutation run + score tracking. | Nightly schedule and manual run. | Sharded `cargo mutants`, aggregate mutation score, badge update. | `python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72` |
 
@@ -59,7 +59,7 @@ For exact run-by-run detail, open the workflow run in GitHub and read:
 
 | Workflow file | What it does | When it runs | Main checks/actions | First local command |
 |---|---|---|---|---|
-| `release_preflight.yml` | Manual release gate before tagging/publish. | Manual run. | Version parity checks, CodeRabbit gates, CI/runtime/security/docs bundles, ship dry-runs. | `python3 dev/scripts/devctl.py check --profile release` |
+| `release_preflight.yml` | Manual release gate before tagging/publish. | Manual run. | Version parity checks, CodeRabbit gates, CI/runtime/security/docs bundles, `cargo deny` + release security gate, ship dry-runs. | `python3 dev/scripts/devctl.py check --profile release` |
 | `publish_pypi.yml` | Publishes PyPI package for release tags. | On `release: published`. | Verify gates + secret checks + `devctl ship --pypi`. | `python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --yes` |
 | `publish_homebrew.yml` | Publishes Homebrew formula update for release tags. | On `release: published` and manual run. | Verify gates + token checks + `devctl ship --homebrew`. | `python3 dev/scripts/devctl.py ship --version X.Y.Z --homebrew --yes` |
 | `publish_release_binaries.yml` | Builds and uploads release binaries to GitHub Release. | On `release: published`. | Build/package matrix for Linux + macOS, upload release assets. | `cargo build --release --manifest-path rust/Cargo.toml --bin voiceterm` |

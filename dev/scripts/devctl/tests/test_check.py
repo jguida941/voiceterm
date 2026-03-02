@@ -48,6 +48,8 @@ def make_args(profile: str) -> SimpleNamespace:
         mutation_score_threshold=0.8,
         mutation_score_warn_age_hours=24.0,
         mutation_score_max_age_hours=None,
+        since_ref=None,
+        head_ref="HEAD",
         keep_going=False,
         no_parallel=False,
         parallel_workers=4,
@@ -84,6 +86,14 @@ class CheckProfileTests(TestCase):
         args = parser.parse_args(["check", "--no-parallel", "--parallel-workers", "2"])
         self.assertTrue(args.no_parallel)
         self.assertEqual(args.parallel_workers, 2)
+
+    def test_cli_accepts_commit_range_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            ["check", "--profile", "ai-guard", "--since-ref", "origin/develop", "--head-ref", "HEAD"]
+        )
+        self.assertEqual(args.since_ref, "origin/develop")
+        self.assertEqual(args.head_ref, "HEAD")
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -295,6 +305,36 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
 
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_ci_profile_enables_ai_guard_steps(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
+            return {"name": name, "cmd": cmd, "cwd": str(cwd), "returncode": 0, "duration_s": 0.0, "skipped": False}
+
+        mock_run_cmd.side_effect = fake_run_cmd
+        args = make_args("ci")
+        args.skip_tests = True
+        args.skip_fmt = True
+        args.skip_clippy = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        names = [call["name"] for call in calls]
+        self.assertIn("code-shape-guard", names)
+        self.assertIn("rust-lint-debt-guard", names)
+        self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-audit-patterns-guard", names)
+        self.assertIn("rust-security-footguns-guard", names)
+
     @patch("dev.scripts.devctl.commands.check.run_cmd")
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -351,6 +391,47 @@ class CheckProfileTests(TestCase):
         self.assertIn("check-ai-guard", called_cmd)
         self.assertIn("--trigger-steps", called_cmd)
         self.assertIn("code-shape-guard", called_cmd)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_ai_guard_commit_range_forwarding(self, mock_build_env, mock_run_cmd) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+            calls.append({"name": name, "cmd": cmd})
+            return {"name": name, "cmd": cmd, "cwd": str(cwd), "returncode": 0, "duration_s": 0.0, "skipped": False}
+
+        mock_run_cmd.side_effect = fake_run_cmd
+        args = make_args("ai-guard")
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+        args.since_ref = "origin/develop"
+        args.head_ref = "HEAD"
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
+        rust_lint_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-lint-debt-guard")
+        rust_best_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-best-practices-guard")
+        rust_audit_patterns_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "rust-audit-patterns-guard"
+        )
+        rust_footguns_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-security-footguns-guard")
+
+        self.assertIn("--since-ref", code_shape_cmd)
+        self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn("--since-ref", rust_lint_cmd)
+        self.assertIn("--head-ref", rust_lint_cmd)
+        self.assertIn("--since-ref", rust_best_cmd)
+        self.assertIn("--head-ref", rust_best_cmd)
+        self.assertIn("--since-ref", rust_footguns_cmd)
+        self.assertIn("--head-ref", rust_footguns_cmd)
+        self.assertIn("--since-ref", rust_audit_patterns_cmd)
+        self.assertIn("--head-ref", rust_audit_patterns_cmd)
 
     @patch("dev.scripts.devctl.commands.check.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")

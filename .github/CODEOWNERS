@@ -2,7 +2,7 @@
 * @jguida941
 
 # Runtime and lifecycle-critical Rust code.
-/src/ @jguida941
+/rust/src/ @jguida941
 
 # CI and automation control plane.
 /.github/workflows/ @jguida941

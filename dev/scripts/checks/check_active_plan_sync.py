@@ -33,17 +33,21 @@ REQUIRED_REGISTRY_ROWS = {
     "dev/active/memory_studio.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/devctl_reporting_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/autonomous_control_plane.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/loop_chat_bridge.md": {"role": "runbook", "authority": "supporting"},
+    "dev/active/rust_workspace_layout_migration.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/naming_api_cohesion.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/ide_provider_modularization.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
     "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
+    "dev/active/phase2.md": {"role": "reference", "authority": "reference-only"},
 }
 
 REQUIRED_DISCOVERY_REFERENCES = [
-    {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]},
-    {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
+    {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]}, {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
     {"path": "dev/README.md", "tokens": ["active/INDEX.md", "dev/active/INDEX.md"]},
 ]
 
 REQUIRED_AGENT_MARKERS = ["## Active-plan onboarding (adding files under `dev/active/`)", "Add an entry in `dev/active/INDEX.md`", "Run `python3 dev/scripts/checks/check_active_plan_sync.py`"]
-SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md", "dev/active/autonomous_control_plane.md"]
+SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md", "dev/active/autonomous_control_plane.md", "dev/active/rust_workspace_layout_migration.md", "dev/active/naming_api_cohesion.md", "dev/active/ide_provider_modularization.md"]
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
 EXPECTED_RELEASE_BRANCH = "master"
@@ -128,19 +132,13 @@ def _build_report() -> dict:
         if not target.exists():
             missing_registry_files.append(path)
 
-    active_markdown_files = sorted(
-        str(path.relative_to(REPO_ROOT))
-        for path in ACTIVE_DIR.glob("*.md")
-        if path.name != "INDEX.md"
-    )
+    active_markdown_files = sorted(str(path.relative_to(REPO_ROOT)) for path in ACTIVE_DIR.glob("*.md") if path.name != "INDEX.md")
     registry_paths = sorted(path for path in registry_by_path if path != "dev/active/INDEX.md")
 
     unindexed_active_files = sorted(path for path in active_markdown_files if path not in registry_by_path)
     registry_paths_not_active = sorted(path for path in registry_paths if path not in active_markdown_files)
 
-    tracker_paths = sorted(
-        row["path"] for row in registry_rows if row["role"] == "tracker"
-    )
+    tracker_paths = sorted(row["path"] for row in registry_rows if row["role"] == "tracker")
     if len(tracker_paths) != 1 or tracker_paths[0] != "dev/active/MASTER_PLAN.md":
         errors.append(
             "Registry must declare exactly one tracker and it must be dev/active/MASTER_PLAN.md."
@@ -306,11 +304,7 @@ def _build_report() -> dict:
                 details.append("index_extra=" + ",".join(index_only))
             index_scope_drift.append(f"{relative} ({'; '.join(details)})")
 
-    (
-        execution_plan_missing_rows,
-        execution_plan_missing_markers,
-        execution_plan_missing_sections,
-    ) = validate_execution_plan_contract(
+    execution_plan_missing_rows, execution_plan_missing_markers, execution_plan_missing_sections = validate_execution_plan_contract(
         repo_root=REPO_ROOT,
         active_markdown_files=active_markdown_files,
         registry_by_path=registry_by_path,

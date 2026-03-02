@@ -12,11 +12,11 @@ concurrency:
 on:
   push:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/voice_mode_guard.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/voice_mode_guard.yml"
 
 jobs:

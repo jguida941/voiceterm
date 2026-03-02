@@ -265,17 +265,18 @@ fn run_python_fallback(
     }
     match call_python_transcription(config, stop_flag) {
         Ok(pipeline) => {
+            let metrics = python_metrics_to_capture_metrics(&pipeline);
             let transcript = sanitize_transcript(&pipeline.transcript);
             if transcript.is_empty() {
                 VoiceJobMessage::Empty {
                     source: VoiceCaptureSource::Python,
-                    metrics: None,
+                    metrics: Some(metrics),
                 }
             } else {
                 VoiceJobMessage::Transcript {
                     text: transcript,
                     source: VoiceCaptureSource::Python,
-                    metrics: None,
+                    metrics: Some(metrics),
                 }
             }
         }
@@ -318,6 +319,27 @@ fn call_python_transcription(
         }
     }
     crate::run_python_transcription(config, stop_flag)
+}
+
+fn seconds_to_millis(secs: f64) -> u64 {
+    if !secs.is_finite() || secs <= 0.0 {
+        return 0;
+    }
+    let ms = secs * 1000.0;
+    if ms >= u64::MAX as f64 {
+        u64::MAX
+    } else {
+        ms.round() as u64
+    }
+}
+
+fn python_metrics_to_capture_metrics(
+    pipeline: &crate::PipelineJsonResult,
+) -> audio::CaptureMetrics {
+    let mut metrics = audio::CaptureMetrics::default();
+    metrics.capture_ms = seconds_to_millis(pipeline.metrics.record_s);
+    metrics.transcribe_ms = seconds_to_millis(pipeline.metrics.stt_s);
+    metrics
 }
 
 #[cfg(test)]
@@ -583,6 +605,37 @@ mod tests {
                 assert_eq!(source, VoiceCaptureSource::Python);
             }
             other => panic!("expected empty message, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn python_fallback_propagates_pipeline_timing_metrics() {
+        let config = test_config();
+        let message = with_python_hook(
+            Box::new(|_, _| {
+                let mut result = pipeline_result("timed transcript");
+                result.metrics = PipelineMetrics {
+                    record_s: 1.234,
+                    stt_s: 0.789,
+                    codex_s: 0.0,
+                    total_s: 2.023,
+                };
+                Ok(result)
+            }),
+            || run_python_fallback(&config, "native unavailable", None, None),
+        );
+
+        match message {
+            VoiceJobMessage::Transcript {
+                source,
+                metrics: Some(metrics),
+                ..
+            } => {
+                assert_eq!(source, VoiceCaptureSource::Python);
+                assert_eq!(metrics.capture_ms, 1234);
+                assert_eq!(metrics.transcribe_ms, 789);
+            }
+            other => panic!("expected python transcript metrics, got {other:?}"),
         }
     }
 

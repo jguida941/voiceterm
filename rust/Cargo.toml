@@ -56,6 +56,10 @@ name = "latency_measurement"
 path = "src/bin/latency_measurement.rs"
 
 [[bin]]
+name = "stt_file_benchmark"
+path = "src/bin/stt_file_benchmark.rs"
+
+[[bin]]
 name = "test_crash"
 path = "src/bin/test_crash.rs"
 

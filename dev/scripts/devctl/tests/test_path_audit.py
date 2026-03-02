@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import path_audit
+from dev.scripts.devctl import path_audit as path_audit_helpers
 
 
 class PathAuditCommandTests(TestCase):
@@ -16,7 +17,7 @@ class PathAuditCommandTests(TestCase):
         self.assertEqual(args.format, "json")
 
     @patch("dev.scripts.devctl.commands.path_audit.write_output")
-    @patch("dev.scripts.devctl.commands.path_audit.scan_legacy_path_references")
+    @patch("dev.scripts.devctl.commands.path_audit.scan_path_audit_references")
     def test_path_audit_passes_when_no_violations(
         self,
         scan_mock,
@@ -26,6 +27,8 @@ class PathAuditCommandTests(TestCase):
             "ok": True,
             "checked_file_count": 25,
             "excluded_prefixes": ["dev/archive/"],
+            "legacy_violation_count": 0,
+            "workspace_contract_violation_count": 0,
             "rules": {},
             "violations": [],
         }
@@ -41,7 +44,7 @@ class PathAuditCommandTests(TestCase):
         self.assertEqual(code, 0)
 
     @patch("dev.scripts.devctl.commands.path_audit.write_output")
-    @patch("dev.scripts.devctl.commands.path_audit.scan_legacy_path_references")
+    @patch("dev.scripts.devctl.commands.path_audit.scan_path_audit_references")
     def test_path_audit_fails_when_violations_found(
         self,
         scan_mock,
@@ -53,6 +56,8 @@ class PathAuditCommandTests(TestCase):
             "ok": False,
             "checked_file_count": 25,
             "excluded_prefixes": ["dev/archive/"],
+            "legacy_violation_count": 1,
+            "workspace_contract_violation_count": 0,
             "rules": {legacy_path: replacement_path},
             "violations": [
                 {
@@ -61,6 +66,7 @@ class PathAuditCommandTests(TestCase):
                     "legacy_path": legacy_path,
                     "replacement_path": replacement_path,
                     "line_text": "python3 " + legacy_path,
+                    "violation_type": "legacy_check_path",
                 }
             ],
         }
@@ -74,3 +80,27 @@ class PathAuditCommandTests(TestCase):
         code = path_audit.run(args)
 
         self.assertEqual(code, 1)
+
+    def test_workspace_contract_scanner_detects_stale_tokens(self) -> None:
+        stale_text = "\n".join(
+            [
+                '      - "src/**"',
+                "working-directory: src",
+                'directory: "/src"',
+                "/src/ @owner",
+            ]
+        )
+        violations = path_audit_helpers._scan_text_for_workspace_contract_references(
+            ".github/workflows/rust_ci.yml",
+            stale_text,
+        )
+        self.assertEqual(len(violations), 4)
+        self.assertEqual(
+            {item["rule_id"] for item in violations},
+            {
+                "runtime_src_glob",
+                "working_directory_src",
+                "dependabot_src_directory",
+                "codeowners_src_root",
+            },
+        )

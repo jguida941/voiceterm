@@ -65,9 +65,38 @@ def _read_text_from_worktree(path: Path) -> str | None:
     return absolute.read_text(encoding="utf-8", errors="replace")
 
 
+def _strip_cfg_test_blocks(text: str) -> str:
+    """Remove `#[cfg(test)]` blocks so guard focuses on runtime lint debt."""
+    marker = "#[cfg(test)]"
+    parts: list[str] = []
+    idx = 0
+    while True:
+        marker_idx = text.find(marker, idx)
+        if marker_idx < 0:
+            parts.append(text[idx:])
+            break
+        parts.append(text[idx:marker_idx])
+        brace_idx = text.find("{", marker_idx)
+        if brace_idx < 0:
+            idx = marker_idx + len(marker)
+            continue
+        depth = 1
+        cursor = brace_idx + 1
+        while cursor < len(text) and depth > 0:
+            char = text[cursor]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            cursor += 1
+        idx = cursor
+    return "".join(parts)
+
+
 def _count_metrics(text: str | None) -> dict[str, int]:
     if text is None:
         return {"allow_attrs": 0, "unwrap_expect_calls": 0}
+    text = _strip_cfg_test_blocks(text)
     return {
         "allow_attrs": len(ALLOW_ATTR_RE.findall(text)),
         "unwrap_expect_calls": len(UNWRAP_EXPECT_RE.findall(text)),

@@ -75,6 +75,8 @@ If you installed from source and want to pre-download a model:
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
+For IDE compatibility status (what is verified vs unverified), see
+[guides/USAGE.md#ide-compatibility](guides/USAGE.md#ide-compatibility).
 
 ## 4) Core controls
 

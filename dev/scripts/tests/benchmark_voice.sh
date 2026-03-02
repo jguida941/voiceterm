@@ -2,7 +2,15 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-pushd "$REPO_ROOT/src" >/dev/null
+if [[ -d "$REPO_ROOT/rust" ]]; then
+  WORKSPACE_ROOT="$REPO_ROOT/rust"
+elif [[ -d "$REPO_ROOT/src" ]]; then
+  WORKSPACE_ROOT="$REPO_ROOT/src"
+else
+  echo "error: unable to locate Rust workspace (expected rust/ or src/)" >&2
+  exit 2
+fi
+pushd "$WORKSPACE_ROOT" >/dev/null
 
 CLIPS=(
   "short:1000:700"

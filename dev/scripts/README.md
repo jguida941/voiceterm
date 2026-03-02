@@ -14,6 +14,8 @@ For loop output to chat-suggestion coordination, use
 `dev/active/loop_chat_bridge.md`.
 For consolidated visual planning context (Theme Studio + overlay research +
 redesign), use `dev/active/theme_upgrade.md`.
+For IDE/provider adapter modularization execution scope, use
+`dev/active/ide_provider_modularization.md`.
 For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 For automation-first `devctl` routing and Ralph loop controls, see
@@ -294,9 +296,10 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_markdown_metadata_header.py` | Markdown metadata header style gate | Normalizes `Status`/`Last updated`/`Owner` doc metadata to one canonical line style. |
 | `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
 | `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
+| `dev/scripts/checks/check_ide_provider_isolation.py` | IDE/provider coupling audit | Reports mixed host/provider signal references outside allowlisted runtime hotspots; supports report-only and optional blocking mode. |
 | `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
 | `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces lacking `# Safety` docs, or `std::mem::forget`/`mem::forget` usage. |
-| `dev/scripts/checks/check_rust_audit_patterns.py` | Rust audit regression guard | Scans active Rust source roots (`rust/src`, legacy fallbacks) and fails when known critical audit anti-patterns reappear (UTF-8-unsafe prefix slicing, byte-limit truncation via `INPUT_MAX_CHARS`, single-pass `redacted.find(...)` secret redaction, deterministic timestamp-hash ID suffixes, and lossy `clamped * 32_768.0 as i16` VAD casts). |
+| `dev/scripts/checks/check_rust_audit_patterns.py` | Rust audit regression guard | Scans runtime Rust sources under `rust/src` and fails when known critical audit anti-patterns reappear (UTF-8-unsafe prefix slicing, byte-limit truncation via `INPUT_MAX_CHARS`, single-pass `redacted.find(...)` secret redaction, deterministic timestamp-hash ID suffixes, and lossy `clamped * 32_768.0 as i16` VAD casts). |
 | `dev/scripts/checks/check_rust_security_footguns.py` | Rust security-footguns non-regression guard | Fails when changed non-test Rust files add risky AI-prone patterns (`todo!/unimplemented!/dbg!`, shell-style process spawns, permissive `0o777/0o666` modes, weak-crypto references like MD5/SHA1). |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
@@ -632,6 +635,8 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebr
 |---|---|
 | `dev/scripts/tests/benchmark_voice.sh` | Voice pipeline benchmarking |
 | `dev/scripts/tests/measure_latency.sh` | Latency profiling + CI guardrails |
+| `dev/scripts/tests/compare_python_rust_voice_latency.sh` | Interactive Rust-native vs Python-fallback voice-latency comparison |
+| `dev/scripts/tests/compare_python_rust_stt_strict.sh` | Strict STT-only benchmark on one shared WAV clip (same model, Rust vs Python) |
 | `dev/scripts/tests/integration_test.sh` | IPC integration testing |
 | `dev/scripts/tests/wake_word_guard.sh` | Wake-word regression + soak guardrails |
 
@@ -639,9 +644,19 @@ Example latency guard command:
 
 ```bash
 dev/scripts/tests/measure_latency.sh --ci-guard --count 3
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3
+# Auto-install whisper CLI if missing (or accept the interactive install prompt)
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --auto-install-whisper
+# Short-flag variant to avoid wrapped long options in narrow terminals
+dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --secs 3 --tail-ms 1500 --max-capture-ms 45000
+# Strict same-audio/same-model STT benchmark
+dev/scripts/tests/compare_python_rust_stt_strict.sh --count 3 --secs 3 --whisper-model base.en
 ```
 
 Workspace-path note:
 - `dev/scripts/tests/measure_latency.sh` auto-detects `rust/` and falls back to
   legacy `src/` so CI/local guard commands remain stable across migration-era
   branches.
+- `dev/scripts/tests/benchmark_voice.sh` and
+  `dev/scripts/tests/compare_python_rust_voice_latency.sh` use the same
+  `rust/`-first workspace detection with legacy `src/` fallback.

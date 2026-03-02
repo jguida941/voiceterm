@@ -7,6 +7,14 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### UX
+
+- Reduce JetBrains + Claude startup typing HUD dropouts by skipping destructive banner pre-clear while user input is fresh, so first-input bursts do not wipe half the HUD before idle redraw settles.
+
+### Documentation
+
+- Publish an explicit IDE compatibility matrix in `README.md` and `guides/USAGE.md`, with aligned pointers from `QUICK_START.md`, `guides/README.md`, and `guides/TROUBLESHOOTING.md` so users only treat verified IDE hosts as supported.
+
 ## [1.0.98] - 2026-03-01
 ### UX
 

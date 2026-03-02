@@ -48,6 +48,26 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["pid"], 223)
 
+    @patch("dev.scripts.devctl.process_sweep.subprocess.run")
+    def test_scan_voiceterm_test_binaries_matches_stale_stress_screen_sessions(
+        self, run_mock
+    ) -> None:
+        run_mock.return_value = subprocess.CompletedProcess(
+            process_sweep.PROCESS_SWEEP_CMD,
+            0,
+            stdout=(
+                "901 1 20:00 SCREEN -dmS vt_hud_stress_90274 bash -lc cd /repo; ./target/debug/voiceterm --logs --claude\n"
+                "902 1 19:59 SCREEN -dmS vt_other_session bash -lc echo nope\n"
+            ),
+            stderr="",
+        )
+
+        rows, warnings = process_sweep.scan_voiceterm_test_binaries(skip_pid=9999)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual([row["pid"] for row in rows], [901])
+        self.assertIn("vt_hud_stress_", rows[0]["command"])
+
     def test_split_stale_processes_uses_elapsed_age_threshold(self) -> None:
         rows = [
             {"pid": 11, "elapsed_seconds": 601},

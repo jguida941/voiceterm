@@ -53,7 +53,7 @@ REQUIRED_MARKERS = [
 ]
 
 REQUIRED_ROUTER_SNIPPETS = [
-    "| Changed runtime behavior under `src/**` | Runtime feature/fix | `bundle.runtime` |",
+    "| Changed runtime behavior under `rust/src/**` | Runtime feature/fix | `bundle.runtime` |",
     "| Changed only user-facing docs | Docs-only | `bundle.docs` |",
     "| Changed tooling/process/CI/governance surfaces | Tooling/process/CI | `bundle.tooling` |",
     "| Preparing/publishing release | Release/tag/distribution | `bundle.release` |",

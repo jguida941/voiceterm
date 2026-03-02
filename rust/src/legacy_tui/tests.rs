@@ -7,7 +7,7 @@ use super::{init_logging, log_debug, log_debug_content};
 use crate::codex::{self, CodexEvent, CodexEventKind, CodexJobStats};
 use crate::config::AppConfig;
 use crate::voice;
-use crate::{audio, log_file_path};
+use crate::{audio, crash_log_path, log_file_path};
 use clap::Parser;
 use std::env;
 use std::sync::{Mutex, OnceLock};
@@ -40,6 +40,8 @@ fn clear_log_env() {
     env::remove_var("VOICETERM_LOGS");
     env::remove_var("VOICETERM_NO_LOGS");
     env::remove_var("VOICETERM_LOG_CONTENT");
+    env::remove_var("VOICETERM_LOG_PATH");
+    env::remove_var("VOICETERM_CRASH_LOG_PATH");
 }
 
 fn test_config() -> AppConfig {
@@ -221,6 +223,28 @@ fn log_content_requires_flag() {
             !contents.contains("secret"),
             "content should not be logged without --log-content"
         );
+    });
+}
+
+#[test]
+fn log_file_path_honors_env_override() {
+    with_log_lock(|| {
+        clear_log_env();
+        let override_path = env::temp_dir().join("voiceterm_tui_override.log");
+        env::set_var("VOICETERM_LOG_PATH", &override_path);
+        assert_eq!(log_file_path(), override_path);
+        env::remove_var("VOICETERM_LOG_PATH");
+    });
+}
+
+#[test]
+fn crash_log_path_honors_env_override() {
+    with_log_lock(|| {
+        clear_log_env();
+        let override_path = env::temp_dir().join("voiceterm_crash_override.log");
+        env::set_var("VOICETERM_CRASH_LOG_PATH", &override_path);
+        assert_eq!(crash_log_path(), override_path);
+        env::remove_var("VOICETERM_CRASH_LOG_PATH");
     });
 }
 

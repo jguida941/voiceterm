@@ -26,6 +26,7 @@ same execution path with minimal ambiguity.
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the Rust workspace path/layout migration execution plan? | `dev/active/rust_workspace_layout_migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
+| Where is the IDE/provider adapter modularization execution plan? | `dev/active/ide_provider_modularization.md` |
 | Where are federated internal repo links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
@@ -173,8 +174,14 @@ Non-release work flow:
 2. `git checkout develop`
 3. `git pull --ff-only origin develop`
 4. `git checkout -b feature/<topic>` or `git checkout -b fix/<topic>`
-5. Commit and push short-lived branch.
-6. Merge short-lived branch into `develop` only after required checks pass.
+5. Implement and run required checks.
+6. Require user local validation before push:
+   - Ask the user to test locally and confirm go-ahead before any non-release
+     `git push`.
+   - If the user asks to test before commit, keep changes uncommitted until
+     that local validation completes.
+7. Commit and push short-lived branch only after explicit user approval.
+8. Merge short-lived branch into `develop` only after required checks pass.
 
 Routine helper:
 
@@ -226,7 +233,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 
 | User story | Task class | Required bundle |
 |---|---|---|
-| Changed runtime behavior under `src/**` | Runtime feature/fix | `bundle.runtime` |
+| Changed runtime behavior under `rust/src/**` | Runtime feature/fix | `bundle.runtime` |
 | Changed HUD/layout/controls/flags/UI text | HUD/overlay/controls/flags | `bundle.runtime` |
 | Touched perf/latency/wake/threading/unsafe/parser boundaries | Risk-sensitive runtime | `bundle.runtime` |
 | Changed only user-facing docs | Docs-only | `bundle.docs` |
@@ -499,7 +506,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 
 | Change signal | Lanes to verify |
 |---|---|
-| `src/**` runtime changes | `rust_ci.yml` |
+| `rust/src/**` runtime changes | `rust_ci.yml` |
 | Send mode/macros/transcript delivery | `voice_mode_guard.yml` |
 | Wake-word runtime/detection | `wake_word_guard.yml` |
 | Perf-sensitive paths | `perf_smoke.yml`, `latency_guard.yml` |

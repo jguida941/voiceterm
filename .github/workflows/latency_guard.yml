@@ -12,12 +12,12 @@ concurrency:
 on:
   push:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - "dev/scripts/tests/measure_latency.sh"
       - ".github/workflows/latency_guard.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - "dev/scripts/tests/measure_latency.sh"
       - ".github/workflows/latency_guard.yml"
 

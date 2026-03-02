@@ -11,13 +11,15 @@ rendered terminal framebuffer without relying on manual screenshots.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
 import re
+import shlex
 import shutil
+import signal
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -50,6 +52,7 @@ LOG_PATTERNS = {
     "repair_redraw": "[claude-hud-debug] scheduled cursor+claude HUD repair redraw fired",
     "user_input_activity": "[claude-hud-debug] user input activity",
 }
+STRESS_SESSION_PREFIX = "vt_hud_stress_"
 
 SUPPRESSION_TRANSITION_RE = re.compile(
     r"^\[(?P<ts>\d+)\].*\[claude-hud-debug\] suppression transition (?P<prev>true|false) -> (?P<next>true|false)"
@@ -79,15 +82,19 @@ class StressRunner:
         self.rust_dir = self.repo_root / "rust"
         self.artifacts_dir = Path(args.artifacts_dir).resolve()
         self.frames_dir = self.artifacts_dir / "frames"
-        self.session = f"vt_hud_stress_{os.getpid()}"
-        self.log_path = Path(tempfile.gettempdir()) / "voiceterm_tui.log"
+        self.session = f"{STRESS_SESSION_PREFIX}{os.getpid()}"
+        self.log_path = self.artifacts_dir / "voiceterm_tui.log"
         self.frames: List[FrameResult] = []
         self.approvals_sent = 0
         self.commands = []
+        self.cleaned_stale_sessions: List[str] = []
+        self._session_started = False
 
     def run(self) -> int:
         self._ensure_prereqs()
         self._prepare_artifacts()
+        self._install_exit_cleanup()
+        self._cleanup_stale_stress_sessions()
 
         if self.args.build:
             self._run_checked(["cargo", "build", "--bin", "voiceterm"], cwd=self.rust_dir)
@@ -134,14 +141,48 @@ class StressRunner:
         self.commands.append({"cmd": cmd, "cwd": None})
         subprocess.run(cmd, check=False)
 
+    def _install_exit_cleanup(self) -> None:
+        atexit.register(self._shutdown_session)
+
+        def _handle_signal(signum: int, _frame) -> None:
+            self._shutdown_session()
+            raise SystemExit(128 + signum)
+
+        signal.signal(signal.SIGINT, _handle_signal)
+        signal.signal(signal.SIGTERM, _handle_signal)
+
+    def _cleanup_stale_stress_sessions(self) -> None:
+        result = subprocess.run(
+            ["screen", "-ls"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode not in (0, 1):
+            return
+
+        for raw_line in result.stdout.splitlines():
+            line = raw_line.strip()
+            if STRESS_SESSION_PREFIX not in line:
+                continue
+            token = line.split(None, 1)[0].rstrip(":")
+            if not token or self.session in token:
+                continue
+            self.cleaned_stale_sessions.append(token)
+            self._run_best_effort(["screen", "-S", token, "-X", "quit"])
+
     def _start_screen_session(self) -> None:
+        quoted_rust_dir = shlex.quote(str(self.rust_dir))
+        quoted_log_path = shlex.quote(str(self.log_path))
         launch = (
-            f'cd "{self.rust_dir}"; '
+            f"cd {quoted_rust_dir}; "
             "export TERM_PROGRAM=cursor; "
             "export VOICETERM_DEBUG_CLAUDE_HUD=1; "
+            f"export VOICETERM_LOG_PATH={quoted_log_path}; "
             "./target/debug/voiceterm --logs --claude"
         )
         self._run_checked(["screen", "-dmS", self.session, "bash", "-lc", launch])
+        self._session_started = True
 
     def _hardcopy(self, index: int) -> FrameResult:
         path = self.frames_dir / f"frame_{index:03d}.txt"
@@ -233,11 +274,14 @@ class StressRunner:
         self._hardcopy(999)
 
     def _shutdown_session(self) -> None:
+        if not self._session_started:
+            return
         self._run_best_effort(
             ["screen", "-S", self.session, "-p", "0", "-X", "stuff", "\x03"]
         )
         time.sleep(1.0)
         self._run_best_effort(["screen", "-S", self.session, "-X", "quit"])
+        self._session_started = False
 
     def _count_log_patterns(self) -> Dict[str, int]:
         counts = {key: 0 for key in LOG_PATTERNS}
@@ -433,6 +477,7 @@ class StressRunner:
             },
             "anomalies": anomalies,
             "anomaly_total": anomaly_total,
+            "cleaned_stale_sessions": self.cleaned_stale_sessions,
             "commands": self.commands,
             "frames": [
                 {
@@ -466,6 +511,7 @@ class StressRunner:
             f"- frame_count: `{summary['frame_count']}`",
             f"- approvals_sent: `{summary['approvals_sent']}`",
             f"- anomaly_total: `{summary['anomaly_total']}`",
+            f"- cleaned_stale_sessions: `{summary['cleaned_stale_sessions']}`",
             "",
             "## Log Counts",
         ]
@@ -502,7 +548,11 @@ class StressRunner:
         summary_md.write_text("\n".join(lines) + "\n")
 
         if self.log_path.exists():
-            shutil.copy2(self.log_path, self.artifacts_dir / "voiceterm_tui.log")
+            dst_log_path = self.artifacts_dir / "voiceterm_tui.log"
+            # `VOICETERM_LOG_PATH` may already point at the artifact target.
+            # Skip self-copy to avoid SameFileError.
+            if self.log_path.resolve() != dst_log_path.resolve():
+                shutil.copy2(self.log_path, dst_log_path)
 
     def _print_summary(self, summary: Dict[str, object]) -> None:
         print("artifacts_dir:", summary["artifacts_dir"])

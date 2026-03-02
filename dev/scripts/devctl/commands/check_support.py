@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from ..script_catalog import check_script_cmd
+
 AI_GUARD_CHECKS = (
     ("code-shape-guard", "code_shape"),
     ("rust-lint-debt-guard", "rust_lint_debt"),
@@ -14,6 +16,17 @@ AI_GUARD_CHECKS = (
 )
 
 AI_GUARD_STEP_NAMES = {name for name, _script_id in AI_GUARD_CHECKS}
+AI_GUARD_COMMIT_RANGE_SCRIPT_IDS = frozenset(
+    {"code_shape", "rust_lint_debt", "rust_best_practices", "rust_audit_patterns", "rust_security_footguns"}
+)
+
+
+def build_ai_guard_cmd(script_id: str, *, since_ref: str | None, head_ref: str) -> list[str]:
+    """Build one AI-guard command with optional commit-range refs."""
+    cmd = check_script_cmd(script_id)
+    if since_ref and script_id in AI_GUARD_COMMIT_RANGE_SCRIPT_IDS:
+        cmd.extend(["--since-ref", since_ref, "--head-ref", head_ref])
+    return cmd
 
 
 def resolve_perf_log_path() -> str:

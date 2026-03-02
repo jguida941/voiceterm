@@ -23,17 +23,18 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 6. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
 7. [`dev/active/rust_workspace_layout_migration.md`](active/rust_workspace_layout_migration.md) -- Rust workspace path/layout migration plan.
 8. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
-9. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
-10. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
-11. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
-12. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
-13. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
-14. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-15. [`dev/history/README.md`](history/README.md) -- index for historical records.
-16. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
-17. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
-18. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-19. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+9. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
+10. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
+11. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
+12. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
+13. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
+14. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
+15. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+16. [`dev/history/README.md`](history/README.md) -- index for historical records.
+17. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
+18. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
+19. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
+20. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
 
 ## Three Core Docs
 

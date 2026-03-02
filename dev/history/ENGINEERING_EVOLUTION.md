@@ -174,6 +174,24 @@ Evidence:
 Inference: Release runs now fail fast when governance/docs evidence is
 incomplete, which keeps runtime hotfix releases and user guidance synchronized.
 
+### Recent Governance Update (2026-03-01, IDE/Provider Modularization Scope)
+
+Fact: The active-plan system now includes a dedicated execution spec for
+host/provider modularization (`MP-346`) so IDE-specific logic (`cursor`,
+`jetbrains`, `antigravity`) and provider-specific logic (`codex`, `claude`,
+`gemini`) can be refactored under one traceable contract.
+
+Evidence:
+
+- `dev/active/ide_provider_modularization.md` (execution contract with scope,
+  checklist, progress log, and audit evidence sections)
+- `dev/active/INDEX.md` (active-doc registry row for `MP-346`)
+- `dev/active/MASTER_PLAN.md` (canonical-plan link + `MP-346` backlog item)
+- `AGENTS.md`, `DEV_INDEX.md`, `dev/README.md` (discovery link updates)
+
+Inference: This reduces ad hoc architecture changes by forcing modularization,
+matrix validation, and God-file prevention into governed execution steps.
+
 ### Recent Governance Update (2026-02-25, Ralph Fix Policy + Escalation)
 
 Fact: CodeRabbit Ralph loop fix execution now mirrors mutation-loop policy

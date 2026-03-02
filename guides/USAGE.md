@@ -62,9 +62,21 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 |---------|-------------|--------|
 | Codex | `voiceterm` or `voiceterm --codex` | Supported |
 | Claude Code | `voiceterm --claude` | Supported |
-| Gemini CLI | `voiceterm --gemini` | Experimental (supported) |
+| Gemini CLI | `voiceterm --gemini` | Experimental (currently not working) |
 | Aider | `voiceterm --backend aider` | Experimental (untested) |
 | OpenCode | `voiceterm --backend opencode` | Experimental (untested) |
+
+## IDE Compatibility
+
+This table is the current source of truth for host IDE support.
+Only rows marked as supported are verified.
+
+| IDE host | Codex | Claude Code | Status |
+|---|---|---|---|
+| Cursor terminal | Fully supported | Fully supported | Recommended primary host |
+| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Supported (active hardening) | Keep current release and use troubleshooting guidance for host-specific issues |
+| AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
+| Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
 ## How Voice Input Works
 

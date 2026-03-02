@@ -21,6 +21,7 @@ on:
     paths:
       - "rust/Cargo.lock"
       - "rust/Cargo.toml"
+      - "rust/deny.toml"
       - "dev/scripts/checks/check_rust_audit_patterns.py"
       - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/scripts/devctl/commands/check.py"
@@ -41,6 +42,7 @@ on:
     paths:
       - "rust/Cargo.lock"
       - "rust/Cargo.toml"
+      - "rust/deny.toml"
       - "dev/scripts/checks/check_rust_audit_patterns.py"
       - "dev/scripts/checks/check_rustsec_policy.py"
       - "dev/scripts/devctl/commands/check.py"
@@ -88,6 +90,12 @@ jobs:
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked --force
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked --force
+
+      - name: Run cargo deny policy gate
+        run: cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources
 
       - name: Run Rust audit-pattern guard
         run: |

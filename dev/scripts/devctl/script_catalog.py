@@ -15,6 +15,7 @@ CHECK_SCRIPT_FILES = {
     "code_shape": "check_code_shape.py",
     "coderabbit_gate": "check_coderabbit_gate.py",
     "coderabbit_ralph_gate": "check_coderabbit_ralph_gate.py",
+    "ide_provider_isolation": "check_ide_provider_isolation.py",
     "multi_agent_sync": "check_multi_agent_sync.py",
     "markdown_metadata_header": "check_markdown_metadata_header.py",
     "mutation_score": "check_mutation_score.py",

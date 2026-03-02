@@ -1,6 +1,6 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-03-01T07:08:21.560345  
+**Generated:** 2026-03-01T23:09:42.726697  
 **Trigger:** check-ai-guard  
 **Trigger steps:** code-shape-guard  
 **Diff range:** working-tree vs HEAD
@@ -49,8 +49,8 @@ planning and implementation, not a historical archive.
 - Severity: high
 - Return code: 1
 - Violations:
-- `rust/src/bin/voiceterm/main.rs` (crossed_soft_limit)
-- `rust/src/bin/voiceterm/writer/state.rs` (hard_locked_file_grew)
+- `dev/scripts/checks/check_code_shape.py` (crossed_soft_limit)
+- `dev/scripts/devctl/commands/check.py` (crossed_soft_limit)
 
 ## Remediation Actions
 

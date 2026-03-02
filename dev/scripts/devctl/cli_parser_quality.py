@@ -78,6 +78,15 @@ def add_quality_parsers(
     check_cmd.add_argument("--mutants-plot-show", action="store_true")
     check_cmd.add_argument("--keep-going", action="store_true")
     check_cmd.add_argument(
+        "--since-ref",
+        help="Compare AI-guard checks against this git ref (for commit-range mode).",
+    )
+    check_cmd.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Head ref used with --since-ref for AI-guard checks (default: HEAD).",
+    )
+    check_cmd.add_argument(
         "--no-parallel",
         action="store_true",
         help="Run check steps sequentially instead of parallelized phase batches",

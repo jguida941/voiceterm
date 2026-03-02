@@ -18,7 +18,8 @@
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
 
-VoiceTerm is a voice-first terminal overlay for Codex, Claude, and Gemini.
+VoiceTerm is a voice-first terminal overlay for Codex and Claude.
+Gemini preset support remains experimental and is currently nonfunctional.
 It runs Whisper on your machine and types what you say into your existing CLI.
 Your tools still run in a normal PTY; VoiceTerm just adds a HUD on top.
 Use push-to-talk or wake phrases (`hey codex`, `hey claude`), then say
@@ -34,6 +35,7 @@ Release history: [dev/CHANGELOG.md](dev/CHANGELOG.md).
 - [Requirements](#requirements)
 - [Features](#features)
 - [Supported Backends](#supported-ai-clis)
+- [IDE Support](#ide-support)
 - [Controls](#controls)
 - [Guides Index](guides/README.md)
 - [Documentation](#documentation)
@@ -190,6 +192,19 @@ Use the same workflow and controls documented for backend support in
 ### Claude Code
 
 ![Claude Backend](img/claude-backend.png)
+
+## IDE Support
+
+Only combinations listed below are currently verified.
+
+| IDE host | Codex | Claude Code | Status |
+|---|---|---|---|
+| Cursor terminal | Fully supported | Fully supported | Recommended primary host |
+| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Supported (active hardening) | Use current release and see troubleshooting notes |
+| AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
+| Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
+
+Canonical matrix: [Usage Guide -> IDE Compatibility](guides/USAGE.md#ide-compatibility).
 
 ## Hands-Free Quick Start
 

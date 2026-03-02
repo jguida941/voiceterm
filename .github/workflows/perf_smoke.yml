@@ -12,11 +12,11 @@ concurrency:
 on:
   push:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/perf_smoke.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "rust/src/**"
       - ".github/workflows/perf_smoke.yml"
 
 jobs:
