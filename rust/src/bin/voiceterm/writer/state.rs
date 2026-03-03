@@ -28,6 +28,7 @@ const CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS: u64 = 500;
 const CLAUDE_JETBRAINS_SCROLL_IDLE_REDRAW_HOLD_MS: u64 = 200;
 const JETBRAINS_PRECLEAR_COOLDOWN_MS: u64 = 260;
 const CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 320;
+const CODEX_JETBRAINS_SCROLL_IDLE_REDRAW_HOLD_MS: u64 = 320;
 const CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 150;
 const CLAUDE_CURSOR_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 900;
 const CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS: u64 = 450;
@@ -291,13 +292,14 @@ fn should_use_previous_banner_lines(
 
 fn should_use_previous_banner_lines_for_profile(
     terminal_family: TerminalFamily,
-    claude_backend: bool,
     force_full_banner_redraw: bool,
     force_redraw_after_preclear: bool,
 ) -> bool {
-    if terminal_family == TerminalFamily::JetBrains && claude_backend {
+    if terminal_family == TerminalFamily::JetBrains {
         // JediTerm can leave stale prompt/input text in unchanged HUD lanes
         // when line-diff redraw skips rows. Always repaint all banner rows.
+        // This applies to both Claude and Codex backends — scrolling output
+        // pushes HUD rows off screen and line-diff skips rewriting them.
         return false;
     }
     should_use_previous_banner_lines(force_full_banner_redraw, force_redraw_after_preclear)
@@ -1316,6 +1318,19 @@ impl WriterState {
                         // Return false so the immediate maybe_redraw_status
                         // call below doesn't double-set.
                         false
+                    } else if codex_jetbrains {
+                        // JetBrains + Codex: defer scroll-triggered redraws
+                        // to the idle-gated timer.  JediTerm lacks scroll
+                        // regions, so painting the HUD mid-scroll leaves
+                        // ghost frames in the scrollback.  Setting the flags
+                        // here lets maybe_redraw_status repaint once output
+                        // settles (320ms idle hold).
+                        if may_scroll_rows {
+                            self.display.force_full_banner_redraw = true;
+                            self.needs_redraw = true;
+                        }
+                        // Non-scroll events use normal triggers.
+                        pre_cleared || non_scroll_line_mutation || destructive_clear_repaint
                     } else {
                         self.display.force_full_banner_redraw
                             || pre_cleared
@@ -1743,6 +1758,18 @@ impl WriterState {
             && !self.pending.clear_overlay
             && !self.pending.clear_status
             && !suppression_transition_pending;
+        let codex_jetbrains =
+            self.terminal_family == TerminalFamily::JetBrains && is_codex_backend();
+        // Codex+JetBrains: idle-gate scroll-triggered redraws so the HUD
+        // is only repainted once output settles.  JediTerm lacks scroll
+        // regions, so painting mid-scroll leaves ghost HUD frames.
+        let codex_jetbrains_idle_gated_redraw = codex_jetbrains
+            && self.display.force_full_banner_redraw
+            && !self.force_redraw_after_preclear
+            && self.pending.overlay_panel.is_none()
+            && !self.pending.clear_overlay
+            && !self.pending.clear_status
+            && !suppression_transition_pending;
         let idle_ms = if claude_jetbrains_idle_gated_redraw {
             // Use shorter idle hold when the HUD was smeared by scrolling output
             // and needs a full repaint. Keep the full 500ms for passive redraws
@@ -1752,6 +1779,8 @@ impl WriterState {
             } else {
                 CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS
             }
+        } else if codex_jetbrains_idle_gated_redraw {
+            CODEX_JETBRAINS_SCROLL_IDLE_REDRAW_HOLD_MS
         } else if priority_update_pending {
             PRIORITY_STATUS_IDLE_MS
         } else {
@@ -1763,10 +1792,12 @@ impl WriterState {
             STATUS_MAX_WAIT_MS
         };
 
-        let should_throttle_for_output = if claude_jetbrains_idle_gated_redraw {
-            // JetBrains+Claude can emit bursty chunks with brief gaps; if we
-            // redraw HUD in those gaps, the next scroll chunk can drag HUD
-            // chrome into transcript lines. Require true idle settle.
+        let jetbrains_idle_gated =
+            claude_jetbrains_idle_gated_redraw || codex_jetbrains_idle_gated_redraw;
+        let should_throttle_for_output = if jetbrains_idle_gated {
+            // JetBrains+Claude/Codex can emit bursty chunks with brief gaps;
+            // if we redraw HUD in those gaps, the next scroll chunk can drag
+            // HUD chrome into transcript lines. Require true idle settle.
             since_output < Duration::from_millis(idle_ms)
         } else {
             since_output < Duration::from_millis(idle_ms)
@@ -1976,7 +2007,6 @@ impl WriterState {
                 *banner_anchor_row = new_anchor_row;
                 let use_previous_lines = should_use_previous_banner_lines_for_profile(
                     self.terminal_family,
-                    is_claude_backend(),
                     *force_full_banner_redraw,
                     force_redraw_after_preclear,
                 );

@@ -677,7 +677,9 @@ If Full HUD appears stacked/repeated:
    voiceterm --logs
    ```
 
-3. Share `${TMPDIR:-/tmp}/voiceterm_tui.log` if still reproducible.
+3. Current releases include idle-gated redraw hardening for both Claude and
+   Codex in JetBrains; if you still see duplication, share
+   `${TMPDIR:-/tmp}/voiceterm_tui.log`.
 
 ### Overlay flickers in JetBrains terminals
 

@@ -10,6 +10,9 @@ Note: Some historical entries reference internal documents that are not publishe
 ### UX
 
 - Reduce JetBrains + Claude startup typing HUD dropouts by skipping destructive banner pre-clear while user input is fresh, so first-input bursts do not wipe half the HUD before idle redraw settles.
+- Reduce JetBrains + Codex HUD ghosting/duplication during heavy scrolling
+  output by idle-gating forced full-banner redraw until short output-settle
+  windows.
 
 ### Documentation
 

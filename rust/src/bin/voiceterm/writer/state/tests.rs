@@ -1288,22 +1288,22 @@ fn transition_redraw_after_preclear_disables_previous_line_diff() {
 }
 
 #[test]
-fn jetbrains_claude_forces_full_banner_repaint_even_without_transition() {
+fn jetbrains_forces_full_banner_repaint_even_without_transition() {
+    // JetBrains always forces full repaint (returns false) regardless of backend
+    assert!(!should_use_previous_banner_lines_for_profile(
+        TerminalFamily::JetBrains,
+        false,
+        false
+    ));
+    // Even with force_full_banner_redraw=true, still false for JetBrains
     assert!(!should_use_previous_banner_lines_for_profile(
         TerminalFamily::JetBrains,
         true,
-        false,
         false
     ));
-    assert!(should_use_previous_banner_lines_for_profile(
-        TerminalFamily::JetBrains,
-        false,
-        false,
-        false
-    ));
+    // Non-JetBrains terminals use normal line-diff logic
     assert!(should_use_previous_banner_lines_for_profile(
         TerminalFamily::Cursor,
-        true,
         false,
         false
     ));
