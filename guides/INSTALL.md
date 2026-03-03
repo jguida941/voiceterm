@@ -122,7 +122,7 @@ potentially blocking wheel/touchpad history scrolling (`Mouse: ON`); the
 scrollbar can still be dragged, or set `Mouse` to `OFF` in Settings.
 If Codex/Claude approval or input rows look clipped, use the occlusion guidance in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md#codex-or-claude-approval-prompts-are-occluded).
-If you run Claude in a JetBrains terminal, note one host-specific edge case:
+Claude on JetBrains terminals is fully supported. Rare host-specific edge case:
 after very long parallel tool calls or parallel web-search turns, temporary
 HUD/transcript overlap can appear when the turn ends. Quick workaround: resize
 the terminal once (even by 1 row/column). Details:

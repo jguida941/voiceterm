@@ -200,11 +200,11 @@ Only combinations listed below are currently verified.
 | IDE host | Codex | Claude Code | Status |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended primary host |
-| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Supported (active hardening) | Use current release and see troubleshooting notes |
+| JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Fully supported | Supported on current release; see troubleshooting for rare host-specific edge cases |
 | AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
-JetBrains + Claude known limitation:
+JetBrains + Claude rare edge case (long parallel turns):
 after very long parallel tool calls or parallel web-search turns, HUD/transcript
 overlap can appear at turn completion. Quick workaround: resize the terminal
 once (even by 1 row/column) to force layout recalculation.
