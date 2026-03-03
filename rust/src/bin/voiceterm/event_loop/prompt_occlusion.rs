@@ -18,6 +18,15 @@ const NON_ROLLING_CONSECUTIVE_APPROVAL_STICKY_HOLD_MS: u64 = 850;
 const APPROVAL_SUPPRESSION_CANONICAL_FEED: &[u8] =
     b"This command requires approval\nDo you want to proceed?\n";
 const CLAUDE_HUD_DEBUG_ENV: &str = "VOICETERM_DEBUG_CLAUDE_HUD";
+const CLAUDE_LONG_THINK_STATUS_MARKERS: &[&str] = &[
+    "baked for ",
+    "brewed for ",
+    "churned for ",
+    "cogitated for ",
+    "cooked for ",
+    "crunched for ",
+    "worked for ",
+];
 
 #[cfg(test)]
 thread_local! {
@@ -386,6 +395,120 @@ fn normalize_tool_activity_line(line: &str) -> String {
         .to_ascii_lowercase()
 }
 
+fn bytes_contains_sequence(bytes: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    bytes.windows(needle.len()).any(|window| window == needle)
+}
+
+fn parse_single_csi_param_u16(params: &[u8]) -> Option<u16> {
+    if params.is_empty() {
+        return Some(1);
+    }
+    if params.iter().all(u8::is_ascii_digit) {
+        std::str::from_utf8(params).ok()?.parse::<u16>().ok()
+    } else {
+        None
+    }
+}
+
+fn bytes_contains_cursor_up_csi_at_least(bytes: &[u8], min_rows: u16) -> bool {
+    let mut idx = 0usize;
+    while idx + 2 < bytes.len() {
+        if bytes[idx] != 0x1b || bytes[idx + 1] != b'[' {
+            idx += 1;
+            continue;
+        }
+        let mut cursor = idx + 2;
+        while cursor < bytes.len() {
+            let byte = bytes[cursor];
+            if (0x40..=0x7e).contains(&byte) {
+                if byte == b'A' {
+                    let params = &bytes[idx + 2..cursor];
+                    if parse_single_csi_param_u16(params).is_some_and(|rows| rows >= min_rows) {
+                        return true;
+                    }
+                }
+                idx = cursor + 1;
+                break;
+            }
+            cursor += 1;
+        }
+        if cursor >= bytes.len() {
+            break;
+        }
+    }
+    false
+}
+
+fn chunk_contains_claude_synchronized_cursor_activity(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+    let synchronized_packet = bytes_contains_sequence(bytes, b"\x1b[?2026h")
+        && bytes_contains_sequence(bytes, b"\x1b[?2026l");
+    if !synchronized_packet {
+        return false;
+    }
+    let has_rewrite_structure = bytes_contains_sequence(bytes, b"\r\r\n")
+        || bytes_contains_sequence(bytes, b"\x1b[2K")
+        || bytes_contains_sequence(bytes, b"\x1b[7m")
+        || bytes_contains_sequence(bytes, b"\x1b[G");
+    let has_large_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 4);
+    let has_medium_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 2);
+    let has_any_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 1);
+    let stripped = strip_ansi_for_approval_window(bytes);
+    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
+    let has_status_marker = lowered.contains("(thinking)")
+        || lowered.contains("for shortcuts")
+        || CLAUDE_LONG_THINK_STATUS_MARKERS
+            .iter()
+            .any(|marker| lowered.contains(marker));
+    // Claude status/thinking frames in JetBrains are synchronized cursor-up rewrites.
+    // Suppress on deep cursor-up rewrites, on rewrite-structured medium cursor hops
+    // (for example early 2A/3A packets before long output), and on status-marker
+    // rewrites that use short cursor-up hops.
+    has_large_cursor_up
+        || (has_medium_cursor_up && has_rewrite_structure)
+        || (has_any_cursor_up && has_status_marker && has_rewrite_structure)
+}
+
+fn chunk_is_probable_claude_prompt_input_echo_rewrite(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+    // Prompt-input repaint packets are small synchronized cursor rewrites that
+    // paint an inverse-video caret while the user types.
+    let synchronized_packet = bytes_contains_sequence(bytes, b"\x1b[?2026h")
+        && bytes_contains_sequence(bytes, b"\x1b[?2026l");
+    if !synchronized_packet {
+        return false;
+    }
+    let has_inverse_video_caret =
+        bytes_contains_sequence(bytes, b"\x1b[7m") && bytes_contains_sequence(bytes, b"\x1b[27m");
+    if !has_inverse_video_caret {
+        return false;
+    }
+    let has_medium_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 2);
+    let has_large_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 4);
+    if !has_medium_cursor_up || has_large_cursor_up {
+        return false;
+    }
+    let stripped = strip_ansi_for_approval_window(bytes);
+    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
+    let has_long_think_marker = lowered.contains("(thinking)")
+        || CLAUDE_LONG_THINK_STATUS_MARKERS
+            .iter()
+            .any(|marker| lowered.contains(marker));
+    if has_long_think_marker {
+        return false;
+    }
+    // Input-echo rewrites are compact caret repaint packets; long multiline
+    // status frames should not match this path.
+    bytes.len() <= 256
+}
+
 fn chunk_contains_tool_activity_hint(bytes: &[u8]) -> bool {
     if bytes.is_empty() {
         return false;
@@ -606,6 +729,20 @@ pub(super) fn feed_prompt_output_and_sync(
         } else {
             non_rolling_approval_hint
         };
+    let synchronized_cursor_activity_candidate = use_rolling_detector
+        && prompt_guard_enabled
+        && chunk_contains_claude_synchronized_cursor_activity(data);
+    let recent_input_age_ms = timers
+        .last_user_input_at
+        .and_then(|at| now.checked_duration_since(at))
+        .map(|duration| duration.as_millis());
+    let is_prompt_input_echo_rewrite = chunk_is_probable_claude_prompt_input_echo_rewrite(data);
+    let ignore_synchronized_candidate = synchronized_cursor_activity_candidate
+        && is_prompt_input_echo_rewrite
+        && !explicit_approval_hint
+        && !numbered_approval_hint;
+    let saw_synchronized_cursor_activity =
+        synchronized_cursor_activity_candidate && !ignore_synchronized_candidate;
     if !use_rolling_detector
         && prompt_guard_enabled
         && explicit_approval_hint
@@ -664,10 +801,29 @@ pub(super) fn feed_prompt_output_and_sync(
                 ));
             }
         }
+        if ignore_synchronized_candidate {
+            let input_age_label = recent_input_age_ms
+                .map(|age| age.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            log_debug(&format!(
+                "[claude-hud-debug] suppression candidate ignored: synchronized prompt-input echo rewrite (input_age_ms={input_age_label})",
+            ));
+        }
     }
-    if saw_tool_activity {
+    if saw_tool_activity || saw_synchronized_cursor_activity {
         if claude_hud_debug_enabled() {
-            log_debug("[claude-hud-debug] suppression candidate: tool-activity hint");
+            if saw_synchronized_cursor_activity {
+                let stripped = strip_ansi_for_approval_window(data);
+                let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
+                let saw_long_think_verb = CLAUDE_LONG_THINK_STATUS_MARKERS
+                    .iter()
+                    .any(|marker| lowered.contains(marker));
+                log_debug(&format!(
+                    "[claude-hud-debug] suppression candidate: synchronized cursor rewrite (long_think_marker={saw_long_think_verb})"
+                ));
+            } else {
+                log_debug("[claude-hud-debug] suppression candidate: tool-activity hint");
+            }
         }
         extend_prompt_suppression_deadline(
             &mut timers.prompt_suppression_release_not_before,
@@ -957,187 +1113,4 @@ pub(super) fn register_prompt_resolution_candidate(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn explicit_approval_hint_detects_cargo_prompt_variant() {
-        let bytes = "Bash command\ncargo --version\nShow Cargo version\n\nThis command requires approval\n\nDo you want to proceed?\n› 1. Yes\n2. Yes, and don’t ask again for: cargo:*\n3. No\n"
-            .as_bytes();
-        assert!(chunk_contains_explicit_approval_hint(bytes));
-    }
-
-    #[test]
-    fn explicit_approval_hint_detects_compact_spacing_variant() {
-        let bytes = b"Doyouwanttoproceed?\n1.Yes\n2.Yes,anddon'taskagainfor:WebSearch:*\n";
-        assert!(chunk_contains_explicit_approval_hint(bytes));
-    }
-
-    #[test]
-    fn explicit_approval_hint_ignores_unrelated_output() {
-        assert!(!chunk_contains_explicit_approval_hint(
-            b"Web Search(\"rust async await\")\nDid 1 search in 8s\n"
-        ));
-    }
-
-    #[test]
-    fn explicit_approval_hint_ignores_embedded_recap_phrase() {
-        assert!(!chunk_contains_explicit_approval_hint(
-            b"Recap: earlier output included \"Do you want to proceed?\" before approval.\n"
-        ));
-    }
-
-    #[test]
-    fn explicit_approval_hint_detects_prompt_question_line_start() {
-        assert!(chunk_contains_explicit_approval_hint(
-            b"  Do you want to proceed?\n"
-        ));
-    }
-
-    #[test]
-    fn explicit_approval_hint_detects_ansi_styled_prompt_question() {
-        assert!(chunk_contains_explicit_approval_hint(
-            b"\x1b[37mDo you want to proceed?\x1b[39m\n"
-        ));
-    }
-
-    #[test]
-    fn claude_prompt_context_detects_tool_use_card() {
-        assert!(chunk_contains_claude_prompt_context(
-            b"Tool use\nClaude wants to search the web for rust terminal ui\n"
-        ));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_sparse_card() {
-        assert!(chunk_contains_numbered_approval_hint(
-            b"1. Yes\n2. Yes, and don't ask again for this command\n3. No\n"
-        ));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_selected_chevron_card() {
-        assert!(chunk_contains_numbered_approval_hint(
-            b"\xE2\x80\xBA 1. Yes\n2. Yes, and don't ask again for this command\n"
-        ));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_two_option_yes_no_card() {
-        assert!(chunk_contains_numbered_approval_hint(b"1. Yes\n2. No\n"));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_selected_o_prefix_variant() {
-        assert!(chunk_contains_numbered_approval_hint(b"o 1. Yes\n2. No\n"));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_compact_prefix_variant() {
-        assert!(chunk_contains_numbered_approval_hint(
-            b"\xE2\x9D\xAF1.Yes\n2.No\n"
-        ));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_space_separator_variant() {
-        assert!(chunk_contains_numbered_approval_hint(b"1 Yes\n2 No\n"));
-    }
-
-    #[test]
-    fn numbered_approval_hint_detects_wrapped_long_option_cards() {
-        let mut card =
-            String::from("This command requires approval\nDo you want to proceed?\n1. Yes\n");
-        for _ in 0..40 {
-            card.push_str("/Users/jguida941/testing_upgrade/codex-voice/rust\n");
-        }
-        card.push_str("2. Yes, and don't ask again for Web Search commands in this directory\n");
-        card.push_str("3. No\n");
-        assert!(chunk_contains_numbered_approval_hint(card.as_bytes()));
-    }
-
-    #[test]
-    fn numbered_approval_hint_ignores_plain_numbered_list() {
-        assert!(!chunk_contains_numbered_approval_hint(
-            b"1. alpha\n2. beta\n3. gamma\n"
-        ));
-    }
-
-    #[test]
-    fn live_approval_card_hint_requires_explicit_and_numbered_signals() {
-        assert!(chunk_contains_live_approval_card_hint(
-            b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. No\n"
-        ));
-        assert!(!chunk_contains_live_approval_card_hint(
-            b"Recap: Do you want to proceed with this plan later?\n"
-        ));
-        assert!(!chunk_contains_live_approval_card_hint(
-            b"1. alpha\n2. beta\n3. gamma\n"
-        ));
-    }
-
-    #[test]
-    fn substantial_non_prompt_activity_ignores_choice_echo() {
-        assert!(!chunk_contains_substantial_non_prompt_activity(b"1\n"));
-        assert!(!chunk_contains_substantial_non_prompt_activity(b"yes\n"));
-        assert!(!chunk_contains_substantial_non_prompt_activity(
-            b"\x1b[2K\r\n"
-        ));
-    }
-
-    #[test]
-    fn substantial_non_prompt_activity_detects_post_approval_output() {
-        assert!(chunk_contains_substantial_non_prompt_activity(
-            b"Approval accepted. Continuing execution...\n"
-        ));
-    }
-
-    #[test]
-    fn approval_hint_detects_split_card_when_chunks_are_merged() {
-        let chunk_a = b"This command requires approval\nDo you want to proceed?\n";
-        let chunk_b = b"1. Yes\n2. Yes, and don't ask again for this command\n";
-        assert!(chunk_contains_explicit_approval_hint(chunk_a));
-        assert!(!chunk_contains_numbered_approval_hint(chunk_a));
-        assert!(chunk_contains_numbered_approval_hint(chunk_b));
-        let mut merged = Vec::new();
-        merged.extend_from_slice(chunk_a);
-        merged.extend_from_slice(chunk_b);
-        assert!(chunk_contains_explicit_approval_hint(&merged));
-        assert!(chunk_contains_numbered_approval_hint(&merged));
-    }
-
-    #[test]
-    fn tool_activity_hint_detects_bash_tool_line() {
-        assert!(chunk_contains_tool_activity_hint(
-            b"Bash(echo $SHELL)\nDid 1 run in 0.1s\n"
-        ));
-    }
-
-    #[test]
-    fn tool_activity_hint_detects_web_search_line() {
-        assert!(chunk_contains_tool_activity_hint(
-            b"Web Search(\"rust async await\")\nDid 1 search in 8s\n"
-        ));
-    }
-
-    #[test]
-    fn tool_activity_hint_ignores_plain_bash_commands_heading() {
-        assert!(!chunk_contains_tool_activity_hint(
-            b"Bash Commands:\n1. Echo -- printed hello\n"
-        ));
-    }
-
-    #[test]
-    fn tool_activity_hint_ignores_plain_web_searches_heading() {
-        assert!(!chunk_contains_tool_activity_hint(
-            b"Web Searches:\n1. Rust TUI rendering -- Ratatui dominates\n"
-        ));
-    }
-
-    #[test]
-    fn tool_activity_hint_ignores_unrelated_output() {
-        assert!(!chunk_contains_tool_activity_hint(
-            b"transcript ready\nall checks passed\n"
-        ));
-    }
-}
+mod tests;

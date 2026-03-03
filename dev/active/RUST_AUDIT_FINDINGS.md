@@ -1,6 +1,6 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-03-01T23:09:42.726697  
+**Generated:** 2026-03-02T20:25:55.412399  
 **Trigger:** check-ai-guard  
 **Trigger steps:** code-shape-guard  
 **Diff range:** working-tree vs HEAD
@@ -36,7 +36,7 @@ planning and implementation, not a historical archive.
 
 | Guard | Focus | Severity | Return | Violations | Status |
 |---|---|---|---:|---:|---|
-| `code-shape-guard` | modularity | high | 1 | 2 | needs remediation |
+| `code-shape-guard` | modularity | high | 1 | 1 | needs remediation |
 | `rust-lint-debt-guard` | lint debt | high | 0 | 0 | clean |
 | `rust-best-practices-guard` | best practices | high | 0 | 0 | clean |
 | `rust-audit-patterns-guard` | known audit regressions | critical | 0 | 0 | clean |
@@ -49,8 +49,7 @@ planning and implementation, not a historical archive.
 - Severity: high
 - Return code: 1
 - Violations:
-- `dev/scripts/checks/check_code_shape.py` (crossed_soft_limit)
-- `dev/scripts/devctl/commands/check.py` (crossed_soft_limit)
+- `rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs` (crossed_soft_limit)
 
 ## Remediation Actions
 

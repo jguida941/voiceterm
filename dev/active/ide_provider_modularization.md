@@ -462,7 +462,7 @@ Each new check script must:
 | `check_code_shape.py` evaluator coverage | Phase 0 | dedicated unit tests for `_evaluate_shape` branch matrix | done |
 | `check_agents_contract.py` dedicated coverage | Phase 0 | unit tests + contract-row migration to `rust/src/**` snippets | pending |
 | Clippy threshold tightening | Phase 0 | `clippy.toml`: `cognitive-complexity-threshold = 25`, `Cargo.toml`: `too_many_lines = "warn"` | pending |
-| Parameterized characterization tests | Phase 0.5 | `rstest` crate + matrix tests for preclear/redraw/gap-rows | pending |
+| Parameterized characterization tests | Phase 0.5 | `rstest` crate + matrix tests for preclear/redraw/gap-rows | done |
 | Duplicate enum/type detector | Phase 1 | `check_duplicate_types.py` (~80 lines) | pending |
 | Structural complexity check | Phase 1 | `rust-code-analysis-cli` + `check_structural_complexity.py` (~80 lines) | pending |
 | IDE/provider isolation check | Phase 0 (report), Phase 2 (block) | `check_ide_provider_isolation.py` (~100 lines) with staged rollout | done (report-only baseline) |
@@ -470,7 +470,7 @@ Each new check script must:
 | Compat matrix YAML + check | Phase 4 | `ide_provider_matrix.yaml` + `check_compat_matrix.py` | pending |
 | devctl `compat-matrix` command | Phase 4 | `devctl/commands/compat_matrix.py` | pending |
 | General duplication audit | Phase 4 | `jscpd` integration (periodic, not CI gate) | pending |
-| Host/provider contract completion pass | Phase 0.5 | source-mapped adapter method inventory + closure plan for unresolved render/cross-product decisions | pending |
+| Host/provider contract completion pass | Phase 0.5 | source-mapped adapter method inventory + closure plan for unresolved render/cross-product decisions | done |
 
 ## Concrete Extraction Targets
 
@@ -619,14 +619,14 @@ Contract requirements:
 ### Global Gates (must stay true for every phase)
 
 - [x] Create baseline checkpoint packet `CP-000` before first code extraction.
-- [ ] After each phase, run the full checkpoint bundle and publish a checkpoint
+- [x] After each phase, run the full checkpoint bundle and publish a checkpoint
   packet under `dev/reports/mp346/checkpoints/<timestamp>/`.
 - [x] Append one row to `Operator Checkpoint Log` with pass/fail and go/no-go.
-- [ ] Do not advance to next phase without explicit operator go decision.
+- [x] Do not advance to next phase without explicit operator go decision.
 
 ### Phase 0: Ground Truth + Freeze
 
-- [ ] Capture current hotspots and branch complexity baselines for:
+- [x] Capture current hotspots and branch complexity baselines for:
   - `writer/state.rs`
   - `event_loop.rs`
   - `runtime_compat.rs`
@@ -661,7 +661,7 @@ Contract requirements:
 - [x] Add dependency-policy CI gate decision:
   - enforce `cargo deny` in CI/release, or
   - document equivalent policy path with explicit failure semantics.
-- [ ] Add CI baseline coverage hardening for contract stability:
+- [x] Add CI baseline coverage hardening for contract stability:
   - add explicit MSRV verification job for `rust-version = "1.70"`,
   - add feature-mode matrix checks beyond `--all-features`,
   - add runtime validation on at least one macOS lane in addition to Ubuntu.
@@ -682,20 +682,20 @@ Contract requirements:
   - add explicit `.exists()` guards for release metadata files
     (`Cargo.toml`, `pyproject.toml`, app `Info.plist`) and return structured
     missing-file diagnostics instead of uncaught exceptions.
-- [ ] Extend `check_code_shape.py` to flag stale `PATH_POLICY_OVERRIDES` entries
+- [x] Extend `check_code_shape.py` to flag stale `PATH_POLICY_OVERRIDES` entries
   when a file remains below override soft-limit for the configured review window.
-- [ ] Extend `failure_triage.yml` workflow coverage to include missing high-impact lanes
+- [x] Extend `failure_triage.yml` workflow coverage to include missing high-impact lanes
   (`Swarm Run`, `publish_release_binaries`) and keep workflow-name parity with
   `.github/workflows/*.yml`.
 - [x] Reconcile backend-support wording across user docs so Gemini status is consistent
   between `README.md`, `dev/ARCHITECTURE.md`, and `guides/CLI_FLAGS.md`.
-- [ ] Resolve governance tracker drift:
+- [x] Resolve governance tracker drift:
   - sync `MASTER_PLAN` multi-agent board statuses with current runbook ledger state,
   - resolve local `dev/BACKLOG.md` MP-ID collisions with canonical `MASTER_PLAN`
     scopes (or rename local backlog IDs to avoid tracker ambiguity).
-- [ ] Add cross-plan ownership gate in multi-agent runbook + `MASTER_PLAN`
+- [x] Add cross-plan ownership gate in multi-agent runbook + `MASTER_PLAN`
   before touching shared hotspot files used by Theme/MP-267 scopes.
-- [ ] Freeze net-new host/provider cross-conditionals in hotspot files except
+- [x] Freeze net-new host/provider cross-conditionals in hotspot files except
   for extraction refactors.
 - [x] Capture baseline mixed-condition counts in hotspot files
   (`writer/state.rs`, `event_loop.rs`, `terminal.rs`) using a reproducible
@@ -710,17 +710,17 @@ Tests must exist BEFORE extraction, not after. This phase writes
 characterization tests that lock in current behavior so Phases 1-3 can be
 validated against the existing contract.
 
-- [ ] Write parameterized matrix tests for `should_preclear_bottom_rows` across
+- [x] Write parameterized matrix tests for `should_preclear_bottom_rows` across
   all `(TerminalFamily, BackendFamily)` pairs.
-- [ ] Write parameterized matrix tests for `scroll_redraw_min_interval` across
+- [x] Write parameterized matrix tests for `scroll_redraw_min_interval` across
   all pairs.
-- [ ] Write parameterized matrix tests for `force_redraw` triggers across all
+- [x] Write parameterized matrix tests for `force_redraw` triggers across all
   pairs.
-- [ ] Write parameterized tests for `reserved_rows_for_mode` across all pairs.
-- [ ] Write parameterized tests for gap-row defaults per host.
-- [ ] Use `rstest` crate (add to `Cargo.toml` dev-dependencies) for matrix
+- [x] Write parameterized tests for `reserved_rows_for_mode` across all pairs.
+- [x] Write parameterized tests for gap-row defaults per host.
+- [x] Use `rstest` crate (add to `Cargo.toml` dev-dependencies) for matrix
   parameterization.
-- [ ] Run adapter-contract completion inventory:
+- [x] Run adapter-contract completion inventory:
   - host render-policy method coverage (banner redraw, color capability,
     cursor/autowrap redraw controls)
   - provider/host cross-product policy coverage (reserved-row budgets and
@@ -730,15 +730,40 @@ validated against the existing contract.
     - `should_force_full_banner_redraw_on_output` (`writer/state.rs`)
     - `treat_cr_as_scroll`, `flash_sensitive_scroll_profile`,
       `destructive_clear_repaint` (`writer/state.rs`)
-- [ ] Verify all 9 host/provider combinations have at least one assertion
+- [x] Verify all 9 host/provider combinations have at least one assertion
   covering preclear, redraw timing, and gap rows.
-- [ ] Add explicit input-ownership contract tests for terminal caret vs HUD focus:
+- [x] Add explicit input-ownership contract tests for terminal caret vs HUD focus:
   - define deterministic arrow-routing behavior for Codex and Claude across
     Cursor/JetBrains/Other hosts,
   - ensure users can always both edit text and reach HUD buttons without relying
-    on accidental mode flips (for example `Ctrl+T` recovery),
+  on accidental mode flips (for example `Ctrl+T` recovery),
   - cover `should_preserve_terminal_caret_navigation` and
-    `hud_navigation_direction_from_arrow` behavior with focused regression tests.
+  `hud_navigation_direction_from_arrow` behavior with focused regression tests.
+
+#### Phase 0.5 Adapter-Contract Completion Inventory (2026-03-02)
+
+Host render-policy method coverage:
+
+| Policy surface | Current owner | Characterization evidence | Closure status |
+|---|---|---|---|
+| Banner redraw policy (`should_force_full_banner_redraw_on_output`) | `rust/src/bin/voiceterm/writer/state.rs` (`DisplayState::should_force_full_banner_redraw_on_output`) | `writer/state/tests.rs`: `non_scrolling_output_does_not_force_full_banner_redraw`, `scrolling_output_forces_full_banner_redraw_for_multi_row_hud`, `scrolling_output_forces_full_banner_redraw_for_single_row_hud` | mapped |
+| Color capability policy | `rust/src/bin/voiceterm/color_mode.rs` (`ColorMode::detect`, `env_supports_truecolor_without_colorterm`) | `color_mode.rs` matrix/environment tests (`detect_terminal_capability_matrix_cases`, JetBrains/Cursor truecolor inference tests) | mapped |
+| Cursor/autowrap redraw controls | `rust/src/bin/voiceterm/writer/render.rs` (`should_disable_autowrap_during_redraw`, redraw write/clear helpers) | `writer/render.rs` tests for banner/status write/clear behavior under host-family rendering paths | mapped |
+
+Provider/host cross-product policy coverage:
+
+| Decision | Current owner | Characterization evidence | Closure status |
+|---|---|---|---|
+| Reserved-row budgets (`reserved_rows_for_mode`) | `rust/src/bin/voiceterm/terminal.rs` | `terminal.rs`: `reserved_rows_for_mode_matrix_matches_host_provider_contract` (9 host/provider cells, suppressed + unsuppressed assertions) | mapped |
+| Rolling vs non-rolling prompt policy (`should_use_rolling_prompt_detector`) | `rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs` | `event_loop/tests.rs`: non-rolling approval/suppression coverage via `install_prompt_rolling_override(false)` scenarios | mapped |
+| Banner redraw policy decision (`should_force_full_banner_redraw_on_output`) | `rust/src/bin/voiceterm/writer/state.rs` | `writer/state/tests.rs` redraw behavior tests listed above | mapped |
+| CR-as-scroll + flash-sensitive + destructive-clear decisions (`treat_cr_as_scroll`, `flash_sensitive_scroll_profile`, `destructive_clear_repaint`) | `rust/src/bin/voiceterm/writer/state.rs` | `writer/state/tests.rs`: `pty_output_may_scroll_rows_can_treat_carriage_return_as_scroll_for_codex_jetbrains`, scroll redraw matrix tests, destructive-clear detection tests + Cursor/Claude non-scroll redraw coverage | mapped |
+
+9-combo assertion closure:
+
+- Preclear matrix: `writer/state/tests.rs::should_preclear_bottom_rows_matrix_matches_host_provider_contract` (9 cells).
+- Redraw timing matrix: `writer/state/tests.rs::scroll_redraw_interval_matrix_matches_host_provider_contract` + `force_scroll_redraw_trigger_matrix_respects_host_provider_profile` (9 cells).
+- Gap rows matrix: `terminal.rs::reserved_rows_for_mode_matrix_matches_host_provider_contract` (9 cells).
 
 ### Phase 1: Canonical Host Detection
 
@@ -873,6 +898,8 @@ run old and new code paths in parallel during validation.
 |---|---|---|---|---|---|---|
 | `CP-000` | baseline | `dev/reports/mp346/checkpoints/20260302T032908Z-cp000/` | fail (`check_ci`, `rust_lint_debt_since_ref`) | pending (all 7 cells) | `no-go` | automated packet captured; manual matrix gate still required before phase advancement. |
 | `CP-003` | phase-0 rerun | `dev/reports/mp346/checkpoints/20260302T042017Z-cp003/` | pass (all automated bundle commands) | pending (all 7 cells) | `no-go` | CP-000 blockers revalidated and cleared on branch-aware commit-range baseline (`origin/master`); legacy `origin/develop` lint-debt check still reports historical release-range debt. |
+| `CP-004` | phase-0 phase-gate | `dev/reports/mp346/checkpoints/20260302T155409Z-cp004/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (phase 0.5 only)` | explicit operator approval to start characterization tests; phase-1+ extraction/refactor remains blocked until manual matrix completion. |
+| `CP-005` | phase-0.5 closure | `dev/reports/mp346/checkpoints/20260302T162839Z-cp005/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (manual matrix execution)` | Phase-0.5 checklist closure verified; Phase-1+ extraction/refactor remains blocked until manual matrix completion. |
 
 ## Scope Splitting Recommendation
 
@@ -1200,6 +1227,67 @@ MP-346 is complete only when all conditions below are true:
     upgrade available),
   - reran `cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources`
     locally with result: `advisories ok, bans ok, licenses ok, sources ok`.
+- 2026-03-02: Phase-0 governance/tooling gate closure pass:
+  - captured hotspot size + branch-site baseline artifact at
+    `dev/reports/mp346/baselines/hotspot_branch_complexity_baseline.txt`
+    covering `writer/state.rs`, `event_loop.rs`, `runtime_compat.rs`, and
+    `ipc/router.rs`,
+  - expanded `.github/workflows/rust_ci.yml` with explicit MSRV validation
+    (`1.70.0`), feature-mode matrix checks (`default`, `--no-default-features`),
+    and macOS runtime smoke validation in addition to Ubuntu,
+  - extended `.github/workflows/failure_triage.yml` watchlist with
+    `Swarm Run` and `publish_release_binaries`,
+  - extended `check_code_shape.py` with stale-override review-window detection
+    (`--stale-override-review-window-days`) and removed stale override entries
+    for `event_loop/input_dispatch.rs` and `status_line/buttons.rs`,
+  - resolved tracker drift by syncing `MASTER_PLAN` lane statuses with runbook
+    ledger state for `AGENT-1..3` and renaming local `dev/BACKLOG.md` IDs to
+    `LB-*` to avoid canonical `MP-*` collisions,
+  - added explicit cross-plan shared-hotspot ownership + conditional-freeze
+    governance in `MULTI_AGENT_WORKTREE_RUNBOOK.md` Section 7/18 and mirrored
+    the gate in `MASTER_PLAN` branch-guard policy.
+- 2026-03-02: Phase-0 checkpoint/go decision closure:
+  - captured `CP-004` packet at
+    `dev/reports/mp346/checkpoints/20260302T155409Z-cp004/` with full
+    checkpoint bundle pass on `origin/develop` baseline,
+  - recorded explicit phase-advance decision as `go (phase 0.5 only)` so
+    characterization test work can proceed,
+  - retained `no-go` for phase-1+ extraction/refactor until the required
+    7-cell manual runtime matrix is completed and attached.
+- 2026-03-02: Phase-0.5 characterization kickoff (matrix + input ownership):
+  - added `rstest` (`0.18`) to `rust/Cargo.toml` dev-dependencies for matrix
+    parameterization,
+  - added 9-way `(TerminalFamily, BackendFamily)` matrix characterization tests
+    in dedicated `writer/state/tests.rs` (wired via `state.rs:#[cfg(test)] mod tests;`)
+    for `should_preclear_bottom_rows`,
+    `scroll_redraw_min_interval`, and force-redraw trigger timing behavior,
+  - added focused input-ownership contract tests in
+    `event_loop/input_dispatch.rs` for
+    `should_preserve_terminal_caret_navigation` +
+    `hud_navigation_direction_from_arrow`, including Codex/Claude coverage
+    across Cursor/JetBrains/Other host matrix labels,
+  - validated with `cd rust && cargo test --bin voiceterm` (`1387` passed).
+- 2026-03-02: Phase-0.5 characterization closure pass (remaining 4 checklist items):
+  - added host/provider matrix assertions in `terminal.rs` for
+    `reserved_rows_for_mode` across all 9 host/provider pairs (including
+    suppressed and unsuppressed prompt states),
+  - converted runtime gap-row default checks to parameterized host-default
+    tests in `runtime_compat.rs` (`parse_claude_extra_gap_rows`,
+    `parse_hud_safety_gap_rows`),
+  - completed and recorded the adapter-contract completion inventory in this
+    plan (host render-policy coverage + cross-product decision mapping),
+  - closed explicit 9-combo assertion evidence for preclear, redraw timing, and
+    gap-row behaviors.
+- 2026-03-02: CP-005 packet capture for Phase-0.5 closure:
+  - captured `CP-005` packet at
+    `dev/reports/mp346/checkpoints/20260302T162839Z-cp005/`,
+  - automated checkpoint bundle status: all pass (`check_ci`,
+    `docs_check_strict_tooling`, `active_plan_sync`, `multi_agent_sync`,
+    `code_shape_since_ref`, `rust_lint_debt_since_ref`,
+    `rust_best_practices_since_ref`, `cargo_test_bin_voiceterm`),
+  - operator decision updated to `go (manual matrix execution)` with retained
+    `no-go` for phase-1+ extraction/refactor until the 7-cell manual runtime
+    matrix evidence is attached.
 
 ## Audit Evidence
 
@@ -1266,3 +1354,14 @@ MP-346 is complete only when all conditions below are true:
 | `cd rust && cargo doc --workspace --no-deps --all-features` | validates the new CI documentation compile gate command completes successfully in the current tree | done |
 | `nl -ba .github/workflows/security_guard.yml` + `nl -ba .github/workflows/release_preflight.yml` + `nl -ba .github/workflows/README.md` | confirms dependency-policy CI/release decision is enforced via explicit `cargo deny` gates and documented in workflow guidance | done |
 | `cargo update -p bytes --precise 1.11.1 --manifest-path rust/Cargo.toml` + `rg -n "name = \"bytes\"|version = \"1.11.1\"" rust/Cargo.lock` + `cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources` | confirms transitive `bytes` moved to patched `1.11.1` and deny gate now passes with current policy exceptions | done |
+| `cat dev/reports/mp346/baselines/hotspot_branch_complexity_baseline.txt` | captures Phase-0 hotspot size + branch-site baseline for `writer/state.rs`, `event_loop.rs`, `runtime_compat.rs`, and `ipc/router.rs` | done |
+| `nl -ba .github/workflows/rust_ci.yml` + `nl -ba .github/workflows/README.md` | confirms CI baseline hardening now includes MSRV (`1.70.0`), feature-mode matrix (`default`, `--no-default-features`), and macOS runtime smoke validation | done |
+| `nl -ba .github/workflows/failure_triage.yml` + workflow `name:` scan | confirms failure triage watchlist now includes `Swarm Run` and `publish_release_binaries` with name parity to workflow headers | done |
+| `nl -ba dev/scripts/checks/check_code_shape.py` + `nl -ba dev/scripts/checks/code_shape_policy.py` | confirms stale override review-window gate (`--stale-override-review-window-days`) and removal of stale overrides for `event_loop/input_dispatch.rs` + `status_line/buttons.rs` | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_code_shape_guidance` | validates stale-override evaluator coverage in addition to existing shape-evaluator branch tests | done |
+| `nl -ba dev/active/MASTER_PLAN.md` + `nl -ba dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` + `nl -ba dev/BACKLOG.md` | confirms board/ledger status sync, cross-plan shared-hotspot ownership/freeze gate activation, and local backlog ID deconfliction (`LB-*`) | done |
+| `cat dev/reports/mp346/checkpoints/20260302T155409Z-cp004/summary.md` + `exit_codes.env` | confirms CP-004 full checkpoint bundle pass with explicit `go (phase 0.5 only)` and retained phase-1+ `no-go` | done |
+| `cat dev/reports/mp346/checkpoints/20260302T162839Z-cp005/summary.md` + `exit_codes.env` | confirms CP-005 Phase-0.5 closure bundle pass with explicit `go (manual matrix execution)` and retained phase-1+ `no-go` pending manual matrix evidence | done |
+| `nl -ba rust/src/bin/voiceterm/writer/state/tests.rs` + matrix test names (`*_matrix_*`) | verifies 9-way host/provider matrix characterization coverage for preclear, scroll redraw interval, and force-redraw trigger timing | done |
+| `nl -ba rust/src/bin/voiceterm/event_loop/input_dispatch.rs` + input ownership test names (`insert_pending_preserves_caret_*`, `hud_navigation_direction_from_arrow_*`) | verifies deterministic caret-vs-HUD arrow ownership contract coverage for Codex/Claude across Cursor/JetBrains/Other labels | done |
+| `cd rust && cargo test --bin voiceterm` | validates runtime suite with new `rstest` dependency and Phase-0.5 characterization tests (`1387` passed) | done |

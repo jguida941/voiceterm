@@ -38,6 +38,7 @@ use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
+    static TERMINAL_SIZE_HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static START_CAPTURE_CALLS: Cell<usize> = const { Cell::new(0) };
     static LAST_CAPTURE_TRIGGER: Cell<Option<VoiceCaptureTrigger>> = const { Cell::new(None) };
     static EARLY_STOP_CALLS: Cell<usize> = const { Cell::new(0) };
@@ -80,6 +81,7 @@ impl Drop for SigwinchHookGuard {
     fn drop(&mut self) {
         set_take_sigwinch_hook(None);
         set_terminal_size_hook(None);
+        TERMINAL_SIZE_HOOK_CALLS.with(|calls| calls.set(0));
     }
 }
 
@@ -259,6 +261,22 @@ fn hook_terminal_size_0x0() -> io::Result<(u16, u16)> {
     Ok((0, 0))
 }
 
+fn hook_terminal_size_80x2_then_80x24() -> io::Result<(u16, u16)> {
+    TERMINAL_SIZE_HOOK_CALLS.with(|calls| {
+        let call = calls.get();
+        calls.set(call + 1);
+        if call == 0 {
+            Ok((80, 2))
+        } else {
+            Ok((80, 24))
+        }
+    })
+}
+
+fn hook_terminal_size_80x2() -> io::Result<(u16, u16)> {
+    Ok((80, 2))
+}
+
 fn hook_start_capture_count(
     _: &mut crate::voice_control::VoiceManager,
     trigger: VoiceCaptureTrigger,
@@ -421,6 +439,7 @@ fn build_harness(
         preview_clear_deadline: None,
         prompt_suppression_release_not_before: None,
         last_auto_trigger_at: None,
+        last_user_input_at: None,
         last_enter_at: None,
         recording_started_at: None,
         last_recording_update: now,
@@ -431,6 +450,7 @@ fn build_harness(
         last_toast_tick: now,
         last_theme_file_poll: now,
         last_terminal_geometry_poll: now,
+        pending_terminal_geometry_sample: None,
     };
 
     let deps = EventLoopDeps {
@@ -653,6 +673,30 @@ fn flush_pending_pty_input_pops_front_when_offset_reaches_chunk_end() {
 fn event_loop_constants_match_expected_limits() {
     assert_eq!(METER_DB_FLOOR, -60.0);
     assert_eq!(PTY_INPUT_MAX_BUFFER_BYTES, 256 * 1024);
+}
+
+#[test]
+fn should_emit_user_input_activity_for_claude_in_cursor_and_jetbrains_hosts() {
+    assert!(should_emit_user_input_activity_for_host(
+        "claude",
+        TerminalHost::Cursor
+    ));
+    assert!(should_emit_user_input_activity_for_host(
+        "claude",
+        TerminalHost::JetBrains
+    ));
+}
+
+#[test]
+fn should_not_emit_user_input_activity_for_non_claude_or_other_hosts() {
+    assert!(!should_emit_user_input_activity_for_host(
+        "codex",
+        TerminalHost::Cursor
+    ));
+    assert!(!should_emit_user_input_activity_for_host(
+        "claude",
+        TerminalHost::Other
+    ));
 }
 
 #[test]
@@ -2477,6 +2521,78 @@ fn run_periodic_tasks_geometry_poll_ignores_zero_size_probe() {
 }
 
 #[test]
+fn run_periodic_tasks_geometry_poll_debounces_single_claude_row_collapse_probe() {
+    let _hooks =
+        install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x2_then_80x24);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+
+    let first_tick = Instant::now();
+    timers.last_terminal_geometry_poll = first_tick - Duration::from_millis(1000);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, first_tick);
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "single collapse probe should not emit resize"
+    );
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
+    assert!(
+        timers.pending_terminal_geometry_sample.is_some(),
+        "first collapse probe should arm stabilization sample"
+    );
+
+    let second_tick = first_tick + Duration::from_millis(1000);
+    timers.last_terminal_geometry_poll = second_tick - Duration::from_millis(1000);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, second_tick);
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "returning to stable geometry should clear sample without resize"
+    );
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
+    assert!(
+        timers.pending_terminal_geometry_sample.is_none(),
+        "stable sample should clear collapse debounce state"
+    );
+}
+
+#[test]
+fn run_periodic_tasks_geometry_poll_accepts_persistent_claude_row_collapse() {
+    let _hooks = install_sigwinch_hooks(hook_take_sigwinch_false, hook_terminal_size_80x2);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+
+    let first_tick = Instant::now();
+    timers.last_terminal_geometry_poll = first_tick - Duration::from_millis(1000);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, first_tick);
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "first collapse sample should be held for stabilization"
+    );
+    assert_eq!(state.ui.terminal_rows, 24);
+
+    let second_tick = first_tick + Duration::from_millis(1000);
+    timers.last_terminal_geometry_poll = second_tick - Duration::from_millis(1000);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, second_tick);
+    let msg = writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("persistent collapse should emit resize after debounce");
+    match msg {
+        WriterMessage::Resize { rows, cols } => {
+            assert_eq!(rows, 2);
+            assert_eq!(cols, 80);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+    assert_eq!(state.ui.terminal_rows, 2);
+    assert_eq!(state.ui.terminal_cols, 80);
+}
+
+#[test]
 fn run_periodic_tasks_updates_recording_duration() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     let now = Instant::now();
@@ -3702,6 +3818,99 @@ fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
         now + Duration::from_secs(4),
     );
     assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn handle_output_chunk_synchronized_cursor_activity_suppresses_hud_until_quiet_window() {
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\r\x1b[6A* Crunched for 47s\r\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(1200),
+    );
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_secs(4),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn handle_output_chunk_recent_input_echo_rewrite_does_not_re_suppress_hud() {
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+    timers.last_user_input_at = Some(Instant::now());
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\x1b[2K\x1b[G\x1b[1A\r\x1b[2C\x1b[2Ab\x1b[7m \r\x1b[2B\x1b[27m                                              \x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "recent local keystrokes should prevent prompt-input repaint packets from hiding the HUD"
+    );
+}
+
+#[test]
+fn handle_output_chunk_input_echo_rewrite_does_not_suppress_without_recent_input_timestamp() {
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\x1b[2K\x1b[G\x1b[1A\r\x1b[2C\x1b[2Ab\x1b[7m \r\x1b[2B\x1b[27m                                              \x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "input-echo rewrites should not hide HUD even when input/output ordering races"
+    );
 }
 
 #[test]

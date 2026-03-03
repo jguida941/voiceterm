@@ -32,9 +32,11 @@ on:
       - Rust TUI CI
       - scorecard
       - Security Guard
+      - Swarm Run
       - Tooling Control Plane
       - Voice Mode Guard
       - Wake Word Guard
+      - publish_release_binaries
       - workflow_lint
     types:
       - completed

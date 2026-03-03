@@ -69,6 +69,7 @@ path = "src/bin/test_utf8_bug.rs"
 
 [dev-dependencies]
 proptest = "1"
+rstest = "0.18"
 
 [profile.release]
 lto = "thin"

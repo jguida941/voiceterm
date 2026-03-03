@@ -127,6 +127,16 @@ Lane-specific add-ons:
 1. No lane may edit another lane's assigned files without explicit runbook update.
 2. Runtime-affecting changes require matching risk-matrix tests before review.
 3. Any new control-plane action must remain behind explicit allowlists and confirmation for mutating commands.
+4. Shared-hotspot files require an ownership claim in Section 18 before edits when scopes overlap Theme (`MP-148..MP-182`), naming/API cohesion (`MP-267`), or IDE/provider modularization (`MP-346`).
+5. Conditional-freeze rule: no net-new host/provider mixed conditionals in hotspot files unless the Section 18 claim marks `Refactor class` as `extraction-refactor` and links checkpoint evidence.
+
+Shared hotspots covered by this gate:
+
+- `rust/src/bin/voiceterm/writer/state.rs`
+- `rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs`
+- `rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs`
+- `rust/src/bin/voiceterm/theme/rule_profile.rs`
+- `rust/src/bin/voiceterm/theme/style_pack.rs`
 
 ## 8) Reviewer Gate Protocol
 
@@ -273,3 +283,12 @@ git worktree list
 # AGENT_MAX=${AGENT_MAX:-10}
 # for n in $(seq 1 "${AGENT_MAX}"); do git worktree remove "../codex-voice-wt-a${n}"; done
 ```
+
+## 18) Shared Hotspot Ownership Gate (Required)
+
+Use this table before editing files listed in Section 7 when multiple active-plan
+scopes share ownership.
+
+| UTC claimed | Owner | MP scope | Hotspot path | Handoff token | Refactor class | Status | Evidence/notes |
+|---|---|---|---|---|---|---|---|
+| `2026-03-02T00:00:00Z` | `ORCHESTRATOR` | `MP-346` | `policy` | `hotspot-gate-v1` | `governance` | `active` | `Cross-plan shared-hotspot claim gate activated for Theme/MP-267/MP-346 overlap.` |

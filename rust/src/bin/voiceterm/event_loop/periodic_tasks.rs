@@ -5,6 +5,10 @@ use super::*;
 const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
 const TOAST_TICK_INTERVAL_MS: u64 = 250;
 const TERMINAL_GEOMETRY_POLL_INTERVAL_MS: u64 = 250;
+const CLAUDE_GEOMETRY_COLLAPSE_ROWS_MAX: u16 = 2;
+const CLAUDE_GEOMETRY_COLLAPSE_MIN_PREVIOUS_ROWS: u16 = 10;
+const CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED: u8 = 2;
+const CLAUDE_GEOMETRY_COLLAPSE_STABILIZE_MS: u64 = 350;
 
 fn normalize_measured_terminal_size(
     cached_cols: u16,
@@ -65,6 +69,57 @@ fn reconcile_terminal_geometry(
     }
 }
 
+fn is_transient_claude_geometry_collapse(
+    state: &EventLoopState,
+    deps: &EventLoopDeps,
+    cols: u16,
+    rows: u16,
+) -> bool {
+    BackendFamily::from_label(&deps.backend_label) == BackendFamily::Claude
+        && state.ui.terminal_rows >= CLAUDE_GEOMETRY_COLLAPSE_MIN_PREVIOUS_ROWS
+        && cols == state.ui.terminal_cols
+        && rows <= CLAUDE_GEOMETRY_COLLAPSE_ROWS_MAX
+}
+
+fn stable_geometry_sample_or_none(
+    state: &EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &EventLoopDeps,
+    cols: u16,
+    rows: u16,
+    now: Instant,
+) -> Option<(u16, u16)> {
+    if !is_transient_claude_geometry_collapse(state, deps, cols, rows) {
+        timers.pending_terminal_geometry_sample = None;
+        return Some((cols, rows));
+    }
+
+    match timers.pending_terminal_geometry_sample.as_mut() {
+        Some(sample) if sample.cols == cols && sample.rows == rows => {
+            sample.confirmations = sample.confirmations.saturating_add(1);
+            let stable_for = now.saturating_duration_since(sample.first_seen_at);
+            if sample.confirmations >= CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED
+                || stable_for >= Duration::from_millis(CLAUDE_GEOMETRY_COLLAPSE_STABILIZE_MS)
+            {
+                timers.pending_terminal_geometry_sample = None;
+                Some((cols, rows))
+            } else {
+                None
+            }
+        }
+        _ => {
+            timers.pending_terminal_geometry_sample =
+                Some(crate::event_state::TerminalGeometrySample {
+                    cols,
+                    rows,
+                    first_seen_at: now,
+                    confirmations: 1,
+                });
+            None
+        }
+    }
+}
+
 pub(super) fn run_periodic_tasks(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
@@ -87,7 +142,11 @@ pub(super) fn run_periodic_tasks(
             state.ui.terminal_rows,
             measured,
         ) {
-            reconcile_terminal_geometry(state, deps, cols, rows);
+            if let Some((stable_cols, stable_rows)) =
+                stable_geometry_sample_or_none(state, timers, deps, cols, rows, now)
+            {
+                reconcile_terminal_geometry(state, deps, stable_cols, stable_rows);
+            }
         }
     }
 

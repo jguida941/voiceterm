@@ -295,6 +295,7 @@ fn main() -> Result<()> {
                 .map(|dir| dir.to_string_lossy().to_string())
         })
         .unwrap_or_else(|| ".".to_string());
+    log_debug(&format!("resolved working directory: {working_dir}"));
     let voice_macros = VoiceMacros::load_for_project(Path::new(&working_dir));
     if let Some(path) = voice_macros.source_path() {
         log_debug(&format!(
@@ -562,6 +563,7 @@ fn main() -> Result<()> {
         preview_clear_deadline: None,
         prompt_suppression_release_not_before: None,
         last_auto_trigger_at: None,
+        last_user_input_at: None,
         last_enter_at: None,
         recording_started_at: None,
         last_recording_update: Instant::now(),
@@ -572,6 +574,7 @@ fn main() -> Result<()> {
         last_toast_tick: Instant::now(),
         last_theme_file_poll: Instant::now(),
         last_terminal_geometry_poll: Instant::now(),
+        pending_terminal_geometry_sample: None,
     };
     let mut deps = EventLoopDeps {
         session,

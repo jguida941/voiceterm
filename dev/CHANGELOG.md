@@ -14,6 +14,11 @@ Note: Some historical entries reference internal documents that are not publishe
 ### Documentation
 
 - Publish an explicit IDE compatibility matrix in `README.md` and `guides/USAGE.md`, with aligned pointers from `QUICK_START.md`, `guides/README.md`, and `guides/TROUBLESHOOTING.md` so users only treat verified IDE hosts as supported.
+- Document a JetBrains + Claude host-specific limitation for very long parallel
+  tool/web-search turns (temporary HUD/transcript overlap at turn completion),
+  with a clear workaround: resize the terminal once to force layout
+  recalculation (`README.md`, `QUICK_START.md`, `guides/USAGE.md`,
+  `guides/CLI_FLAGS.md`, `guides/INSTALL.md`, `guides/TROUBLESHOOTING.md`).
 
 ## [1.0.98] - 2026-03-01
 ### UX

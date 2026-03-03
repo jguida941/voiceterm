@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-01
+**Last Updated:** 2026-03-02
 
 ## At a Glance
 
@@ -153,6 +153,33 @@ Inference: These screenshots improve readability for users. They show current UI
 3. Verify you are not reintroducing a previously reverted pattern.
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
 5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
+
+### Recent Governance Update (2026-03-02, MP-346 Phase-0 Tooling Gate Closure)
+
+Fact: MP-346 Phase-0 governance/tooling gaps for CI baseline hardening,
+failure-triage lane coverage, stale shape-override detection, and cross-plan
+ownership/freeze policy are now enforced in tracked workflow and guard surfaces.
+
+Evidence:
+
+- `.github/workflows/rust_ci.yml` (added explicit MSRV `1.70.0` validation,
+  feature-mode matrix checks, and macOS runtime smoke lane)
+- `.github/workflows/failure_triage.yml` (watchlist now includes `Swarm Run` and
+  `publish_release_binaries`)
+- `dev/scripts/checks/check_code_shape.py` +
+  `dev/scripts/checks/code_shape_policy.py` (stale override review-window
+  detection and stale override cleanup)
+- `dev/active/MASTER_PLAN.md` + `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
+  (board/ledger status sync and explicit shared-hotspot ownership/freeze gate)
+- `dev/BACKLOG.md` (local-only IDs moved to `LB-*` to avoid canonical `MP-*`
+  collisions)
+- `dev/active/ide_provider_modularization.md` +
+  `dev/reports/mp346/baselines/hotspot_branch_complexity_baseline.txt`
+  (checklist/progress updates and hotspot complexity baseline artifact)
+
+Inference: Phase-0 execution now has explicit CI + governance guard coverage for
+the remaining non-runtime blockers, reducing ambiguity before Phase 0.5
+characterization work.
 
 ### Recent Governance Update (2026-03-01, v1.0.98 Release Gate Alignment)
 

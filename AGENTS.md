@@ -506,7 +506,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 
 | Change signal | Lanes to verify |
 |---|---|
-| `rust/src/**` runtime changes | `rust_ci.yml` |
+| `rust/src/**` runtime changes | `rust_ci.yml` (Ubuntu main lane + MSRV `1.70.0` check + feature-mode matrix + macOS runtime smoke lane) |
 | Send mode/macros/transcript delivery | `voice_mode_guard.yml` |
 | Wake-word runtime/detection | `wake_word_guard.yml` |
 | Perf-sensitive paths | `perf_smoke.yml`, `latency_guard.yml` |
@@ -531,7 +531,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 | GitHub release publication / Homebrew distribution | `publish_homebrew.yml` |
 | GitHub release publication / native binaries | `publish_release_binaries.yml` |
 | Release source provenance attestation | `release_attestation.yml` |
-| Any non-success CI workflow run | `failure_triage.yml` (workflow-run triage bundle + artifact upload; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
+| Any non-success CI workflow run | `failure_triage.yml` (workflow-run triage bundle + artifact upload; includes `Swarm Run` and `publish_release_binaries`; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
 | Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled) plus local mutation-score evidence |
 
@@ -778,7 +778,9 @@ Supporting scripts:
 - `scripts/macros.sh`
 
 `check_code_shape.py` enforces both language-level limits and path-level
-hotspot budgets for Phase 3C decomposition targets.
+hotspot budgets for Phase 3C decomposition targets, and now flags stale loose
+path overrides when files remain below language soft limits for the configured
+review window.
 `check_active_plan_sync.py` enforces active-doc index/spec parity, mirrored-spec
 phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
 Snapshot release freshness (branch policy + release-tag consistency).

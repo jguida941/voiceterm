@@ -78,3 +78,70 @@ jobs:
           git add ../.github/badges/ci-status.json
           git commit -m "chore: update CI badge"
           git push
+
+  rust-msrv:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install Rust (MSRV)
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+        with:
+          toolchain: "1.70.0"
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: cargo check (MSRV)
+        run: cargo check --workspace --all-features
+
+  rust-feature-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        feature_mode:
+          - name: default-features
+            args: "--workspace"
+          - name: no-default-features
+            args: "--workspace --no-default-features"
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: cargo check (${{ matrix.feature_mode.name }})
+        run: cargo check ${{ matrix.feature_mode.args }}
+
+  rust-macos-runtime:
+    runs-on: macos-14
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - name: cargo test runtime smoke
+        run: cargo test --bin voiceterm -- --nocapture

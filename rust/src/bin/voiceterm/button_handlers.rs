@@ -193,6 +193,12 @@ impl<'a> ButtonActionContext<'a> {
                 return;
             }
         };
+        let voiceterm_cwd =
+            std::env::var("VOICETERM_CWD").unwrap_or_else(|_| "<unset>".to_string());
+        log_debug(&format!(
+            "image captured path={} voiceterm_cwd={voiceterm_cwd}",
+            captured_path.display()
+        ));
 
         let prompt = build_image_prompt(&captured_path, self.config.voice_send_mode);
         if let Err(err) = self.session.send_text(&prompt.text) {

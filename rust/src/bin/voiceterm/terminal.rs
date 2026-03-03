@@ -235,26 +235,174 @@ pub(crate) fn update_pty_winsize(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::env;
     use std::sync::{Mutex, OnceLock};
     use std::thread;
     use std::time::Duration;
 
-    fn with_backend_env<T>(backend_label: Option<&str>, f: impl FnOnce() -> T) -> T {
+    fn with_backend_host_env<T>(
+        host: runtime_compat::TerminalHost,
+        backend_label: Option<&str>,
+        f: impl FnOnce() -> T,
+    ) -> T {
+        const HOST_ENV_KEYS: &[&str] = &[
+            "PYCHARM_HOSTED",
+            "JETBRAINS_IDE",
+            "IDEA_INITIAL_DIRECTORY",
+            "IDEA_INITIAL_PROJECT",
+            "CLION_IDE",
+            "WEBSTORM_IDE",
+            "TERM_PROGRAM",
+            "TERMINAL_EMULATOR",
+            "CURSOR_TRACE_ID",
+            "CURSOR_APP_VERSION",
+            "CURSOR_VERSION",
+            "CURSOR_BUILD_VERSION",
+        ];
         static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
         let _guard = lock.lock().expect("env lock poisoned");
+
+        let previous_host: Vec<(String, Option<String>)> = HOST_ENV_KEYS
+            .iter()
+            .map(|key| ((*key).to_string(), env::var(key).ok()))
+            .collect();
+        for key in HOST_ENV_KEYS {
+            env::remove_var(key);
+        }
+        match host {
+            runtime_compat::TerminalHost::JetBrains => {
+                env::set_var("PYCHARM_HOSTED", "1");
+            }
+            runtime_compat::TerminalHost::Cursor => {
+                env::set_var("TERM_PROGRAM", "Cursor");
+            }
+            runtime_compat::TerminalHost::Other => {}
+        }
+
         let prev = env::var("VOICETERM_BACKEND_LABEL").ok();
         match backend_label {
             Some(label) => env::set_var("VOICETERM_BACKEND_LABEL", label),
             None => env::remove_var("VOICETERM_BACKEND_LABEL"),
         }
+
         let out = f();
+
         match prev {
             Some(value) => env::set_var("VOICETERM_BACKEND_LABEL", value),
             None => env::remove_var("VOICETERM_BACKEND_LABEL"),
         }
+        for (key, value) in previous_host {
+            match value {
+                Some(v) => env::set_var(&key, v),
+                None => env::remove_var(&key),
+            }
+        }
         out
+    }
+
+    fn with_backend_env<T>(backend_label: Option<&str>, f: impl FnOnce() -> T) -> T {
+        with_backend_host_env(runtime_compat::TerminalHost::Other, backend_label, f)
+    }
+
+    fn expected_reserved_rows_for_none_mode(
+        host: runtime_compat::TerminalHost,
+        backend: runtime_compat::BackendFamily,
+        cols: u16,
+        hud_style: HudStyle,
+        claude_prompt_suppressed: bool,
+    ) -> usize {
+        let base_unsuppressed = status_banner_height_with_policy(cols as usize, hud_style, false);
+        if backend == runtime_compat::BackendFamily::Codex {
+            return base_unsuppressed;
+        }
+
+        let mut reserved =
+            base_unsuppressed + runtime_compat::parse_hud_safety_gap_rows(None, host);
+        if backend == runtime_compat::BackendFamily::Claude {
+            reserved += runtime_compat::parse_claude_extra_gap_rows(None, host);
+        }
+        if claude_prompt_suppressed && backend != runtime_compat::BackendFamily::Claude {
+            status_banner_height_with_policy(cols as usize, hud_style, true)
+        } else {
+            reserved
+        }
+    }
+
+    #[rstest]
+    #[case(
+        runtime_compat::TerminalHost::JetBrains,
+        "codex",
+        runtime_compat::BackendFamily::Codex
+    )]
+    #[case(
+        runtime_compat::TerminalHost::JetBrains,
+        "claude",
+        runtime_compat::BackendFamily::Claude
+    )]
+    #[case(
+        runtime_compat::TerminalHost::JetBrains,
+        "custom-cli",
+        runtime_compat::BackendFamily::Other
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Cursor,
+        "codex",
+        runtime_compat::BackendFamily::Codex
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Cursor,
+        "claude",
+        runtime_compat::BackendFamily::Claude
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Cursor,
+        "custom-cli",
+        runtime_compat::BackendFamily::Other
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Other,
+        "codex",
+        runtime_compat::BackendFamily::Codex
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Other,
+        "claude",
+        runtime_compat::BackendFamily::Claude
+    )]
+    #[case(
+        runtime_compat::TerminalHost::Other,
+        "custom-cli",
+        runtime_compat::BackendFamily::Other
+    )]
+    fn reserved_rows_for_mode_matrix_matches_host_provider_contract(
+        #[case] host: runtime_compat::TerminalHost,
+        #[case] backend_label: &str,
+        #[case] backend: runtime_compat::BackendFamily,
+    ) {
+        const COLS: u16 = 120;
+        for claude_prompt_suppressed in [false, true] {
+            with_backend_host_env(host, Some(backend_label), || {
+                let actual = reserved_rows_for_mode(
+                    OverlayMode::None,
+                    COLS,
+                    HudStyle::Full,
+                    claude_prompt_suppressed,
+                );
+                let expected = expected_reserved_rows_for_none_mode(
+                    host,
+                    backend,
+                    COLS,
+                    HudStyle::Full,
+                    claude_prompt_suppressed,
+                );
+                assert_eq!(
+                    actual, expected,
+                    "host={host:?}, backend={backend:?}, suppressed={claude_prompt_suppressed}"
+                );
+            });
+        }
     }
 
     #[test]

@@ -121,6 +121,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) preview_clear_deadline: Option<Instant>,
     pub(crate) prompt_suppression_release_not_before: Option<Instant>,
     pub(crate) last_auto_trigger_at: Option<Instant>,
+    pub(crate) last_user_input_at: Option<Instant>,
     pub(crate) last_enter_at: Option<Instant>,
     pub(crate) recording_started_at: Option<Instant>,
     pub(crate) last_recording_update: Instant,
@@ -131,6 +132,16 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_toast_tick: Instant,
     pub(crate) last_theme_file_poll: Instant,
     pub(crate) last_terminal_geometry_poll: Instant,
+    /// Pending terminal geometry sample awaiting stabilization before apply.
+    pub(crate) pending_terminal_geometry_sample: Option<TerminalGeometrySample>,
+}
+
+/// Geometry sample captured from terminal probing.
+pub(crate) struct TerminalGeometrySample {
+    pub(crate) cols: u16,
+    pub(crate) rows: u16,
+    pub(crate) first_seen_at: Instant,
+    pub(crate) confirmations: u8,
 }
 
 pub(crate) struct EventLoopDeps {

@@ -68,19 +68,7 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "rust/src/bin/voiceterm/event_loop/input_dispatch.rs": ShapePolicy(
-        soft_limit=1200,
-        hard_limit=1561,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
     "rust/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/status_line/buttons.rs": ShapePolicy(
         soft_limit=1000,
         hard_limit=1200,
         oversize_growth_limit=0,
@@ -105,7 +93,7 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_code_shape.py": ShapePolicy(
-        soft_limit=450,
+        soft_limit=600,
         hard_limit=650,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,

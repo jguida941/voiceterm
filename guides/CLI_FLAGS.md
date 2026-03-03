@@ -130,6 +130,11 @@ voiceterm --login --claude      # Login to Claude CLI
 
 - `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`.
 - Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Only Codex and Claude are fully supported.
+- JetBrains + Claude known limitation: after very long parallel tool calls or
+  parallel web-search turns, temporary HUD/transcript overlap can appear at
+  turn completion. Quick workaround: resize the terminal once (even by 1
+  row/column). Details:
+  [TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output](TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
 
 ---
 

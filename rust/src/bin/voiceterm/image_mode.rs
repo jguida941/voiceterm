@@ -11,6 +11,7 @@ use crate::config::{OverlayConfig, VoiceSendMode};
 
 const IMAGE_CAPTURE_DIR: &str = ".voiceterm/captures";
 const IMAGE_CAPTURE_PATH_ENV: &str = "VOICETERM_IMAGE_PATH";
+const WORKING_DIR_ENV: &str = "VOICETERM_CWD";
 
 pub(crate) struct ImagePrompt {
     pub(crate) text: String,
@@ -40,7 +41,7 @@ pub(crate) fn build_image_prompt(path: &Path, send_mode: VoiceSendMode) -> Image
 }
 
 fn next_capture_path() -> Result<PathBuf> {
-    let working_dir = env::current_dir().context("resolve current directory")?;
+    let working_dir = resolved_working_dir()?;
     let capture_dir = working_dir.join(IMAGE_CAPTURE_DIR);
     fs::create_dir_all(&capture_dir)
         .with_context(|| format!("create image capture dir: {}", capture_dir.display()))?;
@@ -49,6 +50,16 @@ fn next_capture_path() -> Result<PathBuf> {
         .unwrap_or_default()
         .as_millis();
     Ok(capture_dir.join(format!("capture-{millis}.png")))
+}
+
+fn resolved_working_dir() -> Result<PathBuf> {
+    if let Ok(path) = env::var(WORKING_DIR_ENV) {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+    env::current_dir().context("resolve current directory")
 }
 
 fn run_capture_command(config: &OverlayConfig, image_path: &Path) -> Result<()> {
@@ -98,6 +109,35 @@ fn run_default_capture_command(_image_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::process;
+    use std::sync::{Mutex, OnceLock};
+
+    fn with_working_dir_env<T>(value: Option<&str>, f: impl FnOnce() -> T) -> T {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
+        let _guard = lock.lock().expect("env lock poisoned");
+
+        let prev = std::env::var(WORKING_DIR_ENV).ok();
+        match value {
+            Some(path) => std::env::set_var(WORKING_DIR_ENV, path),
+            None => std::env::remove_var(WORKING_DIR_ENV),
+        }
+        let out = f();
+        match prev {
+            Some(path) => std::env::set_var(WORKING_DIR_ENV, path),
+            None => std::env::remove_var(WORKING_DIR_ENV),
+        }
+        out
+    }
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let millis = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        std::env::temp_dir().join(format!("{prefix}-{}-{millis}", process::id()))
+    }
 
     #[test]
     fn build_image_prompt_auto_mode_appends_newline() {
@@ -120,5 +160,27 @@ mod tests {
             Err(err) => panic!("capture path error: {err}"),
         };
         assert_eq!(path.extension().and_then(|ext| ext.to_str()), Some("png"));
+    }
+
+    #[test]
+    fn next_capture_path_prefers_voiceterm_cwd_env() {
+        let working_dir = unique_temp_dir("voiceterm-image-capture");
+        fs::create_dir_all(&working_dir).expect("create working dir");
+
+        with_working_dir_env(working_dir.to_str(), || {
+            let path = next_capture_path().expect("capture path");
+            assert!(path.starts_with(working_dir.join(IMAGE_CAPTURE_DIR)));
+        });
+
+        let _ = fs::remove_dir_all(working_dir);
+    }
+
+    #[test]
+    fn next_capture_path_ignores_empty_voiceterm_cwd_env() {
+        let current_dir = std::env::current_dir().expect("current dir");
+        with_working_dir_env(Some(""), || {
+            let path = next_capture_path().expect("capture path");
+            assert!(path.starts_with(current_dir.join(IMAGE_CAPTURE_DIR)));
+        });
     }
 }

@@ -112,6 +112,9 @@ pub(super) fn handle_input_event(
                 }
 
                 state.status_state.hud_button_focus = None;
+                if !bytes.is_empty() {
+                    timers.last_user_input_at = Some(Instant::now());
+                }
                 // Resolve prompt suppression according to prompt type policy.
                 register_prompt_resolution_candidate(state, timers, &bytes);
                 // Defer HUD re-enable to periodic/output dispatch so we do not redraw the
@@ -340,6 +343,11 @@ fn trigger_image_capture(
             return;
         }
     };
+    let voiceterm_cwd = std::env::var("VOICETERM_CWD").unwrap_or_else(|_| "<unset>".to_string());
+    log_debug(&format!(
+        "image captured path={} voiceterm_cwd={voiceterm_cwd}",
+        captured_path.display()
+    ));
 
     let prompt =
         crate::image_mode::build_image_prompt(&captured_path, state.config.voice_send_mode);
@@ -443,7 +451,17 @@ fn hud_navigation_direction_from_arrow(
 }
 
 fn should_preserve_terminal_caret_navigation(state: &EventLoopState) -> bool {
-    state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
+    should_preserve_terminal_caret_navigation_for_input(
+        state.config.voice_send_mode,
+        state.status_state.insert_pending_send,
+    )
+}
+
+fn should_preserve_terminal_caret_navigation_for_input(
+    send_mode: VoiceSendMode,
+    insert_pending_send: bool,
+) -> bool {
+    send_mode == VoiceSendMode::Insert && insert_pending_send
 }
 
 fn resume_auto_voice_if_wake_triggered(state: &mut EventLoopState) {
@@ -552,4 +570,99 @@ fn save_persistent_config(state: &EventLoopState) {
         state.theme,
     );
     crate::persistent_config::save_user_config(&snapshot);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(VoiceSendMode::Insert, true, true)]
+    #[case(VoiceSendMode::Insert, false, false)]
+    #[case(VoiceSendMode::Auto, true, false)]
+    #[case(VoiceSendMode::Auto, false, false)]
+    fn should_preserve_terminal_caret_navigation_matches_send_mode_contract(
+        #[case] send_mode: VoiceSendMode,
+        #[case] insert_pending_send: bool,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(
+            should_preserve_terminal_caret_navigation_for_input(send_mode, insert_pending_send),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case(ArrowKey::Left, false, false, -1)]
+    #[case(ArrowKey::Right, false, false, 1)]
+    #[case(ArrowKey::Left, true, false, 0)]
+    #[case(ArrowKey::Right, true, false, 0)]
+    #[case(ArrowKey::Up, false, true, -1)]
+    #[case(ArrowKey::Down, false, true, 1)]
+    #[case(ArrowKey::Up, false, false, 0)]
+    #[case(ArrowKey::Down, false, false, 0)]
+    fn hud_navigation_direction_from_arrow_matches_input_ownership_contract(
+        #[case] key: ArrowKey,
+        #[case] preserve_terminal_caret: bool,
+        #[case] hud_focus_active: bool,
+        #[case] expected_direction: i32,
+    ) {
+        assert_eq!(
+            hud_navigation_direction_from_arrow(key, preserve_terminal_caret, hud_focus_active),
+            expected_direction
+        );
+    }
+
+    #[rstest]
+    #[case("cursor", "codex")]
+    #[case("cursor", "claude")]
+    #[case("jetbrains", "codex")]
+    #[case("jetbrains", "claude")]
+    #[case("other", "codex")]
+    #[case("other", "claude")]
+    fn insert_pending_preserves_caret_across_supported_host_provider_matrix(
+        #[case] host: &str,
+        #[case] provider: &str,
+    ) {
+        let preserve =
+            should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, true);
+        assert!(preserve, "host={host}, provider={provider}");
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            0,
+            "host={host}, provider={provider}"
+        );
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            0,
+            "host={host}, provider={provider}"
+        );
+    }
+
+    #[rstest]
+    #[case("cursor", "codex")]
+    #[case("cursor", "claude")]
+    #[case("jetbrains", "codex")]
+    #[case("jetbrains", "claude")]
+    #[case("other", "codex")]
+    #[case("other", "claude")]
+    fn insert_without_pending_routes_horizontal_arrows_to_hud_navigation(
+        #[case] host: &str,
+        #[case] provider: &str,
+    ) {
+        let preserve =
+            should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, false);
+        assert!(!preserve, "host={host}, provider={provider}");
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            -1,
+            "host={host}, provider={provider}"
+        );
+        assert_eq!(
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            1,
+            "host={host}, provider={provider}"
+        );
+    }
 }

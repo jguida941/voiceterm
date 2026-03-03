@@ -13,9 +13,9 @@ const CLAUDE_EXTRA_GAP_ROWS_DEFAULT: usize = 5;
 const CLAUDE_EXTRA_GAP_ROWS_CURSOR: usize = 12;
 // JetBrains HUD overlap buffer: JediTerm does not support DECSTBM scroll
 // regions, so the only separation between Claude's prompt and the HUD is the
-// reserved-row subtraction.  2 rows provide a safer buffer zone for prompt
-// placement while keeping most of the viewport available to Claude's TUI.
-const CLAUDE_EXTRA_GAP_ROWS_JETBRAINS: usize = 2;
+// reserved-row subtraction. Keep a larger default buffer to tolerate multi-line
+// composer wrapping near terminal bottom under heavy output.
+const CLAUDE_EXTRA_GAP_ROWS_JETBRAINS: usize = 4;
 const CLAUDE_EXTRA_GAP_ROWS_MAX: usize = 20;
 const HUD_SAFETY_GAP_ROWS_DEFAULT: usize = 0;
 const HUD_SAFETY_GAP_ROWS_CURSOR: usize = 0;
@@ -166,6 +166,7 @@ pub(crate) fn should_enable_claude_startup_guard(backend_label: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::sync::{Mutex, OnceLock};
 
     fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
@@ -254,40 +255,38 @@ mod tests {
         });
     }
 
+    #[rstest]
+    #[case(TerminalHost::Other, CLAUDE_EXTRA_GAP_ROWS_DEFAULT)]
+    #[case(TerminalHost::Cursor, CLAUDE_EXTRA_GAP_ROWS_CURSOR)]
+    #[case(TerminalHost::JetBrains, CLAUDE_EXTRA_GAP_ROWS_JETBRAINS)]
+    fn parse_claude_extra_gap_rows_uses_host_defaults(
+        #[case] host: TerminalHost,
+        #[case] expected: usize,
+    ) {
+        assert_eq!(parse_claude_extra_gap_rows(None, host), expected);
+    }
+
     #[test]
-    fn parse_claude_extra_gap_rows_uses_defaults_and_clamps() {
-        assert_eq!(
-            parse_claude_extra_gap_rows(None, TerminalHost::Other),
-            CLAUDE_EXTRA_GAP_ROWS_DEFAULT
-        );
-        assert_eq!(
-            parse_claude_extra_gap_rows(None, TerminalHost::Cursor),
-            CLAUDE_EXTRA_GAP_ROWS_CURSOR
-        );
-        assert_eq!(
-            parse_claude_extra_gap_rows(None, TerminalHost::JetBrains),
-            CLAUDE_EXTRA_GAP_ROWS_JETBRAINS
-        );
+    fn parse_claude_extra_gap_rows_clamps_override() {
         assert_eq!(
             parse_claude_extra_gap_rows(Some("999"), TerminalHost::Other),
             CLAUDE_EXTRA_GAP_ROWS_MAX
         );
     }
 
+    #[rstest]
+    #[case(TerminalHost::Other, HUD_SAFETY_GAP_ROWS_DEFAULT)]
+    #[case(TerminalHost::Cursor, HUD_SAFETY_GAP_ROWS_CURSOR)]
+    #[case(TerminalHost::JetBrains, HUD_SAFETY_GAP_ROWS_JETBRAINS)]
+    fn parse_hud_safety_gap_rows_uses_host_defaults(
+        #[case] host: TerminalHost,
+        #[case] expected: usize,
+    ) {
+        assert_eq!(parse_hud_safety_gap_rows(None, host), expected);
+    }
+
     #[test]
-    fn parse_hud_safety_gap_rows_uses_defaults_and_clamps() {
-        assert_eq!(
-            parse_hud_safety_gap_rows(None, TerminalHost::Other),
-            HUD_SAFETY_GAP_ROWS_DEFAULT
-        );
-        assert_eq!(
-            parse_hud_safety_gap_rows(None, TerminalHost::Cursor),
-            HUD_SAFETY_GAP_ROWS_CURSOR
-        );
-        assert_eq!(
-            parse_hud_safety_gap_rows(None, TerminalHost::JetBrains),
-            HUD_SAFETY_GAP_ROWS_JETBRAINS
-        );
+    fn parse_hud_safety_gap_rows_clamps_override() {
         assert_eq!(
             parse_hud_safety_gap_rows(Some("999"), TerminalHost::Other),
             HUD_SAFETY_GAP_ROWS_MAX

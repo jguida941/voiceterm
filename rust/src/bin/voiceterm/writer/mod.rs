@@ -57,17 +57,28 @@ pub(crate) fn spawn_writer_thread(rx: Receiver<WriterMessage>) -> thread::JoinHa
     thread::spawn(move || {
         let mut state = state::WriterState::new();
         loop {
-            match rx.recv_timeout(Duration::from_millis(WRITER_RECV_TIMEOUT_MS)) {
-                Ok(message) => {
-                    if !state.handle_message(message) {
-                        break;
-                    }
-                }
+            let message = match rx.recv_timeout(Duration::from_millis(WRITER_RECV_TIMEOUT_MS)) {
+                Ok(msg) => msg,
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                     state.maybe_redraw_status();
+                    continue;
                 }
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                    break;
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+            };
+            let was_pty_output = matches!(&message, WriterMessage::PtyOutput(_));
+            if !state.handle_message(message) {
+                break;
+            }
+            // After PTY output, eagerly drain any immediately pending messages
+            // so suppression state transitions (EnhancedStatus) are applied
+            // before the next chunk's redraw decision. Without this, status
+            // messages can lag behind a burst of PtyOutput messages in the
+            // queue, causing stale suppression state during HUD redraws.
+            if was_pty_output {
+                while let Ok(next) = rx.try_recv() {
+                    if !state.handle_message(next) {
+                        return;
+                    }
                 }
             }
         }

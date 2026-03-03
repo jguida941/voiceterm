@@ -627,8 +627,18 @@ fn write_or_queue_pty_input(
 }
 
 fn should_emit_user_input_activity(backend_label: &str) -> bool {
+    should_emit_user_input_activity_for_host(backend_label, runtime_compat::detect_terminal_host())
+}
+
+fn should_emit_user_input_activity_for_host(
+    backend_label: &str,
+    terminal_host: TerminalHost,
+) -> bool {
     BackendFamily::from_label(backend_label) == BackendFamily::Claude
-        && runtime_compat::detect_terminal_host() == TerminalHost::Cursor
+        && matches!(
+            terminal_host,
+            TerminalHost::Cursor | TerminalHost::JetBrains
+        )
 }
 
 fn flush_pending_output_or_continue(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {

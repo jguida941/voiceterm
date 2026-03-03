@@ -154,3 +154,76 @@ class CheckCodeShapeGuidanceTests(TestCase):
         )
         self.assertIsNotNone(violation)
         self.assertEqual(violation["reason"], "absolute_hard_limit_exceeded")
+
+    def test_evaluate_stale_path_override_flags_loose_override(self) -> None:
+        override = self.script.ShapePolicy(
+            soft_limit=1200,
+            hard_limit=1500,
+            oversize_growth_limit=0,
+            hard_lock_growth_limit=0,
+        )
+        language_default = self.script.ShapePolicy(
+            soft_limit=900,
+            hard_limit=1400,
+            oversize_growth_limit=40,
+            hard_lock_growth_limit=0,
+        )
+        violation = self.script._evaluate_stale_path_override(
+            path=Path("rust/src/bin/voiceterm/example.rs"),
+            override_policy=override,
+            language_default_policy=language_default,
+            policy_source="path_override:rust/src/bin/voiceterm/example.rs",
+            current_lines=555,
+            review_window_days=30,
+            review_window_line_counts=[555, 560, 575],
+        )
+        self.assertIsNotNone(violation)
+        self.assertEqual(violation["reason"], "stale_path_override_below_default_soft_limit")
+
+    def test_evaluate_stale_path_override_skips_when_recent_history_exceeds_default(self) -> None:
+        override = self.script.ShapePolicy(
+            soft_limit=1200,
+            hard_limit=1500,
+            oversize_growth_limit=0,
+            hard_lock_growth_limit=0,
+        )
+        language_default = self.script.ShapePolicy(
+            soft_limit=900,
+            hard_limit=1400,
+            oversize_growth_limit=40,
+            hard_lock_growth_limit=0,
+        )
+        violation = self.script._evaluate_stale_path_override(
+            path=Path("rust/src/bin/voiceterm/example.rs"),
+            override_policy=override,
+            language_default_policy=language_default,
+            policy_source="path_override:rust/src/bin/voiceterm/example.rs",
+            current_lines=555,
+            review_window_days=30,
+            review_window_line_counts=[555, 910],
+        )
+        self.assertIsNone(violation)
+
+    def test_evaluate_stale_path_override_skips_when_override_is_not_looser(self) -> None:
+        override = self.script.ShapePolicy(
+            soft_limit=750,
+            hard_limit=950,
+            oversize_growth_limit=0,
+            hard_lock_growth_limit=0,
+        )
+        language_default = self.script.ShapePolicy(
+            soft_limit=900,
+            hard_limit=1400,
+            oversize_growth_limit=40,
+            hard_lock_growth_limit=0,
+        )
+        violation = self.script._evaluate_stale_path_override(
+            path=Path("rust/src/bin/voiceterm/example.rs"),
+            override_policy=override,
+            language_default_policy=language_default,
+            policy_source="path_override:rust/src/bin/voiceterm/example.rs",
+            current_lines=555,
+            review_window_days=30,
+            review_window_line_counts=[555, 560],
+        )
+        self.assertIsNone(violation)

@@ -77,6 +77,11 @@ Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
 For IDE compatibility status (what is verified vs unverified), see
 [guides/USAGE.md#ide-compatibility](guides/USAGE.md#ide-compatibility).
+JetBrains + Claude note: after very long parallel tool calls or parallel web
+search turns, temporary HUD/transcript overlap can appear at turn completion.
+Quick workaround: resize the terminal once (even by 1 row/column) to force
+layout recalculation. See
+[guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
 
 ## 4) Core controls
 

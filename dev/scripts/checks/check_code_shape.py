@@ -13,6 +13,8 @@ from pathlib import Path
 try:
     from code_shape_policy import (
         BEST_PRACTICE_DOCS,
+        LANGUAGE_POLICIES,
+        PATH_POLICY_OVERRIDES,
         SHAPE_AUDIT_GUIDANCE,
         ShapePolicy,
         policy_for_path,
@@ -20,12 +22,15 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.code_shape_policy import (
         BEST_PRACTICE_DOCS,
+        LANGUAGE_POLICIES,
+        PATH_POLICY_OVERRIDES,
         SHAPE_AUDIT_GUIDANCE,
         ShapePolicy,
         policy_for_path,
     )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_STALE_OVERRIDE_REVIEW_WINDOW_DAYS = 30
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -278,6 +283,60 @@ def _evaluate_absolute_shape(
     return None
 
 
+def _recent_history_line_counts(path: Path, review_window_days: int) -> list[int]:
+    if review_window_days <= 0:
+        return []
+    since_value = f"{review_window_days}.days"
+    commits = _run_git(
+        ["git", "log", "--since", since_value, "--format=%H", "--", path.as_posix()]
+    ).stdout.splitlines()
+    line_counts: list[int] = []
+    seen: set[str] = set()
+    for commit in commits:
+        ref = commit.strip()
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        lines = _count_lines(_read_text_from_ref(path, ref))
+        if lines is not None:
+            line_counts.append(lines)
+    return line_counts
+
+
+def _evaluate_stale_path_override(
+    *,
+    path: Path,
+    override_policy: ShapePolicy,
+    language_default_policy: ShapePolicy,
+    policy_source: str,
+    current_lines: int | None,
+    review_window_days: int,
+    review_window_line_counts: list[int],
+) -> dict | None:
+    if current_lines is None:
+        return None
+    if override_policy.soft_limit <= language_default_policy.soft_limit:
+        return None
+
+    max_recent_lines = max([current_lines, *review_window_line_counts], default=current_lines)
+    if max_recent_lines > language_default_policy.soft_limit:
+        return None
+
+    return _violation(
+        path=path,
+        reason="stale_path_override_below_default_soft_limit",
+        guidance=(
+            "PATH_POLICY_OVERRIDES entry is looser than the language default and the file stayed "
+            f"at or below the language soft limit for {review_window_days} days. "
+            "Remove the override or tighten it to a stricter-than-default budget."
+        ),
+        policy=override_policy,
+        policy_source=policy_source,
+        base_lines=max_recent_lines,
+        current_lines=current_lines,
+    )
+
+
 def _render_md(report: dict) -> str:
     lines = ["# check_code_shape", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -285,6 +344,15 @@ def _render_md(report: dict) -> str:
     lines.append(f"- files_changed: {report['files_changed']}")
     lines.append(f"- files_considered: {report['files_considered']}")
     lines.append(f"- files_using_path_overrides: {report['files_using_path_overrides']}")
+    lines.append(
+        f"- stale_override_review_window_days: {report['stale_override_review_window_days']}"
+    )
+    lines.append(
+        f"- stale_override_candidates_scanned: {report['stale_override_candidates_scanned']}"
+    )
+    lines.append(
+        f"- stale_override_candidates_skipped: {report['stale_override_candidates_skipped']}"
+    )
     lines.append(f"- files_skipped_non_source: {report['files_skipped_non_source']}")
     lines.append(f"- files_skipped_tests: {report['files_skipped_tests']}")
     lines.append(f"- violations: {len(report['violations'])}")
@@ -314,6 +382,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--absolute",
         action="store_true",
         help="Scan all tracked/untracked source files against absolute hard limits.",
+    )
+    parser.add_argument(
+        "--stale-override-review-window-days",
+        type=int,
+        default=DEFAULT_STALE_OVERRIDE_REVIEW_WINDOW_DAYS,
+        help=(
+            "Review window used to detect stale PATH_POLICY_OVERRIDES entries. "
+            "Set to 0 to disable stale-override checks."
+        ),
     )
     parser.add_argument("--since-ref", help="Compare against this git ref")
     parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
@@ -366,6 +443,9 @@ def main() -> int:
     files_skipped_tests = 0
     files_considered = 0
     files_using_path_overrides = 0
+    stale_override_review_window_days = max(args.stale_override_review_window_days, 0)
+    stale_override_candidates_scanned = 0
+    stale_override_candidates_skipped = 0
 
     for path in changed_paths:
         policy, policy_source = policy_for_path(path)
@@ -405,6 +485,49 @@ def main() -> int:
         if violation:
             violations.append(violation)
 
+    try:
+        violation_paths = {item["path"] for item in violations}
+        if stale_override_review_window_days <= 0:
+            stale_override_candidates_skipped = len(PATH_POLICY_OVERRIDES)
+        else:
+            for override_path, override_policy in PATH_POLICY_OVERRIDES.items():
+                path = Path(override_path)
+                default_policy = LANGUAGE_POLICIES.get(path.suffix)
+                if default_policy is None:
+                    stale_override_candidates_skipped += 1
+                    continue
+                if override_policy.soft_limit <= default_policy.soft_limit:
+                    stale_override_candidates_skipped += 1
+                    continue
+                stale_override_candidates_scanned += 1
+                stale_violation = _evaluate_stale_path_override(
+                    path=path,
+                    override_policy=override_policy,
+                    language_default_policy=default_policy,
+                    policy_source=f"path_override:{override_path}",
+                    current_lines=_count_lines(_read_text_from_worktree(path)),
+                    review_window_days=stale_override_review_window_days,
+                    review_window_line_counts=_recent_history_line_counts(
+                        path, stale_override_review_window_days
+                    ),
+                )
+                if stale_violation and stale_violation["path"] not in violation_paths:
+                    violations.append(stale_violation)
+                    violation_paths.add(stale_violation["path"])
+    except RuntimeError as exc:
+        error_report = {
+            "command": "check_code_shape",
+            "timestamp": datetime.now().isoformat(),
+            "ok": False,
+            "error": str(exc),
+        }
+        if args.format == "json":
+            print(json.dumps(error_report, indent=2))
+        else:
+            print("# check_code_shape\n")
+            print(f"- ok: False\n- error: {error_report['error']}")
+        return 2
+
     report = {
         "command": "check_code_shape",
         "timestamp": datetime.now().isoformat(),
@@ -415,6 +538,9 @@ def main() -> int:
         "files_changed": len(changed_paths),
         "files_considered": files_considered,
         "files_using_path_overrides": files_using_path_overrides,
+        "stale_override_review_window_days": stale_override_review_window_days,
+        "stale_override_candidates_scanned": stale_override_candidates_scanned,
+        "stale_override_candidates_skipped": stale_override_candidates_skipped,
         "files_skipped_non_source": files_skipped_non_source,
         "files_skipped_tests": files_skipped_tests,
         "violations": violations,

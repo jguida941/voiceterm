@@ -28,6 +28,7 @@ Fast first checks:
 | Wrong version after update | Check PATH + reinstall flow | [Install and Update Issues](#install-and-update-issues) |
 | Settings/HUD lags while backend is busy | Reduce output load and capture logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Meter looks too loud at normal speech | Validate meter behavior and sensitivity | [Terminal and IDE Issues](#terminal-and-ide-issues) |
+| JetBrains + Claude overlay overlap after long parallel output | Resize terminal once to force a redraw | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Prompt text turns dark in JetBrains + Claude | Verify `v1.0.98+` and collect logs | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Startup splash behaves oddly | Tune splash env vars | [Terminal and IDE Issues](#terminal-and-ide-issues) |
 | Theme colors look muted | Verify truecolor env | [Terminal and IDE Issues](#terminal-and-ide-issues) |
@@ -484,6 +485,7 @@ Section shortcuts:
 
 - [Settings or HUD lags](#settings-or-hud-lags-during-heavy-backend-output)
 - [Meter looks too loud](#meter-looks-too-loud-for-normal-speech)
+- [JetBrains + Claude overlap after long parallel output](#jetbrains--claude-overlay-overlap-after-long-parallel-output)
 - [HUD duplicates in JetBrains terminals](#hud-duplicates-in-jetbrains-terminals)
 - [Overlay flickers in JetBrains terminals](#overlay-flickers-in-jetbrains-terminals)
 - [Prompt text turns dark in JetBrains + Claude](#prompt-text-turns-dark-in-jetbrains--claude)
@@ -645,6 +647,19 @@ speech:
    - loud transients may briefly hit yellow/red
 4. If behavior is still clearly incorrect, capture a short screen recording and
    include logs from `${TMPDIR:-/tmp}/voiceterm_tui.log`.
+
+### JetBrains + Claude overlay overlap after long parallel output
+
+This issue is specific to JetBrains terminals when running the Claude backend.
+It can happen after very long parallel tool calls or long parallel web-search
+turns with heavy output.
+
+When it appears, the fix is simple:
+
+1. Resize the terminal once (even by 1 row or 1 column).
+2. VoiceTerm will recalculate layout and the HUD/input alignment should restore.
+3. If you need a temporary mitigation during heavy output, switch to `Minimal`
+   HUD (`Ctrl+U`) until the turn completes.
 
 ### HUD duplicates in JetBrains terminals
 

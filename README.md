@@ -204,6 +204,12 @@ Only combinations listed below are currently verified.
 | AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
+JetBrains + Claude known limitation:
+after very long parallel tool calls or parallel web-search turns, HUD/transcript
+overlap can appear at turn completion. Quick workaround: resize the terminal
+once (even by 1 row/column) to force layout recalculation.
+Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long parallel output](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
+
 Canonical matrix: [Usage Guide -> IDE Compatibility](guides/USAGE.md#ide-compatibility).
 
 ## Hands-Free Quick Start
