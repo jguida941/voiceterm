@@ -2174,6 +2174,13 @@ fn pty_output_may_scroll_rows(
                 idx += 2;
                 while idx < bytes.len() {
                     if (0x40..=0x7e).contains(&bytes[idx]) {
+                        // CSI S/T scroll the terminal content vertically. Count
+                        // them as potential row movement so JetBrains+Codex can
+                        // re-arm HUD repaint after resize-driven scroll bursts.
+                        if matches!(bytes[idx], b'S' | b'T') {
+                            may_scroll = true;
+                            *line_col_estimate = 0;
+                        }
                         idx += 1;
                         break;
                     }

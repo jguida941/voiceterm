@@ -1120,6 +1120,17 @@ fn pty_output_may_scroll_rows_can_treat_carriage_return_as_scroll_for_codex_jetb
 }
 
 #[test]
+fn pty_output_may_scroll_rows_flags_csi_scroll_sequences() {
+    let mut col = 9usize;
+    assert!(pty_output_may_scroll_rows(80, &mut col, b"\x1b[2S", false));
+    assert_eq!(col, 0);
+
+    col = 9;
+    assert!(pty_output_may_scroll_rows(80, &mut col, b"\x1b[1T", false));
+    assert_eq!(col, 0);
+}
+
+#[test]
 fn non_scrolling_output_does_not_force_full_banner_redraw() {
     let mut state = WriterState::new();
     state.terminal_family = TerminalFamily::Other;
