@@ -36,6 +36,7 @@ class CheckCodeRabbitRalphGateTests(TestCase):
         parser = self.script._build_parser()
         args = parser.parse_args([])
         self.assertEqual(args.workflow, "CodeRabbit Ralph Loop")
+        self.assertFalse(args.allow_branch_fallback)
 
     def test_normalize_report_renames_pass_reason(self) -> None:
         payload = {
@@ -53,6 +54,7 @@ class CheckCodeRabbitRalphGateTests(TestCase):
             repo="owner/repo",
             sha="a" * 40,
             branch="develop",
+            allow_branch_fallback=False,
             limit=50,
             require_conclusion="success",
             format="json",

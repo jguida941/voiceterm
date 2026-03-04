@@ -18,6 +18,12 @@ on:
     branches:
       - develop
       - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   pull_request_review:
     types:
       - submitted
@@ -48,6 +54,7 @@ jobs:
       ${{
         github.event_name == 'workflow_dispatch' ||
         github.event_name == 'push' ||
+        github.event_name == 'pull_request' ||
         (
           contains(github.actor, 'coderabbit') &&
           (

@@ -24,6 +24,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--branch",
         help="Optional branch hint for gh run list; commit filtering is always applied.",
     )
+    parser.add_argument(
+        "--allow-branch-fallback",
+        action="store_true",
+        help="Allow commit-only fallback when the requested branch has no matching workflow runs.",
+    )
     parser.add_argument("--limit", type=int, default=gate_core.DEFAULT_LIMIT)
     parser.add_argument("--require-conclusion", default="success")
     parser.add_argument("--wait-seconds", type=int, default=gate_core.DEFAULT_WAIT_SECONDS)
@@ -49,6 +54,7 @@ def _render_md(report: dict) -> str:
         lines.append(f"- repo: {report.get('repo')}")
     lines.append(f"- branch_requested: {report.get('branch_requested') or '(none)'}")
     lines.append(f"- branch: {report.get('branch')}")
+    lines.append(f"- allow_branch_fallback: {report.get('allow_branch_fallback')}")
     lines.append(f"- fallback_without_branch: {report.get('fallback_without_branch')}")
     lines.append(f"- sha: {report.get('sha')}")
     lines.append(f"- checked_runs: {report.get('checked_runs')}")

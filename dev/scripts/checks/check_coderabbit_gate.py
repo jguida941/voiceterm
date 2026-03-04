@@ -142,6 +142,7 @@ def _parse_iso(value: Any) -> tuple[bool, datetime]:
         return False, datetime.min
 
 def _build_report(args) -> dict:
+    allow_branch_fallback = bool(getattr(args, "allow_branch_fallback", False))
     report: dict[str, Any] = {
         "command": "check_coderabbit_gate",
         "ok": False,
@@ -153,6 +154,7 @@ def _build_report(args) -> dict:
         "checked_runs": 0,
         "matching_runs": 0,
         "fallback_without_branch": False,
+        "allow_branch_fallback": allow_branch_fallback,
         "warnings": [],
         "latest_match": {},
         "wait_seconds": max(int(getattr(args, "wait_seconds", DEFAULT_WAIT_SECONDS) or 0), 0),
@@ -226,6 +228,13 @@ def _build_report(args) -> dict:
             return report
 
         if not runs and branch_filter:
+            if not allow_branch_fallback:
+                report["reason"] = "no_workflow_runs_for_requested_branch"
+                report["warnings"].append(
+                    "branch filter returned no runs and commit-only fallback is disabled "
+                    "(use --allow-branch-fallback to enable fallback)."
+                )
+                return report
             fallback_runs, fallback_error = _gh_run_list(
                 workflow=args.workflow,
                 sha=sha,
@@ -290,6 +299,7 @@ def _render_md(report: dict) -> str:
         lines.append(f"- repo: {report.get('repo')}")
     lines.append(f"- branch_requested: {report.get('branch_requested') or '(none)'}")
     lines.append(f"- branch: {report.get('branch')}")
+    lines.append(f"- allow_branch_fallback: {report.get('allow_branch_fallback')}")
     lines.append(f"- fallback_without_branch: {report.get('fallback_without_branch')}")
     lines.append(f"- sha: {report.get('sha')}")
     lines.append(f"- checked_runs: {report.get('checked_runs')}")
@@ -322,6 +332,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--branch",
         help="Optional branch hint for gh run list; commit filtering is always applied.",
+    )
+    parser.add_argument(
+        "--allow-branch-fallback",
+        action="store_true",
+        help="Allow commit-only fallback when the requested branch has no matching workflow runs.",
     )
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--require-conclusion", default="success")

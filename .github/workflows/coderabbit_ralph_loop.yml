@@ -16,9 +16,6 @@ on:
   workflow_run: # zizmor: ignore[dangerous-triggers] guarded to same-repo trusted branch events in job-level if
     workflows:
       - CodeRabbit Triage Bridge
-    branches:
-      - develop
-      - master
     types:
       - completed
   workflow_dispatch:

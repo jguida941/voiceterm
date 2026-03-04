@@ -38,13 +38,14 @@ class CheckCodeRabbitGateTests(TestCase):
             "repo": "owner/repo",
             "sha": self.sha,
             "branch": "master",
+            "allow_branch_fallback": False,
             "limit": 50,
             "require_conclusion": "success",
         }
         payload.update(overrides)
         return SimpleNamespace(**payload)
 
-    def test_branch_filter_falls_back_to_commit_only_when_no_runs(self) -> None:
+    def test_branch_filter_falls_back_to_commit_only_when_explicitly_enabled(self) -> None:
         calls: list[list[str]] = []
         run_payload = [
             {
@@ -65,15 +66,34 @@ class CheckCodeRabbitGateTests(TestCase):
             raise AssertionError(f"unexpected command: {cmd}")
 
         with patch.object(self.script, "_run_capture", side_effect=fake_run_capture):
-            report = self.script._build_report(self._args(branch="master"))
+            report = self.script._build_report(
+                self._args(branch="master", allow_branch_fallback=True)
+            )
 
         self.assertTrue(report["ok"])
+        self.assertTrue(report["allow_branch_fallback"])
         self.assertTrue(report["fallback_without_branch"])
         self.assertEqual(len(calls), 2)
         self.assertIn("--commit", calls[0])
         self.assertIn(self.sha, calls[0])
         self.assertIn("--branch", calls[0])
         self.assertNotIn("--branch", calls[1])
+
+    def test_branch_filter_fails_when_no_runs_and_fallback_disabled(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run_capture(cmd: list[str]):
+            calls.append(cmd)
+            return 0, "[]", ""
+
+        with patch.object(self.script, "_run_capture", side_effect=fake_run_capture):
+            report = self.script._build_report(self._args(branch="master"))
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["reason"], "no_workflow_runs_for_requested_branch")
+        self.assertFalse(report["allow_branch_fallback"])
+        self.assertFalse(report["fallback_without_branch"])
+        self.assertEqual(len(calls), 1)
 
     def test_sha_like_branch_argument_is_ignored(self) -> None:
         calls: list[list[str]] = []
