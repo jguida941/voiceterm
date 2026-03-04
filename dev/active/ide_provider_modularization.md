@@ -1,6 +1,6 @@
 # IDE + Provider Modularization Plan (MP-346)
 
-**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`)  |  **Last updated**: 2026-03-02 | **Owner:** Runtime/tooling architecture
+**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`)  |  **Last updated**: 2026-03-04 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
 
 ## Scope
@@ -454,13 +454,13 @@ Each new check script must:
 | Freeze `writer/state.rs` growth | Phase 0 | `check_code_shape.py` PATH_POLICY_OVERRIDES + hotspot freeze for `writer/state.rs`, `prompt_occlusion.rs`, and `claude_prompt_detect.rs` | done |
 | Absolute shape audit mode | Phase 0 | `check_code_shape.py --absolute` (~30 lines) | done |
 | AI-guard in `ci` profile | Phase 0 | `check_profile.py` line 39: `with_ai_guard: True` | done |
-| Workspace path-contract repair | Phase 0 | workflow triggers + `AGENTS.md` + `check_agents_contract.py` move to `rust/src/**` contract | pending |
+| Workspace path-contract repair | Phase 0 | workflow triggers + `AGENTS.md` + `check_agents_contract.py` move to `rust/src/**` contract | done |
 | Workspace path-contract gate | Phase 0 | extend `devctl path-audit` (or new check) to fail stale `src/**` contracts | done |
 | Runtime-lane AI-guard enforcement | Phase 0 | runtime workflow on `rust/src/**` executes AI guards in commit-range mode | pending |
 | `devctl check` AI-guard ref propagation | Phase 0 | `check` command accepts `--since-ref/--head-ref` and forwards refs to `AI_GUARD_CHECKS` scripts | done |
 | Dependency-policy CI gate (`cargo deny`) | Phase 0 | security/release lane enforces deny policy with explicit failure semantics | done |
 | `check_code_shape.py` evaluator coverage | Phase 0 | dedicated unit tests for `_evaluate_shape` branch matrix | done |
-| `check_agents_contract.py` dedicated coverage | Phase 0 | unit tests + contract-row migration to `rust/src/**` snippets | pending |
+| `check_agents_contract.py` dedicated coverage | Phase 0 | unit tests + contract-row migration to `rust/src/**` snippets | done |
 | Clippy threshold tightening | Phase 0 | `clippy.toml`: `cognitive-complexity-threshold = 25`, `Cargo.toml`: `too_many_lines = "warn"` | pending |
 | Parameterized characterization tests | Phase 0.5 | `rstest` crate + matrix tests for preclear/redraw/gap-rows | done |
 | Duplicate enum/type detector | Phase 1 | `check_duplicate_types.py` (~80 lines) | pending |
@@ -900,6 +900,7 @@ run old and new code paths in parallel during validation.
 | `CP-003` | phase-0 rerun | `dev/reports/mp346/checkpoints/20260302T042017Z-cp003/` | pass (all automated bundle commands) | pending (all 7 cells) | `no-go` | CP-000 blockers revalidated and cleared on branch-aware commit-range baseline (`origin/master`); legacy `origin/develop` lint-debt check still reports historical release-range debt. |
 | `CP-004` | phase-0 phase-gate | `dev/reports/mp346/checkpoints/20260302T155409Z-cp004/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (phase 0.5 only)` | explicit operator approval to start characterization tests; phase-1+ extraction/refactor remains blocked until manual matrix completion. |
 | `CP-005` | phase-0.5 closure | `dev/reports/mp346/checkpoints/20260302T162839Z-cp005/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (manual matrix execution)` | Phase-0.5 checklist closure verified; Phase-1+ extraction/refactor remains blocked until manual matrix completion. |
+| `CP-006` | manual matrix attestation | `dev/reports/mp346/checkpoints/20260304T010010Z-cp006/` | not rerun (latest full bundle pass: `CP-005`) | baseline accepted (`5/7` validated; `Other + Claude` and `Other + Codex` intentionally sequenced post-cleanup) | `go (phase 1+ cleanup now)` | operator attestation recorded for `Cursor + Codex`, `Cursor + Claude`, `JetBrains + Codex`, `JetBrains + Claude`, and Gemini baseline; remaining `Other` host cells are a post-cleanup stabilization checkpoint, not a phase-1+ blocker. |
 
 ## Scope Splitting Recommendation
 
@@ -1288,6 +1289,38 @@ MP-346 is complete only when all conditions below are true:
   - operator decision updated to `go (manual matrix execution)` with retained
     `no-go` for phase-1+ extraction/refactor until the 7-cell manual runtime
     matrix evidence is attached.
+- 2026-03-04: CP-006 manual matrix attestation recorded from operator
+  validation evidence:
+  - pass: `Cursor + Codex`, `Cursor + Claude`, `JetBrains + Codex`,
+    `JetBrains + Claude`,
+  - pass (baseline accepted): `Gemini` baseline path,
+  - intentionally sequenced post-cleanup: `Other + Claude`, `Other + Codex`,
+  - operator decision updated to `go (phase 1+ cleanup now)` for
+    cleanup/refactor work; `Other` host cells move to post-cleanup
+    stabilization validation (non-blocking for current phase advancement).
+- 2026-03-04: Phase-1 incremental cleanup slice (status-line/runtime host-policy
+  boundary):
+  - moved status-line JetBrains+Claude single-line fallback branching behind
+    canonical `runtime_compat` helper
+    (`should_force_single_line_full_hud_for_env`) so
+    `status_line/layout.rs` and `status_line/buttons.rs` no longer compose
+    host+provider checks inline,
+  - aligned writer-side host detection ownership by routing
+    `writer/render.rs` terminal-family detection through canonical
+    `runtime_compat::detect_terminal_host()` mapping and removing duplicate
+    host-sniffing helpers from render,
+  - retained existing rendering semantics (DEC cursor save/restore rules,
+    JetBrains-specific scroll-region bypass, and full-HUD single-line fallback
+    behavior) with targeted runtime tests.
+- 2026-03-04: MP-346 runtime checkpoint rerun for this cleanup slice:
+  - `bundle.runtime` command set executed and green (including
+    `devctl check --profile ci`, docs/hygiene/sync guards, parity checks,
+    markdownlint, and root guard scan),
+  - HUD/runtime risk add-on executed and green:
+    `cd rust && cargo test --bin voiceterm`,
+  - docs governance gate required user-facing evidence for runtime edits, so
+    this slice now records an `Unreleased` changelog entry plus README
+    compatibility clarification while keeping runtime behavior unchanged.
 
 ## Audit Evidence
 
@@ -1362,6 +1395,12 @@ MP-346 is complete only when all conditions below are true:
 | `nl -ba dev/active/MASTER_PLAN.md` + `nl -ba dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` + `nl -ba dev/BACKLOG.md` | confirms board/ledger status sync, cross-plan shared-hotspot ownership/freeze gate activation, and local backlog ID deconfliction (`LB-*`) | done |
 | `cat dev/reports/mp346/checkpoints/20260302T155409Z-cp004/summary.md` + `exit_codes.env` | confirms CP-004 full checkpoint bundle pass with explicit `go (phase 0.5 only)` and retained phase-1+ `no-go` | done |
 | `cat dev/reports/mp346/checkpoints/20260302T162839Z-cp005/summary.md` + `exit_codes.env` | confirms CP-005 Phase-0.5 closure bundle pass with explicit `go (manual matrix execution)` and retained phase-1+ `no-go` pending manual matrix evidence | done |
+| `cat dev/reports/mp346/checkpoints/20260304T010010Z-cp006/summary.md` | confirms CP-006 operator manual-matrix attestation (`5/7` cells pass) plus explicit phase-1+ `go`; remaining `Other` host cells are sequenced to post-cleanup stabilization validation | done |
 | `nl -ba rust/src/bin/voiceterm/writer/state/tests.rs` + matrix test names (`*_matrix_*`) | verifies 9-way host/provider matrix characterization coverage for preclear, scroll redraw interval, and force-redraw trigger timing | done |
 | `nl -ba rust/src/bin/voiceterm/event_loop/input_dispatch.rs` + input ownership test names (`insert_pending_preserves_caret_*`, `hud_navigation_direction_from_arrow_*`) | verifies deterministic caret-vs-HUD arrow ownership contract coverage for Codex/Claude across Cursor/JetBrains/Other labels | done |
 | `cd rust && cargo test --bin voiceterm` | validates runtime suite with new `rstest` dependency and Phase-0.5 characterization tests (`1387` passed) | done |
+| `rg -n "should_force_single_line_full_hud_for_env" rust/src/bin/voiceterm/status_line/layout.rs rust/src/bin/voiceterm/status_line/buttons.rs rust/src/bin/voiceterm/runtime_compat.rs` | confirms status-line host/provider full-HUD fallback routing now consumes canonical runtime-compat helper instead of inline host+provider conditionals | done |
+| `nl -ba rust/src/bin/voiceterm/writer/render.rs` | confirms writer render host-family detection now maps from `runtime_compat::detect_terminal_host()` and no longer carries duplicate host-sniffing helpers | done |
+| `cd rust && cargo test --bin voiceterm single_line_full_hud_policy_only_for_claude_on_jetbrains && cargo test --bin voiceterm full_single_line_fallback && cargo test --bin voiceterm terminal_family_maps_from_runtime_terminal_host` | validates canonical single-line fallback policy helper, status-line full-HUD fallback behavior, and writer render host-mapping coverage | done |
+| `python3 dev/scripts/devctl.py check --profile ci` | validates runtime guard/check/test profile for this slice (`fmt`, `clippy`, ai-guard scripts, and test lanes); sandbox-only warning observed for process sweep `ps` probing | done |
+| `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'` | validates remaining `bundle.runtime` documentation/governance/shape/parity/lint gates for this slice | done |

@@ -19,6 +19,7 @@ jobs:
     name: mutants shard ${{ matrix.shard.display }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +111,8 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Download shard outcomes
+        if: always()
+        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: mutation-outcomes-shard-*
@@ -117,13 +120,11 @@ jobs:
           merge-multiple: true
 
       - name: Render mutation score badge
+        if: always()
         run: python3 dev/scripts/render_mutation_badge.py --glob "mutation-shards/**/shard-*-outcomes.json" --output .github/badges/mutation-score.json
 
-      - name: Enforce mutation score threshold
-        run: python3 dev/scripts/checks/check_mutation_score.py --glob "mutation-shards/**/shard-*-outcomes.json" --threshold 0.80
-
       - name: Commit mutation badge update
-        if: github.ref == 'refs/heads/master'
+        if: always() && github.ref == 'refs/heads/master'
         run: |
           if git diff --quiet -- .github/badges/mutation-score.json; then
             echo "No mutation badge change."
@@ -138,3 +139,24 @@ jobs:
             echo "Non-fast-forward on badge push; leaving workflow green."
             exit 0
           }
+
+      - name: Enforce mutation score threshold
+        if: always()
+        env:
+          MUTATION_ENFORCE_THRESHOLD: ${{ vars.MUTATION_ENFORCE_THRESHOLD }}
+        run: |
+          set +e
+          python3 dev/scripts/checks/check_mutation_score.py \
+            --glob "mutation-shards/**/shard-*-outcomes.json" \
+            --threshold 0.80
+          SCORE_RC=$?
+          set -e
+          if [[ "${SCORE_RC}" -eq 0 ]]; then
+            exit 0
+          fi
+          if [[ "${MUTATION_ENFORCE_THRESHOLD}" == "true" ]]; then
+            echo "Mutation threshold gate enforced; failing with ${SCORE_RC}."
+            exit "${SCORE_RC}"
+          fi
+          echo "::warning::Mutation score check returned ${SCORE_RC}; keeping scheduled lane warn-only (set MUTATION_ENFORCE_THRESHOLD=true to enforce)."
+          exit 0

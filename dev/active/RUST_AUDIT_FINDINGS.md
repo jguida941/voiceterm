@@ -1,6 +1,6 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-03-02T20:25:55.412399  
+**Generated:** 2026-03-03T21:00:16.697015  
 **Trigger:** check-ai-guard  
 **Trigger steps:** code-shape-guard  
 **Diff range:** working-tree vs HEAD
@@ -49,7 +49,7 @@ planning and implementation, not a historical archive.
 - Severity: high
 - Return code: 1
 - Violations:
-- `rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs` (crossed_soft_limit)
+- `dev/scripts/checks/check_coderabbit_gate.py` (crossed_soft_limit)
 
 ## Remediation Actions
 

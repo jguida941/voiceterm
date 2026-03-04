@@ -7,7 +7,7 @@ autobins = false
 description = "Voice-first terminal overlay for Codex and Claude"
 license = "MIT"
 repository = "https://github.com/jguida941/codex-voice"
-rust-version = "1.70"
+rust-version = "1.78"
 keywords = ["voice", "terminal", "whisper", "cli"]
 categories = ["command-line-utilities"]
 

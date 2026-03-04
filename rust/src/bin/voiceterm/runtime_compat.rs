@@ -117,6 +117,17 @@ pub(crate) fn is_jetbrains_terminal() -> bool {
     detect_terminal_host() == TerminalHost::JetBrains
 }
 
+pub(crate) fn should_force_single_line_full_hud(
+    backend_family: BackendFamily,
+    terminal_host: TerminalHost,
+) -> bool {
+    backend_family == BackendFamily::Claude && terminal_host == TerminalHost::JetBrains
+}
+
+pub(crate) fn should_force_single_line_full_hud_for_env() -> bool {
+    should_force_single_line_full_hud(backend_family_from_env(), detect_terminal_host())
+}
+
 pub(crate) fn parse_claude_extra_gap_rows(
     override_value: Option<&str>,
     terminal_host: TerminalHost,
@@ -303,5 +314,21 @@ mod tests {
         with_terminal_env(&[], || {
             assert!(!should_enable_claude_startup_guard("claude"));
         });
+    }
+
+    #[test]
+    fn single_line_full_hud_policy_only_for_claude_on_jetbrains() {
+        assert!(should_force_single_line_full_hud(
+            BackendFamily::Claude,
+            TerminalHost::JetBrains
+        ));
+        assert!(!should_force_single_line_full_hud(
+            BackendFamily::Codex,
+            TerminalHost::JetBrains
+        ));
+        assert!(!should_force_single_line_full_hud(
+            BackendFamily::Claude,
+            TerminalHost::Cursor
+        ));
     }
 }

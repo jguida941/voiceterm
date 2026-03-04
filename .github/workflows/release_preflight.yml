@@ -96,6 +96,8 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_gate.py \
             --branch "${GITHUB_REF_NAME}" \
             --sha "${GITHUB_SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Verify CodeRabbit Ralph gate passed for this commit
@@ -105,6 +107,8 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
             --branch "${GITHUB_REF_NAME}" \
             --sha "${GITHUB_SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Run CI runtime bundle

@@ -62,23 +62,6 @@ jobs:
       - name: cargo doc
         run: cargo doc --workspace --no-deps --all-features
 
-      - name: Render CI badge
-        if: always()
-        run: python3 ../dev/scripts/render_ci_badge.py --status "${{ job.status }}" --output ../.github/badges/ci-status.json
-
-      - name: Commit CI badge update
-        if: always() && github.ref == 'refs/heads/master'
-        run: |
-          if git diff --quiet -- ../.github/badges/ci-status.json; then
-            echo "No CI badge change."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ../.github/badges/ci-status.json
-          git commit -m "chore: update CI badge"
-          git push
-
   rust-msrv:
     runs-on: ubuntu-latest
 
@@ -93,7 +76,7 @@ jobs:
       - name: Install Rust (MSRV)
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
         with:
-          toolchain: "1.70.0"
+          toolchain: "1.78.0"
 
       - name: Install ALSA development headers
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
@@ -145,3 +128,51 @@ jobs:
 
       - name: cargo test runtime smoke
         run: cargo test --bin voiceterm -- --nocapture
+
+  ci-badge:
+    name: aggregate ci badge
+    if: always()
+    needs:
+      - rust
+      - rust-msrv
+      - rust-feature-matrix
+      - rust-macos-runtime
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Resolve aggregate CI status
+        id: aggregate
+        env:
+          RUST_RESULT: ${{ needs.rust.result }}
+          MSRV_RESULT: ${{ needs['rust-msrv'].result }}
+          FEATURE_MATRIX_RESULT: ${{ needs['rust-feature-matrix'].result }}
+          MACOS_RESULT: ${{ needs['rust-macos-runtime'].result }}
+        run: |
+          STATUS="success"
+          for RESULT in "${RUST_RESULT}" "${MSRV_RESULT}" "${FEATURE_MATRIX_RESULT}" "${MACOS_RESULT}"; do
+            if [[ "${RESULT}" != "success" ]]; then
+              STATUS="failure"
+              break
+            fi
+          done
+          echo "status=${STATUS}" >> "${GITHUB_OUTPUT}"
+
+      - name: Render CI badge
+        run: python3 dev/scripts/render_ci_badge.py --status "${{ steps.aggregate.outputs.status }}" --output .github/badges/ci-status.json
+
+      - name: Commit CI badge update
+        if: github.ref == 'refs/heads/master'
+        run: |
+          if git diff --quiet -- .github/badges/ci-status.json; then
+            echo "No CI badge change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/ci-status.json
+          git commit -m "chore: update CI badge"
+          git push

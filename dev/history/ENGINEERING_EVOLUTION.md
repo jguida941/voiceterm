@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-03-04
 
 ## At a Glance
 
@@ -180,6 +180,63 @@ Evidence:
 Inference: Phase-0 execution now has explicit CI + governance guard coverage for
 the remaining non-runtime blockers, reducing ambiguity before Phase 0.5
 characterization work.
+
+### Recent Governance Update (2026-03-04, MP-346 Phase-1 Host/Provider Boundary Cleanup)
+
+Fact: MP-346 phase-1 cleanup now routes JetBrains+Claude full-HUD single-line
+fallback through one canonical runtime-compat helper, and writer-side terminal
+host detection now maps from the canonical runtime host detector instead of
+local duplicate host-sniffing logic.
+
+Evidence:
+
+- `rust/src/bin/voiceterm/runtime_compat.rs`
+  (`should_force_single_line_full_hud`,
+  `should_force_single_line_full_hud_for_env`)
+- `rust/src/bin/voiceterm/status_line/layout.rs` +
+  `rust/src/bin/voiceterm/status_line/buttons.rs`
+  (status-line fallback routing now consumes runtime-compat helper only)
+- `rust/src/bin/voiceterm/writer/render.rs`
+  (terminal-family detection now maps from
+  `runtime_compat::detect_terminal_host()`)
+- `dev/active/ide_provider_modularization.md` +
+  `dev/active/MASTER_PLAN.md` (execution/progress tracker updates)
+
+Inference: This reduces host/provider coupling in status-line rendering paths
+and aligns writer host detection ownership under the MP-346 canonical detector
+contract without changing runtime behavior.
+
+### Recent Governance Update (2026-03-04, CI Signal Hardening + Release Gate Enforcement)
+
+Fact: Workflow signal policy now separates release-blocking lanes from
+background autonomy/mutation maintenance lanes, and release publishers now
+require a successful `Release Preflight` run for the exact release SHA.
+
+Evidence:
+
+- `.github/workflows/publish_pypi.yml` +
+  `.github/workflows/publish_homebrew.yml` +
+  `.github/workflows/publish_release_binaries.yml` +
+  `.github/workflows/release_attestation.yml`
+  (each now waits for same-SHA CodeRabbit + Ralph gates and requires
+  same-SHA `Release Preflight`)
+- `.github/workflows/failure_triage.yml`
+  (watchlist narrowed to high-signal lanes and serious conclusions only:
+  `failure`, `timed_out`, `action_required`)
+- `.github/workflows/mutation-testing.yml`
+  (mutation threshold defaults to warn-only; hard enforcement via repo var
+  `MUTATION_ENFORCE_THRESHOLD=true`)
+- `.github/workflows/mutation_ralph_loop.yml`
+  (workflow-run mode now opt-in via `MUTATION_LOOP_MODE`; report-only artifact
+  misses are warning-only)
+- `.github/workflows/autonomy_controller.yml` +
+  `.github/workflows/orchestrator_watchdog.yml`
+  (scheduled controller/watchdog lanes are now mode-gated by repo vars to avoid
+  constant red runs when automation is not actively operated)
+
+Inference: Dashboard red now maps to actionable release-risk lanes instead of
+default background-loop noise, while release publication is blocked unless
+preflight and AI-review gates are green for the same commit.
 
 ### Recent Governance Update (2026-03-01, v1.0.98 Release Gate Alignment)
 

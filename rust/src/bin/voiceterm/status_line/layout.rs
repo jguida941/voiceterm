@@ -1,9 +1,7 @@
 //! Responsive status-line layout breakpoints so HUD content degrades gracefully.
 
 use crate::config::HudStyle;
-use crate::runtime_compat::{
-    backend_family_from_env, detect_terminal_host, BackendFamily, TerminalHost,
-};
+use crate::runtime_compat::should_force_single_line_full_hud_for_env;
 
 use super::state::StatusLineState;
 
@@ -73,9 +71,7 @@ pub fn status_banner_height_for_state(width: usize, state: &StatusLineState) -> 
 
 fn should_force_single_line_full_hud(state: &StatusLineState) -> bool {
     state.hud_style == HudStyle::Full
-        && (state.full_hud_single_line
-            || (backend_family_from_env() == BackendFamily::Claude
-                && detect_terminal_host() == TerminalHost::JetBrains))
+        && (state.full_hud_single_line || should_force_single_line_full_hud_for_env())
 }
 
 #[cfg(test)]

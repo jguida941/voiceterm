@@ -105,6 +105,22 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_gate.py \
             --branch "${RELEASE_BRANCH}" \
             --sha "${RELEASE_SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
+            --format md
+
+      - name: Verify release preflight passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --workflow "release_preflight.yml" \
+            --branch "${RELEASE_BRANCH}" \
+            --sha "${RELEASE_SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Verify CodeRabbit Ralph gate passed for release commit
@@ -116,6 +132,8 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
             --branch "${RELEASE_BRANCH}" \
             --sha "${RELEASE_SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Clone Homebrew tap repo

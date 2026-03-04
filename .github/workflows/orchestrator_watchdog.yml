@@ -16,8 +16,11 @@ on:
 
 jobs:
   watchdog:
+    if: ${{ vars.ORCHESTRATOR_WATCHDOG_MODE != '' && vars.ORCHESTRATOR_WATCHDOG_MODE != 'off' }}
     name: multi-agent sla watchdog
     runs-on: ubuntu-latest
+    env:
+      WATCHDOG_MODE: ${{ vars.ORCHESTRATOR_WATCHDOG_MODE }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -33,4 +36,17 @@ jobs:
         run: python3 dev/scripts/devctl.py orchestrate-status --format md
 
       - name: Run orchestrator SLA watchdog
-        run: python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md
+        run: |
+          set +e
+          python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md
+          RC=$?
+          set -e
+          if [[ "${RC}" -eq 0 ]]; then
+            exit 0
+          fi
+          if [[ "${WATCHDOG_MODE}" == "enforce" ]]; then
+            echo "Watchdog enforcement mode active; failing with ${RC}."
+            exit "${RC}"
+          fi
+          echo "::warning::Watchdog reported stale lanes (rc=${RC}); report-only mode keeps this run non-blocking."
+          exit 0

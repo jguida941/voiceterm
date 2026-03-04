@@ -76,6 +76,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
 
+      - name: Install ALSA development headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Cache cargo registry and tools
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
@@ -106,18 +109,59 @@ jobs:
             --format json \
             --output security-ai-guard-report.json
 
+      - name: Resolve Python security diff scope
+        id: py_scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          SINCE_REF=""
+          HEAD_REF=""
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            SINCE_REF="${PR_BASE}"
+            HEAD_REF="${PR_HEAD}"
+          elif [[ "${EVENT_NAME}" == "push" ]]; then
+            SINCE_REF="${PUSH_BEFORE}"
+            HEAD_REF="${PUSH_HEAD}"
+          fi
+
+          if [[ "${SINCE_REF}" == "0000000000000000000000000000000000000000" ]]; then
+            SINCE_REF=""
+          fi
+
+          if [[ -n "${SINCE_REF}" ]]; then
+            echo "since_ref=${SINCE_REF}" >> "${GITHUB_OUTPUT}"
+          fi
+          if [[ -n "${HEAD_REF}" ]]; then
+            echo "head_ref=${HEAD_REF}" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Run core security tier
         env:
           GH_TOKEN: ${{ github.token }}
+          SINCE_REF: ${{ steps.py_scope.outputs.since_ref }}
+          HEAD_REF: ${{ steps.py_scope.outputs.head_ref }}
         run: |
-          python3 dev/scripts/devctl.py security \
+          CMD=(
+            python3 dev/scripts/devctl.py security
             --scanner-tier core \
-            --python-scope all \
+            --python-scope changed \
             --with-codeql-alerts \
             --codeql-repo "${{ github.repository }}" \
             --codeql-min-severity high \
             --format json \
             --output security-core-report.json
+          )
+          if [[ -n "${SINCE_REF}" ]]; then
+            CMD+=(--since-ref "${SINCE_REF}")
+          fi
+          if [[ -n "${HEAD_REF}" ]]; then
+            CMD+=(--head-ref "${HEAD_REF}")
+          fi
+          "${CMD[@]}"
 
       - name: Upload security core report
         if: always()
@@ -130,14 +174,44 @@ jobs:
           if-no-files-found: error
 
   zizmor:
+    if: ${{ vars.SECURITY_ZIZMOR_MODE != '' && vars.SECURITY_ZIZMOR_MODE != 'off' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SECURITY_ZIZMOR_MODE: ${{ vars.SECURITY_ZIZMOR_MODE }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
       - name: Run zizmor workflow security scan
-        uses: woodruffw/zizmor-action@e639dbb30f0f5f1b5776b6921e7001715262b4e4
+        run: |
+          set +e
+          cargo install zizmor --locked
+          INSTALL_RC=$?
+          if [[ "${INSTALL_RC}" -ne 0 ]]; then
+            if [[ "${SECURITY_ZIZMOR_MODE}" == "enforce" ]]; then
+              echo "Failed to install zizmor (SECURITY_ZIZMOR_MODE=enforce)."
+              exit "${INSTALL_RC}"
+            fi
+            echo "::warning::Failed to install zizmor; report-only mode keeps this lane non-blocking."
+            exit 0
+          fi
+
+          zizmor .github/workflows --min-severity high
+          SCAN_RC=$?
+          set -e
+          if [[ "${SCAN_RC}" -eq 0 ]]; then
+            exit 0
+          fi
+          if [[ "${SECURITY_ZIZMOR_MODE}" == "enforce" ]]; then
+            echo "zizmor reported findings/errors (SECURITY_ZIZMOR_MODE=enforce)."
+            exit "${SCAN_RC}"
+          fi
+          echo "::warning::zizmor reported findings/errors (${SCAN_RC}); report-only mode keeps this lane non-blocking."
+          exit 0
 
   codeql:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

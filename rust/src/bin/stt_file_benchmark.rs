@@ -77,14 +77,11 @@ fn main() -> Result<()> {
         last_transcript = transcript;
     }
 
-    let min_ms = run_times_ms
-        .iter()
-        .copied()
-        .fold(f64::INFINITY, |acc, value| acc.min(value));
+    let min_ms = run_times_ms.iter().copied().fold(f64::INFINITY, f64::min);
     let max_ms = run_times_ms
         .iter()
         .copied()
-        .fold(f64::NEG_INFINITY, |acc, value| acc.max(value));
+        .fold(f64::NEG_INFINITY, f64::max);
     let avg_ms = run_times_ms.iter().copied().sum::<f64>() / run_times_ms.len() as f64;
 
     println!(

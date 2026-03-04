@@ -90,10 +90,14 @@ jobs:
         github.event_name == 'workflow_dispatch' ||
         (
           github.event.workflow_run.head_repository.full_name == github.repository &&
+          vars.MUTATION_LOOP_MODE != '' &&
           vars.MUTATION_LOOP_MODE != 'disabled' &&
           (
-            vars.MUTATION_LOOP_MODE == '' ||
             vars.MUTATION_LOOP_MODE == 'always' ||
+            (
+              vars.MUTATION_LOOP_MODE == 'success-only' &&
+              github.event.workflow_run.conclusion == 'success'
+            ) ||
             (
               vars.MUTATION_LOOP_MODE == 'failure-only' &&
               github.event.workflow_run.conclusion != 'success'
@@ -266,7 +270,23 @@ jobs:
           if [[ "${MODE}" != "report-only" && -n "${FIX_COMMAND}" ]]; then
             CMD+=(--fix-command "${FIX_COMMAND}")
           fi
+          set +e
           "${CMD[@]}"
+          RC=$?
+          set -e
+          if [[ "${RC}" -eq 0 ]]; then
+            exit 0
+          fi
+
+          if [[ "${MODE}" == "report-only" && -f /tmp/mutation-ralph-loop.json ]]; then
+            FAILURE_REASON="$(python3 -c 'import json; from pathlib import Path; payload = json.loads(Path("/tmp/mutation-ralph-loop.json").read_text(encoding="utf-8")); print(str(payload.get("reason") or "").strip())')"
+            if [[ "${FAILURE_REASON}" == "artifact download failed" ]]; then
+              echo "::warning::Mutation Ralph loop report-only mode skipped hard-fail (artifact download failed)."
+              exit 0
+            fi
+          fi
+
+          exit "${RC}"
 
       - name: Publish loop summary
         if: always()

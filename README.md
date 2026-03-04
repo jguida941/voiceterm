@@ -208,6 +208,8 @@ JetBrains + Claude rare edge case (long parallel turns):
 after very long parallel tool calls or parallel web-search turns, HUD/transcript
 overlap can appear at turn completion. Quick workaround: resize the terminal
 once (even by 1 row/column) to force layout recalculation.
+During these high-churn turns, VoiceTerm already applies a single-line full-HUD
+fallback for JetBrains+Claude to keep controls reachable while redraw settles.
 Details: [Troubleshooting -> JetBrains + Claude overlay overlap after long parallel output](guides/TROUBLESHOOTING.md#jetbrains--claude-overlay-overlap-after-long-parallel-output).
 
 Canonical matrix: [Usage Guide -> IDE Compatibility](guides/USAGE.md#ide-compatibility).

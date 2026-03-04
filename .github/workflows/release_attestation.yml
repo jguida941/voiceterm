@@ -90,6 +90,20 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_gate.py \
             --branch "${BRANCH}" \
             --sha "${SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
+            --format md
+
+      - name: Verify release preflight passed for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 dev/scripts/checks/check_coderabbit_gate.py \
+            --workflow "release_preflight.yml" \
+            --branch "${BRANCH}" \
+            --sha "${SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Verify CodeRabbit Ralph gate passed for release commit
@@ -99,6 +113,8 @@ jobs:
           python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
             --branch "${BRANCH}" \
             --sha "${SHA}" \
+            --wait-seconds 1800 \
+            --poll-seconds 20 \
             --format md
 
       - name: Build source archive

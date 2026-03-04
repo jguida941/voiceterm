@@ -7,6 +7,32 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Runtime Hardening
+
+- Route JetBrains+Claude full-HUD single-line fallback policy through canonical
+  runtime compatibility helpers so status-line layout/buttons and writer render
+  host detection use one shared host/provider policy path without behavior
+  drift.
+
+### CI Hardening
+
+- Gate release publishers on same-SHA `Release Preflight` + CodeRabbit + Ralph
+  success, with explicit wait/poll windows so release publish workflows cannot
+  race ahead of required checks.
+- Fix CI badge truthfulness by computing badge status from aggregate Rust CI job
+  results (main lane + MSRV + feature matrix + macOS smoke), instead of a
+  single-job status.
+- Reduce non-actionable CI red-noise by making mutation threshold enforcement
+  opt-in (`MUTATION_ENFORCE_THRESHOLD=true`), making mutation workflow-run loop
+  mode opt-in (`MUTATION_LOOP_MODE`), and mode-gating autonomy/watchdog
+  scheduled loops (`AUTONOMY_MODE`, `ORCHESTRATOR_WATCHDOG_MODE`).
+- Keep security guard stable in CI by installing ALSA headers in core security
+  runs, scoping Python security checks to push/PR diffs, and making `zizmor`
+  enforcement opt-in (`SECURITY_ZIZMOR_MODE=enforce`).
+- Narrow Failure Triage to high-signal failure conclusions
+  (`failure`/`timed_out`/`action_required`) so triage artifacts focus on
+  actionable failures instead of skipped/neutral events.
+
 ## [1.0.99] - 2026-03-03
 ### UX
 

@@ -165,10 +165,7 @@ fn read_terminal_size() -> io::Result<(u16, u16)> {
         Err(_) => normalize_terminal_size(0, 0),
     };
     if cols == 0 || rows == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "terminal size unavailable",
-        ));
+        return Err(io::Error::other("terminal size unavailable"));
     }
     Ok((cols, rows))
 }

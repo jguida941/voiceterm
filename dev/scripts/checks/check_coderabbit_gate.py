@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,8 @@ except ModuleNotFoundError:
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORKFLOW = "CodeRabbit Triage Bridge"
 DEFAULT_LIMIT = 50
-
+DEFAULT_WAIT_SECONDS = 0
+DEFAULT_POLL_SECONDS = 15
 
 def _run_capture(cmd: list[str]) -> tuple[int, str, str]:
     try:
@@ -43,7 +45,6 @@ def _run_capture(cmd: list[str]) -> tuple[int, str, str]:
         return 127, "", str(exc)
     return completed.returncode, completed.stdout or "", completed.stderr or ""
 
-
 def _resolve_sha(raw: str | None) -> tuple[str, str | None]:
     if raw:
         value = raw.strip()
@@ -54,10 +55,8 @@ def _resolve_sha(raw: str | None) -> tuple[str, str | None]:
         return "", (stderr or stdout or "failed to resolve HEAD SHA").strip()
     return stdout.strip(), None
 
-
 def _looks_like_sha(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{7,40}", value.strip()))
-
 
 def _resolve_branch(raw: str | None, sha: str) -> tuple[str, str | None]:
     if raw:
@@ -83,7 +82,6 @@ def _resolve_branch(raw: str | None, sha: str) -> tuple[str, str | None]:
     detail = (stderr or stdout or "failed to resolve branch").strip()
     return "", detail
 
-
 def _current_branch_name() -> str:
     rc, stdout, _stderr = _run_capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     if rc != 0:
@@ -92,11 +90,8 @@ def _current_branch_name() -> str:
     if branch == "HEAD":
         return ""
     return branch
-
-
 def _local_workflow_exists_by_name(workflow_name: str) -> bool:
     return local_workflow_exists_by_name(REPO_ROOT, workflow_name)
-
 
 def _gh_run_list(
     *,
@@ -136,15 +131,6 @@ def _gh_run_list(
         return [], "unexpected_gh_run_list_payload"
     return [row for row in payload if isinstance(row, dict)], None
 
-
-def _is_ci_environment() -> bool:
-    return is_ci_environment()
-
-
-def _looks_like_connectivity_error(message: str) -> bool:
-    return looks_like_connectivity_error(message)
-
-
 def _parse_iso(value: Any) -> tuple[bool, datetime]:
     raw = str(value or "").strip()
     if not raw:
@@ -154,7 +140,6 @@ def _parse_iso(value: Any) -> tuple[bool, datetime]:
         return True, datetime.fromisoformat(normalized)
     except ValueError:
         return False, datetime.min
-
 
 def _build_report(args) -> dict:
     report: dict[str, Any] = {
@@ -170,6 +155,8 @@ def _build_report(args) -> dict:
         "fallback_without_branch": False,
         "warnings": [],
         "latest_match": {},
+        "wait_seconds": max(int(getattr(args, "wait_seconds", DEFAULT_WAIT_SECONDS) or 0), 0),
+        "poll_seconds": max(int(getattr(args, "poll_seconds", DEFAULT_POLL_SECONDS) or 1), 1),
     }
 
     sha, sha_error = _resolve_sha(args.sha)
@@ -197,93 +184,103 @@ def _build_report(args) -> dict:
     if args.repo:
         report["repo"] = args.repo
 
-    runs, run_error = _gh_run_list(
-        workflow=args.workflow,
-        sha=sha,
-        limit=args.limit,
-        repo=args.repo,
-        branch=branch_filter,
-    )
-    if run_error:
-        workflow_missing = "could not find any workflows named" in run_error.lower()
-        current_branch = _current_branch_name()
-        if (
-            workflow_missing
-            and branch_filter
-            and current_branch
-            and current_branch != branch_filter
-            and _local_workflow_exists_by_name(args.workflow)
-        ):
-            report["ok"] = True
-            report["reason"] = "workflow_not_present_on_target_branch_yet"
-            report["warnings"].append(
-                "workflow is defined locally but not found on the requested branch; "
-                "treated as non-blocking outside that target branch."
-            )
-            return report
-        if _looks_like_connectivity_error(run_error) and not _is_ci_environment():
-            report["ok"] = True
-            report["reason"] = "gh_unreachable_local_non_blocking"
-            report["warnings"].append(
-                "unable to reach GitHub API from local environment; "
-                "treated as non-blocking outside CI/release lanes."
-            )
-            return report
-        report["reason"] = run_error
-        return report
+    wait_seconds = report["wait_seconds"]
+    poll_seconds = report["poll_seconds"]
+    deadline = time.monotonic() + wait_seconds
+    fallback_warning = "no runs found for branch filter; retried with commit-only filter."
 
-    if not runs and branch_filter:
-        fallback_runs, fallback_error = _gh_run_list(
+    while True:
+        runs, run_error = _gh_run_list(
             workflow=args.workflow,
             sha=sha,
             limit=args.limit,
             repo=args.repo,
-            branch="",
+            branch=branch_filter,
         )
-        if fallback_error:
-            report["reason"] = fallback_error
+        if run_error:
+            workflow_missing = "could not find any workflows named" in run_error.lower()
+            current_branch = _current_branch_name()
+            if (
+                workflow_missing
+                and branch_filter
+                and current_branch
+                and current_branch != branch_filter
+                and _local_workflow_exists_by_name(args.workflow)
+            ):
+                report["ok"] = True
+                report["reason"] = "workflow_not_present_on_target_branch_yet"
+                report["warnings"].append(
+                    "workflow is defined locally but not found on the requested branch; "
+                    "treated as non-blocking outside that target branch."
+                )
+                return report
+            if looks_like_connectivity_error(run_error) and not is_ci_environment():
+                report["ok"] = True
+                report["reason"] = "gh_unreachable_local_non_blocking"
+                report["warnings"].append(
+                    "unable to reach GitHub API from local environment; "
+                    "treated as non-blocking outside CI/release lanes."
+                )
+                return report
+            report["reason"] = run_error
             return report
-        report["fallback_without_branch"] = True
-        report["warnings"].append("no runs found for branch filter; retried with commit-only filter.")
-        report["branch"] = ""
-        runs = fallback_runs
 
-    report["checked_runs"] = len(runs)
-    matching = [run for run in runs if isinstance(run, dict) and str(run.get("headSha") or "").strip() == sha]
-    report["matching_runs"] = len(matching)
-    if not matching:
-        report["reason"] = "no_matching_workflow_runs_for_sha"
-        return report
+        if not runs and branch_filter:
+            fallback_runs, fallback_error = _gh_run_list(
+                workflow=args.workflow,
+                sha=sha,
+                limit=args.limit,
+                repo=args.repo,
+                branch="",
+            )
+            if fallback_error:
+                report["reason"] = fallback_error
+                return report
+            report["fallback_without_branch"] = True
+            if fallback_warning not in report["warnings"]:
+                report["warnings"].append(fallback_warning)
+            report["branch"] = ""
+            runs = fallback_runs
 
-    def _sort_key(row: dict) -> tuple[int, datetime]:
-        parsed_ok, parsed_value = _parse_iso(row.get("createdAt"))
-        return (1 if parsed_ok else 0, parsed_value)
+        report["checked_runs"] = len(runs)
+        matching = [run for run in runs if isinstance(run, dict) and str(run.get("headSha") or "").strip() == sha]
+        report["matching_runs"] = len(matching)
 
-    matching.sort(key=_sort_key, reverse=True)
-    latest = matching[0]
-    status = str(latest.get("status") or "").strip().lower()
-    conclusion = str(latest.get("conclusion") or "").strip().lower()
-    report["latest_match"] = {
-        "status": status,
-        "conclusion": conclusion,
-        "url": latest.get("url"),
-        "created_at": latest.get("createdAt"),
-    }
+        if matching:
+            def _sort_key(row: dict) -> tuple[int, datetime]:
+                parsed_ok, parsed_value = _parse_iso(row.get("createdAt"))
+                return (1 if parsed_ok else 0, parsed_value)
 
-    if status != "completed":
-        report["reason"] = f"latest_matching_run_not_completed: status={status}"
-        return report
-    if conclusion != args.require_conclusion:
-        report["reason"] = (
-            f"latest_matching_run_conclusion_{conclusion or 'unknown'}"
-            f"_does_not_match_required_{args.require_conclusion}"
-        )
-        return report
+            matching.sort(key=_sort_key, reverse=True)
+            latest = matching[0]
+            status = str(latest.get("status") or "").strip().lower()
+            conclusion = str(latest.get("conclusion") or "").strip().lower()
+            report["latest_match"] = {
+                "status": status,
+                "conclusion": conclusion,
+                "url": latest.get("url"),
+                "created_at": latest.get("createdAt"),
+            }
 
-    report["ok"] = True
-    report["reason"] = "coderabbit_gate_passed"
-    return report
+            if status == "completed" and conclusion == args.require_conclusion:
+                report["ok"] = True
+                report["reason"] = "coderabbit_gate_passed"
+                return report
 
+            if status != "completed":
+                report["reason"] = f"latest_matching_run_not_completed: status={status}"
+            else:
+                report["reason"] = (
+                    f"latest_matching_run_conclusion_{conclusion or 'unknown'}"
+                    f"_does_not_match_required_{args.require_conclusion}"
+                )
+        else:
+            report["latest_match"] = {}
+            report["reason"] = "no_matching_workflow_runs_for_sha"
+
+        if time.monotonic() >= deadline:
+            return report
+        time.sleep(poll_seconds)
 
 def _render_md(report: dict) -> str:
     lines = ["# check_coderabbit_gate", ""]
@@ -317,7 +314,6 @@ def _render_md(report: dict) -> str:
         )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workflow", default=DEFAULT_WORKFLOW)
@@ -329,9 +325,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--require-conclusion", default="success")
+    parser.add_argument("--wait-seconds", type=int, default=DEFAULT_WAIT_SECONDS)
+    parser.add_argument("--poll-seconds", type=int, default=DEFAULT_POLL_SECONDS)
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
-
 
 def main() -> int:
     args = _build_parser().parse_args()

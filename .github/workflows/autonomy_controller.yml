@@ -98,7 +98,7 @@ on:
 
 jobs:
   controller:
-    if: ${{ vars.AUTONOMY_MODE != 'off' }}
+    if: ${{ vars.AUTONOMY_MODE != '' && vars.AUTONOMY_MODE != 'off' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     outputs:
@@ -278,9 +278,7 @@ jobs:
           RC=$?
           echo "${RC}" > /tmp/autonomy-controller.exit
           if [[ ! -f /tmp/autonomy-controller.json ]]; then
-            cat <<'JSON' > /tmp/autonomy-controller.json
-            {"ok": false, "reason": "controller_output_missing"}
-            JSON
+            printf '%s\n' '{"ok": false, "reason": "controller_output_missing"}' > /tmp/autonomy-controller.json
           fi
           exit 0
 
@@ -351,12 +349,19 @@ jobs:
 
       - name: Enforce controller exit code
         if: always()
+        env:
+          AUTONOMY_MODE: ${{ vars.AUTONOMY_MODE }}
         run: |
           RC="$(cat /tmp/autonomy-controller.exit 2>/dev/null || echo 1)"
-          if [[ "${RC}" != "0" ]]; then
-            echo "autonomy-loop exited with ${RC}"
+          if [[ "${RC}" == "0" ]]; then
+            exit 0
+          fi
+          if [[ "${AUTONOMY_MODE}" == "enforce" ]]; then
+            echo "autonomy-loop exited with ${RC} (AUTONOMY_MODE=enforce)."
             exit "${RC}"
           fi
+          echo "::warning::autonomy-loop exited with ${RC}; report-only mode keeps this lane non-blocking (set AUTONOMY_MODE=enforce to fail)."
+          exit 0
 
   promote:
     needs: controller

@@ -1,6 +1,9 @@
 use std::io::{self, Write};
-use std::{env, sync::OnceLock};
+use std::sync::OnceLock;
 
+use crate::runtime_compat::{
+    backend_family_from_env, detect_terminal_host, BackendFamily, TerminalHost,
+};
 use crate::status_line::StatusBanner;
 use crate::status_style::StatusType;
 use crate::theme::Theme;
@@ -15,6 +18,16 @@ pub(super) enum TerminalFamily {
     JetBrains,
     Cursor,
     Other,
+}
+
+impl From<TerminalHost> for TerminalFamily {
+    fn from(host: TerminalHost) -> Self {
+        match host {
+            TerminalHost::JetBrains => Self::JetBrains,
+            TerminalHost::Cursor => Self::Cursor,
+            TerminalHost::Other => Self::Other,
+        }
+    }
 }
 
 // Use combined ANSI+DEC for non-JetBrains terminals so cursor save/restore
@@ -39,64 +52,8 @@ const CURSOR_SHOW: &[u8] = b"\x1b[?25h";
 const SYNC_BEGIN: &[u8] = b"\x1b[?2026h";
 const SYNC_END: &[u8] = b"\x1b[?2026l";
 
-fn contains_jetbrains_hint(value: &str) -> bool {
-    let value = value.to_ascii_lowercase();
-    value.contains("jetbrains")
-        || value.contains("jediterm")
-        || value.contains("pycharm")
-        || value.contains("intellij")
-        || value.contains("idea")
-}
-
-fn contains_cursor_hint(value: &str) -> bool {
-    value.to_ascii_lowercase().contains("cursor")
-}
-
 fn detect_terminal_family() -> TerminalFamily {
-    const JETBRAINS_HINT_KEYS: &[&str] = &[
-        "PYCHARM_HOSTED",
-        "JETBRAINS_IDE",
-        "IDEA_INITIAL_DIRECTORY",
-        "IDEA_INITIAL_PROJECT",
-        "CLION_IDE",
-        "WEBSTORM_IDE",
-    ];
-
-    if JETBRAINS_HINT_KEYS
-        .iter()
-        .any(|key| env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false))
-    {
-        return TerminalFamily::JetBrains;
-    }
-
-    for key in ["TERM_PROGRAM", "TERMINAL_EMULATOR"] {
-        if let Ok(value) = env::var(key) {
-            if contains_jetbrains_hint(&value) {
-                return TerminalFamily::JetBrains;
-            }
-        }
-    }
-
-    for key in ["TERM_PROGRAM", "TERMINAL_EMULATOR"] {
-        if let Ok(value) = env::var(key) {
-            if contains_cursor_hint(&value) {
-                return TerminalFamily::Cursor;
-            }
-        }
-    }
-
-    for key in [
-        "CURSOR_TRACE_ID",
-        "CURSOR_APP_VERSION",
-        "CURSOR_VERSION",
-        "CURSOR_BUILD_VERSION",
-    ] {
-        if env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false) {
-            return TerminalFamily::Cursor;
-        }
-    }
-
-    TerminalFamily::Other
+    TerminalFamily::from(detect_terminal_host())
 }
 
 pub(super) fn terminal_family() -> TerminalFamily {
@@ -106,11 +63,7 @@ pub(super) fn terminal_family() -> TerminalFamily {
 
 fn is_claude_backend_label() -> bool {
     static IS_CLAUDE: OnceLock<bool> = OnceLock::new();
-    *IS_CLAUDE.get_or_init(|| {
-        env::var("VOICETERM_BACKEND_LABEL")
-            .map(|label| label.to_ascii_lowercase().contains("claude"))
-            .unwrap_or(false)
-    })
+    *IS_CLAUDE.get_or_init(|| backend_family_from_env() == BackendFamily::Claude)
 }
 
 fn save_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
@@ -557,20 +510,19 @@ mod tests {
     }
 
     #[test]
-    fn jetbrains_hint_detection_matches_known_values() {
-        assert!(contains_jetbrains_hint("JetBrains-JediTerm"));
-        assert!(contains_jetbrains_hint("PyCharm"));
-        assert!(contains_jetbrains_hint("IntelliJ"));
-        assert!(!contains_jetbrains_hint("xterm-256color"));
-        assert!(!contains_jetbrains_hint("cursor"));
-    }
-
-    #[test]
-    fn cursor_hint_detection_matches_known_values() {
-        assert!(contains_cursor_hint("cursor"));
-        assert!(contains_cursor_hint("Cursor"));
-        assert!(!contains_cursor_hint("vscode"));
-        assert!(!contains_cursor_hint("JetBrains-JediTerm"));
+    fn terminal_family_maps_from_runtime_terminal_host() {
+        assert_eq!(
+            TerminalFamily::from(TerminalHost::JetBrains),
+            TerminalFamily::JetBrains
+        );
+        assert_eq!(
+            TerminalFamily::from(TerminalHost::Cursor),
+            TerminalFamily::Cursor
+        );
+        assert_eq!(
+            TerminalFamily::from(TerminalHost::Other),
+            TerminalFamily::Other
+        );
     }
 
     #[test]

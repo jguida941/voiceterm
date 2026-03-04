@@ -252,17 +252,20 @@ gh workflow run autonomy_controller.yml -f plan_id=acp-poc-001 -f branch_base=de
 # Optional: manually trigger guarded plan-scoped swarm pipeline
 gh workflow run autonomy_run.yml -f plan_doc=dev/active/autonomous_control_plane.md -f mp_scope=MP-338 -f branch_base=develop -f mode=report-only -f agents=10 -f dry_run=true
 # Optional auto-run config (repo variables):
-# MUTATION_LOOP_MODE=always               # always|failure-only|disabled
+# MUTATION_LOOP_MODE=success-only         # always|success-only|failure-only|disabled (unset disables workflow_run mode)
 # MUTATION_EXECUTION_MODE=report-only     # report-only|plan-then-fix|fix-only
 # MUTATION_LOOP_MAX_ATTEMPTS=3
 # MUTATION_LOOP_POLL_SECONDS=20
 # MUTATION_LOOP_TIMEOUT_SECONDS=1800
 # MUTATION_LOOP_THRESHOLD=0.80
+# MUTATION_ENFORCE_THRESHOLD=true         # set true to hard-fail mutation-testing threshold gate
 # MUTATION_LOOP_FIX_COMMAND='<allowlisted fix command that commits + pushes>'
 # MUTATION_NOTIFY_MODE=summary-only
 # MUTATION_COMMENT_TARGET=auto
 # MUTATION_COMMENT_PR_NUMBER=<optional pr number>
-# AUTONOMY_MODE=read-only                 # off|read-only|operate
+# AUTONOMY_MODE=read-only                 # off|read-only|operate (unset disables scheduled autonomy_controller runs)
+# ORCHESTRATOR_WATCHDOG_MODE=report-only  # enforce|report-only (unset/off disables scheduled watchdog runs)
+# SECURITY_ZIZMOR_MODE=enforce            # enforce|report-only (unset/off disables security_guard zizmor job)
 # MUTATION_LOOP_ALLOWED_PREFIXES='python3 dev/scripts/devctl.py check --profile ci;python3 dev/scripts/devctl.py mutants'
 # TRIAGE_LOOP_ALLOWED_PREFIXES='python3 dev/scripts/devctl.py check --profile ci'
 
@@ -288,7 +291,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
-| `dev/scripts/checks/check_coderabbit_gate.py` | CodeRabbit release gate | Verifies the latest `CodeRabbit Triage Bridge` run is successful for a target branch+commit SHA before release/publish steps proceed. |
+| `dev/scripts/checks/check_coderabbit_gate.py` | Workflow release gate helper | Verifies the latest run for a target workflow/branch+commit SHA is successful before release/publish steps proceed (`--workflow` override + optional `--wait-seconds`/`--poll-seconds` for asynchronous gate arrival). |
 | `dev/scripts/checks/check_coderabbit_ralph_gate.py` | CodeRabbit Ralph release gate | Verifies the latest `CodeRabbit Ralph Loop` run is successful for a target branch+commit SHA before release/publish steps proceed. |
 | `dev/scripts/checks/run_coderabbit_ralph_loop.py` | CodeRabbit remediation loop | Runs a bounded retry loop over CodeRabbit medium/high backlog artifacts and optional auto-fix command hooks. |
 | `dev/scripts/checks/mutation_ralph_loop_core.py` | Mutation remediation loop core helpers | Shared run/artifact/score/hotspot logic used by `devctl mutation-loop`. |
@@ -589,17 +592,20 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release
 # 2) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
 
-# 3) publish GitHub release (triggers publish_pypi.yml + publish_homebrew.yml + publish_release_binaries.yml + release_attestation.yml)
+# 3) run release preflight for the exact version (publish workflows require this same-SHA gate)
+gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
+
+# 4) publish GitHub release (triggers publish_pypi.yml + publish_homebrew.yml + publish_release_binaries.yml + release_attestation.yml)
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
 
-# 4) monitor publish workflows
+# 5) monitor publish workflows
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh run list --workflow publish_release_binaries.yml --limit 1
 gh run list --workflow release_attestation.yml --limit 1
 # gh run watch <run-id>
 
-# 5) verify published package
+# 6) verify published package
 curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 
 # 6) fallback Homebrew update (if workflow path is unavailable)

@@ -264,7 +264,7 @@ fn format_full_single_line_banner(
     let (mut line, controls_start_col) = if controls_row.is_empty() {
         (status_prefix, None)
     } else if status_prefix.is_empty() {
-        (controls_row.clone(), Some(1usize))
+        (controls_row, Some(1usize))
     } else {
         (
             format!("{status_prefix}{status_controls_sep}{controls_row}"),

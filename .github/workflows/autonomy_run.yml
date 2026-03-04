@@ -193,9 +193,7 @@ jobs:
           RC=$?
           echo "${RC}" > /tmp/swarm-run.exit
           if [[ ! -f /tmp/swarm-run.json ]]; then
-            cat <<'JSON' > /tmp/swarm-run.json
-            {"ok": false, "errors": ["swarm_run output missing"], "run_dir": ""}
-            JSON
+            printf '%s\n' '{"ok": false, "errors": ["swarm_run output missing"], "run_dir": ""}' > /tmp/swarm-run.json
           fi
           exit 0
 
