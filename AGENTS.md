@@ -506,7 +506,7 @@ python3 dev/scripts/devctl.py ship --version <version> --pypi --verify-pypi --ho
 
 | Change signal | Lanes to verify |
 |---|---|
-| `rust/src/**` runtime changes | `rust_ci.yml` (Ubuntu main lane + MSRV `1.78.0` check + feature-mode matrix + macOS runtime smoke lane) |
+| `rust/src/**` runtime changes | `rust_ci.yml` (Ubuntu main lane + MSRV `1.85.0` check + feature-mode matrix + macOS runtime smoke lane) |
 | Send mode/macros/transcript delivery | `voice_mode_guard.yml` |
 | Wake-word runtime/detection | `wake_word_guard.yml` |
 | Perf-sensitive paths | `perf_smoke.yml`, `latency_guard.yml` |

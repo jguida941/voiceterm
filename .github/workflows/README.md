@@ -21,7 +21,7 @@ For exact run-by-run detail, open the workflow run in GitHub and read:
 
 | Workflow file | What it does | When it runs | Main checks/actions | First local command |
 |---|---|---|---|---|
-| `rust_ci.yml` | Main Rust quality lane. | Push/PR when runtime paths or this workflow change. | Ubuntu main lane (`cargo fmt`, `cargo clippy`, `cargo test`, `cargo doc --workspace --no-deps --all-features`), dedicated MSRV (`1.78.0`) check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke test, and aggregate CI badge update (badge follows overall workflow result, not a single job). | `python3 dev/scripts/devctl.py check --profile ci` |
+| `rust_ci.yml` | Main Rust quality lane. | Push/PR when runtime paths or this workflow change. | Ubuntu main lane (`cargo fmt`, `cargo clippy`, `cargo test`, `cargo doc --workspace --no-deps --all-features`), dedicated MSRV (`1.85.0`) check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke test, and aggregate CI badge update (badge follows overall workflow result, not a single job). | `python3 dev/scripts/devctl.py check --profile ci` |
 | `voice_mode_guard.yml` | Protects macro mode + send mode behavior. | Push/PR on runtime path changes. | Targeted `cargo test` checks for macro/send mode paths. | `python3 dev/scripts/devctl.py check --profile ci` |
 | `wake_word_guard.yml` | Protects wake-word behavior. | Push/PR on runtime + wake-word guard script changes. | Runs wake-word guard script. | `bash dev/scripts/tests/wake_word_guard.sh` |
 | `latency_guard.yml` | Protects latency behavior from regressions. | Push/PR on runtime + latency script changes. | Runs synthetic latency guard script. | `./dev/scripts/tests/measure_latency.sh --ci-guard` |

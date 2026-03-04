@@ -93,7 +93,7 @@ CI runs the same checks, so local failures are faster to fix.
 
 | You changed... | Run locally | CI workflow |
 |---|---|---|
-| Rust runtime, UI behavior, or flags | `python3 dev/scripts/devctl.py check --profile ci` | `rust_ci.yml` (Ubuntu main lane + MSRV `1.78.0` + feature-mode matrix + macOS runtime smoke lane) |
+| Rust runtime, UI behavior, or flags | `python3 dev/scripts/devctl.py check --profile ci` | `rust_ci.yml` (Ubuntu main lane + MSRV `1.85.0` + feature-mode matrix + macOS runtime smoke lane) |
 | Perf, latency, wake-word, parser, workers, or security-sensitive code | `python3 dev/scripts/devctl.py check --profile prepush` plus risk-specific tests in `AGENTS.md` | `perf_smoke.yml`, `latency_guard.yml`, `wake_word_guard.yml`, `memory_guard.yml`, `parser_fuzz_guard.yml`, `security_guard.yml` |
 
 Latency guard note:
@@ -651,7 +651,7 @@ For simple per-workflow intent/triggers, see `.github/workflows/README.md`.
 
 | Workflow | File | What it checks |
 |----------|------|----------------|
-| Rust TUI CI | `.github/workflows/rust_ci.yml` | Ubuntu build/test/clippy/fmt/doc, MSRV `1.78.0` check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke, and aggregate CI badge update |
+| Rust TUI CI | `.github/workflows/rust_ci.yml` | Ubuntu build/test/clippy/fmt/doc, MSRV `1.85.0` check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke, and aggregate CI badge update |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | Focused macros toggle + send-mode label regressions |
 | Wake Word Guard | `.github/workflows/wake_word_guard.yml` | Wake-word regression + soak guardrails |
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | Perf smoke test + metrics verification |

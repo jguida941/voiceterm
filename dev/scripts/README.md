@@ -160,6 +160,9 @@ python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control
 # Scorecard note: keep workflow-level permissions read-only and place
 # `id-token: write`/`security-events: write` at the scorecard job level so
 # OpenSSF `publish_results` verification passes.
+# Rust CI note: the dedicated MSRV lane in `.github/workflows/rust_ci.yml`
+# currently pins `1.85.0` to stay compatible with transitive `edition2024`
+# manifests in the active dependency graph.
 # Pinning note: keep GitHub-owned actions pinned to valid 40-character SHAs
 # (for example `actions/attest-build-provenance`, `github/codeql-action/upload-sarif`).
 # If your cihub binary doesn't support `triage`, devctl records an infra warning

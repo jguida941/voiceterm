@@ -238,6 +238,21 @@ Inference: Dashboard red now maps to actionable release-risk lanes instead of
 default background-loop noise, while release publication is blocked unless
 preflight and AI-review gates are green for the same commit.
 
+### Recent Governance Update (2026-03-04, Rust CI MSRV Cargo Compatibility)
+
+Fact: The Rust CI MSRV lane now uses toolchain `1.85.0` so Cargo can parse
+transitive `edition2024` crate manifests in the current dependency graph.
+
+Evidence:
+
+- `.github/workflows/rust_ci.yml` (MSRV install step now uses `1.85.0`)
+- `AGENTS.md`, `.github/workflows/README.md`, `dev/DEVELOPMENT.md`
+  (MSRV lane documentation now matches workflow behavior)
+- `dev/CHANGELOG.md` (records the CI hardening reason and scope)
+
+Inference: CI red from dependency-manifest parser incompatibility is removed,
+and the documented MSRV contract now matches actual workflow execution.
+
 ### Recent Governance Update (2026-03-01, v1.0.98 Release Gate Alignment)
 
 Fact: Release `v1.0.98` execution now tracks the stricter docs-governance path

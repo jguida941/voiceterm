@@ -54,6 +54,10 @@
 - Control-plane simplification update: MP-340 is now Rust-first only (Rust
   overlay + `devctl` + phone/SSH projections). The optional `app/pyside6`
   command-center track is retired from active execution scope.
+- CI lane compatibility update: Rust CI MSRV lane now uses toolchain `1.85.0`
+  so Cargo can parse transitive `edition2024` manifests in the current
+  dependency graph; CI/docs references were synchronized to the new lane
+  contract.
 
 ## Multi-Agent Coordination Board
 
