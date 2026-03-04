@@ -8,6 +8,9 @@ use crate::config::HudRightPanel;
 #[cfg(test)]
 use crate::config::LatencyDisplayMode;
 use crate::config::{HudStyle, VoiceSendMode};
+use crate::runtime_compat::{
+    backend_family_from_env, detect_terminal_host, BackendFamily, TerminalHost,
+};
 use crate::status_style::StatusType;
 #[cfg(test)]
 use crate::theme::VoiceSceneStyle;
@@ -50,13 +53,18 @@ pub fn get_button_positions(
     }
     match effective_hud_style_for_state(state) {
         HudStyle::Full => {
+            if should_force_single_line_full_hud(state) {
+                let mut effective_state = state.clone();
+                effective_state.full_hud_single_line = true;
+                return super::format::format_status_banner(&effective_state, theme, width).buttons;
+            }
             if width < breakpoints::COMPACT {
                 return Vec::new();
             }
             let colors = theme.colors();
             let inner_width = width.saturating_sub(2);
             let (_, buttons) =
-                format_button_row_with_positions(state, &colors, inner_width, 2, true, false);
+                format_button_row_with_positions(state, &colors, inner_width, 2, true, false, 3);
             buttons
         }
         HudStyle::Minimal => {
@@ -73,6 +81,13 @@ pub fn get_button_positions(
             buttons
         }
     }
+}
+
+fn should_force_single_line_full_hud(state: &StatusLineState) -> bool {
+    state.hud_style == HudStyle::Full
+        && (state.full_hud_single_line
+            || (backend_family_from_env() == BackendFamily::Claude
+                && detect_terminal_host() == TerminalHost::JetBrains))
 }
 
 #[inline]
@@ -351,7 +366,7 @@ pub(super) fn format_shortcuts_row_with_positions(
     let row_width = inner_width.saturating_sub(1);
     // Row 2 from bottom of HUD (row 1 = bottom border)
     let (shortcuts_str, buttons) =
-        format_button_row_with_positions(state, colors, row_width, 2, true, false);
+        format_button_row_with_positions(state, colors, row_width, 2, true, false, 3);
 
     // Add leading space to match main row's left margin
     let shortcuts = truncate_display(&format!(" {}", shortcuts_str), inner_width);
@@ -374,6 +389,17 @@ pub(super) fn format_shortcuts_row_with_positions(
     let line = wrap_shortcuts_row(&interior, colors, borders, inner_width);
 
     (line, buttons)
+}
+
+/// Format full-HUD controls without border wrapping for single-line layouts.
+pub(super) fn format_full_controls_with_positions(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    width: usize,
+    hud_row: u16,
+    start_x: u16,
+) -> (String, Vec<ButtonPosition>) {
+    format_button_row_with_positions(state, colors, width, hud_row, true, false, start_x)
 }
 
 /// Format the shortcuts row with dimmed styling.
@@ -510,13 +536,14 @@ fn format_button_row_with_positions(
     hud_row: u16,
     show_latency_badge: bool,
     show_ready_badge: bool,
+    start_x: u16,
 ) -> (String, Vec<ButtonPosition>) {
     let button_defs = get_button_defs(state);
     let mut items = Vec::new();
     let mut positions = Vec::new();
 
     // Track current x position (1-based, after border + leading space = column 3)
-    let mut current_x: u16 = 3; // border(1) + space(1) + first char at (3)
+    let mut current_x: u16 = start_x;
     let separator_visible_width = 3u16; // " · " = 3 visible chars
 
     for (idx, def) in button_defs.iter().enumerate() {
@@ -633,7 +660,7 @@ fn format_button_row_with_positions(
 
 #[cfg(test)]
 fn format_button_row(state: &StatusLineState, colors: &ThemeColors, inner_width: usize) -> String {
-    let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2, true, false);
+    let (row, _) = format_button_row_with_positions(state, colors, inner_width, 2, true, false, 3);
     row
 }
 

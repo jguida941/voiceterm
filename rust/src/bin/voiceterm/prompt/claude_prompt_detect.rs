@@ -422,6 +422,47 @@ fn context_matches_patterns(current_line: &str, context: &str, patterns: &[&str]
         .any(|pattern| context.contains(pattern) || current_line.contains(pattern))
 }
 
+fn context_contains_yes_no_confirmation_controls(context: &str) -> bool {
+    context.contains("(y/n)")
+        || context.contains("[y/n]")
+        || context.contains("(yes/no)")
+        || context.contains("[yes/no]")
+        || context.contains("press y to confirm")
+        || context.contains("press enter to continue")
+}
+
+fn line_has_confirmation_prompt_prefix(line: &str) -> bool {
+    line.starts_with("do you want to proceed")
+        || line.starts_with("do you want to run")
+        || line.starts_with("would you like to proceed")
+        || line.starts_with("this command requires approval")
+        || line.starts_with("requires approval")
+        || line.starts_with("allow this command")
+        || line.starts_with("approve this action")
+        || line.starts_with("run this command?")
+        || line.starts_with("execute this?")
+        || line.starts_with("press enter to continue")
+        || line.starts_with("press y to confirm")
+}
+
+fn context_contains_confirmation_prompt_line(context: &str) -> bool {
+    context
+        .lines()
+        .map(normalize_approval_card_line)
+        .any(|line| line_has_confirmation_prompt_prefix(&line))
+}
+
+fn context_contains_any_numbered_approval_option(context: &str) -> bool {
+    context
+        .lines()
+        .map(normalize_approval_card_line)
+        .any(|line| {
+            starts_with_numbered_option(&line, b'1')
+                || starts_with_numbered_option(&line, b'2')
+                || starts_with_numbered_option(&line, b'3')
+        })
+}
+
 fn detect_prompt_type(
     current_line: &str,
     context: &str,
@@ -436,19 +477,27 @@ fn detect_prompt_type(
     // Claude/Codex approval cards often emit a "Bash command" section header, followed by
     // approval text in later rows. Treat that combo as a single-command approval prompt.
     let has_bash_header = current_line.contains("bash command") || context.contains("bash command");
+    let has_confirmation_prompt_line = context_contains_confirmation_prompt_line(context);
+    let has_confirmation_controls = context_contains_yes_no_confirmation_controls(context);
+    let has_numbered_approval_card = looks_like_numbered_approval_card(context);
+    let has_numbered_approval_option = context_contains_any_numbered_approval_option(context);
     let has_approval_text = current_line.contains("do you want to proceed")
         || context.contains("do you want to proceed")
         || current_line.contains("this command requires approval")
         || context.contains("this command requires approval")
         || current_line.contains("requires approval")
         || context.contains("requires approval");
-    if has_bash_header && has_approval_text {
+    if has_bash_header
+        && has_approval_text
+        && has_confirmation_prompt_line
+        && (has_confirmation_controls || has_numbered_approval_card || has_numbered_approval_option)
+    {
         return Some(PromptType::SingleCommandApproval);
     }
     // Approval cards can arrive as numbered options with minimal prose. If we
     // only look for full question text, suppression can miss option rows and
     // let HUD reappear over choice lines (for example option 3).
-    if looks_like_numbered_approval_card(context) {
+    if has_numbered_approval_card {
         return Some(PromptType::SingleCommandApproval);
     }
     // Check in priority order: most specific first
@@ -458,7 +507,10 @@ fn detect_prompt_type(
     if context_matches_patterns(current_line, context, MULTI_TOOL_BATCH_PATTERNS) {
         return Some(PromptType::MultiToolBatch);
     }
-    if context_matches_patterns(current_line, context, SINGLE_COMMAND_PATTERNS) {
+    if context_matches_patterns(current_line, context, SINGLE_COMMAND_PATTERNS)
+        && context_contains_yes_no_confirmation_controls(context)
+        && context_contains_confirmation_prompt_line(context)
+    {
         return Some(PromptType::SingleCommandApproval);
     }
     // Generic phrase matches are intentionally not used because they are noisy
@@ -609,6 +661,16 @@ mod tests {
             detector.last_prompt_type,
             Some(PromptType::SingleCommandApproval)
         );
+    }
+
+    #[test]
+    fn detector_ignores_bash_command_prompt_without_choice_controls() {
+        let mut detector = ClaudePromptDetector::new(true);
+        let detected = detector.feed_output(
+            b"Bash command\nThis command requires approval\nDo you want to proceed?\n",
+        );
+        assert!(!detected);
+        assert!(!detector.should_suppress_hud());
     }
 
     #[test]
@@ -905,11 +967,27 @@ mod tests {
     #[test]
     fn detect_prompt_type_prioritizes_single_command_over_tool_activity() {
         let prompt_type = detect_prompt_type(
-            "do you want to proceed?",
-            "web search(\"rust\")\nclaude wants to search the web for: rust\ndo you want to proceed?",
+            "do you want to proceed? (y/n)",
+            "web search(\"rust\")\nclaude wants to search the web for: rust\ndo you want to proceed? (y/n)",
             false,
         );
         assert_eq!(prompt_type, Some(PromptType::SingleCommandApproval));
+    }
+
+    #[test]
+    fn detect_prompt_type_ignores_plain_proceed_phrase_without_choices() {
+        let prompt_type = detect_prompt_type("do you want to proceed?", "", false);
+        assert_eq!(prompt_type, None);
+    }
+
+    #[test]
+    fn detect_prompt_type_ignores_inline_quoted_confirmation_phrase() {
+        let prompt_type = detect_prompt_type(
+            "recap: we previously saw \"do you want to proceed? (y/n)\" in logs",
+            "recap: we previously saw \"do you want to proceed? (y/n)\" in logs",
+            false,
+        );
+        assert_eq!(prompt_type, None);
     }
 
     #[test]

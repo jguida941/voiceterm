@@ -53,6 +53,23 @@ fn get_button_positions_full_has_buttons() {
 }
 
 #[test]
+fn get_button_positions_full_single_line_fallback_has_bottom_row_buttons() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.full_hud_single_line = true;
+
+    let positions = get_button_positions(&state, Theme::None, 140);
+    assert!(!positions.is_empty());
+    assert_eq!(positions[0].row, 1);
+    assert!(positions
+        .iter()
+        .any(|button| button.action == ButtonAction::VoiceTrigger));
+    assert!(positions
+        .iter()
+        .any(|button| button.action == ButtonAction::ThemePicker));
+}
+
+#[test]
 fn get_button_positions_empty_when_claude_prompt_is_suppressed() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
@@ -440,7 +457,7 @@ fn full_row_latency_off_mode_hides_badge() {
 fn wake_badge_is_hidden_when_wake_listener_is_off() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
     assert!(!row.contains("Wake:"));
 }
 
@@ -449,17 +466,17 @@ fn wake_badge_renders_theme_matched_on_and_paused_states() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.wake_word_state = WakeWordHudState::Listening;
-    let (on_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (on_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(on_row.contains("Wake: ON"));
     assert!(on_row.contains(&format!("{}Wake: ON{}", colors.success, colors.reset)));
 
     state.wake_word_state = WakeWordHudState::Paused;
-    let (paused_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (paused_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(paused_row.contains("Wake: PAUSED"));
     assert!(paused_row.contains(&format!("{}Wake: PAUSED{}", colors.warning, colors.reset)));
 
     state.wake_word_state = WakeWordHudState::Unavailable;
-    let (error_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (error_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(error_row.contains("Wake: ERR"));
     assert!(error_row.contains(&format!("{}Wake: ERR{}", colors.error, colors.reset)));
 }
@@ -468,7 +485,7 @@ fn wake_badge_renders_theme_matched_on_and_paused_states() {
 fn image_badge_is_hidden_when_image_mode_is_off() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
     assert!(!row.contains("IMG"));
 }
 
@@ -477,7 +494,7 @@ fn image_badge_renders_when_image_mode_is_on() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.image_mode_enabled = true;
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
     assert!(row.contains("IMG"));
     assert!(row.contains(&format!("{}IMG{}", colors.info, colors.reset)));
 }
@@ -486,7 +503,7 @@ fn image_badge_renders_when_image_mode_is_on() {
 fn dev_badge_is_hidden_when_dev_mode_is_off() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
     assert!(!row.contains("DEV"));
 }
 
@@ -495,7 +512,7 @@ fn dev_badge_renders_when_dev_mode_is_on() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.dev_mode_enabled = true;
-    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 160, 2, true, false, 3);
     assert!(row.contains("DEV"));
     assert!(row.contains(&format!("{}DEV{}", colors.warning, colors.reset)));
 }
@@ -550,7 +567,7 @@ fn shortcuts_row_trailing_panel_requires_separator_space() {
     let baseline_inner_width = 200usize;
     let row_width = baseline_inner_width.saturating_sub(1);
     let (shortcuts_str, _) =
-        format_button_row_with_positions(&state, &colors, row_width, 2, true, false);
+        format_button_row_with_positions(&state, &colors, row_width, 2, true, false, 3);
     let shortcuts = truncate_display(&format!(" {}", shortcuts_str), baseline_inner_width);
     let shortcuts_width = display_width(&shortcuts);
 
@@ -647,10 +664,10 @@ fn compact_button_row_omits_hud_button_and_recomputes_positions() {
     state.last_latency_ms = Some(312);
 
     let (full_row, full_positions) =
-        format_button_row_with_positions(&state, &colors, 300, 2, true, false);
+        format_button_row_with_positions(&state, &colors, 300, 2, true, false, 3);
     let compact_width = display_width(&full_row).saturating_sub(1);
     let (compact_row, compact_positions) =
-        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
+        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false, 3);
 
     assert_eq!(full_positions.len(), 7);
     assert_eq!(compact_positions.len(), 6);
@@ -668,12 +685,12 @@ fn button_row_ready_badge_requires_idle_and_empty_queue() {
     state.recording_state = RecordingState::Idle;
     state.last_latency_ms = Some(250);
 
-    let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true);
+    let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true, 3);
     assert!(idle_row.contains("Ready"));
     assert!(idle_row.contains("250ms"));
 
     state.queue_depth = 1;
-    let (queued_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true);
+    let (queued_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, true, 3);
     assert!(!queued_row.contains("Ready"));
     assert!(queued_row.contains("Q:1"));
 }
@@ -699,7 +716,7 @@ fn shortcuts_row_positioned_renderer_geometry_when_untruncated() {
 fn full_hud_button_positions_match_expected_geometry() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let (_, positions) = format_button_row_with_positions(&state, &colors, 300, 2, true, false);
+    let (_, positions) = format_button_row_with_positions(&state, &colors, 300, 2, true, false, 3);
     let expected = [
         (ButtonAction::VoiceTrigger, 3, 7),
         (ButtonAction::ToggleAutoVoice, 11, 15),
@@ -726,13 +743,13 @@ fn full_hud_button_geometry_shifts_by_one_between_auto_and_ptt_labels() {
     let mut auto_state = StatusLineState::new();
     auto_state.auto_voice_enabled = true;
     let (auto_row, auto_positions) =
-        format_button_row_with_positions(&auto_state, &colors, 300, 2, true, false);
+        format_button_row_with_positions(&auto_state, &colors, 300, 2, true, false, 3);
     assert!(auto_row.contains("[auto]"));
 
     let mut ptt_state = StatusLineState::new();
     ptt_state.auto_voice_enabled = false;
     let (ptt_row, ptt_positions) =
-        format_button_row_with_positions(&ptt_state, &colors, 300, 2, true, false);
+        format_button_row_with_positions(&ptt_state, &colors, 300, 2, true, false, 3);
     assert!(ptt_row.contains("[ptt]"));
 
     let auto_send = auto_positions
@@ -762,7 +779,7 @@ fn full_hud_button_row_uses_uniform_separator_spacing_in_ptt_mode() {
     let mut state = StatusLineState::new();
     state.auto_voice_enabled = false;
 
-    let (row, _) = format_button_row_with_positions(&state, &colors, 300, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 300, 2, true, false, 3);
     assert!(row.contains("[ptt] · [send]"));
     assert!(!row.contains("·  ["));
     assert!(!row.contains("]  ·"));
@@ -772,7 +789,7 @@ fn full_hud_button_row_uses_uniform_separator_spacing_in_ptt_mode() {
 fn compact_hud_button_positions_match_expected_geometry() {
     let colors = Theme::None.colors();
     let state = StatusLineState::new();
-    let (_, positions) = format_button_row_with_positions(&state, &colors, 20, 2, true, false);
+    let (_, positions) = format_button_row_with_positions(&state, &colors, 20, 2, true, false, 3);
     let expected = [
         (ButtonAction::VoiceTrigger, 3, 7),
         (ButtonAction::ToggleAutoVoice, 9, 13),
@@ -911,11 +928,11 @@ fn latency_threshold_colors_are_correct_in_full_row() {
     state.recording_state = RecordingState::Idle;
 
     state.last_latency_ms = Some(300);
-    let (row_300, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row_300, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row_300.contains(&format!("{}300ms{}", colors.warning, colors.reset)));
 
     state.last_latency_ms = Some(500);
-    let (row_500, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row_500, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row_500.contains(&format!("{}500ms{}", colors.error, colors.reset)));
 }
 
@@ -928,17 +945,18 @@ fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
     state.last_latency_speech_ms = Some(6000);
     state.last_latency_rtf_x1000 = Some(183);
 
-    let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row.contains(&format!("{}1100ms{}", colors.error, colors.reset)));
 
     state.last_latency_ms = Some(320);
     state.last_latency_rtf_x1000 = Some(500);
-    let (row_warning, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row_warning, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row_warning.contains(&format!("{}320ms{}", colors.warning, colors.reset)));
 
     state.last_latency_ms = Some(180);
     state.last_latency_rtf_x1000 = Some(900);
-    let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row_error.contains(&format!("{}180ms{}", colors.error, colors.reset)));
 }
 
@@ -971,16 +989,17 @@ fn latency_badge_hides_during_manual_recording_and_processing() {
     state.last_latency_rtf_x1000 = Some(300);
 
     state.recording_state = RecordingState::Recording;
-    let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (recording_row, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(!recording_row.contains("412ms"));
 
     state.recording_state = RecordingState::Processing;
     let (processing_row, _) =
-        format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(!processing_row.contains("412ms"));
 
     state.recording_state = RecordingState::Idle;
-    let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (idle_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(idle_row.contains("412ms"));
 }
 
@@ -993,12 +1012,13 @@ fn latency_badge_hides_during_auto_recording_and_processing() {
     state.last_latency_rtf_x1000 = Some(300);
 
     state.recording_state = RecordingState::Recording;
-    let (recording_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (recording_row, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(!recording_row.contains("412ms"));
 
     state.recording_state = RecordingState::Processing;
     let (processing_row, _) =
-        format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(!processing_row.contains("412ms"));
 }
 
@@ -1125,7 +1145,7 @@ fn full_row_focus_marks_exactly_one_button_bracket() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
-    let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     let focused_bracket = format!("{}[", colors.warning);
     assert_eq!(count_substring(&row, &focused_bracket), 1);
 }
@@ -1135,11 +1155,11 @@ fn compact_row_focus_marks_exactly_one_button_bracket() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.hud_button_focus = Some(ButtonAction::HelpToggle);
-    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     // Force compact path while still leaving room for the full compact row.
     let compact_width = display_width(&full_row).saturating_sub(1);
     let (row, positions) =
-        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
+        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false, 3);
     assert_eq!(positions.len(), 6);
     let focused_bracket = format!("{}[", colors.warning);
     assert_eq!(count_substring(&row, &focused_bracket), 1);
@@ -1151,10 +1171,10 @@ fn queue_badge_zero_is_not_rendered_in_any_row_mode() {
     let mut state = StatusLineState::new();
     state.queue_depth = 0;
 
-    let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(!full.contains("Q:0"));
 
-    let (compact, _) = format_button_row_with_positions(&state, &colors, 20, 2, true, false);
+    let (compact, _) = format_button_row_with_positions(&state, &colors, 20, 2, true, false, 3);
     assert!(!compact.contains("Q:0"));
 }
 
@@ -1164,10 +1184,10 @@ fn compact_row_queue_zero_not_rendered_when_untruncated() {
     let mut state = StatusLineState::new();
     state.queue_depth = 0;
 
-    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     let compact_width = display_width(&full_row).saturating_sub(1);
     let (compact_row, compact_positions) =
-        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
+        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false, 3);
     assert_eq!(compact_positions.len(), 6);
     assert!(!compact_row.contains("Q:0"));
 }
@@ -1178,7 +1198,7 @@ fn queue_badge_positive_renders_in_full_row() {
     let mut state = StatusLineState::new();
     state.queue_depth = 1;
 
-    let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (full, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(full.contains("Q:1"));
 }
 
@@ -1188,10 +1208,10 @@ fn compact_row_queue_positive_renders_when_untruncated() {
     let mut state = StatusLineState::new();
     state.queue_depth = 1;
 
-    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false);
+    let (full_row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     let compact_width = display_width(&full_row).saturating_sub(1);
     let (compact_row, compact_positions) =
-        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false);
+        format_button_row_with_positions(&state, &colors, compact_width, 2, true, false, 3);
     assert_eq!(compact_positions.len(), 6);
     assert!(compact_row.contains("Q:1"));
 }

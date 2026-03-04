@@ -863,6 +863,24 @@ fn user_input_activity_schedules_repair_for_jetbrains_claude() {
 }
 
 #[test]
+fn jetbrains_claude_first_pty_output_consumes_startup_screen_clear_flag() {
+    with_backend_label_env(Some("claude"), || {
+        let mut state = WriterState::new();
+        state.terminal_family = TerminalFamily::JetBrains;
+        state.rows = 24;
+        state.cols = 120;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        assert!(state.jetbrains_claude_startup_screen_clear_pending);
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"hello".to_vec())));
+        assert!(
+            !state.jetbrains_claude_startup_screen_clear_pending,
+            "JetBrains+Claude should clear the startup viewport only once on first PTY output"
+        );
+    });
+}
+
+#[test]
 fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
@@ -956,7 +974,7 @@ fn maybe_redraw_status_jetbrains_claude_requires_idle_settle_for_passive_redraw(
 }
 
 #[test]
-fn jetbrains_claude_keeps_full_hud_content_but_forces_borderless_frame() {
+fn jetbrains_claude_forces_single_line_full_hud_fallback_for_full_hud_requests() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
         state.terminal_family = TerminalFamily::JetBrains;
@@ -973,18 +991,21 @@ fn jetbrains_claude_keeps_full_hud_content_but_forces_borderless_frame() {
 
         assert!(state.handle_message(WriterMessage::EnhancedStatus(next)));
         assert_eq!(
-            state.display.banner_height, 4,
-            "JetBrains+Claude should keep full HUD row count"
+            state.display.banner_height, 1,
+            "JetBrains+Claude should collapse full HUD requests to a one-line full-HUD fallback"
         );
-        assert_eq!(state.display.banner_lines.len(), 4);
+        assert_eq!(state.display.banner_lines.len(), 1);
         assert!(
-            state.display.banner_lines[0].trim().is_empty(),
-            "top row should be borderless filler"
+            state.display.banner_lines[0].contains("Ready"),
+            "single-line fallback should preserve primary status text"
         );
         assert!(
-            state.display.banner_lines[2].contains("rec")
-                && state.display.banner_lines[2].contains("studio"),
-            "shortcuts row should remain visible in full HUD mode"
+            state.display.banner_lines[0].contains("rec"),
+            "single-line full fallback should preserve full HUD button controls"
+        );
+        assert!(
+            state.display.banner_lines[0].contains("studio"),
+            "single-line full fallback should retain trailing studio control"
         );
     });
 }
@@ -1600,6 +1621,10 @@ fn jetbrains_claude_full_hud_non_scroll_cursor_mutation_arms_repair() {
             "full HUD should queue deferred redraw after non-scroll cursor mutation"
         );
         assert!(
+            !state.force_redraw_after_preclear,
+            "full HUD repair should stay deferred for synchronized rewrite bursts on JetBrains+Claude"
+        );
+        assert!(
             state.jetbrains_claude_composer_repair_due.is_some(),
             "full HUD non-scroll cursor mutation should arm a repair deadline"
         );
@@ -1630,6 +1655,120 @@ fn jetbrains_claude_thinking_packet_without_recent_input_still_arms_repair() {
         assert!(
             !state.jetbrains_claude_repair_skip_quiet_window,
             "thinking rewrite packets should keep quiet-window gating to avoid repeated redraw races"
+        );
+    });
+}
+
+#[test]
+fn jetbrains_claude_destructive_clear_reanchors_hud_immediately_when_cursor_slot_idle() {
+    with_backend_label_env(Some("claude"), || {
+        let mut state = WriterState::new();
+        state.terminal_family = TerminalFamily::JetBrains;
+        state.rows = 26;
+        state.cols = 120;
+        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
+
+        let mut hud = StatusLineState::new();
+        hud.hud_style = HudStyle::Full;
+        hud.claude_prompt_suppressed = false;
+        state.display.enhanced_status = Some(hud);
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
+        assert!(
+            !state.needs_redraw,
+            "destructive clears should repaint JetBrains+Claude HUD immediately when cursor slot is idle"
+        );
+        assert!(
+            state.jetbrains_claude_composer_repair_due.is_some(),
+            "destructive clear should still arm a near-term follow-up repair"
+        );
+        assert!(
+            state.jetbrains_claude_repair_skip_quiet_window,
+            "destructive-clear follow-up repair should bypass quiet window"
+        );
+    });
+}
+
+#[test]
+fn jetbrains_claude_destructive_clear_defers_immediate_repaint_when_cursor_slot_busy() {
+    with_backend_label_env(Some("claude"), || {
+        let mut state = WriterState::new();
+        state.terminal_family = TerminalFamily::JetBrains;
+        state.rows = 26;
+        state.cols = 120;
+        state.jetbrains_dec_cursor_saved_active = true;
+        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
+
+        let mut hud = StatusLineState::new();
+        hud.hud_style = HudStyle::Full;
+        hud.claude_prompt_suppressed = false;
+        state.display.enhanced_status = Some(hud);
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
+        assert!(
+            state.needs_redraw,
+            "when cursor slot is busy, destructive-clear repaint should stay deferred"
+        );
+        assert!(
+            !state.force_redraw_after_preclear,
+            "busy cursor slot should block immediate preclear redraw path"
+        );
+        assert!(
+            state.jetbrains_claude_composer_repair_due.is_some(),
+            "deferred path should still arm follow-up repair"
+        );
+        assert!(
+            state.jetbrains_claude_repair_skip_quiet_window,
+            "deferred destructive-clear repair should bypass quiet window"
+        );
+    });
+}
+
+#[test]
+fn jetbrains_claude_repeated_destructive_clear_burst_uses_deferred_followup() {
+    with_backend_label_env(Some("claude"), || {
+        let mut state = WriterState::new();
+        state.terminal_family = TerminalFamily::JetBrains;
+        state.rows = 26;
+        state.cols = 120;
+        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
+        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
+
+        let mut hud = StatusLineState::new();
+        hud.hud_style = HudStyle::Full;
+        hud.claude_prompt_suppressed = false;
+        state.display.enhanced_status = Some(hud);
+        state.display.banner_height = 4;
+        state.display.preclear_banner_height = 4;
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
+        assert!(
+            !state.needs_redraw,
+            "first destructive clear should re-anchor immediately"
+        );
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
+        assert!(
+            state.needs_redraw,
+            "subsequent destructive clears in the same burst should defer to scheduled repair"
+        );
+        assert!(
+            !state.force_redraw_after_preclear,
+            "burst follow-up should not repeatedly force immediate preclear redraw"
+        );
+        assert!(
+            state.jetbrains_claude_composer_repair_due.is_some(),
+            "burst follow-up should keep a deferred repair marker armed"
+        );
+        assert!(
+            state.jetbrains_claude_repair_skip_quiet_window,
+            "deferred repair from destructive-clear burst should bypass quiet window"
         );
     });
 }

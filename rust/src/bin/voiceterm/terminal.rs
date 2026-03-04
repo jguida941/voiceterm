@@ -19,6 +19,7 @@ use crate::OverlayMode;
 
 /// Flag set by SIGWINCH handler to trigger terminal resize.
 static SIGWINCH_RECEIVED: AtomicBool = AtomicBool::new(false);
+const CLAUDE_MIN_PTY_ROWS_TARGET: u16 = 8;
 
 fn parse_debug_env_flag(raw: &str) -> bool {
     matches!(
@@ -111,12 +112,14 @@ pub(crate) fn resolved_rows(cached: u16) -> u16 {
 /// later SIGWINCH can reliably fix.
 pub(crate) fn startup_pty_geometry(hud_style: HudStyle) -> (u16, u16, u16, u16) {
     match terminal_size() {
-        Ok((cols, rows)) => {
-            let reserved = reserved_rows_for_mode(OverlayMode::None, cols, hud_style, false) as u16;
-            (rows, cols, rows.saturating_sub(reserved).max(1), cols)
-        }
+        Ok((cols, rows)) => (rows, cols, startup_pty_rows(rows, cols, hud_style), cols),
         Err(_) => (0, 0, 24, 80),
     }
+}
+
+fn startup_pty_rows(rows: u16, cols: u16, hud_style: HudStyle) -> u16 {
+    let reserved = adjusted_reserved_rows(rows, cols, OverlayMode::None, hud_style, false);
+    rows.saturating_sub(reserved).max(1)
 }
 
 pub(crate) fn reserved_rows_for_mode(
@@ -186,12 +189,13 @@ pub(crate) fn apply_pty_winsize(
         }
         return;
     }
-    let reserved = reserved_rows_for_mode(mode, cols, hud_style, claude_prompt_suppressed) as u16;
+    let backend = runtime_compat::backend_family_from_env();
+    let reserved = adjusted_reserved_rows(rows, cols, mode, hud_style, claude_prompt_suppressed);
     let pty_rows = rows.saturating_sub(reserved).max(1);
     if claude_hud_debug_enabled() {
         log_debug(&format!(
             "[claude-hud-debug] apply_pty_winsize (backend={:?}, mode={:?}, rows={}, cols={}, reserved_rows={}, pty_rows={}, hud_style={:?}, prompt_suppressed={})",
-            runtime_compat::backend_family_from_env(),
+            backend,
             mode,
             rows,
             cols,
@@ -208,6 +212,47 @@ pub(crate) fn apply_pty_winsize(
         }
     }
     let _ = session.set_winsize(pty_rows, cols);
+}
+
+fn adjusted_reserved_rows(
+    rows: u16,
+    cols: u16,
+    mode: OverlayMode,
+    hud_style: HudStyle,
+    claude_prompt_suppressed: bool,
+) -> u16 {
+    let backend = runtime_compat::backend_family_from_env();
+    let reserved_raw =
+        reserved_rows_for_mode(mode, cols, hud_style, claude_prompt_suppressed) as u16;
+
+    if !matches!(mode, OverlayMode::None) || backend != BackendFamily::Claude {
+        return reserved_raw;
+    }
+
+    let min_hud_rows = status_banner_height_with_policy(cols as usize, hud_style, false) as u16;
+    let min_hud_rows_clamped = min_hud_rows.min(rows.saturating_sub(1).max(1));
+    let max_reserved_for_target = rows.saturating_sub(CLAUDE_MIN_PTY_ROWS_TARGET);
+    let reserved_clamped = reserved_raw
+        .min(max_reserved_for_target)
+        .max(min_hud_rows_clamped);
+
+    if reserved_clamped != reserved_raw && claude_hud_debug_enabled() {
+        log_debug(&format!(
+            "[claude-hud-debug] reserved-row clamp (backend={:?}, mode={:?}, rows={}, cols={}, hud_style={:?}, prompt_suppressed={}, reserved_rows_raw={}, reserved_rows_clamped={}, min_hud_rows={}, min_pty_target={})",
+            backend,
+            mode,
+            rows,
+            cols,
+            hud_style,
+            claude_prompt_suppressed,
+            reserved_raw,
+            reserved_clamped,
+            min_hud_rows_clamped,
+            CLAUDE_MIN_PTY_ROWS_TARGET
+        ));
+    }
+
+    reserved_clamped
 }
 
 pub(crate) fn update_pty_winsize(
@@ -504,6 +549,63 @@ mod tests {
             assert_eq!(suppressed, unsuppressed);
             assert!(suppressed > 0);
         });
+    }
+
+    #[test]
+    fn adjusted_reserved_rows_clamps_claude_buffer_in_short_full_hud_pane() {
+        with_backend_host_env(
+            runtime_compat::TerminalHost::JetBrains,
+            Some("claude"),
+            || {
+                let raw =
+                    reserved_rows_for_mode(OverlayMode::None, 164, HudStyle::Full, false) as u16;
+                assert_eq!(raw, 8);
+                assert_eq!(
+                    adjusted_reserved_rows(34, 164, OverlayMode::None, HudStyle::Full, false),
+                    8
+                );
+                assert_eq!(
+                    adjusted_reserved_rows(13, 164, OverlayMode::None, HudStyle::Full, false),
+                    5
+                );
+                assert_eq!(
+                    adjusted_reserved_rows(9, 164, OverlayMode::None, HudStyle::Full, false),
+                    4
+                );
+                assert_eq!(
+                    adjusted_reserved_rows(9, 164, OverlayMode::None, HudStyle::Full, true),
+                    4
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn adjusted_reserved_rows_leaves_non_claude_backends_unchanged() {
+        with_backend_host_env(
+            runtime_compat::TerminalHost::JetBrains,
+            Some("codex"),
+            || {
+                let raw =
+                    reserved_rows_for_mode(OverlayMode::None, 164, HudStyle::Full, false) as u16;
+                let adjusted =
+                    adjusted_reserved_rows(9, 164, OverlayMode::None, HudStyle::Full, false);
+                assert_eq!(adjusted, raw);
+            },
+        );
+    }
+
+    #[test]
+    fn startup_pty_rows_reuses_clamped_reserved_budget_for_claude() {
+        with_backend_host_env(
+            runtime_compat::TerminalHost::JetBrains,
+            Some("claude"),
+            || {
+                assert_eq!(startup_pty_rows(34, 164, HudStyle::Full), 26);
+                assert_eq!(startup_pty_rows(13, 164, HudStyle::Full), 8);
+                assert_eq!(startup_pty_rows(9, 164, HudStyle::Full), 5);
+            },
+        );
     }
 
     #[cfg(all(unix, feature = "mutants"))]

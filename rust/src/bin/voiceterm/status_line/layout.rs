@@ -1,6 +1,9 @@
 //! Responsive status-line layout breakpoints so HUD content degrades gracefully.
 
 use crate::config::HudStyle;
+use crate::runtime_compat::{
+    backend_family_from_env, detect_terminal_host, BackendFamily, TerminalHost,
+};
 
 use super::state::StatusLineState;
 
@@ -59,7 +62,20 @@ pub fn status_banner_height_with_policy(
 /// Return the active status-banner row count for the current runtime state.
 #[must_use]
 pub fn status_banner_height_for_state(width: usize, state: &StatusLineState) -> usize {
-    status_banner_height_with_policy(width, state.hud_style, state.claude_prompt_suppressed)
+    if state.claude_prompt_suppressed {
+        return 0;
+    }
+    if should_force_single_line_full_hud(state) {
+        return 1;
+    }
+    status_banner_height(width, effective_hud_style(state.hud_style))
+}
+
+fn should_force_single_line_full_hud(state: &StatusLineState) -> bool {
+    state.hud_style == HudStyle::Full
+        && (state.full_hud_single_line
+            || (backend_family_from_env() == BackendFamily::Claude
+                && detect_terminal_host() == TerminalHost::JetBrains))
 }
 
 #[cfg(test)]
@@ -89,5 +105,13 @@ mod tests {
         assert_eq!(status_banner_height_for_state(120, &state), 4);
         state.claude_prompt_suppressed = true;
         assert_eq!(status_banner_height_for_state(120, &state), 0);
+    }
+
+    #[test]
+    fn status_banner_height_for_state_full_single_line_honors_state_flag() {
+        let mut state = StatusLineState::new();
+        state.hud_style = HudStyle::Full;
+        state.full_hud_single_line = true;
+        assert_eq!(status_banner_height_for_state(120, &state), 1);
     }
 }

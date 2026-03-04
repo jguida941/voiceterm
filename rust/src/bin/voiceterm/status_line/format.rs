@@ -13,8 +13,8 @@ use crate::theme::{
 
 use super::animation::transition_marker;
 use super::buttons::{
-    format_hidden_launcher_with_buttons, format_minimal_strip_with_button,
-    format_shortcuts_row_with_positions, hidden_muted_color,
+    format_full_controls_with_positions, format_hidden_launcher_with_buttons,
+    format_minimal_strip_with_button, format_shortcuts_row_with_positions, hidden_muted_color,
 };
 use super::layout::{breakpoints, effective_hud_style_for_state};
 use super::mode_indicator::{
@@ -171,6 +171,9 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
             StatusBanner::with_buttons(vec![line], button.into_iter().collect())
         }
         HudStyle::Full => {
+            if state.full_hud_single_line {
+                return format_full_single_line_banner(state, &colors, theme, width);
+            }
             // For very narrow terminals, fall back to simple single-line
             if width < breakpoints::COMPACT {
                 let line = format_status_line(state, theme, width);
@@ -213,6 +216,92 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
             StatusBanner::with_buttons(lines, buttons)
         }
     }
+}
+
+fn format_full_single_line_banner(
+    state: &StatusLineState,
+    colors: &ThemeColors,
+    theme: Theme,
+    width: usize,
+) -> StatusBanner {
+    if width == 0 {
+        return StatusBanner::new(vec![String::new()]);
+    }
+
+    let mode_section = format_mode_indicator(state, colors);
+    let duration_section = format_duration_section(state, colors);
+    let meter_section = format_meter_section(state, colors);
+    let message_section = format_full_hud_message(state, colors);
+    let sep = format!("{}│{}", colors.dim, colors.reset);
+    let mut status = [mode_section, duration_section, meter_section].join(&sep);
+    if !message_section.is_empty() {
+        status.push_str(&format!(" {sep} {message_section}"));
+    }
+
+    let (controls_row, base_buttons) =
+        format_full_controls_with_positions(state, colors, width, 1, 1);
+    let controls_width = display_width(&controls_row);
+    let status_controls_sep = format!(" {}·{} ", colors.dim, colors.reset);
+    let status_controls_sep_width = display_width(&status_controls_sep);
+
+    let right_panel = format_right_panel(state, colors, theme, width.saturating_sub(12));
+    let panel_width = display_width(&right_panel);
+    let include_panel = !right_panel.is_empty() && width > controls_width + panel_width + 1;
+    let panel_reserve = if include_panel { panel_width + 1 } else { 0 };
+
+    let include_status_controls_sep = !status.is_empty() && !controls_row.is_empty();
+    let status_budget = width.saturating_sub(
+        controls_width
+            + panel_reserve
+            + if include_status_controls_sep {
+                status_controls_sep_width
+            } else {
+                0
+            },
+    );
+    let status_prefix = truncate_display(&status, status_budget);
+
+    let (mut line, controls_start_col) = if controls_row.is_empty() {
+        (status_prefix, None)
+    } else if status_prefix.is_empty() {
+        (controls_row.clone(), Some(1usize))
+    } else {
+        (
+            format!("{status_prefix}{status_controls_sep}{controls_row}"),
+            Some(display_width(&status_prefix) + status_controls_sep_width + 1),
+        )
+    };
+
+    if include_panel {
+        let core_width = display_width(&line);
+        if core_width + panel_width <= width {
+            let gap = width.saturating_sub(core_width + panel_width);
+            line.push_str(&" ".repeat(gap));
+            line.push_str(&right_panel);
+        } else {
+            line = truncate_display(&line, width);
+        }
+    } else {
+        line = truncate_display(&line, width);
+    }
+
+    let mut buttons = if let Some(start_col) = controls_start_col {
+        let offset = start_col.saturating_sub(1) as u16;
+        base_buttons
+            .into_iter()
+            .map(|mut button| {
+                button.start_x = button.start_x.saturating_add(offset);
+                button.end_x = button.end_x.saturating_add(offset);
+                button
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let line_width = display_width(&line);
+    buttons.retain(|button| button.end_x as usize <= line_width);
+
+    StatusBanner::with_buttons(vec![line], buttons)
 }
 
 /// Format the top border with VoiceTerm badge.

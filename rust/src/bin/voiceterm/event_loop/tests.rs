@@ -3782,7 +3782,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
 }
 
 #[test]
-fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
+fn handle_output_chunk_tool_activity_without_approval_hints_does_not_suppress_hud() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
     state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
@@ -3800,7 +3800,7 @@ fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.claude_prompt_suppressed);
 
     let now = Instant::now();
     run_periodic_tasks(
@@ -3809,7 +3809,7 @@ fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
         &mut deps,
         now + Duration::from_millis(1200),
     );
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.claude_prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -3821,7 +3821,7 @@ fn handle_output_chunk_tool_activity_suppresses_hud_until_quiet_window() {
 }
 
 #[test]
-fn handle_output_chunk_synchronized_cursor_activity_suppresses_hud_until_quiet_window() {
+fn handle_output_chunk_synchronized_cursor_activity_without_approval_hints_does_not_suppress_hud() {
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
@@ -3840,7 +3840,7 @@ fn handle_output_chunk_synchronized_cursor_activity_suppresses_hud_until_quiet_w
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.claude_prompt_suppressed);
 
     let now = Instant::now();
     run_periodic_tasks(
@@ -3849,7 +3849,7 @@ fn handle_output_chunk_synchronized_cursor_activity_suppresses_hud_until_quiet_w
         &mut deps,
         now + Duration::from_millis(1200),
     );
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.claude_prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -3858,6 +3858,85 @@ fn handle_output_chunk_synchronized_cursor_activity_suppresses_hud_until_quiet_w
         now + Duration::from_secs(4),
     );
     assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
+fn handle_output_chunk_synchronized_rewrite_with_historical_approval_phrase_does_not_suppress_hud()
+{
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\r\x1b[7ARecap: earlier output included \"Do you want to proceed?\" before approval.\r\r\n\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "quoted approval text in normal transcript output must not hide HUD"
+    );
+}
+
+#[test]
+fn handle_output_chunk_synchronized_rewrite_with_inline_quote_and_yes_no_does_not_suppress_hud() {
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\r\x1b[7ARecap: we previously saw \"Do you want to proceed? (y/n)\" in an earlier step.\r\r\n\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        !state.status_state.claude_prompt_suppressed,
+        "inline quoted prompt text with y/n markers must not be treated as a live approval card"
+    );
+}
+
+#[test]
+fn handle_output_chunk_synchronized_yes_no_approval_prompt_suppresses_hud() {
+    let _rolling_override = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    deps.backend_label = "claude".to_string();
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.status_state.hud_style = HudStyle::Full;
+    state.ui.terminal_rows = 24;
+    state.ui.terminal_cols = 80;
+
+    let mut running = true;
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        b"\x1b[?2026h\r\x1b[6AThis command requires approval\r\nDo you want to proceed? (y/n)\r\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec(),
+        &mut running,
+    );
+
+    assert!(running);
+    assert!(
+        state.status_state.claude_prompt_suppressed,
+        "live y/n approval prompts in synchronized rewrites must still suppress HUD"
+    );
 }
 
 #[test]
@@ -5134,6 +5213,50 @@ fn confirmation_bytes_defer_claude_prompt_clear_until_periodic_tick() {
 }
 
 #[test]
+fn startup_ready_marker_release_is_debounced_before_unsuppress() {
+    let _rolling = install_prompt_rolling_override(true);
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+
+    state.prompt.occlusion_detector.activate_startup_guard();
+    super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    let mut running = true;
+    // Startup-ready markers should arm release, not clear suppression
+    // immediately, so JetBrains startup redraw bursts cannot flap state.
+    handle_output_chunk(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        "❯ Try \"fix typecheck errors\"\n? for shortcuts\n"
+            .as_bytes()
+            .to_vec(),
+        &mut running,
+    );
+    assert!(running);
+    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(timers.prompt_suppression_release_not_before.is_some());
+
+    let now = Instant::now();
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(300),
+    );
+    assert!(state.status_state.claude_prompt_suppressed);
+
+    run_periodic_tasks(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        now + Duration::from_millis(1200),
+    );
+    assert!(!state.status_state.claude_prompt_suppressed);
+}
+
+#[test]
 fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
@@ -5400,6 +5523,50 @@ fn mouse_click_non_theme_button_keeps_theme_picker_digits() {
 
     assert!(running);
     assert_eq!(state.theme_studio.picker_digits, "12");
+}
+
+#[test]
+fn full_hud_single_line_mouse_click_bottom_row_triggers_button_action() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.status_state.hud_style = HudStyle::Full;
+    state.status_state.full_hud_single_line = true;
+    state.status_state.send_mode = crate::config::VoiceSendMode::Auto;
+    state.config.voice_send_mode = crate::config::VoiceSendMode::Auto;
+
+    update_button_registry(
+        &deps.button_registry,
+        &state.status_state,
+        state.ui.overlay_mode,
+        state.ui.terminal_cols,
+        state.theme,
+    );
+    let button = deps
+        .button_registry
+        .all_buttons()
+        .into_iter()
+        .find(|button| button.event == ButtonAction::ToggleSendMode)
+        .expect("toggle-send button should be registered");
+    let x = button.start_x + (button.end_x.saturating_sub(button.start_x) / 2);
+    let y = state.ui.terminal_rows;
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x, y },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(
+        state.status_state.send_mode,
+        crate::config::VoiceSendMode::Insert
+    );
+    assert_eq!(
+        state.config.voice_send_mode,
+        crate::config::VoiceSendMode::Insert
+    );
 }
 
 #[test]

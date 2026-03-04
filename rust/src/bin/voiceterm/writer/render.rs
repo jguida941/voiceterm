@@ -104,6 +104,15 @@ pub(super) fn terminal_family() -> TerminalFamily {
     *TERMINAL_FAMILY.get_or_init(detect_terminal_family)
 }
 
+fn is_claude_backend_label() -> bool {
+    static IS_CLAUDE: OnceLock<bool> = OnceLock::new();
+    *IS_CLAUDE.get_or_init(|| {
+        env::var("VOICETERM_BACKEND_LABEL")
+            .map(|label| label.to_ascii_lowercase().contains("claude"))
+            .unwrap_or(false)
+    })
+}
+
 fn save_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
     match family {
         // JetBrains/JediTerm only supports DEC DECSC (\x1b7).  CSI s is
@@ -139,6 +148,13 @@ fn push_cursor_prefix(sequence: &mut Vec<u8>) {
     if family != TerminalFamily::JetBrains {
         sequence.extend_from_slice(SYNC_BEGIN);
     }
+    // Hide cursor for non-Claude JetBrains backends (Codex) to prevent
+    // a block-cursor artifact at the end of the last HUD row during
+    // redraw.  Claude's rapid TUI refresh can drop the show-cursor
+    // restore, so it is excluded.
+    if family == TerminalFamily::JetBrains && !is_claude_backend_label() {
+        sequence.extend_from_slice(CURSOR_HIDE);
+    }
     sequence.extend_from_slice(save_cursor_sequence_for_family(family));
     if family != TerminalFamily::JetBrains {
         if should_disable_autowrap_during_redraw() {
@@ -163,6 +179,10 @@ fn push_cursor_suffix(sequence: &mut Vec<u8>) {
     sequence.extend_from_slice(restore_cursor_sequence_for_family(family));
     if family != TerminalFamily::JetBrains {
         sequence.extend_from_slice(SYNC_END);
+    }
+    // Show cursor after restore for non-Claude JetBrains backends.
+    if family == TerminalFamily::JetBrains && !is_claude_backend_label() {
+        sequence.extend_from_slice(CURSOR_SHOW);
     }
 }
 

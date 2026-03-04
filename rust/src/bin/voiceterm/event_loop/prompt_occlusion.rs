@@ -7,6 +7,7 @@ use std::cell::Cell;
 use std::sync::OnceLock;
 
 const PROMPT_SUPPRESSION_RELEASE_DEBOUNCE_MS: u64 = 3000;
+const STARTUP_READY_RELEASE_DEBOUNCE_MS: u64 = 700;
 const TOOL_ACTIVITY_SUPPRESSION_HOLD_MS: u64 = 2200;
 const NON_ROLLING_APPROVAL_WINDOW_MAX_BYTES: usize = 12 * 1024;
 const NON_ROLLING_APPROVAL_WINDOW_STALE_MS: u64 = 1800;
@@ -272,6 +273,34 @@ fn normalize_approval_card_line(line: &str) -> String {
     trimmed.to_ascii_lowercase()
 }
 
+fn line_has_confirmation_prompt_prefix(line: &str) -> bool {
+    line.starts_with("do you want to proceed")
+        || line.starts_with("do you want to run")
+        || line.starts_with("would you like to proceed")
+        || line.starts_with("this command requires approval")
+        || line.starts_with("requires approval")
+        || line.starts_with("allow this command")
+        || line.starts_with("approve this action")
+        || line.starts_with("run this command?")
+        || line.starts_with("execute this?")
+        || line.starts_with("press enter to continue")
+        || line.starts_with("press y to confirm")
+}
+
+fn chunk_contains_confirmation_prompt_line(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+    let stripped = strip_ansi_for_approval_window(bytes);
+    if stripped.is_empty() {
+        return false;
+    }
+    String::from_utf8_lossy(&stripped)
+        .lines()
+        .map(normalize_approval_card_line)
+        .any(|line| line_has_confirmation_prompt_prefix(&line))
+}
+
 fn starts_with_numbered_option(line: &str, option: u8) -> bool {
     if line.len() < 2 {
         return false;
@@ -342,6 +371,40 @@ fn chunk_contains_numbered_approval_hint(bytes: &[u8]) -> bool {
 
 fn chunk_contains_live_approval_card_hint(bytes: &[u8]) -> bool {
     chunk_contains_explicit_approval_hint(bytes) && chunk_contains_numbered_approval_hint(bytes)
+}
+
+fn chunk_contains_yes_no_approval_hint(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+    let stripped = strip_ansi_for_approval_window(bytes);
+    if stripped.is_empty() {
+        return false;
+    }
+    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
+    let has_approval_question = chunk_contains_confirmation_prompt_line(&stripped);
+    let has_yes_no_choice = lowered.contains("(y/n)")
+        || lowered.contains("(yes/no)")
+        || lowered.contains(" y/n")
+        || lowered.lines().any(|line| {
+            let normalized = normalize_approval_card_line(line);
+            normalized.starts_with("y/n")
+                || normalized.starts_with("yes/no")
+                || normalized.starts_with("y or n")
+        });
+    has_approval_question && has_yes_no_choice
+}
+
+fn rolling_high_confidence_approval_hint(
+    explicit_approval_hint_chunk: bool,
+    numbered_approval_hint_chunk: bool,
+    yes_no_approval_hint_chunk: bool,
+    confirmation_prompt_line_chunk: bool,
+) -> bool {
+    numbered_approval_hint_chunk
+        || (explicit_approval_hint_chunk
+            && yes_no_approval_hint_chunk
+            && confirmation_prompt_line_chunk)
 }
 
 fn chunk_contains_substantial_non_prompt_activity(bytes: &[u8]) -> bool {
@@ -666,8 +729,11 @@ pub(super) fn feed_prompt_output_and_sync(
         runtime_compat::backend_supports_prompt_occlusion_guard(&deps.backend_label);
     let use_rolling_detector = should_use_rolling_prompt_detector();
     let explicit_approval_hint_chunk = chunk_contains_explicit_approval_hint(data);
-    let numbered_approval_hint_chunk =
-        !use_rolling_detector && chunk_contains_numbered_approval_hint(data);
+    let numbered_approval_hint_chunk = chunk_contains_numbered_approval_hint(data);
+    let yes_no_approval_hint_chunk =
+        use_rolling_detector && chunk_contains_yes_no_approval_hint(data);
+    let confirmation_prompt_line_chunk =
+        use_rolling_detector && chunk_contains_confirmation_prompt_line(data);
     let claude_prompt_context_chunk = chunk_contains_claude_prompt_context(data);
     if !use_rolling_detector {
         append_non_rolling_approval_window(state, now, data);
@@ -707,6 +773,13 @@ pub(super) fn feed_prompt_output_and_sync(
         .is_some_and(|window| chunk_contains_claude_prompt_context(window));
     let explicit_approval_hint = explicit_approval_hint_chunk || explicit_approval_hint_window;
     let numbered_approval_hint = numbered_approval_hint_chunk || numbered_approval_hint_window;
+    let rolling_approval_hint_seen = use_rolling_detector
+        && rolling_high_confidence_approval_hint(
+            explicit_approval_hint_chunk,
+            numbered_approval_hint_chunk,
+            yes_no_approval_hint_chunk,
+            confirmation_prompt_line_chunk,
+        );
     let non_rolling_live_approval_window_hint = approval_window_scan
         .as_ref()
         .is_some_and(|window| chunk_contains_live_approval_card_hint(window));
@@ -715,7 +788,7 @@ pub(super) fn feed_prompt_output_and_sync(
         || (explicit_approval_hint_window && numbered_approval_hint_window)
         || non_rolling_live_approval_window_hint;
     let approval_hint_seen = if use_rolling_detector {
-        explicit_approval_hint || numbered_approval_hint
+        rolling_approval_hint_seen
     } else {
         non_rolling_approval_hint
     };
@@ -725,7 +798,7 @@ pub(super) fn feed_prompt_output_and_sync(
         // High-confidence approval hints should still engage guard behavior even
         // when backend labeling is noisy in integrated terminals.
         || if use_rolling_detector {
-            explicit_approval_hint || numbered_approval_hint
+            rolling_approval_hint_seen
         } else {
             non_rolling_approval_hint
         };
@@ -800,6 +873,10 @@ pub(super) fn feed_prompt_output_and_sync(
                     debug_bytes_preview(window, 180)
                 ));
             }
+        } else if explicit_approval_hint_chunk && !rolling_approval_hint_seen {
+            log_debug(
+                "[claude-hud-debug] rolling approval text ignored without live approval-choice markers",
+            );
         }
         if ignore_synchronized_candidate {
             let input_age_label = recent_input_age_ms
@@ -811,6 +888,7 @@ pub(super) fn feed_prompt_output_and_sync(
         }
     }
     if saw_tool_activity || saw_synchronized_cursor_activity {
+        let rolling_fast_suppress_allowed = !use_rolling_detector || approval_hint_seen;
         if claude_hud_debug_enabled() {
             if saw_synchronized_cursor_activity {
                 let stripped = strip_ansi_for_approval_window(data);
@@ -825,16 +903,22 @@ pub(super) fn feed_prompt_output_and_sync(
                 log_debug("[claude-hud-debug] suppression candidate: tool-activity hint");
             }
         }
-        extend_prompt_suppression_deadline(
-            &mut timers.prompt_suppression_release_not_before,
-            now + Duration::from_millis(TOOL_ACTIVITY_SUPPRESSION_HOLD_MS),
-        );
+        if rolling_fast_suppress_allowed || state.status_state.claude_prompt_suppressed {
+            extend_prompt_suppression_deadline(
+                &mut timers.prompt_suppression_release_not_before,
+                now + Duration::from_millis(TOOL_ACTIVITY_SUPPRESSION_HOLD_MS),
+            );
+        }
         // Tool-activity lines are noisy in Cursor transcript redraws and can
         // spuriously hide HUD while typing. Only rolling-detector hosts
         // (JetBrains) can engage suppression from tool-activity alone.
         if use_rolling_detector {
-            if !state.status_state.claude_prompt_suppressed {
+            if rolling_fast_suppress_allowed && !state.status_state.claude_prompt_suppressed {
                 apply_prompt_suppression(state, deps, true);
+            } else if claude_hud_debug_enabled() && !state.status_state.claude_prompt_suppressed {
+                log_debug(
+                    "[claude-hud-debug] suppression candidate ignored: synchronized/tool activity without approval hints",
+                );
             }
         } else if claude_hud_debug_enabled() && !state.status_state.claude_prompt_suppressed {
             log_debug(
@@ -848,10 +932,11 @@ pub(super) fn feed_prompt_output_and_sync(
         let _ = state.prompt.occlusion_detector.feed_output(data);
         // Claude approval cards can arrive with styling/fragmentation that may
         // evade a single rolling parse pass. When explicit approval phrases are
-        // present, feed a canonical phrase so suppression engages deterministically.
+        // paired with live choice markers, feed a canonical phrase so suppression
+        // engages deterministically.
         if prompt_guard_enabled
             && !state.prompt.occlusion_detector.should_suppress_hud()
-            && explicit_approval_hint
+            && rolling_approval_hint_seen
         {
             if claude_hud_debug_enabled() {
                 log_debug("[claude-hud-debug] suppression candidate: explicit approval hint (rolling detector canonical feed)");
@@ -968,12 +1053,19 @@ pub(super) fn sync_prompt_suppression_from_detector(
         ready_marker_resolution_kind,
         Some(crate::prompt::claude_prompt_detect::PromptType::StartupGuard)
     ) {
+        // Startup-ready markers can arrive immediately before Claude emits
+        // synchronized cursor rewrites in JetBrains. Releasing suppression
+        // instantly here causes prompt-suppression flapping and PTY row-budget
+        // thrash during startup/resize. Keep the normal debounce gate.
+        extend_prompt_suppression_deadline(
+            &mut timers.prompt_suppression_release_not_before,
+            now + Duration::from_millis(STARTUP_READY_RELEASE_DEBOUNCE_MS),
+        );
         if claude_hud_debug_enabled() {
-            log_debug("[claude-hud-debug] suppression release: startup guard ready marker");
+            log_debug(
+                "[claude-hud-debug] suppression release arm: startup guard ready marker (short debounce)",
+            );
         }
-        timers.prompt_suppression_release_not_before = None;
-        apply_prompt_suppression(state, deps, false);
-        return;
     }
 
     if !use_rolling_detector && state.status_state.claude_prompt_suppressed {

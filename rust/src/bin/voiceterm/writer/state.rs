@@ -38,6 +38,8 @@ const CLAUDE_JETBRAINS_COMPOSER_REPAIR_DELAY_MS: u64 = 140;
 const CLAUDE_JETBRAINS_COMPOSER_REPAIR_QUIET_MS: u64 = 700;
 const CLAUDE_JETBRAINS_COMPOSER_RECENT_INPUT_MS: u64 = 1500;
 const CLAUDE_JETBRAINS_RESIZE_REPAIR_WINDOW_MS: u64 = 600;
+const CLAUDE_JETBRAINS_DESTRUCTIVE_CLEAR_IMMEDIATE_REPAINT_COOLDOWN_MS: u64 = 220;
+const CLAUDE_JETBRAINS_STARTUP_SCREEN_CLEAR: &[u8] = b"\x1b[2J\x1b[H";
 const CLAUDE_IDE_NON_SCROLL_REDRAW_MIN_INTERVAL_MS: u64 = 700;
 const CLAUDE_HUD_DEBUG_ENV: &str = "VOICETERM_DEBUG_CLAUDE_HUD";
 const CLAUDE_LONG_THINK_STATUS_MARKERS: &[&[u8]] = &[
@@ -905,6 +907,8 @@ pub(super) struct WriterState {
     jetbrains_claude_composer_repair_due: Option<Instant>,
     jetbrains_claude_repair_skip_quiet_window: bool,
     jetbrains_claude_resize_repair_until: Option<Instant>,
+    jetbrains_claude_startup_screen_clear_pending: bool,
+    jetbrains_claude_last_destructive_clear_repaint_at: Option<Instant>,
     theme: Theme,
     mouse_enabled: bool,
     cursor_startup_scroll_preclear_pending: bool,
@@ -938,6 +942,8 @@ impl WriterState {
             jetbrains_claude_composer_repair_due: None,
             jetbrains_claude_repair_skip_quiet_window: false,
             jetbrains_claude_resize_repair_until: None,
+            jetbrains_claude_startup_screen_clear_pending: true,
+            jetbrains_claude_last_destructive_clear_repaint_at: None,
             theme: Theme::default(),
             mouse_enabled: false,
             cursor_startup_scroll_preclear_pending: true,
@@ -953,9 +959,15 @@ impl WriterState {
                     self.terminal_family == TerminalFamily::JetBrains && codex_backend;
                 let claude_jetbrains =
                     self.terminal_family == TerminalFamily::JetBrains && claude_backend;
+                let jetbrains_claude_startup_clear =
+                    claude_jetbrains && self.jetbrains_claude_startup_screen_clear_pending;
+                if jetbrains_claude_startup_clear {
+                    self.jetbrains_claude_startup_screen_clear_pending = false;
+                }
                 let cursor_claude =
                     self.terminal_family == TerminalFamily::Cursor && claude_backend;
-                let claude_hud_debug = claude_hud_debug_enabled() && cursor_claude;
+                let claude_hud_debug =
+                    claude_hud_debug_enabled() && (cursor_claude || claude_jetbrains);
                 let claude_non_scroll_redraw_profile = claude_jetbrains || cursor_claude;
                 let scroll_redraw_min_interval = scroll_redraw_min_interval_for_profile(
                     self.terminal_family,
@@ -996,6 +1008,18 @@ impl WriterState {
                     && pty_output_can_mutate_cursor_line(&bytes)
                     && ((!may_scroll_rows && claude_jetbrains_recent_input)
                         || claude_jetbrains_synchronized_cursor_rewrite);
+                let claude_jetbrains_destructive_clear = claude_jetbrains
+                    && claude_jetbrains_full_hud_active
+                    && pty_output_contains_destructive_clear(&bytes);
+                let claude_jetbrains_recent_destructive_clear_repaint = claude_jetbrains
+                    && self
+                        .jetbrains_claude_last_destructive_clear_repaint_at
+                        .is_some_and(|last| {
+                            now.duration_since(last)
+                                < Duration::from_millis(
+                                    CLAUDE_JETBRAINS_DESTRUCTIVE_CLEAR_IMMEDIATE_REPAINT_COOLDOWN_MS,
+                                )
+                        });
                 let mut claude_jetbrains_chunk_touches_cursor_save_restore = false;
                 if claude_jetbrains {
                     let (
@@ -1069,6 +1093,7 @@ impl WriterState {
                 let should_preclear = (profile_should_preclear
                     || claude_jetbrains_legacy_preclear_safe
                     || (claude_jetbrains_banner_preclear && in_resize_repair_window))
+                    && !claude_jetbrains_destructive_clear
                     && !preclear_blocked_for_recent_input;
                 let pre_clear = if should_preclear {
                     if claude_jetbrains_cup_preclear_safe {
@@ -1085,10 +1110,11 @@ impl WriterState {
                 let pre_cleared = !pre_clear.is_empty();
                 if claude_hud_debug {
                     log_debug(&format!(
-                        "[claude-hud-debug] writer pty chunk (bytes={}, may_scroll={}, preclear={}, force_full_before={}, force_after_preclear_before={}, pending_clear_status={}, pending_clear_overlay={}): \"{}\"",
+                        "[claude-hud-debug] writer pty chunk (bytes={}, may_scroll={}, preclear={}, startup_clear={}, force_full_before={}, force_after_preclear_before={}, pending_clear_status={}, pending_clear_overlay={}): \"{}\"",
                         bytes.len(),
                         may_scroll_rows,
                         pre_cleared,
+                        jetbrains_claude_startup_clear,
                         self.display.force_full_banner_redraw,
                         self.force_redraw_after_preclear,
                         self.pending.clear_status,
@@ -1097,6 +1123,12 @@ impl WriterState {
                     ));
                 }
 
+                if jetbrains_claude_startup_clear {
+                    if let Err(err) = self.stdout.write_all(CLAUDE_JETBRAINS_STARTUP_SCREEN_CLEAR) {
+                        log_debug(&format!("startup screen clear write failed: {err}"));
+                        return false;
+                    }
+                }
                 let write_result = if pre_clear.is_empty() {
                     self.stdout.write_all(&bytes)
                 } else {
@@ -1151,11 +1183,11 @@ impl WriterState {
                     if claude_jetbrains_synchronized_cursor_rewrite
                         && !claude_jetbrains_immediate_keystroke_repaint
                     {
-                        // Claude's synchronized cursor rewrite packets use cursor-up
-                        // positioning that can extend into HUD rows. Force immediate
-                        // repaint so the HUD is restored after the sync packet.
+                        // Claude's synchronized cursor rewrite packets can touch HUD
+                        // rows for multiple consecutive chunks. Do not repaint
+                        // immediately per chunk; rely on the coalesced repair marker
+                        // below so JetBrains+Claude redraws once after the burst.
                         self.display.force_full_banner_redraw = true;
-                        self.force_redraw_after_preclear = true;
                         self.needs_redraw = true;
                         self.jetbrains_cursor_restore_settle_until = None;
                     }
@@ -1259,24 +1291,71 @@ impl WriterState {
                         self.force_redraw_after_preclear = true;
                     }
                     // (Skipped on JetBrains — see note above.)
-                    let destructive_clear_repaint = cursor_claude
+                    let cursor_claude_destructive_clear_repaint = cursor_claude
                         && self
                             .display
                             .enhanced_status
                             .as_ref()
                             .is_some_and(|status| !status.claude_prompt_suppressed)
                         && pty_output_contains_destructive_clear(&bytes);
+                    let jetbrains_claude_destructive_clear_repaint =
+                        claude_jetbrains_destructive_clear;
+                    let destructive_clear_repaint = cursor_claude_destructive_clear_repaint
+                        || jetbrains_claude_destructive_clear_repaint;
                     if destructive_clear_repaint {
-                        // Cursor+Claude frequently emits full-screen clear sequences
-                        // while streaming output. Repaint HUD immediately so it does
-                        // not stay wiped until typing-hold debounce elapses.
+                        // Destructive clears can erase HUD/input anchor rows.
+                        // Cursor+Claude always repaints immediately. For
+                        // JetBrains+Claude, repaint immediately only when the
+                        // shared cursor save/restore slot is not active; otherwise
+                        // arm a near-term repair that bypasses the quiet window.
                         self.display.force_full_banner_redraw = true;
-                        self.force_redraw_after_preclear = true;
+                        let jetbrains_cursor_slot_busy = claude_jetbrains
+                            && (claude_jetbrains_chunk_touches_cursor_save_restore
+                                || self.jetbrains_dec_cursor_saved_active
+                                || self.jetbrains_ansi_cursor_saved_active);
+                        let immediate_reanchor_allowed = !jetbrains_cursor_slot_busy
+                            && !(jetbrains_claude_destructive_clear_repaint
+                                && claude_jetbrains_recent_destructive_clear_repaint);
+                        if immediate_reanchor_allowed {
+                            self.force_redraw_after_preclear = true;
+                            if jetbrains_claude_destructive_clear_repaint {
+                                self.jetbrains_claude_last_destructive_clear_repaint_at = Some(now);
+                            }
+                        }
+                        self.needs_redraw = true;
                         self.last_scroll_redraw_at = now;
+                        if jetbrains_claude_destructive_clear_repaint {
+                            if self.jetbrains_claude_composer_repair_due.is_none() {
+                                let repair_due = now
+                                    + Duration::from_millis(
+                                        CLAUDE_JETBRAINS_COMPOSER_REPAIR_DELAY_MS,
+                                    );
+                                self.jetbrains_claude_composer_repair_due = Some(repair_due);
+                                if claude_hud_debug_enabled() {
+                                    log_debug(&format!(
+                                        "[claude-hud-debug] scheduled jetbrains+claude destructive-clear repair redraw (due_in_ms={})",
+                                        repair_due.saturating_duration_since(now).as_millis()
+                                    ));
+                                }
+                            }
+                            self.jetbrains_claude_repair_skip_quiet_window = true;
+                        }
                         if claude_hud_debug {
-                            log_debug(
-                                "[claude-hud-debug] forcing immediate redraw after destructive clear sequence",
-                            );
+                            if jetbrains_claude_destructive_clear_repaint {
+                                if immediate_reanchor_allowed {
+                                    log_debug(
+                                        "[claude-hud-debug] forcing redraw after destructive clear sequence (jetbrains+claude)",
+                                    );
+                                } else {
+                                    log_debug(
+                                        "[claude-hud-debug] destructive clear redraw throttled; using deferred repair (jetbrains+claude)",
+                                    );
+                                }
+                            } else {
+                                log_debug(
+                                    "[claude-hud-debug] forcing immediate redraw after destructive clear sequence",
+                                );
+                            }
                         }
                     }
                     if pre_cleared
@@ -1711,6 +1790,7 @@ impl WriterState {
             && !self.pending.clear_overlay
             && !self.pending.clear_status
             && !suppression_transition_pending
+            && !self.force_redraw_after_preclear
         {
             return;
         }
@@ -1947,10 +2027,18 @@ impl WriterState {
                 if self.terminal_family == TerminalFamily::JetBrains
                     && is_claude_backend()
                     && !render_state.claude_prompt_suppressed
+                    && render_state.hud_style == HudStyle::Full
                 {
-                    // Keep full HUD lanes for JetBrains+Claude, but remove the
-                    // outer frame to reduce scroll-smeared border artifacts.
+                    // JetBrains+Claude fallback: keep full-HUD semantics but collapse
+                    // the full frame into a single-line strip to avoid row drift under
+                    // synchronized clear/redraw bursts in JetBrains.
+                    if claude_hud_debug_enabled() {
+                        log_debug(
+                            "[claude-hud-debug] applying jetbrains+claude full-hud one-line fallback",
+                        );
+                    }
                     render_state.hud_border_style = HudBorderStyle::None;
+                    render_state.full_hud_single_line = true;
                 }
                 let banner = format_status_banner(&render_state, theme, cols as usize);
                 let new_anchor_row = if banner.height == 0 || rows == 0 {

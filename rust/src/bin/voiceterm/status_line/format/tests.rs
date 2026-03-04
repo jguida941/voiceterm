@@ -474,6 +474,31 @@ fn format_status_banner_full_mode_none_border_hides_frame_rows() {
 }
 
 #[test]
+fn format_status_banner_full_mode_single_line_fallback_keeps_full_controls() {
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.hud_border_style = crate::config::HudBorderStyle::None;
+    state.full_hud_single_line = true;
+    state.hud_right_panel = HudRightPanel::Off;
+    state.message = "Ready".to_string();
+
+    let banner = format_status_banner(&state, Theme::Coral, 140);
+    assert_eq!(banner.height, 1);
+    assert_eq!(banner.lines.len(), 1);
+    let line = strip_ansi(&banner.lines[0]);
+    assert!(line.contains("Ready"), "line={line}");
+    assert!(line.contains("[rec]"), "line={line}");
+    assert!(line.contains("[studio]"), "line={line}");
+    assert!(
+        banner
+            .buttons
+            .iter()
+            .any(|button| button.action == crate::buttons::ButtonAction::VoiceTrigger),
+        "single-line full fallback should keep button hitboxes"
+    );
+}
+
+#[test]
 fn format_status_banner_full_mode_duration_lane_is_fixed_width() {
     let mut short = StatusLineState::new();
     short.hud_style = HudStyle::Full;

@@ -196,6 +196,8 @@ pub struct StatusLineState {
     /// Whether HUD should be suppressed because a Claude interactive prompt is active.
     /// Set by the `ClaudePromptDetector` to prevent HUD from occluding approval prompts.
     pub claude_prompt_suppressed: bool,
+    /// Render Full HUD semantics in a single-row layout (terminal-specific fallback).
+    pub full_hud_single_line: bool,
 }
 
 impl StatusLineState {
@@ -254,6 +256,7 @@ mod tests {
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
         assert!(!state.claude_prompt_suppressed);
+        assert!(!state.full_hud_single_line);
     }
 
     #[test]
