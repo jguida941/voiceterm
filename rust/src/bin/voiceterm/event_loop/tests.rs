@@ -5265,7 +5265,9 @@ fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
     let detected = state
         .prompt
         .occlusion_detector
-        .feed_output(b"This command requires approval\nDo you want to proceed?\n");
+        .feed_output(
+            b"This command requires approval\nDo you want to proceed?\n1. Yes\n2. Yes, and don't ask again for: test:*\n3. No\n",
+        );
     assert!(detected);
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
@@ -5302,7 +5304,7 @@ fn enter_key_defer_claude_prompt_clear_until_periodic_tick() {
     let detected = state
         .prompt
         .occlusion_detector
-        .feed_output(b"This command requires approval\nDo you want to proceed?\n");
+        .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
     assert!(state.status_state.claude_prompt_suppressed);
@@ -5343,7 +5345,7 @@ fn enter_key_resolution_does_not_re_suppress_on_empty_output() {
         &mut state,
         &mut timers,
         &mut deps,
-        b"Done. Press Enter to continue to Bash command 4/10.".to_vec(),
+        b"Do you want to proceed? (y/n)\n".to_vec(),
         &mut running,
     );
     assert!(running);

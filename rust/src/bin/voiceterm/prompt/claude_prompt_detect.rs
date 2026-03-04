@@ -303,12 +303,6 @@ impl ClaudePromptDetector {
         }
     }
 
-    /// Consume a one-shot explicit-ready transition signal.
-    #[cfg(test)]
-    pub(crate) fn take_ready_marker_resolution(&mut self) -> bool {
-        self.take_ready_marker_resolution_kind().is_some()
-    }
-
     /// Consume a one-shot explicit-ready transition source marker.
     pub(crate) fn take_ready_marker_resolution_kind(&mut self) -> Option<PromptType> {
         if !self.resolved_on_ready_marker {
@@ -814,7 +808,7 @@ mod tests {
     #[test]
     fn detector_does_not_re_suppress_from_stale_line_after_enter_resolution() {
         let mut detector = ClaudePromptDetector::new(true);
-        let detected = detector.feed_output(b"Done. Press Enter to continue to Bash command 4/10.");
+        let detected = detector.feed_output(b"Do you want to proceed? (y/n)\n");
         assert!(detected);
         assert!(detector.should_suppress_hud());
 
