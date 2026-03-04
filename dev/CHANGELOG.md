@@ -7,6 +7,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.0.99] - 2026-03-03
 ### UX
 
 - Reduce JetBrains + Claude startup typing HUD dropouts by skipping destructive banner pre-clear while user input is fresh, so first-input bursts do not wipe half the HUD before idle redraw settles.

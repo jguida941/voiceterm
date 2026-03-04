@@ -1313,9 +1313,9 @@ impl WriterState {
                             && (claude_jetbrains_chunk_touches_cursor_save_restore
                                 || self.jetbrains_dec_cursor_saved_active
                                 || self.jetbrains_ansi_cursor_saved_active);
-                        let immediate_reanchor_allowed = !jetbrains_cursor_slot_busy
-                            && !(jetbrains_claude_destructive_clear_repaint
-                                && claude_jetbrains_recent_destructive_clear_repaint);
+                        let immediate_reanchor_allowed = !(jetbrains_cursor_slot_busy
+                            || (jetbrains_claude_destructive_clear_repaint
+                                && claude_jetbrains_recent_destructive_clear_repaint));
                         if immediate_reanchor_allowed {
                             self.force_redraw_after_preclear = true;
                             if jetbrains_claude_destructive_clear_repaint {
