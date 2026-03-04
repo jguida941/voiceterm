@@ -240,12 +240,13 @@ preflight and AI-review gates are green for the same commit.
 
 ### Recent Governance Update (2026-03-04, Rust CI MSRV Cargo Compatibility)
 
-Fact: The Rust CI MSRV lane now uses toolchain `1.85.0` so Cargo can parse
-transitive `edition2024` crate manifests in the current dependency graph.
+Fact: The Rust CI MSRV lane now uses toolchain `1.88.0` to match current
+transitive dependency requirements (`time`/`time-core`) in the dependency
+graph.
 
 Evidence:
 
-- `.github/workflows/rust_ci.yml` (MSRV install step now uses `1.85.0`)
+- `.github/workflows/rust_ci.yml` (MSRV install step now uses `1.88.0`)
 - `AGENTS.md`, `.github/workflows/README.md`, `dev/DEVELOPMENT.md`
   (MSRV lane documentation now matches workflow behavior)
 - `dev/CHANGELOG.md` (records the CI hardening reason and scope)

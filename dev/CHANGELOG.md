@@ -29,9 +29,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Keep security guard stable in CI by installing ALSA headers in core security
   runs, scoping Python security checks to push/PR diffs, and making `zizmor`
   enforcement opt-in (`SECURITY_ZIZMOR_MODE=enforce`).
-- Keep Rust CI MSRV lane green by moving the MSRV toolchain to `1.85.0`, which
-  is the minimum Cargo version in this repo that can parse transitive
-  `edition2024` crate manifests.
+- Keep Rust CI MSRV lane green by moving the MSRV toolchain to `1.88.0`, which
+  is the minimum toolchain currently required by transitive `time`/`time-core`
+  crates in the dependency graph.
 - Narrow Failure Triage to high-signal failure conclusions
   (`failure`/`timed_out`/`action_required`) so triage artifacts focus on
   actionable failures instead of skipped/neutral events.
