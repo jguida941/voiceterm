@@ -277,6 +277,8 @@ gh run list --workflow release_preflight.yml --limit 1
 # set `GH_TOKEN="$(gh auth token)"` when reproducing `check --profile release` locally.
 # Preflight workflow also requires `security-events: write` so zizmor SARIF
 # uploads can reach GitHub code scanning.
+# Preflight zizmor execution is pinned to `online-audits: false` to avoid
+# cross-repo compare API permission failures in CI.
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes

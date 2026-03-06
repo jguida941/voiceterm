@@ -546,6 +546,8 @@ Use this exact sequence:
    - `release_preflight.yml` job must grant `security-events: write` so the
      zizmor SARIF upload step can publish scan results without permission
      failures.
+   - `release_preflight.yml` uses `online-audits: false` for zizmor so
+     cross-repo compare API restrictions do not hard-fail preflight in CI.
 
 6. Run release tagging and notes:
 

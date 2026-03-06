@@ -57,6 +57,10 @@
 - Release preflight SARIF permission update:
   `.github/workflows/release_preflight.yml` preflight job now grants
   `security-events: write` so zizmor SARIF uploads can publish to code scanning.
+- Release preflight zizmor execution update:
+  `.github/workflows/release_preflight.yml` now sets zizmor
+  `online-audits: false` to prevent cross-repo compare API 403 failures from
+  blocking release preflight.
 - Compat-matrix parser resilience update: compatibility/naming guard scripts now
   share a minimal YAML fallback parser so tooling CI and local checks stay
   deterministic in minimal Python environments without `PyYAML`.

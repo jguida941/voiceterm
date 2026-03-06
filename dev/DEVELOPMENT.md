@@ -862,6 +862,8 @@ bundle steps that call `gh` through `devctl check --profile release`. When
 reproducing those checks locally, set `GH_TOKEN="$(gh auth token)"`.
 The preflight job also needs `security-events: write` so zizmor's SARIF upload
 can publish results to code scanning.
+Preflight uses zizmor `online-audits: false` to avoid cross-repo API compare
+403s while preserving local workflow scan coverage.
 
 `devctl release` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
 compare range (previous tag to current tag). You can also generate it manually:

@@ -336,13 +336,14 @@ release-gate behavior.
 
 Fact: Release preflight now exports `GH_TOKEN` for runtime-bundle `gh` calls
 and grants job-level `security-events: write` so zizmor SARIF uploads can
-publish to code scanning without permission failures.
+publish to code scanning without permission failures; zizmor runs with
+`online-audits: false` in this lane to avoid cross-repo compare API 403s.
 
 Evidence:
 
 - `.github/workflows/release_preflight.yml` (runtime bundle step exports
   `GH_TOKEN: ${{ github.token }}` and preflight job grants
-  `security-events: write`)
+  `security-events: write`, with zizmor configured as `online-audits: false`)
 - `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
   `dev/active/MASTER_PLAN.md` (release-flow and governance docs synchronized
   to the workflow auth contract)
