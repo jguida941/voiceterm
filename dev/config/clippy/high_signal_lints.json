@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "owner": "tooling-control-plane",
+  "description": "High-signal Clippy lints that must remain at or below baseline counts.",
+  "lints": {
+    "clippy::unwrap_used": 0,
+    "clippy::expect_used": 0,
+    "clippy::panic": 0,
+    "clippy::todo": 0,
+    "clippy::unimplemented": 0,
+    "clippy::unreachable": 0,
+    "clippy::indexing_slicing": 0
+  }
+}
