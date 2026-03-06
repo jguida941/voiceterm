@@ -244,6 +244,7 @@ impl WriterState {
     #[cfg(test)]
     fn set_terminal_family_for_tests(&mut self, terminal_family: TerminalHost) {
         self.runtime_profile = self.runtime_profile.with_terminal_family(terminal_family);
+        self.cursor_startup_screen_clear_pending = terminal_family == TerminalHost::Cursor;
     }
 
     fn host_timing(&self) -> HostTimingConfig {
