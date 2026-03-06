@@ -184,6 +184,8 @@ Compatibility-matrix parser note:
 - `check_compat_matrix.py`, `compat_matrix_smoke.py`, and
   `check_naming_consistency.py` now include a shared minimal YAML fallback so
   guard behavior stays consistent when `PyYAML` is not installed.
+- Fallback parser behavior is fail-closed for malformed inline collection
+  scalars (for example unterminated `[` blocks) to avoid silent parse drift.
 
 Workflow permissions note:
 - For `.github/workflows/scorecard.yml`, keep workflow-level permissions read-only and scope `id-token: write` plus `security-events: write` at the `analysis` job level. OpenSSF `publish_results` rejects global write permissions.

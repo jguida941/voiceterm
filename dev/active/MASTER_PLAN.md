@@ -57,6 +57,8 @@
 - Compat-matrix parser resilience update: compatibility/naming guard scripts now
   share a minimal YAML fallback parser so tooling CI and local checks stay
   deterministic in minimal Python environments without `PyYAML`.
+- Compat-matrix parser fail-closed update: malformed inline collection scalars
+  in fallback mode now raise explicit parse errors instead of silent coercion.
 - Control-plane simplification update: MP-340 is now Rust-first only (Rust
   overlay + `devctl` + phone/SSH projections). The optional `app/pyside6`
   command-center track is retired from active execution scope.

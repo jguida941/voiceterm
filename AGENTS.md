@@ -753,6 +753,8 @@ Core commands:
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
   - Matrix checks now include a minimal no-dependency YAML fallback parser so
     tooling lanes remain deterministic when `PyYAML` is unavailable.
+  - Malformed inline collection scalars in fallback mode now fail closed (no
+    silent coercion), preserving guard reliability.
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.

@@ -353,7 +353,8 @@ without GH CLI auth drift, restoring deterministic release-gate behavior.
 
 Fact: Compatibility-matrix and naming-consistency guards now share a minimal
 YAML fallback parser so CI/unit-test behavior remains deterministic when
-`PyYAML` is unavailable.
+`PyYAML` is unavailable, and malformed inline collection scalars now fail
+closed instead of being silently coerced.
 
 Evidence:
 

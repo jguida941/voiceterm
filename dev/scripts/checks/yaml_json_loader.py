@@ -45,8 +45,10 @@ def _parse_scalar(value: str) -> object:
     if token.startswith("[") or token.startswith("{"):
         try:
             return json.loads(token)
-        except Exception:
-            pass
+        except Exception as exc:
+            raise YamlFallbackParseError(
+                f"invalid inline collection scalar: {token}"
+            ) from exc
     return token
 
 
@@ -198,4 +200,3 @@ def load_yaml_or_json(raw: str, *, yaml_module: object | None = _yaml) -> object
         return json.loads(raw)
     except Exception:
         return _parse_minimal_yaml(raw)
-
