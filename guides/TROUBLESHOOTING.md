@@ -103,6 +103,13 @@ In auto mode, the last good sample stays visible between captures.
 2. Look for `latency_audit` lines in the log.
 3. If `stt_ms` rises on longer utterances, that is expected for non-streaming transcription.
 4. Compare `rtf` (real-time factor). Lower is faster.
+5. Badge severity uses `rtf` when available; absolute `Nms` thresholds are fallback-only when `rtf` is missing.
+6. Use `mode`, `badge`, `pipeline`, and `math` fields in `latency_audit` to compare exactly what is shown in the HUD and which capture path produced it.
+7. Run a strict math audit:
+
+```bash
+python3 dev/scripts/tests/audit_latency_math.py --log-path "${TMPDIR:-/tmp}/voiceterm_tui.log"
+```
 
 ### Transcript includes ambient-sound tags
 

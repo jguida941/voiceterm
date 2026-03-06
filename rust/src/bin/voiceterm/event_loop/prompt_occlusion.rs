@@ -1,10 +1,14 @@
 //! Prompt-occlusion state transitions shared by event-loop input/output/periodic paths.
-
 use super::*;
+use crate::hud_debug::{claude_hud_debug_enabled, debug_bytes_preview};
+use crate::prompt::occlusion_shared::{
+    append_window_chunk, clear_window_state, retain_window_tail, snapshot_window_bytes, tail_slice,
+    window_is_expired,
+};
+use crate::prompt::occlusion_signals as prompt_occlusion_signals;
 use crate::runtime_compat;
 #[cfg(test)]
 use std::cell::Cell;
-use std::sync::OnceLock;
 
 const PROMPT_SUPPRESSION_RELEASE_DEBOUNCE_MS: u64 = 3000;
 const STARTUP_READY_RELEASE_DEBOUNCE_MS: u64 = 700;
@@ -18,17 +22,6 @@ const NON_ROLLING_APPROVAL_CARD_SCAN_LINES: usize = 64;
 const NON_ROLLING_CONSECUTIVE_APPROVAL_STICKY_HOLD_MS: u64 = 850;
 const APPROVAL_SUPPRESSION_CANONICAL_FEED: &[u8] =
     b"This command requires approval\nDo you want to proceed?\n";
-const CLAUDE_HUD_DEBUG_ENV: &str = "VOICETERM_DEBUG_CLAUDE_HUD";
-const CLAUDE_LONG_THINK_STATUS_MARKERS: &[&str] = &[
-    "baked for ",
-    "brewed for ",
-    "churned for ",
-    "cogitated for ",
-    "cooked for ",
-    "crunched for ",
-    "worked for ",
-];
-
 #[cfg(test)]
 thread_local! {
     static TEST_ROLLING_DETECTOR_OVERRIDE: Cell<Option<bool>> = const { Cell::new(None) };
@@ -39,93 +32,22 @@ pub(super) fn set_test_rolling_detector_override(value: Option<bool>) {
     TEST_ROLLING_DETECTOR_OVERRIDE.with(|cell| cell.set(value));
 }
 
-fn parse_debug_env_flag(raw: &str) -> bool {
-    matches!(
-        raw.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on" | "debug"
-    )
-}
-
-fn claude_hud_debug_enabled() -> bool {
-    static ENABLED: OnceLock<bool> = OnceLock::new();
-    *ENABLED.get_or_init(|| {
-        std::env::var(CLAUDE_HUD_DEBUG_ENV)
-            .map(|raw| parse_debug_env_flag(&raw))
-            // Keep prompt-occlusion traces on by default in debug/dev builds so
-            // real Cursor regressions are diagnosable without env-var misses.
-            .unwrap_or(cfg!(debug_assertions))
-    })
-}
-
-fn debug_bytes_preview(bytes: &[u8], max_chars: usize) -> String {
-    let text = String::from_utf8_lossy(bytes);
-    let mut out = String::new();
-    for (count, ch) in text.chars().enumerate() {
-        if count >= max_chars {
-            out.push_str("...");
-            break;
-        }
-        for escaped in ch.escape_default() {
-            out.push(escaped);
-        }
-    }
-    out
-}
-
-fn strip_ansi_for_approval_window(bytes: &[u8]) -> Vec<u8> {
-    let mut stripped = Vec::with_capacity(bytes.len());
-    let mut idx = 0usize;
-    while idx < bytes.len() {
-        let byte = bytes[idx];
-        if byte == 0x1b {
-            if idx + 1 < bytes.len() && bytes[idx + 1] == b'[' {
-                idx += 2;
-                while idx < bytes.len() {
-                    if (0x40..=0x7e).contains(&bytes[idx]) {
-                        idx += 1;
-                        break;
-                    }
-                    idx += 1;
-                }
-            } else {
-                idx += 2usize.min(bytes.len().saturating_sub(idx));
-            }
-            continue;
-        }
-        match byte {
-            b'\n' | b'\r' | b'\t' => stripped.push(byte),
-            byte if !byte.is_ascii_control() => stripped.push(byte),
-            _ => {}
-        }
-        idx += 1;
-    }
-    stripped
-}
-
 fn append_non_rolling_approval_window(state: &mut EventLoopState, now: Instant, data: &[u8]) {
-    if data.is_empty() {
-        return;
-    }
-    if state
-        .prompt
-        .non_rolling_approval_window_last_update
-        .is_some_and(|last| {
-            now.duration_since(last).as_millis() > u128::from(NON_ROLLING_APPROVAL_WINDOW_STALE_MS)
-        })
-    {
-        state.prompt.non_rolling_approval_window.clear();
-    }
-    state.prompt.non_rolling_approval_window_last_update = Some(now);
-    let normalized = strip_ansi_for_approval_window(data);
-    state.prompt.non_rolling_approval_window.extend(normalized);
-    while state.prompt.non_rolling_approval_window.len() > NON_ROLLING_APPROVAL_WINDOW_MAX_BYTES {
-        let _ = state.prompt.non_rolling_approval_window.pop_front();
-    }
+    append_window_chunk(
+        &mut state.prompt.non_rolling_approval_window,
+        &mut state.prompt.non_rolling_approval_window_last_update,
+        now,
+        data,
+        NON_ROLLING_APPROVAL_WINDOW_STALE_MS,
+        NON_ROLLING_APPROVAL_WINDOW_MAX_BYTES,
+    );
 }
 
 fn clear_non_rolling_approval_window(state: &mut EventLoopState) {
-    state.prompt.non_rolling_approval_window.clear();
-    state.prompt.non_rolling_approval_window_last_update = None;
+    clear_window_state(
+        &mut state.prompt.non_rolling_approval_window,
+        &mut state.prompt.non_rolling_approval_window_last_update,
+    );
     state.prompt.non_rolling_release_armed = false;
 }
 
@@ -134,471 +56,21 @@ fn clear_non_rolling_sticky_hold(state: &mut EventLoopState) {
 }
 
 fn retain_non_rolling_approval_window_tail(state: &mut EventLoopState, tail_bytes: usize) {
-    while state.prompt.non_rolling_approval_window.len() > tail_bytes {
-        let _ = state.prompt.non_rolling_approval_window.pop_front();
-    }
+    retain_window_tail(&mut state.prompt.non_rolling_approval_window, tail_bytes);
 }
 
 fn maybe_expire_non_rolling_approval_window(state: &mut EventLoopState, now: Instant) {
-    if state
-        .prompt
-        .non_rolling_approval_window_last_update
-        .is_some_and(|last| {
-            now.duration_since(last).as_millis()
-                > u128::from(NON_ROLLING_APPROVAL_WINDOW_MAX_AGE_MS)
-        })
-    {
+    if window_is_expired(
+        state.prompt.non_rolling_approval_window_last_update,
+        now,
+        NON_ROLLING_APPROVAL_WINDOW_MAX_AGE_MS,
+    ) {
         clear_non_rolling_approval_window(state);
     }
 }
 
 fn non_rolling_approval_window_snapshot(state: &EventLoopState) -> Vec<u8> {
-    state
-        .prompt
-        .non_rolling_approval_window
-        .iter()
-        .copied()
-        .collect()
-}
-
-fn tail_slice(bytes: &[u8], tail_bytes: usize) -> &[u8] {
-    if bytes.len() <= tail_bytes {
-        return bytes;
-    }
-    &bytes[bytes.len().saturating_sub(tail_bytes)..]
-}
-
-fn normalize_approval_hint_text(bytes: &[u8]) -> String {
-    let mut normalized = String::with_capacity(bytes.len());
-    let mut prev_space = false;
-    for ch in String::from_utf8_lossy(bytes).chars() {
-        let lower = ch.to_ascii_lowercase();
-        if lower.is_ascii_alphanumeric() || matches!(lower, ':' | '*' | '/' | '.' | '_' | '-') {
-            normalized.push(lower);
-            prev_space = false;
-            continue;
-        }
-        if !prev_space {
-            normalized.push(' ');
-            prev_space = true;
-        }
-    }
-    normalized
-}
-
-fn chunk_contains_explicit_approval_hint(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let stripped = strip_ansi_for_approval_window(bytes);
-    if stripped.is_empty() {
-        return false;
-    }
-    let raw_lower = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
-    if raw_lower.contains("this command requires approval")
-        || raw_lower.contains("thiscommandrequiresapproval")
-    {
-        return true;
-    }
-    let line_starts_with_prompt_question = raw_lower.lines().any(|line| {
-        let lowered = normalize_approval_card_line(line);
-        lowered.starts_with("do you want to proceed") || lowered.starts_with("doyouwanttoproceed")
-    });
-    if line_starts_with_prompt_question {
-        return true;
-    }
-    let normalized = normalize_approval_hint_text(&stripped);
-    let compact: String = normalized
-        .chars()
-        .filter(|ch| !ch.is_ascii_whitespace())
-        .collect();
-    normalized.contains("this command requires approval")
-        || compact.contains("thiscommandrequiresapproval")
-        || normalized.starts_with("do you want to proceed")
-        || compact.starts_with("doyouwanttoproceed")
-        || ((normalized.contains("yes and don t ask again for")
-            || compact.contains("yesanddontaskagainfor"))
-            && normalized.contains("1")
-            && normalized.contains("2"))
-}
-
-fn chunk_contains_claude_prompt_context(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let normalized = normalize_approval_hint_text(bytes);
-    normalized.contains("claude wants to")
-        || normalized.contains("what should claude do instead")
-        || normalized.contains("tool use")
-        || normalized.contains("claude code")
-}
-
-fn normalize_approval_card_line(line: &str) -> String {
-    let trimmed = line.trim_start();
-    let trimmed = trimmed
-        .trim_start_matches(|ch: char| {
-            matches!(
-                ch,
-                '•' | '*'
-                    | '-'
-                    | '└'
-                    | '│'
-                    | '⏺'
-                    | '›'
-                    | '❯'
-                    | '>'
-                    | '→'
-                    | '·'
-                    | '▸'
-                    | '▶'
-                    | '◂'
-            )
-        })
-        .trim_start();
-    let trimmed = if let Some(rest) = trimmed.strip_prefix("o ") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix('o') {
-        if rest
-            .chars()
-            .next()
-            .is_some_and(|ch| ch.is_ascii_digit() || matches!(ch, '.' | ')' | ':' | ' '))
-        {
-            rest
-        } else {
-            trimmed
-        }
-    } else {
-        trimmed
-    };
-    trimmed.to_ascii_lowercase()
-}
-
-fn line_has_confirmation_prompt_prefix(line: &str) -> bool {
-    line.starts_with("do you want to proceed")
-        || line.starts_with("do you want to run")
-        || line.starts_with("would you like to proceed")
-        || line.starts_with("this command requires approval")
-        || line.starts_with("requires approval")
-        || line.starts_with("allow this command")
-        || line.starts_with("approve this action")
-        || line.starts_with("run this command?")
-        || line.starts_with("execute this?")
-        || line.starts_with("press enter to continue")
-        || line.starts_with("press y to confirm")
-}
-
-fn chunk_contains_confirmation_prompt_line(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let stripped = strip_ansi_for_approval_window(bytes);
-    if stripped.is_empty() {
-        return false;
-    }
-    String::from_utf8_lossy(&stripped)
-        .lines()
-        .map(normalize_approval_card_line)
-        .any(|line| line_has_confirmation_prompt_prefix(&line))
-}
-
-fn starts_with_numbered_option(line: &str, option: u8) -> bool {
-    if line.len() < 2 {
-        return false;
-    }
-    let first = option as char;
-    let bytes = line.as_bytes();
-    bytes[0] == first as u8 && matches!(bytes[1], b'.' | b')' | b':' | b' ')
-}
-
-fn chunk_contains_numbered_approval_hint(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let text = String::from_utf8_lossy(bytes);
-    let mut has_option_1 = false;
-    let mut has_option_2 = false;
-    let mut has_option_3 = false;
-    let mut has_yes = false;
-    let mut has_no = false;
-    let mut has_approval_text = false;
-    let mut has_dont_ask_again = false;
-
-    for line in text
-        .lines()
-        .rev()
-        .take(NON_ROLLING_APPROVAL_CARD_SCAN_LINES)
-    {
-        let lowered = normalize_approval_card_line(line);
-        if starts_with_numbered_option(&lowered, b'1') {
-            has_option_1 = true;
-        }
-        if starts_with_numbered_option(&lowered, b'2') {
-            has_option_2 = true;
-        }
-        if starts_with_numbered_option(&lowered, b'3') {
-            has_option_3 = true;
-        }
-        if lowered.contains(" yes") || lowered.starts_with("yes") {
-            has_yes = true;
-        }
-        if lowered.contains(".yes") || lowered.contains(")yes") || lowered.contains(":yes") {
-            has_yes = true;
-        }
-        if lowered.contains(" no") || lowered.starts_with("no") {
-            has_no = true;
-        }
-        if lowered.contains(".no") || lowered.contains(")no") || lowered.contains(":no") {
-            has_no = true;
-        }
-        if lowered.contains("don't ask again") || lowered.contains("dont ask again") {
-            has_dont_ask_again = true;
-        }
-        if lowered.contains("do you want")
-            || lowered.contains("requires approval")
-            || lowered.contains("allow this command")
-            || lowered.contains("approve this action")
-        {
-            has_approval_text = true;
-        }
-    }
-
-    let has_numbered_options = has_option_1
-        && has_option_2
-        && (has_option_3 || has_no || has_approval_text || has_dont_ask_again);
-    let has_approval_semantics = has_dont_ask_again || has_approval_text || (has_yes && has_no);
-    has_numbered_options && has_approval_semantics
-}
-
-fn chunk_contains_live_approval_card_hint(bytes: &[u8]) -> bool {
-    chunk_contains_explicit_approval_hint(bytes) && chunk_contains_numbered_approval_hint(bytes)
-}
-
-fn chunk_contains_yes_no_approval_hint(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let stripped = strip_ansi_for_approval_window(bytes);
-    if stripped.is_empty() {
-        return false;
-    }
-    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
-    let has_approval_question = chunk_contains_confirmation_prompt_line(&stripped);
-    let has_yes_no_choice = lowered.contains("(y/n)")
-        || lowered.contains("(yes/no)")
-        || lowered.contains(" y/n")
-        || lowered.lines().any(|line| {
-            let normalized = normalize_approval_card_line(line);
-            normalized.starts_with("y/n")
-                || normalized.starts_with("yes/no")
-                || normalized.starts_with("y or n")
-        });
-    has_approval_question && has_yes_no_choice
-}
-
-fn rolling_high_confidence_approval_hint(
-    explicit_approval_hint_chunk: bool,
-    numbered_approval_hint_chunk: bool,
-    yes_no_approval_hint_chunk: bool,
-    confirmation_prompt_line_chunk: bool,
-) -> bool {
-    numbered_approval_hint_chunk
-        || (explicit_approval_hint_chunk
-            && yes_no_approval_hint_chunk
-            && confirmation_prompt_line_chunk)
-}
-
-fn chunk_contains_substantial_non_prompt_activity(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let stripped = strip_ansi_for_approval_window(bytes);
-    if stripped.is_empty() {
-        return false;
-    }
-    let text = String::from_utf8_lossy(&stripped);
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-    let compact: String = trimmed
-        .chars()
-        .filter(|ch| !ch.is_ascii_whitespace())
-        .collect();
-    if compact.is_empty() {
-        return false;
-    }
-    let compact_lower = compact.to_ascii_lowercase();
-    if matches!(
-        compact_lower.as_str(),
-        "1" | "2" | "3" | "y" | "n" | "yes" | "no" | "enter"
-    ) {
-        return false;
-    }
-    if compact_lower.len() < 8 {
-        return false;
-    }
-    if chunk_contains_explicit_approval_hint(&stripped)
-        || chunk_contains_numbered_approval_hint(&stripped)
-        || chunk_contains_claude_prompt_context(&stripped)
-    {
-        return false;
-    }
-    true
-}
-
-fn normalize_tool_activity_line(line: &str) -> String {
-    line.trim_start()
-        .trim_start_matches(|ch: char| {
-            matches!(
-                ch,
-                '•' | '*' | '-' | '└' | '│' | '⏺' | '›' | '❯' | '>' | '→' | '·'
-            )
-        })
-        .trim_start()
-        .to_ascii_lowercase()
-}
-
-fn bytes_contains_sequence(bytes: &[u8], needle: &[u8]) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    bytes.windows(needle.len()).any(|window| window == needle)
-}
-
-fn parse_single_csi_param_u16(params: &[u8]) -> Option<u16> {
-    if params.is_empty() {
-        return Some(1);
-    }
-    if params.iter().all(u8::is_ascii_digit) {
-        std::str::from_utf8(params).ok()?.parse::<u16>().ok()
-    } else {
-        None
-    }
-}
-
-fn bytes_contains_cursor_up_csi_at_least(bytes: &[u8], min_rows: u16) -> bool {
-    let mut idx = 0usize;
-    while idx + 2 < bytes.len() {
-        if bytes[idx] != 0x1b || bytes[idx + 1] != b'[' {
-            idx += 1;
-            continue;
-        }
-        let mut cursor = idx + 2;
-        while cursor < bytes.len() {
-            let byte = bytes[cursor];
-            if (0x40..=0x7e).contains(&byte) {
-                if byte == b'A' {
-                    let params = &bytes[idx + 2..cursor];
-                    if parse_single_csi_param_u16(params).is_some_and(|rows| rows >= min_rows) {
-                        return true;
-                    }
-                }
-                idx = cursor + 1;
-                break;
-            }
-            cursor += 1;
-        }
-        if cursor >= bytes.len() {
-            break;
-        }
-    }
-    false
-}
-
-fn chunk_contains_claude_synchronized_cursor_activity(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let synchronized_packet = bytes_contains_sequence(bytes, b"\x1b[?2026h")
-        && bytes_contains_sequence(bytes, b"\x1b[?2026l");
-    if !synchronized_packet {
-        return false;
-    }
-    let has_rewrite_structure = bytes_contains_sequence(bytes, b"\r\r\n")
-        || bytes_contains_sequence(bytes, b"\x1b[2K")
-        || bytes_contains_sequence(bytes, b"\x1b[7m")
-        || bytes_contains_sequence(bytes, b"\x1b[G");
-    let has_large_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 4);
-    let has_medium_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 2);
-    let has_any_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 1);
-    let stripped = strip_ansi_for_approval_window(bytes);
-    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
-    let has_status_marker = lowered.contains("(thinking)")
-        || lowered.contains("for shortcuts")
-        || CLAUDE_LONG_THINK_STATUS_MARKERS
-            .iter()
-            .any(|marker| lowered.contains(marker));
-    // Claude status/thinking frames in JetBrains are synchronized cursor-up rewrites.
-    // Suppress on deep cursor-up rewrites, on rewrite-structured medium cursor hops
-    // (for example early 2A/3A packets before long output), and on status-marker
-    // rewrites that use short cursor-up hops.
-    has_large_cursor_up
-        || (has_medium_cursor_up && has_rewrite_structure)
-        || (has_any_cursor_up && has_status_marker && has_rewrite_structure)
-}
-
-fn chunk_is_probable_claude_prompt_input_echo_rewrite(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    // Prompt-input repaint packets are small synchronized cursor rewrites that
-    // paint an inverse-video caret while the user types.
-    let synchronized_packet = bytes_contains_sequence(bytes, b"\x1b[?2026h")
-        && bytes_contains_sequence(bytes, b"\x1b[?2026l");
-    if !synchronized_packet {
-        return false;
-    }
-    let has_inverse_video_caret =
-        bytes_contains_sequence(bytes, b"\x1b[7m") && bytes_contains_sequence(bytes, b"\x1b[27m");
-    if !has_inverse_video_caret {
-        return false;
-    }
-    let has_medium_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 2);
-    let has_large_cursor_up = bytes_contains_cursor_up_csi_at_least(bytes, 4);
-    if !has_medium_cursor_up || has_large_cursor_up {
-        return false;
-    }
-    let stripped = strip_ansi_for_approval_window(bytes);
-    let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
-    let has_long_think_marker = lowered.contains("(thinking)")
-        || CLAUDE_LONG_THINK_STATUS_MARKERS
-            .iter()
-            .any(|marker| lowered.contains(marker));
-    if has_long_think_marker {
-        return false;
-    }
-    // Input-echo rewrites are compact caret repaint packets; long multiline
-    // status frames should not match this path.
-    bytes.len() <= 256
-}
-
-fn chunk_contains_tool_activity_hint(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
-    }
-    let text = String::from_utf8_lossy(bytes);
-    for line in text.lines().rev().take(12) {
-        let lowered = normalize_tool_activity_line(line);
-        if lowered.starts_with("bash(")
-            || lowered == "bash command"
-            || lowered.starts_with("web search(")
-            || lowered.starts_with("google search(")
-            || lowered.contains("running tools")
-            || lowered.contains("+1 more tool use")
-            || lowered.contains("+2 more tool use")
-            || lowered.contains("+3 more tool use")
-            || lowered.contains("+4 more tool use")
-            || lowered.contains("+5 more tool use")
-            || lowered.contains("+1 more tool call")
-            || lowered.contains("+2 more tool call")
-            || lowered.contains("+3 more tool call")
-            || lowered.contains("+4 more tool call")
-            || lowered.contains("+5 more tool call")
-        {
-            return true;
-        }
-    }
-    false
+    snapshot_window_bytes(&state.prompt.non_rolling_approval_window)
 }
 
 fn extend_prompt_suppression_deadline(current: &mut Option<Instant>, candidate: Instant) {
@@ -626,31 +98,13 @@ fn should_use_rolling_prompt_detector() -> bool {
     }
 }
 
-fn should_resolve_prompt_suppression_on_input_without_detector(bytes: &[u8]) -> bool {
-    matches!(
-        bytes,
-        [b'\r']
-            | [b'\n']
-            | [b'y']
-            | [b'Y']
-            | [b'n']
-            | [b'N']
-            | [b'1']
-            | [b'2']
-            | [b'3']
-            | [0x03]
-            | [0x04]
-            | [0x1b]
-    )
-}
-
 /// Apply prompt suppression state and propagate dependent runtime side effects.
 pub(super) fn apply_prompt_suppression(
     state: &mut EventLoopState,
     deps: &mut EventLoopDeps,
     suppressed: bool,
 ) {
-    let was_suppressed = state.status_state.claude_prompt_suppressed;
+    let was_suppressed = state.status_state.prompt_suppressed;
     if was_suppressed == suppressed {
         return;
     }
@@ -679,7 +133,7 @@ pub(super) fn apply_prompt_suppression(
         });
     }
 
-    state.status_state.claude_prompt_suppressed = suppressed;
+    state.status_state.prompt_suppressed = suppressed;
     if !suppressed {
         clear_non_rolling_approval_window(state);
         clear_non_rolling_sticky_hold(state);
@@ -690,7 +144,7 @@ pub(super) fn apply_prompt_suppression(
         state.ui.terminal_cols,
         state.ui.overlay_mode,
         state.status_state.hud_style,
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
     );
     // Clear before redraw so anchor transitions do not leave stale frame lines.
     let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
@@ -728,19 +182,28 @@ pub(super) fn feed_prompt_output_and_sync(
     let backend_prompt_guard_enabled =
         runtime_compat::backend_supports_prompt_occlusion_guard(&deps.backend_label);
     let use_rolling_detector = should_use_rolling_prompt_detector();
-    let explicit_approval_hint_chunk = chunk_contains_explicit_approval_hint(data);
-    let numbered_approval_hint_chunk = chunk_contains_numbered_approval_hint(data);
+    let explicit_approval_hint_chunk =
+        prompt_occlusion_signals::chunk_contains_explicit_approval_hint(data);
+    let numbered_approval_hint_chunk =
+        prompt_occlusion_signals::chunk_contains_numbered_approval_hint(
+            data,
+            NON_ROLLING_APPROVAL_CARD_SCAN_LINES,
+        );
     let yes_no_approval_hint_chunk =
-        use_rolling_detector && chunk_contains_yes_no_approval_hint(data);
-    let confirmation_prompt_line_chunk =
-        use_rolling_detector && chunk_contains_confirmation_prompt_line(data);
-    let claude_prompt_context_chunk = chunk_contains_claude_prompt_context(data);
+        use_rolling_detector && prompt_occlusion_signals::chunk_contains_yes_no_approval_hint(data);
+    let confirmation_prompt_line_chunk = use_rolling_detector
+        && prompt_occlusion_signals::chunk_contains_confirmation_prompt_line(data);
+    let prompt_context_chunk =
+        prompt_occlusion_signals::chunk_contains_prompt_context_markers(data);
     if !use_rolling_detector {
         append_non_rolling_approval_window(state, now, data);
         if explicit_approval_hint_chunk || numbered_approval_hint_chunk {
             state.prompt.non_rolling_release_armed = false;
         } else if state.prompt.non_rolling_release_armed {
-            if chunk_contains_substantial_non_prompt_activity(data) {
+            if prompt_occlusion_signals::chunk_contains_substantial_non_prompt_activity(
+                data,
+                NON_ROLLING_APPROVAL_CARD_SCAN_LINES,
+            ) {
                 if claude_hud_debug_enabled() {
                     log_debug(
                         "[claude-hud-debug] non-rolling release arm consumed: substantial post-input activity detected",
@@ -762,27 +225,34 @@ pub(super) fn feed_prompt_output_and_sync(
     let approval_window_scan = non_rolling_window
         .as_ref()
         .map(|window| tail_slice(window, NON_ROLLING_APPROVAL_WINDOW_SCAN_TAIL_BYTES));
-    let explicit_approval_hint_window = approval_window_scan
-        .as_ref()
-        .is_some_and(|window| chunk_contains_explicit_approval_hint(window));
-    let numbered_approval_hint_window = approval_window_scan
-        .as_ref()
-        .is_some_and(|window| chunk_contains_numbered_approval_hint(window));
-    let claude_prompt_context_window = non_rolling_window
-        .as_ref()
-        .is_some_and(|window| chunk_contains_claude_prompt_context(window));
+    let explicit_approval_hint_window = approval_window_scan.as_ref().is_some_and(|window| {
+        prompt_occlusion_signals::chunk_contains_explicit_approval_hint(window)
+    });
+    let numbered_approval_hint_window = approval_window_scan.as_ref().is_some_and(|window| {
+        prompt_occlusion_signals::chunk_contains_numbered_approval_hint(
+            window,
+            NON_ROLLING_APPROVAL_CARD_SCAN_LINES,
+        )
+    });
+    let prompt_context_window = non_rolling_window.as_ref().is_some_and(|window| {
+        prompt_occlusion_signals::chunk_contains_prompt_context_markers(window)
+    });
     let explicit_approval_hint = explicit_approval_hint_chunk || explicit_approval_hint_window;
     let numbered_approval_hint = numbered_approval_hint_chunk || numbered_approval_hint_window;
     let rolling_approval_hint_seen = use_rolling_detector
-        && rolling_high_confidence_approval_hint(
+        && prompt_occlusion_signals::rolling_high_confidence_approval_hint(
             explicit_approval_hint_chunk,
             numbered_approval_hint_chunk,
             yes_no_approval_hint_chunk,
             confirmation_prompt_line_chunk,
         );
-    let non_rolling_live_approval_window_hint = approval_window_scan
-        .as_ref()
-        .is_some_and(|window| chunk_contains_live_approval_card_hint(window));
+    let non_rolling_live_approval_window_hint =
+        approval_window_scan.as_ref().is_some_and(|window| {
+            prompt_occlusion_signals::chunk_contains_live_approval_card_hint(
+                window,
+                NON_ROLLING_APPROVAL_CARD_SCAN_LINES,
+            )
+        });
     let non_rolling_approval_hint = explicit_approval_hint_chunk
         || numbered_approval_hint_chunk
         || (explicit_approval_hint_window && numbered_approval_hint_window)
@@ -793,8 +263,8 @@ pub(super) fn feed_prompt_output_and_sync(
         non_rolling_approval_hint
     };
     let prompt_guard_enabled = backend_prompt_guard_enabled
-        || claude_prompt_context_chunk
-        || claude_prompt_context_window
+        || prompt_context_chunk
+        || prompt_context_window
         // High-confidence approval hints should still engage guard behavior even
         // when backend labeling is noisy in integrated terminals.
         || if use_rolling_detector {
@@ -804,12 +274,13 @@ pub(super) fn feed_prompt_output_and_sync(
         };
     let synchronized_cursor_activity_candidate = use_rolling_detector
         && prompt_guard_enabled
-        && chunk_contains_claude_synchronized_cursor_activity(data);
+        && prompt_occlusion_signals::chunk_contains_synchronized_prompt_activity(data);
     let recent_input_age_ms = timers
         .last_user_input_at
         .and_then(|at| now.checked_duration_since(at))
         .map(|duration| duration.as_millis());
-    let is_prompt_input_echo_rewrite = chunk_is_probable_claude_prompt_input_echo_rewrite(data);
+    let is_prompt_input_echo_rewrite =
+        prompt_occlusion_signals::chunk_is_probable_prompt_input_echo_rewrite(data);
     let ignore_synchronized_candidate = synchronized_cursor_activity_candidate
         && is_prompt_input_echo_rewrite
         && !explicit_approval_hint
@@ -820,7 +291,7 @@ pub(super) fn feed_prompt_output_and_sync(
         && prompt_guard_enabled
         && explicit_approval_hint
         && !numbered_approval_hint
-        && !state.status_state.claude_prompt_suppressed
+        && !state.status_state.prompt_suppressed
     {
         log_debug(&format!(
             "[claude-hud-anomaly] explicit approval hint seen without numbered-match in non-rolling mode (chunk_explicit={}, window_explicit={}, chunk_numbered={}, window_numbered={}, window_live={}, window_bytes={}, rows={}, cols={})",
@@ -834,18 +305,19 @@ pub(super) fn feed_prompt_output_and_sync(
             state.ui.terminal_cols
         ));
     }
-    let saw_tool_activity = prompt_guard_enabled && chunk_contains_tool_activity_hint(data);
+    let saw_tool_activity =
+        prompt_guard_enabled && prompt_occlusion_signals::chunk_contains_tool_activity_hint(data);
     if claude_hud_debug_enabled() && !data.is_empty() {
         log_debug(&format!(
             "[claude-hud-debug] output chunk (rolling={}, suppressed={}, bytes={}, backend_label=\"{}\", backend_guard={}, prompt_guard={}, fallback_context_chunk={}, fallback_context_window={}): \"{}\"",
             use_rolling_detector,
-            state.status_state.claude_prompt_suppressed,
+            state.status_state.prompt_suppressed,
             data.len(),
             deps.backend_label,
             backend_prompt_guard_enabled,
             prompt_guard_enabled,
-            claude_prompt_context_chunk,
-            claude_prompt_context_window,
+            prompt_context_chunk,
+            prompt_context_window,
             debug_bytes_preview(data, 120)
         ));
         if !backend_prompt_guard_enabled
@@ -864,7 +336,7 @@ pub(super) fn feed_prompt_output_and_sync(
                 numbered_approval_hint_chunk,
                 numbered_approval_hint_window,
                 non_rolling_live_approval_window_hint,
-                claude_prompt_context_window,
+                prompt_context_window,
                 non_rolling_window.as_ref().map_or(0, Vec::len)
             ));
             if let Some(window) = non_rolling_window.as_ref() {
@@ -891,19 +363,12 @@ pub(super) fn feed_prompt_output_and_sync(
         let rolling_fast_suppress_allowed = !use_rolling_detector || approval_hint_seen;
         if claude_hud_debug_enabled() {
             if saw_synchronized_cursor_activity {
-                let stripped = strip_ansi_for_approval_window(data);
-                let lowered = String::from_utf8_lossy(&stripped).to_ascii_lowercase();
-                let saw_long_think_verb = CLAUDE_LONG_THINK_STATUS_MARKERS
-                    .iter()
-                    .any(|marker| lowered.contains(marker));
-                log_debug(&format!(
-                    "[claude-hud-debug] suppression candidate: synchronized cursor rewrite (long_think_marker={saw_long_think_verb})"
-                ));
+                log_debug("[claude-hud-debug] suppression candidate: synchronized cursor rewrite");
             } else {
                 log_debug("[claude-hud-debug] suppression candidate: tool-activity hint");
             }
         }
-        if rolling_fast_suppress_allowed || state.status_state.claude_prompt_suppressed {
+        if rolling_fast_suppress_allowed || state.status_state.prompt_suppressed {
             extend_prompt_suppression_deadline(
                 &mut timers.prompt_suppression_release_not_before,
                 now + Duration::from_millis(TOOL_ACTIVITY_SUPPRESSION_HOLD_MS),
@@ -913,14 +378,14 @@ pub(super) fn feed_prompt_output_and_sync(
         // spuriously hide HUD while typing. Only rolling-detector hosts
         // (JetBrains) can engage suppression from tool-activity alone.
         if use_rolling_detector {
-            if rolling_fast_suppress_allowed && !state.status_state.claude_prompt_suppressed {
+            if rolling_fast_suppress_allowed && !state.status_state.prompt_suppressed {
                 apply_prompt_suppression(state, deps, true);
-            } else if claude_hud_debug_enabled() && !state.status_state.claude_prompt_suppressed {
+            } else if claude_hud_debug_enabled() && !state.status_state.prompt_suppressed {
                 log_debug(
                     "[claude-hud-debug] suppression candidate ignored: synchronized/tool activity without approval hints",
                 );
             }
-        } else if claude_hud_debug_enabled() && !state.status_state.claude_prompt_suppressed {
+        } else if claude_hud_debug_enabled() && !state.status_state.prompt_suppressed {
             log_debug(
                 "[claude-hud-debug] suppression candidate ignored: tool-activity hint on non-rolling host",
             );
@@ -979,7 +444,7 @@ pub(super) fn feed_prompt_output_and_sync(
             &mut timers.prompt_suppression_release_not_before,
             now + Duration::from_millis(PROMPT_SUPPRESSION_RELEASE_DEBOUNCE_MS),
         );
-        if !state.status_state.claude_prompt_suppressed {
+        if !state.status_state.prompt_suppressed {
             apply_prompt_suppression(state, deps, true);
         }
     } else if claude_hud_debug_enabled()
@@ -993,7 +458,7 @@ pub(super) fn feed_prompt_output_and_sync(
         );
     }
     sync_prompt_suppression_from_detector(state, timers, deps, now);
-    if approval_hint_seen && !state.status_state.claude_prompt_suppressed {
+    if approval_hint_seen && !state.status_state.prompt_suppressed {
         log_debug(&format!(
             "[claude-hud-anomaly] prompt overlap risk: approval hint seen while HUD suppression is inactive (rolling={}, backend_label=\"{}\", explicit_chunk={}, explicit_window={}, numbered_chunk={}, numbered_window={}, rows={}, cols={}, hud_style={:?}, overlay={:?})",
             use_rolling_detector,
@@ -1032,18 +497,18 @@ pub(super) fn sync_prompt_suppression_from_detector(
         None
     };
     if use_rolling_detector && should_suppress_hud {
-        if claude_hud_debug_enabled() && !state.status_state.claude_prompt_suppressed {
+        if claude_hud_debug_enabled() && !state.status_state.prompt_suppressed {
             log_debug("[claude-hud-debug] suppression engage: rolling detector active");
         }
         timers.prompt_suppression_release_not_before =
             Some(now + Duration::from_millis(PROMPT_SUPPRESSION_RELEASE_DEBOUNCE_MS));
-        if !state.status_state.claude_prompt_suppressed {
+        if !state.status_state.prompt_suppressed {
             apply_prompt_suppression(state, deps, true);
         }
         return;
     }
 
-    if !state.status_state.claude_prompt_suppressed {
+    if !state.status_state.prompt_suppressed {
         timers.prompt_suppression_release_not_before = None;
         clear_non_rolling_sticky_hold(state);
         return;
@@ -1051,7 +516,7 @@ pub(super) fn sync_prompt_suppression_from_detector(
 
     if matches!(
         ready_marker_resolution_kind,
-        Some(crate::prompt::claude_prompt_detect::PromptType::StartupGuard)
+        Some(crate::prompt::PromptType::StartupGuard)
     ) {
         // Startup-ready markers can arrive immediately before Claude emits
         // synchronized cursor rewrites in JetBrains. Releasing suppression
@@ -1068,7 +533,7 @@ pub(super) fn sync_prompt_suppression_from_detector(
         }
     }
 
-    if !use_rolling_detector && state.status_state.claude_prompt_suppressed {
+    if !use_rolling_detector && state.status_state.prompt_suppressed {
         if let Some(not_before) = timers.prompt_suppression_release_not_before {
             if now < not_before {
                 return;
@@ -1084,7 +549,10 @@ pub(super) fn sync_prompt_suppression_from_detector(
             NON_ROLLING_APPROVAL_WINDOW_SCAN_TAIL_BYTES,
         );
         let approval_window_still_active =
-            chunk_contains_live_approval_card_hint(approval_window_scan);
+            prompt_occlusion_signals::chunk_contains_live_approval_card_hint(
+                approval_window_scan,
+                NON_ROLLING_APPROVAL_CARD_SCAN_LINES,
+            );
         if approval_window_still_active {
             if claude_hud_debug_enabled() {
                 log_debug(
@@ -1127,7 +595,7 @@ pub(super) fn sync_prompt_suppression_from_detector(
         }
     }
     timers.prompt_suppression_release_not_before = None;
-    if state.status_state.claude_prompt_suppressed {
+    if state.status_state.prompt_suppressed {
         if claude_hud_debug_enabled() && !should_suppress_hud {
             log_debug(
                 "[claude-hud-debug] suppression release: debounce elapsed and detector inactive",
@@ -1153,7 +621,7 @@ pub(super) fn register_prompt_resolution_candidate(
     timers: &mut EventLoopTimers,
     bytes: &[u8],
 ) {
-    if !state.status_state.claude_prompt_suppressed || bytes.is_empty() {
+    if !state.status_state.prompt_suppressed || bytes.is_empty() {
         return;
     }
     if should_use_rolling_prompt_detector() {
@@ -1174,7 +642,10 @@ pub(super) fn register_prompt_resolution_candidate(
         }
         return;
     }
-    let should_resolve = should_resolve_prompt_suppression_on_input_without_detector(bytes);
+    let should_resolve =
+        prompt_occlusion_signals::should_resolve_prompt_suppression_on_input_without_detector(
+            bytes,
+        );
     if claude_hud_debug_enabled() {
         log_debug(&format!(
             "[claude-hud-debug] input resolution candidate (rolling=false, resolve={}): \"{}\"",

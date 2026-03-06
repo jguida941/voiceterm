@@ -4,32 +4,47 @@
 
 mod borders;
 #[cfg(feature = "theme_studio_v2")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Theme Studio v2 modules are staged behind a feature gate during incremental rollout."
+)]
 pub(crate) mod capability_matrix;
 pub(crate) mod color_value;
 mod colors;
 #[cfg(feature = "theme_studio_v2")]
 pub(crate) mod component_registry;
 #[cfg(feature = "theme_studio_v2")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Theme Studio v2 modules are staged behind a feature gate during incremental rollout."
+)]
 pub(crate) mod dependency_baseline;
 mod detect;
 pub(crate) mod file_watcher;
 mod palettes;
 #[cfg(feature = "theme_studio_v2")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Theme Studio v2 modules are staged behind a feature gate during incremental rollout."
+)]
 pub(crate) mod rule_profile;
 mod runtime_overrides;
 mod style_pack;
 pub(crate) mod style_resolver;
 mod style_schema;
 #[cfg(feature = "theme_studio_v2")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Theme Studio v2 modules are staged behind a feature gate during incremental rollout."
+)]
 pub(crate) mod texture_profile;
 pub(crate) mod theme_dir;
 pub(crate) mod theme_file;
 #[cfg(feature = "theme_studio_v2")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Theme Studio v2 modules are staged behind a feature gate during incremental rollout."
+)]
 pub(crate) mod widget_pack;
 
 pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};

@@ -96,3 +96,48 @@ class CollectCiRunsTests(TestCase):
         self.assertIn("error", report)
         self.assertIn("authentication failed", report["error"])
         self.assertEqual(check_output_mock.call_count, 1)
+
+
+class CollectMutationSummaryTests(TestCase):
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/python3")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_mutation_summary_handles_no_results_message(
+        self,
+        check_output_mock,
+        _which_mock,
+    ) -> None:
+        check_output_mock.return_value = "No results found under /tmp/mutants.out\n"
+
+        report = collect.collect_mutation_summary()
+        self.assertIn("results", report)
+        self.assertIn("warning", report)
+        self.assertIsNone(report["results"]["score"])
+        self.assertIn("No results found under", report["warning"])
+
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/python3")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_mutation_summary_handles_empty_payload(
+        self,
+        check_output_mock,
+        _which_mock,
+    ) -> None:
+        check_output_mock.return_value = "   "
+
+        report = collect.collect_mutation_summary()
+        self.assertIn("results", report)
+        self.assertIn("warning", report)
+        self.assertIn("empty results payload", report["warning"])
+
+    @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/python3")
+    @patch("dev.scripts.devctl.collect.subprocess.check_output")
+    def test_collect_mutation_summary_handles_invalid_json_payload(
+        self,
+        check_output_mock,
+        _which_mock,
+    ) -> None:
+        check_output_mock.return_value = "not-json"
+
+        report = collect.collect_mutation_summary()
+        self.assertIn("results", report)
+        self.assertIn("warning", report)
+        self.assertIn("invalid JSON payload", report["warning"])

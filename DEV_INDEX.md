@@ -25,6 +25,7 @@ Start here for developer docs.
 - [Naming + API Cleanup Plan](dev/active/naming_api_cohesion.md)
 - [IDE + Provider Modularization Plan](dev/active/ide_provider_modularization.md)
 - [Multi-Agent Worktree Runbook](dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md)
+- [MCP + Devctl Alignment Guide](dev/MCP_DEVCTL_ALIGNMENT.md)
 - [Phase 2 Research (reference only)](dev/active/phase2.md)
 
 ## Audits and integrations

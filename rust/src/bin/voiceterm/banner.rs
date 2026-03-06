@@ -2,6 +2,7 @@
 //!
 //! Displays version and configuration info on startup.
 
+use crate::runtime_compat;
 use crate::theme::{
     inline_separator, runtime_style_pack_overrides, RuntimeBannerStyleOverride,
     RuntimeStartupStyleOverride, Theme,
@@ -194,46 +195,8 @@ pub fn format_minimal_banner(theme: Theme) -> String {
     )
 }
 
-fn is_jetbrains_terminal() -> bool {
-    const HINT_KEYS: &[&str] = &[
-        "PYCHARM_HOSTED",
-        "JETBRAINS_IDE",
-        "IDEA_INITIAL_DIRECTORY",
-        "IDEA_INITIAL_PROJECT",
-        "CLION_IDE",
-        "WEBSTORM_IDE",
-    ];
-
-    for key in HINT_KEYS {
-        if env::var(key).map(|v| !v.trim().is_empty()).unwrap_or(false) {
-            return true;
-        }
-    }
-
-    if let Ok(term_program) = env::var("TERM_PROGRAM") {
-        let value = term_program.to_lowercase();
-        if value.contains("jetbrains")
-            || value.contains("jediterm")
-            || value.contains("pycharm")
-            || value.contains("intellij")
-            || value.contains("idea")
-        {
-            return true;
-        }
-    }
-
-    if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
-        let value = terminal_emulator.to_lowercase();
-        if value.contains("jetbrains") || value.contains("jediterm") {
-            return true;
-        }
-    }
-
-    false
-}
-
 pub(crate) fn should_skip_banner(no_startup_banner: bool) -> bool {
-    no_startup_banner || is_jetbrains_terminal()
+    no_startup_banner || runtime_compat::is_jetbrains_terminal()
 }
 
 fn use_minimal_banner(cols: u16) -> bool {
@@ -307,11 +270,11 @@ pub(crate) fn show_startup_splash(config: &BannerConfig, theme: Theme) -> io::Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::with_env_lock;
     use crate::theme::{
         runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeBannerStyleOverride,
         RuntimeGlyphSetOverride, RuntimeStartupStyleOverride, RuntimeStylePackOverrides,
     };
-    use std::sync::{Mutex, OnceLock};
 
     struct RuntimeOverridesGuard {
         previous: RuntimeStylePackOverrides,
@@ -327,15 +290,6 @@ mod tests {
         let previous = runtime_style_pack_overrides();
         set_runtime_style_pack_overrides(overrides);
         let _guard = RuntimeOverridesGuard { previous };
-        f()
-    }
-
-    fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
-        static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
         f()
     }
 
@@ -366,6 +320,10 @@ mod tests {
                 "WEBSTORM_IDE",
                 "TERM_PROGRAM",
                 "TERMINAL_EMULATOR",
+                "CURSOR_TRACE_ID",
+                "CURSOR_APP_VERSION",
+                "CURSOR_VERSION",
+                "CURSOR_BUILD_VERSION",
             ];
             let prev: Vec<(String, Option<String>)> = keys
                 .iter()
@@ -464,18 +422,18 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
     }
 
     #[test]
-    fn jetbrains_terminal_detection_matches_term_program_and_emulator_hints() {
+    fn should_skip_banner_uses_canonical_jetbrains_detection() {
         with_banner_env_vars(&[("TERM_PROGRAM", Some("IntelliJ IDEA"))], || {
-            assert!(is_jetbrains_terminal());
+            assert!(should_skip_banner(false));
         });
         with_banner_env_vars(&[("TERM_PROGRAM", Some("PyCharm"))], || {
-            assert!(is_jetbrains_terminal());
+            assert!(should_skip_banner(false));
         });
         with_banner_env_vars(&[("TERMINAL_EMULATOR", Some("JediTerm"))], || {
-            assert!(is_jetbrains_terminal());
+            assert!(should_skip_banner(false));
         });
         with_banner_env_vars(&[("TERM_PROGRAM", Some("WezTerm"))], || {
-            assert!(!is_jetbrains_terminal());
+            assert!(!should_skip_banner(false));
         });
     }
 

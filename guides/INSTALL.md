@@ -48,6 +48,13 @@ voiceterm --login --codex
 voiceterm --login --claude
 ```
 
+Provider scope note:
+
+- Runtime overlay backends include `codex`, `claude`, `gemini` (experimental),
+  `aider` (untested), `opencode` (untested), and custom commands.
+- JSON IPC mode supports only `codex` and `claude`; `gemini`, `aider`,
+  `opencode`, and `custom` are overlay-only non-IPC backends.
+
 **Other requirements:**
 
 - Microphone access

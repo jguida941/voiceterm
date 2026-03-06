@@ -73,7 +73,7 @@ fn get_button_positions_full_single_line_fallback_has_bottom_row_buttons() {
 fn get_button_positions_empty_when_claude_prompt_is_suppressed() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
-    state.claude_prompt_suppressed = true;
+    state.prompt_suppressed = true;
     let positions = get_button_positions(&state, Theme::None, 120);
     assert!(positions.is_empty());
 }
@@ -438,6 +438,35 @@ fn full_row_latency_label_mode_shows_prefixed_text() {
 
     let row = format_button_row(&state, &colors, 120);
     assert!(row.contains("Latency: 300ms"));
+}
+
+#[test]
+fn full_row_latency_rtf_mode_shows_normalized_value() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.recording_state = RecordingState::Idle;
+    state.last_latency_ms = Some(300);
+    state.last_latency_rtf_x1000 = Some(183);
+    state.latency_display = LatencyDisplayMode::Rtf;
+
+    let row = format_button_row(&state, &colors, 120);
+    assert!(row.contains("0.18x"));
+    assert!(!row.contains("300ms"));
+}
+
+#[test]
+fn full_row_latency_both_mode_shows_ms_and_rtf() {
+    let colors = Theme::None.colors();
+    let mut state = StatusLineState::new();
+    state.hud_style = HudStyle::Full;
+    state.recording_state = RecordingState::Idle;
+    state.last_latency_ms = Some(300);
+    state.last_latency_rtf_x1000 = Some(183);
+    state.latency_display = LatencyDisplayMode::Both;
+
+    let row = format_button_row(&state, &colors, 120);
+    assert!(row.contains("300ms | 0.18x"));
 }
 
 #[test]
@@ -937,7 +966,7 @@ fn latency_threshold_colors_are_correct_in_full_row() {
 }
 
 #[test]
-fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
+fn latency_threshold_color_prefers_rtf_when_available() {
     let colors = Theme::Coral.colors();
     let mut state = StatusLineState::new();
     state.recording_state = RecordingState::Idle;
@@ -946,7 +975,7 @@ fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
     state.last_latency_rtf_x1000 = Some(183);
 
     let (row, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
-    assert!(row.contains(&format!("{}1100ms{}", colors.error, colors.reset)));
+    assert!(row.contains(&format!("{}1100ms{}", colors.success, colors.reset)));
 
     state.last_latency_ms = Some(320);
     state.last_latency_rtf_x1000 = Some(500);
@@ -958,6 +987,12 @@ fn latency_threshold_color_uses_worse_of_absolute_and_rtf() {
     state.last_latency_rtf_x1000 = Some(900);
     let (row_error, _) = format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
     assert!(row_error.contains(&format!("{}180ms{}", colors.error, colors.reset)));
+
+    state.last_latency_ms = Some(500);
+    state.last_latency_rtf_x1000 = None;
+    let (row_absolute_fallback, _) =
+        format_button_row_with_positions(&state, &colors, 200, 2, true, false, 3);
+    assert!(row_absolute_fallback.contains(&format!("{}500ms{}", colors.error, colors.reset)));
 }
 
 #[test]

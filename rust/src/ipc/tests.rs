@@ -4,6 +4,7 @@ use super::protocol::*;
 use super::router::*;
 use super::session::*;
 use crate::audio;
+use crate::backend::BackendRegistry;
 use crate::codex::{
     build_test_backend_job, reset_session_count, reset_session_count_reset, CodexCliBackend,
     CodexEvent, CodexEventKind, CodexJobStats, RequestMode, TestSignal,
@@ -14,12 +15,13 @@ use crate::voice::{self, VoiceError};
 use crate::{PipelineJsonResult, PipelineMetrics, VoiceJob, VoiceJobMessage};
 use clap::Parser;
 use crossbeam_channel::bounded;
+use std::env;
 use std::io;
 #[cfg(unix)]
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -39,6 +41,11 @@ fn new_test_state(mut config: AppConfig) -> IpcState {
         cancelled: false,
         exit_requested: false,
     }
+}
+
+fn ipc_env_lock() -> &'static Mutex<()> {
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    ENV_LOCK.get_or_init(|| Mutex::new(()))
 }
 
 type PythonHook = Box<
@@ -93,6 +100,23 @@ fn write_stub_script(contents: &str) -> std::path::PathBuf {
 }
 
 #[cfg(unix)]
+fn make_sleeping_claude_job() -> ClaudeJob {
+    let child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .expect("spawned child");
+    let (_tx, rx) = mpsc::channel();
+    ClaudeJob {
+        output: ClaudeJobOutput::Piped {
+            child,
+            stdout_rx: rx,
+        },
+        started_at: Instant::now(),
+        pending_exit: None,
+    }
+}
+
+#[cfg(unix)]
 fn pipe_pair() -> (RawFd, RawFd) {
     let mut fds = [0; 2];
     let result = unsafe { libc::pipe(fds.as_mut_ptr()) };
@@ -118,10 +142,32 @@ fn test_provider_from_str() {
     assert_eq!(Provider::parse_name("claude"), Some(Provider::Claude));
     assert_eq!(Provider::parse_name("CLAUDE"), Some(Provider::Claude));
     assert_eq!(Provider::parse_name("Claude"), Some(Provider::Claude));
+    assert_eq!(Provider::parse_name("gemini"), None);
+    assert_eq!(Provider::parse_name("aider"), None);
+    assert_eq!(Provider::parse_name("opencode"), None);
+    assert_eq!(Provider::parse_name("custom"), None);
 
     assert_eq!(Provider::parse_name("unknown"), None);
     assert_eq!(Provider::parse_name(""), None);
     assert_eq!(Provider::parse_name("openai"), None);
+}
+
+#[test]
+fn test_provider_parse_name_or_error_message() {
+    assert_eq!(
+        Provider::parse_name_or_error_message("codex"),
+        Ok(Provider::Codex)
+    );
+    assert!(Provider::parse_name_or_error_message("gemini")
+        .is_err_and(|msg| msg.to_string().contains("overlay-only experimental")));
+    assert!(Provider::parse_name_or_error_message("aider")
+        .is_err_and(|msg| msg.to_string().contains("overlay-only non-IPC")));
+    assert!(Provider::parse_name_or_error_message("opencode")
+        .is_err_and(|msg| msg.to_string().contains("overlay-only non-IPC")));
+    assert!(Provider::parse_name_or_error_message("custom")
+        .is_err_and(|msg| msg.to_string().contains("overlay-only non-IPC")));
+    assert!(Provider::parse_name_or_error_message("unknown")
+        .is_err_and(|msg| msg.to_string().contains("Unknown provider")));
 }
 
 #[test]
@@ -137,6 +183,83 @@ fn test_provider_from_str_trait() {
 fn test_provider_as_str() {
     assert_eq!(Provider::Codex.as_str(), "codex");
     assert_eq!(Provider::Claude.as_str(), "claude");
+}
+
+#[test]
+fn test_provider_auth_command_routes_by_lifecycle() {
+    assert_eq!(
+        Provider::Codex.auth_command("codex-auth", "claude-auth"),
+        "codex-auth"
+    );
+    assert_eq!(
+        Provider::Claude.auth_command("codex-auth", "claude-auth"),
+        "claude-auth"
+    );
+}
+
+#[test]
+fn test_provider_auth_success_session_reset_policy() {
+    assert!(Provider::Codex.resets_session_on_auth_success());
+    assert!(!Provider::Claude.resets_session_on_auth_success());
+}
+
+#[test]
+fn test_provider_ipc_capability_labels_derive_from_supported_set() {
+    let mut expected_providers = Vec::new();
+    for backend_name in BackendRegistry::new().available_backends() {
+        if let Some(provider) = Provider::parse_name(backend_name) {
+            if !expected_providers.contains(&provider) {
+                expected_providers.push(provider);
+            }
+        }
+    }
+    if expected_providers.is_empty() {
+        expected_providers.extend([Provider::Codex, Provider::Claude]);
+    }
+
+    assert_eq!(Provider::ipc_supported(), expected_providers.as_slice());
+    let expected = expected_providers
+        .iter()
+        .map(|provider| provider.as_str().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(Provider::ipc_capability_labels(), expected);
+    assert_eq!(
+        Provider::default_ipc(),
+        expected_providers
+            .first()
+            .copied()
+            .unwrap_or(Provider::Codex)
+    );
+}
+
+#[test]
+fn ipc_state_invalid_voiceterm_provider_emits_recoverable_startup_error() {
+    let _env_guard = ipc_env_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let previous_override = env::var("VOICETERM_PROVIDER").ok();
+    env::set_var("VOICETERM_PROVIDER", "gemini");
+
+    let snapshot = event_snapshot();
+    let state = IpcState::new(AppConfig::parse_from(["test-app"]));
+    let events = events_since(snapshot);
+
+    match previous_override {
+        Some(value) => env::set_var("VOICETERM_PROVIDER", value),
+        None => env::remove_var("VOICETERM_PROVIDER"),
+    }
+
+    assert_eq!(state.active_provider, Provider::default_ipc());
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::Error {
+                message,
+                recoverable: true
+            } if message.contains("Invalid VOICETERM_PROVIDER override")
+                && message.contains("overlay-only experimental")
+        )
+    }));
 }
 
 #[test]
@@ -315,21 +438,30 @@ fn emit_capabilities_reports_state() {
             mic_available,
             whisper_model_loaded,
             python_fallback_allowed,
+            providers_available,
             active_provider,
             ..
         } => Some((
             *mic_available,
             *whisper_model_loaded,
             *python_fallback_allowed,
+            providers_available.clone(),
             active_provider.clone(),
         )),
         _ => None,
     });
     assert!(caps.is_some());
-    let (mic_available, whisper_loaded, python_fallback_allowed, active_provider) = caps.unwrap();
+    let (
+        mic_available,
+        whisper_loaded,
+        python_fallback_allowed,
+        providers_available,
+        active_provider,
+    ) = caps.unwrap();
     assert!(!mic_available);
     assert!(!whisper_loaded);
     assert!(!python_fallback_allowed);
+    assert_eq!(providers_available, Provider::ipc_capability_labels());
     assert_eq!(active_provider, "codex");
 }
 
@@ -351,6 +483,22 @@ fn handle_set_provider_emits_events() {
     assert!(events.iter().any(|event| {
         matches!(event, IpcEvent::Error { message, .. } if message.contains("Unknown provider"))
     }));
+
+    let snapshot = event_snapshot();
+    handle_set_provider(&mut state, "gemini");
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+
+    for provider in ["aider", "opencode", "custom"] {
+        let snapshot = event_snapshot();
+        handle_set_provider(&mut state, provider);
+        let events = events_since(snapshot);
+        assert!(events.iter().any(|event| {
+            matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only non-IPC"))
+        }));
+    }
 }
 
 #[test]
@@ -383,6 +531,86 @@ fn handle_send_prompt_rejects_provider_commands_on_claude() {
     assert!(events.iter().any(|event| {
         matches!(event, IpcEvent::ProviderError { message } if message.contains("Codex command"))
     }));
+}
+
+#[test]
+fn handle_send_prompt_rejects_invalid_provider_override() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.active_provider = Provider::Claude;
+
+    handle_send_prompt(&mut state, "hello", Some("gemini".to_string()));
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+    assert!(state.current_job.is_none());
+}
+
+#[test]
+fn handle_send_prompt_rejects_overlay_only_non_ipc_provider_overrides() {
+    for provider in ["aider", "opencode", "custom"] {
+        let snapshot = event_snapshot();
+        let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+        state.active_provider = Provider::Claude;
+
+        handle_send_prompt(&mut state, "hello", Some(provider.to_string()));
+
+        let events = events_since(snapshot);
+        assert!(events.iter().any(|event| {
+            matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only non-IPC"))
+        }));
+        assert!(state.current_job.is_none());
+    }
+}
+
+#[test]
+fn handle_send_prompt_invalid_provider_override_keeps_active_job() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.current_job = Some(ActiveJob::Codex(build_test_backend_job(
+        Vec::new(),
+        TestSignal::Ready,
+    )));
+
+    handle_send_prompt(&mut state, "hello", Some("gemini".to_string()));
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+    assert!(state.current_job.is_some());
+}
+
+#[test]
+fn handle_auth_command_rejects_invalid_provider_override() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+
+    handle_auth_command(&mut state, Some("gemini".to_string()));
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+    assert!(state.current_auth_job.is_none());
+}
+
+#[test]
+fn handle_auth_command_rejects_overlay_only_non_ipc_provider_overrides() {
+    for provider in ["aider", "opencode", "custom"] {
+        let snapshot = event_snapshot();
+        let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+
+        handle_auth_command(&mut state, Some(provider.to_string()));
+
+        let events = events_since(snapshot);
+        assert!(events.iter().any(|event| {
+            matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only non-IPC"))
+        }));
+        assert!(state.current_auth_job.is_none());
+    }
 }
 
 #[test]
@@ -466,6 +694,120 @@ fn handle_send_prompt_allows_exit_during_auth() {
     assert!(events.iter().any(|event| {
         matches!(event, IpcEvent::Status { message } if message.contains("Exit requested"))
     }));
+}
+
+#[test]
+fn handle_send_prompt_allows_exit_during_auth_with_invalid_provider_override() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    let (_tx, rx) = mpsc::channel();
+    state.current_auth_job = Some(AuthJob {
+        provider: Provider::Codex,
+        receiver: rx,
+        started_at: Instant::now(),
+    });
+
+    handle_send_prompt(&mut state, "/exit", Some("gemini".to_string()));
+
+    assert!(state.exit_requested);
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(event, IpcEvent::Status { message } if message.contains("Exit requested"))
+    }));
+    assert!(!events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+}
+
+#[test]
+fn handle_send_prompt_wrapper_command_ignores_invalid_provider_override() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+
+    handle_send_prompt(&mut state, "/help", Some("gemini".to_string()));
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(
+        |event| matches!(event, IpcEvent::Status { message } if message.contains("Commands:"))
+    ));
+    assert!(!events.iter().any(|event| {
+        matches!(event, IpcEvent::Error { message, .. } if message.contains("overlay-only experimental"))
+    }));
+}
+
+#[test]
+fn handle_send_prompt_wrapper_command_cancels_active_job_with_job_end_event() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.current_job = Some(ActiveJob::Codex(build_test_backend_job(
+        Vec::new(),
+        TestSignal::Ready,
+    )));
+
+    handle_send_prompt(&mut state, "/help", None);
+
+    assert!(state.current_job.is_none());
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::JobEnd {
+                provider,
+                success,
+                error
+            } if provider == "codex" && !*success && error.as_deref() == Some("Cancelled")
+        )
+    }));
+}
+
+#[cfg(unix)]
+#[test]
+fn handle_send_prompt_wrapper_command_cancels_active_claude_job_with_job_end_event() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.current_job = Some(ActiveJob::Claude(make_sleeping_claude_job()));
+
+    handle_send_prompt(&mut state, "/help", None);
+
+    assert!(state.current_job.is_none());
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::JobEnd {
+                provider,
+                success,
+                error
+            } if provider == "claude" && !*success && error.as_deref() == Some("Cancelled")
+        )
+    }));
+}
+
+#[test]
+fn handle_send_prompt_new_prompt_cancels_active_job_with_job_end_event() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.current_job = Some(ActiveJob::Codex(build_test_backend_job(
+        Vec::new(),
+        TestSignal::Ready,
+    )));
+
+    handle_send_prompt(&mut state, "hello", None);
+
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::JobEnd {
+                provider,
+                success,
+                error
+            } if provider == "codex" && !*success && error.as_deref() == Some("Cancelled")
+        )
+    }));
+    assert!(events
+        .iter()
+        .any(|event| { matches!(event, IpcEvent::JobStart { provider } if provider == "codex") }));
 }
 
 #[test]
@@ -1082,6 +1424,29 @@ fn handle_cancel_clears_voice_job() {
     }));
 }
 
+#[cfg(unix)]
+#[test]
+fn handle_cancel_clears_provider_job_with_job_end_event() {
+    let snapshot = event_snapshot();
+    let mut state = new_test_state(AppConfig::parse_from(["test-app"]));
+    state.current_job = Some(ActiveJob::Claude(make_sleeping_claude_job()));
+
+    handle_cancel(&mut state);
+
+    assert!(state.current_job.is_none());
+    let events = events_since(snapshot);
+    assert!(events.iter().any(|event| {
+        matches!(
+            event,
+            IpcEvent::JobEnd {
+                provider,
+                success,
+                error
+            } if provider == "claude" && !*success && error.as_deref() == Some("Cancelled")
+        )
+    }));
+}
+
 #[test]
 fn handle_start_voice_errors_when_auth_in_progress() {
     let snapshot = event_snapshot();
@@ -1412,219 +1777,4 @@ fn process_codex_events_disconnected_sends_end() {
         }));
 }
 
-// -------------------------------------------------------------------------
-// IPC Command Deserialization Tests
-// -------------------------------------------------------------------------
-
-#[test]
-fn test_deserialize_send_prompt() {
-    let json = r#"{"cmd": "send_prompt", "prompt": "hello world"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    match cmd {
-        IpcCommand::SendPrompt { prompt, provider } => {
-            assert_eq!(prompt, "hello world");
-            assert!(provider.is_none());
-        }
-        _ => panic!("Expected SendPrompt"),
-    }
-}
-
-#[test]
-fn test_deserialize_send_prompt_with_provider() {
-    let json = r#"{"cmd": "send_prompt", "prompt": "hello", "provider": "claude"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    match cmd {
-        IpcCommand::SendPrompt { prompt, provider } => {
-            assert_eq!(prompt, "hello");
-            assert_eq!(provider, Some("claude".to_string()));
-        }
-        _ => panic!("Expected SendPrompt with provider"),
-    }
-}
-
-#[test]
-fn test_deserialize_start_voice() {
-    let json = r#"{"cmd": "start_voice"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    assert!(matches!(cmd, IpcCommand::StartVoice));
-}
-
-#[test]
-fn test_deserialize_cancel() {
-    let json = r#"{"cmd": "cancel"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    assert!(matches!(cmd, IpcCommand::Cancel));
-}
-
-#[test]
-fn test_deserialize_set_provider() {
-    let json = r#"{"cmd": "set_provider", "provider": "claude"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    match cmd {
-        IpcCommand::SetProvider { provider } => assert_eq!(provider, "claude"),
-        _ => panic!("Expected SetProvider"),
-    }
-}
-
-#[test]
-fn test_deserialize_auth() {
-    let json = r#"{"cmd": "auth", "provider": "codex"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    match cmd {
-        IpcCommand::Auth { provider } => {
-            assert_eq!(provider, Some("codex".to_string()));
-        }
-        _ => panic!("Expected Auth"),
-    }
-}
-
-#[test]
-fn test_deserialize_get_capabilities() {
-    let json = r#"{"cmd": "get_capabilities"}"#;
-    let cmd: IpcCommand = serde_json::from_str(json).unwrap();
-    assert!(matches!(cmd, IpcCommand::GetCapabilities));
-}
-
-// -------------------------------------------------------------------------
-// IPC Event Serialization Tests
-// -------------------------------------------------------------------------
-
-#[test]
-fn test_serialize_capabilities_event() {
-    let event = IpcEvent::Capabilities {
-        session_id: "test123".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        mic_available: true,
-        input_device: Some("Default".to_string()),
-        whisper_model_loaded: true,
-        whisper_model_path: Some("/path/to/model".to_string()),
-        python_fallback_allowed: true,
-        providers_available: vec!["codex".to_string(), "claude".to_string()],
-        active_provider: "codex".to_string(),
-        working_dir: "/home/user".to_string(),
-        codex_cmd: "codex".to_string(),
-        claude_cmd: "claude".to_string(),
-    };
-
-    let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains(r#""event":"capabilities""#));
-    assert!(json.contains(r#""session_id":"test123""#));
-    assert!(json.contains(r#""mic_available":true"#));
-}
-
-#[test]
-fn test_serialize_token_event() {
-    let event = IpcEvent::Token {
-        text: "Hello world".to_string(),
-    };
-
-    let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains(r#""event":"token""#));
-    assert!(json.contains(r#""text":"Hello world""#));
-}
-
-#[test]
-fn test_serialize_job_events() {
-    let start = IpcEvent::JobStart {
-        provider: "codex".to_string(),
-    };
-    let json = serde_json::to_string(&start).unwrap();
-    assert!(json.contains(r#""event":"job_start""#));
-    assert!(json.contains(r#""provider":"codex""#));
-
-    let end = IpcEvent::JobEnd {
-        provider: "claude".to_string(),
-        success: true,
-        error: None,
-    };
-    let json = serde_json::to_string(&end).unwrap();
-    assert!(json.contains(r#""event":"job_end""#));
-    assert!(json.contains(r#""success":true"#));
-    assert!(!json.contains("error")); // skip_serializing_if = None
-
-    let end_error = IpcEvent::JobEnd {
-        provider: "claude".to_string(),
-        success: false,
-        error: Some("Connection failed".to_string()),
-    };
-    let json = serde_json::to_string(&end_error).unwrap();
-    assert!(json.contains(r#""error":"Connection failed""#));
-}
-
-#[test]
-fn test_serialize_provider_changed() {
-    let event = IpcEvent::ProviderChanged {
-        provider: "claude".to_string(),
-    };
-    let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains(r#""event":"provider_changed""#));
-    assert!(json.contains(r#""provider":"claude""#));
-}
-
-#[test]
-fn test_serialize_auth_events() {
-    let start = IpcEvent::AuthStart {
-        provider: "codex".to_string(),
-    };
-    let json = serde_json::to_string(&start).unwrap();
-    assert!(json.contains(r#""event":"auth_start""#));
-    assert!(json.contains(r#""provider":"codex""#));
-
-    let end = IpcEvent::AuthEnd {
-        provider: "codex".to_string(),
-        success: true,
-        error: None,
-    };
-    let json = serde_json::to_string(&end).unwrap();
-    assert!(json.contains(r#""event":"auth_end""#));
-    assert!(json.contains(r#""success":true"#));
-    assert!(!json.contains("error"));
-
-    let end_error = IpcEvent::AuthEnd {
-        provider: "claude".to_string(),
-        success: false,
-        error: Some("login failed".to_string()),
-    };
-    let json = serde_json::to_string(&end_error).unwrap();
-    assert!(json.contains(r#""provider":"claude""#));
-    assert!(json.contains(r#""error":"login failed""#));
-}
-
-#[test]
-fn test_serialize_voice_events() {
-    let start = IpcEvent::VoiceStart;
-    let json = serde_json::to_string(&start).unwrap();
-    assert!(json.contains(r#""event":"voice_start""#));
-
-    let end_ok = IpcEvent::VoiceEnd { error: None };
-    let json = serde_json::to_string(&end_ok).unwrap();
-    assert!(json.contains(r#""event":"voice_end""#));
-    assert!(!json.contains("error"));
-
-    let end_err = IpcEvent::VoiceEnd {
-        error: Some("Mic unavailable".to_string()),
-    };
-    let json = serde_json::to_string(&end_err).unwrap();
-    assert!(json.contains(r#""error":"Mic unavailable""#));
-
-    let transcript = IpcEvent::Transcript {
-        text: "Hello".to_string(),
-        duration_ms: 500,
-    };
-    let json = serde_json::to_string(&transcript).unwrap();
-    assert!(json.contains(r#""event":"transcript""#));
-    assert!(json.contains(r#""text":"Hello""#));
-    assert!(json.contains(r#""duration_ms":500"#));
-}
-
-#[test]
-fn test_serialize_error_event() {
-    let event = IpcEvent::Error {
-        message: "Something went wrong".to_string(),
-        recoverable: true,
-    };
-    let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains(r#""event":"error""#));
-    assert!(json.contains(r#""message":"Something went wrong""#));
-    assert!(json.contains(r#""recoverable":true"#));
-}
+mod protocol_codec_tests;

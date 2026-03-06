@@ -15,7 +15,9 @@ This folder stores completed work items pulled from the active master plan.
 - Keep the master plan current by removing completed items and linking the archive entry.
 
 ## Recent entries
-- 2026-02-06-modularization-plan.md
-- 2026-02-15-rust-gui-audit.md
-- 2026-02-16-post-v1-0-64-audit.md
+- 2026-03-05-devctl-mcp-contract-hardening.md
 - 2026-02-17-tooling-control-plane-consolidation.md
+- 2026-02-15-rust-gui-audit.md
+- 2026-02-13-latency-baseline.md
+- 2026-02-06-modularization-plan.md
+- 2026-02-02-release-audit-completed.md

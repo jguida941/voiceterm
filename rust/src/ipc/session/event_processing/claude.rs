@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::super::{
     log_debug, log_debug_content, sanitize_pty_output, send_event, terminate_piped_child,
-    utf8_prefix, ClaudeJob, ClaudeJobOutput, IpcEvent,
+    utf8_prefix, ClaudeJob, ClaudeJobOutput, IpcEvent, Provider,
 };
 
 pub(super) fn process_claude_events(job: &mut ClaudeJob, cancelled: bool) -> bool {
@@ -148,7 +148,7 @@ fn claude_status_outcome(status: ExitStatus) -> (bool, Option<String>) {
 
 fn send_claude_job_end(success: bool, error: Option<String>) {
     send_event(&IpcEvent::JobEnd {
-        provider: "claude".to_string(),
+        provider: Provider::Claude.as_str().to_string(),
         success,
         error,
     });

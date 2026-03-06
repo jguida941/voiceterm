@@ -105,6 +105,75 @@ def render_markdown_report(report: dict) -> str:
                         f"- markdown_metadata_header_more_paths: {len(changed_paths) - 20}"
                     )
 
+        lines.append(
+            "- workflow_shell_hygiene_ok: "
+            + str(report.get("workflow_shell_hygiene_ok"))
+        )
+        workflow_shell_report = report.get("workflow_shell_hygiene_report") or {}
+        if not report.get("workflow_shell_hygiene_ok"):
+            workflow_shell_error = workflow_shell_report.get("error")
+            if workflow_shell_error:
+                lines.append(f"- workflow_shell_hygiene_error: {workflow_shell_error}")
+            violations = workflow_shell_report.get("violations", [])
+            if violations:
+                lines.append("- workflow_shell_hygiene_violations:")
+                for violation in violations[:10]:
+                    lines.append(
+                        "  - {file}:{line} [{rule}] `{line_text}`".format(
+                            file=violation.get("file"),
+                            line=violation.get("line"),
+                            rule=violation.get("rule"),
+                            line_text=violation.get("line_text"),
+                        )
+                    )
+                if len(violations) > 10:
+                    lines.append(
+                        f"- workflow_shell_hygiene_more_violations: {len(violations) - 10}"
+                    )
+
+        lines.append(
+            "- bundle_workflow_parity_ok: "
+            + str(report.get("bundle_workflow_parity_ok"))
+        )
+        parity_report = report.get("bundle_workflow_parity_report") or {}
+        if not report.get("bundle_workflow_parity_ok"):
+            parity_error = parity_report.get("error")
+            if parity_error:
+                lines.append(f"- bundle_workflow_parity_error: {parity_error}")
+            parity_targets = parity_report.get("targets", [])
+            missing_count = 0
+            for target in parity_targets:
+                missing = target.get("missing_commands", [])
+                missing_count += len(missing)
+                for command in missing[:5]:
+                    lines.append(
+                        "- bundle_workflow_parity_missing: "
+                        f"{target.get('bundle')} -> `{command}`"
+                    )
+            if missing_count > 5:
+                lines.append(
+                    f"- bundle_workflow_parity_more_missing: {missing_count - 5}"
+                )
+
+        lines.append(
+            "- agents_bundle_render_ok: "
+            + str(report.get("agents_bundle_render_ok"))
+        )
+        agents_bundle_report = report.get("agents_bundle_render_report") or {}
+        if not report.get("agents_bundle_render_ok"):
+            bundle_render_error = agents_bundle_report.get("error")
+            if bundle_render_error:
+                lines.append(f"- agents_bundle_render_error: {bundle_render_error}")
+            if agents_bundle_report.get("changed"):
+                lines.append("- agents_bundle_render_changed: True")
+            diff_preview = agents_bundle_report.get("diff_preview", [])
+            for diff_line in diff_preview[:10]:
+                lines.append(f"- agents_bundle_render_diff: `{diff_line}`")
+            if len(diff_preview) > 10:
+                lines.append(
+                    f"- agents_bundle_render_more_diff: {len(diff_preview) - 10}"
+                )
+
     lines.append(f"- deprecated_reference_ok: {report.get('deprecated_reference_ok')}")
     deprecated_violations = report.get("deprecated_reference_violations", [])
     if deprecated_violations:

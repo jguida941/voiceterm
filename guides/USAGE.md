@@ -13,8 +13,6 @@ Docs map:
 - [CLI Flags](CLI_FLAGS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 
-![VoiceTerm](../img/logo.svg)
-
 ## Recommended Reading Paths
 
 | Goal | Read in this order |
@@ -63,20 +61,30 @@ Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 | Codex | `voiceterm` or `voiceterm --codex` | Supported |
 | Claude Code | `voiceterm --claude` | Supported |
 | Gemini CLI | `voiceterm --gemini` | Experimental (currently not working) |
-| Aider | `voiceterm --backend aider` | Experimental (untested) |
-| OpenCode | `voiceterm --backend opencode` | Experimental (untested) |
+| Aider | `voiceterm --backend aider` | Experimental (untested, overlay-only) |
+| OpenCode | `voiceterm --backend opencode` | Experimental (untested, overlay-only) |
+| Custom backend | `voiceterm --backend "my-cli --flag"` | Experimental (overlay-only) |
+
+IPC provider sessions support only `codex` and `claude`.
+`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
+overlay-only non-IPC backends.
 
 ## IDE Compatibility
 
 This table is the current source of truth for host IDE support.
 Only rows marked as supported are verified.
+Active verified hosts are Cursor terminal and JetBrains terminals.
 
 | IDE host | Codex | Claude Code | Status |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended primary host |
 | JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Fully supported | Keep current release and use troubleshooting guidance for rare host-specific edge cases |
-| AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
+| AntiGravity | Not supported | Not supported | Deferred until runtime fingerprint evidence exists (not supported in current releases) |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
+
+Host compatibility routing now uses one canonical host classifier
+(`JetBrains`/`Cursor`/`Other`) across runtime writer paths, which reduces
+host-policy drift without changing current support status.
 
 JetBrains + Claude rare edge case (long parallel turns):
 after very long parallel tool calls or parallel web-search turns, HUD/transcript
@@ -184,7 +192,7 @@ Common settings:
 - Image mode (`OFF`/`ON`; ON makes HUD `[rec]` persistently capture image prompts)
 - Macros toggle
 - Mic threshold
-- Latency display (`Off`, `Nms`, `Latency: Nms`)
+- Latency display (`Off`, `Nms`, `Latency: Nms`, `RTF`, `Nms + RTF`)
 - Mouse support
 - `Backend` / `Pipeline` rows are read-only session diagnostics
 

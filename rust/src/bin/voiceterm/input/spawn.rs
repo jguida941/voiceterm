@@ -85,16 +85,11 @@ pub(crate) fn spawn_input_thread(tx: Sender<InputEvent>) -> thread::JoinHandle<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
-
-    fn env_lock() -> &'static Mutex<()> {
-        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        ENV_LOCK.get_or_init(|| Mutex::new(()))
-    }
+    use crate::test_env::env_lock as shared_env_lock;
 
     #[test]
     fn input_debug_enabled_reflects_env_presence() {
-        let _guard = env_lock().lock().expect("env lock");
+        let _guard = shared_env_lock();
         std::env::remove_var(INPUT_DEBUG_ENV);
         assert!(!input_debug_enabled());
         std::env::set_var(INPUT_DEBUG_ENV, "1");

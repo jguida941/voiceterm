@@ -15,6 +15,26 @@ try:
     from git_change_paths import list_changed_paths_with_base_map
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
+try:
+    from rust_guard_common import (
+        is_test_path as _is_test_path,
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
+    )
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import (
+        is_test_path as _is_test_path,
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
+    )
+try:
+    from rust_check_text_utils import strip_cfg_test_blocks
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -23,63 +43,33 @@ ALLOW_REASON_RE = re.compile(r"\breason\s*=")
 UNSAFE_BLOCK_RE = re.compile(r"\bunsafe\s*\{")
 UNSAFE_FN_RE = re.compile(r"\bunsafe\s+fn\b")
 PUB_UNSAFE_FN_RE = re.compile(r"\bpub(?:\s*\([^\)]*\))?\s+unsafe\s+fn\b")
+UNSAFE_IMPL_RE = re.compile(r"\bunsafe\s+impl\b")
 MEM_FORGET_RE = re.compile(r"\b(?:std::mem::forget|mem::forget)\s*\(")
+RESULT_STRING_RE = re.compile(r"Result\s*<[^>]*,\s*String\s*>")
+EXPECT_JOIN_RECV_RE = re.compile(r"\.\s*(?:join|recv|recv_timeout)\s*\(\s*\)\s*\.\s*expect\s*\(")
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
-    return result
-
+    return _run_git_with_root(REPO_ROOT, args, check=check)
 
 def _validate_ref(ref: str) -> None:
-    _run_git(["git", "rev-parse", "--verify", ref], check=True)
-
-
-def _is_test_path(path: Path) -> bool:
-    normalized = f"/{path.as_posix()}/"
-    name = path.name
-    return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
-
+    _validate_ref_with_git(_run_git, ref)
 
 def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    spec = f"{ref}:{path.as_posix()}"
-    result = _run_git(["git", "show", spec], check=False)
-    if result.returncode == 0:
-        return result.stdout
-
-    stderr = result.stderr.strip().lower()
-    missing_markers = ("does not exist in", "exists on disk, but not in", "fatal: path")
-    if any(marker in stderr for marker in missing_markers):
-        return None
-    raise RuntimeError(result.stderr.strip() or f"failed to read {spec}")
-
+    return _read_text_from_ref_with_git(_run_git, path, ref)
 
 def _read_text_from_worktree(path: Path) -> str | None:
-    absolute = REPO_ROOT / path
-    if not absolute.exists():
-        return None
-    return absolute.read_text(encoding="utf-8", errors="replace")
-
+    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 def _count_allow_without_reason(text: str | None) -> int:
     if text is None:
         return 0
-
     count = 0
     for match in ALLOW_ATTR_RE.finditer(text):
         body = match.group("body")
         if not ALLOW_REASON_RE.search(body):
             count += 1
     return count
-
 
 def _has_nearby_safety_comment(lines: list[str], index: int, lookback: int = 5) -> bool:
     min_index = max(0, index - lookback)
@@ -94,14 +84,11 @@ def _has_nearby_safety_comment(lines: list[str], index: int, lookback: int = 5) 
         break
     return False
 
-
 def _count_undocumented_unsafe_blocks(text: str | None) -> int:
     if text is None:
         return 0
-
     lines = text.splitlines()
     count = 0
-
     for index, line in enumerate(lines):
         if not UNSAFE_BLOCK_RE.search(line):
             continue
@@ -110,14 +97,11 @@ def _count_undocumented_unsafe_blocks(text: str | None) -> int:
             continue
         if not _has_nearby_safety_comment(lines, index):
             count += 1
-
     return count
-
 
 def _public_unsafe_fn_missing_safety_docs(lines: list[str], index: int) -> bool:
     saw_doc = False
     saw_safety_heading = False
-
     probe = index - 1
     while probe >= 0:
         raw = lines[probe].strip()
@@ -136,23 +120,31 @@ def _public_unsafe_fn_missing_safety_docs(lines: list[str], index: int) -> bool:
             probe -= 1
             continue
         break
-
     return not (saw_doc and saw_safety_heading)
 
 
 def _count_pub_unsafe_fn_missing_safety_docs(text: str | None) -> int:
     if text is None:
         return 0
-
     lines = text.splitlines()
     count = 0
-
     for index, line in enumerate(lines):
         if not PUB_UNSAFE_FN_RE.search(line):
             continue
         if _public_unsafe_fn_missing_safety_docs(lines, index):
             count += 1
+    return count
 
+def _count_unsafe_impl_missing_safety_comment(text: str | None) -> int:
+    if text is None:
+        return 0
+    lines = text.splitlines()
+    count = 0
+    for index, line in enumerate(lines):
+        if not UNSAFE_IMPL_RE.search(line):
+            continue
+        if not _has_nearby_safety_comment(lines, index):
+            count += 1
     return count
 
 
@@ -162,12 +154,29 @@ def _count_mem_forget_calls(text: str | None) -> int:
     return len(MEM_FORGET_RE.findall(text))
 
 
+def _count_result_string(text: str | None) -> int:
+    if text is None:
+        return 0
+    return len(RESULT_STRING_RE.findall(text))
+
+
+def _count_expect_on_join_recv(text: str | None) -> int:
+    if text is None:
+        return 0
+    return len(EXPECT_JOIN_RECV_RE.findall(text))
+
+
 def _count_metrics(text: str | None) -> dict[str, int]:
+    if text is not None:
+        text = strip_cfg_test_blocks(text)
     return {
         "allow_without_reason": _count_allow_without_reason(text),
         "undocumented_unsafe_blocks": _count_undocumented_unsafe_blocks(text),
         "pub_unsafe_fn_missing_safety_docs": _count_pub_unsafe_fn_missing_safety_docs(text),
+        "unsafe_impl_missing_safety_comment": _count_unsafe_impl_missing_safety_comment(text),
         "mem_forget_calls": _count_mem_forget_calls(text),
+        "result_string_types": _count_result_string(text),
+        "expect_on_join_recv": _count_expect_on_join_recv(text),
     }
 
 
@@ -192,7 +201,11 @@ def _render_md(report: dict) -> str:
         f"undocumented_unsafe_blocks {totals['undocumented_unsafe_blocks_growth']:+d}, "
         "pub_unsafe_fn_missing_safety_docs "
         f"{totals['pub_unsafe_fn_missing_safety_docs_growth']:+d}, "
-        f"mem_forget_calls {totals['mem_forget_calls_growth']:+d}"
+        "unsafe_impl_missing_safety_comment "
+        f"{totals['unsafe_impl_missing_safety_comment_growth']:+d}, "
+        f"mem_forget_calls {totals['mem_forget_calls_growth']:+d}, "
+        f"result_string_types {totals['result_string_types_growth']:+d}, "
+        f"expect_on_join_recv {totals['expect_on_join_recv_growth']:+d}"
     )
 
     if report["violations"]:
@@ -213,6 +226,10 @@ def _render_md(report: dict) -> str:
                 f"{item['base']['pub_unsafe_fn_missing_safety_docs']} -> "
                 f"{item['current']['pub_unsafe_fn_missing_safety_docs']} "
                 f"({growth['pub_unsafe_fn_missing_safety_docs']:+d}), "
+                "unsafe_impl_missing_safety_comment "
+                f"{item['base']['unsafe_impl_missing_safety_comment']} -> "
+                f"{item['current']['unsafe_impl_missing_safety_comment']} "
+                f"({growth['unsafe_impl_missing_safety_comment']:+d}), "
                 f"mem_forget_calls {item['base']['mem_forget_calls']} -> "
                 f"{item['current']['mem_forget_calls']} "
                 f"({growth['mem_forget_calls']:+d})"
@@ -261,7 +278,10 @@ def main() -> int:
     totals_allow_growth = 0
     totals_unsafe_growth = 0
     totals_pub_unsafe_docs_growth = 0
+    totals_unsafe_impl_docs_growth = 0
     totals_mem_forget_growth = 0
+    totals_result_string_growth = 0
+    totals_expect_join_recv_growth = 0
     violations: list[dict] = []
 
     for path in changed_paths:
@@ -290,19 +310,29 @@ def main() -> int:
             - base["undocumented_unsafe_blocks"],
             "pub_unsafe_fn_missing_safety_docs": current["pub_unsafe_fn_missing_safety_docs"]
             - base["pub_unsafe_fn_missing_safety_docs"],
+            "unsafe_impl_missing_safety_comment": current["unsafe_impl_missing_safety_comment"]
+            - base["unsafe_impl_missing_safety_comment"],
             "mem_forget_calls": current["mem_forget_calls"] - base["mem_forget_calls"],
+            "result_string_types": current["result_string_types"] - base["result_string_types"],
+            "expect_on_join_recv": current["expect_on_join_recv"] - base["expect_on_join_recv"],
         }
 
         totals_allow_growth += growth["allow_without_reason"]
         totals_unsafe_growth += growth["undocumented_unsafe_blocks"]
         totals_pub_unsafe_docs_growth += growth["pub_unsafe_fn_missing_safety_docs"]
+        totals_unsafe_impl_docs_growth += growth["unsafe_impl_missing_safety_comment"]
         totals_mem_forget_growth += growth["mem_forget_calls"]
+        totals_result_string_growth += growth["result_string_types"]
+        totals_expect_join_recv_growth += growth["expect_on_join_recv"]
 
         if (
             growth["allow_without_reason"] > 0
             or growth["undocumented_unsafe_blocks"] > 0
             or growth["pub_unsafe_fn_missing_safety_docs"] > 0
+            or growth["unsafe_impl_missing_safety_comment"] > 0
             or growth["mem_forget_calls"] > 0
+            or growth["result_string_types"] > 0
+            or growth["expect_on_join_recv"] > 0
         ):
             violations.append(
                 {
@@ -328,7 +358,10 @@ def main() -> int:
             "allow_without_reason_growth": totals_allow_growth,
             "undocumented_unsafe_blocks_growth": totals_unsafe_growth,
             "pub_unsafe_fn_missing_safety_docs_growth": totals_pub_unsafe_docs_growth,
+            "unsafe_impl_missing_safety_comment_growth": totals_unsafe_impl_docs_growth,
             "mem_forget_calls_growth": totals_mem_forget_growth,
+            "result_string_types_growth": totals_result_string_growth,
+            "expect_on_join_recv_growth": totals_expect_join_recv_growth,
         },
         "violations": violations,
     }

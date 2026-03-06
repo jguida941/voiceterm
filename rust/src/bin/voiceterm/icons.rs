@@ -2,7 +2,10 @@
 //!
 //! Provides Unicode and ASCII fallback icons for all UI elements.
 
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "Icon families are intentionally broader than active HUD usage during staged visual-surface rollout."
+)]
 
 /// Collection of icons used throughout the HUD.
 #[derive(Debug, Clone, Copy)]

@@ -71,7 +71,7 @@ def _read_init_version(path: Path) -> str | None:
     return match.group(1) if match else None
 
 
-def _build_report() -> dict:
+def _build_report(expected_version: str | None = None) -> dict:
     cargo_version = _read_cargo_version(CARGO_TOML)
     pyproject_version = _read_pyproject_version(PYPROJECT_TOML)
     init_version = _read_init_version(INIT_PY)
@@ -89,7 +89,11 @@ def _build_report() -> dict:
     missing = [name for name, value in values.items() if not value]
 
     mismatched = len(present_versions) > 1
-    ok = not missing and not mismatched
+    expected_version_match = True
+    if expected_version is not None:
+        expected_version_match = present_versions == [expected_version]
+
+    ok = not missing and not mismatched and expected_version_match
 
     return {
         "command": "check_release_version_parity",
@@ -97,12 +101,18 @@ def _build_report() -> dict:
         "values": values,
         "versions_present": present_versions,
         "missing": missing,
+        "expected_version": expected_version,
+        "expected_version_match": expected_version_match,
     }
 
 
 def _render_md(report: dict) -> str:
     lines = ["# check_release_version_parity", ""]
     lines.append(f"- ok: {report['ok']}")
+    expected_version = report.get("expected_version")
+    if expected_version:
+        lines.append(f"- expected_version: {expected_version}")
+        lines.append(f"- expected_version_match: {report.get('expected_version_match')}")
     lines.append(
         "- versions_present: "
         + (", ".join(report["versions_present"]) if report["versions_present"] else "none")
@@ -116,12 +126,30 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    parser.add_argument(
+        "--expected-version",
+        default=None,
+        help="Require one detected version and match it against this value",
+    )
+    parser.add_argument(
+        "--print-version",
+        action="store_true",
+        help="Print the canonical release version only (requires parity success)",
+    )
     return parser
 
 
 def main() -> int:
     args = _build_parser().parse_args()
-    report = _build_report()
+    report = _build_report(args.expected_version)
+
+    if args.print_version:
+        versions = report.get("versions_present") or []
+        if report.get("ok") and len(versions) == 1:
+            print(str(versions[0]))
+            return 0
+        print("Unable to resolve canonical release version from parity metadata.", file=sys.stderr)
+        return 1
 
     if args.format == "json":
         print(json.dumps(report, indent=2))

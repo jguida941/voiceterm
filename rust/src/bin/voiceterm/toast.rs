@@ -421,6 +421,7 @@ fn toast_position_prefers_latest_first() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ansi::strip_ansi;
     use crate::theme::{
         runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeStylePackOverrides,
         RuntimeToastPositionOverride, RuntimeToastSeverityModeOverride,
@@ -441,25 +442,6 @@ mod tests {
         set_runtime_style_pack_overrides(overrides);
         let _guard = RuntimeOverridesGuard { previous };
         f()
-    }
-
-    fn strip_ansi_sgr(input: &str) -> String {
-        let mut out = String::with_capacity(input.len());
-        let mut in_escape = false;
-        for ch in input.chars() {
-            if ch == '\x1b' {
-                in_escape = true;
-                continue;
-            }
-            if in_escape {
-                if ch == 'm' {
-                    in_escape = false;
-                }
-                continue;
-            }
-            out.push(ch);
-        }
-        out
     }
 
     #[test]
@@ -623,7 +605,7 @@ mod tests {
                 center.push(ToastSeverity::Warning, "check config");
                 let toast = &center.active_toasts()[0];
                 let formatted = format_toast_inline(toast, &colors, 80);
-                let plain = strip_ansi_sgr(&formatted);
+                let plain = strip_ansi(&formatted);
                 assert!(plain.contains("[WARN]"));
                 assert!(!plain.contains("⚠"));
             },
@@ -688,7 +670,7 @@ mod tests {
         assert!(!output.contains('\r'));
 
         for (idx, line) in output.lines().enumerate() {
-            let visible = strip_ansi_sgr(line);
+            let visible = strip_ansi(line);
             assert_eq!(
                 display_width(&visible),
                 width,

@@ -7,6 +7,34 @@ use std::env;
 use std::sync::{Arc, Mutex};
 
 impl IpcState {
+    fn default_provider_from_env() -> Provider {
+        match env::var("VOICETERM_PROVIDER") {
+            Ok(raw) => match Provider::parse_name_or_error_message(&raw) {
+                Ok(provider) => provider,
+                Err(message) => {
+                    let fallback = Provider::default_ipc();
+                    let requested = raw.trim();
+                    let requested = if requested.is_empty() {
+                        "<empty>"
+                    } else {
+                        requested
+                    };
+                    let diagnostic = format!(
+                        "Invalid VOICETERM_PROVIDER override '{requested}': {message} Falling back to '{}'.",
+                        fallback.as_str()
+                    );
+                    send_event(&IpcEvent::Error {
+                        message: diagnostic.clone(),
+                        recoverable: true,
+                    });
+                    log_debug(&diagnostic);
+                    fallback
+                }
+            },
+            Err(_) => Provider::default_ipc(),
+        }
+    }
+
     pub(in crate::ipc) fn new(mut config: AppConfig) -> Self {
         // Keep test/mutant runs deterministic by disabling PTY when toggled off.
         if !USE_PTY {
@@ -30,10 +58,7 @@ impl IpcState {
         let codex_cli_backend = Arc::new(CodexCliBackend::new(config.clone()));
 
         // Allow env override so wrappers can pin provider without extra flags.
-        let default_provider = env::var("VOICETERM_PROVIDER")
-            .ok()
-            .and_then(|s| Provider::parse_name(&s))
-            .unwrap_or(Provider::Codex);
+        let default_provider = Self::default_provider_from_env();
 
         // Recorder/transcriber are optional so IPC still works without voice dependencies.
         let recorder = match audio::Recorder::new(config.input_device.as_deref()) {
@@ -81,7 +106,8 @@ impl IpcState {
     }
 
     pub(in crate::ipc) fn emit_capabilities(&self) {
-        let providers = vec!["codex".to_string(), "claude".to_string()];
+        // Provider capability list is derived from the IPC provider resolver.
+        let providers = Provider::ipc_capability_labels();
 
         // Device name is included in capabilities for client-side diagnostics.
         let input_device = self.recorder.as_ref().map(|r| {

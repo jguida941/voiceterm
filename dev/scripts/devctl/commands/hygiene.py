@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import time
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 from ..common import pipe_output, write_output
@@ -29,6 +31,11 @@ ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 8
+
+
+def _is_sandbox_ps_warning(message: str) -> bool:
+    lowered = message.lower()
+    return "unable to execute ps" in lowered and "operation not permitted" in lowered
 
 
 def _audit_archive() -> Dict:
@@ -67,6 +74,10 @@ def _audit_runtime_processes() -> Dict:
     ci_env = os.environ.get("CI", "").strip().lower()
     ci_mode = ci_env in {"1", "true", "yes"}
     for warning in scan_warnings:
+        if _is_sandbox_ps_warning(warning):
+            # Sandbox sessions may block `ps` entirely; this is non-actionable
+            # noise for strict local hygiene runs.
+            continue
         if ci_mode:
             errors.append(f"Runtime process sweep unavailable in CI: {warning}")
         else:
@@ -155,8 +166,52 @@ def _fix_pycache_dirs(pycache_dirs: List[str]) -> Dict:
     }
 
 
+MUTATION_BADGE_PATH = ".github/badges/mutation-score.json"
+MUTATION_BADGE_MAX_AGE_DAYS = 14
+README_REQUIRED_DIRS = ("dev/history", "dev/deferred", "dev/active", "dev/adr")
+
+
+def _audit_mutation_badge() -> Dict:
+    """Warn if the mutation badge JSON is stale or missing."""
+    errors: List[str] = []
+    warnings: List[str] = []
+    badge_path = REPO_ROOT / MUTATION_BADGE_PATH
+    if not badge_path.exists():
+        return {"errors": errors, "warnings": warnings}
+    try:
+        mtime = badge_path.stat().st_mtime
+        age_days = (time.time() - mtime) / 86400
+        if age_days > MUTATION_BADGE_MAX_AGE_DAYS:
+            warnings.append(
+                f"Mutation badge is {age_days:.0f} days old "
+                f"(threshold: {MUTATION_BADGE_MAX_AGE_DAYS} days). "
+                "Re-run mutation testing to refresh."
+            )
+        data = json.loads(badge_path.read_text(encoding="utf-8"))
+        if data.get("message", "").lower() == "stale":
+            warnings.append("Mutation badge status is marked 'stale'.")
+    except (OSError, json.JSONDecodeError) as exc:
+        warnings.append(f"Unable to read mutation badge: {exc}")
+    return {"errors": errors, "warnings": warnings}
+
+
+def _audit_readme_presence() -> Dict:
+    """Warn if required dev directories are missing README files."""
+    errors: List[str] = []
+    warnings: List[str] = []
+    for dir_path in README_REQUIRED_DIRS:
+        full = REPO_ROOT / dir_path
+        if not full.is_dir():
+            continue
+        readme = full / "README.md"
+        if not readme.exists():
+            warnings.append(f"{dir_path}/README.md is missing.")
+    return {"errors": errors, "warnings": warnings}
+
+
 def run(args) -> int:
     """Audit archive/ADR/scripts hygiene and report drift."""
+    strict_warnings = bool(getattr(args, "strict_warnings", False))
     archive = _audit_archive()
     adr = _audit_adrs()
     scripts = _audit_scripts()
@@ -172,23 +227,30 @@ def run(args) -> int:
             ]
     runtime_processes = _audit_runtime_processes()
     reports = build_reports_hygiene_guard(REPO_ROOT)
-    sections = [archive, adr, scripts, runtime_processes, reports]
+    mutation_badge = _audit_mutation_badge()
+    readme_presence = _audit_readme_presence()
+    sections = [archive, adr, scripts, runtime_processes, reports, mutation_badge, readme_presence]
 
     error_count = sum(len(section["errors"]) for section in sections)
     warning_count = sum(len(section["warnings"]) for section in sections)
-    ok = error_count == 0
+    warning_fail_count = warning_count if strict_warnings else 0
+    ok = error_count == 0 and warning_fail_count == 0
 
     report = {
         "command": "hygiene",
         "timestamp": datetime.now().isoformat(),
         "ok": ok,
+        "strict_warnings": strict_warnings,
         "error_count": error_count,
         "warning_count": warning_count,
+        "warning_fail_count": warning_fail_count,
         "archive": archive,
         "adr": adr,
         "scripts": scripts,
         "runtime_processes": runtime_processes,
         "reports": reports,
+        "mutation_badge": mutation_badge,
+        "readme_presence": readme_presence,
         "fix": fix_report,
     }
 
@@ -197,8 +259,11 @@ def run(args) -> int:
     else:
         lines = ["# devctl hygiene", ""]
         lines.append(f"- ok: {ok}")
+        lines.append(f"- strict_warnings: {strict_warnings}")
         lines.append(f"- errors: {error_count}")
         lines.append(f"- warnings: {warning_count}")
+        if strict_warnings:
+            lines.append(f"- warning_fail_count: {warning_fail_count}")
         lines.append("")
         lines.append("## Archive")
         lines.append(f"- entries: {archive['total_entries']}")
@@ -207,6 +272,30 @@ def run(args) -> int:
         lines.append("")
         lines.append("## ADRs")
         lines.append(f"- adrs: {adr['total_adrs']}")
+        if adr.get("missing_sequence_ids"):
+            lines.append(
+                "- missing_sequence_ids: " + ", ".join(adr["missing_sequence_ids"])
+            )
+        if adr.get("retired_ids"):
+            lines.append("- retired_ids: " + ", ".join(adr["retired_ids"]))
+        if adr.get("reserved_ids"):
+            lines.append("- reserved_ids: " + ", ".join(adr["reserved_ids"]))
+        if adr.get("backlog_master_ids"):
+            lines.append(
+                "- backlog_master_ids: " + ", ".join(adr["backlog_master_ids"])
+            )
+        if adr.get("backlog_autonomy_ids"):
+            lines.append(
+                "- backlog_autonomy_ids: " + ", ".join(adr["backlog_autonomy_ids"])
+            )
+        if adr.get("next_pointer_value") or adr.get("next_pointer_expected"):
+            lines.append(
+                "- next_pointer: "
+                + (adr.get("next_pointer_value") or "missing")
+                + " (expected "
+                + (adr.get("next_pointer_expected") or "unknown")
+                + ")"
+            )
         lines.extend(f"- error: {message}" for message in adr["errors"])
         lines.extend(f"- warning: {message}" for message in adr["warnings"])
         lines.append("")
@@ -235,6 +324,18 @@ def run(args) -> int:
         )
         lines.extend(f"- error: {message}" for message in reports["errors"])
         lines.extend(f"- warning: {message}" for message in reports["warnings"])
+        lines.append("")
+        lines.append("## Mutation Badge")
+        lines.extend(f"- error: {message}" for message in mutation_badge["errors"])
+        lines.extend(f"- warning: {message}" for message in mutation_badge["warnings"])
+        if not mutation_badge["errors"] and not mutation_badge["warnings"]:
+            lines.append("- ok")
+        lines.append("")
+        lines.append("## README Presence")
+        lines.extend(f"- error: {message}" for message in readme_presence["errors"])
+        lines.extend(f"- warning: {message}" for message in readme_presence["warnings"])
+        if not readme_presence["errors"] and not readme_presence["warnings"]:
+            lines.append("- ok")
         if fix_report["requested"]:
             lines.append("")
             lines.append("## Fix")

@@ -154,13 +154,44 @@ def collect_mutation_summary() -> Dict:
     """Return the latest mutation summary via mutants.py."""
     if not shutil.which("python3"):
         return {"error": "python3 not found"}
+
+    unavailable_result = {
+        "results": {
+            "score": None,
+            "outcomes_path": str(REPO_ROOT / "rust" / "mutants.out" / "outcomes.json"),
+            "outcomes_updated_at": "unknown",
+            "outcomes_age_hours": None,
+        },
+    }
     try:
         output = subprocess.check_output(
             ["python3", "dev/scripts/mutants.py", "--results-only", "--json"],
             cwd=REPO_ROOT,
             text=True,
         )
-        return {"results": json.loads(output)}
+        payload = output.strip()
+        if not payload:
+            result = dict(unavailable_result)
+            result["warning"] = "mutation outcomes are unavailable (empty results payload)"
+            return result
+        if payload.lower().startswith("no results found under"):
+            result = dict(unavailable_result)
+            result["warning"] = payload
+            return result
+        return {"results": json.loads(payload)}
+    except subprocess.CalledProcessError as exc:
+        output = (exc.output or "").strip()
+        if output.lower().startswith("no results found under"):
+            result = dict(unavailable_result)
+            result["warning"] = output
+            return result
+        if output:
+            return {"error": f"mutants summary failed: {output}"}
+        return {"error": f"mutants summary failed: {exc}"}
+    except json.JSONDecodeError:
+        result = dict(unavailable_result)
+        result["warning"] = "mutation outcomes are unavailable (invalid JSON payload)"
+        return result
     except Exception as exc:
         return {"error": f"mutants summary failed: {exc}"}
 

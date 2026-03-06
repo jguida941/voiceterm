@@ -20,8 +20,8 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
                 ThresholdMetric::TerminalWidth => ctx.terminal_width as f64,
                 ThresholdMetric::TerminalHeight => ctx.terminal_height as f64,
             };
-            let above_min = min.map_or(true, |m| value >= m);
-            let below_max = max.map_or(true, |m| value <= m);
+            let above_min = min.is_none_or(|m| value >= m);
+            let below_max = max.is_none_or(|m| value <= m);
             above_min && below_max
         }
         RuleCondition::Backend { backend } => ctx.backend == *backend,

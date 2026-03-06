@@ -262,7 +262,10 @@ impl MemoryIngestor {
     }
 
     /// Number of events rejected by validation.
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Retention for upcoming memory-ingest metrics/status reporting surfaces."
+    )]
     pub(crate) fn events_rejected(&self) -> u64 {
         self.events_rejected
     }
@@ -287,9 +290,7 @@ impl Drop for MemoryIngestor {
 
 /// Strip ANSI escape sequences from text, returning only visible content.
 fn strip_ansi(text: &str) -> String {
-    // strip() returns Vec<u8>.
-    let stripped = strip_ansi_escapes::strip(text);
-    String::from_utf8_lossy(&stripped).into_owned()
+    crate::ansi::strip_ansi(text)
 }
 
 /// Returns true if text is noise that shouldn't be stored as memory.

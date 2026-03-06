@@ -50,6 +50,33 @@ pub(super) fn split_incomplete_escape(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
 
 /// Continuously read from the PTY and forward chunks to the main thread.
 pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thread::JoinHandle<()> {
+    spawn_reader_thread_inner(
+        master_fd,
+        tx,
+        "spawn_reader_thread",
+        respond_to_terminal_queries,
+    )
+}
+
+/// Continuously read from the PTY and forward raw chunks to the main thread.
+pub(super) fn spawn_passthrough_reader_thread(
+    master_fd: RawFd,
+    tx: Sender<Vec<u8>>,
+) -> thread::JoinHandle<()> {
+    spawn_reader_thread_inner(
+        master_fd,
+        tx,
+        "spawn_passthrough_reader_thread",
+        respond_to_terminal_queries_passthrough,
+    )
+}
+
+fn spawn_reader_thread_inner(
+    master_fd: RawFd,
+    tx: Sender<Vec<u8>>,
+    _guard_label: &'static str,
+    query_responder: fn(&mut Vec<u8>, RawFd),
+) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
         let mut pending: Vec<u8> = Vec::new();
@@ -61,7 +88,7 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
                 let prev = guard_iters;
                 guard_iters += 1;
                 assert!(guard_iters > prev);
-                guard_iteration_loop(guard_iters, 10_000, "spawn_reader_thread");
+                guard_iteration_loop(guard_iters, 10_000, _guard_label);
             }
             // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
             let n = unsafe {
@@ -84,68 +111,7 @@ pub(super) fn spawn_reader_thread(master_fd: RawFd, tx: Sender<Vec<u8>>) -> thre
                     pending = tail;
                 }
                 // Answer simple terminal capability queries so the backend CLI doesn't hang waiting.
-                respond_to_terminal_queries(&mut data, master_fd);
-                if data.is_empty() {
-                    continue;
-                }
-                if tx.send(data).is_err() {
-                    break;
-                }
-                continue;
-            }
-            if n == 0 {
-                break;
-            }
-            let err = io::Error::last_os_error();
-            if should_retry_read_error(&err) {
-                thread::sleep(Duration::from_millis(10));
-                continue;
-            }
-            log_debug(&format!("PTY read error: {err}"));
-            break;
-        }
-    })
-}
-
-/// Continuously read from the PTY and forward raw chunks to the main thread.
-pub(super) fn spawn_passthrough_reader_thread(
-    master_fd: RawFd,
-    tx: Sender<Vec<u8>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut buffer = [0u8; 4096];
-        let mut pending: Vec<u8> = Vec::new();
-        #[cfg(any(test, feature = "mutants"))]
-        let mut guard_iters: usize = 0;
-        loop {
-            #[cfg(any(test, feature = "mutants"))]
-            {
-                let prev = guard_iters;
-                guard_iters += 1;
-                assert!(guard_iters > prev);
-                guard_iteration_loop(guard_iters, 10_000, "spawn_passthrough_reader_thread");
-            }
-            // SAFETY: master_fd is a valid PTY fd owned by this thread, and buffer is writable.
-            let n = unsafe {
-                libc::read(
-                    master_fd,
-                    buffer.as_mut_ptr() as *mut libc::c_void,
-                    buffer.len(),
-                )
-            };
-            if n > 0 {
-                let mut data = if pending.is_empty() {
-                    buffer.get(..n as usize).unwrap_or(&[]).to_vec()
-                } else {
-                    let mut merged = pending;
-                    merged.extend_from_slice(buffer.get(..n as usize).unwrap_or(&[]));
-                    pending = Vec::new();
-                    merged
-                };
-                if let Some(tail) = split_incomplete_escape(&mut data) {
-                    pending = tail;
-                }
-                respond_to_terminal_queries_passthrough(&mut data, master_fd);
+                query_responder(&mut data, master_fd);
                 if data.is_empty() {
                     continue;
                 }

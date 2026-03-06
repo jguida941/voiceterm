@@ -2,7 +2,10 @@
 //! to concrete color values, using base theme colors as defaults with optional
 //! per-component overrides.
 
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "Theme Studio v2 style-resolver APIs are staged; not every entrypoint is wired on all runtime paths yet."
+)]
 
 use std::collections::HashMap;
 

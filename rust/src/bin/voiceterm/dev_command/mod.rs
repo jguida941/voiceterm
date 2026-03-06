@@ -190,7 +190,7 @@ impl DevPanelCommandState {
             } => {
                 if self
                     .in_flight
-                    .map_or(true, |existing| existing.request_id == request_id)
+                    .is_none_or(|existing| existing.request_id == request_id)
                 {
                     self.in_flight = Some(InFlightCommand {
                         request_id,

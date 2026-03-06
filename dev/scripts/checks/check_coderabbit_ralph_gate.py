@@ -9,8 +9,10 @@ import sys
 
 try:
     from dev.scripts.checks import check_coderabbit_gate as gate_core
+    from dev.scripts.checks import coderabbit_gate_core as gate_rendering
 except ModuleNotFoundError:
     import check_coderabbit_gate as gate_core
+    import coderabbit_gate_core as gate_rendering
 
 DEFAULT_WORKFLOW = "CodeRabbit Ralph Loop"
 
@@ -23,6 +25,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--branch",
         help="Optional branch hint for gh run list; commit filtering is always applied.",
+    )
+    parser.add_argument(
+        "--allow-branch-fallback",
+        action="store_true",
+        help="Allow commit-only fallback when the requested branch has no matching workflow runs.",
     )
     parser.add_argument("--limit", type=int, default=gate_core.DEFAULT_LIMIT)
     parser.add_argument("--require-conclusion", default="success")
@@ -42,36 +49,10 @@ def _normalize_report(report: dict) -> dict:
 
 
 def _render_md(report: dict) -> str:
-    lines = ["# check_coderabbit_ralph_gate", ""]
-    lines.append(f"- ok: {report.get('ok')}")
-    lines.append(f"- workflow: {report.get('workflow')}")
-    if report.get("repo"):
-        lines.append(f"- repo: {report.get('repo')}")
-    lines.append(f"- branch_requested: {report.get('branch_requested') or '(none)'}")
-    lines.append(f"- branch: {report.get('branch')}")
-    lines.append(f"- fallback_without_branch: {report.get('fallback_without_branch')}")
-    lines.append(f"- sha: {report.get('sha')}")
-    lines.append(f"- checked_runs: {report.get('checked_runs')}")
-    lines.append(f"- matching_runs: {report.get('matching_runs')}")
-    lines.append(f"- reason: {report.get('reason')}")
-    warnings = report.get("warnings")
-    if isinstance(warnings, list):
-        for warning in warnings:
-            lines.append(f"- warning: {warning}")
-    latest = report.get("latest_match")
-    if isinstance(latest, dict) and latest:
-        lines.append(
-            "- latest_match: "
-            + ", ".join(
-                [
-                    f"status={latest.get('status')}",
-                    f"conclusion={latest.get('conclusion')}",
-                    f"url={latest.get('url')}",
-                    f"created_at={latest.get('created_at')}",
-                ]
-            )
-        )
-    return "\n".join(lines)
+    return gate_rendering.render_report_md(
+        report,
+        title="check_coderabbit_ralph_gate",
+    )
 
 
 def main() -> int:

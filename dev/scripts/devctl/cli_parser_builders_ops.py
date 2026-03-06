@@ -266,6 +266,11 @@ def add_governance_parsers(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Remove detected dev/scripts/**/__pycache__ directories after audit",
     )
+    hygiene_cmd.add_argument(
+        "--strict-warnings",
+        action="store_true",
+        help="Treat hygiene warnings as blocking failures",
+    )
     hygiene_cmd.add_argument("--format", choices=["json", "md"], default="md")
     hygiene_cmd.add_argument("--output")
     hygiene_cmd.add_argument("--pipe-command", help="Pipe report output to a command")

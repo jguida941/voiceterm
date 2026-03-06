@@ -64,6 +64,20 @@ fn demo() {
                 }
             )
         )
+
+    def test_count_metrics_ignores_cfg_test_blocks(self) -> None:
+        text = """
+#[cfg(test)]
+mod tests {
+    fn helper() {
+        todo!("test only");
+        dbg!("debug");
+    }
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["todo_macro_calls"], 0)
+        self.assertEqual(metrics["dbg_macro_calls"], 0)
         self.assertTrue(
             self.script._has_positive_growth(
                 {

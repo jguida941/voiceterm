@@ -37,6 +37,7 @@ jobs:
 
       - name: Run orchestrator SLA watchdog
         run: |
+          # intentional: error suppression for report-only watchdog mode
           set +e
           python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 30 --format md
           RC=$?

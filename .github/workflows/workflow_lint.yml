@@ -31,8 +31,21 @@ jobs:
 
       - name: Install actionlint
         run: |
+          set -euo pipefail
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
 
       - name: Run actionlint
         run: |
+          set -euo pipefail
           "$(go env GOPATH)/bin/actionlint" -color -shellcheck=
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Run workflow shell hygiene guard
+        run: python3 dev/scripts/checks/check_workflow_shell_hygiene.py
+
+      - name: Run workflow action pinning guard
+        run: python3 dev/scripts/checks/check_workflow_action_pinning.py

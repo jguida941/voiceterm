@@ -9,6 +9,8 @@ from __future__ import annotations
 import sys
 from typing import List
 
+from .check_support import AI_GUARD_CHECKS
+
 
 def count_quality_steps(args, settings: dict) -> int:
     """Pre-count the number of quality-gate steps that will be executed.
@@ -20,9 +22,12 @@ def count_quality_steps(args, settings: dict) -> int:
     if not args.skip_fmt:
         count += 1
     if not args.skip_clippy:
-        count += 1
+        if settings.get("with_clippy_high_signal", False):
+            count += 2  # clippy lint histogram + clippy high-signal guard
+        else:
+            count += 1
     if settings["with_ai_guard"]:
-        count += 5  # code-shape, rust-lint-debt, rust-best-practices, rust-audit-patterns, rust-security-footguns
+        count += len(AI_GUARD_CHECKS)
     if not settings["skip_tests"]:
         count += 1
     if not settings["skip_build"]:

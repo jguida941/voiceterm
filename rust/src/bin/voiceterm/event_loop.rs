@@ -323,7 +323,7 @@ fn sync_overlay_winsize(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
         &mut state.ui.terminal_cols,
         state.ui.overlay_mode,
         state.status_state.hud_style,
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
     );
 }
 
@@ -634,11 +634,12 @@ fn should_emit_user_input_activity_for_host(
     backend_label: &str,
     terminal_host: TerminalHost,
 ) -> bool {
-    BackendFamily::from_label(backend_label) == BackendFamily::Claude
-        && matches!(
-            terminal_host,
-            TerminalHost::Cursor | TerminalHost::JetBrains
-        )
+    let claude_backend = BackendFamily::from_label(backend_label) == BackendFamily::Claude;
+    let host_supports_input_activity = matches!(
+        terminal_host,
+        TerminalHost::Cursor | TerminalHost::JetBrains
+    );
+    claude_backend && host_supports_input_activity
 }
 
 fn flush_pending_output_or_continue(state: &mut EventLoopState, deps: &EventLoopDeps) -> bool {

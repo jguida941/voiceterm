@@ -6,7 +6,10 @@
 //! default style tokens so the resolver never encounters an unregistered
 //! surface at runtime.
 
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "Theme Studio v2 component/state contracts are staged and partially feature-gated during incremental rollout."
+)]
 
 use std::collections::HashMap;
 

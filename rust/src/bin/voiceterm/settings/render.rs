@@ -347,7 +347,9 @@ fn setting_description(item: SettingsItem) -> &'static str {
         SettingsItem::HudBorders => "Choose HUD border style and framing.",
         SettingsItem::HudPanel => "Select right-panel telemetry widget mode.",
         SettingsItem::HudAnimate => "When ON, right-panel animates during recording only.",
-        SettingsItem::Latency => "Control visibility format of STT latency badge.",
+        SettingsItem::Latency => {
+            "Choose latency badge mode: STT ms, speech-normalized RTF, both, or off."
+        }
         SettingsItem::Mouse => "Enable clickable HUD controls and overlay rows.",
         SettingsItem::Backend => "Current backend provider for this session (read-only).",
         SettingsItem::Pipeline => "Active voice pipeline implementation (read-only).",

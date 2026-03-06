@@ -25,6 +25,10 @@ class BadgeRendererTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.ci_badge = load_module("render_ci_badge", "dev/scripts/render_ci_badge.py")
+        cls.clippy_badge = load_module(
+            "render_clippy_badge",
+            "dev/scripts/render_clippy_badge.py",
+        )
         cls.mutation_badge = load_module(
             "render_mutation_badge",
             "dev/scripts/render_mutation_badge.py",
@@ -39,6 +43,27 @@ class BadgeRendererTests(unittest.TestCase):
         normalized = self.ci_badge.normalize_status("failure")
         self.assertEqual(normalized, "failing")
         self.assertEqual(self.ci_badge.color_for_status(normalized), "red")
+
+    def test_clippy_badge_zero_warnings_is_black(self) -> None:
+        status = self.clippy_badge.normalize_status("success")
+        warning_count = self.clippy_badge.parse_warning_count("0")
+        message, color = self.clippy_badge.badge_payload(status, warning_count)
+        self.assertEqual(message, "0 warnings")
+        self.assertEqual(color, "black")
+
+    def test_clippy_badge_nonzero_warnings_is_red(self) -> None:
+        status = self.clippy_badge.normalize_status("success")
+        warning_count = self.clippy_badge.parse_warning_count("3")
+        message, color = self.clippy_badge.badge_payload(status, warning_count)
+        self.assertEqual(message, "3 warnings")
+        self.assertEqual(color, "red")
+
+    def test_clippy_badge_failed_status_is_red(self) -> None:
+        status = self.clippy_badge.normalize_status("failure")
+        warning_count = self.clippy_badge.parse_warning_count("0")
+        message, color = self.clippy_badge.badge_payload(status, warning_count)
+        self.assertEqual(message, "failed")
+        self.assertEqual(color, "red")
 
     def test_mutation_badge_threshold_maps_to_black_red(self) -> None:
         self.assertEqual(self.mutation_badge.color_for_score(0.80), "black")

@@ -259,8 +259,10 @@ fn parse_voice_send_mode(value: &str) -> Option<crate::config::VoiceSendMode> {
 fn parse_latency_display_mode(value: &str) -> Option<crate::config::LatencyDisplayMode> {
     match value.to_ascii_lowercase().as_str() {
         "off" => Some(crate::config::LatencyDisplayMode::Off),
-        "short" | "nms" => Some(crate::config::LatencyDisplayMode::Short),
+        "short" | "nms" | "stt: nms" | "stt ms" => Some(crate::config::LatencyDisplayMode::Short),
         "label" | "latency: nms" => Some(crate::config::LatencyDisplayMode::Label),
+        "rtf" | "rtf: x.xx" => Some(crate::config::LatencyDisplayMode::Rtf),
+        "both" | "nms + rtf" | "nms | rtf" => Some(crate::config::LatencyDisplayMode::Both),
         _ => None,
     }
 }
@@ -506,6 +508,7 @@ pub(crate) fn detect_explicit_flags(config: &crate::config::OverlayConfig) -> Cl
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::env_lock;
     use clap::Parser;
 
     #[test]
@@ -608,6 +611,26 @@ macros_enabled = true
     }
 
     #[test]
+    fn parse_latency_display_mode_accepts_rtf_and_both() {
+        assert_eq!(
+            parse_latency_display_mode("rtf"),
+            Some(crate::config::LatencyDisplayMode::Rtf)
+        );
+        assert_eq!(
+            parse_latency_display_mode("both"),
+            Some(crate::config::LatencyDisplayMode::Both)
+        );
+        assert_eq!(
+            parse_latency_display_mode("nms + rtf"),
+            Some(crate::config::LatencyDisplayMode::Both)
+        );
+        assert_eq!(
+            parse_latency_display_mode("stt: nms"),
+            Some(crate::config::LatencyDisplayMode::Short)
+        );
+    }
+
+    #[test]
     fn serialize_only_set_fields() {
         let config = UserConfig {
             theme: Some("coral".to_string()),
@@ -621,14 +644,9 @@ macros_enabled = true
 
     #[test]
     fn save_and_load_roundtrip_via_env() {
-        use std::sync::{Mutex, OnceLock};
         use std::time::{SystemTime, UNIX_EPOCH};
 
-        static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let _guard = env_lock();
 
         let millis = SystemTime::now()
             .duration_since(UNIX_EPOCH)

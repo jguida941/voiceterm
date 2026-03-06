@@ -46,7 +46,7 @@ pub fn get_button_positions(
     theme: Theme,
     width: usize,
 ) -> Vec<ButtonPosition> {
-    if state.claude_prompt_suppressed {
+    if state.prompt_suppressed {
         return Vec::new();
     }
     match effective_hud_style_for_state(state) {

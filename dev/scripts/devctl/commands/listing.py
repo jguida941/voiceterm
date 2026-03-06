@@ -7,6 +7,7 @@ from ..common import write_output
 
 COMMANDS = [
     "check",
+    "check-router",
     "mutants",
     "mutation-score",
     "docs-check",
@@ -15,6 +16,7 @@ COMMANDS = [
     "integrations-sync",
     "integrations-import",
     "release",
+    "release-gates",
     "ship",
     "release-notes",
     "homebrew",
@@ -23,6 +25,8 @@ COMMANDS = [
     "orchestrate-status",
     "orchestrate-watch",
     "report",
+    "compat-matrix",
+    "mcp",
     "data-science",
     "triage",
     "triage-loop",
@@ -45,7 +49,7 @@ COMMANDS = [
     "list",
 ]
 
-PROFILES = ["ci", "prepush", "release", "maintainer-lint", "quick", "ai-guard"]
+PROFILES = ["ci", "prepush", "release", "maintainer-lint", "quick", "fast", "ai-guard"]
 
 
 def run(args) -> int:

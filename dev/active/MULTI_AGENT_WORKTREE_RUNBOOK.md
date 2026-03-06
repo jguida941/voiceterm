@@ -292,3 +292,7 @@ scopes share ownership.
 | UTC claimed | Owner | MP scope | Hotspot path | Handoff token | Refactor class | Status | Evidence/notes |
 |---|---|---|---|---|---|---|---|
 | `2026-03-02T00:00:00Z` | `ORCHESTRATOR` | `MP-346` | `policy` | `hotspot-gate-v1` | `governance` | `active` | `Cross-plan shared-hotspot claim gate activated for Theme/MP-267/MP-346 overlap.` |
+| `2026-03-04T11:48:13Z` | `CODEX` | `MP-346` | `rust/src/bin/voiceterm/writer/state.rs` | `mp346-cp008-preclear-policy` | `extraction-refactor` | `completed` | `Step-2b PreclearPolicy extraction; checkpoint packet: dev/reports/mp346/checkpoints/20260304T114813Z-cp008/.` |
+| `2026-03-04T12:14:04Z` | `CODEX` | `MP-346` | `rust/src/bin/voiceterm/writer/state.rs` | `mp346-cp009-redraw-policy` | `extraction-refactor` | `completed` | `Step-2c RedrawPolicy extraction; checkpoint packet: dev/reports/mp346/checkpoints/20260304T121404Z-cp009/.` |
+| `2026-03-04T12:36:41Z` | `CODEX` | `MP-346` | `rust/src/bin/voiceterm/writer/state.rs` | `mp346-cp010-idle-gating-timing` | `extraction-refactor` | `completed` | `Step-2d idle-gating timing extraction; checkpoint packet: dev/reports/mp346/checkpoints/20260304T123641Z-cp010/.` |
+| `2026-03-04T13:09:08Z` | `CODEX` | `MP-346` | `rust/src/bin/voiceterm/writer/state.rs` | `mp346-cp011-dispatch-runtime-profile` | `extraction-refactor` | `completed` | `Step-2e dispatch/runtime-profile extraction; checkpoint packet: dev/reports/mp346/checkpoints/20260304T130908Z-cp011/.` |

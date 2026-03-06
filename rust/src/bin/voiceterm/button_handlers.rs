@@ -245,7 +245,7 @@ impl<'a> ButtonActionContext<'a> {
             self.terminal_cols,
             *self.overlay_mode,
             self.status_state.hud_style,
-            self.status_state.claude_prompt_suppressed,
+            self.status_state.prompt_suppressed,
         );
     }
 

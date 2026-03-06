@@ -6,6 +6,7 @@
 //!
 //! Gate evidence: TS-G09 (capability fallback), TS-G06 (snapshot matrix).
 
+use crate::runtime_compat::{detect_terminal_host, TerminalHost};
 use std::env;
 
 // ---------------------------------------------------------------------------
@@ -168,9 +169,29 @@ impl TerminalId {
 /// Detect the terminal identifier from environment variables.
 #[must_use]
 pub(crate) fn detect_terminal_id() -> TerminalId {
+    detect_terminal_id_for_host(detect_terminal_host())
+}
+
+fn detect_terminal_id_for_host(host: TerminalHost) -> TerminalId {
+    if let Some(host_terminal_id) = terminal_id_for_host(host) {
+        return host_terminal_id;
+    }
+
+    detect_terminal_id_without_host_override()
+}
+
+fn terminal_id_for_host(host: TerminalHost) -> Option<TerminalId> {
+    match host {
+        TerminalHost::JetBrains => Some(TerminalId::JetBrains),
+        TerminalHost::Cursor => Some(TerminalId::Cursor),
+        TerminalHost::Other => None,
+    }
+}
+
+fn detect_terminal_id_without_host_override() -> TerminalId {
     // TERM_PROGRAM is the most reliable signal.
     if let Ok(term_program) = env::var("TERM_PROGRAM") {
-        let lower = term_program.to_lowercase();
+        let lower = term_program.to_ascii_lowercase();
         if lower == "kitty" {
             return TerminalId::Kitty;
         }
@@ -186,12 +207,6 @@ pub(crate) fn detect_terminal_id() -> TerminalId {
         if lower == "vscode" {
             return TerminalId::VsCode;
         }
-        if lower == "cursor" {
-            return TerminalId::Cursor;
-        }
-        if lower.contains("jetbrains") || lower.contains("jediterm") {
-            return TerminalId::JetBrains;
-        }
         if lower.contains("warp") {
             return TerminalId::Warp;
         }
@@ -202,14 +217,6 @@ pub(crate) fn detect_terminal_id() -> TerminalId {
             return TerminalId::Mintty;
         }
         return TerminalId::Generic(term_program);
-    }
-
-    // Fallback: TERMINAL_EMULATOR (JetBrains sets this).
-    if let Ok(emulator) = env::var("TERMINAL_EMULATOR") {
-        let lower = emulator.to_lowercase();
-        if lower.contains("jetbrains") || lower.contains("jediterm") {
-            return TerminalId::JetBrains;
-        }
     }
 
     // Fallback: KITTY_WINDOW_ID implies Kitty.
@@ -296,6 +303,7 @@ pub(crate) fn texture_profile_with_override(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::{with_env_overrides, TERMINAL_HOST_ENV_KEYS};
 
     #[test]
     fn fallback_chain_starts_at_richest_and_ends_at_plain() {
@@ -393,6 +401,84 @@ mod tests {
         assert_eq!(
             detect_max_texture_tier(&TerminalId::Unknown),
             TextureTier::SymbolTexture
+        );
+    }
+
+    #[test]
+    fn terminal_id_for_host_short_circuits_cursor_and_jetbrains() {
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[("TERM_PROGRAM", Some("WezTerm"))],
+            || {
+                assert_eq!(
+                    detect_terminal_id_for_host(TerminalHost::Cursor),
+                    TerminalId::Cursor
+                );
+                assert_eq!(
+                    detect_terminal_id_for_host(TerminalHost::JetBrains),
+                    TerminalId::JetBrains
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn detect_terminal_id_prefers_canonical_host_signals() {
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[
+                ("TERM_PROGRAM", Some("WezTerm")),
+                ("CURSOR_TRACE_ID", Some("trace")),
+            ],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::Cursor);
+            },
+        );
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[
+                ("TERM_PROGRAM", Some("WarpTerminal")),
+                ("IDEA_INITIAL_DIRECTORY", Some("/tmp/project")),
+            ],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::JetBrains);
+            },
+        );
+    }
+
+    #[test]
+    fn detect_terminal_id_uses_non_host_term_program_mapping_for_other_host() {
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[("TERM_PROGRAM", Some("WezTerm"))],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::WezTerm);
+            },
+        );
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[("TERM_PROGRAM", Some("WarpTerminal"))],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::Warp);
+            },
+        );
+    }
+
+    #[test]
+    fn detect_terminal_id_fallbacks_keep_kitty_and_iterm_markers() {
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[("KITTY_WINDOW_ID", Some("1"))],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::Kitty);
+            },
+        );
+        with_env_overrides(
+            TERMINAL_HOST_ENV_KEYS,
+            &[("ITERM_SESSION_ID", Some("session"))],
+            || {
+                assert_eq!(detect_terminal_id(), TerminalId::ITerm2);
+            },
         );
     }
 

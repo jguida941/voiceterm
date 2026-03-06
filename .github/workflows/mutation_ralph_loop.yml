@@ -143,90 +143,7 @@ jobs:
           LOOP_COMMENT_TARGET: ${{ vars.MUTATION_COMMENT_TARGET }}
           LOOP_COMMENT_PR_NUMBER: ${{ vars.MUTATION_COMMENT_PR_NUMBER }}
           LOOP_FIX_COMMAND: ${{ vars.MUTATION_LOOP_FIX_COMMAND }}
-        run: |
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            BRANCH="${DISPATCH_BRANCH}"
-            MAX_ATTEMPTS="${DISPATCH_MAX_ATTEMPTS:-3}"
-            POLL_SECONDS="${DISPATCH_POLL_SECONDS:-20}"
-            TIMEOUT_SECONDS="${DISPATCH_TIMEOUT_SECONDS:-1800}"
-            EXECUTION_MODE="${DISPATCH_EXECUTION_MODE:-report-only}"
-            THRESHOLD="${DISPATCH_THRESHOLD:-0.80}"
-            NOTIFY_MODE="${DISPATCH_NOTIFY_MODE:-summary-only}"
-            COMMENT_TARGET="${DISPATCH_COMMENT_TARGET:-auto}"
-            COMMENT_PR_NUMBER="${DISPATCH_COMMENT_PR_NUMBER}"
-            FIX_COMMAND="${DISPATCH_FIX_COMMAND}"
-          else
-            BRANCH="${WORKFLOW_BRANCH}"
-            MAX_ATTEMPTS="${LOOP_MAX_ATTEMPTS:-3}"
-            POLL_SECONDS="${LOOP_POLL_SECONDS:-20}"
-            TIMEOUT_SECONDS="${LOOP_TIMEOUT_SECONDS:-1800}"
-            EXECUTION_MODE="${LOOP_EXECUTION_MODE:-report-only}"
-            THRESHOLD="${LOOP_THRESHOLD:-0.80}"
-            NOTIFY_MODE="${LOOP_NOTIFY_MODE:-summary-only}"
-            COMMENT_TARGET="${LOOP_COMMENT_TARGET:-auto}"
-            COMMENT_PR_NUMBER="${LOOP_COMMENT_PR_NUMBER}"
-            FIX_COMMAND="${LOOP_FIX_COMMAND}"
-          fi
-
-          if [[ -z "${BRANCH}" ]]; then
-            echo "Branch is required."
-            exit 1
-          fi
-          if [[ ! "${MAX_ATTEMPTS}" =~ ^[0-9]+$ || "${MAX_ATTEMPTS}" -lt 1 ]]; then
-            echo "Invalid max attempts: ${MAX_ATTEMPTS}"
-            exit 1
-          fi
-          if [[ ! "${POLL_SECONDS}" =~ ^[0-9]+$ || "${POLL_SECONDS}" -lt 5 ]]; then
-            echo "Invalid poll seconds: ${POLL_SECONDS}"
-            exit 1
-          fi
-          if [[ ! "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ || "${TIMEOUT_SECONDS}" -lt 60 ]]; then
-            echo "Invalid timeout seconds: ${TIMEOUT_SECONDS}"
-            exit 1
-          fi
-          if ! python3 -c "value=float('${THRESHOLD}');import sys;sys.exit(0 if 0 < value <= 1 else 1)"; then
-            echo "Invalid threshold: ${THRESHOLD}"
-            exit 1
-          fi
-          case "${EXECUTION_MODE}" in
-            report-only|plan-then-fix|fix-only) ;;
-            *)
-              echo "Invalid execution mode: ${EXECUTION_MODE}"
-              exit 1
-              ;;
-          esac
-          case "${NOTIFY_MODE}" in
-            summary-only|summary-and-comment) ;;
-            *)
-              echo "Invalid notify mode: ${NOTIFY_MODE}"
-              exit 1
-              ;;
-          esac
-          case "${COMMENT_TARGET}" in
-            auto|pr|commit) ;;
-            *)
-              echo "Invalid comment target: ${COMMENT_TARGET}"
-              exit 1
-              ;;
-          esac
-
-          {
-            echo "branch=${BRANCH}"
-            echo "max_attempts=${MAX_ATTEMPTS}"
-            echo "poll_seconds=${POLL_SECONDS}"
-            echo "timeout_seconds=${TIMEOUT_SECONDS}"
-            echo "execution_mode=${EXECUTION_MODE}"
-            echo "threshold=${THRESHOLD}"
-            echo "notify_mode=${NOTIFY_MODE}"
-            echo "comment_target=${COMMENT_TARGET}"
-            echo "comment_pr_number=${COMMENT_PR_NUMBER}"
-          } >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "fix_command<<EOF"
-            echo "${FIX_COMMAND}"
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
+        run: python3 dev/scripts/mutation_ralph_workflow_bridge.py resolve-config --github-output "${GITHUB_OUTPUT}"
 
       - name: Run Mutation Ralph loop
         env:
@@ -245,48 +162,19 @@ jobs:
           COMMENT_TARGET: ${{ steps.cfg.outputs.comment_target }}
           COMMENT_PR_NUMBER: ${{ steps.cfg.outputs.comment_pr_number }}
         run: |
-          CMD=(
-            python3 dev/scripts/devctl.py mutation-loop
-            --repo "${TARGET_REPO}"
-            --branch "${TARGET_BRANCH}"
-            --workflow "Mutation Testing"
-            --max-attempts "${MAX_ATTEMPTS}"
-            --poll-seconds "${POLL_SECONDS}"
-            --timeout-seconds "${TIMEOUT_SECONDS}"
-            --mode "${MODE}"
-            --threshold "${THRESHOLD}"
-            --notify "${NOTIFY_MODE}"
-            --comment-target "${COMMENT_TARGET}"
-            --emit-bundle
-            --bundle-dir /tmp
-            --bundle-prefix mutation-ralph-loop
-            --json-output /tmp/mutation-ralph-loop.json
-            --format md
-            --output /tmp/mutation-ralph-loop.md
-          )
-          if [[ -n "${COMMENT_PR_NUMBER}" ]]; then
-            CMD+=(--comment-pr-number "${COMMENT_PR_NUMBER}")
-          fi
-          if [[ "${MODE}" != "report-only" && -n "${FIX_COMMAND}" ]]; then
-            CMD+=(--fix-command "${FIX_COMMAND}")
-          fi
-          set +e
-          "${CMD[@]}"
-          RC=$?
-          set -e
-          if [[ "${RC}" -eq 0 ]]; then
-            exit 0
-          fi
-
-          if [[ "${MODE}" == "report-only" && -f /tmp/mutation-ralph-loop.json ]]; then
-            FAILURE_REASON="$(python3 -c 'import json; from pathlib import Path; payload = json.loads(Path("/tmp/mutation-ralph-loop.json").read_text(encoding="utf-8")); print(str(payload.get("reason") or "").strip())')"
-            if [[ "${FAILURE_REASON}" == "artifact download failed" ]]; then
-              echo "::warning::Mutation Ralph loop report-only mode skipped hard-fail (artifact download failed)."
-              exit 0
-            fi
-          fi
-
-          exit "${RC}"
+          set -euo pipefail
+          python3 dev/scripts/mutation_ralph_workflow_bridge.py run-loop \
+            --target-repo "${TARGET_REPO}" \
+            --target-branch "${TARGET_BRANCH}" \
+            --max-attempts "${MAX_ATTEMPTS}" \
+            --poll-seconds "${POLL_SECONDS}" \
+            --timeout-seconds "${TIMEOUT_SECONDS}" \
+            --mode "${MODE}" \
+            --threshold "${THRESHOLD}" \
+            --notify-mode "${NOTIFY_MODE}" \
+            --comment-target "${COMMENT_TARGET}" \
+            --comment-pr-number "${COMMENT_PR_NUMBER}" \
+            --fix-command "${FIX_COMMAND}"
 
       - name: Publish loop summary
         if: always()
@@ -295,6 +183,7 @@ jobs:
           SUMMARY_MODE: ${{ steps.cfg.outputs.execution_mode }}
           SUMMARY_THRESHOLD: ${{ steps.cfg.outputs.threshold }}
         run: |
+          set -euo pipefail
           echo "## Mutation Ralph Loop" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- branch: \`${SUMMARY_BRANCH}\`" >> "${GITHUB_STEP_SUMMARY}"

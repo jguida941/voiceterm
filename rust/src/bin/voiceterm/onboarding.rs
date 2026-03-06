@@ -108,16 +108,8 @@ pub(crate) fn mark_first_capture_complete() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
+    use crate::test_env::env_lock;
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-        static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
-        ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-    }
 
     fn unique_path() -> PathBuf {
         let millis = SystemTime::now()

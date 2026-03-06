@@ -1,7 +1,5 @@
 use super::*;
-use std::sync::{Mutex, OnceLock};
-
-static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
+use crate::test_env::env_lock;
 
 struct RuntimeOverridesGuard {
     previous: RuntimeStylePackOverrides,
@@ -289,10 +287,7 @@ fn style_pack_theme_override_from_payload_ignores_invalid_payload() {
 
 #[test]
 fn resolve_theme_colors_ignores_style_pack_env_without_test_opt_in() {
-    let _guard = ENV_GUARD
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = env_lock();
     let prev_style_pack = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
     let prev_opt_in = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
 
@@ -317,10 +312,7 @@ fn resolve_theme_colors_ignores_style_pack_env_without_test_opt_in() {
 
 #[test]
 fn resolve_theme_colors_reads_style_pack_env_when_test_opted_in() {
-    let _guard = ENV_GUARD
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = env_lock();
     let prev_style_pack = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
     let prev_opt_in = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
 

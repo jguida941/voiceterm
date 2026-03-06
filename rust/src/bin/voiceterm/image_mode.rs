@@ -109,14 +109,12 @@ fn run_default_capture_command(_image_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::env_lock;
     use std::fs;
     use std::process;
-    use std::sync::{Mutex, OnceLock};
 
     fn with_working_dir_env<T>(value: Option<&str>, f: impl FnOnce() -> T) -> T {
-        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
-        let _guard = lock.lock().expect("env lock poisoned");
+        let _guard = env_lock();
 
         let prev = std::env::var(WORKING_DIR_ENV).ok();
         match value {

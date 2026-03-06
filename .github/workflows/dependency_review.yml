@@ -31,20 +31,7 @@ jobs:
         id: dep_graph
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set +e
-          STATUS="$(gh api repos/${{ github.repository }} --jq '.security_and_analysis.dependency_graph.status' 2>/tmp/dep-graph.err)"
-          RC=$?
-          set -e
-          if [[ "${RC}" -ne 0 || "${STATUS}" != "enabled" ]]; then
-            echo "enabled=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning::Dependency graph is not enabled; skipping dependency review gate."
-            if [[ -s /tmp/dep-graph.err ]]; then
-              sed -n '1,5p' /tmp/dep-graph.err
-            fi
-            exit 0
-          fi
-          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+        run: python3 dev/scripts/dependency_graph_probe.py --repo "${{ github.repository }}" --github-output "${GITHUB_OUTPUT}"
 
       - name: Dependency Review
         if: steps.dep_graph.outputs.enabled == 'true'

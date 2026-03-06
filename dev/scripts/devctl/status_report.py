@@ -123,7 +123,8 @@ def render_project_markdown(
 
     mutants_info = report.get("mutants", {})
     if "error" in mutants_info:
-        lines.append(f"- Mutation score: error ({mutants_info['error']})")
+        lines.append("- Mutation score: unavailable")
+        lines.append(f"- Mutation score note: {mutants_info['error']}")
     else:
         results = mutants_info.get("results", {})
         if not isinstance(results, dict):
@@ -137,6 +138,9 @@ def render_project_markdown(
         lines.append(f"- Mutation score: {score_label}")
         lines.append(f"- Mutation outcomes: {outcomes}")
         lines.append(f"- Mutation outcomes updated: {updated_at} ({age_label} old)")
+        warning = mutants_info.get("warning")
+        if warning:
+            lines.append(f"- Mutation score note: {warning}")
 
     if "ci" in report:
         ci_info = report["ci"]

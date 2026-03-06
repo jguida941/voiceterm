@@ -42,7 +42,9 @@ fn measure(recorder: &Recorder, duration: Duration) -> Result<MeterReading> {
     })
 }
 
-fn recommend_threshold(ambient_db: f32, speech_db: f32) -> (f32, Option<&'static str>) {
+/// Recommend a VAD threshold based on ambient and speech RMS measurements.
+#[must_use]
+pub fn recommend_threshold(ambient_db: f32, speech_db: f32) -> (f32, Option<&'static str>) {
     if speech_db <= ambient_db {
         let suggested = (ambient_db + 1.0).clamp(RECOMMENDED_FLOOR_DB, RECOMMENDED_CEILING_DB);
         return (
@@ -77,7 +79,12 @@ fn recommend_threshold(ambient_db: f32, speech_db: f32) -> (f32, Option<&'static
     )
 }
 
-fn validate_sample_ms(label: &str, value: u64) -> Result<()> {
+/// Validate mic-meter sample window constraints for ambient/speech captures.
+///
+/// # Errors
+///
+/// Returns an error when `value` is outside configured min/max sample bounds.
+pub fn validate_sample_ms(label: &str, value: u64) -> Result<()> {
     if !(MIN_MIC_METER_SAMPLE_MS..=MAX_MIC_METER_SAMPLE_MS).contains(&value) {
         return Err(anyhow!(
             "--mic-meter-{label}-ms must be between {MIN_MIC_METER_SAMPLE_MS} and {MAX_MIC_METER_SAMPLE_MS} ms"

@@ -1,0 +1,39 @@
+{
+  "version": "1",
+  "tools": [
+    {
+      "id": "status_snapshot",
+      "description": "Read-only project status snapshot (git/CI/mutation/dev-log summary).",
+      "read_only": true
+    },
+    {
+      "id": "report_snapshot",
+      "description": "Read-only project report snapshot for AI/context consumers.",
+      "read_only": true
+    },
+    {
+      "id": "compat_matrix_snapshot",
+      "description": "Read-only compatibility matrix validation/smoke snapshot.",
+      "read_only": true
+    },
+    {
+      "id": "release_contract_snapshot",
+      "description": "Read-only release/check/cleanup contract snapshot from code-level enforcement surfaces.",
+      "read_only": true
+    }
+  ],
+  "resources": [
+    {
+      "uri": "devctl://mcp/allowlist",
+      "name": "MCP Allowlist",
+      "description": "Current MCP tool/resource allowlist contract.",
+      "mime_type": "application/json"
+    },
+    {
+      "uri": "devctl://devctl/release-contract",
+      "name": "Release Contract",
+      "description": "Release/check/cleanup contract snapshot used for guardrail regression review.",
+      "mime_type": "application/json"
+    }
+  ]
+}

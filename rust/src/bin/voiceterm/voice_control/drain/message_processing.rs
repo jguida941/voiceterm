@@ -151,6 +151,7 @@ pub(super) fn update_last_latency(
     status_state: &mut StatusLineState,
     recording_started_at: Option<Instant>,
     metrics: Option<&voiceterm::audio::CaptureMetrics>,
+    source: VoiceCaptureSource,
     now: Instant,
 ) {
     #[inline]
@@ -210,8 +211,41 @@ pub(super) fn update_last_latency(
     let elapsed_field = elapsed_ms
         .map(|v| v.to_string())
         .unwrap_or_else(|| "na".to_string());
+    let display_mode_field = match status_state.latency_display {
+        crate::config::LatencyDisplayMode::Off => "off",
+        crate::config::LatencyDisplayMode::Short => "short",
+        crate::config::LatencyDisplayMode::Label => "label",
+        crate::config::LatencyDisplayMode::Rtf => "rtf",
+        crate::config::LatencyDisplayMode::Both => "both",
+    };
+    let badge_field = match (status_state.latency_display, latency_ms, rtf_x1000) {
+        (_, None, _) => "na".to_string(),
+        (crate::config::LatencyDisplayMode::Off, _, _) => "off".to_string(),
+        (crate::config::LatencyDisplayMode::Short, Some(stt), _) => format!("{stt}ms"),
+        (crate::config::LatencyDisplayMode::Label, Some(stt), _) => format!("Latency:{stt}ms"),
+        (crate::config::LatencyDisplayMode::Rtf, Some(_), Some(rtf)) => {
+            format!("{:.2}x", rtf as f32 / 1000.0)
+        }
+        (crate::config::LatencyDisplayMode::Rtf, Some(stt), None) => format!("{stt}ms"),
+        (crate::config::LatencyDisplayMode::Both, Some(stt), Some(rtf)) => {
+            // Use '+' in logs (instead of '|') to keep parsing stable.
+            format!("{stt}ms+{:.2}x", rtf as f32 / 1000.0)
+        }
+        (crate::config::LatencyDisplayMode::Both, Some(stt), None) => format!("{stt}ms"),
+    };
+    let source_field = if stt_ms.is_some() { "stt" } else { "na" };
+    let pipeline_field = match source {
+        VoiceCaptureSource::Native => "rust",
+        VoiceCaptureSource::Python => "python",
+    };
+    let equation_field = match (stt_ms, speech_ms) {
+        (Some(stt), Some(speech)) if speech > 0 => {
+            format!("{stt}/{speech}={:.3}", stt as f32 / speech as f32)
+        }
+        _ => "na".to_string(),
+    };
     log_debug(&format!(
-        "latency_audit|display_ms={display_field}|elapsed_ms={elapsed_field}|capture_ms={capture_field}|speech_ms={speech_field}|stt_ms={stt_field}|rtf={rtf_field}"
+        "latency_audit|display_ms={display_field}|elapsed_ms={elapsed_field}|capture_ms={capture_field}|speech_ms={speech_field}|stt_ms={stt_field}|rtf={rtf_field}|mode={display_mode_field}|badge={badge_field}|source={source_field}|pipeline={pipeline_field}|math={equation_field}"
     ));
 }
 

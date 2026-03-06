@@ -515,6 +515,8 @@ fn cycle_latency_display_wraps() {
     const OPTIONS: &[LatencyDisplayMode] = &[
         LatencyDisplayMode::Short,
         LatencyDisplayMode::Label,
+        LatencyDisplayMode::Rtf,
+        LatencyDisplayMode::Both,
         LatencyDisplayMode::Off,
     ];
     assert_eq!(
@@ -523,6 +525,14 @@ fn cycle_latency_display_wraps() {
     );
     assert_eq!(
         cycle_option(OPTIONS, LatencyDisplayMode::Label, 1),
+        LatencyDisplayMode::Rtf
+    );
+    assert_eq!(
+        cycle_option(OPTIONS, LatencyDisplayMode::Rtf, 1),
+        LatencyDisplayMode::Both
+    );
+    assert_eq!(
+        cycle_option(OPTIONS, LatencyDisplayMode::Both, 1),
         LatencyDisplayMode::Off
     );
     assert_eq!(

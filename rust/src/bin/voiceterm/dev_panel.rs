@@ -7,7 +7,8 @@ use voiceterm::devtools::DevModeSnapshot;
 
 use crate::dev_command::{DevCommandKind, DevPanelCommandState};
 use crate::overlay_frame::{
-    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, section_line,
+    truncate_display,
 };
 use crate::theme::{
     overlay_close_symbol, overlay_separator, resolved_overlay_border_set, Theme, ThemeColors,
@@ -141,25 +142,6 @@ pub fn format_dev_panel(
     ));
     lines.push(frame_bottom(&colors, borders, content_width));
     lines.join("\n")
-}
-
-fn section_line(colors: &ThemeColors, title: &str, width: usize) -> String {
-    let borders = &colors.borders;
-    let inner_width = width.saturating_sub(2);
-    let heading = format!(" {title}");
-    let clipped = truncate_display(&heading, inner_width);
-    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
-    format!(
-        "{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.dim,
-        clipped,
-        pad,
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
 }
 
 fn value_line(colors: &ThemeColors, label: &str, value: &str, width: usize) -> String {

@@ -13,6 +13,25 @@ Note: Some historical entries reference internal documents that are not publishe
   runtime compatibility helpers so status-line layout/buttons and writer render
   host detection use one shared host/provider policy path without behavior
   drift.
+- Remove writer-local `TerminalFamily` branching and use canonical
+  `TerminalHost` (`JetBrains`/`Cursor`/`Other`) across writer render/runtime
+  policy paths so host checks cannot drift between modules.
+- Harden IPC provider guardrails by rejecting non-IPC experimental provider
+  selection (`gemini`) with explicit recoverable errors (no silent fallback),
+  and clarify IPC provider support as `codex`/`claude` only.
+- Recalibrate latency badge severity to prefer speech-relative STT speed (`rtf`)
+  whenever capture metrics provide it, with absolute millisecond thresholds only
+  as fallback when `rtf` is unavailable. This prevents long utterances from
+  being falsely highlighted as regressions when STT remains fast relative to
+  speech duration.
+- Expand `--latency-display` and Settings latency controls with `rtf` and
+  `both` modes, so operators can view speech-normalized latency directly (`RTF`)
+  or side-by-side with raw STT milliseconds (`Nms + RTF`).
+- Extend `latency_audit` logs with explicit HUD parity fields (`mode`, `badge`,
+  `pipeline`, `math`, `source`) and add
+  `dev/scripts/tests/audit_latency_math.py` so logs can be checked
+  mechanically against expected `stt_ms/speech_ms` math and displayed badge
+  text.
 
 ### CI Hardening
 
@@ -35,6 +54,17 @@ Note: Some historical entries reference internal documents that are not publishe
 - Narrow Failure Triage to high-signal failure conclusions
   (`failure`/`timed_out`/`action_required`) so triage artifacts focus on
   actionable failures instead of skipped/neutral events.
+- Add a dynamic README Clippy badge sourced from Rust CI that reports current
+  warning count (for example `0 warnings`) and refreshes on badge updates to
+  keep lint posture visible beside CI/mutation badges.
+- Refactor workflow-embedded Python helpers into maintained repo scripts/checks
+  (`collect_clippy_warnings.py`, `check_release_version_parity.py`,
+  `write_sha256_checksum.py`) so CI parsing/version-validation/checksum logic
+  stays testable and reusable outside YAML.
+- Extract remaining inline Python from CodeRabbit/autonomy workflows into
+  maintained script bridges (`coderabbit_triage_bridge.py`,
+  `autonomy_workflow_bridge.py`) and cover output/gate behavior with focused
+  unit tests.
 
 ## [1.0.99] - 2026-03-03
 ### UX
@@ -1757,11 +1787,11 @@ Note: Some historical entries reference internal documents that are not publishe
 - Established baseline governance artifacts: `master_index.md`, repository `CHANGELOG.md`, root `PROJECT_OVERVIEW.md` (planned updates), and the initial dated architecture folder in the internal archive.
 - Consolidated legacy documentation into the daily architecture tree (internal archive), the references set, and audits; backfilled the original architecture overview into the internal archive (2025-11-11).
 - Relocated root-level guides (`ARCHITECTURE.md`, `MASTER_DOC.md`, `plan.md`) into the internal references set, corrected the historical architecture baseline to the internal archive (2025-11-11), and updated navigation pointers accordingly.
-- Updated the new references (`quick_start.md`, `testing.md`, `python_legacy.md`) to reflect the current Rust pipeline (Ctrl+R voice key, `cargo run` workflow, native audio tests) and annotated the legacy plan in `dev/archive/MVP_PLAN_2024.md`.
-- Added a concise root `README.md`, introduced the “You Are Here” section in `PROJECT_OVERVIEW.md`, renamed `docs/guides/` → `docs/references/` (`quick_start.md`, `testing.md`, `python_legacy.md`, `milestones.md`, `troubleshooting.md`), and archived superseded guides under `dev/archive/OBSOLETE_GUIDES_2025-11-12/`.
+- Updated the new references (`quick_start.md`, `testing.md`, `python_legacy.md`) to reflect the current Rust pipeline (Ctrl+R voice key, `cargo run` workflow, native audio tests) and annotated the legacy 2024 MVP plan notes in the archive.
+- Added a concise root `README.md`, introduced the “You Are Here” section in `PROJECT_OVERVIEW.md`, renamed `docs/guides/` → `docs/references/` (`quick_start.md`, `testing.md`, `python_legacy.md`, `milestones.md`, `troubleshooting.md`), and archived superseded guides in the internal archive.
 - Updated helper scripts (`rust_tui/test_performance.sh`, `test_voice.sh`, `simple_test.sh`, `final_test.sh`) to rely on `cargo run`, Ctrl+R instructions, and the shared `${TMPDIR}/voiceterm_tui.log`.
 - Extended `agents.md` with an end-of-session checklist so every workday records architecture notes, changelog entries, and the “You Are Here” pointer.
-- Consolidated the CI/CD references into a single `docs/references/cicd_plan.md`, merging the previous implementation + dependency guides and archiving the superseded files under `dev/archive/OBSOLETE_REFERENCES_2025-11-12/`.
+- Consolidated the CI/CD references into a single `docs/references/cicd_plan.md`, merging the previous implementation + dependency guides and archiving the superseded files in the internal archive.
 - Expanded `docs/references/cicd_plan.md` with appendices covering phase-by-phase scripts, tooling/dependency matrices, rollback/cost controls, and troubleshooting so it fully supersedes the archived references.
 - Captured the latency remediation plan in `docs/audits/latency_remediation_plan_2025-11-12.md` and updated `PROJECT_OVERVIEW.md` to prioritize latency stabilization workstreams ahead of module decomposition and CI enhancements.
 - Strengthened the latency plan with explicit Phase 2A/2B/3 naming, backpressure/frame/shutdown/fallback policies, and structured tracing + CI perf gate requirements so phase execution is unambiguous.

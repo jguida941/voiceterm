@@ -116,39 +116,8 @@ jobs:
           INPUT_STALE_MINUTES: ${{ inputs.stale_minutes }}
         run: |
           set -euo pipefail
-          RUN_LABEL="${INPUT_RUN_LABEL}"
-          if [[ -z "${RUN_LABEL}" ]]; then
-            RUN_LABEL="gh-swarm-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          fi
-          BRANCH_BASE="${INPUT_BRANCH_BASE:-develop}"
-          AGENTS="${INPUT_AGENTS:-10}"
-          PARALLEL_WORKERS="${INPUT_PARALLEL_WORKERS:-4}"
-          MAX_ROUNDS="${INPUT_MAX_ROUNDS:-1}"
-          MAX_HOURS="${INPUT_MAX_HOURS:-1}"
-          MAX_TASKS="${INPUT_MAX_TASKS:-1}"
-          STALE_MINUTES="${INPUT_STALE_MINUTES:-120}"
-
-          for value in "${AGENTS}" "${PARALLEL_WORKERS}" "${MAX_ROUNDS}" "${MAX_TASKS}" "${STALE_MINUTES}"; do
-            if [[ ! "${value}" =~ ^[0-9]+$ ]]; then
-              echo "invalid numeric input: ${value}"
-              exit 1
-            fi
-          done
-          if ! [[ "${MAX_HOURS}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-            echo "invalid max_hours: ${MAX_HOURS}"
-            exit 1
-          fi
-
-          {
-            echo "run_label=${RUN_LABEL}"
-            echo "branch_base=${BRANCH_BASE}"
-            echo "agents=${AGENTS}"
-            echo "parallel_workers=${PARALLEL_WORKERS}"
-            echo "max_rounds=${MAX_ROUNDS}"
-            echo "max_hours=${MAX_HOURS}"
-            echo "max_tasks=${MAX_TASKS}"
-            echo "stale_minutes=${STALE_MINUTES}"
-          } >> "${GITHUB_OUTPUT}"
+          python3 dev/scripts/autonomy_workflow_bridge.py resolve-swarm-config \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Run swarm_run pipeline
         env:
@@ -167,6 +136,8 @@ jobs:
           STALE_MINUTES: ${{ steps.cfg.outputs.stale_minutes }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          set -euo pipefail
+          # intentional: error suppression for capturing exit code from swarm_run
           set +e
           CMD=(
             python3 dev/scripts/devctl.py swarm_run
@@ -201,25 +172,10 @@ jobs:
         id: export
         if: always()
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
-          summary = payload.get('swarm', {}).get('summary', {})
-          plan_update = payload.get('plan_update', {})
-          output_path = Path(os.environ['GITHUB_OUTPUT'])
-          with output_path.open('a', encoding='utf-8') as handle:
-              handle.write(f"report_ok={'true' if payload.get('ok') else 'false'}\n")
-              handle.write(f"run_dir={payload.get('run_dir','')}\n")
-              handle.write(f"swarm_selected_agents={summary.get('selected_agents','')}\n")
-              handle.write(f"swarm_worker_agents={summary.get('worker_agents','')}\n")
-              handle.write(f"reviewer_lane={summary.get('reviewer_lane','')}\n")
-              handle.write(f"governance_ok={'true' if payload.get('governance',{}).get('ok') else 'false'}\n")
-              handle.write(f"plan_update_ok={'true' if plan_update.get('ok') else 'false'}\n")
-              handle.write(f"plan_update_updated={'true' if plan_update.get('updated') else 'false'}\n")
-          PY
+          set -euo pipefail
+          python3 dev/scripts/autonomy_workflow_bridge.py export-swarm \
+            --input-file /tmp/swarm-run.json \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Publish run summary
         if: always()
@@ -234,6 +190,7 @@ jobs:
           PLAN_UPDATE_OK: ${{ steps.export.outputs.plan_update_ok }}
           PLAN_UPDATE_UPDATED: ${{ steps.export.outputs.plan_update_updated }}
         run: |
+          set -euo pipefail
           echo "## Swarm Run" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- run_label: \`${RUN_LABEL}\`" >> "${GITHUB_STEP_SUMMARY}"
@@ -260,16 +217,11 @@ jobs:
       - name: Enforce swarm_run success
         if: always()
         run: |
+          set -euo pipefail
           RC="$(cat /tmp/swarm-run.exit)"
           if [[ "${RC}" != "0" ]]; then
             echo "swarm_run command returned ${RC}"
             exit "${RC}"
           fi
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path('/tmp/swarm-run.json').read_text(encoding='utf-8'))
-          if not payload.get('ok'):
-              print('swarm_run report marked not ok')
-              raise SystemExit(1)
-          PY
+          python3 dev/scripts/autonomy_workflow_bridge.py assert-swarm-ok \
+            --input-file /tmp/swarm-run.json

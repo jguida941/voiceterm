@@ -92,6 +92,47 @@ def add_reporting_parsers(
     list_cmd = sub.add_parser("list", help="List devctl commands and profiles")
     list_cmd.add_argument("--format", choices=["json", "md"], default="md")
     list_cmd.add_argument("--output")
+
+    compat_matrix_cmd = sub.add_parser(
+        "compat-matrix",
+        help="Validate IDE/provider compatibility matrix metadata and smoke coverage",
+    )
+    compat_matrix_cmd.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="Run schema/coverage validation only (skip runtime enum smoke checks)",
+    )
+    compat_matrix_cmd.add_argument("--format", choices=["json", "md"], default="md")
+    compat_matrix_cmd.add_argument("--output")
+    compat_matrix_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
+    compat_matrix_cmd.add_argument(
+        "--pipe-args", nargs="*", help="Extra args for pipe command"
+    )
+
+    mcp_cmd = sub.add_parser(
+        "mcp",
+        help="Read-only MCP adapter contract + stdio server for devctl surfaces",
+    )
+    mcp_cmd.add_argument(
+        "--serve-stdio",
+        action="store_true",
+        help="Serve MCP JSON-RPC over stdio (Content-Length framing)",
+    )
+    mcp_cmd.add_argument(
+        "--tool",
+        help="Invoke one allowlisted read-only tool and print result output",
+    )
+    mcp_cmd.add_argument(
+        "--tool-args-json",
+        help="JSON object string passed to --tool as arguments",
+    )
+    mcp_cmd.add_argument("--format", choices=["json", "md"], default="md")
+    mcp_cmd.add_argument("--output")
+    mcp_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
+    mcp_cmd.add_argument(
+        "--pipe-args", nargs="*", help="Extra args for pipe command"
+    )
+
     add_data_science_parser(sub)
 
     # autonomy-report + phone-status
@@ -306,6 +347,11 @@ def add_reporting_parsers(
         "--fix",
         action="store_true",
         help="Remove detected dev/scripts/**/__pycache__ directories after audit",
+    )
+    hygiene_cmd.add_argument(
+        "--strict-warnings",
+        action="store_true",
+        help="Treat hygiene warnings as blocking failures",
     )
     hygiene_cmd.add_argument("--format", choices=["json", "md"], default="md")
     hygiene_cmd.add_argument("--output")

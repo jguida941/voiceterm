@@ -1,28 +1,38 @@
 use super::*;
 use crate::config::HudBorderStyle;
+use crate::test_env::env_lock;
 use crate::HudStyle;
 use rstest::rstest;
 use std::env;
-use std::sync::{Mutex, OnceLock};
+
+struct BackendLabelEnvGuard {
+    previous: Option<String>,
+}
+
+impl BackendLabelEnvGuard {
+    fn install(backend_label: Option<&str>) -> Self {
+        let previous = env::var("VOICETERM_BACKEND_LABEL").ok();
+        match backend_label {
+            Some(label) => env::set_var("VOICETERM_BACKEND_LABEL", label),
+            None => env::remove_var("VOICETERM_BACKEND_LABEL"),
+        }
+        Self { previous }
+    }
+}
+
+impl Drop for BackendLabelEnvGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => env::set_var("VOICETERM_BACKEND_LABEL", value),
+            None => env::remove_var("VOICETERM_BACKEND_LABEL"),
+        }
+    }
+}
 
 fn with_backend_label_env<T>(backend_label: Option<&str>, f: impl FnOnce() -> T) -> T {
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    let _guard = lock.lock().expect("env lock poisoned");
-
-    let prev = env::var("VOICETERM_BACKEND_LABEL").ok();
-    match backend_label {
-        Some(label) => env::set_var("VOICETERM_BACKEND_LABEL", label),
-        None => env::remove_var("VOICETERM_BACKEND_LABEL"),
-    }
-
-    let out = f();
-
-    match prev {
-        Some(value) => env::set_var("VOICETERM_BACKEND_LABEL", value),
-        None => env::remove_var("VOICETERM_BACKEND_LABEL"),
-    }
-    out
+    let _guard = env_lock();
+    let _env_guard = BackendLabelEnvGuard::install(backend_label);
+    f()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,16 +43,15 @@ enum BackendMatrixCase {
 }
 
 fn backend_flags_for_matrix(
-    family: TerminalFamily,
+    family: TerminalHost,
     backend: BackendMatrixCase,
 ) -> (bool, bool, bool, bool, bool) {
-    let codex_jetbrains =
-        family == TerminalFamily::JetBrains && backend == BackendMatrixCase::Codex;
+    let codex_jetbrains = family == TerminalHost::JetBrains && backend == BackendMatrixCase::Codex;
     let cursor_claude_startup_preclear = false;
     let cursor_claude_banner_preclear =
-        family == TerminalFamily::Cursor && backend == BackendMatrixCase::Claude;
+        family == TerminalHost::Cursor && backend == BackendMatrixCase::Claude;
     let claude_jetbrains_banner_preclear =
-        family == TerminalFamily::JetBrains && backend == BackendMatrixCase::Claude;
+        family == TerminalHost::JetBrains && backend == BackendMatrixCase::Claude;
     let claude_jetbrains_cup_preclear_safe = claude_jetbrains_banner_preclear;
     (
         codex_jetbrains,
@@ -51,6 +60,108 @@ fn backend_flags_for_matrix(
         claude_jetbrains_banner_preclear,
         claude_jetbrains_cup_preclear_safe,
     )
+}
+
+fn backend_family_for_matrix(backend: BackendMatrixCase) -> BackendFamily {
+    match backend {
+        BackendMatrixCase::Codex => BackendFamily::Codex,
+        BackendMatrixCase::Claude => BackendFamily::Claude,
+        BackendMatrixCase::Other => BackendFamily::Other,
+    }
+}
+
+#[rstest]
+#[case(
+    TerminalHost::JetBrains,
+    BackendMatrixCase::Codex,
+    true,
+    true,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::JetBrains,
+    BackendMatrixCase::Claude,
+    false,
+    true,
+    true,
+    true
+)]
+#[case(
+    TerminalHost::JetBrains,
+    BackendMatrixCase::Other,
+    false,
+    false,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::Cursor,
+    BackendMatrixCase::Codex,
+    false,
+    false,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::Cursor,
+    BackendMatrixCase::Claude,
+    false,
+    true,
+    false,
+    true
+)]
+#[case(
+    TerminalHost::Cursor,
+    BackendMatrixCase::Other,
+    false,
+    false,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::Other,
+    BackendMatrixCase::Codex,
+    false,
+    false,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::Other,
+    BackendMatrixCase::Claude,
+    false,
+    false,
+    false,
+    false
+)]
+#[case(
+    TerminalHost::Other,
+    BackendMatrixCase::Other,
+    false,
+    false,
+    false,
+    false
+)]
+fn runtime_profile_matrix_matches_host_provider_contract(
+    #[case] family: TerminalHost,
+    #[case] backend: BackendMatrixCase,
+    #[case] expect_treat_cr_as_scroll: bool,
+    #[case] expect_flash_sensitive_scroll_profile: bool,
+    #[case] expect_startup_guard: bool,
+    #[case] expect_claude_non_scroll_profile: bool,
+) {
+    let profile = RuntimeProfile::resolve(family, backend_family_for_matrix(backend));
+    assert_eq!(profile.treat_cr_as_scroll, expect_treat_cr_as_scroll);
+    assert_eq!(
+        profile.flash_sensitive_scroll_profile,
+        expect_flash_sensitive_scroll_profile
+    );
+    assert_eq!(profile.startup_guard_enabled, expect_startup_guard);
+    assert_eq!(
+        profile.claude_non_scroll_redraw_profile,
+        expect_claude_non_scroll_profile
+    );
 }
 
 #[test]
@@ -85,10 +196,28 @@ fn resize_updates_dimensions_when_changed() {
 }
 
 #[test]
+fn resize_clears_stale_banner_anchor_state_before_reflow() {
+    let mut state = WriterState::new();
+    state.rows = 24;
+    state.cols = 80;
+    state.display.banner_height = 4;
+    state.display.banner_anchor_row = Some(2);
+
+    assert!(state.handle_message(WriterMessage::Resize {
+        rows: 30,
+        cols: 100
+    }));
+    assert_eq!(state.rows, 30);
+    assert_eq!(state.cols, 100);
+    assert_eq!(state.display.banner_anchor_row, None);
+    assert!(state.display.force_full_banner_redraw);
+}
+
+#[test]
 fn resize_ignores_transient_jetbrains_claude_geometry_collapse() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 80;
 
@@ -102,7 +231,7 @@ fn resize_ignores_transient_jetbrains_claude_geometry_collapse() {
 fn resize_accepts_small_geometry_for_non_claude_backends() {
     with_backend_label_env(Some("codex"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 80;
 
@@ -120,17 +249,17 @@ fn status_clear_height_only_when_banner_shrinks() {
 }
 
 #[rstest]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Codex, false)]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Claude, true)]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Other, false)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Codex, false)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Claude, true)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Other, false)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Codex, true)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Claude, true)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Other, true)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Codex, false)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Claude, true)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Other, false)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Codex, false)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Claude, true)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Other, false)]
+#[case(TerminalHost::Other, BackendMatrixCase::Codex, true)]
+#[case(TerminalHost::Other, BackendMatrixCase::Claude, true)]
+#[case(TerminalHost::Other, BackendMatrixCase::Other, true)]
 fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
-    #[case] family: TerminalFamily,
+    #[case] family: TerminalHost,
     #[case] backend: BackendMatrixCase,
     #[case] expected: bool,
 ) {
@@ -165,28 +294,28 @@ fn should_preclear_bottom_rows_matrix_matches_host_provider_contract(
 
 #[rstest]
 #[case(
-    TerminalFamily::JetBrains,
+    TerminalHost::JetBrains,
     BackendMatrixCase::Codex,
     Some(CODEX_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS)
 )]
 #[case(
-    TerminalFamily::JetBrains,
+    TerminalHost::JetBrains,
     BackendMatrixCase::Claude,
     Some(CLAUDE_JETBRAINS_SCROLL_REDRAW_MIN_INTERVAL_MS)
 )]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Other, None)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Codex, None)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Other, None)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Codex, None)]
 #[case(
-    TerminalFamily::Cursor,
+    TerminalHost::Cursor,
     BackendMatrixCase::Claude,
     Some(CLAUDE_CURSOR_SCROLL_REDRAW_MIN_INTERVAL_MS)
 )]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Other, None)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Codex, None)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Claude, None)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Other, None)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Other, None)]
+#[case(TerminalHost::Other, BackendMatrixCase::Codex, None)]
+#[case(TerminalHost::Other, BackendMatrixCase::Claude, None)]
+#[case(TerminalHost::Other, BackendMatrixCase::Other, None)]
 fn scroll_redraw_interval_matrix_matches_host_provider_contract(
-    #[case] family: TerminalFamily,
+    #[case] family: TerminalHost,
     #[case] backend: BackendMatrixCase,
     #[case] expected_interval_ms: Option<u64>,
 ) {
@@ -200,17 +329,17 @@ fn scroll_redraw_interval_matrix_matches_host_provider_contract(
 }
 
 #[rstest]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Codex)]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Claude)]
-#[case(TerminalFamily::JetBrains, BackendMatrixCase::Other)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Codex)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Claude)]
-#[case(TerminalFamily::Cursor, BackendMatrixCase::Other)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Codex)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Claude)]
-#[case(TerminalFamily::Other, BackendMatrixCase::Other)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Codex)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Claude)]
+#[case(TerminalHost::JetBrains, BackendMatrixCase::Other)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Codex)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Claude)]
+#[case(TerminalHost::Cursor, BackendMatrixCase::Other)]
+#[case(TerminalHost::Other, BackendMatrixCase::Codex)]
+#[case(TerminalHost::Other, BackendMatrixCase::Claude)]
+#[case(TerminalHost::Other, BackendMatrixCase::Other)]
 fn force_scroll_redraw_trigger_matrix_respects_host_provider_profile(
-    #[case] family: TerminalFamily,
+    #[case] family: TerminalHost,
     #[case] backend: BackendMatrixCase,
 ) {
     let min_interval = scroll_redraw_min_interval_for_profile(
@@ -242,7 +371,7 @@ fn should_preclear_bottom_rows_jetbrains_skips_banner_preclear_without_transitio
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         false,
@@ -265,7 +394,7 @@ fn should_preclear_bottom_rows_jetbrains_preclears_on_pending_status_transition(
     };
     let now = Instant::now();
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         true,
@@ -287,7 +416,7 @@ fn should_preclear_bottom_rows_jetbrains_codex_skips_preclear_even_on_transition
         ..DisplayState::default()
     };
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         true,
@@ -310,7 +439,7 @@ fn should_preclear_bottom_rows_jetbrains_respects_cooldown() {
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         true,
@@ -334,7 +463,7 @@ fn should_preclear_bottom_rows_jetbrains_claude_requires_safe_cup_chunk() {
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         false,
@@ -347,7 +476,7 @@ fn should_preclear_bottom_rows_jetbrains_claude_requires_safe_cup_chunk() {
         now
     ));
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         &display,
         false,
@@ -453,7 +582,7 @@ fn should_preclear_bottom_rows_cursor_respects_cooldown() {
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -466,7 +595,7 @@ fn should_preclear_bottom_rows_cursor_respects_cooldown() {
         now
     ));
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -489,7 +618,7 @@ fn should_preclear_bottom_rows_cursor_skips_banner_only_preclear() {
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -513,7 +642,7 @@ fn should_preclear_bottom_rows_cursor_claude_skips_banner_only_preclear() {
     };
     let now = Instant::now();
     assert!(!should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -537,7 +666,7 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_once_for_startup_scroll()
     };
     let now = Instant::now();
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -554,7 +683,7 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_once_for_startup_scroll()
 #[test]
 fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_gate() {
     let mut status = StatusLineState::new();
-    status.claude_prompt_suppressed = false;
+    status.prompt_suppressed = false;
     let display = DisplayState {
         enhanced_status: Some(status),
         banner_height: 4,
@@ -563,7 +692,7 @@ fn should_preclear_bottom_rows_cursor_claude_preclears_banner_without_cadence_ga
     };
     let now = Instant::now();
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         false,
@@ -590,7 +719,7 @@ fn enhanced_status_does_not_cancel_pending_clear_status() {
     assert!(state.pending.clear_status);
 
     let mut suppressed = StatusLineState::new();
-    suppressed.claude_prompt_suppressed = true;
+    suppressed.prompt_suppressed = true;
     assert!(state.handle_message(WriterMessage::EnhancedStatus(suppressed)));
     assert!(
         state.pending.clear_status,
@@ -607,7 +736,7 @@ fn should_preclear_bottom_rows_cursor_preclears_for_pending_status_clear() {
     };
     let now = Instant::now();
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         true,
         &display,
         true,
@@ -629,7 +758,7 @@ fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
         ..DisplayState::default()
     };
     assert!(should_preclear_bottom_rows(
-        TerminalFamily::Other,
+        TerminalHost::Other,
         true,
         &display,
         false,
@@ -641,6 +770,197 @@ fn should_preclear_bottom_rows_other_terminal_uses_legacy_behavior() {
         Instant::now(),
         Instant::now()
     ));
+}
+
+#[test]
+fn preclear_policy_cursor_claude_banner_sets_immediate_redraw_flags() {
+    let display = DisplayState {
+        enhanced_status: Some(StatusLineState::new()),
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    let policy = PreclearPolicy::resolve(PreclearPolicyContext {
+        family: TerminalHost::Cursor,
+        display: &display,
+        status_clear_pending: false,
+        may_scroll_rows: true,
+        codex_jetbrains: false,
+        cursor_claude_startup_preclear: false,
+        cursor_claude_banner_preclear: true,
+        claude_jetbrains_banner_preclear: false,
+        claude_jetbrains_cup_preclear_safe: false,
+        claude_jetbrains_legacy_preclear_safe: false,
+        in_resize_repair_window: false,
+        preclear_blocked_for_recent_input: false,
+        claude_jetbrains_destructive_clear: false,
+        now,
+        last_preclear_at: now,
+    });
+    let outcome = policy.outcome(true);
+    assert!(policy.should_preclear);
+    assert!(outcome.pre_cleared);
+    assert!(outcome.force_redraw_after_preclear);
+    assert!(outcome.force_full_banner_redraw);
+    assert!(!outcome.needs_redraw);
+}
+
+#[test]
+fn preclear_policy_jetbrains_claude_resize_window_forces_repair_flags() {
+    let display = DisplayState {
+        enhanced_status: Some(StatusLineState::new()),
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    let policy = PreclearPolicy::resolve(PreclearPolicyContext {
+        family: TerminalHost::JetBrains,
+        display: &display,
+        status_clear_pending: false,
+        may_scroll_rows: false,
+        codex_jetbrains: false,
+        cursor_claude_startup_preclear: false,
+        cursor_claude_banner_preclear: false,
+        claude_jetbrains_banner_preclear: true,
+        claude_jetbrains_cup_preclear_safe: false,
+        claude_jetbrains_legacy_preclear_safe: false,
+        in_resize_repair_window: true,
+        preclear_blocked_for_recent_input: false,
+        claude_jetbrains_destructive_clear: false,
+        now,
+        last_preclear_at: now,
+    });
+    let outcome = policy.outcome(true);
+    assert!(policy.should_preclear);
+    assert!(outcome.pre_cleared);
+    assert!(outcome.force_redraw_after_preclear);
+    assert!(outcome.force_full_banner_redraw);
+    assert!(outcome.needs_redraw);
+}
+
+#[test]
+fn preclear_policy_outcome_without_preclear_disables_post_preclear_flags() {
+    let display = DisplayState {
+        enhanced_status: Some(StatusLineState::new()),
+        banner_height: 4,
+        preclear_banner_height: 4,
+        ..DisplayState::default()
+    };
+    let now = Instant::now();
+    let policy = PreclearPolicy::resolve(PreclearPolicyContext {
+        family: TerminalHost::Cursor,
+        display: &display,
+        status_clear_pending: false,
+        may_scroll_rows: true,
+        codex_jetbrains: false,
+        cursor_claude_startup_preclear: false,
+        cursor_claude_banner_preclear: true,
+        claude_jetbrains_banner_preclear: false,
+        claude_jetbrains_cup_preclear_safe: false,
+        claude_jetbrains_legacy_preclear_safe: false,
+        in_resize_repair_window: false,
+        preclear_blocked_for_recent_input: false,
+        claude_jetbrains_destructive_clear: false,
+        now,
+        last_preclear_at: now,
+    });
+    let outcome = policy.outcome(false);
+    assert!(!outcome.pre_cleared);
+    assert!(!outcome.force_redraw_after_preclear);
+    assert!(!outcome.force_full_banner_redraw);
+    assert!(!outcome.needs_redraw);
+}
+
+fn redraw_policy_context<'a>(bytes: &'a [u8]) -> RedrawPolicyContext<'a> {
+    let now = Instant::now();
+    RedrawPolicyContext {
+        family: TerminalHost::Other,
+        bytes,
+        now,
+        last_scroll_redraw_at: now,
+        scroll_redraw_min_interval: None,
+        may_scroll_rows: false,
+        display_force_full_banner_redraw: false,
+        display_has_enhanced_status: false,
+        display_has_unsuppressed_enhanced_status: false,
+        display_should_force_full_banner_redraw_on_output: false,
+        pending_clear_status: false,
+        pending_clear_overlay: false,
+        pending_overlay_panel_present: false,
+        preclear_outcome: PreclearOutcome::default(),
+        codex_jetbrains: false,
+        claude_jetbrains: false,
+        cursor_claude: false,
+        flash_sensitive_scroll_profile: false,
+        claude_non_scroll_redraw_profile: false,
+        claude_jetbrains_non_scroll_cursor_mutation: false,
+        claude_jetbrains_composer_keystroke: false,
+        claude_jetbrains_destructive_clear: false,
+        claude_jetbrains_chunk_touches_cursor_save_restore: false,
+        jetbrains_dec_cursor_saved_active: false,
+        jetbrains_ansi_cursor_saved_active: false,
+        claude_jetbrains_recent_destructive_clear_repaint: false,
+    }
+}
+
+#[test]
+fn redraw_policy_jetbrains_claude_scroll_defers_immediate_output_redraw() {
+    let mut ctx = redraw_policy_context(b"\n");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.may_scroll_rows = true;
+    ctx.claude_jetbrains = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.needs_redraw);
+    assert!(!policy.output_redraw_needed);
+    assert!(!policy.force_redraw_after_preclear);
+}
+
+#[test]
+fn redraw_policy_cursor_claude_non_scroll_cursor_mutation_forces_immediate_redraw() {
+    let mut ctx = redraw_policy_context(b"\x1b[2K");
+    ctx.family = TerminalHost::Cursor;
+    ctx.cursor_claude = true;
+    ctx.display_has_enhanced_status = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.force_full_banner_redraw);
+    assert!(policy.force_redraw_after_preclear);
+    assert!(policy.output_redraw_needed);
+    assert!(policy.needs_redraw);
+}
+
+#[test]
+fn redraw_policy_jetbrains_claude_destructive_clear_busy_slot_arms_deferred_repair() {
+    let mut ctx = redraw_policy_context(b"ignored");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.claude_jetbrains = true;
+    ctx.claude_jetbrains_destructive_clear = true;
+    ctx.claude_jetbrains_chunk_touches_cursor_save_restore = true;
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.destructive_clear_repaint);
+    assert!(policy.jetbrains_claude_destructive_clear_repaint);
+    assert!(!policy.immediate_reanchor_allowed);
+    assert!(!policy.force_redraw_after_preclear);
+    assert!(policy.needs_redraw);
+    assert!(policy.update_last_scroll_redraw_at);
+    assert!(policy.schedule_jetbrains_destructive_clear_repair);
+    assert!(policy.jetbrains_repair_skip_quiet_window);
+}
+
+#[test]
+fn redraw_policy_codex_jetbrains_consumes_preclear_outcome_for_redraw_trigger() {
+    let mut ctx = redraw_policy_context(b"ok");
+    ctx.family = TerminalHost::JetBrains;
+    ctx.codex_jetbrains = true;
+    ctx.preclear_outcome = PreclearOutcome {
+        pre_cleared: true,
+        ..PreclearOutcome::default()
+    };
+    let policy = RedrawPolicy::resolve(ctx);
+    assert!(policy.output_redraw_needed);
+    assert!(policy.needs_redraw);
 }
 
 #[test]
@@ -675,6 +995,7 @@ fn should_force_non_scroll_banner_redraw_requires_claude_flash_profile_and_inter
     let now = Instant::now();
     let interval = Duration::from_millis(CLAUDE_IDE_NON_SCROLL_REDRAW_MIN_INTERVAL_MS);
     assert!(!should_force_non_scroll_banner_redraw(
+        TerminalHost::Cursor,
         false,
         false,
         true,
@@ -683,6 +1004,7 @@ fn should_force_non_scroll_banner_redraw_requires_claude_flash_profile_and_inter
         now - interval
     ));
     assert!(!should_force_non_scroll_banner_redraw(
+        TerminalHost::Cursor,
         true,
         false,
         true,
@@ -691,9 +1013,16 @@ fn should_force_non_scroll_banner_redraw_requires_claude_flash_profile_and_inter
         now - interval
     ));
     assert!(!should_force_non_scroll_banner_redraw(
-        true, false, true, b"a", now, now
+        TerminalHost::Cursor,
+        true,
+        false,
+        true,
+        b"a",
+        now,
+        now
     ));
     assert!(should_force_non_scroll_banner_redraw(
+        TerminalHost::Cursor,
         true,
         false,
         true,
@@ -708,43 +1037,37 @@ fn defer_non_urgent_redraw_for_recent_input_applies_to_all_terminals() {
     let now = Instant::now();
     // Cursor uses the longer hold window
     assert!(should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::Cursor,
-        true,
+        TerminalHost::Cursor,
         now,
         now - Duration::from_millis(CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS / 2)
     ));
     // Non-Claude Cursor still defers
     assert!(should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::Cursor,
-        false,
+        TerminalHost::Cursor,
         now,
         now - Duration::from_millis(CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS / 2)
     ));
     // JetBrains defers with the shorter hold window
     assert!(should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::JetBrains,
-        true,
+        TerminalHost::JetBrains,
         now,
         now - Duration::from_millis(TYPING_REDRAW_HOLD_MS / 2)
     ));
     // Other terminals defer too
     assert!(should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::Other,
-        false,
+        TerminalHost::Other,
         now,
         now - Duration::from_millis(TYPING_REDRAW_HOLD_MS / 2)
     ));
     // Cursor expires after its hold window
     assert!(!should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::Cursor,
-        true,
+        TerminalHost::Cursor,
         now,
         now - Duration::from_millis(CURSOR_CLAUDE_TYPING_REDRAW_HOLD_MS + 10)
     ));
     // Other expires after the shorter hold window
     assert!(!should_defer_non_urgent_redraw_for_recent_input(
-        TerminalFamily::Other,
-        true,
+        TerminalHost::Other,
         now,
         now - Duration::from_millis(TYPING_REDRAW_HOLD_MS + 10)
     ));
@@ -754,7 +1077,7 @@ fn defer_non_urgent_redraw_for_recent_input_applies_to_all_terminals() {
 fn maybe_redraw_status_defers_non_urgent_redraw_while_user_typing_in_cursor_claude() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -775,7 +1098,7 @@ fn maybe_redraw_status_defers_non_urgent_redraw_while_user_typing_in_cursor_clau
 fn maybe_redraw_status_does_not_defer_minimal_hud_recovery_in_cursor_claude() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -797,7 +1120,7 @@ fn maybe_redraw_status_does_not_defer_minimal_hud_recovery_in_cursor_claude() {
 fn maybe_redraw_status_defers_non_urgent_redraw_while_user_typing_on_standard_terminal() {
     with_backend_label_env(None, || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Other;
+        state.set_terminal_family_for_tests(TerminalHost::Other);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -818,7 +1141,7 @@ fn maybe_redraw_status_defers_non_urgent_redraw_while_user_typing_on_standard_te
 fn user_input_activity_schedules_cursor_claude_repair_redraw() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -834,7 +1157,7 @@ fn user_input_activity_schedules_cursor_claude_repair_redraw() {
 fn user_input_activity_schedules_repair_when_status_is_pending() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.pending.enhanced_status = Some(StatusLineState::new());
@@ -850,7 +1173,7 @@ fn user_input_activity_schedules_repair_when_status_is_pending() {
 fn user_input_activity_schedules_repair_for_jetbrains_claude() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -866,7 +1189,7 @@ fn user_input_activity_schedules_repair_for_jetbrains_claude() {
 fn jetbrains_claude_first_pty_output_consumes_startup_screen_clear_flag() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -881,10 +1204,28 @@ fn jetbrains_claude_first_pty_output_consumes_startup_screen_clear_flag() {
 }
 
 #[test]
+fn cursor_first_pty_output_consumes_startup_screen_clear_flag() {
+    with_backend_label_env(Some("codex"), || {
+        let mut state = WriterState::new();
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
+        state.rows = 24;
+        state.cols = 120;
+        state.display.enhanced_status = Some(StatusLineState::new());
+        assert!(state.cursor_startup_screen_clear_pending);
+
+        assert!(state.handle_message(WriterMessage::PtyOutput(b"hello".to_vec())));
+        assert!(
+            !state.cursor_startup_screen_clear_pending,
+            "Cursor should clear the startup viewport only once on first PTY output"
+        );
+    });
+}
+
+#[test]
 fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -903,7 +1244,7 @@ fn scheduled_cursor_claude_repair_redraw_fires_without_pending_status_update() {
 fn scheduled_jetbrains_claude_repair_redraw_waits_for_idle_settle() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -928,7 +1269,7 @@ fn scheduled_jetbrains_claude_repair_redraw_waits_for_idle_settle() {
 fn unrelated_redraw_keeps_future_cursor_claude_repair_deadline() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -948,7 +1289,7 @@ fn unrelated_redraw_keeps_future_cursor_claude_repair_deadline() {
 fn maybe_redraw_status_jetbrains_claude_requires_idle_settle_for_passive_redraw() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -977,7 +1318,7 @@ fn maybe_redraw_status_jetbrains_claude_requires_idle_settle_for_passive_redraw(
 fn jetbrains_claude_forces_single_line_full_hud_fallback_for_full_hud_requests() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.last_output_at = Instant::now() - Duration::from_millis(1_000);
@@ -986,7 +1327,7 @@ fn jetbrains_claude_forces_single_line_full_hud_fallback_for_full_hud_requests()
         let mut next = StatusLineState::new();
         next.hud_style = HudStyle::Full;
         next.hud_border_style = HudBorderStyle::Single;
-        next.claude_prompt_suppressed = false;
+        next.prompt_suppressed = false;
         next.message = "Ready".to_string();
 
         assert!(state.handle_message(WriterMessage::EnhancedStatus(next)));
@@ -1154,7 +1495,7 @@ fn pty_output_may_scroll_rows_flags_csi_scroll_sequences() {
 #[test]
 fn non_scrolling_output_does_not_force_full_banner_redraw() {
     let mut state = WriterState::new();
-    state.terminal_family = TerminalFamily::Other;
+    state.set_terminal_family_for_tests(TerminalHost::Other);
     state.rows = 24;
     state.cols = 120;
     state.display.enhanced_status = Some(StatusLineState::new());
@@ -1172,7 +1513,7 @@ fn non_scrolling_output_does_not_force_full_banner_redraw() {
 #[test]
 fn scrolling_output_forces_full_banner_redraw_for_multi_row_hud() {
     let mut state = WriterState::new();
-    state.terminal_family = TerminalFamily::Other;
+    state.set_terminal_family_for_tests(TerminalHost::Other);
     state.rows = 24;
     state.cols = 120;
     state.display.enhanced_status = Some(StatusLineState::new());
@@ -1186,7 +1527,7 @@ fn scrolling_output_forces_full_banner_redraw_for_multi_row_hud() {
 #[test]
 fn scrolling_output_forces_full_banner_redraw_for_single_row_hud() {
     let mut state = WriterState::new();
-    state.terminal_family = TerminalFamily::Other;
+    state.set_terminal_family_for_tests(TerminalHost::Other);
     state.rows = 24;
     state.cols = 120;
     state.display.enhanced_status = Some(StatusLineState::new());
@@ -1201,7 +1542,7 @@ fn scrolling_output_forces_full_banner_redraw_for_single_row_hud() {
 fn jetbrains_scroll_output_redraw_state_matches_backend_policy() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -1220,7 +1561,7 @@ fn jetbrains_scroll_output_redraw_state_matches_backend_policy() {
 fn jetbrains_claude_non_cup_scroll_chunk_preclears_when_cursor_slot_untouched() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -1245,7 +1586,7 @@ fn jetbrains_claude_non_cup_scroll_chunk_preclears_when_cursor_slot_untouched() 
 fn jetbrains_claude_non_cup_scroll_chunk_skips_preclear_when_cursor_slot_touched() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
+        state.set_terminal_family_for_tests(TerminalHost::JetBrains);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -1272,7 +1613,7 @@ fn jetbrains_claude_non_cup_scroll_chunk_skips_preclear_when_cursor_slot_touched
 fn cursor_scrolling_output_marks_full_banner_for_redraw() {
     with_backend_label_env(Some("codex"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -1291,7 +1632,7 @@ fn cursor_scrolling_output_marks_full_banner_for_redraw() {
 fn cursor_claude_banner_preclear_requests_redraw_on_scrolling_newline_output() {
     with_backend_label_env(Some("claude"), || {
         let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
+        state.set_terminal_family_for_tests(TerminalHost::Cursor);
         state.rows = 24;
         state.cols = 120;
         state.display.enhanced_status = Some(StatusLineState::new());
@@ -1323,677 +1664,22 @@ fn transition_redraw_after_preclear_disables_previous_line_diff() {
 fn jetbrains_forces_full_banner_repaint_even_without_transition() {
     // JetBrains always forces full repaint (returns false) regardless of backend
     assert!(!should_use_previous_banner_lines_for_profile(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         false,
         false
     ));
     // Even with force_full_banner_redraw=true, still false for JetBrains
     assert!(!should_use_previous_banner_lines_for_profile(
-        TerminalFamily::JetBrains,
+        TerminalHost::JetBrains,
         true,
         false
     ));
     // Non-JetBrains terminals use normal line-diff logic
     assert!(should_use_previous_banner_lines_for_profile(
-        TerminalFamily::Cursor,
+        TerminalHost::Cursor,
         false,
         false
     ));
 }
 
-#[test]
-fn pty_output_may_scroll_rows_skips_csi_escape_sequences() {
-    let mut col = 0usize;
-    // CSI sequence parameters should NOT count as printable characters.
-    // "\x1b[31m" is SGR (3 param bytes + final 'm') — column should stay 0.
-    assert!(!pty_output_may_scroll_rows(
-        80,
-        &mut col,
-        b"\x1b[31m",
-        false
-    ));
-    assert_eq!(col, 0, "CSI params must not inflate column estimate");
-}
-
-#[test]
-fn pty_output_may_scroll_rows_handles_mixed_csi_and_printable() {
-    let mut col = 0usize;
-    // "\x1b[32mHi" — SGR skipped, then 'H' and 'i' count as 2 printable chars.
-    assert!(!pty_output_may_scroll_rows(
-        80,
-        &mut col,
-        b"\x1b[32mHi",
-        false
-    ));
-    assert_eq!(col, 2, "only printable bytes after CSI should count");
-}
-
-#[test]
-fn pty_output_may_scroll_rows_skips_two_byte_escape_sequences() {
-    let mut col = 0usize;
-    // ESC 7 (save cursor) + ESC 8 (restore cursor) — both should be skipped.
-    assert!(!pty_output_may_scroll_rows(
-        80,
-        &mut col,
-        b"\x1b7\x1b8ab",
-        false
-    ));
-    assert_eq!(
-        col, 2,
-        "two-byte escapes should be skipped, only 'ab' counted"
-    );
-}
-
-#[test]
-fn pty_output_may_scroll_rows_sgr_does_not_cause_false_scroll() {
-    let mut col = 0usize;
-    // 8-column terminal: "Hi" (2 cols) + SGR "\x1b[0;38;5;196m" + "!" (1 col) = 3 cols total.
-    // Before the fix, SGR parameter bytes inflated the estimate past 8, causing false scroll.
-    let payload = b"Hi\x1b[0;38;5;196m!";
-    assert!(!pty_output_may_scroll_rows(8, &mut col, payload, false));
-    assert_eq!(col, 3, "SGR color codes must not cause false wrap-scroll");
-}
-
-#[test]
-fn track_cursor_save_restore_tracks_dec_and_ansi_sequences() {
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(false, false, b"", b"\x1b7\x1b[s");
-    assert!(dec_active);
-    assert!(ansi_active);
-    assert!(saw_save);
-    assert!(!saw_restore);
-    assert!(carry.is_empty());
-
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(dec_active, ansi_active, &carry, b"\x1b8\x1b[u");
-    assert!(!dec_active);
-    assert!(!ansi_active);
-    assert!(!saw_save);
-    assert!(saw_restore);
-    assert!(carry.is_empty());
-}
-
-#[test]
-fn track_cursor_save_restore_handles_split_escape_sequences() {
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(false, false, b"", b"\x1b");
-    assert!(!dec_active);
-    assert!(!ansi_active);
-    assert!(!saw_save);
-    assert!(!saw_restore);
-    assert_eq!(carry, b"\x1b");
-
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(dec_active, ansi_active, &carry, b"7prompt");
-    assert!(dec_active);
-    assert!(!ansi_active);
-    assert!(saw_save);
-    assert!(!saw_restore);
-    assert!(carry.is_empty());
-
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(dec_active, ansi_active, &carry, b"\x1b[0");
-    assert!(dec_active);
-    assert!(!ansi_active);
-    assert!(!saw_save);
-    assert!(!saw_restore);
-    assert_eq!(carry, b"\x1b[0");
-
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(dec_active, ansi_active, &carry, b"u");
-    assert!(dec_active);
-    assert!(!ansi_active);
-    assert!(!saw_save);
-    assert!(saw_restore);
-    assert!(carry.is_empty());
-}
-
-#[test]
-fn track_cursor_save_restore_ignores_csi_parameter_bytes() {
-    let (dec_active, ansi_active, saw_save, saw_restore, carry) =
-        track_cursor_save_restore(false, false, b"", b"\x1b[38;5;196mcolor\x1b[0m");
-    assert!(!dec_active);
-    assert!(!ansi_active);
-    assert!(!saw_save);
-    assert!(!saw_restore);
-    assert!(carry.is_empty());
-}
-
-#[test]
-fn maybe_redraw_status_defers_jetbrains_claude_when_cursor_save_is_active() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at =
-            Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS + 40);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_dec_cursor_saved_active = true;
-        state.jetbrains_ansi_cursor_saved_active = false;
-
-        state.maybe_redraw_status();
-        assert!(
-            state.needs_redraw,
-            "JetBrains+Claude redraw should wait while cursor-save state is active"
-        );
-    });
-}
-
-#[test]
-fn maybe_redraw_status_defers_jetbrains_claude_during_restore_settle_window() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at =
-            Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_IDLE_REDRAW_HOLD_MS + 40);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_dec_cursor_saved_active = false;
-        state.jetbrains_ansi_cursor_saved_active = false;
-        state.jetbrains_cursor_restore_settle_until =
-            Some(Instant::now() + Duration::from_millis(80));
-
-        state.maybe_redraw_status();
-        assert!(
-            state.needs_redraw,
-            "JetBrains+Claude redraw should wait briefly after cursor restore"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_repair_waits_for_due_deadline() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at = Instant::now();
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() + Duration::from_millis(80));
-
-        state.maybe_redraw_status();
-        assert!(
-            state.needs_redraw,
-            "composer repair should wait until debounce deadline"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_keystroke_repaints_immediately_without_deferred_repair() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        assert!(state.handle_message(WriterMessage::UserInputActivity));
-
-        let composer_chunk = b"\x1b[?2026h\r\x1b[2A\x1b[7m \x1b[27m\r\n\x1b[?2026l".to_vec();
-        assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
-            "composer keystroke packets should repaint immediately without delayed repair arming"
-        );
-        assert!(
-            !state.needs_redraw,
-            "immediate composer repaint should complete in the same writer cycle"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_keystroke_falls_back_to_deferred_repair_when_cursor_slot_active() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.jetbrains_dec_cursor_saved_active = true;
-        assert!(state.handle_message(WriterMessage::UserInputActivity));
-
-        let composer_chunk = b"\x1b[?2026h\r\x1b[2A\x1b[7m \x1b[27m\r\n\x1b[?2026l".to_vec();
-        assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "when cursor save/restore is active, composer packets should use deferred repair path"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_keystroke_ignored_without_recent_user_input() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.last_user_input_at =
-            Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_COMPOSER_RECENT_INPUT_MS + 100);
-
-        let composer_chunk = b"\x1b[?2026h\r\x1b[2A\x1b[7m \x1b[27m\r\n\x1b[?2026l".to_vec();
-        assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
-            "without recent input, composer-like packets should not arm repair redraws"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_full_hud_non_scroll_cursor_mutation_arms_repair() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 42;
-        state.cols = 196;
-        assert!(state.handle_message(WriterMessage::UserInputActivity));
-
-        let mut hud = StatusLineState::new();
-        hud.hud_style = HudStyle::Full;
-        hud.claude_prompt_suppressed = false;
-        state.display.enhanced_status = Some(hud);
-
-        let mutation_chunk = b"\x1b[?2026h\r\x1b[6A\x1b[7m \x1b[27m\x1b[?2026l".to_vec();
-        assert!(
-            !chunk_looks_like_claude_composer_keystroke(&mutation_chunk),
-            "6A packets should not require the short-composer classifier to schedule repair"
-        );
-        assert!(state.handle_message(WriterMessage::PtyOutput(mutation_chunk)));
-        assert!(
-            state.display.force_full_banner_redraw,
-            "full HUD should mark a full repaint after non-scroll cursor mutation"
-        );
-        assert!(
-            state.needs_redraw,
-            "full HUD should queue deferred redraw after non-scroll cursor mutation"
-        );
-        assert!(
-            !state.force_redraw_after_preclear,
-            "full HUD repair should stay deferred for synchronized rewrite bursts on JetBrains+Claude"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "full HUD non-scroll cursor mutation should arm a repair deadline"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_thinking_packet_without_recent_input_still_arms_repair() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 42;
-        state.cols = 196;
-        state.last_user_input_at =
-            Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_COMPOSER_RECENT_INPUT_MS + 250);
-
-        let mut hud = StatusLineState::new();
-        hud.hud_style = HudStyle::Full;
-        hud.claude_prompt_suppressed = false;
-        state.display.enhanced_status = Some(hud);
-
-        let thinking_chunk = b"\x1b[?2026h\r\x1b[21C\x1b[6A\x1b[37m50\x1b[10C\x1b[38;2;174;174;174m(thinking)\x1b[39m\r\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec();
-        assert!(state.handle_message(WriterMessage::PtyOutput(thinking_chunk)));
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "thinking rewrite packets should arm repair even without recent input"
-        );
-        assert!(
-            !state.jetbrains_claude_repair_skip_quiet_window,
-            "thinking rewrite packets should keep quiet-window gating to avoid repeated redraw races"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_destructive_clear_reanchors_hud_immediately_when_cursor_slot_idle() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 26;
-        state.cols = 120;
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
-
-        let mut hud = StatusLineState::new();
-        hud.hud_style = HudStyle::Full;
-        hud.claude_prompt_suppressed = false;
-        state.display.enhanced_status = Some(hud);
-        state.display.banner_height = 4;
-        state.display.preclear_banner_height = 4;
-
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
-        assert!(
-            !state.needs_redraw,
-            "destructive clears should repaint JetBrains+Claude HUD immediately when cursor slot is idle"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "destructive clear should still arm a near-term follow-up repair"
-        );
-        assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
-            "destructive-clear follow-up repair should bypass quiet window"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_destructive_clear_defers_immediate_repaint_when_cursor_slot_busy() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 26;
-        state.cols = 120;
-        state.jetbrains_dec_cursor_saved_active = true;
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
-
-        let mut hud = StatusLineState::new();
-        hud.hud_style = HudStyle::Full;
-        hud.claude_prompt_suppressed = false;
-        state.display.enhanced_status = Some(hud);
-        state.display.banner_height = 4;
-        state.display.preclear_banner_height = 4;
-
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
-        assert!(
-            state.needs_redraw,
-            "when cursor slot is busy, destructive-clear repaint should stay deferred"
-        );
-        assert!(
-            !state.force_redraw_after_preclear,
-            "busy cursor slot should block immediate preclear redraw path"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "deferred path should still arm follow-up repair"
-        );
-        assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
-            "deferred destructive-clear repair should bypass quiet window"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_repeated_destructive_clear_burst_uses_deferred_followup() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 26;
-        state.cols = 120;
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.last_output_at = Instant::now() - Duration::from_millis(2_000);
-
-        let mut hud = StatusLineState::new();
-        hud.hud_style = HudStyle::Full;
-        hud.claude_prompt_suppressed = false;
-        state.display.enhanced_status = Some(hud);
-        state.display.banner_height = 4;
-        state.display.preclear_banner_height = 4;
-
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
-        assert!(
-            !state.needs_redraw,
-            "first destructive clear should re-anchor immediately"
-        );
-
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2J\x1b[3J\x1b[H".to_vec())));
-        assert!(
-            state.needs_redraw,
-            "subsequent destructive clears in the same burst should defer to scheduled repair"
-        );
-        assert!(
-            !state.force_redraw_after_preclear,
-            "burst follow-up should not repeatedly force immediate preclear redraw"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "burst follow-up should keep a deferred repair marker armed"
-        );
-        assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
-            "deferred repair from destructive-clear burst should bypass quiet window"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_repair_requires_quiet_window_after_due() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at = Instant::now() - Duration::from_millis(90);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
-
-        state.maybe_redraw_status();
-        assert!(
-            state.needs_redraw,
-            "ready composer repair should still wait for a post-burst quiet window"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "repair marker should stay armed while output is still settling"
-        );
-
-        state.last_output_at =
-            Instant::now() - Duration::from_millis(CLAUDE_JETBRAINS_COMPOSER_REPAIR_QUIET_MS + 20);
-        state.maybe_redraw_status();
-        assert!(
-            !state.needs_redraw,
-            "once output is quiet, composer repair should commit"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
-            "composer repair deadline should clear after redraw commits"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_sync_repair_can_bypass_quiet_window() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at = Instant::now();
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
-        state.jetbrains_claude_repair_skip_quiet_window = true;
-
-        state.maybe_redraw_status();
-        assert!(
-            !state.needs_redraw,
-            "quiet-window bypass should allow scheduled repair redraw while synchronized rewrite packets are active"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
-            "repair deadline should clear after bypassed redraw commits"
-        );
-        assert!(
-            !state.jetbrains_claude_repair_skip_quiet_window,
-            "quiet-window bypass marker should reset after redraw commits"
-        );
-    });
-}
-
-#[test]
-fn jetbrains_claude_composer_repair_still_waits_when_cursor_save_is_active() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::JetBrains;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.needs_redraw = true;
-        state.last_output_at = Instant::now() - Duration::from_millis(90);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
-        state.jetbrains_dec_cursor_saved_active = true;
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
-
-        state.maybe_redraw_status();
-        assert!(
-            state.needs_redraw,
-            "active cursor-save should still block composer repair redraw"
-        );
-        assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
-            "composer repair marker should stay armed until redraw can run safely"
-        );
-    });
-}
-
-#[test]
-fn pty_output_contains_destructive_clear_detects_screen_clear_sequences() {
-    assert!(pty_output_contains_destructive_clear(b"\x1b[2J\x1b[H"));
-    assert!(pty_output_contains_destructive_clear(b"\x1b[3J"));
-    assert!(pty_output_contains_destructive_clear(b"\x1bc"));
-}
-
-#[test]
-fn pty_output_contains_destructive_clear_ignores_non_destructive_sequences() {
-    assert!(!pty_output_contains_destructive_clear(b"\x1b[0J"));
-    assert!(!pty_output_contains_destructive_clear(b"\x1b[K"));
-    assert!(!pty_output_contains_destructive_clear(b"plain output"));
-}
-
-#[test]
-fn cursor_claude_suppression_transition_bypasses_typing_hold_deferral() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.banner_height = 0;
-        state.display.preclear_banner_height = 1;
-        state.last_user_input_at = Instant::now();
-        state.last_output_at = Instant::now() - Duration::from_millis(200);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(200);
-
-        let mut suppressed = StatusLineState::new();
-        suppressed.hud_style = HudStyle::Minimal;
-        suppressed.claude_prompt_suppressed = true;
-        state.display.enhanced_status = Some(suppressed.clone());
-
-        let mut unsuppressed = suppressed;
-        unsuppressed.claude_prompt_suppressed = false;
-
-        assert!(state.handle_message(WriterMessage::EnhancedStatus(unsuppressed)));
-        assert!(
-                !state.needs_redraw,
-                "suppression state transitions must bypass typing-hold deferral so HUD state syncs immediately"
-            );
-        assert_eq!(state.display.banner_height, 1);
-        assert!(state
-            .display
-            .enhanced_status
-            .as_ref()
-            .is_some_and(|status| !status.claude_prompt_suppressed));
-    });
-}
-
-#[test]
-fn cursor_claude_post_clear_enhanced_status_bypasses_typing_hold_deferral() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.banner_height = 0;
-        state.display.preclear_banner_height = 1;
-        state.display.enhanced_status = None;
-        state.last_user_input_at = Instant::now();
-        state.last_output_at = Instant::now() - Duration::from_millis(200);
-        state.last_status_draw_at = Instant::now() - Duration::from_millis(200);
-
-        let mut next = StatusLineState::new();
-        next.hud_style = HudStyle::Minimal;
-        next.claude_prompt_suppressed = false;
-
-        assert!(state.handle_message(WriterMessage::EnhancedStatus(next)));
-        assert!(
-                !state.needs_redraw,
-                "EnhancedStatus posted after ClearStatus must redraw immediately in typing-hold windows"
-            );
-        assert_eq!(state.display.banner_height, 1);
-    });
-}
-
-#[test]
-fn cursor_claude_non_scroll_csi_mutation_triggers_redraw() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
-        state.rows = 24;
-        state.cols = 120;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.display.banner_height = 4;
-        state.display.preclear_banner_height = 4;
-        state.display.force_full_banner_redraw = false;
-        state.cursor_startup_scroll_preclear_pending = false;
-        // Simulate recent user typing so the typing-hold deferral is active.
-        state.last_user_input_at = Instant::now();
-        state.last_scroll_redraw_at = Instant::now();
-
-        // Non-scrolling CSI cursor mutation: "\x1b[2K" (erase line) with no newline.
-        // Claude Code emits these on every keystroke echo, clearing the HUD rows.
-        // The forced redraw should bypass the typing-hold deferral and actually
-        // repaint the HUD in the same cycle (needs_redraw consumed = false).
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"\x1b[2K".to_vec())));
-        assert!(
-            !state.needs_redraw,
-            "Cursor+Claude must repaint HUD immediately after non-scrolling CSI mutation \
-                 (force_redraw_after_preclear should bypass typing-hold deferral)"
-        );
-    });
-}
-
-#[test]
-fn cursor_claude_banner_preclear_handles_wrap_scroll_without_newline() {
-    with_backend_label_env(Some("claude"), || {
-        let mut state = WriterState::new();
-        state.terminal_family = TerminalFamily::Cursor;
-        state.rows = 24;
-        state.cols = 10;
-        state.display.enhanced_status = Some(StatusLineState::new());
-        state.display.banner_height = 4;
-        state.display.preclear_banner_height = 4;
-        state.display.force_full_banner_redraw = false;
-        state.cursor_startup_scroll_preclear_pending = false;
-        state.last_preclear_at =
-            Instant::now() - Duration::from_millis(CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS);
-        state.last_scroll_redraw_at = Instant::now();
-
-        assert!(state.handle_message(WriterMessage::PtyOutput(b"hello world".to_vec())));
-        assert!(
-                !state.needs_redraw,
-                "wrap-driven scroll should trigger same-cycle preclear+redraw even without explicit newline"
-            );
-    });
-}
+mod scroll_repair_tests;

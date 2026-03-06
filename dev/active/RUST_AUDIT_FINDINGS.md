@@ -1,8 +1,8 @@
 # VoiceTerm Rust Remediation Audit
 
-**Generated:** 2026-03-03T21:00:16.697015  
+**Generated:** 2026-03-05T23:35:57.749658  
 **Trigger:** check-ai-guard  
-**Trigger steps:** code-shape-guard  
+**Trigger steps:** code-shape-guard,rust-best-practices-guard  
 **Diff range:** working-tree vs HEAD
 
 ---
@@ -36,9 +36,13 @@ planning and implementation, not a historical archive.
 
 | Guard | Focus | Severity | Return | Violations | Status |
 |---|---|---|---:|---:|---|
-| `code-shape-guard` | modularity | high | 1 | 1 | needs remediation |
+| `code-shape-guard` | modularity | high | 1 | 11 | needs remediation |
+| `duplicate-types-guard` | duplicate type names | high | 0 | 0 | clean |
+| `structural-complexity-guard` | structural complexity | high | 0 | 0 | clean |
+| `rust-test-shape-guard` | test modularity | high | 0 | 0 | clean |
 | `rust-lint-debt-guard` | lint debt | high | 0 | 0 | clean |
-| `rust-best-practices-guard` | best practices | high | 0 | 0 | clean |
+| `rust-best-practices-guard` | best practices | high | 1 | 1 | needs remediation |
+| `rust-runtime-panic-policy-guard` | runtime panic policy | high | 0 | 0 | clean |
 | `rust-audit-patterns-guard` | known audit regressions | critical | 0 | 0 | clean |
 | `rust-security-footguns-guard` | security footguns | critical | 0 | 0 | clean |
 
@@ -49,11 +53,29 @@ planning and implementation, not a historical archive.
 - Severity: high
 - Return code: 1
 - Violations:
-- `dev/scripts/checks/check_coderabbit_gate.py` (crossed_soft_limit)
+- `dev/scripts/checks/check_code_shape.py` (function_exceeds_max_lines)
+- `dev/scripts/checks/check_mutation_score.py` (function_exceeds_max_lines)
+- `dev/scripts/checks/check_rust_best_practices.py` (crossed_soft_limit)
+- `dev/scripts/checks/check_rust_lint_debt.py` (function_exceeds_max_lines)
+- `dev/scripts/checks/check_structural_complexity.py` (function_exceeds_max_lines)
+- `dev/scripts/devctl/cli_parser_reporting.py` (crossed_soft_limit)
+- `dev/scripts/devctl/commands/check_phases.py` (new_file_exceeds_soft_limit)
+- `dev/scripts/devctl/commands/docs_check.py` (function_exceeds_max_lines)
+- `dev/scripts/devctl/commands/docs_check_render.py` (function_exceeds_max_lines)
+- `dev/scripts/devctl/commands/hygiene.py` (crossed_soft_limit)
+- `dev/scripts/devctl/commands/mcp.py` (new_file_exceeds_soft_limit)
+
+### rust-best-practices-guard
+- Focus: best practices
+- Severity: high
+- Return code: 1
+- Violations:
+- `rust/src/ipc/protocol.rs` (result_string_types +1)
 
 ## Remediation Actions
 
 - [ ] Refactor oversized or growth-violating files listed by `code-shape-guard` into narrower modules/helpers.
+- [ ] Add missing `reason=` for `#[allow(...)]`, document `unsafe` with `SAFETY:` comments, and add `# Safety` docs for public `unsafe fn` where reported.
 
 ## Verification Checklist
 

@@ -108,7 +108,7 @@ For command-by-command Dev panel behavior, see [DEV_MODE.md](DEV_MODE.md).
 | `--codex` | Use Codex CLI (shorthand) | - |
 | `--claude` | Use Claude Code (shorthand) | - |
 | `--gemini` | Use Gemini CLI (experimental; currently not working) | - |
-| `--backend <NAME\|CMD>` | Backend preset: `codex`, `claude`, `gemini` (not working), `aider` (untested), `opencode` (untested), or a custom command string | codex |
+| `--backend <NAME\|CMD>` | Backend preset: `codex`, `claude`, `gemini` (not working), `aider` (untested), `opencode` (untested), or a custom command string (overlay-only) | codex |
 | `--login` | Run backend login before starting the overlay | off |
 | `--prompt-regex <REGEX>` | Override prompt detection pattern | auto-learned |
 | `--prompt-log <PATH>` | Log detected prompts to file (debugging) | disabled |
@@ -129,7 +129,8 @@ voiceterm --login --claude      # Login to Claude CLI
 **Notes:**
 
 - `--backend` accepts a custom command string, for example: `voiceterm --backend "my-custom-cli --flag"`.
-- Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Only Codex and Claude are fully supported.
+- Gemini is currently nonfunctional. Aider/OpenCode presets are untested. Custom backends are overlay-only. Only Codex and Claude are fully supported.
+- In `--json-ipc` mode, provider selection accepts only `codex` and `claude`; `gemini`, `aider`, `opencode`, and `custom` are explicitly classified as overlay-only non-IPC backends.
 - JetBrains + Claude is fully supported on current releases. Rare edge case:
   after very long parallel tool calls or parallel web-search turns, temporary
   HUD/transcript overlap can appear at turn completion. Quick workaround:
@@ -207,7 +208,7 @@ VAD (voice activity detection) flags control when VoiceTerm starts and stops rec
 | `--hud-right-panel <MODE>` | Right-side HUD panel: `off`, `ribbon`, `dots`, `heartbeat` | ribbon |
 | `--hud-border-style <STYLE>` | Full HUD border style: `theme`, `single`, `rounded`, `double`, `heavy`, `none` | theme |
 | `--hud-right-panel-recording-only` | Only animate right panel while recording | on |
-| `--latency-display <off\|short\|label>` | Shortcuts-row latency badge style (`off`, `Nms`, or `Latency: Nms`) for completed turns | short |
+| `--latency-display <off\|short\|label\|rtf\|both>` | Shortcuts-row latency badge style (`off`, `Nms`, `Latency: Nms`, `RTF`, or `Nms + RTF`) for completed turns | short |
 | `--term <TERM>` | TERM value for the CLI | inherited |
 
 Set `--hud-right-panel-recording-only=false` to keep right-panel animation active while idle.
@@ -259,6 +260,11 @@ if `HOME` is unavailable).
 trusted, isolated environment and accept that tool actions may run without
 interactive approval prompts.
 
+IPC provider sessions currently support `codex` and `claude`.
+`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
+overlay-only non-IPC backends. All four are rejected in IPC provider selection
+paths with explicit diagnostics.
+
 ---
 
 ## Sounds
@@ -297,7 +303,7 @@ interactive approval prompts.
 | `VOICETERM_HUD_SAFETY_GAP_ROWS` | Override global HUD safety gap rows (`0..6`) | host default |
 | `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` | unset |
 | `CLAUDE_CMD` | Override Claude CLI path | unset |
-| `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`) | unset |
+| `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`; `gemini`, `aider`, `opencode`, and `custom` are rejected in IPC mode) | unset |
 | `NO_COLOR` | Disable colors (standard) | unset |
 
 ---

@@ -5,6 +5,7 @@ use super::*;
 const LATENCY_BADGE_MAX_AGE_SECS: u64 = 8;
 const TOAST_TICK_INTERVAL_MS: u64 = 250;
 const TERMINAL_GEOMETRY_POLL_INTERVAL_MS: u64 = 250;
+const CURSOR_SIGWINCH_DEBOUNCE_MS: u64 = 120;
 const CLAUDE_GEOMETRY_COLLAPSE_ROWS_MAX: u16 = 2;
 const CLAUDE_GEOMETRY_COLLAPSE_MIN_PREVIOUS_ROWS: u16 = 10;
 const CLAUDE_GEOMETRY_COLLAPSE_CONFIRMATIONS_REQUIRED: u8 = 2;
@@ -53,7 +54,7 @@ fn reconcile_terminal_geometry(
         cols,
         state.ui.overlay_mode,
         state.status_state.hud_style,
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
     );
     let _ = deps.writer_tx.send(WriterMessage::Resize { rows, cols });
     refresh_button_registry_if_mouse(state, deps);
@@ -134,7 +135,11 @@ pub(super) fn run_periodic_tasks(
     let sigwinch = take_sigwinch_flag();
     let geometry_poll_due = now.duration_since(timers.last_terminal_geometry_poll)
         >= Duration::from_millis(TERMINAL_GEOMETRY_POLL_INTERVAL_MS);
-    if sigwinch || geometry_poll_due {
+    let cursor_sigwinch_debounced = sigwinch
+        && runtime_compat::detect_terminal_host() == TerminalHost::Cursor
+        && now.duration_since(timers.last_terminal_geometry_poll)
+            < Duration::from_millis(CURSOR_SIGWINCH_DEBOUNCE_MS);
+    if (sigwinch && !cursor_sigwinch_debounced) || geometry_poll_due {
         timers.last_terminal_geometry_poll = now;
         let measured = read_terminal_size().ok();
         if let Some((cols, rows)) = normalize_measured_terminal_size(

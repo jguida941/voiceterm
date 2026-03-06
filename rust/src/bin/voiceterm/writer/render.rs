@@ -1,8 +1,7 @@
 use std::io::{self, Write};
-use std::sync::OnceLock;
 
 use crate::runtime_compat::{
-    backend_family_from_env, detect_terminal_host, BackendFamily, TerminalHost,
+    detect_terminal_host, should_toggle_cursor_visibility_for_redraw, TerminalHost,
 };
 use crate::status_line::StatusBanner;
 use crate::status_style::StatusType;
@@ -11,24 +10,7 @@ use crate::theme::Theme;
 use super::sanitize::{
     sanitize_status, status_text_display_width, truncate_ansi_line, truncate_status,
 };
-use super::state::OverlayPanel;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum TerminalFamily {
-    JetBrains,
-    Cursor,
-    Other,
-}
-
-impl From<TerminalHost> for TerminalFamily {
-    fn from(host: TerminalHost) -> Self {
-        match host {
-            TerminalHost::JetBrains => Self::JetBrains,
-            TerminalHost::Cursor => Self::Cursor,
-            TerminalHost::Other => Self::Other,
-        }
-    }
-}
+use super::state::display::OverlayPanel;
 
 // Use combined ANSI+DEC for non-JetBrains terminals so cursor save/restore
 // survives hosts that only implement one variant.
@@ -46,41 +28,32 @@ const WRAP_DISABLE: &[u8] = b"\x1b[?7l";
 const WRAP_ENABLE: &[u8] = b"\x1b[?7h";
 const CURSOR_HIDE: &[u8] = b"\x1b[?25l";
 const CURSOR_SHOW: &[u8] = b"\x1b[?25h";
+const SGR_RESET: &[u8] = b"\x1b[0m";
 /// Synchronized-output mode 2026: terminal buffers all writes between
 /// BSU/ESU and renders them as a single atomic frame.  Terminals that
 /// do not support it silently ignore the sequence.
 const SYNC_BEGIN: &[u8] = b"\x1b[?2026h";
 const SYNC_END: &[u8] = b"\x1b[?2026l";
 
-fn detect_terminal_family() -> TerminalFamily {
-    TerminalFamily::from(detect_terminal_host())
+pub(super) fn terminal_host() -> TerminalHost {
+    detect_terminal_host()
 }
 
-pub(super) fn terminal_family() -> TerminalFamily {
-    static TERMINAL_FAMILY: OnceLock<TerminalFamily> = OnceLock::new();
-    *TERMINAL_FAMILY.get_or_init(detect_terminal_family)
-}
-
-fn is_claude_backend_label() -> bool {
-    static IS_CLAUDE: OnceLock<bool> = OnceLock::new();
-    *IS_CLAUDE.get_or_init(|| backend_family_from_env() == BackendFamily::Claude)
-}
-
-fn save_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
+fn save_cursor_sequence_for_family(family: TerminalHost) -> &'static [u8] {
     match family {
         // JetBrains/JediTerm only supports DEC DECSC (\x1b7).  CSI s is
         // not implemented and sending it can cause parse confusion.
         // Scroll regions are disabled for JetBrains, so DEC restore
         // resetting margins is a non-issue.
-        TerminalFamily::JetBrains => SAVE_CURSOR_DEC,
-        TerminalFamily::Cursor | TerminalFamily::Other => SAVE_CURSOR_COMBINED,
+        TerminalHost::JetBrains => SAVE_CURSOR_DEC,
+        TerminalHost::Cursor | TerminalHost::Other => SAVE_CURSOR_COMBINED,
     }
 }
 
-fn restore_cursor_sequence_for_family(family: TerminalFamily) -> &'static [u8] {
+fn restore_cursor_sequence_for_family(family: TerminalHost) -> &'static [u8] {
     match family {
-        TerminalFamily::JetBrains => RESTORE_CURSOR_DEC,
-        TerminalFamily::Cursor | TerminalFamily::Other => RESTORE_CURSOR_COMBINED,
+        TerminalHost::JetBrains => RESTORE_CURSOR_DEC,
+        TerminalHost::Cursor | TerminalHost::Other => RESTORE_CURSOR_COMBINED,
     }
 }
 
@@ -88,7 +61,7 @@ fn should_disable_autowrap_during_redraw() -> bool {
     false
 }
 
-fn should_hide_cursor_during_redraw_for_family(family: TerminalFamily) -> bool {
+fn should_hide_cursor_during_redraw_for_family(family: TerminalHost) -> bool {
     // Keep cursor visibility untouched on all families. In JetBrains, forcing
     // hide/show around HUD redraws can leave the input caret missing when a
     // restore sequence is dropped under rapid refresh.
@@ -97,19 +70,19 @@ fn should_hide_cursor_during_redraw_for_family(family: TerminalFamily) -> bool {
 }
 
 fn push_cursor_prefix(sequence: &mut Vec<u8>) {
-    let family = terminal_family();
-    if family != TerminalFamily::JetBrains {
+    let family = terminal_host();
+    if family != TerminalHost::JetBrains {
         sequence.extend_from_slice(SYNC_BEGIN);
     }
     // Hide cursor for non-Claude JetBrains backends (Codex) to prevent
     // a block-cursor artifact at the end of the last HUD row during
     // redraw.  Claude's rapid TUI refresh can drop the show-cursor
     // restore, so it is excluded.
-    if family == TerminalFamily::JetBrains && !is_claude_backend_label() {
+    if should_toggle_cursor_visibility_for_redraw(family) {
         sequence.extend_from_slice(CURSOR_HIDE);
     }
     sequence.extend_from_slice(save_cursor_sequence_for_family(family));
-    if family != TerminalFamily::JetBrains {
+    if family != TerminalHost::JetBrains {
         if should_disable_autowrap_during_redraw() {
             sequence.extend_from_slice(WRAP_DISABLE);
         }
@@ -120,8 +93,8 @@ fn push_cursor_prefix(sequence: &mut Vec<u8>) {
 }
 
 fn push_cursor_suffix(sequence: &mut Vec<u8>) {
-    let family = terminal_family();
-    if family != TerminalFamily::JetBrains {
+    let family = terminal_host();
+    if family != TerminalHost::JetBrains {
         if should_disable_autowrap_during_redraw() {
             sequence.extend_from_slice(WRAP_ENABLE);
         }
@@ -130,11 +103,11 @@ fn push_cursor_suffix(sequence: &mut Vec<u8>) {
         }
     }
     sequence.extend_from_slice(restore_cursor_sequence_for_family(family));
-    if family != TerminalFamily::JetBrains {
+    if family != TerminalHost::JetBrains {
         sequence.extend_from_slice(SYNC_END);
     }
     // Show cursor after restore for non-Claude JetBrains backends.
-    if family == TerminalFamily::JetBrains && !is_claude_backend_label() {
+    if should_toggle_cursor_visibility_for_redraw(family) {
         sequence.extend_from_slice(CURSOR_SHOW);
     }
 }
@@ -164,10 +137,13 @@ pub(super) fn write_status_line(
     let mut sequence = Vec::new();
     push_cursor_prefix(&mut sequence);
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
+    // Start from a known attribute baseline so stale backend styles
+    // (underline/inverse/etc.) cannot leak into HUD text.
+    sequence.extend_from_slice(SGR_RESET);
     sequence.extend_from_slice(formatted.as_bytes());
     // Always reset attributes before clearing trailing space so prompt/input
     // text cannot inherit a stale HUD color context.
-    sequence.extend_from_slice(b"\x1b[0m");
+    sequence.extend_from_slice(SGR_RESET);
     // Clear only the remainder of the line to avoid clear-then-paint flicker.
     sequence.extend_from_slice(b"\x1b[K");
     push_cursor_suffix(&mut sequence);
@@ -187,7 +163,7 @@ pub(super) fn write_status_banner(
     }
     let height = banner.height.min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
-    let row_max_width = banner_row_max_render_width(terminal_family(), height, cols);
+    let row_max_width = banner_row_max_render_width(terminal_host(), height, cols);
 
     let mut sequence = Vec::new();
     let mut any_changed = false;
@@ -205,11 +181,14 @@ pub(super) fn write_status_banner(
         }
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
+                                                                         // Normalize attributes per row; some terminal backends leave
+                                                                         // decoration flags active across cursor movement.
+        sequence.extend_from_slice(SGR_RESET);
         let rendered = truncate_ansi_line(line, row_max_width);
         sequence.extend_from_slice(rendered.as_bytes()); // Write content
                                                          // Ensure clear-to-EOL runs in default attributes so the prompt row
                                                          // never picks up dim/hidden HUD styling.
-        sequence.extend_from_slice(b"\x1b[0m");
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[K"); // Clear any trailing stale content
     }
 
@@ -230,7 +209,7 @@ pub(super) fn write_status_banner(
     // Setting DECSTBM causes stacked/duplicated HUD frames and garbled approval
     // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
     // is sufficient for JetBrains — skip the scroll region there.
-    if terminal_family() != TerminalFamily::JetBrains {
+    if terminal_host() != TerminalHost::JetBrains {
         let scroll_bottom = rows.saturating_sub(height as u16);
         if scroll_bottom >= 1 {
             sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
@@ -242,14 +221,28 @@ pub(super) fn write_status_banner(
     stdout.write_all(&sequence)
 }
 
-fn banner_row_max_render_width(family: TerminalFamily, banner_height: usize, cols: u16) -> usize {
+fn banner_row_max_render_width(family: TerminalHost, banner_height: usize, cols: u16) -> usize {
     let cols = cols as usize;
     if cols == 0 {
         return 0;
     }
-    if family == TerminalFamily::JetBrains && banner_height <= 1 {
+    if family == TerminalHost::JetBrains && banner_height <= 1 {
         // JetBrains can still auto-wrap single-row HUD strips under rapid redraw.
         // Keep a one-column safety margin so status refreshes cannot scroll-stretch.
+        cols.saturating_sub(1).max(1)
+    } else {
+        cols
+    }
+}
+
+fn overlay_row_max_render_width(family: TerminalHost, cols: u16) -> usize {
+    let cols = cols as usize;
+    if cols == 0 {
+        return 0;
+    }
+    if matches!(family, TerminalHost::JetBrains | TerminalHost::Cursor) {
+        // IDE-integrated terminals can wrap when overlay rows land exactly on
+        // the last column after a resize. Keep a one-column guard.
         cols.saturating_sub(1).max(1)
     } else {
         cols
@@ -272,6 +265,7 @@ pub(super) fn build_clear_bottom_rows_bytes(rows: u16, height: usize) -> Vec<u8>
     for idx in 0..clear_height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
     push_cursor_suffix(&mut sequence);
@@ -294,6 +288,7 @@ pub(super) fn build_clear_bottom_rows_cup_only_bytes(rows: u16, height: usize) -
     for idx in 0..clear_height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
     sequence
@@ -319,6 +314,7 @@ pub(super) fn clear_status_banner(
     for idx in 0..clear_height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes()); // Move to row
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K"); // Clear line
     }
 
@@ -327,7 +323,7 @@ pub(super) fn clear_status_banner(
     // region set in write_status_banner().  DO NOT remove — without this reset,
     // the terminal stays locked to a smaller scroll area after the HUD clears.
     // Skipped on JetBrains/JediTerm (see write_status_banner for rationale).
-    if terminal_family() != TerminalFamily::JetBrains {
+    if terminal_host() != TerminalHost::JetBrains {
         sequence.extend_from_slice(format!("\x1b[1;{rows}r").as_bytes());
     }
 
@@ -353,6 +349,7 @@ pub(super) fn clear_status_banner_at(
     for idx in 0..height {
         let row = start_row.saturating_add(idx as u16);
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
     push_cursor_suffix(&mut sequence);
@@ -366,6 +363,7 @@ pub(super) fn clear_status_line(stdout: &mut dyn Write, rows: u16, cols: u16) ->
     let mut sequence = Vec::new();
     push_cursor_prefix(&mut sequence);
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
+    sequence.extend_from_slice(SGR_RESET);
     sequence.extend_from_slice(b"\x1b[2K");
     push_cursor_suffix(&mut sequence);
     stdout.write_all(&sequence)
@@ -380,7 +378,7 @@ pub(super) fn write_overlay_panel(
     if rows == 0 || cols == 0 {
         return Ok(());
     }
-    let max_width = cols as usize;
+    let max_width = overlay_row_max_render_width(terminal_host(), cols);
     let lines: Vec<&str> = panel.content.lines().collect();
     let height = panel.height.min(lines.len()).min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
@@ -389,8 +387,12 @@ pub(super) fn write_overlay_panel(
     for (idx, line) in lines.iter().take(height).enumerate() {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        // Overlay rows must clear inherited styles first so Cursor does not
+        // render stale underline/strike decoration across panel content.
+        sequence.extend_from_slice(SGR_RESET);
         let truncated = truncate_ansi_line(line, max_width);
         sequence.extend_from_slice(truncated.as_bytes());
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[K");
     }
     push_cursor_suffix(&mut sequence);
@@ -412,6 +414,7 @@ pub(super) fn clear_overlay_panel(
     for idx in 0..height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
+        sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
     push_cursor_suffix(&mut sequence);
@@ -510,29 +513,13 @@ mod tests {
     }
 
     #[test]
-    fn terminal_family_maps_from_runtime_terminal_host() {
-        assert_eq!(
-            TerminalFamily::from(TerminalHost::JetBrains),
-            TerminalFamily::JetBrains
-        );
-        assert_eq!(
-            TerminalFamily::from(TerminalHost::Cursor),
-            TerminalFamily::Cursor
-        );
-        assert_eq!(
-            TerminalFamily::from(TerminalHost::Other),
-            TerminalFamily::Other
-        );
-    }
-
-    #[test]
     fn cursor_terminal_uses_combined_cursor_save_restore_sequences() {
         assert_eq!(
-            save_cursor_sequence_for_family(TerminalFamily::Cursor),
+            save_cursor_sequence_for_family(TerminalHost::Cursor),
             SAVE_CURSOR_COMBINED
         );
         assert_eq!(
-            restore_cursor_sequence_for_family(TerminalFamily::Cursor),
+            restore_cursor_sequence_for_family(TerminalHost::Cursor),
             RESTORE_CURSOR_COMBINED
         );
     }
@@ -540,11 +527,11 @@ mod tests {
     #[test]
     fn jetbrains_terminal_uses_dec_only_cursor_save_restore_sequences() {
         assert_eq!(
-            save_cursor_sequence_for_family(TerminalFamily::JetBrains),
+            save_cursor_sequence_for_family(TerminalHost::JetBrains),
             SAVE_CURSOR_DEC
         );
         assert_eq!(
-            restore_cursor_sequence_for_family(TerminalFamily::JetBrains),
+            restore_cursor_sequence_for_family(TerminalHost::JetBrains),
             RESTORE_CURSOR_DEC
         );
     }
@@ -552,13 +539,13 @@ mod tests {
     #[test]
     fn cursor_hide_policy_keeps_visibility_unchanged_for_all_terminals() {
         assert!(!should_hide_cursor_during_redraw_for_family(
-            TerminalFamily::JetBrains
+            TerminalHost::JetBrains
         ));
         assert!(!should_hide_cursor_during_redraw_for_family(
-            TerminalFamily::Cursor
+            TerminalHost::Cursor
         ));
         assert!(!should_hide_cursor_during_redraw_for_family(
-            TerminalFamily::Other
+            TerminalHost::Other
         ));
     }
 
@@ -574,7 +561,7 @@ mod tests {
 
         write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[21;1H"));
+        assert!(output.contains("\u{1b}[21;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
     }
 
@@ -585,7 +572,7 @@ mod tests {
 
         write_status_banner(&mut buf, &banner, 24, 80, None).unwrap();
         let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[24;1H"));
+        assert!(output.contains("\u{1b}[24;1H\u{1b}[0m"));
         assert!(output.contains("\u{1b}[K"));
     }
 
@@ -594,9 +581,9 @@ mod tests {
         let mut buf = Vec::new();
         clear_status_banner_at(&mut buf, 10, 3).unwrap();
         let output = String::from_utf8_lossy(&buf);
-        assert!(output.contains("\u{1b}[10;1H"));
-        assert!(output.contains("\u{1b}[11;1H"));
-        assert!(output.contains("\u{1b}[12;1H"));
+        assert!(output.contains("\u{1b}[10;1H\u{1b}[0m\u{1b}[2K"));
+        assert!(output.contains("\u{1b}[11;1H\u{1b}[0m\u{1b}[2K"));
+        assert!(output.contains("\u{1b}[12;1H\u{1b}[0m\u{1b}[2K"));
         assert!(output.contains("\u{1b}[2K"));
     }
 
@@ -629,28 +616,58 @@ mod tests {
     #[test]
     fn banner_row_max_render_width_applies_jetbrains_single_row_safety_margin() {
         assert_eq!(
-            banner_row_max_render_width(TerminalFamily::JetBrains, 1, 80),
+            banner_row_max_render_width(TerminalHost::JetBrains, 1, 80),
             79
         );
         assert_eq!(
-            banner_row_max_render_width(TerminalFamily::JetBrains, 4, 80),
+            banner_row_max_render_width(TerminalHost::JetBrains, 4, 80),
             80
         );
+        assert_eq!(banner_row_max_render_width(TerminalHost::Cursor, 1, 80), 80);
+    }
+
+    #[test]
+    fn overlay_row_max_render_width_applies_ide_terminal_safety_margin() {
         assert_eq!(
-            banner_row_max_render_width(TerminalFamily::Cursor, 1, 80),
-            80
+            overlay_row_max_render_width(TerminalHost::JetBrains, 80),
+            79
         );
+        assert_eq!(overlay_row_max_render_width(TerminalHost::Cursor, 80), 79);
+        assert_eq!(overlay_row_max_render_width(TerminalHost::Other, 80), 80);
     }
 
     #[test]
     fn cup_only_bottom_clear_avoids_cursor_save_restore_sequences() {
         let output = build_clear_bottom_rows_cup_only_bytes(24, 2);
         let rendered = String::from_utf8_lossy(&output);
-        assert!(rendered.contains("\u{1b}[23;1H"));
-        assert!(rendered.contains("\u{1b}[24;1H"));
+        assert!(rendered.contains("\u{1b}[23;1H\u{1b}[0m\u{1b}[2K"));
+        assert!(rendered.contains("\u{1b}[24;1H\u{1b}[0m\u{1b}[2K"));
         assert!(!rendered.contains("\u{1b}[s"));
         assert!(!rendered.contains("\u{1b}[u"));
         assert!(!rendered.contains("\u{1b}7"));
         assert!(!rendered.contains("\u{1b}8"));
+    }
+
+    #[test]
+    fn write_overlay_panel_resets_attributes_before_content_and_clear() {
+        let mut buf = Vec::new();
+        let panel = OverlayPanel {
+            content: "row one\nrow two".to_string(),
+            height: 2,
+        };
+
+        write_overlay_panel(&mut buf, &panel, 24, 80).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert!(output.contains("\u{1b}[23;1H\u{1b}[0mrow one\u{1b}[0m\u{1b}[K"));
+        assert!(output.contains("\u{1b}[24;1H\u{1b}[0mrow two\u{1b}[0m\u{1b}[K"));
+    }
+
+    #[test]
+    fn clear_overlay_panel_resets_attributes_before_line_erase() {
+        let mut buf = Vec::new();
+        clear_overlay_panel(&mut buf, 24, 2).unwrap();
+        let output = String::from_utf8_lossy(&buf);
+        assert!(output.contains("\u{1b}[23;1H\u{1b}[0m\u{1b}[2K"));
+        assert!(output.contains("\u{1b}[24;1H\u{1b}[0m\u{1b}[2K"));
     }
 }

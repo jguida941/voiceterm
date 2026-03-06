@@ -19,6 +19,48 @@ from .ship_release_steps import run_github_step, run_notes_step, run_tag_step
 from .ship_verify_pypi_step import run_verify_pypi_step
 
 
+def build_verify_checks(*, verify_docs: bool) -> list[tuple[str, list[str]]]:
+    """Return ordered subchecks enforced by `ship --verify`."""
+    checks: list[tuple[str, list[str]]] = [
+        (
+            "coderabbit-gate",
+            check_script_cmd(
+                "coderabbit_gate", "--branch", "master", "--format", "json"
+            ),
+        ),
+        (
+            "coderabbit-ralph-gate",
+            check_script_cmd(
+                "coderabbit_ralph_gate", "--branch", "master", "--format", "json"
+            ),
+        ),
+        (
+            "check-release",
+            ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"],
+        ),
+        (
+            "hygiene",
+            ["python3", "dev/scripts/devctl.py", "hygiene", "--format", "json"],
+        ),
+    ]
+    if verify_docs:
+        checks.append(
+            (
+                "docs-check",
+                [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "docs-check",
+                    "--user-facing",
+                    "--strict-tooling",
+                    "--format",
+                    "json",
+                ],
+            )
+        )
+    return checks
+
+
 def run_prepare_release_step(args, context: Dict) -> Dict:
     """Auto-update release metadata files before verify/tag/publish steps."""
     try:
@@ -55,43 +97,7 @@ def run_verify_step(args, context: Dict) -> Dict:
             return make_step("verify", True, skipped=True, details=details)
         return make_step("verify", False, 2, details=parity_details)
 
-    checks = [
-        (
-            "coderabbit-gate",
-            check_script_cmd(
-                "coderabbit_gate", "--branch", "master", "--format", "json"
-            ),
-        ),
-        (
-            "coderabbit-ralph-gate",
-            check_script_cmd(
-                "coderabbit_ralph_gate", "--branch", "master", "--format", "json"
-            ),
-        ),
-        (
-            "check-release",
-            ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"],
-        ),
-        (
-            "hygiene",
-            ["python3", "dev/scripts/devctl.py", "hygiene", "--format", "json"],
-        ),
-    ]
-    if args.verify_docs:
-        checks.append(
-            (
-                "docs-check",
-                [
-                    "python3",
-                    "dev/scripts/devctl.py",
-                    "docs-check",
-                    "--user-facing",
-                    "--strict-tooling",
-                    "--format",
-                    "json",
-                ],
-            )
-        )
+    checks = build_verify_checks(verify_docs=bool(args.verify_docs))
 
     for name, cmd in checks:
         result = run_cmd(name, cmd, cwd=REPO_ROOT, dry_run=args.dry_run)

@@ -224,7 +224,7 @@ fn format_status_banner_minimal_mode() {
 fn format_status_banner_returns_no_rows_when_prompt_suppressed() {
     let mut state = StatusLineState::new();
     state.hud_style = HudStyle::Full;
-    state.claude_prompt_suppressed = true;
+    state.prompt_suppressed = true;
 
     let banner = format_status_banner(&state, Theme::Coral, 120);
     assert_eq!(banner.height, 0);

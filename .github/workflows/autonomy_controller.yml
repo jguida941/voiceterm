@@ -148,85 +148,10 @@ jobs:
           DEFAULT_NOTIFY_MODE: summary-only
           DEFAULT_COMMENT_TARGET: auto
         run: |
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            PLAN_ID="${INPUT_PLAN_ID}"
-            BRANCH_BASE="${INPUT_BRANCH_BASE:-develop}"
-            MODE="${INPUT_MODE:-${DEFAULT_MODE}}"
-            MAX_ROUNDS="${INPUT_MAX_ROUNDS:-${DEFAULT_MAX_ROUNDS}}"
-            MAX_HOURS="${INPUT_MAX_HOURS:-${DEFAULT_MAX_HOURS}}"
-            MAX_TASKS="${INPUT_MAX_TASKS:-${DEFAULT_MAX_TASKS}}"
-            CHECKPOINT_EVERY="${INPUT_CHECKPOINT_EVERY:-${DEFAULT_CHECKPOINT_EVERY}}"
-            LOOP_MAX_ATTEMPTS="${INPUT_LOOP_MAX_ATTEMPTS:-${DEFAULT_LOOP_MAX_ATTEMPTS}}"
-            NOTIFY_MODE="${INPUT_NOTIFY_MODE:-${DEFAULT_NOTIFY_MODE}}"
-            COMMENT_TARGET="${INPUT_COMMENT_TARGET:-${DEFAULT_COMMENT_TARGET}}"
-            COMMENT_PR_NUMBER="${INPUT_COMMENT_PR_NUMBER}"
-            ALLOW_AUTO_SEND="${INPUT_ALLOW_AUTO_SEND}"
-            FIX_COMMAND="${INPUT_FIX_COMMAND}"
-          else
-            PLAN_ID="scheduled-autonomy"
-            BRANCH_BASE="develop"
-            MODE="${DEFAULT_MODE}"
-            MAX_ROUNDS="${DEFAULT_MAX_ROUNDS}"
-            MAX_HOURS="${DEFAULT_MAX_HOURS}"
-            MAX_TASKS="${DEFAULT_MAX_TASKS}"
-            CHECKPOINT_EVERY="${DEFAULT_CHECKPOINT_EVERY}"
-            LOOP_MAX_ATTEMPTS="${DEFAULT_LOOP_MAX_ATTEMPTS}"
-            NOTIFY_MODE="${DEFAULT_NOTIFY_MODE}"
-            COMMENT_TARGET="${DEFAULT_COMMENT_TARGET}"
-            COMMENT_PR_NUMBER=""
-            ALLOW_AUTO_SEND="false"
-            FIX_COMMAND=""
-          fi
-
-          if [[ -z "${PLAN_ID}" ]]; then
-            echo "plan_id is required"
-            exit 1
-          fi
-          if [[ -z "${BRANCH_BASE}" ]]; then
-            echo "branch_base is required"
-            exit 1
-          fi
-          if [[ ! "${MAX_ROUNDS}" =~ ^[0-9]+$ || "${MAX_ROUNDS}" -lt 1 ]]; then
-            echo "Invalid max_rounds: ${MAX_ROUNDS}"
-            exit 1
-          fi
-          if [[ ! "${MAX_TASKS}" =~ ^[0-9]+$ || "${MAX_TASKS}" -lt 1 ]]; then
-            echo "Invalid max_tasks: ${MAX_TASKS}"
-            exit 1
-          fi
-          if [[ ! "${CHECKPOINT_EVERY}" =~ ^[0-9]+$ || "${CHECKPOINT_EVERY}" -lt 1 ]]; then
-            echo "Invalid checkpoint_every: ${CHECKPOINT_EVERY}"
-            exit 1
-          fi
-          if [[ ! "${LOOP_MAX_ATTEMPTS}" =~ ^[0-9]+$ || "${LOOP_MAX_ATTEMPTS}" -lt 1 ]]; then
-            echo "Invalid loop_max_attempts: ${LOOP_MAX_ATTEMPTS}"
-            exit 1
-          fi
-          if ! [[ "${MAX_HOURS}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-            echo "Invalid max_hours: ${MAX_HOURS}"
-            exit 1
-          fi
-
-          {
-            echo "plan_id=${PLAN_ID}"
-            echo "branch_base=${BRANCH_BASE}"
-            echo "mode=${MODE}"
-            echo "max_rounds=${MAX_ROUNDS}"
-            echo "max_hours=${MAX_HOURS}"
-            echo "max_tasks=${MAX_TASKS}"
-            echo "checkpoint_every=${CHECKPOINT_EVERY}"
-            echo "loop_max_attempts=${LOOP_MAX_ATTEMPTS}"
-            echo "notify_mode=${NOTIFY_MODE}"
-            echo "comment_target=${COMMENT_TARGET}"
-            echo "comment_pr_number=${COMMENT_PR_NUMBER}"
-            echo "allow_auto_send=${ALLOW_AUTO_SEND}"
-          } >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "fix_command<<EOF"
-            echo "${FIX_COMMAND}"
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+          python3 dev/scripts/autonomy_workflow_bridge.py resolve-controller-config \
+            --event-name "${EVENT_NAME}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Run autonomy controller loop
         env:
@@ -247,6 +172,8 @@ jobs:
           ALLOW_AUTO_SEND: ${{ steps.cfg.outputs.allow_auto_send }}
           FIX_COMMAND: ${{ steps.cfg.outputs.fix_command }}
         run: |
+          set -euo pipefail
+          # intentional: error suppression for capturing exit code from autonomy-loop
           set +e
           CMD=(
             python3 dev/scripts/devctl.py autonomy-loop
@@ -286,23 +213,10 @@ jobs:
         id: export
         if: always()
         run: |
-          python3 - <<'PY'
-          import os
-          import json
-          from pathlib import Path
-
-          payload = json.loads(Path('/tmp/autonomy-controller.json').read_text(encoding='utf-8'))
-          output_path = Path(os.environ['GITHUB_OUTPUT'])
-          with output_path.open('a', encoding='utf-8') as handle:
-              handle.write(f"summary_json={payload.get('summary_json','')}\n")
-              handle.write(f"latest_working_branch={payload.get('latest_working_branch','')}\n")
-              handle.write(f"branch_base={payload.get('branch_base','')}\n")
-              handle.write(f"resolved={'true' if payload.get('resolved') else 'false'}\n")
-              handle.write(f"controller_run_id={payload.get('controller_run_id','')}\n")
-              handle.write(f"reason={payload.get('reason','')}\n")
-              handle.write(f"phone_status_latest_json={payload.get('phone_status_latest_json','')}\n")
-              handle.write(f"phone_status_latest_md={payload.get('phone_status_latest_md','')}\n")
-          PY
+          set -euo pipefail
+          python3 dev/scripts/autonomy_workflow_bridge.py export-controller \
+            --input-file /tmp/autonomy-controller.json \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Publish controller summary
         if: always()
@@ -316,6 +230,7 @@ jobs:
           PHONE_STATUS_JSON: ${{ steps.export.outputs.phone_status_latest_json }}
           PHONE_STATUS_MD: ${{ steps.export.outputs.phone_status_latest_md }}
         run: |
+          set -euo pipefail
           echo "## Autonomy Controller" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- plan_id: \`${PLAN_ID}\`" >> "${GITHUB_STEP_SUMMARY}"
@@ -352,6 +267,8 @@ jobs:
         env:
           AUTONOMY_MODE: ${{ vars.AUTONOMY_MODE }}
         run: |
+          set -euo pipefail
+          # intentional: error suppression for missing exit-code file fallback
           RC="$(cat /tmp/autonomy-controller.exit 2>/dev/null || echo 1)"
           if [[ "${RC}" == "0" ]]; then
             exit 0
@@ -383,6 +300,7 @@ jobs:
           BASE_BRANCH: ${{ needs.controller.outputs.branch_base }}
           PLAN_ID: ${{ inputs.plan_id }}
         run: |
+          set -euo pipefail
           if [[ -z "${WORKING_BRANCH}" ]]; then
             echo "No working branch emitted by controller; skipping promote step."
             exit 0
@@ -403,6 +321,7 @@ jobs:
           fi
 
           if [[ -n "${PR_NUMBER}" ]]; then
+            # intentional: error suppression for auto-merge which may fail if checks are pending
             gh pr merge "${PR_NUMBER}" --auto --merge || true
             echo "Promote PR #${PR_NUMBER} prepared for protected merge flow."
           fi

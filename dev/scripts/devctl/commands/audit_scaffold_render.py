@@ -101,13 +101,21 @@ def render_action_items(guard_steps: list[dict]) -> str:
             action_lines.append(
                 "- [ ] Refactor oversized or growth-violating files listed by `code-shape-guard` into narrower modules/helpers."
             )
+        elif step["script_id"] == "rust_test_shape":
+            action_lines.append(
+                "- [ ] Split oversized test hotspots listed by `rust-test-shape-guard` into focused test modules/fixtures instead of extending broad `tests.rs` files."
+            )
         elif step["script_id"] == "rust_lint_debt":
             action_lines.append(
-                "- [ ] Reduce newly introduced `#[allow(...)]` and non-test `unwrap/expect` growth reported by `rust-lint-debt-guard`."
+                "- [ ] Reduce newly introduced lint debt reported by `rust-lint-debt-guard` (`#[allow(...)]`, `unwrap/expect`, unchecked unwrap/expect, panic macro paths)."
             )
         elif step["script_id"] == "rust_best_practices":
             action_lines.append(
                 "- [ ] Add missing `reason=` for `#[allow(...)]`, document `unsafe` with `SAFETY:` comments, and add `# Safety` docs for public `unsafe fn` where reported."
+            )
+        elif step["script_id"] == "rust_runtime_panic_policy":
+            action_lines.append(
+                "- [ ] Remove new unallowlisted runtime `panic!` paths or add adjacent `panic-policy: allow reason=<...>` rationale comments for intentional hard-stop behavior."
             )
         elif step["script_id"] == "rust_audit_patterns":
             action_lines.append(
