@@ -465,12 +465,12 @@ mod tests {
 
     #[test]
     fn test_recover_caps_at_max_index() {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let path = std::env::temp_dir().join(format!("voiceterm-recover-cap-{nanos}.jsonl"));
+        let unique = format!(
+            "voiceterm-recover-cap-{}-{}.jsonl",
+            std::process::id(),
+            generate_event_id()
+        );
+        let path = std::env::temp_dir().join(unique);
         let cap = super::super::governance::MAX_INDEX_EVENTS;
 
         {
@@ -481,7 +481,9 @@ mod tests {
                     event_id: generate_event_id(),
                     session_id: "sess_cap".to_string(),
                     project_id: "proj_cap".to_string(),
-                    ts: iso_timestamp(),
+                    // Keep timestamps safely outside GC cutoff so this test
+                    // only validates max-index capping behavior.
+                    ts: "2999-01-01T00:00:00.000Z".to_string(),
                     source: EventSource::PtyInput,
                     event_type: EventType::ChatTurn,
                     role: EventRole::User,
