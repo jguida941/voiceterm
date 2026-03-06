@@ -138,7 +138,7 @@ jobs:
             --skip-tests
 
       - name: Run zizmor workflow security scan
-        uses: woodruffw/zizmor-action@e639dbb30f0f5f1b5776b6921e7001715262b4e4
+        uses: zizmorcore/zizmor-action@c65bc8876171b6d82748ec98b77c0193b1226b94
 
       - name: Run release security gate
         env:
@@ -161,10 +161,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          PREV_TAG="$(git describe --tags --abbrev=0)"
           python3 dev/scripts/devctl.py orchestrate-status --format md
           python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
-          python3 dev/scripts/devctl.py docs-check --strict-tooling
-          python3 dev/scripts/devctl.py docs-check --user-facing --strict
+          python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref "${PREV_TAG}" --head-ref HEAD
+          python3 dev/scripts/devctl.py docs-check --user-facing --strict --since-ref "${PREV_TAG}" --head-ref HEAD
           python3 dev/scripts/devctl.py hygiene --strict-warnings
           python3 dev/scripts/checks/check_agents_contract.py
           python3 dev/scripts/checks/check_active_plan_sync.py
