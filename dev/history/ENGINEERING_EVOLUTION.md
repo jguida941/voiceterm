@@ -334,14 +334,15 @@ release-gate behavior.
 
 ### Recent Governance Update (2026-03-06, Release Preflight GH Auth Stabilization)
 
-Fact: Release preflight runtime-bundle execution now exports `GH_TOKEN` so
-`devctl check --profile release` can run `gh`-backed release gates in CI
-without authentication failures.
+Fact: Release preflight now exports `GH_TOKEN` for runtime-bundle `gh` calls
+and grants job-level `security-events: write` so zizmor SARIF uploads can
+publish to code scanning without permission failures.
 
 Evidence:
 
 - `.github/workflows/release_preflight.yml` (runtime bundle step exports
-  `GH_TOKEN: ${{ github.token }}`)
+  `GH_TOKEN: ${{ github.token }}` and preflight job grants
+  `security-events: write`)
 - `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
   `dev/active/MASTER_PLAN.md` (release-flow and governance docs synchronized
   to the workflow auth contract)

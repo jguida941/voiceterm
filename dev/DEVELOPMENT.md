@@ -860,6 +860,8 @@ gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX
 `release_preflight.yml` exports `GH_TOKEN: ${{ github.token }}` for runtime
 bundle steps that call `gh` through `devctl check --profile release`. When
 reproducing those checks locally, set `GH_TOKEN="$(gh auth token)"`.
+The preflight job also needs `security-events: write` so zizmor's SARIF upload
+can publish results to code scanning.
 
 `devctl release` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
 compare range (previous tag to current tag). You can also generate it manually:

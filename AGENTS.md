@@ -543,6 +543,9 @@ Use this exact sequence:
    - `release_preflight.yml` must provide `GH_TOKEN` to steps that invoke
      `gh` inside `devctl check --profile release`; workflow uses
      `${{ github.token }}` for this wiring.
+   - `release_preflight.yml` job must grant `security-events: write` so the
+     zizmor SARIF upload step can publish scan results without permission
+     failures.
 
 6. Run release tagging and notes:
 
