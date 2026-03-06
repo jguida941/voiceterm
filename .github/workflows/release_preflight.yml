@@ -124,6 +124,8 @@ jobs:
             --format md
 
       - name: Run release runtime bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 dev/scripts/devctl.py check --profile release
 
       - name: Run AI guard suite
