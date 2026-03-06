@@ -61,11 +61,20 @@
   `.github/workflows/release_preflight.yml` now sets zizmor
   `online-audits: false` to prevent cross-repo compare API 403 failures from
   blocking release preflight.
+- Release preflight security-scope update:
+  `.github/workflows/release_preflight.yml` now runs
+  `devctl security` with `--python-scope changed` and the same resolved
+  `--since-ref/--head-ref` range used by AI-guard so preflight enforces
+  commit-scoped Python checks instead of full-repo formatting backlog.
 - Compat-matrix parser resilience update: compatibility/naming guard scripts now
   share a minimal YAML fallback parser so tooling CI and local checks stay
   deterministic in minimal Python environments without `PyYAML`.
 - Compat-matrix parser fail-closed update: malformed inline collection scalars
   in fallback mode now raise explicit parse errors instead of silent coercion.
+- Tooling security hardening update: `devctl` loop/mutation/release helper
+  defaults now resolve temporary artifact paths via the system temp directory
+  API instead of hardcoded `/tmp` literals, satisfying Bandit `B108` checks in
+  release-security gates.
 - Control-plane simplification update: MP-340 is now Rust-first only (Rust
   overlay + `devctl` + phone/SSH projections). The optional `app/pyside6`
   command-center track is retired from active execution scope.

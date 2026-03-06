@@ -155,7 +155,9 @@ jobs:
           cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources
           python3 dev/scripts/devctl.py security \
             --scanner-tier core \
-            --python-scope all \
+            --python-scope changed \
+            --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
+            --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
             --with-codeql-alerts \
             --codeql-repo "${{ github.repository }}" \
             --codeql-min-severity high \

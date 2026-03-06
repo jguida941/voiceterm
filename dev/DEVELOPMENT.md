@@ -864,6 +864,9 @@ The preflight job also needs `security-events: write` so zizmor's SARIF upload
 can publish results to code scanning.
 Preflight uses zizmor `online-audits: false` to avoid cross-repo API compare
 403s while preserving local workflow scan coverage.
+Preflight release security checks should stay commit-scoped:
+`devctl security` runs with `--python-scope changed` and consumes the same
+resolved `--since-ref/--head-ref` range used by AI-guard.
 
 `devctl release` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
 compare range (previous tag to current tag). You can also generate it manually:

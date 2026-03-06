@@ -351,6 +351,32 @@ Evidence:
 Inference: Same-SHA release preflight runs now execute the full release bundle
 without GH CLI auth drift, restoring deterministic release-gate behavior.
 
+### Recent Governance Update (2026-03-06, Release Security Scope + Temp-Path Hardening)
+
+Fact: Release preflight security gating now runs Python scanners in
+changed-file scope using the same resolved `since/head` refs as AI-guard, and
+Bandit `B108` findings were removed by replacing hardcoded `/tmp` defaults with
+system temp-directory resolution in loop/release helper scripts.
+
+Evidence:
+
+- `.github/workflows/release_preflight.yml` (release security gate switched from
+  `--python-scope all` to `--python-scope changed` with
+  `--since-ref/--head-ref` wired from `ai_guard_range` outputs)
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`,
+  `dev/scripts/devctl/commands/ship.py`,
+  `dev/scripts/mutation_ralph_workflow_bridge.py`
+  (temp artifact default paths now derive from `tempfile.gettempdir()`)
+- `dev/scripts/devctl/tests/test_mutation_ralph_workflow_bridge.py`,
+  `dev/scripts/devctl/tests/test_loop_packet.py`,
+  `dev/scripts/devctl/tests/test_ship.py`
+  (non-regression coverage for touched helper surfaces)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (release/security governance docs synchronized)
+
+Inference: Release preflight remains strict for same-SHA security gating while
+avoiding unrelated full-repo Python formatting debt and temp-path policy drift.
+
 ### Recent Governance Update (2026-03-06, Compat-Matrix YAML Fallback Hardening)
 
 Fact: Compatibility-matrix and naming-consistency guards now share a minimal
