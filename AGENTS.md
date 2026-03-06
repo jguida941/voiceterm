@@ -555,6 +555,8 @@ Use this exact sequence:
    - `release_preflight.yml` release security step should not hard-block on
      repository-wide open CodeQL backlog (`--with-codeql-alerts`); keep CodeQL
      alert enforcement in dedicated security lanes and triage workflows.
+   - In `release_preflight.yml`, `cargo deny` remains the blocking security
+     gate; `devctl security` report output is retained as advisory evidence.
 
 6. Run release tagging and notes:
 

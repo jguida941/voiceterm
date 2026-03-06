@@ -357,14 +357,18 @@ Fact: Release preflight security gating now runs Python scanners in
 changed-file scope using the same resolved `since/head` refs as AI-guard
 without hard-blocking on repository-wide open CodeQL backlog, and Bandit
 `B108` findings were removed by replacing hardcoded `/tmp` defaults with system
-temp-directory resolution in loop/release helper scripts.
+temp-directory resolution in loop/release helper scripts. In this lane,
+`cargo deny` remains the blocking gate while `devctl security` output is
+retained as advisory evidence.
 
 Evidence:
 
 - `.github/workflows/release_preflight.yml` (release security gate switched from
   `--python-scope all` to `--python-scope changed` with
   `--since-ref/--head-ref` wired from `ai_guard_range` outputs; explicit
-  CodeQL-open-alert hard gate removed from this lane)
+  CodeQL-open-alert hard gate removed from this lane; `devctl security`
+  non-zero results reported as advisory warnings while `cargo deny` remains
+  blocking)
 - `dev/scripts/devctl/commands/loop_packet_helpers.py`,
   `dev/scripts/devctl/commands/ship.py`,
   `dev/scripts/mutation_ralph_workflow_bridge.py`
@@ -378,7 +382,9 @@ Evidence:
 
 Inference: Release preflight remains strict for same-SHA, commit-scoped
 security gating while avoiding unrelated full-repo Python formatting debt,
-historical CodeQL backlog coupling, and temp-path policy drift.
+historical CodeQL backlog coupling, and temp-path policy drift, with explicit
+separation between blocking (`cargo deny`) and advisory (`devctl security`)
+signals.
 
 ### Recent Governance Update (2026-03-06, Compat-Matrix YAML Fallback Hardening)
 
