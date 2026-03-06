@@ -14,6 +14,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     yaml = None
 
+try:
+    from .yaml_json_loader import load_yaml_or_json
+except ImportError:  # pragma: no cover
+    from yaml_json_loader import load_yaml_or_json
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -64,7 +69,7 @@ def _load_matrix_ids(path: Path) -> tuple[set[str], set[str], list[str]]:
     except OSError as exc:
         return set(), set(), [f"failed to read matrix file: {exc}"]
     try:
-        payload = yaml.safe_load(raw) if yaml is not None else json.loads(raw)
+        payload = load_yaml_or_json(raw, yaml_module=yaml)
     except Exception as exc:
         return set(), set(), [f"failed to parse matrix file: {exc}"]
     if not isinstance(payload, dict):

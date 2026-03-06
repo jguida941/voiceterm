@@ -125,7 +125,8 @@ class CheckNamingConsistencyTests(TestCase):
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             matrix_path = Path(temp_dir) / "matrix.yaml"
             _write_lines(matrix_path, _matrix_lines())
-            exit_code, report = self._run_main_json(matrix_path)
+            with patch.object(self.script._core, "yaml", None):
+                exit_code, report = self._run_main_json(matrix_path)
 
         self.assertEqual(exit_code, 0)
         self.assertTrue(report["ok"])

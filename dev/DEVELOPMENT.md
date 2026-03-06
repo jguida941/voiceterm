@@ -180,6 +180,11 @@ Why this model is safe:
 | High-signal Clippy lint baseline drift | `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json && python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | `rust_ci.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
+Compatibility-matrix parser note:
+- `check_compat_matrix.py`, `compat_matrix_smoke.py`, and
+  `check_naming_consistency.py` now include a shared minimal YAML fallback so
+  guard behavior stays consistent when `PyYAML` is not installed.
+
 Workflow permissions note:
 - For `.github/workflows/scorecard.yml`, keep workflow-level permissions read-only and scope `id-token: write` plus `security-events: write` at the `analysis` job level. OpenSSF `publish_results` rejects global write permissions.
 

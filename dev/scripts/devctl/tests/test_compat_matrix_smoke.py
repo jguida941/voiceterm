@@ -61,7 +61,8 @@ class CompatMatrixSmokeTests(TestCase):
                     "matrix: []",
                 ],
             )
-            payload, error = self.script._load_matrix(matrix_path)
+            with patch.object(self.script, "yaml", None):
+                payload, error = self.script._load_matrix(matrix_path)
         self.assertIsNone(error)
         self.assertIsInstance(payload, dict)
         assert payload is not None

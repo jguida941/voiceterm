@@ -54,6 +54,9 @@
 - Release preflight auth stability update: `.github/workflows/release_preflight.yml`
   runtime bundle step now exports `GH_TOKEN: ${{ github.token }}` so
   `devctl check --profile release` can run `gh`-backed release gates in CI.
+- Compat-matrix parser resilience update: compatibility/naming guard scripts now
+  share a minimal YAML fallback parser so tooling CI and local checks stay
+  deterministic in minimal Python environments without `PyYAML`.
 - Control-plane simplification update: MP-340 is now Rust-first only (Rust
   overlay + `devctl` + phone/SSH projections). The optional `app/pyside6`
   command-center track is retired from active execution scope.

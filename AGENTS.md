@@ -751,6 +751,8 @@ Core commands:
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
 - `check-router` (path-aware lane selector that maps changed files to `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`, reports required risk add-ons, and can execute the routed command set with `--execute`)
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
+  - Matrix checks now include a minimal no-dependency YAML fallback parser so
+    tooling lanes remain deterministic when `PyYAML` is unavailable.
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.

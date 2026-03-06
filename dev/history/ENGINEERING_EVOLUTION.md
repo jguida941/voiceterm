@@ -349,6 +349,31 @@ Evidence:
 Inference: Same-SHA release preflight runs now execute the full release bundle
 without GH CLI auth drift, restoring deterministic release-gate behavior.
 
+### Recent Governance Update (2026-03-06, Compat-Matrix YAML Fallback Hardening)
+
+Fact: Compatibility-matrix and naming-consistency guards now share a minimal
+YAML fallback parser so CI/unit-test behavior remains deterministic when
+`PyYAML` is unavailable.
+
+Evidence:
+
+- `dev/scripts/checks/yaml_json_loader.py` (shared YAML/JSON loader with
+  no-dependency YAML subset fallback)
+- `dev/scripts/checks/check_compat_matrix.py`,
+  `dev/scripts/checks/compat_matrix_smoke.py`,
+  `dev/scripts/checks/naming_consistency_core.py` (matrix/naming guards now use
+  shared loader)
+- `dev/scripts/devctl/tests/test_check_compat_matrix.py`,
+  `dev/scripts/devctl/tests/test_compat_matrix_smoke.py`,
+  `dev/scripts/devctl/tests/test_check_naming_consistency.py`
+  (tests now force no-`PyYAML` path coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (maintainer docs synced with the fallback
+  contract)
+
+Inference: Tooling-control and release guard scripts no longer depend on
+ambient Python package state for matrix parsing correctness.
+
 ### Recent Governance Update (2026-03-05, Rust Guardrail Expansion + Clippy High-Signal Baseline)
 
 Fact: Rust guardrail coverage now includes a dedicated test-file shape

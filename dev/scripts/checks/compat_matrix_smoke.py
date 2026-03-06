@@ -15,6 +15,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - guarded fallback for minimal envs
     yaml = None
 
+try:
+    from .yaml_json_loader import load_yaml_or_json
+except ImportError:  # pragma: no cover
+    from yaml_json_loader import load_yaml_or_json
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MATRIX_PATH = REPO_ROOT / "dev/config/compat/ide_provider_matrix.yaml"
 RUNTIME_COMPAT_PATH = REPO_ROOT / "rust/src/bin/voiceterm/runtime_compat.rs"
@@ -96,10 +101,7 @@ def _load_matrix(path: Path) -> tuple[dict | None, str | None]:
     except OSError as exc:
         return None, f"failed to parse matrix file: {exc}"
     try:
-        if yaml is not None:
-            payload = yaml.safe_load(raw)
-        else:
-            payload = json.loads(raw)
+        payload = load_yaml_or_json(raw, yaml_module=yaml)
     except Exception as exc:
         return None, f"failed to parse matrix file: {exc}"
     if not isinstance(payload, dict):
