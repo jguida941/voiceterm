@@ -15,7 +15,7 @@
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-03-05)
+## Status Snapshot (2026-03-06)
 - Last tagged release: `v1.1.0` (2026-03-05)
 - Current release target: `post-v1.1.0 planning`
 - Active development branch: `develop`
@@ -51,6 +51,9 @@
   refreshed to valid GitHub-owned SHAs, and `scorecard.yml` now keeps
   workflow-level permissions read-only with write scopes isolated to the
   scorecard job so OpenSSF publish verification succeeds.
+- Release preflight auth stability update: `.github/workflows/release_preflight.yml`
+  runtime bundle step now exports `GH_TOKEN: ${{ github.token }}` so
+  `devctl check --profile release` can run `gh`-backed release gates in CI.
 - Control-plane simplification update: MP-340 is now Rust-first only (Rust
   overlay + `devctl` + phone/SSH projections). The optional `app/pyside6`
   command-center track is retired from active execution scope.

@@ -540,6 +540,10 @@ Use this exact sequence:
    # gh run watch <run-id>
    ```
 
+   - `release_preflight.yml` must provide `GH_TOKEN` to steps that invoke
+     `gh` inside `devctl check --profile release`; workflow uses
+     `${{ github.token }}` for this wiring.
+
 6. Run release tagging and notes:
 
    ```bash

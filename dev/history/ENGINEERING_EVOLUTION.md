@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-03-06
 
 ## At a Glance
 
@@ -331,6 +331,23 @@ Evidence:
 Inference: Tooling closures now satisfy code-shape governance without policy
 bypasses, and maintainer release instructions are consistent with enforced CI
 release-gate behavior.
+
+### Recent Governance Update (2026-03-06, Release Preflight GH Auth Stabilization)
+
+Fact: Release preflight runtime-bundle execution now exports `GH_TOKEN` so
+`devctl check --profile release` can run `gh`-backed release gates in CI
+without authentication failures.
+
+Evidence:
+
+- `.github/workflows/release_preflight.yml` (runtime bundle step exports
+  `GH_TOKEN: ${{ github.token }}`)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (release-flow and governance docs synchronized
+  to the workflow auth contract)
+
+Inference: Same-SHA release preflight runs now execute the full release bundle
+without GH CLI auth drift, restoring deterministic release-gate behavior.
 
 ### Recent Governance Update (2026-03-05, Rust Guardrail Expansion + Clippy High-Signal Baseline)
 

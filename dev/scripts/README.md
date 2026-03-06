@@ -273,6 +273,8 @@ python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 gh workflow run release_preflight.yml -f version=X.Y.Z
 gh run list --workflow release_preflight.yml --limit 1
 # gh run watch <run-id>
+# `release_preflight.yml` exports GH_TOKEN for runtime bundle `gh` calls;
+# set `GH_TOKEN="$(gh auth token)"` when reproducing `check --profile release` locally.
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
