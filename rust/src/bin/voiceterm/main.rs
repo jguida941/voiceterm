@@ -10,6 +10,7 @@
 //! - Writer thread: serializes output to avoid interleaving
 //! - Voice worker: background audio capture and STT
 
+mod ansi;
 mod arrow_keys;
 mod audio_meter;
 mod banner;
@@ -26,6 +27,7 @@ mod event_loop;
 mod event_state;
 mod help;
 mod hud;
+mod hud_debug;
 mod icons;
 mod image_mode;
 mod input;
@@ -35,6 +37,7 @@ mod overlay_frame;
 mod overlays;
 mod persistent_config;
 mod prompt;
+mod provider_adapter;
 mod runtime_compat;
 mod session_memory;
 mod session_stats;
@@ -45,6 +48,8 @@ mod status_messages;
 mod status_style;
 mod stream_line_buffer;
 mod terminal;
+#[cfg(test)]
+mod test_env;
 mod theme;
 mod theme_ops;
 mod theme_picker;
@@ -91,9 +96,8 @@ use crate::event_state::{
 };
 use crate::hud::HudRegistry;
 use crate::input::spawn_input_thread;
-use crate::prompt::{
-    resolve_prompt_log, resolve_prompt_regex, ClaudePromptDetector, PromptLogger, PromptTracker,
-};
+use crate::prompt::{resolve_prompt_log, resolve_prompt_regex, PromptLogger, PromptTracker};
+use crate::provider_adapter::build_prompt_occlusion_detector;
 use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::{format_session_stats, SessionStats};
 use crate::settings::SettingsMenuState;
@@ -526,7 +530,7 @@ fn main() -> Result<()> {
         dev_panel_commands: DevPanelCommandState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
-            occlusion_detector: ClaudePromptDetector::new_for_backend(&backend_label),
+            occlusion_detector: build_prompt_occlusion_detector(&backend_label),
             non_rolling_approval_window: VecDeque::with_capacity(1024),
             non_rolling_approval_window_last_update: None,
             non_rolling_release_armed: false,
@@ -599,7 +603,7 @@ fn main() -> Result<()> {
         runtime_compat::should_enable_claude_startup_guard(&deps.backend_label);
     if claude_jetbrains_startup_guard {
         state.prompt.occlusion_detector.activate_startup_guard();
-        state.status_state.claude_prompt_suppressed = true;
+        state.status_state.prompt_suppressed = true;
         apply_pty_winsize(
             &mut deps.session,
             state.ui.terminal_rows,
@@ -721,52 +725,12 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::with_terminal_host_env_overrides;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::{Arc, Mutex, OnceLock};
-
-    fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
-        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
-        let _guard = lock.lock().expect("env lock poisoned");
-        f()
-    }
+    use std::sync::Arc;
 
     fn with_jetbrains_env<T>(overrides: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
-        with_env_lock(|| {
-            const KEYS: &[&str] = &[
-                "PYCHARM_HOSTED",
-                "JETBRAINS_IDE",
-                "IDEA_INITIAL_DIRECTORY",
-                "IDEA_INITIAL_PROJECT",
-                "CLION_IDE",
-                "WEBSTORM_IDE",
-                "TERM_PROGRAM",
-                "TERMINAL_EMULATOR",
-            ];
-            let prev: Vec<(String, Option<String>)> = KEYS
-                .iter()
-                .map(|key| ((*key).to_string(), env::var(key).ok()))
-                .collect();
-            for key in KEYS {
-                env::remove_var(key);
-            }
-            for (key, value) in overrides {
-                match value {
-                    Some(v) => env::set_var(key, v),
-                    None => env::remove_var(key),
-                }
-            }
-
-            let out = f();
-
-            for (key, value) in prev {
-                match value {
-                    Some(v) => env::set_var(key, v),
-                    None => env::remove_var(key),
-                }
-            }
-            out
-        })
+        with_terminal_host_env_overrides(overrides, f)
     }
 
     #[test]

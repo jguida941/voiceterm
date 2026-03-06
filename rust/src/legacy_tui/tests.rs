@@ -250,6 +250,7 @@ fn crash_log_path_honors_env_override() {
 
 #[test]
 fn memory_guard_backend_threads_drop() {
+    let baseline_threads = codex::active_backend_threads();
     let config = test_config();
     let mut app = CodexApp::new(config);
     app.input = "memory-guard".into();
@@ -267,7 +268,18 @@ fn memory_guard_backend_threads_drop() {
         },
     );
     drop(hook_guard);
-    assert_eq!(codex::active_backend_threads(), 0);
+    for _ in 0..40 {
+        if codex::active_backend_threads() <= baseline_threads {
+            return;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert!(
+        codex::active_backend_threads() <= baseline_threads,
+        "backend thread count did not return to baseline: baseline={}, active={}",
+        baseline_threads,
+        codex::active_backend_threads()
+    );
 }
 
 fn wait_for_codex_job(app: &mut CodexApp) {

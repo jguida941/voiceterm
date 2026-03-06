@@ -15,6 +15,26 @@ try:
     from git_change_paths import list_changed_paths_with_base_map
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
+try:
+    from rust_guard_common import (
+        is_test_path as _is_test_path,
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
+    )
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import (
+        is_test_path as _is_test_path,
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
+    )
+try:
+    from rust_check_text_utils import strip_cfg_test_blocks
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -31,46 +51,19 @@ WEAK_CRYPTO_RE = re.compile(r"\b(?:md5|sha1)\b", re.IGNORECASE)
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
-    return result
+    return _run_git_with_root(REPO_ROOT, args, check=check)
 
 
 def _validate_ref(ref: str) -> None:
-    _run_git(["git", "rev-parse", "--verify", ref], check=True)
-
-
-def _is_test_path(path: Path) -> bool:
-    normalized = f"/{path.as_posix()}/"
-    name = path.name
-    return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
+    _validate_ref_with_git(_run_git, ref)
 
 
 def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    spec = f"{ref}:{path.as_posix()}"
-    result = _run_git(["git", "show", spec], check=False)
-    if result.returncode == 0:
-        return result.stdout
-
-    stderr = result.stderr.strip().lower()
-    missing_markers = ("does not exist in", "exists on disk, but not in", "fatal: path")
-    if any(marker in stderr for marker in missing_markers):
-        return None
-    raise RuntimeError(result.stderr.strip() or f"failed to read {spec}")
+    return _read_text_from_ref_with_git(_run_git, path, ref)
 
 
 def _read_text_from_worktree(path: Path) -> str | None:
-    absolute = REPO_ROOT / path
-    if not absolute.exists():
-        return None
-    return absolute.read_text(encoding="utf-8", errors="replace")
+    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _count_metrics(text: str | None) -> dict[str, int]:
@@ -84,6 +77,7 @@ def _count_metrics(text: str | None) -> dict[str, int]:
             "permissive_mode_literals": 0,
             "weak_crypto_refs": 0,
         }
+    text = strip_cfg_test_blocks(text)
     return {
         "todo_macro_calls": len(TODO_MACRO_RE.findall(text)),
         "unimplemented_macro_calls": len(UNIMPLEMENTED_MACRO_RE.findall(text)),

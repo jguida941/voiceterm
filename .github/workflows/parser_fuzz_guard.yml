@@ -45,6 +45,7 @@ jobs:
 
       - name: Run parser property tests
         run: |
+          set -euo pipefail
           cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture
           cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture
           cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture

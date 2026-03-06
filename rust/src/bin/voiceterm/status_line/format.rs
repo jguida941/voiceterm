@@ -143,7 +143,7 @@ pub fn format_status_banner(state: &StatusLineState, theme: Theme, width: usize)
     // When a Claude interactive prompt is detected, suppress the HUD to prevent
     // occluding approval/permission prompts (MP-226). Render no HUD rows so the
     // PTY gets the full terminal height for the prompt.
-    if state.claude_prompt_suppressed {
+    if state.prompt_suppressed {
         return StatusBanner::new(Vec::new());
     }
 
@@ -331,7 +331,7 @@ fn format_top_border(colors: &ThemeColors, borders: &BorderSet, width: usize) ->
 
 #[inline]
 fn horizontal_segment(horizontal: char, len: usize) -> String {
-    std::iter::repeat(horizontal).take(len).collect()
+    std::iter::repeat_n(horizontal, len).collect()
 }
 
 fn format_brand_label(colors: &ThemeColors) -> String {

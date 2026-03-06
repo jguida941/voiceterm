@@ -26,6 +26,9 @@ from .docs_check_support import (
 ACTIVE_PLAN_SYNC_SCRIPT = check_script_path("active_plan_sync")
 MULTI_AGENT_SYNC_SCRIPT = check_script_path("multi_agent_sync")
 MARKDOWN_METADATA_HEADER_SCRIPT = check_script_path("markdown_metadata_header")
+WORKFLOW_SHELL_HYGIENE_SCRIPT = check_script_path("workflow_shell_hygiene")
+BUNDLE_WORKFLOW_PARITY_SCRIPT = check_script_path("bundle_workflow_parity")
+AGENTS_BUNDLE_RENDER_SCRIPT = check_script_path("agents_bundle_render")
 
 def _scan_deprecated_references() -> list[dict]:
     """Wrapper kept for unit-test patch stability."""
@@ -47,6 +50,30 @@ def _run_markdown_metadata_header_gate() -> dict:
     return run_json_policy_gate(
         MARKDOWN_METADATA_HEADER_SCRIPT,
         "markdown metadata header gate",
+    )
+
+
+def _run_workflow_shell_hygiene_gate() -> dict:
+    """Run workflow-shell hygiene guard and return parsed JSON report."""
+    return run_json_policy_gate(
+        WORKFLOW_SHELL_HYGIENE_SCRIPT,
+        "workflow shell hygiene gate",
+    )
+
+
+def _run_bundle_workflow_parity_gate() -> dict:
+    """Run bundle/workflow parity guard and return parsed JSON report."""
+    return run_json_policy_gate(
+        BUNDLE_WORKFLOW_PARITY_SCRIPT,
+        "bundle/workflow parity gate",
+    )
+
+
+def _run_agents_bundle_render_gate() -> dict:
+    """Run AGENTS bundle render guard and return parsed JSON report."""
+    return run_json_policy_gate(
+        AGENTS_BUNDLE_RENDER_SCRIPT,
+        "AGENTS bundle render gate",
     )
 
 
@@ -109,6 +136,12 @@ def run(args) -> int:
     legacy_path_audit_ok = True
     markdown_metadata_header_report = None
     markdown_metadata_header_ok = True
+    workflow_shell_hygiene_report = None
+    workflow_shell_hygiene_ok = True
+    bundle_workflow_parity_report = None
+    bundle_workflow_parity_ok = True
+    agents_bundle_render_report = None
+    agents_bundle_render_ok = True
     if strict_tooling:
         active_plan_sync_report = _run_active_plan_sync_gate()
         active_plan_sync_ok = bool(active_plan_sync_report.get("ok", False))
@@ -120,6 +153,16 @@ def run(args) -> int:
         markdown_metadata_header_ok = bool(
             markdown_metadata_header_report.get("ok", False)
         )
+        workflow_shell_hygiene_report = _run_workflow_shell_hygiene_gate()
+        workflow_shell_hygiene_ok = bool(
+            workflow_shell_hygiene_report.get("ok", False)
+        )
+        bundle_workflow_parity_report = _run_bundle_workflow_parity_gate()
+        bundle_workflow_parity_ok = bool(
+            bundle_workflow_parity_report.get("ok", False)
+        )
+        agents_bundle_render_report = _run_agents_bundle_render_gate()
+        agents_bundle_render_ok = bool(agents_bundle_render_report.get("ok", False))
 
     ok = (
         user_facing_ok
@@ -130,6 +173,9 @@ def run(args) -> int:
         and multi_agent_sync_ok
         and legacy_path_audit_ok
         and markdown_metadata_header_ok
+        and workflow_shell_hygiene_ok
+        and bundle_workflow_parity_ok
+        and agents_bundle_render_ok
     )
     failure_reasons = build_failure_reasons(
         user_facing_enabled=args.user_facing and not empty_commit_range,
@@ -151,6 +197,12 @@ def run(args) -> int:
         legacy_path_audit_report=legacy_path_audit_report,
         markdown_metadata_header_ok=markdown_metadata_header_ok,
         markdown_metadata_header_report=markdown_metadata_header_report,
+        workflow_shell_hygiene_ok=workflow_shell_hygiene_ok,
+        workflow_shell_hygiene_report=workflow_shell_hygiene_report,
+        bundle_workflow_parity_ok=bundle_workflow_parity_ok,
+        bundle_workflow_parity_report=bundle_workflow_parity_report,
+        agents_bundle_render_ok=agents_bundle_render_ok,
+        agents_bundle_render_report=agents_bundle_render_report,
         deprecated_violations=deprecated_violations,
     )
     next_actions = build_next_actions(
@@ -167,6 +219,9 @@ def run(args) -> int:
         multi_agent_sync_ok=multi_agent_sync_ok,
         legacy_path_audit_ok=legacy_path_audit_ok,
         markdown_metadata_header_ok=markdown_metadata_header_ok,
+        workflow_shell_hygiene_ok=workflow_shell_hygiene_ok,
+        bundle_workflow_parity_ok=bundle_workflow_parity_ok,
+        agents_bundle_render_ok=agents_bundle_render_ok,
         deprecated_violations=deprecated_violations,
     )
 
@@ -199,6 +254,12 @@ def run(args) -> int:
         "legacy_path_audit_report": legacy_path_audit_report,
         "markdown_metadata_header_ok": markdown_metadata_header_ok,
         "markdown_metadata_header_report": markdown_metadata_header_report,
+        "workflow_shell_hygiene_ok": workflow_shell_hygiene_ok,
+        "workflow_shell_hygiene_report": workflow_shell_hygiene_report,
+        "bundle_workflow_parity_ok": bundle_workflow_parity_ok,
+        "bundle_workflow_parity_report": bundle_workflow_parity_report,
+        "agents_bundle_render_ok": agents_bundle_render_ok,
+        "agents_bundle_render_report": agents_bundle_render_report,
         "deprecated_reference_ok": deprecated_ok,
         "deprecated_reference_violations": deprecated_violations,
         "failure_reasons": failure_reasons,

@@ -26,7 +26,6 @@ pub struct AudioLevel {
 }
 
 const RECOMMENDED_FLOOR_DB: f32 = -80.0;
-const RECOMMENDED_CEILING_DB: f32 = -10.0;
 
 /// Meter display configuration.
 #[derive(Debug, Clone, Copy)]

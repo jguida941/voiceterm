@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-03-05",
+  "owner": "MP-346",
+  "hosts": [
+    {
+      "id": "cursor",
+      "status": "supported"
+    },
+    {
+      "id": "jetbrains",
+      "status": "supported"
+    },
+    {
+      "id": "other",
+      "status": "stabilizing"
+    }
+  ],
+  "providers": [
+    {
+      "id": "codex",
+      "status": "supported",
+      "ipc_mode": "ipc"
+    },
+    {
+      "id": "claude",
+      "status": "supported",
+      "ipc_mode": "ipc"
+    },
+    {
+      "id": "gemini",
+      "status": "experimental",
+      "ipc_mode": "overlay-only-experimental"
+    },
+    {
+      "id": "aider",
+      "status": "experimental",
+      "ipc_mode": "overlay-only-non-ipc"
+    },
+    {
+      "id": "opencode",
+      "status": "experimental",
+      "ipc_mode": "overlay-only-non-ipc"
+    },
+    {
+      "id": "custom",
+      "status": "experimental",
+      "ipc_mode": "overlay-only-non-ipc"
+    }
+  ],
+  "matrix": [
+    {
+      "host": "cursor",
+      "provider": "codex",
+      "compat": "supported",
+      "evidence": "cp-016-partial"
+    },
+    {
+      "host": "cursor",
+      "provider": "claude",
+      "compat": "supported",
+      "evidence": "cp-016-partial"
+    },
+    {
+      "host": "cursor",
+      "provider": "gemini",
+      "compat": "experimental",
+      "evidence": "cp-006"
+    },
+    {
+      "host": "cursor",
+      "provider": "aider",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "cursor",
+      "provider": "opencode",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "cursor",
+      "provider": "custom",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "codex",
+      "compat": "supported",
+      "evidence": "cp-006"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "claude",
+      "compat": "supported",
+      "evidence": "cp-006"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "gemini",
+      "compat": "experimental",
+      "evidence": "cp-006"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "aider",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "opencode",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "jetbrains",
+      "provider": "custom",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "other",
+      "provider": "codex",
+      "compat": "stabilizing",
+      "evidence": "post-cleanup"
+    },
+    {
+      "host": "other",
+      "provider": "claude",
+      "compat": "stabilizing",
+      "evidence": "post-cleanup"
+    },
+    {
+      "host": "other",
+      "provider": "gemini",
+      "compat": "experimental",
+      "evidence": "post-cleanup"
+    },
+    {
+      "host": "other",
+      "provider": "aider",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "other",
+      "provider": "opencode",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    },
+    {
+      "host": "other",
+      "provider": "custom",
+      "compat": "experimental",
+      "evidence": "step-3e-policy"
+    }
+  ]
+}

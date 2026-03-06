@@ -119,6 +119,34 @@ class StatusCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.status.write_output")
     @patch("dev.scripts.devctl.commands.status.build_project_report")
+    def test_markdown_reports_mutation_unavailable_as_note(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {
+                "results": {
+                    "score": None,
+                    "outcomes_path": "rust/mutants.out/outcomes.json",
+                    "outcomes_updated_at": "unknown",
+                    "outcomes_age_hours": None,
+                },
+                "warning": "No results found under rust/mutants.out",
+            },
+        }
+        args = make_args()
+
+        code = status.run(args)
+
+        self.assertEqual(code, 0)
+        output = mock_write_output.call_args.args[0]
+        self.assertIn("- Mutation score: unknown", output)
+        self.assertIn("- Mutation score note: No results found under rust/mutants.out", output)
+
+    @patch("dev.scripts.devctl.commands.status.write_output")
+    @patch("dev.scripts.devctl.commands.status.build_project_report")
     def test_parallel_flag_forwarded_to_build_report(
         self,
         mock_build_report,

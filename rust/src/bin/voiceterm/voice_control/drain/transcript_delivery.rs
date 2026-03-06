@@ -39,6 +39,7 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
         ctx.status_state,
         *ctx.recording_started_at,
         ctx.metrics.as_ref(),
+        ctx.source,
         ctx.now,
     );
     let ready = crate::transcript::transcript_ready(

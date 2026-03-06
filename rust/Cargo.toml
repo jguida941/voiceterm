@@ -6,8 +6,8 @@ default-run = "voiceterm"
 autobins = false
 description = "Voice-first terminal overlay for Codex and Claude"
 license = "MIT"
-repository = "https://github.com/jguida941/codex-voice"
-rust-version = "1.78"
+repository = "https://github.com/jguida941/voiceterm"
+rust-version = "1.88.0"
 keywords = ["voice", "terminal", "whisper", "cli"]
 categories = ["command-line-utilities"]
 
@@ -80,3 +80,4 @@ strip = true
 dbg_macro = "deny"
 todo = "deny"
 unimplemented = "deny"
+too_many_lines = "warn"

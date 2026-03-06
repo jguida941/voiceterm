@@ -426,6 +426,52 @@ fn normalize_progress_bar_family(value: Option<ProgressBarFamily>) -> Option<Pro
     }
 }
 
+fn normalize_profile_name(profile: String) -> String {
+    if profile.trim().is_empty() {
+        DEFAULT_PROFILE_NAME.to_string()
+    } else {
+        profile
+    }
+}
+
+fn normalize_surface_overrides(surfaces: StyleSchemaSurfaces) -> SurfaceOverrides {
+    SurfaceOverrides {
+        toast_position: normalize_toast_position(surfaces.toast_position),
+        startup_style: normalize_startup_style(surfaces.startup_style),
+        progress_style: normalize_progress_style(surfaces.progress_style),
+        voice_scene_style: normalize_voice_scene_style(surfaces.voice_scene_style),
+    }
+}
+
+fn normalize_component_overrides(components: StyleSchemaComponents) -> ComponentOverrides {
+    ComponentOverrides {
+        overlay_border: normalize_border_override(components.overlay_border),
+        hud_border: normalize_border_override(components.hud_border),
+        toast_severity_mode: normalize_toast_severity_mode(components.toast_severity_mode),
+        banner_style: normalize_banner_style(components.banner_style),
+        progress_bar_family: normalize_progress_bar_family(components.progress_bar_family),
+    }
+}
+
+fn build_style_schema_pack(
+    profile: String,
+    base_theme: String,
+    overrides: StyleSchemaOverrides,
+    surfaces: StyleSchemaSurfaces,
+    components: StyleSchemaComponents,
+) -> Result<StyleSchemaPack, StyleSchemaError> {
+    Ok(StyleSchemaPack {
+        version: CURRENT_STYLE_SCHEMA_VERSION,
+        profile: normalize_profile_name(profile),
+        base_theme: parse_theme(&base_theme)?,
+        border_style_override: normalize_border_override(overrides.border_style),
+        indicator_set_override: normalize_indicator_override(overrides.indicators),
+        glyph_set_override: normalize_glyph_override(overrides.glyphs),
+        surface_overrides: normalize_surface_overrides(surfaces),
+        component_overrides: normalize_component_overrides(components),
+    })
+}
+
 pub(super) fn parse_style_schema(payload: &str) -> Result<StyleSchemaPack, StyleSchemaError> {
     let envelope: StyleSchemaEnvelope = serde_json::from_str(payload)
         .map_err(|err| StyleSchemaError::InvalidJson(err.to_string()))?;
@@ -450,86 +496,35 @@ pub(super) fn parse_style_schema(payload: &str) -> Result<StyleSchemaPack, Style
         V2_STYLE_SCHEMA_VERSION => {
             let current: StyleSchemaV2 = serde_json::from_str(payload)
                 .map_err(|err| StyleSchemaError::InvalidJson(err.to_string()))?;
-            let base_theme = parse_theme(&current.base_theme)?;
-            let profile = if current.profile.trim().is_empty() {
-                DEFAULT_PROFILE_NAME.to_string()
-            } else {
-                current.profile
-            };
-            Ok(StyleSchemaPack {
-                version: CURRENT_STYLE_SCHEMA_VERSION,
-                profile,
-                base_theme,
-                border_style_override: normalize_border_override(current.overrides.border_style),
-                indicator_set_override: normalize_indicator_override(current.overrides.indicators),
-                glyph_set_override: normalize_glyph_override(current.overrides.glyphs),
-                surface_overrides: SurfaceOverrides::default(),
-                component_overrides: ComponentOverrides::default(),
-            })
+            build_style_schema_pack(
+                current.profile,
+                current.base_theme,
+                current.overrides,
+                StyleSchemaSurfaces::default(),
+                StyleSchemaComponents::default(),
+            )
         }
         V3_STYLE_SCHEMA_VERSION => {
             let current: StyleSchemaV3 = serde_json::from_str(payload)
                 .map_err(|err| StyleSchemaError::InvalidJson(err.to_string()))?;
-            let base_theme = parse_theme(&current.base_theme)?;
-            let profile = if current.profile.trim().is_empty() {
-                DEFAULT_PROFILE_NAME.to_string()
-            } else {
-                current.profile
-            };
-            Ok(StyleSchemaPack {
-                version: CURRENT_STYLE_SCHEMA_VERSION,
-                profile,
-                base_theme,
-                border_style_override: normalize_border_override(current.overrides.border_style),
-                indicator_set_override: normalize_indicator_override(current.overrides.indicators),
-                glyph_set_override: normalize_glyph_override(current.overrides.glyphs),
-                surface_overrides: SurfaceOverrides {
-                    toast_position: normalize_toast_position(current.surfaces.toast_position),
-                    startup_style: normalize_startup_style(current.surfaces.startup_style),
-                    progress_style: normalize_progress_style(current.surfaces.progress_style),
-                    voice_scene_style: normalize_voice_scene_style(
-                        current.surfaces.voice_scene_style,
-                    ),
-                },
-                component_overrides: ComponentOverrides::default(),
-            })
+            build_style_schema_pack(
+                current.profile,
+                current.base_theme,
+                current.overrides,
+                current.surfaces,
+                StyleSchemaComponents::default(),
+            )
         }
         CURRENT_STYLE_SCHEMA_VERSION => {
             let current: StyleSchemaV4 = serde_json::from_str(payload)
                 .map_err(|err| StyleSchemaError::InvalidJson(err.to_string()))?;
-            let base_theme = parse_theme(&current.base_theme)?;
-            let profile = if current.profile.trim().is_empty() {
-                DEFAULT_PROFILE_NAME.to_string()
-            } else {
-                current.profile
-            };
-            Ok(StyleSchemaPack {
-                version: CURRENT_STYLE_SCHEMA_VERSION,
-                profile,
-                base_theme,
-                border_style_override: normalize_border_override(current.overrides.border_style),
-                indicator_set_override: normalize_indicator_override(current.overrides.indicators),
-                glyph_set_override: normalize_glyph_override(current.overrides.glyphs),
-                surface_overrides: SurfaceOverrides {
-                    toast_position: normalize_toast_position(current.surfaces.toast_position),
-                    startup_style: normalize_startup_style(current.surfaces.startup_style),
-                    progress_style: normalize_progress_style(current.surfaces.progress_style),
-                    voice_scene_style: normalize_voice_scene_style(
-                        current.surfaces.voice_scene_style,
-                    ),
-                },
-                component_overrides: ComponentOverrides {
-                    overlay_border: normalize_border_override(current.components.overlay_border),
-                    hud_border: normalize_border_override(current.components.hud_border),
-                    toast_severity_mode: normalize_toast_severity_mode(
-                        current.components.toast_severity_mode,
-                    ),
-                    banner_style: normalize_banner_style(current.components.banner_style),
-                    progress_bar_family: normalize_progress_bar_family(
-                        current.components.progress_bar_family,
-                    ),
-                },
-            })
+            build_style_schema_pack(
+                current.profile,
+                current.base_theme,
+                current.overrides,
+                current.surfaces,
+                current.components,
+            )
         }
         other => Err(StyleSchemaError::UnsupportedVersion(other)),
     }

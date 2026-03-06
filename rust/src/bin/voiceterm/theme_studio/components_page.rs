@@ -3,7 +3,10 @@
 //! Users can browse the 54 component IDs from the component registry and
 //! view/edit per-state colors for each component.
 
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "Theme Studio components page is scaffolded ahead of full runtime navigation wiring."
+)]
 
 use super::nav::{select_next, select_prev};
 

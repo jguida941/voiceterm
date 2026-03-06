@@ -28,6 +28,27 @@ GUARD_SPECS = (
         "focus": "modularity",
     },
     {
+        "name": "duplicate-types-guard",
+        "script_id": "duplicate_types",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "duplicate type names",
+    },
+    {
+        "name": "structural-complexity-guard",
+        "script_id": "structural_complexity",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "structural complexity",
+    },
+    {
+        "name": "rust-test-shape-guard",
+        "script_id": "rust_test_shape",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "test modularity",
+    },
+    {
         "name": "rust-lint-debt-guard",
         "script_id": "rust_lint_debt",
         "supports_range": True,
@@ -40,6 +61,13 @@ GUARD_SPECS = (
         "supports_range": True,
         "severity": "high",
         "focus": "best practices",
+    },
+    {
+        "name": "rust-runtime-panic-policy-guard",
+        "script_id": "rust_runtime_panic_policy",
+        "supports_range": True,
+        "severity": "high",
+        "focus": "runtime panic policy",
     },
     {
         "name": "rust-audit-patterns-guard",

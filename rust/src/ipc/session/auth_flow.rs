@@ -15,7 +15,10 @@ pub(super) type AuthFlowHook =
 static AUTH_FLOW_HOOK: OnceLock<Mutex<Option<AuthFlowHook>>> = OnceLock::new();
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — auth hook injection for integration tests"
+)]
 pub(super) fn set_auth_flow_hook(hook: Option<AuthFlowHook>) {
     let storage = AUTH_FLOW_HOOK.get_or_init(|| Mutex::new(None));
     *storage.lock().unwrap_or_else(|e| e.into_inner()) = hook;
@@ -30,10 +33,7 @@ pub(super) fn run_auth_flow(provider: Provider, codex_cmd: &str, claude_cmd: &st
             }
         }
     }
-    let command = match provider {
-        Provider::Codex => codex_cmd,
-        Provider::Claude => claude_cmd,
-    };
+    let command = provider.auth_command(codex_cmd, claude_cmd);
     auth::run_login_command(command)
         .map_err(|err| format!("{} auth failed: {}", provider.as_str(), err))
 }

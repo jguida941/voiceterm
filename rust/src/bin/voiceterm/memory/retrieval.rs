@@ -69,7 +69,7 @@ pub(crate) fn execute_query<'a>(
 pub(crate) fn estimate_tokens(text: &str) -> usize {
     // Rough approximation: ~4 chars per token for English text.
     let len = text.len();
-    len / 4 + usize::from(len % 4 != 0)
+    len / 4 + usize::from(!len.is_multiple_of(4))
 }
 
 /// Trim retrieval results to fit within a token budget.

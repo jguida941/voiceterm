@@ -14,7 +14,7 @@ use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
 use crate::input::InputEvent;
 use crate::memory::MemoryIngestor;
 use crate::overlays::OverlayMode;
-use crate::prompt::{ClaudePromptDetector, PromptTracker};
+use crate::prompt::{PromptOcclusionDetector, PromptTracker};
 use crate::session_memory::SessionMemoryLogger;
 use crate::session_stats::SessionStats;
 use crate::settings::SettingsMenuState;
@@ -41,7 +41,7 @@ pub(crate) type InputBufferOffset = usize;
 /// Prompt-readiness and occlusion state owned by the event loop.
 pub(crate) struct PromptRuntimeState {
     pub(crate) tracker: PromptTracker,
-    pub(crate) occlusion_detector: ClaudePromptDetector,
+    pub(crate) occlusion_detector: PromptOcclusionDetector,
     pub(crate) non_rolling_approval_window: VecDeque<u8>,
     pub(crate) non_rolling_approval_window_last_update: Option<Instant>,
     pub(crate) non_rolling_release_armed: bool,

@@ -12,12 +12,12 @@ on:
     branches:
       - master
       - develop
-    paths:
-      - "rust/src/**"
-      - ".github/workflows/coverage.yml"
   pull_request:
     paths:
       - "rust/src/**"
+      - "rust/tests/**"
+      - "rust/Cargo.toml"
+      - "rust/Cargo.lock"
       - ".github/workflows/coverage.yml"
 
 concurrency:

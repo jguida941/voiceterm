@@ -5,7 +5,10 @@
 //! - Import a theme from a file path
 //! - Copy TOML to clipboard (via OSC 52 if supported)
 
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "Theme Studio export UI is scaffolded ahead of full runtime navigation wiring."
+)]
 
 use crate::theme::color_value::{palette_to_resolved, ResolvedThemeColors};
 use crate::theme::theme_dir::ensure_theme_dir;

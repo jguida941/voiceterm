@@ -7,26 +7,59 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 try:
     from code_shape_policy import (
         BEST_PRACTICE_DOCS,
+        FUNCTION_POLICY_EXCEPTIONS,
         LANGUAGE_POLICIES,
         PATH_POLICY_OVERRIDES,
         SHAPE_AUDIT_GUIDANCE,
+        FunctionShapePolicy,
         ShapePolicy,
+        function_policy_for_path,
         policy_for_path,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.code_shape_policy import (
         BEST_PRACTICE_DOCS,
+        FUNCTION_POLICY_EXCEPTIONS,
         LANGUAGE_POLICIES,
         PATH_POLICY_OVERRIDES,
         SHAPE_AUDIT_GUIDANCE,
+        FunctionShapePolicy,
         ShapePolicy,
+        function_policy_for_path,
         policy_for_path,
+    )
+
+try:
+    from code_shape_function_policy import (
+        evaluate_function_shape as evaluate_function_shape_impl,
+        scan_python_functions as scan_python_functions_impl,
+        scan_rust_functions as scan_rust_functions_impl,
+    )
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.code_shape_function_policy import (
+        evaluate_function_shape as evaluate_function_shape_impl,
+        scan_python_functions as scan_python_functions_impl,
+        scan_rust_functions as scan_rust_functions_impl,
+    )
+try:
+    from rust_guard_common import (
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
+    )
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import (
+        read_text_from_ref as _read_text_from_ref_with_git,
+        read_text_from_worktree as _read_text_from_worktree_with_root,
+        run_git as _run_git_with_root,
+        validate_ref as _validate_ref_with_git,
     )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -34,20 +67,11 @@ DEFAULT_STALE_OVERRIDE_REVIEW_WINDOW_DAYS = 30
 
 
 def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
-    return result
+    return _run_git_with_root(REPO_ROOT, args, check=check)
 
 
 def _validate_ref(ref: str) -> None:
-    _run_git(["git", "rev-parse", "--verify", ref], check=True)
+    _validate_ref_with_git(_run_git, ref)
 
 
 def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
@@ -103,35 +127,55 @@ def _is_test_path(path: Path) -> bool:
     return False
 
 
+def _should_skip_test_path(path: Path, policy_source: str | None) -> bool:
+    if not _is_test_path(path):
+        return False
+    # Explicit path overrides can opt specific high-signal tests into shape governance.
+    return not (policy_source and policy_source.startswith("path_override:"))
+
+
 def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    spec = f"{ref}:{path.as_posix()}"
-    result = _run_git(["git", "show", spec], check=False)
-    if result.returncode == 0:
-        return result.stdout
-
-    stderr = result.stderr.strip()
-    missing_markers = (
-        "does not exist in",
-        "exists on disk, but not in",
-        "fatal: path",
-    )
-    if any(marker in stderr.lower() for marker in missing_markers):
-        return None
-
-    raise RuntimeError(stderr or f"failed to read {spec}")
+    return _read_text_from_ref_with_git(_run_git, path, ref)
 
 
 def _read_text_from_worktree(path: Path) -> str | None:
-    absolute_path = REPO_ROOT / path
-    if not absolute_path.exists():
-        return None
-    return absolute_path.read_text(encoding="utf-8", errors="replace")
+    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _count_lines(text: str | None) -> int | None:
     if text is None:
         return None
     return len(text.splitlines())
+
+
+def _scan_rust_functions(text: str | None) -> list[dict]:
+    return scan_rust_functions_impl(text)
+
+
+_SCANNER_BY_EXT = {
+    ".rs": scan_rust_functions_impl,
+    ".py": scan_python_functions_impl,
+}
+
+
+def _evaluate_function_shape(
+    *,
+    path: Path,
+    policy: FunctionShapePolicy,
+    policy_source: str,
+    text: str | None,
+    today: date,
+) -> tuple[list[dict], int]:
+    return evaluate_function_shape_impl(
+        path=path,
+        policy=policy,
+        policy_source=policy_source,
+        text=text,
+        today=today,
+        function_policy_exceptions=FUNCTION_POLICY_EXCEPTIONS,
+        best_practice_docs=BEST_PRACTICE_DOCS,
+        scanner=_SCANNER_BY_EXT.get(path.suffix),
+    )
 
 
 def _violation(
@@ -344,6 +388,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- files_changed: {report['files_changed']}")
     lines.append(f"- files_considered: {report['files_considered']}")
     lines.append(f"- files_using_path_overrides: {report['files_using_path_overrides']}")
+    lines.append(f"- function_policies_applied: {report['function_policies_applied']}")
+    lines.append(f"- function_exceptions_used: {report['function_exceptions_used']}")
+    lines.append(f"- function_violations: {report['function_violations']}")
     lines.append(
         f"- stale_override_review_window_days: {report['stale_override_review_window_days']}"
     )
@@ -365,6 +412,13 @@ def _render_md(report: dict) -> str:
         lines.append("")
         lines.append("## Violations")
         for violation in report["violations"]:
+            if "function_name" in violation:
+                lines.append(
+                    f"- `{violation['path']}::{violation['function_name']}` "
+                    f"({violation['reason']}): {violation['guidance']} "
+                    f"[policy: {violation['policy_source']}]"
+                )
+                continue
             growth = violation["growth"]
             growth_label = "n/a" if growth is None else f"{growth:+d}"
             lines.append(
@@ -443,6 +497,9 @@ def main() -> int:
     files_skipped_tests = 0
     files_considered = 0
     files_using_path_overrides = 0
+    function_policies_applied = 0
+    function_exceptions_used = 0
+    function_violations = 0
     stale_override_review_window_days = max(args.stale_override_review_window_days, 0)
     stale_override_candidates_scanned = 0
     stale_override_candidates_skipped = 0
@@ -452,7 +509,7 @@ def main() -> int:
         if policy is None:
             files_skipped_non_source += 1
             continue
-        if _is_test_path(path):
+        if _should_skip_test_path(path, policy_source):
             files_skipped_tests += 1
             continue
 
@@ -460,20 +517,24 @@ def main() -> int:
         if policy_source and policy_source.startswith("path_override:"):
             files_using_path_overrides += 1
 
+        current_text: str | None
         if args.absolute:
+            current_text = _read_text_from_worktree(path)
             violation = _evaluate_absolute_shape(
                 path=path,
                 policy=policy,
                 policy_source=policy_source or "unknown",
-                current_lines=_count_lines(_read_text_from_worktree(path)),
+                current_lines=_count_lines(current_text),
             )
         else:
             if args.since_ref:
                 base_lines = _count_lines(_read_text_from_ref(path, args.since_ref))
-                current_lines = _count_lines(_read_text_from_ref(path, args.head_ref))
+                current_text = _read_text_from_ref(path, args.head_ref)
+                current_lines = _count_lines(current_text)
             else:
                 base_lines = _count_lines(_read_text_from_ref(path, "HEAD"))
-                current_lines = _count_lines(_read_text_from_worktree(path))
+                current_text = _read_text_from_worktree(path)
+                current_lines = _count_lines(current_text)
 
             violation = _evaluate_shape(
                 path=path,
@@ -484,6 +545,20 @@ def main() -> int:
             )
         if violation:
             violations.append(violation)
+
+        function_policy, function_policy_source = function_policy_for_path(path)
+        if function_policy is not None:
+            function_policies_applied += 1
+            function_shape_violations, exception_hits = _evaluate_function_shape(
+                path=path,
+                policy=function_policy,
+                policy_source=function_policy_source or "unknown",
+                text=current_text,
+                today=date.today(),
+            )
+            function_exceptions_used += exception_hits
+            function_violations += len(function_shape_violations)
+            violations.extend(function_shape_violations)
 
     try:
         violation_paths = {item["path"] for item in violations}
@@ -538,6 +613,9 @@ def main() -> int:
         "files_changed": len(changed_paths),
         "files_considered": files_considered,
         "files_using_path_overrides": files_using_path_overrides,
+        "function_policies_applied": function_policies_applied,
+        "function_exceptions_used": function_exceptions_used,
+        "function_violations": function_violations,
         "stale_override_review_window_days": stale_override_review_window_days,
         "stale_override_candidates_scanned": stale_override_candidates_scanned,
         "stale_override_candidates_skipped": stale_override_candidates_skipped,

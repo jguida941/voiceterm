@@ -171,6 +171,22 @@ fn install_drain_hook(hook: DrainVoiceMessagesHook) -> DrainHookGuard {
     DrainHookGuard
 }
 
+struct TerminalHostOverrideGuard {
+    previous: Option<TerminalHost>,
+}
+
+impl Drop for TerminalHostOverrideGuard {
+    fn drop(&mut self) {
+        crate::runtime_compat::set_terminal_host_override(self.previous);
+    }
+}
+
+fn install_terminal_host_override(host: TerminalHost) -> TerminalHostOverrideGuard {
+    let previous = Some(crate::runtime_compat::detect_terminal_host());
+    crate::runtime_compat::set_terminal_host_override(Some(host));
+    TerminalHostOverrideGuard { previous }
+}
+
 struct RuntimeStylePackOverrideGuard {
     previous: RuntimeStylePackOverrides,
 }
@@ -407,7 +423,7 @@ fn build_harness(
         dev_panel_commands: DevPanelCommandState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
-            occlusion_detector: crate::prompt::ClaudePromptDetector::new(false),
+            occlusion_detector: crate::prompt::PromptOcclusionDetector::new(false),
             non_rolling_approval_window: VecDeque::with_capacity(1024),
             non_rolling_approval_window_last_update: None,
             non_rolling_release_armed: false,
@@ -2446,6 +2462,7 @@ fn wake_word_detection_is_ignored_when_overlay_is_open() {
 
 #[test]
 fn run_periodic_tasks_sigwinch_no_size_change_skips_resize_messages() {
+    let _host = install_terminal_host_override(TerminalHost::Other);
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.terminal_cols = 80;
@@ -2460,6 +2477,7 @@ fn run_periodic_tasks_sigwinch_no_size_change_skips_resize_messages() {
 
 #[test]
 fn run_periodic_tasks_sigwinch_single_dimension_change_triggers_resize() {
+    let _host = install_terminal_host_override(TerminalHost::Other);
     let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_80x24);
     let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.terminal_cols = 80;
@@ -2478,6 +2496,40 @@ fn run_periodic_tasks_sigwinch_single_dimension_change_triggers_resize() {
     }
     assert_eq!(state.ui.terminal_cols, 80);
     assert_eq!(state.ui.terminal_rows, 24);
+}
+
+#[test]
+fn run_periodic_tasks_cursor_sigwinch_is_debounced_before_resize_apply() {
+    let _host = install_terminal_host_override(TerminalHost::Cursor);
+    let _hooks = install_sigwinch_hooks(hook_take_sigwinch_true, hook_terminal_size_100x30);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.terminal_cols = 80;
+    state.ui.terminal_rows = 24;
+
+    let first_tick = Instant::now();
+    timers.last_terminal_geometry_poll = first_tick;
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, first_tick);
+    assert!(
+        writer_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "first Cursor SIGWINCH sample inside debounce window should not resize immediately"
+    );
+    assert_eq!(state.ui.terminal_cols, 80);
+    assert_eq!(state.ui.terminal_rows, 24);
+
+    let second_tick = first_tick + Duration::from_millis(200);
+    run_periodic_tasks(&mut state, &mut timers, &mut deps, second_tick);
+    let msg = writer_rx
+        .recv_timeout(Duration::from_millis(200))
+        .expect("debounced Cursor SIGWINCH should apply resize on next eligible tick");
+    match msg {
+        WriterMessage::Resize { rows, cols } => {
+            assert_eq!(rows, 30);
+            assert_eq!(cols, 100);
+        }
+        other => panic!("unexpected writer message: {other:?}"),
+    }
+    assert_eq!(state.ui.terminal_cols, 100);
+    assert_eq!(state.ui.terminal_rows, 30);
 }
 
 #[test]
@@ -3380,7 +3432,7 @@ fn handle_output_chunk_non_empty_idle_emits_only_pty_output() {
 #[test]
 fn handle_output_chunk_bash_approval_card_suppresses_hud() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3395,7 +3447,7 @@ fn handle_output_chunk_bash_approval_card_suppresses_hud() {
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     let (rows, _) = deps.session.current_winsize();
     let expected_suppressed_rows = state
         .ui
@@ -3415,7 +3467,7 @@ fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3431,7 +3483,7 @@ fn nonrolling_explicit_approval_card_suppresses_without_backend_label() {
 
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "explicit approval card must suppress HUD even if backend label guard is unavailable"
     );
 }
@@ -3441,7 +3493,7 @@ fn nonrolling_long_wrapped_approval_card_still_suppresses() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3465,7 +3517,7 @@ fn nonrolling_long_wrapped_approval_card_still_suppresses() {
 
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "wrapped approval cards must still suppress HUD on non-rolling hosts"
     );
 }
@@ -3475,7 +3527,7 @@ fn nonrolling_prompt_question_line_suppresses_before_numbered_options() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3491,7 +3543,7 @@ fn nonrolling_prompt_question_line_suppresses_before_numbered_options() {
 
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "prompt question line should suppress immediately before numbered options land"
     );
 }
@@ -3501,7 +3553,7 @@ fn nonrolling_tool_activity_hint_does_not_suppress_without_approval_card() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3517,7 +3569,7 @@ fn nonrolling_tool_activity_hint_does_not_suppress_without_approval_card() {
 
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "tool activity text alone must not hide HUD on non-rolling hosts"
     );
 }
@@ -3527,7 +3579,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3542,7 +3594,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
     );
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "approval card should suppress HUD in non-rolling mode"
     );
 
@@ -3572,7 +3624,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
         now + Duration::from_millis(20),
     );
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "sticky hold should keep HUD suppressed for rapid back-to-back approval cards"
     );
 
@@ -3583,7 +3635,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
         now + Duration::from_millis(1200),
     );
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "HUD should unsuppress after sticky hold elapses and approval window remains drained"
     );
 
@@ -3596,7 +3648,7 @@ fn nonrolling_stale_explicit_text_does_not_retrigger_suppression() {
     );
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "stale explicit phrase without numbered approval options must not resuppress HUD"
     );
 }
@@ -3606,7 +3658,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3620,7 +3672,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         &mut running,
     );
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     handle_input_event(
         &mut state,
@@ -3646,7 +3698,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         Instant::now() + Duration::from_millis(25),
     );
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "HUD should stay suppressed until substantial post-input output confirms prompt exit"
     );
 
@@ -3665,7 +3717,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         now + Duration::from_millis(50),
     );
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "sticky hold should prevent early unsuppress after substantial output"
     );
 
@@ -3676,7 +3728,7 @@ fn nonrolling_release_arm_defers_on_echo_chunk_until_substantial_output() {
         now + Duration::from_millis(1200),
     );
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "HUD should unsuppress after sticky hold elapses and no approval card remains"
     );
 }
@@ -3686,7 +3738,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
     let _rolling_override = install_prompt_rolling_override(false);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "test".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3700,7 +3752,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
         &mut running,
     );
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     handle_input_event(
         &mut state,
@@ -3726,7 +3778,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
         first_now + Duration::from_millis(100),
     );
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "first sticky hold should prevent unsuppress while next approval card may arrive"
     );
 
@@ -3739,7 +3791,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
     );
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "second approval card should stay in suppressed state without an unsuppress gap"
     );
 
@@ -3767,7 +3819,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
         &mut deps,
         second_now + Duration::from_millis(100),
     );
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -3776,7 +3828,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
         second_now + Duration::from_millis(1200),
     );
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "HUD should restore once final sticky hold elapses"
     );
 }
@@ -3785,7 +3837,7 @@ fn nonrolling_sticky_hold_covers_rapid_consecutive_approvals() {
 fn handle_output_chunk_tool_activity_without_approval_hints_does_not_suppress_hud() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3800,7 +3852,7 @@ fn handle_output_chunk_tool_activity_without_approval_hints_does_not_suppress_hu
     );
 
     assert!(running);
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     let now = Instant::now();
     run_periodic_tasks(
@@ -3809,7 +3861,7 @@ fn handle_output_chunk_tool_activity_without_approval_hints_does_not_suppress_hu
         &mut deps,
         now + Duration::from_millis(1200),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -3817,7 +3869,7 @@ fn handle_output_chunk_tool_activity_without_approval_hints_does_not_suppress_hu
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
@@ -3825,7 +3877,7 @@ fn handle_output_chunk_synchronized_cursor_activity_without_approval_hints_does_
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3840,7 +3892,7 @@ fn handle_output_chunk_synchronized_cursor_activity_without_approval_hints_does_
     );
 
     assert!(running);
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     let now = Instant::now();
     run_periodic_tasks(
@@ -3849,7 +3901,7 @@ fn handle_output_chunk_synchronized_cursor_activity_without_approval_hints_does_
         &mut deps,
         now + Duration::from_millis(1200),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -3857,7 +3909,7 @@ fn handle_output_chunk_synchronized_cursor_activity_without_approval_hints_does_
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
@@ -3866,7 +3918,7 @@ fn handle_output_chunk_synchronized_rewrite_with_historical_approval_phrase_does
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3882,7 +3934,7 @@ fn handle_output_chunk_synchronized_rewrite_with_historical_approval_phrase_does
 
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "quoted approval text in normal transcript output must not hide HUD"
     );
 }
@@ -3892,7 +3944,7 @@ fn handle_output_chunk_synchronized_rewrite_with_inline_quote_and_yes_no_does_no
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3908,7 +3960,7 @@ fn handle_output_chunk_synchronized_rewrite_with_inline_quote_and_yes_no_does_no
 
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "inline quoted prompt text with y/n markers must not be treated as a live approval card"
     );
 }
@@ -3918,7 +3970,7 @@ fn handle_output_chunk_synchronized_yes_no_approval_prompt_suppresses_hud() {
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3934,7 +3986,7 @@ fn handle_output_chunk_synchronized_yes_no_approval_prompt_suppresses_hud() {
 
     assert!(running);
     assert!(
-        state.status_state.claude_prompt_suppressed,
+        state.status_state.prompt_suppressed,
         "live y/n approval prompts in synchronized rewrites must still suppress HUD"
     );
 }
@@ -3944,7 +3996,7 @@ fn handle_output_chunk_recent_input_echo_rewrite_does_not_re_suppress_hud() {
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3961,7 +4013,7 @@ fn handle_output_chunk_recent_input_echo_rewrite_does_not_re_suppress_hud() {
 
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "recent local keystrokes should prevent prompt-input repaint packets from hiding the HUD"
     );
 }
@@ -3971,7 +4023,7 @@ fn handle_output_chunk_input_echo_rewrite_does_not_suppress_without_recent_input
     let _rolling_override = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     deps.backend_label = "claude".to_string();
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -3987,7 +4039,7 @@ fn handle_output_chunk_input_echo_rewrite_does_not_suppress_without_recent_input
 
     assert!(running);
     assert!(
-        !state.status_state.claude_prompt_suppressed,
+        !state.status_state.prompt_suppressed,
         "input-echo rewrites should not hide HUD even when input/output ordering races"
     );
 }
@@ -5123,7 +5175,7 @@ fn empty_bytes_keep_claude_prompt_suppression_enabled() {
     let mut running = true;
 
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
 
     handle_input_event(
@@ -5135,7 +5187,7 @@ fn empty_bytes_keep_claude_prompt_suppression_enabled() {
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 }
 
 #[test]
@@ -5147,7 +5199,7 @@ fn non_confirmation_bytes_keep_claude_prompt_suppression() {
         b"q".as_slice(),
     ] {
         let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-        state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+        state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
         let mut running = true;
 
         let detected = state
@@ -5156,7 +5208,7 @@ fn non_confirmation_bytes_keep_claude_prompt_suppression() {
             .feed_output(b"Do you want to proceed? (y/n)\n");
         assert!(detected);
         super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-        assert!(state.status_state.claude_prompt_suppressed);
+        assert!(state.status_state.prompt_suppressed);
         timers.prompt_suppression_release_not_before =
             Some(Instant::now() + Duration::from_secs(3));
 
@@ -5169,14 +5221,14 @@ fn non_confirmation_bytes_keep_claude_prompt_suppression() {
         );
 
         assert!(running);
-        assert!(state.status_state.claude_prompt_suppressed);
+        assert!(state.status_state.prompt_suppressed);
     }
 }
 
 #[test]
 fn confirmation_bytes_defer_claude_prompt_clear_until_periodic_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     let mut running = true;
 
     let detected = state
@@ -5185,7 +5237,7 @@ fn confirmation_bytes_defer_claude_prompt_clear_until_periodic_tick() {
         .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
 
     handle_input_event(
@@ -5199,28 +5251,28 @@ fn confirmation_bytes_defer_claude_prompt_clear_until_periodic_tick() {
     assert!(running);
     // Input marks detector resolved, but suppression is cleared on the next loop tick
     // to avoid same-frame redraw collisions with backend approval UI repaint.
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     let now = Instant::now();
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     run_periodic_tasks(
         &mut state,
         &mut timers,
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
 fn startup_ready_marker_release_is_debounced_before_unsuppress() {
     let _rolling = install_prompt_rolling_override(true);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
 
     state.prompt.occlusion_detector.activate_startup_guard();
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     let mut running = true;
     // Startup-ready markers should arm release, not clear suppression
@@ -5235,7 +5287,7 @@ fn startup_ready_marker_release_is_debounced_before_unsuppress() {
         &mut running,
     );
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     assert!(timers.prompt_suppression_release_not_before.is_some());
 
     let now = Instant::now();
@@ -5245,7 +5297,7 @@ fn startup_ready_marker_release_is_debounced_before_unsuppress() {
         &mut deps,
         now + Duration::from_millis(300),
     );
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     run_periodic_tasks(
         &mut state,
@@ -5253,13 +5305,13 @@ fn startup_ready_marker_release_is_debounced_before_unsuppress() {
         &mut deps,
         now + Duration::from_millis(1200),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
 fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     let mut running = true;
 
     let detected = state
@@ -5270,7 +5322,7 @@ fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
         );
     assert!(detected);
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
 
     handle_input_event(
@@ -5282,23 +5334,23 @@ fn numeric_approval_choice_defer_claude_prompt_clear_until_periodic_tick() {
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     let now = Instant::now();
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     run_periodic_tasks(
         &mut state,
         &mut timers,
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
 fn enter_key_defer_claude_prompt_clear_until_periodic_tick() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     let mut running = true;
 
     let detected = state
@@ -5307,7 +5359,7 @@ fn enter_key_defer_claude_prompt_clear_until_periodic_tick() {
         .feed_output(b"Do you want to proceed? (y/n)\n");
     assert!(detected);
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     timers.prompt_suppression_release_not_before = Some(Instant::now() + Duration::from_secs(3));
 
     handle_input_event(
@@ -5319,23 +5371,23 @@ fn enter_key_defer_claude_prompt_clear_until_periodic_tick() {
     );
 
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     let now = Instant::now();
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     run_periodic_tasks(
         &mut state,
         &mut timers,
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
 fn enter_key_resolution_does_not_re_suppress_on_empty_output() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -5349,7 +5401,7 @@ fn enter_key_resolution_does_not_re_suppress_on_empty_output() {
         &mut running,
     );
     assert!(running);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
 
     handle_input_event(
         &mut state,
@@ -5367,18 +5419,18 @@ fn enter_key_resolution_does_not_re_suppress_on_empty_output() {
         &mut deps,
         now + Duration::from_secs(4),
     );
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 
     // Empty output should not re-trigger suppression from stale detector buffers.
     handle_output_chunk(&mut state, &mut timers, &mut deps, Vec::new(), &mut running);
     assert!(running);
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
 }
 
 #[test]
 fn reply_composer_marker_does_not_enable_prompt_suppression() {
     let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     let detected = state.prompt.occlusion_detector.feed_output("❯ ".as_bytes());
     assert!(!detected);
     assert!(!state.prompt.occlusion_detector.should_suppress_hud());
@@ -5387,7 +5439,7 @@ fn reply_composer_marker_does_not_enable_prompt_suppression() {
 #[test]
 fn codex_generate_command_hint_does_not_enable_prompt_suppression() {
     let (mut state, _timers, _deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     let detected = state
         .prompt
         .occlusion_detector
@@ -5851,7 +5903,7 @@ fn set_claude_prompt_suppression_expands_pty_row_budget() {
     let unsuppressed_rows = state.ui.terminal_rows.saturating_sub(reserved).max(1);
 
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, true);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     let (suppressed_rows, _) = deps.session.current_winsize();
     let expected_suppressed_rows = state
         .ui
@@ -5866,7 +5918,7 @@ fn set_claude_prompt_suppression_expands_pty_row_budget() {
     assert_eq!(suppressed_rows, expected_suppressed_rows);
 
     super::prompt_occlusion::apply_prompt_suppression(&mut state, &mut deps, false);
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
     assert_eq!(restored_rows, unsuppressed_rows);
 }
@@ -5891,7 +5943,7 @@ fn set_claude_prompt_suppression_clears_hud_before_status_update() {
         .expect("suppression should then send enhanced status")
     {
         WriterMessage::EnhancedStatus(status) => {
-            assert!(status.claude_prompt_suppressed);
+            assert!(status.prompt_suppressed);
         }
         other => panic!("expected EnhancedStatus, got {other:?}"),
     }
@@ -5911,7 +5963,7 @@ fn set_claude_prompt_suppression_clears_hud_before_status_update() {
         .expect("unsuppression should then send enhanced status")
     {
         WriterMessage::EnhancedStatus(status) => {
-            assert!(!status.claude_prompt_suppressed);
+            assert!(!status.prompt_suppressed);
         }
         other => panic!("expected EnhancedStatus, got {other:?}"),
     }
@@ -5920,7 +5972,7 @@ fn set_claude_prompt_suppression_clears_hud_before_status_update() {
 #[test]
 fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.prompt.occlusion_detector = crate::prompt::ClaudePromptDetector::new(true);
+    state.prompt.occlusion_detector = crate::prompt::PromptOcclusionDetector::new(true);
     state.status_state.hud_style = HudStyle::Full;
     state.ui.terminal_rows = 24;
     state.ui.terminal_cols = 80;
@@ -5957,7 +6009,7 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
     state.prompt.occlusion_detector.on_user_input();
     let now = Instant::now();
     run_periodic_tasks(&mut state, &mut timers, &mut deps, now);
-    assert!(state.status_state.claude_prompt_suppressed);
+    assert!(state.status_state.prompt_suppressed);
     run_periodic_tasks(
         &mut state,
         &mut timers,
@@ -5965,7 +6017,7 @@ fn periodic_tasks_clear_stale_prompt_suppression_without_new_output() {
         now + Duration::from_secs(4),
     );
 
-    assert!(!state.status_state.claude_prompt_suppressed);
+    assert!(!state.status_state.prompt_suppressed);
     let (restored_rows, _) = deps.session.current_winsize();
     assert_eq!(restored_rows, unsuppressed_rows);
 }

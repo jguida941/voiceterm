@@ -97,11 +97,8 @@ impl PromptLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{OverlayConfig, VoiceSendMode};
-    use clap::Parser;
-    use std::sync::{Mutex, OnceLock};
+    use crate::test_env::{default_overlay_config, env_lock as shared_env_lock};
     use std::time::{SystemTime, UNIX_EPOCH};
-    use voiceterm::config::AppConfig;
 
     fn temp_log_path(label: &str) -> PathBuf {
         let unique = SystemTime::now()
@@ -111,46 +108,10 @@ mod tests {
         env::temp_dir().join(format!("{label}_{unique}.log"))
     }
 
-    fn env_lock() -> &'static Mutex<()> {
-        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        ENV_LOCK.get_or_init(|| Mutex::new(()))
-    }
-
     #[test]
     fn resolve_prompt_log_prefers_config() {
-        let config = OverlayConfig {
-            help: false,
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: None,
-            prompt_log: Some(PathBuf::from("/tmp/codex_prompt_override.log")),
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            wake_word: false,
-            wake_word_sensitivity: 0.55,
-            wake_word_cooldown_ms: 2000,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            image_mode: false,
-            image_capture_command: None,
-            dev_mode: false,
-            dev_log: false,
-            dev_path: None,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-            theme_file: None,
-            export_theme: None,
-        };
+        let mut config = default_overlay_config();
+        config.prompt_log = Some(PathBuf::from("/tmp/codex_prompt_override.log"));
         let resolved = resolve_prompt_log(&config);
         assert_eq!(
             resolved,
@@ -160,42 +121,10 @@ mod tests {
 
     #[test]
     fn resolve_prompt_log_uses_env() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = shared_env_lock();
         let env_path = PathBuf::from("/tmp/codex_prompt_env.log");
         env::set_var("VOICETERM_PROMPT_LOG", &env_path);
-        let config = OverlayConfig {
-            help: false,
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: None,
-            prompt_log: None,
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            wake_word: false,
-            wake_word_sensitivity: 0.55,
-            wake_word_cooldown_ms: 2000,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            image_mode: false,
-            image_capture_command: None,
-            dev_mode: false,
-            dev_log: false,
-            dev_path: None,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-            theme_file: None,
-            export_theme: None,
-        };
+        let config = default_overlay_config();
         let resolved = resolve_prompt_log(&config);
         env::remove_var("VOICETERM_PROMPT_LOG");
         assert_eq!(resolved, Some(env_path));
@@ -203,41 +132,9 @@ mod tests {
 
     #[test]
     fn resolve_prompt_log_defaults_to_none() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = shared_env_lock();
         env::remove_var("VOICETERM_PROMPT_LOG");
-        let config = OverlayConfig {
-            help: false,
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: None,
-            prompt_log: None,
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            wake_word: false,
-            wake_word_sensitivity: 0.55,
-            wake_word_cooldown_ms: 2000,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            image_mode: false,
-            image_capture_command: None,
-            dev_mode: false,
-            dev_log: false,
-            dev_path: None,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-            theme_file: None,
-            export_theme: None,
-        };
+        let config = default_overlay_config();
         assert!(resolve_prompt_log(&config).is_none());
     }
 

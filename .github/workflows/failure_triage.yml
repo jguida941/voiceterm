@@ -16,6 +16,7 @@ on:
       - Autonomy Controller
       - CodeRabbit Ralph Loop
       - CodeRabbit Triage Bridge
+      - Coverage Upload
       - dependency_review
       - lint_hardening
       - Mutation Testing
@@ -29,6 +30,7 @@ on:
       - Rust TUI CI
       - Security Guard
       - Tooling Control Plane
+      - workflow_lint
     types:
       - completed
 
@@ -86,10 +88,13 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 1 }}
         run: |
-          WORKFLOW_SLUG="$(printf '%s' "${WORKFLOW_NAME}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9._-' '-')"
-          ARTIFACT_DIR="dev/reports/failures/${WORKFLOW_SLUG}/run-${RUN_ID}-attempt-${RUN_ATTEMPT}"
-          mkdir -p "${ARTIFACT_DIR}"
-          echo "artifact_dir=${ARTIFACT_DIR}" >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py prepare-failure-artifact-dir \
+            --workflow-name "${WORKFLOW_NAME}" \
+            --run-id "${RUN_ID}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --root "dev/reports/failures" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Capture workflow context
         env:
@@ -102,6 +107,7 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_HTML_URL: ${{ github.event.workflow_run.html_url }}
         run: |
+          set -euo pipefail
           cp "${GITHUB_EVENT_PATH}" "${ARTIFACT_DIR}/github-event.json"
           {
             echo "# Failure triage snapshot"
@@ -126,16 +132,31 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           REPO_SLUG: ${{ github.repository }}
         run: |
+          set -euo pipefail
           mkdir -p "${ARTIFACT_DIR}/source-artifacts"
           gh run download "${RUN_ID}" --dir "${ARTIFACT_DIR}/source-artifacts" --repo "${REPO_SLUG}"
+
+      - name: Resolve external backlog artifact
+        id: backlog
+        env:
+          ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py find-first-file \
+            --search-root "${ARTIFACT_DIR}/source-artifacts" \
+            --pattern 'backlog-medium.json' \
+            --allow-missing \
+            --github-output "${GITHUB_OUTPUT}" \
+            --output-key backlog_file
 
       - name: Run triage snapshot
         env:
           ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           EXTERNAL_ARGS=()
-          BACKLOG_FILE="$(find "${ARTIFACT_DIR}/source-artifacts" -type f -name 'backlog-medium.json' | head -n 1 || true)"
+          BACKLOG_FILE="${{ steps.backlog.outputs.backlog_file }}"
           if [[ -n "${BACKLOG_FILE}" ]]; then
             EXTERNAL_ARGS+=(--external-issues-file "${BACKLOG_FILE}")
           fi
@@ -158,6 +179,7 @@ jobs:
           SOURCE_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           SOURCE_WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
         run: |
+          set -euo pipefail
           echo "## Failure triage bundle" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- source workflow: ${SOURCE_WORKFLOW_NAME}" >> "${GITHUB_STEP_SUMMARY}"

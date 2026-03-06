@@ -19,7 +19,10 @@ impl MeterModule {
     }
 
     /// Create a meter module with a specific bar count.
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Reserved for upcoming HUD settings/theme controls and targeted rendering tests."
+    )]
     pub fn with_bar_count(bar_count: usize) -> Self {
         Self {
             bar_count: bar_count.max(1),
@@ -80,9 +83,7 @@ impl HudModule for MeterModule {
         // Render a richer sparkline from recent samples when available.
         let waveform = if state.audio_levels.is_empty() {
             let waveform_char = Self::db_to_char(db, bars);
-            std::iter::repeat(waveform_char)
-                .take(self.bar_count)
-                .collect()
+            std::iter::repeat_n(waveform_char, self.bar_count).collect()
         } else {
             Self::render_sparkline(&state.audio_levels, self.bar_count, bars)
         };

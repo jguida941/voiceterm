@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-05
 
 ## At a Glance
 
@@ -73,7 +73,7 @@ Evidence:
 
 - Original plan: `8aef111:docs/plan.md`
 - Architecture docs: `dev/ARCHITECTURE.md`
-- ADR index and records: `dev/adr/README.md`, `dev/adr/0001-*.md` through `dev/adr/0023-*.md`
+- ADR index and records: `dev/adr/README.md` and `dev/adr/*.md`
 - Release history: `dev/CHANGELOG.md`, git tags
 - Full history replay: `git log --reverse`
 
@@ -253,6 +253,155 @@ Evidence:
 
 Inference: CI red from dependency-manifest parser incompatibility is removed,
 and the documented MSRV contract now matches actual workflow execution.
+
+### Recent Governance Update (2026-03-04, Coverage Branch-Head Freshness)
+
+Fact: Coverage uploads now run on every push to `develop` and `master` (not
+only `rust/src/**` path-filtered pushes), so Codecov can publish coverage for
+the current branch-head commit and avoid `unknown` badge states after
+docs/tooling-only commits.
+
+Evidence:
+
+- `.github/workflows/coverage.yml` (removed push `paths` filter; push trigger is
+  now branch-only for `develop`/`master`)
+- `AGENTS.md` (CI lane mapping note updated for coverage freshness behavior)
+- `dev/DEVELOPMENT.md` + `dev/scripts/README.md` (maintainer workflow docs now
+  state branch-head freshness contract for coverage lane)
+
+Inference: Codecov branch pages and README coverage badges will stay aligned to
+the latest protected-branch head commit, reducing `unknown` drift between
+runtime and non-runtime merge batches.
+
+### Recent Governance Update (2026-03-05, Workflow-Shell Bridge + Strict-Tooling Hygiene)
+
+Fact: Remaining workflow shell-heavy parsing paths now route through one
+repository helper script, and strict-tooling governance now blocks fragile
+inline shell patterns.
+
+Evidence:
+
+- `dev/scripts/workflow_shell_bridge.py` (deterministic commit-range/scope,
+  failure-artifact, and first-match path resolution for workflow lanes)
+- `.github/workflows/tooling_control_plane.yml` (range resolution + strict
+  user-doc gate signal now use helper script, plus explicit workflow-shell
+  hygiene and naming-consistency guard steps)
+- `.github/workflows/security_guard.yml` (`Resolve Python security diff scope`
+  now uses helper bridge)
+- `.github/workflows/failure_triage.yml` +
+  `.github/workflows/mutation-testing.yml` (removed `find ... | head -n 1`
+  file-selection pattern in favor of helper bridge calls)
+- `dev/scripts/checks/check_workflow_shell_hygiene.py` +
+  `dev/scripts/devctl/commands/docs_check.py` (`docs-check --strict-tooling`
+  now enforces workflow-shell anti-pattern checks)
+- `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md`,
+  `dev/active/MASTER_PLAN.md` (release/docs governance guidance now requires
+  same-SHA `release_preflight.yml` success before workflow-first release publish
+  flow)
+
+Inference: Workflow behavior is more deterministic, CI policy drift is reduced,
+and release documentation now matches release-gate enforcement semantics in
+publish lanes.
+
+### Recent Governance Update (2026-03-05, Shape-Policy Recovery + Release-Doc Alignment)
+
+Fact: The remaining tooling shape-policy blockers were removed by splitting
+oversized workflow/devctl modules into companion helpers, and release docs were
+realigned to the same-SHA preflight-first release-gate sequence.
+
+Evidence:
+
+- `dev/scripts/autonomy_workflow_bridge.py` +
+  `dev/scripts/workflow_bridge/*`
+  (workflow bridge command router split from config/export helper logic)
+- `dev/scripts/devctl/commands/hygiene_audits.py` +
+  `dev/scripts/devctl/commands/hygiene_audits_archive.py` +
+  `dev/scripts/devctl/commands/hygiene_audits_adrs.py` +
+  `dev/scripts/devctl/commands/hygiene_audits_adrs_metadata.py` +
+  `dev/scripts/devctl/commands/hygiene_audits_adrs_backlog.py`
+  (ADR/archive governance checks decomposed under code-shape limits)
+- `dev/scripts/checks/check_workflow_shell_hygiene.py` +
+  `dev/scripts/devctl/tests/test_check_workflow_shell_hygiene.py`
+  (guard now scans `.yml` + `.yaml` and supports auditable rule-level
+  suppression token comments)
+- `dev/scripts/README.md` + `dev/DEVELOPMENT.md`
+  (release examples now run preflight before `release-gates`, and publish lane
+  docs include `publish_release_binaries.yml` in the required monitoring set)
+
+Inference: Tooling closures now satisfy code-shape governance without policy
+bypasses, and maintainer release instructions are consistent with enforced CI
+release-gate behavior.
+
+### Recent Governance Update (2026-03-05, Rust Guardrail Expansion + Clippy High-Signal Baseline)
+
+Fact: Rust guardrail coverage now includes a dedicated test-file shape
+non-regression gate, a runtime panic rationale policy gate, and a Clippy
+high-signal lint baseline gate in Rust CI.
+
+Evidence:
+
+- `dev/scripts/checks/check_rust_test_shape.py` +
+  `dev/scripts/checks/check_rust_runtime_panic_policy.py`
+  (new changed-file Rust guard scripts for oversized test-surface drift and
+  unallowlisted runtime panic growth)
+- `dev/scripts/devctl/commands/check_support.py` +
+  `dev/scripts/devctl/tests/test_check.py`
+  (`devctl check` AI-guard step set and commit-range forwarding now include
+  both new Rust guard scripts)
+- `dev/scripts/devctl/commands/audit_scaffold.py` +
+  `dev/scripts/devctl/commands/audit_scaffold_render.py` +
+  `dev/scripts/devctl/tests/test_audit_scaffold.py`
+  (`audit-scaffold` now aggregates/action-synthesizes findings for test-shape
+  and runtime panic-policy guard failures)
+- `dev/scripts/collect_clippy_warnings.py` +
+  `dev/scripts/checks/check_clippy_high_signal.py` +
+  `dev/config/clippy/high_signal_lints.json` +
+  `.github/workflows/rust_ci.yml`
+  (Rust CI now emits lint histogram JSON during clippy and enforces tracked
+  high-signal lint ceilings)
+- `dev/scripts/devctl/tests/test_collect_clippy_warnings.py` +
+  `dev/scripts/devctl/tests/test_check_clippy_high_signal.py` +
+  `dev/scripts/devctl/tests/test_check_rust_test_shape.py` +
+  `dev/scripts/devctl/tests/test_check_rust_runtime_panic_policy.py`
+  (new/expanded unit coverage for collector output and guard parsing behavior)
+- `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md`,
+  `dev/DEVCTL_AUTOGUIDE.md`, `.github/workflows/README.md`
+  (documentation surfaces updated for new guard commands and CI baseline
+  behavior)
+
+Inference: Rust governance now catches a broader set of maintainability and
+runtime-safety regressions before merge, while preserving deterministic CI
+signal for release-quality lint drift.
+
+### Recent Governance Update (2026-03-05, MP-350 MCP Adapter + Contract Hardening)
+
+Fact: The repo now exposes an optional read-only MCP adapter while keeping
+`devctl` as the enforcement authority, and release/cleanup guard semantics are
+locked via explicit contract helpers and tests.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check.py`
+  (`build_release_gate_commands()` extraction for
+  `check --profile release` contract)
+- `dev/scripts/devctl/commands/ship_steps.py`
+  (`build_verify_checks()` extraction for `ship --verify` contract)
+- `dev/scripts/devctl/commands/mcp.py` +
+  `dev/config/mcp_tools_allowlist.json`
+  (allowlisted read-only MCP tools/resources + stdio transport support)
+- `dev/scripts/devctl/tests/test_check.py` +
+  `dev/scripts/devctl/tests/test_ship.py` +
+  `dev/scripts/devctl/tests/test_reports_retention.py` +
+  `dev/scripts/devctl/tests/test_mcp.py`
+  (contract regression coverage for release gates, verify order, cleanup
+  protections, and MCP read-only enforcement)
+- `dev/MCP_DEVCTL_ALIGNMENT.md`, `dev/DEVCTL_AUTOGUIDE.md`,
+  `dev/scripts/README.md`, `dev/ARCHITECTURE.md`
+  (durable policy docs and maintainer usage guidance)
+
+Inference: MCP now serves as a protocol adapter for tool clients without
+adding a competing control plane; the safety model remains code-first and
+regression-tested.
 
 ### Recent Governance Update (2026-03-01, v1.0.98 Release Gate Alignment)
 
@@ -2058,6 +2207,7 @@ timeline
   2026-02-20 : source-shape governance hardening: added `check_code_shape.py` plus tooling-control-plane commit-range enforcement to block new Rust/Python God-file growth while allowing non-regressive maintenance on existing large modules
   2026-02-20 : Rust lint-debt non-regression governance: added `check_rust_lint_debt.py` and wired tooling-control-plane commit-range checks so changed Rust files cannot introduce net-new `#[allow(...)]` / non-test `unwrap/expect` debt silently
   2026-02-20 : AI guardrails for Rust best practices: added `check_rust_best_practices.py`, wired `devctl check --profile ai-guard` (and prepush/release auto-guards), and enforced commit-range checks in tooling-control-plane CI
+  2026-03-05 : pre-push routing and local-lane naming hardening: added `devctl check-router` (path-aware bundle/risk-addon routing with optional `--execute`), introduced `devctl check --profile fast` as alias of `quick` for clearer local-iteration intent, moved canonical bundle command authority into `dev/scripts/devctl/bundle_registry.py`, formalized heavy-check placement so strict checks remain in `prepush`/`release`/CI lanes, and added `check_agents_bundle_render.py` so AGENTS rendered bundle docs are auto-validated/regenerable from the registry
 ```
 
 ## Original Hypothesis and Why It Changed
@@ -2188,7 +2338,7 @@ Feature velocity increased and required explicit architecture governance.
 
 ### Where to Inspect in Repo
 
-- `dev/adr/README.md` and `dev/adr/0001-*.md` through `dev/adr/0023-*.md`
+- `dev/adr/README.md` and `dev/adr/*.md`
 - `dev/scripts/release.sh` and `dev/scripts/update-homebrew.sh`
 - `dev/active/MASTER_PLAN.md` (execution/governance integration)
 
@@ -2311,7 +2461,7 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - Process governance docs were refactored into an index-first user-story router (`AGENTS.md`) with explicit bootstrap/dirty-tree/release-parity/CI-lane mapping and mirrored routing language in `dev/DEVELOPMENT.md`; governance now includes dedicated guard scripts for release version parity (`dev/scripts/checks/check_release_version_parity.py`), AGENTS contract integrity (`dev/scripts/checks/check_agents_contract.py`), and active-plan registry/sync integrity (`dev/scripts/checks/check_active_plan_sync.py` + `dev/active/INDEX.md`) to reduce manual drift before tags/merges. Evidence: `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/checks/check_release_version_parity.py`, `dev/scripts/checks/check_agents_contract.py`, `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md` (MP-245).
 - Tooling hygiene now includes a runtime process sweep that errors on detached `target/debug/deps/voiceterm-*` test binaries (`PPID=1`) and warns on active test runners, so leaked local test binaries are caught before governance bundles proceed. Evidence: `dev/scripts/devctl/commands/hygiene.py`, `dev/scripts/devctl/tests/test_hygiene.py`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md` (MP-256).
 - Docs readability scope now includes an explicit plain-language pass for primary `dev/` entry docs (`dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`) so new contributors can follow workflows faster while preserving command and policy accuracy. Evidence: `dev/active/MASTER_PLAN.md` (MP-257), `dev/README.md`, `dev/DEVELOPMENT.md`, `dev/ARCHITECTURE.md`, `AGENTS.md`.
-- Maintainer-facing workflow docs were rewritten for faster scanability with an end-to-end lifecycle flowchart plus quick routing sections (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) so developers can quickly choose the right local checks and push path, while keeping `AGENTS.md` as the canonical bundle/router source. Evidence: `dev/DEVELOPMENT.md`, `AGENTS.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`.
+- Maintainer-facing workflow docs were rewritten for faster scanability with an end-to-end lifecycle flowchart plus quick routing sections (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) so developers can quickly choose the right local checks and push path, while keeping `AGENTS.md` as canonical workflow policy and `dev/scripts/devctl/bundle_registry.py` as canonical bundle-command authority. Evidence: `dev/DEVELOPMENT.md`, `AGENTS.md`, `dev/scripts/README.md`, `dev/scripts/devctl/bundle_registry.py`, `dev/active/MASTER_PLAN.md`.
 - Active-plan sync governance was hardened to enforce `MP-*` scope parity between `dev/active/INDEX.md` and spec docs (`theme_upgrade.md`, `memory_studio.md`), and the multi-agent worktree runbook was refreshed to current open Theme/Memory/Mutation scope so orchestration instructions remain cycle-correct. Evidence: `dev/scripts/checks/check_active_plan_sync.py`, `dev/active/INDEX.md`, `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`.
 - PTY lifeline watchdog hardening shipped to prevent orphan descendants after abrupt parent death. Evidence: `4194dd4`.
 - Mutation badge semantics changed to score-based endpoint output (red/orange/green) with `failed` reserved for missing/invalid outcomes. Evidence: `de82d7b`, `ed069f1`.
@@ -2601,6 +2751,8 @@ Inference:
 | 0024 | Accepted | 2026-02-23 (working tree) | wake-word runtime ownership and privacy guardrails |
 | 0025 | Accepted | 2026-02-23 (working tree) | voice macro precedence and built-in navigation resolution |
 | 0026 | Accepted | 2026-02-23 (working tree) | Claude prompt-safe HUD suppression |
+| 0035 | Accepted | 2026-03-05 (working tree) | host/provider boundary ownership and extension policy |
+| 0036 | Accepted | 2026-03-05 (working tree) | compatibility matrix governance and CI fail policy |
 
 </details>
 
@@ -2825,13 +2977,19 @@ With AGENTS.md, the AI doesn't make assumptions. It follows a decision tree. It 
 
 #### Key commands:
 
-**`devctl check --profile <profile>`** — Quality gate runner with 6 profiles:
+**`devctl check --profile <profile>`** — Quality gate runner with 7 profiles:
 - `ci`: format + clippy + tests (matches what CI runs)
 - `prepush`: ci + perf smoke + memory guard + AI guard
 - `release`: full suite including mutation score + wake-word soak
 - `quick`: format + clippy only (fast iteration)
+- `fast`: alias of `quick` for local iteration naming clarity
 - `maintainer-lint`: strict clippy subset for hardening
 - `ai-guard`: code shape + lint debt + best practices non-regression
+
+**`devctl check-router`** — Path-aware lane routing:
+- Selects docs/runtime/tooling/release lane from changed files
+- Reports why the lane was chosen and which risk add-ons apply
+- Optional `--execute` mode runs routed bundle commands and add-ons (loaded from `dev/scripts/devctl/bundle_registry.py`)
 
 **`devctl docs-check`** — Documentation governance:
 - Detects what type of change you made (user-facing, tooling, evolution)
@@ -3006,9 +3164,9 @@ Every step feeds the next. Documentation produced in step 6 becomes context load
 #### What one developer accomplished:
 
 - **~20,000 lines of Rust** — multi-threaded, real-time audio, PTY management, terminal rendering
-- **17 CI workflows** — covering performance, security, mutation testing, governance
-- **28 ADRs** — every significant decision documented and discoverable
-- **14 devctl commands** — a complete maintainer control plane
+- **CI workflow coverage** — covering performance, security, mutation testing, governance
+- **ADR catalog coverage** — significant architecture decisions are documented and discoverable
+- **devctl control-plane command surface** — a complete maintainer control plane
 - **3 distribution channels** — Homebrew, PyPI, macOS app
 - **11 themes** — with a theme studio for customization
 - **5 backend integrations** — Codex, Claude Code, Gemini, Aider, OpenCode
@@ -3155,7 +3313,7 @@ The secret? Not AI prompting. Governance infrastructure.
 Three things:
 1. AGENTS.md — a deterministic 12-step SOP that AI agents follow. Not "be helpful." Exact decision trees, command bundles, and risk matrices.
 2. DevCtl — a CLI that turns policies into automated checks. Docs not updated? Build fails. Dependencies insecure? CI blocks merge.
-3. ADRs — 28 architecture decision records so AI agents don't re-litigate old debates every session.
+3. ADRs — a maintained architecture decision catalog so AI agents don't re-litigate old debates every session.
 
 Together: a feedback loop. Plan → Execute → Verify → Document → Plan. Each cycle's output improves the next cycle's input.
 
@@ -3188,7 +3346,8 @@ For those who want the details, here's what the system looks like under the hood
 - Publish PyPI + Publish Homebrew (automated on release)
 
 **DevCtl commands:**
-- `check` (6 profiles: ci, prepush, release, quick, maintainer-lint, ai-guard)
+- `check` (7 profiles: ci, prepush, release, quick, fast, maintainer-lint, ai-guard)
+- `check-router` (path-aware lane selection + optional routed execution)
 - `docs-check` (user-facing and tooling doc governance)
 - `hygiene` (ADR, archive, script documentation auditing)
 - `security` (RustSec + optional workflow scanning)

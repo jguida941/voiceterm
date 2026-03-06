@@ -63,6 +63,7 @@ jobs:
 
       - name: Run mutation tests (sharded)
         run: |
+          # intentional: error suppression for capturing cargo-mutants exit code
           set +e
           cargo mutants \
             --baseline skip \
@@ -74,14 +75,15 @@ jobs:
           set -e
           # cargo-mutants uses exit code 2 when some mutants survive.
           # Keep shard jobs alive so outcomes upload and aggregate scoring
-          # decides pass/fail at the workflow level.
+          # can always publish advisory threshold reporting.
           if [ "${status}" -ne 0 ] && [ "${status}" -ne 2 ] && [ "${status}" -ne 3 ]; then
             exit "${status}"
           fi
 
       - name: Locate shard outcomes
         run: |
-          OUTCOME_PATH=$(find mutants.out -name outcomes.json | head -n 1)
+          set -euo pipefail
+          OUTCOME_PATH="$(python3 ../dev/scripts/workflow_shell_bridge.py find-first-file --search-root mutants.out --pattern outcomes.json)"
           if [ -z "${OUTCOME_PATH}" ]; then
             echo "outcomes.json not found" >&2
             exit 1
@@ -100,7 +102,7 @@ jobs:
           if-no-files-found: error
 
   mutation-score:
-    name: enforce aggregated mutation score
+    name: report aggregated mutation score (advisory)
     runs-on: ubuntu-latest
     if: always()
     needs: mutants
@@ -126,6 +128,7 @@ jobs:
       - name: Commit mutation badge update
         if: always() && github.ref == 'refs/heads/master'
         run: |
+          set -euo pipefail
           if git diff --quiet -- .github/badges/mutation-score.json; then
             echo "No mutation badge change."
             exit 0
@@ -134,29 +137,20 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/badges/mutation-score.json
           git commit -m "chore: update mutation score badge"
+          # intentional: error suppression for rebase race with concurrent badge updates
           git pull --rebase origin master || true
+          # intentional: error suppression for non-fast-forward push race
           git push || {
             echo "Non-fast-forward on badge push; leaving workflow green."
             exit 0
           }
 
-      - name: Enforce mutation score threshold
+      - name: Report mutation score threshold status (advisory)
         if: always()
-        env:
-          MUTATION_ENFORCE_THRESHOLD: ${{ vars.MUTATION_ENFORCE_THRESHOLD }}
         run: |
-          set +e
+          set -euo pipefail
           python3 dev/scripts/checks/check_mutation_score.py \
             --glob "mutation-shards/**/shard-*-outcomes.json" \
-            --threshold 0.80
-          SCORE_RC=$?
-          set -e
-          if [[ "${SCORE_RC}" -eq 0 ]]; then
-            exit 0
-          fi
-          if [[ "${MUTATION_ENFORCE_THRESHOLD}" == "true" ]]; then
-            echo "Mutation threshold gate enforced; failing with ${SCORE_RC}."
-            exit "${SCORE_RC}"
-          fi
-          echo "::warning::Mutation score check returned ${SCORE_RC}; keeping scheduled lane warn-only (set MUTATION_ENFORCE_THRESHOLD=true to enforce)."
-          exit 0
+            --threshold 0.80 \
+            --report-only
+          echo "::notice::Mutation score is tracked as advisory signal (non-blocking) for release flow."

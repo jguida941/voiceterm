@@ -103,7 +103,10 @@ pub struct StatusBanner {
     /// Number of rows this banner occupies
     pub height: usize,
     /// Clickable button positions
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Clickable bounds are retained for staged pointer/gesture parity across terminals."
+    )]
     pub buttons: Vec<ButtonPosition>,
 }
 
@@ -195,7 +198,7 @@ pub struct StatusLineState {
     pub transition_progress: f32,
     /// Whether HUD should be suppressed because a Claude interactive prompt is active.
     /// Set by the `ClaudePromptDetector` to prevent HUD from occluding approval prompts.
-    pub claude_prompt_suppressed: bool,
+    pub prompt_suppressed: bool,
     /// Render Full HUD semantics in a single-row layout (terminal-specific fallback).
     pub full_hud_single_line: bool,
 }
@@ -255,7 +258,7 @@ mod tests {
         assert!(!state.hidden_launcher_collapsed);
         assert_eq!(state.transition_progress, 0.0);
         assert!(state.message.is_empty());
-        assert!(!state.claude_prompt_suppressed);
+        assert!(!state.prompt_suppressed);
         assert!(!state.full_hud_single_line);
     }
 

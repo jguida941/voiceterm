@@ -10,10 +10,18 @@ on:
     paths:
       - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
+      - "dev/scripts/collect_clippy_warnings.py"
+      - "dev/scripts/checks/check_clippy_high_signal.py"
+      - "dev/config/clippy/high_signal_lints.json"
+      - "dev/scripts/render_clippy_badge.py"
   pull_request:
     paths:
       - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
+      - "dev/scripts/collect_clippy_warnings.py"
+      - "dev/scripts/checks/check_clippy_high_signal.py"
+      - "dev/config/clippy/high_signal_lints.json"
+      - "dev/scripts/render_clippy_badge.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,6 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      clippy_warnings: ${{ steps.clippy.outputs.warnings }}
+      clippy_status: ${{ steps.clippy.outputs.status }}
 
     defaults:
       run:
@@ -32,6 +43,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Resolve AI-guard commit range
+        id: ai_guard_range
+        working-directory: .
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+            --event-name "${EVENT_NAME}" \
+            --push-before "${PUSH_BEFORE}" \
+            --push-head "${PUSH_HEAD}" \
+            --pr-base "${PR_BASE}" \
+            --pr-head "${PR_HEAD}" \
+            --changed-files-output /tmp/rust-ci-ai-guard-changed-files.txt \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
@@ -54,7 +92,48 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        id: clippy
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/collect_clippy_warnings.py \
+            --working-directory rust \
+            --output-json "${RUNNER_TEMP}/clippy-summary.json" \
+            --output-lints-json "${RUNNER_TEMP}/clippy-lints.json" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: enforce clippy clean
+        run: |
+          set -euo pipefail
+          CLIPPY_EXIT="${{ steps.clippy.outputs.exit_code }}"
+          if [[ "${CLIPPY_EXIT}" != "0" ]]; then
+            echo "::error::cargo clippy returned non-zero exit code (${CLIPPY_EXIT})."
+            exit 1
+          fi
+          if [[ "${{ steps.clippy.outputs.warnings }}" != "0" ]]; then
+            echo "::error::cargo clippy reported ${{ steps.clippy.outputs.warnings }} warning(s)."
+            exit 1
+          fi
+
+      - name: enforce clippy high-signal lint baseline
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_clippy_high_signal.py \
+            --input-lints-json "${RUNNER_TEMP}/clippy-lints.json" \
+            --format md
+
+      - name: devctl ai-guard
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/devctl.py check \
+            --profile ai-guard \
+            --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
+            --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
+            --skip-fmt \
+            --skip-clippy \
+            --skip-tests
 
       - name: cargo test
         run: cargo test --workspace --all-features -- --nocapture
@@ -151,7 +230,10 @@ jobs:
           MSRV_RESULT: ${{ needs['rust-msrv'].result }}
           FEATURE_MATRIX_RESULT: ${{ needs['rust-feature-matrix'].result }}
           MACOS_RESULT: ${{ needs['rust-macos-runtime'].result }}
+          CLIPPY_WARNINGS: ${{ needs.rust.outputs.clippy_warnings }}
+          CLIPPY_STATUS: ${{ needs.rust.outputs.clippy_status }}
         run: |
+          set -euo pipefail
           STATUS="success"
           for RESULT in "${RUST_RESULT}" "${MSRV_RESULT}" "${FEATURE_MATRIX_RESULT}" "${MACOS_RESULT}"; do
             if [[ "${RESULT}" != "success" ]]; then
@@ -159,20 +241,42 @@ jobs:
               break
             fi
           done
+
+          CLIPPY_WARNING_COUNT="${CLIPPY_WARNINGS:-unknown}"
+          if [[ -z "${CLIPPY_WARNING_COUNT}" ]]; then
+            CLIPPY_WARNING_COUNT="unknown"
+          fi
+
+          CLIPPY_BADGE_STATUS="${CLIPPY_STATUS:-failure}"
+          if [[ -z "${CLIPPY_BADGE_STATUS}" ]]; then
+            CLIPPY_BADGE_STATUS="failure"
+          fi
+
           echo "status=${STATUS}" >> "${GITHUB_OUTPUT}"
+          echo "clippy_warnings=${CLIPPY_WARNING_COUNT}" >> "${GITHUB_OUTPUT}"
+          echo "clippy_status=${CLIPPY_BADGE_STATUS}" >> "${GITHUB_OUTPUT}"
 
       - name: Render CI badge
         run: python3 dev/scripts/render_ci_badge.py --status "${{ steps.aggregate.outputs.status }}" --output .github/badges/ci-status.json
 
-      - name: Commit CI badge update
+      - name: Render clippy warnings badge
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/render_clippy_badge.py \
+            --status "${{ steps.aggregate.outputs.clippy_status }}" \
+            --warnings "${{ steps.aggregate.outputs.clippy_warnings }}" \
+            --output .github/badges/clippy-warnings.json
+
+      - name: Commit CI/clippy badge update
         if: github.ref == 'refs/heads/master'
         run: |
-          if git diff --quiet -- .github/badges/ci-status.json; then
-            echo "No CI badge change."
+          set -euo pipefail
+          if git diff --quiet -- .github/badges/ci-status.json .github/badges/clippy-warnings.json; then
+            echo "No CI/clippy badge change."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/ci-status.json
-          git commit -m "chore: update CI badge"
+          git add .github/badges/ci-status.json .github/badges/clippy-warnings.json
+          git commit -m "chore: update CI badges"
           git push

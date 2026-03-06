@@ -80,6 +80,51 @@ class MutationScoreScriptTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, msg=proc.stdout + proc.stderr)
         self.assertIn("FAIL: mutation outcomes exceed max age threshold", proc.stdout)
 
+    def test_report_only_warns_when_outcomes_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing = Path(tmpdir) / "outcomes.json"
+            proc = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPT_PATH),
+                    "--path",
+                    str(missing),
+                    "--threshold",
+                    "0.80",
+                    "--report-only",
+                ],
+                text=True,
+                capture_output=True,
+                cwd=REPO_ROOT,
+            )
+
+        self.assertEqual(proc.returncode, 0, msg=proc.stdout + proc.stderr)
+        self.assertIn("WARN: outcomes file not found", proc.stdout)
+        self.assertIn("post-release follow-up", proc.stdout)
+
+    def test_report_only_warns_when_score_is_below_threshold(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outcomes = Path(tmpdir) / "outcomes.json"
+            write_outcomes(outcomes, caught=1, missed=9, timeout=0, unviable=0)
+            proc = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPT_PATH),
+                    "--path",
+                    str(outcomes),
+                    "--threshold",
+                    "0.80",
+                    "--report-only",
+                ],
+                text=True,
+                capture_output=True,
+                cwd=REPO_ROOT,
+            )
+
+        self.assertEqual(proc.returncode, 0, msg=proc.stdout + proc.stderr)
+        self.assertIn("WARN: mutation score", proc.stdout)
+        self.assertIn("post-release follow-up", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,13 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0010](0010-sigwinch-atomic-flag.md) | SIGWINCH Signal Handling | Accepted |
 | [0014](0014-json-ipc-protocol.md) | JSON IPC Protocol for External UIs | Accepted |
 
+### IDE and Provider Architecture
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [0035](0035-host-provider-boundary-ownership.md) | Host/Provider Boundary Ownership and Extension Policy | Accepted |
+| [0036](0036-compat-matrix-governance-ci-fail-policy.md) | Compatibility Matrix Governance and CI Fail Policy | Accepted |
+
 ### Voice Pipeline
 
 | ADR | Title | Status |
@@ -86,9 +93,20 @@ Status semantics:
 - `Deprecated`: decision is no longer recommended, but not directly replaced.
 - `Superseded`: decision was replaced by a newer ADR and must include `Superseded-by: ADR NNNN`.
 
+## Numbering Governance
+
+Use explicit metadata lines so hygiene checks can validate non-contiguous IDs:
+
+- Retired ADR IDs: historical IDs intentionally removed from active ADR inventory.
+- Reserved ADR IDs: IDs intentionally held for planned ADR backlog items.
+- Keep `next: NNNN` aligned to the next available file ID.
+
+Retired ADR IDs: `0018`, `0020` (proposal ADRs removed during MP-284 inventory reconciliation)
+Reserved ADR IDs: `0027-0034` (active autonomy/control-plane ADR backlog tracked in `MASTER_PLAN` + `autonomous_control_plane`)
+
 ## Process
 
-1. Copy the template and increment the number (next: 0027)
+1. Copy the template and increment the number (next: 0037)
 2. Fill in Context, Decision, and Consequences
 3. Add links to related docs or code
 4. If replacing an older decision, set old ADR status to `Superseded` and add `Superseded-by: ADR NNNN`
@@ -119,4 +137,5 @@ Run this before/after pushes that touch ADRs or governance docs:
 python3 dev/scripts/devctl.py hygiene
 ```
 
-This validates ADR status fields, index synchronization, and superseded metadata.
+This validates ADR status fields, index synchronization, superseded metadata,
+numbering-gap governance metadata, and the `next:` pointer.

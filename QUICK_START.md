@@ -75,6 +75,9 @@ If you installed from source and want to pre-download a model:
 
 Codex is default; `voiceterm --codex` is optional.
 Use `voiceterm --claude` to target Claude.
+In JSON IPC mode, provider selection supports only `codex` and `claude`;
+`gemini` is overlay-only experimental, and `aider` / `opencode` / `custom` are
+overlay-only non-IPC backends.
 For IDE compatibility status (what is verified vs unverified), see
 [guides/USAGE.md#ide-compatibility](guides/USAGE.md#ide-compatibility).
 JetBrains + Claude is fully supported on current releases. Rare edge case:

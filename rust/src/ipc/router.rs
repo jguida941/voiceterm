@@ -1,13 +1,13 @@
 //! IPC command router that keeps transport commands decoupled from backend logic.
 
-use crate::codex::{CodexBackendError, CodexJobRunner, CodexRequest};
 use crate::voice;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Instant;
 
 use super::protocol::{IpcEvent, Provider};
-use super::session::{run_auth_flow, send_event, start_claude_job, ActiveJob, AuthJob, IpcState};
+use super::provider_lifecycle;
+use super::session::{run_auth_flow, send_event, AuthJob, IpcState};
 
 // ============================================================================
 // Slash Command Parsing
@@ -25,15 +25,15 @@ pub(super) enum ParsedInput {
 
 #[derive(Debug)]
 pub(super) enum WrapperCmd {
-    Provider(String),     // /provider codex|claude
-    Codex(String),        // /codex <prompt> - one-off
-    Claude(String),       // /claude <prompt> - one-off
-    Voice,                // /voice
+    Provider(String), // /provider codex|claude (gemini/aider/opencode/custom are non-IPC)
+    Codex(String),    // /codex <prompt> - one-off
+    Claude(String),   // /claude <prompt> - one-off
+    Voice,            // /voice
     Auth(Option<String>), // /auth [provider]
-    Status,               // /status
-    Capabilities,         // /capabilities
-    Help,                 // /help
-    Exit,                 // /exit
+    Status,           // /status
+    Capabilities,     // /capabilities
+    Help,             // /help
+    Exit,             // /exit
 }
 
 pub(super) fn parse_input(input: &str) -> ParsedInput {
@@ -91,29 +91,26 @@ pub(super) fn handle_send_prompt(
         return;
     }
 
-    // Cancel any existing job
-    if let Some(job) = state.current_job.take() {
-        match job {
-            ActiveJob::Codex(j) => state.codex_cli_backend.cancel(j.id),
-            ActiveJob::Claude(mut j) => {
-                j.cancel();
-            }
-        }
+    if let ParsedInput::WrapperCommand(cmd) = parsed {
+        // Wrapper commands do not use provider overrides. Parsing overrides here
+        // can block /exit while auth is active when clients send stale overrides.
+        cancel_current_provider_job(state);
+        handle_wrapper_command(state, cmd);
+        return;
     }
 
     // Determine which provider to use
-    let provider = provider_override
-        .as_ref()
-        .and_then(|s| Provider::parse_name(s))
-        .unwrap_or(state.active_provider);
+    let Some(provider) =
+        resolve_provider_or_emit_error(state.active_provider, provider_override.as_deref())
+    else {
+        return;
+    };
+
+    cancel_current_provider_job(state);
 
     match parsed {
-        ParsedInput::WrapperCommand(cmd) => {
-            handle_wrapper_command(state, cmd);
-        }
         ParsedInput::ProviderCommand { command, args } => {
-            // Forward to provider only if Codex is active
-            if provider == Provider::Codex {
+            if provider.supports_provider_command_forwarding() {
                 let full_prompt = if args.is_empty() {
                     format!("/{command}")
                 } else {
@@ -122,15 +119,47 @@ pub(super) fn handle_send_prompt(
                 start_provider_job(state, provider, &full_prompt);
             } else {
                 send_event(&IpcEvent::ProviderError {
-                    message: format!(
-                        "/{command} is a Codex command. Switch with /provider codex or use /codex /{command} {args}"
-                    ),
+                    message: provider.provider_command_mismatch_message(&command, &args),
                 });
             }
         }
         ParsedInput::Prompt(p) => {
             start_provider_job(state, provider, &p);
         }
+        ParsedInput::WrapperCommand(_) => unreachable!("wrapper commands return early"),
+    }
+}
+
+fn cancel_current_provider_job(state: &mut IpcState) {
+    if let Some(provider) = provider_lifecycle::cancel_active_provider_job(state) {
+        emit_cancelled_provider_job_event(provider);
+    }
+}
+
+fn emit_cancelled_provider_job_event(provider: Provider) {
+    send_event(&IpcEvent::JobEnd {
+        provider: provider.as_str().to_string(),
+        success: false,
+        error: Some("Cancelled".to_string()),
+    });
+}
+
+fn resolve_provider_or_emit_error(
+    active_provider: Provider,
+    provider_override: Option<&str>,
+) -> Option<Provider> {
+    match provider_override {
+        Some(name) => match Provider::parse_name_or_error_message(name) {
+            Ok(provider) => Some(provider),
+            Err(message) => {
+                send_event(&IpcEvent::Error {
+                    message: message.to_string(),
+                    recoverable: true,
+                });
+                None
+            }
+        },
+        None => Some(active_provider),
     }
 }
 
@@ -173,7 +202,10 @@ pub(super) fn handle_wrapper_command(state: &mut IpcState, cmd: WrapperCmd) {
         }
         WrapperCmd::Help => {
             send_event(&IpcEvent::Status {
-                message: "Commands: /provider, /codex, /claude, /auth, /voice, /status, /help, /exit. All other / commands forwarded to Codex.".to_string(),
+                message: format!(
+                    "Commands: /provider, /codex, /claude, /auth, /voice, /status, /help, /exit. All other / commands forwarded to {}. Non-IPC overlay-only backends are unavailable in IPC mode (gemini is experimental; aider/opencode/custom are non-IPC).",
+                    Provider::default_ipc().as_str()
+                ),
             });
         }
         WrapperCmd::Exit => {
@@ -183,48 +215,7 @@ pub(super) fn handle_wrapper_command(state: &mut IpcState, cmd: WrapperCmd) {
 }
 
 pub(super) fn start_provider_job(state: &mut IpcState, provider: Provider, prompt: &str) {
-    send_event(&IpcEvent::JobStart {
-        provider: provider.as_str().to_string(),
-    });
-
-    match provider {
-        Provider::Codex => {
-            let request = CodexRequest::chat(prompt.to_string());
-            match state.codex_cli_backend.start(request) {
-                Ok(job) => {
-                    state.current_job = Some(ActiveJob::Codex(job));
-                }
-                Err(e) => {
-                    let msg = match e {
-                        CodexBackendError::InvalidRequest(s) => s.to_string(),
-                        CodexBackendError::BackendDisabled(s) => s,
-                    };
-                    send_event(&IpcEvent::JobEnd {
-                        provider: "codex".to_string(),
-                        success: false,
-                        error: Some(msg),
-                    });
-                }
-            }
-        }
-        Provider::Claude => match start_claude_job(
-            &state.claude_cmd,
-            prompt,
-            state.config.claude_skip_permissions,
-            &state.config.term_value,
-        ) {
-            Ok(job) => {
-                state.current_job = Some(ActiveJob::Claude(job));
-            }
-            Err(e) => {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "claude".to_string(),
-                    success: false,
-                    error: Some(e),
-                });
-            }
-        },
-    }
+    provider_lifecycle::start_provider_job(state, provider, prompt);
 }
 
 pub(super) fn handle_start_voice(state: &mut IpcState) {
@@ -264,26 +255,7 @@ pub(super) fn handle_start_voice(state: &mut IpcState) {
 }
 
 fn cancel_active_jobs(state: &mut IpcState) {
-    if let Some(job) = state.current_job.take() {
-        match job {
-            ActiveJob::Codex(j) => {
-                state.codex_cli_backend.cancel(j.id);
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: false,
-                    error: Some("Cancelled".to_string()),
-                });
-            }
-            ActiveJob::Claude(mut j) => {
-                j.cancel();
-                send_event(&IpcEvent::JobEnd {
-                    provider: "claude".to_string(),
-                    success: false,
-                    error: Some("Cancelled".to_string()),
-                });
-            }
-        }
-    }
+    cancel_current_provider_job(state);
 
     if state.current_voice_job.is_some() {
         send_event(&IpcEvent::VoiceEnd {
@@ -324,16 +296,16 @@ pub(super) fn handle_exit(state: &mut IpcState) {
 }
 
 pub(super) fn handle_set_provider(state: &mut IpcState, provider_str: &str) {
-    match Provider::parse_name(provider_str) {
-        Some(provider) => {
+    match Provider::parse_name_or_error_message(provider_str) {
+        Ok(provider) => {
             state.active_provider = provider;
             send_event(&IpcEvent::ProviderChanged {
                 provider: provider.as_str().to_string(),
             });
         }
-        None => {
+        Err(message) => {
             send_event(&IpcEvent::Error {
-                message: format!("Unknown provider: {provider_str}. Use 'codex' or 'claude'."),
+                message: message.to_string(),
                 recoverable: true,
             });
         }
@@ -357,18 +329,10 @@ pub(super) fn handle_auth_command(state: &mut IpcState, provider_override: Optio
         return;
     }
 
-    let provider = match provider_override {
-        Some(ref name) => match Provider::parse_name(name) {
-            Some(parsed) => parsed,
-            None => {
-                send_event(&IpcEvent::Error {
-                    message: format!("Unknown provider: {name}. Use 'codex' or 'claude'."),
-                    recoverable: true,
-                });
-                return;
-            }
-        },
-        None => state.active_provider,
+    let Some(provider) =
+        resolve_provider_or_emit_error(state.active_provider, provider_override.as_deref())
+    else {
+        return;
     };
 
     send_event(&IpcEvent::AuthStart {

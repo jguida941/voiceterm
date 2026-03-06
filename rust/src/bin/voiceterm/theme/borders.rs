@@ -72,7 +72,10 @@ pub const BORDER_ROUNDED: BorderSet = BorderSet {
 };
 
 /// Minimal dotted borders (reserved for future themes)
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Reserved border presets for staged Theme Studio surface expansion."
+)]
 pub const BORDER_DOTTED: BorderSet = BorderSet {
     top_left: '·',
     top_right: '·',
@@ -87,7 +90,10 @@ pub const BORDER_DOTTED: BorderSet = BorderSet {
 };
 
 /// No borders (spaces) (reserved for future themes)
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Reserved border presets for staged Theme Studio surface expansion."
+)]
 pub const BORDER_NONE: BorderSet = BorderSet {
     top_left: ' ',
     top_right: ' ',

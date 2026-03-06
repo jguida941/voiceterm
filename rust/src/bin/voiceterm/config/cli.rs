@@ -52,6 +52,8 @@ pub(crate) enum LatencyDisplayMode {
     #[default]
     Short,
     Label,
+    Rtf,
+    Both,
 }
 
 /// HUD display style - controls overall banner visibility.
@@ -107,8 +109,10 @@ impl std::fmt::Display for LatencyDisplayMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {
             LatencyDisplayMode::Off => "Off",
-            LatencyDisplayMode::Short => "Nms",
+            LatencyDisplayMode::Short => "STT: Nms",
             LatencyDisplayMode::Label => "Latency: Nms",
+            LatencyDisplayMode::Rtf => "RTF: X.xx",
+            LatencyDisplayMode::Both => "Nms + RTF",
         };
         write!(f, "{label}")
     }
@@ -226,7 +230,7 @@ pub(crate) struct OverlayConfig {
     #[arg(long = "hud-style", value_enum, default_value_t = HudStyle::Full)]
     pub(crate) hud_style: HudStyle,
 
-    /// Latency badge style in shortcuts row (`off`, `short` = `123ms`, `label` = `Latency: 123ms`)
+    /// Latency badge style in shortcuts row (`off`, `short` = `123ms`, `label` = `Latency: 123ms`, `rtf` = `0.18x`, `both` = `123ms | 0.18x`)
     #[arg(
         long = "latency-display",
         value_enum,
@@ -421,7 +425,9 @@ mod tests {
     #[test]
     fn latency_display_mode_labels_are_stable() {
         assert_eq!(LatencyDisplayMode::Off.to_string(), "Off");
-        assert_eq!(LatencyDisplayMode::Short.to_string(), "Nms");
+        assert_eq!(LatencyDisplayMode::Short.to_string(), "STT: Nms");
         assert_eq!(LatencyDisplayMode::Label.to_string(), "Latency: Nms");
+        assert_eq!(LatencyDisplayMode::Rtf.to_string(), "RTF: X.xx");
+        assert_eq!(LatencyDisplayMode::Both.to_string(), "Nms + RTF");
     }
 }

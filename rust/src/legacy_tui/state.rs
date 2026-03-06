@@ -64,10 +64,16 @@ macro_rules! state_change {
 #[derive(Debug, Deserialize)]
 pub(crate) struct PipelineJsonResult {
     pub(crate) transcript: String,
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Legacy fallback payload field retained for backward compatibility with python pipeline output."
+    )]
     pub(crate) prompt: String,
     #[serde(default)]
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Legacy fallback payload field retained for backward compatibility with python pipeline output."
+    )]
     /// Legacy field from the python fallback pipeline; retained for compatibility.
     pub(crate) codex_output: Option<String>,
     #[serde(default)]

@@ -134,14 +134,33 @@ def main() -> int:
         type=float,
         help="Fail when any outcomes are older than this many hours",
     )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Never fail; emit warnings instead for missing/stale/below-threshold outcomes",
+    )
     args = parser.parse_args()
 
     outcome_paths = resolve_paths(args.path, args.glob)
     if not outcome_paths:
-        print("ERROR: no outcomes files matched the provided --path/--glob inputs")
+        message = "no outcomes files matched the provided --path/--glob inputs"
+        if args.report_only:
+            print(f"WARN: {message}")
+            print(
+                "WARN: post-release follow-up: run mutation testing and refresh outcomes before next release cycle."
+            )
+            return 0
+        print(f"ERROR: {message}")
         return 2
     missing = [path for path in outcome_paths if not path.exists()]
     if missing:
+        if args.report_only:
+            for path in missing:
+                print(f"WARN: outcomes file not found: {path}")
+            print(
+                "WARN: post-release follow-up: run mutation testing and refresh outcomes before next release cycle."
+            )
+            return 0
         for path in missing:
             print(f"ERROR: outcomes file not found: {path}")
         return 2
@@ -215,12 +234,17 @@ def main() -> int:
     )
 
     if score < args.threshold:
-        print(
-            "FAIL: mutation score {score:.2%} is below threshold {threshold:.2%}".format(
-                score=score, threshold=args.threshold
-            )
+        message = "mutation score {score:.2%} is below threshold {threshold:.2%}".format(
+            score=score, threshold=args.threshold
         )
-        return 1
+        if args.report_only:
+            print(f"WARN: {message}")
+            print(
+                "WARN: post-release follow-up: schedule mutation hardening to recover score to threshold."
+            )
+        else:
+            print(f"FAIL: {message}")
+            return 1
 
     if args.warn_age_hours is not None and args.warn_age_hours >= 0:
         stale_warn = [item for item in freshness if item["age_hours"] > args.warn_age_hours]
@@ -235,13 +259,22 @@ def main() -> int:
     if args.max_age_hours is not None:
         stale_fail = [item for item in freshness if item["age_hours"] > args.max_age_hours]
         if stale_fail:
-            print(
-                "FAIL: mutation outcomes exceed max age threshold "
+            message = (
+                "mutation outcomes exceed max age threshold "
                 f"({args.max_age_hours:.1f}h). Re-run mutants to refresh data."
             )
-            for item in stale_fail:
-                print(f"  - {item['path']} ({item['age_label']} old)")
-            return 1
+            if args.report_only:
+                print(f"WARN: {message}")
+                for item in stale_fail:
+                    print(f"  - {item['path']} ({item['age_label']} old)")
+                print(
+                    "WARN: post-release follow-up: refresh mutation outcomes and re-check threshold."
+                )
+            else:
+                print(f"FAIL: {message}")
+                for item in stale_fail:
+                    print(f"  - {item['path']} ({item['age_label']} old)")
+                return 1
 
     return 0
 

@@ -1,6 +1,14 @@
 use std::sync::mpsc::TryRecvError;
 
-use super::super::{send_event, CodexEvent, CodexEventKind, CodexJob, IpcEvent};
+use super::super::{send_event, CodexEvent, CodexEventKind, CodexJob, IpcEvent, Provider};
+
+fn send_codex_job_end(success: bool, error: Option<String>) {
+    send_event(&IpcEvent::JobEnd {
+        provider: Provider::Codex.as_str().to_string(),
+        success,
+        error,
+    });
+}
 
 pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool {
     if cancelled {
@@ -31,19 +39,11 @@ pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool 
                         text: format!("{line}\n"),
                     });
                 }
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: true,
-                    error: None,
-                });
+                send_codex_job_end(true, None);
                 true
             }
             CodexEventKind::FatalError { message, .. } => {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: false,
-                    error: Some(message),
-                });
+                send_codex_job_end(false, Some(message));
                 true
             }
             CodexEventKind::RecoverableError { message, .. } => {
@@ -53,11 +53,7 @@ pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool 
                 false
             }
             CodexEventKind::Canceled { .. } => {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: false,
-                    error: Some("Cancelled".to_string()),
-                });
+                send_codex_job_end(false, Some("Cancelled".to_string()));
                 true
             }
         }
@@ -82,11 +78,7 @@ pub(super) fn process_codex_events(job: &mut CodexJob, cancelled: bool) -> bool 
                 }
             }
             if !completed {
-                send_event(&IpcEvent::JobEnd {
-                    provider: "codex".to_string(),
-                    success: true,
-                    error: None,
-                });
+                send_codex_job_end(true, None);
             }
             true
         }

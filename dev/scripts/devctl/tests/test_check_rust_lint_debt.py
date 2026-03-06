@@ -55,9 +55,75 @@ class CheckRustLintDebtTests(TestCase):
         )
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["allow_attrs"], 1)
+        self.assertEqual(metrics["dead_code_allow_attrs"], 0)
         self.assertEqual(metrics["unwrap_expect_calls"], 1)
+        self.assertEqual(metrics["unchecked_unwrap_expect_calls"], 0)
+        self.assertEqual(metrics["panic_macro_calls"], 0)
+
+    def test_count_metrics_counts_inner_allow_attributes(self) -> None:
+        text = (
+            "#![allow(clippy::module_name_repetitions)]\n"
+            "#[allow(clippy::too_many_lines)]\n"
+            "fn runtime() { value.unwrap(); }\n"
+        )
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["allow_attrs"], 2)
+        self.assertEqual(metrics["dead_code_allow_attrs"], 0)
+        self.assertEqual(metrics["unwrap_expect_calls"], 1)
+        self.assertEqual(metrics["unchecked_unwrap_expect_calls"], 0)
+        self.assertEqual(metrics["panic_macro_calls"], 0)
+
+    def test_count_metrics_tracks_unchecked_unwrap_and_panic_calls(self) -> None:
+        text = (
+            "fn runtime() {\n"
+            "    let _ = value.unwrap_unchecked();\n"
+            "    panic!(\"boom\");\n"
+            "    unreachable!(\"impossible\");\n"
+            "}\n"
+        )
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["unchecked_unwrap_expect_calls"], 1)
+        self.assertEqual(metrics["panic_macro_calls"], 1)
+        self.assertEqual(metrics["dead_code_allow_attrs"], 0)
 
     def test_count_metrics_handles_none_input(self) -> None:
         metrics = self.script._count_metrics(None)
         self.assertEqual(metrics["allow_attrs"], 0)
+        self.assertEqual(metrics["dead_code_allow_attrs"], 0)
         self.assertEqual(metrics["unwrap_expect_calls"], 0)
+        self.assertEqual(metrics["unchecked_unwrap_expect_calls"], 0)
+        self.assertEqual(metrics["panic_macro_calls"], 0)
+
+    def test_strip_cfg_test_blocks_handles_cfg_any_test_and_cfg_not_test(self) -> None:
+        text = (
+            "#[cfg(any(test, feature = \"bench\"))]\n"
+            "fn test_only() { value.expect(\"x\"); }\n"
+            "#[cfg(not(test))]\n"
+            "fn runtime_only() { value.expect(\"runtime\"); }\n"
+        )
+        stripped = self.script._strip_cfg_test_blocks(text)
+        self.assertNotIn("test_only", stripped)
+        self.assertIn("runtime_only", stripped)
+
+    def test_collect_dead_code_allow_instances_reports_reason_presence(self) -> None:
+        text = (
+            "#![allow(dead_code)]\n"
+            "#[allow(dead_code, reason = \"staged\")]\n"
+            "#[allow(clippy::too_many_lines)]\n"
+        )
+        instances = self.script._collect_dead_code_allow_instances(text)
+        self.assertEqual(len(instances), 2)
+        self.assertEqual(instances[0]["line"], 1)
+        self.assertFalse(instances[0]["has_reason"])
+        self.assertEqual(instances[1]["line"], 2)
+        self.assertTrue(instances[1]["has_reason"])
+
+    def test_count_metrics_tracks_dead_code_allow_attributes(self) -> None:
+        text = (
+            "#![allow(dead_code)]\n"
+            "#[allow(clippy::too_many_lines)]\n"
+            "#[allow(dead_code, reason = \"staged\")]\n"
+        )
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["allow_attrs"], 3)
+        self.assertEqual(metrics["dead_code_allow_attrs"], 2)

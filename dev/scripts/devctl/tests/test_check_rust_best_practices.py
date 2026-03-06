@@ -44,6 +44,7 @@ pub unsafe fn raw() {
         self.assertEqual(metrics["allow_without_reason"], 1)
         self.assertEqual(metrics["undocumented_unsafe_blocks"], 1)
         self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 1)
+        self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
         self.assertEqual(metrics["mem_forget_calls"], 2)
 
     def test_count_metrics_accepts_documented_unsafe_and_no_forget(self) -> None:
@@ -59,4 +60,32 @@ pub unsafe fn documented() {
         self.assertEqual(metrics["allow_without_reason"], 0)
         self.assertEqual(metrics["undocumented_unsafe_blocks"], 0)
         self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 0)
+        self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
+        self.assertEqual(metrics["mem_forget_calls"], 0)
+
+    def test_count_metrics_tracks_unsafe_impl_missing_safety_comment(self) -> None:
+        text = """
+unsafe impl Send for Demo {}
+// SAFETY: Demo does not share mutable state across threads.
+unsafe impl Sync for Demo {}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 1)
+
+    def test_count_metrics_ignores_cfg_test_blocks(self) -> None:
+        text = """
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::missing_panics_doc)]
+    pub unsafe fn test_only() {
+        unsafe { std::ptr::read_volatile(0 as *const u8); }
+        std::mem::forget(String::from("x"));
+    }
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["allow_without_reason"], 0)
+        self.assertEqual(metrics["undocumented_unsafe_blocks"], 0)
+        self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 0)
+        self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
         self.assertEqual(metrics["mem_forget_calls"], 0)

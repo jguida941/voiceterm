@@ -58,6 +58,7 @@ jobs:
 
       - name: Lint key docs
         run: |
+          set -euo pipefail
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \

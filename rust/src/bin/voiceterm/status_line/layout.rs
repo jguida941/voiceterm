@@ -48,9 +48,9 @@ pub fn status_banner_height(width: usize, hud_style: HudStyle) -> usize {
 pub fn status_banner_height_with_policy(
     width: usize,
     hud_style: HudStyle,
-    claude_prompt_suppressed: bool,
+    prompt_suppressed: bool,
 ) -> usize {
-    if claude_prompt_suppressed {
+    if prompt_suppressed {
         0
     } else {
         status_banner_height(width, effective_hud_style(hud_style))
@@ -60,7 +60,7 @@ pub fn status_banner_height_with_policy(
 /// Return the active status-banner row count for the current runtime state.
 #[must_use]
 pub fn status_banner_height_for_state(width: usize, state: &StatusLineState) -> usize {
-    if state.claude_prompt_suppressed {
+    if state.prompt_suppressed {
         return 0;
     }
     if should_force_single_line_full_hud(state) {
@@ -99,7 +99,7 @@ mod tests {
         let mut state = StatusLineState::new();
         state.hud_style = HudStyle::Full;
         assert_eq!(status_banner_height_for_state(120, &state), 4);
-        state.claude_prompt_suppressed = true;
+        state.prompt_suppressed = true;
         assert_eq!(status_banner_height_for_state(120, &state), 0);
     }
 

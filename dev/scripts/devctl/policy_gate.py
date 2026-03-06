@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -18,9 +19,12 @@ def run_json_policy_gate(script_path: Path, gate_label: str) -> dict:
         }
 
     try:
+        env = dict(os.environ)
+        env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
         completed = subprocess.run(
             ["python3", str(script_path), "--format", "json"],
             cwd=REPO_ROOT,
+            env=env,
             capture_output=True,
             text=True,
             check=False,

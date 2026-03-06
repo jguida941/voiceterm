@@ -8,17 +8,22 @@ from ..script_catalog import check_script_cmd
 
 
 def build_mutation_score_cmd(
-    path: str,
+    path: str | None,
     threshold: float,
     max_age_hours: float | None,
     warn_age_hours: float | None,
+    report_only: bool,
 ) -> List[str]:
     """Build the check_mutation_score.py command."""
-    cmd = check_script_cmd("mutation_score", "--path", path, "--threshold", f"{threshold:.2f}")
+    cmd = check_script_cmd("mutation_score", "--threshold", f"{threshold:.2f}")
+    if path:
+        cmd.extend(["--path", path])
     if warn_age_hours is not None:
         cmd.extend(["--warn-age-hours", str(warn_age_hours)])
     if max_age_hours is not None:
         cmd.extend(["--max-age-hours", str(max_age_hours)])
+    if report_only:
+        cmd.append("--report-only")
     return cmd
 
 
@@ -44,6 +49,7 @@ def run(args) -> int:
         threshold,
         args.max_age_hours,
         args.warn_age_hours,
+        False,
     )
     result = run_cmd("mutation-score", cmd, cwd=REPO_ROOT, env=None, dry_run=args.dry_run)
     return 0 if result["returncode"] == 0 else result["returncode"]

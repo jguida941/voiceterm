@@ -177,9 +177,8 @@ fn format_waveform_with_colors(levels: &[f32], width: usize, colors: &ThemeColor
     let start = levels.len().saturating_sub(width);
     let pad_count = width.saturating_sub(levels.len());
     // Missing history should render as floor-level baseline, not peak bars.
-    let samples_iter = std::iter::repeat(-60.0_f32)
-        .take(pad_count)
-        .chain(levels[start..].iter().copied());
+    let samples_iter =
+        std::iter::repeat_n(-60.0_f32, pad_count).chain(levels[start..].iter().copied());
 
     for level in samples_iter {
         // Convert dB to waveform character (assuming -60 to 0 range)

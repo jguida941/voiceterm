@@ -1,13 +1,12 @@
 use super::message_processing::{apply_macro_mode, clear_last_latency, update_last_latency};
 use super::*;
 use crate::config::VoiceSendMode;
+use crate::test_env::default_overlay_config;
 use crate::transcript::TranscriptSession;
-use clap::Parser;
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use voiceterm::audio::CaptureMetrics;
-use voiceterm::config::AppConfig;
 use voiceterm::voice::VoiceError;
 
 #[derive(Default)]
@@ -47,39 +46,9 @@ fn write_test_macros_file(yaml: &str) -> std::path::PathBuf {
 }
 
 fn test_overlay_config(send_mode: VoiceSendMode) -> OverlayConfig {
-    OverlayConfig {
-        help: false,
-        app: AppConfig::parse_from(["test"]),
-        prompt_regex: None,
-        prompt_log: None,
-        auto_voice: false,
-        auto_voice_idle_ms: 1200,
-        transcript_idle_ms: 250,
-        voice_send_mode: send_mode,
-        wake_word: false,
-        wake_word_sensitivity: 0.55,
-        wake_word_cooldown_ms: 2000,
-        theme_name: None,
-        no_color: false,
-        hud_right_panel: crate::config::HudRightPanel::Ribbon,
-        hud_border_style: crate::config::HudBorderStyle::Theme,
-        hud_right_panel_recording_only: true,
-        hud_style: crate::config::HudStyle::Full,
-        latency_display: crate::config::LatencyDisplayMode::Short,
-        image_mode: false,
-        image_capture_command: None,
-        dev_mode: false,
-        dev_log: false,
-        dev_path: None,
-        minimal_hud: false,
-        backend: "codex".to_string(),
-        codex: false,
-        claude: false,
-        gemini: false,
-        login: false,
-        theme_file: None,
-        export_theme: None,
-    }
+    let mut config = default_overlay_config();
+    config.voice_send_mode = send_mode;
+    config
 }
 
 #[test]
@@ -210,7 +179,13 @@ fn update_last_latency_prefers_stt_metrics_when_available() {
         ..Default::default()
     };
 
-    update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+    update_last_latency(
+        &mut status_state,
+        Some(started_at),
+        Some(&metrics),
+        VoiceCaptureSource::Native,
+        now,
+    );
 
     assert_eq!(status_state.last_latency_ms, Some(220));
     assert_eq!(status_state.last_latency_speech_ms, Some(1100));
@@ -231,7 +206,13 @@ fn update_last_latency_keeps_empty_state_when_stt_missing_and_no_prior_sample() 
         ..Default::default()
     };
 
-    update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+    update_last_latency(
+        &mut status_state,
+        Some(started_at),
+        Some(&metrics),
+        VoiceCaptureSource::Native,
+        now,
+    );
 
     assert_eq!(status_state.last_latency_ms, None);
     assert!(status_state.last_latency_speech_ms.is_none());
@@ -258,7 +239,13 @@ fn update_last_latency_hides_previous_badge_when_stt_missing() {
         ..Default::default()
     };
 
-    update_last_latency(&mut status_state, Some(started_at), Some(&metrics), now);
+    update_last_latency(
+        &mut status_state,
+        Some(started_at),
+        Some(&metrics),
+        VoiceCaptureSource::Native,
+        now,
+    );
 
     assert_eq!(status_state.last_latency_ms, None);
     assert!(status_state.last_latency_speech_ms.is_none());
@@ -278,7 +265,13 @@ fn update_last_latency_uses_stt_even_without_recording_start_time() {
         ..Default::default()
     };
 
-    update_last_latency(&mut status_state, None, Some(&metrics), now);
+    update_last_latency(
+        &mut status_state,
+        None,
+        Some(&metrics),
+        VoiceCaptureSource::Native,
+        now,
+    );
 
     assert_eq!(status_state.last_latency_ms, Some(310));
     assert_eq!(status_state.last_latency_speech_ms, Some(1240));
@@ -298,7 +291,13 @@ fn update_last_latency_hides_previous_badge_when_metrics_missing() {
     let now = Instant::now();
     let started_at = now - Duration::from_millis(1400);
 
-    update_last_latency(&mut status_state, Some(started_at), None, now);
+    update_last_latency(
+        &mut status_state,
+        Some(started_at),
+        None,
+        VoiceCaptureSource::Native,
+        now,
+    );
 
     assert_eq!(status_state.last_latency_ms, None);
     assert!(status_state.last_latency_speech_ms.is_none());

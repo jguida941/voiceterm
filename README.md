@@ -14,6 +14,7 @@
   <a href="https://github.com/jguida941/voiceterm/releases"><img src="https://img.shields.io/github/v/tag/jguida941/voiceterm?sort=semver&style=flat&label=release&labelColor=7C422B&color=2D2F34" alt="VoiceTerm Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=license&message=MIT&style=flat&labelColor=7C422B&color=2D2F34" alt="MIT License"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/ci-status.json&style=flat&label=ci&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="CI"></a>
+  <a href="https://github.com/jguida941/voiceterm/actions/workflows/rust_ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/clippy-warnings.json&style=flat&label=clippy&labelColor=7C422B&color=2D2F34&logo=rust&logoColor=white&logoSize=auto" alt="Clippy Warnings"></a>
   <a href="https://github.com/jguida941/voiceterm/actions/workflows/mutation-testing.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/voiceterm/master/.github/badges/mutation-score.json&style=flat&label=mutation&labelColor=7C422B&color=2D2F34&logo=github&logoColor=white&logoSize=auto" alt="Mutation Score"></a>
   <a href="https://codecov.io/gh/jguida941/voiceterm"><img src="https://img.shields.io/codecov/c/github/jguida941/voiceterm?style=flat&label=coverage&labelColor=7C422B&color=2D2F34&logo=codecov&logoColor=white&logoSize=auto" alt="Coverage"></a>
 </p>
@@ -195,13 +196,14 @@ Use the same workflow and controls documented for backend support in
 
 ## IDE Support
 
-Only combinations listed below are currently verified.
+Active verified hosts are Cursor terminal and JetBrains terminals.
+AntiGravity is deferred and not supported in current releases.
 
 | IDE host | Codex | Claude Code | Status |
 |---|---|---|---|
 | Cursor terminal | Fully supported | Fully supported | Recommended primary host |
 | JetBrains terminals (`IntelliJ`, `PyCharm`, `WebStorm`, `CLion`) | Fully supported | Fully supported | Supported on current release; see troubleshooting for rare host-specific edge cases |
-| AntiGravity | Not supported | Not supported | Explicit `MP-346` decision gate |
+| AntiGravity | Not supported | Not supported | Deferred until runtime fingerprint evidence exists (not supported in current releases) |
 | Other IDE terminals | Unverified | Unverified | Treat as experimental until listed here |
 
 JetBrains + Claude rare edge case (long parallel turns):

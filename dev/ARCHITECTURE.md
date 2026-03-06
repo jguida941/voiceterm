@@ -49,19 +49,21 @@ system in under ten minutes.
 | Codex | `voiceterm` (default) | Tested | Full support |
 | Claude Code | `voiceterm --claude` | Tested | Full support |
 | Gemini CLI | `voiceterm --gemini` | Experimental | Currently not working |
-| Aider | `voiceterm --backend aider` | Experimental | Untested |
-| OpenCode | `voiceterm --backend opencode` | Experimental | Untested |
+| Aider | `voiceterm --backend aider` | Experimental | Untested, overlay-only |
+| OpenCode | `voiceterm --backend opencode` | Experimental | Untested, overlay-only |
+| Custom backend | `voiceterm --backend "my-cli --flag"` | Experimental | Overlay-only |
 
 **Primary supported backends:** Codex and Claude Code.
 
+- **IPC provider sessions:** only `codex` and `claude`.
 - **Backend selection** is handled by `rust/src/backend/`, which provides preset configurations for Codex and Claude.
-- Additional presets (Gemini, Aider, OpenCode) exist but are experimental and outside the primary support matrix.
+- Additional presets (`gemini`, `aider`, `opencode`) and `custom` command backends are overlay-only and outside the IPC provider surface.
 - Gemini is currently nonfunctional. Aider and OpenCode are untested.
 
 ## Naming Conventions
 
 - Use `backend`/`provider` for generic, multi-backend code.
-- Use `codex`/`claude`/`gemini` only for provider-specific code and assets.
+- Use backend labels (`codex`, `claude`, `gemini`, `aider`, `opencode`, `custom`) only for backend-specific code and assets.
 - The overlay binary lives under `rust/src/bin/voiceterm/` -- the directory name matches the shipped binary.
 - Legacy names that were Codex-specific but generic in purpose were migrated under Track G in `dev/archive/2026-02-06-modularization-plan.md`.
 
@@ -264,6 +266,25 @@ Main command entry point: `python3 dev/scripts/devctl.py ...`.
 
 For tooling/process/CI edits, `docs-check --strict-tooling` also requires
 updating `dev/history/ENGINEERING_EVOLUTION.md`.
+
+### Optional MCP Adapter (Read-Only)
+
+`devctl` is still the control-plane authority. MCP is an optional adapter for
+clients that need MCP protocol transport.
+
+Use:
+
+- `python3 dev/scripts/devctl.py mcp --format md`
+- `python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json`
+- `python3 dev/scripts/devctl.py mcp --serve-stdio`
+
+Policy:
+
+1. Only allowlisted tools/resources are exposed.
+2. Tool entries must be read-only.
+3. Release/check/cleanup safety stays enforced in `devctl` command code and
+   regression tests.
+4. MCP does not replace release-gate command paths.
 
 ### 2) CI Workflow Lanes
 
@@ -860,7 +881,7 @@ Project-local config:
 | `VOICETERM_TRACE_LOG` | Structured trace log path |
 | `VOICETERM_SESSION_MEMORY_PATH` | Default path for `--session-memory-path` |
 | `CLAUDE_CMD` | Override Claude CLI path |
-| `VOICETERM_PROVIDER` | IPC default provider |
+| `VOICETERM_PROVIDER` | IPC default provider (`codex` or `claude`; `gemini`, `aider`, `opencode`, and `custom` are overlay-only outside IPC) |
 | `NO_COLOR` | Standard color disable flag |
 
 ## Debugging and Logs

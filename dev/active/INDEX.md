@@ -8,6 +8,7 @@ Agents must read this file first before loading active planning docs.
 | Path | Role | Execution authority | MP scope | When agents read |
 |---|---|---|---|---|
 | `dev/active/MASTER_PLAN.md` | `tracker` | `canonical` | all active MP execution state | always |
+| `dev/active/README.md` | `reference` | `reference-only` | active-doc navigation helper (non-tracker) | when scanning `dev/active/` ownership/read-order context |
 | `dev/active/theme_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign is in scope |
 | `dev/active/memory_studio.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-230..MP-255` | only when memory/action/context-pack work is in scope |
 | `dev/active/devctl_reporting_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-306` | when improving `devctl` reporting, dashboard outputs, CIHub integration, or triage utility workflows |
@@ -15,7 +16,8 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/loop_chat_bridge.md` | `runbook` | `supporting` | `MP-338` | when coordinating loop artifact-to-chat suggestion flow, operator handoff updates, or dry-run/live-run loop validation evidence |
 | `dev/active/rust_workspace_layout_migration.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-339` | when migrating the Rust workspace path/layout or updating repository path contracts from `src/` to `rust/` |
 | `dev/active/naming_api_cohesion.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-267` | when running naming/API cohesion cleanup across theme/event-loop/status/memory and related tooling surfaces |
-| `dev/active/ide_provider_modularization.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-346` | when modularizing host IDE adapters (`cursor`, `jetbrains`, and explicit `antigravity` decision gate), provider adapters (`codex`, `claude`, `gemini`), and God-file prevention/tooling gates |
+| `dev/active/ide_provider_modularization.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-346` | when modularizing active host IDE adapters (`cursor`, `jetbrains`, `other`), provider adapters (`codex`, `claude`, `gemini`), and God-file prevention/tooling gates (AntiGravity is deferred until runtime fingerprint evidence exists) |
+| `dev/active/pre_release_architecture_audit.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-347`, `MP-349` | when running full-surface pre-release architecture/tooling audits and capturing newly discovered cleanup backlog intake |
 | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` | `runbook` | `supporting` | multi-agent worktree orchestration | only when running parallel area execution |
 | `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | guard-driven Rust remediation scaffold/findings notes (`devctl audit-scaffold`; supporting context, not execution authority) | when AI guard checks fail, when running full-codebase Rust audits, or when updating remediation findings artifacts |
 | `dev/active/phase2.md` | `reference` | `reference-only` | phase-2 companion-platform research context (not active MP execution state) | only when evaluating long-range terminal companion planning |

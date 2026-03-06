@@ -50,7 +50,10 @@ pub(crate) struct HistoryEntry {
     /// Entry source.
     pub(crate) source: HistorySource,
     /// Capture timestamp (retained for future time-based UI).
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Timestamp retained for upcoming time-sorted history and recency-scoring views."
+    )]
     pub(crate) captured_at: Instant,
     /// Sequential index (1-based).
     pub(crate) sequence: u32,
@@ -284,27 +287,9 @@ impl TranscriptHistoryState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ansi::strip_ansi;
     use crate::overlay_frame::display_width;
     use crate::theme::Theme;
-
-    fn strip_ansi(input: &str) -> String {
-        let mut out = String::with_capacity(input.len());
-        let mut in_escape = false;
-        for ch in input.chars() {
-            if ch == '\x1b' {
-                in_escape = true;
-                continue;
-            }
-            if in_escape {
-                if ch == 'm' {
-                    in_escape = false;
-                }
-                continue;
-            }
-            out.push(ch);
-        }
-        out
-    }
 
     #[test]
     fn history_push_and_len() {

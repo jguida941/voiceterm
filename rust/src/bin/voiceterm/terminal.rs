@@ -10,6 +10,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 use crate::config::HudStyle;
 use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
+use crate::hud_debug::claude_hud_debug_enabled;
 use crate::runtime_compat::{self, BackendFamily};
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height_with_policy;
@@ -20,19 +21,6 @@ use crate::OverlayMode;
 /// Flag set by SIGWINCH handler to trigger terminal resize.
 static SIGWINCH_RECEIVED: AtomicBool = AtomicBool::new(false);
 const CLAUDE_MIN_PTY_ROWS_TARGET: u16 = 8;
-
-fn parse_debug_env_flag(raw: &str) -> bool {
-    matches!(
-        raw.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on" | "debug"
-    )
-}
-
-fn claude_hud_debug_enabled() -> bool {
-    std::env::var("VOICETERM_DEBUG_CLAUDE_HUD")
-        .map(|raw| parse_debug_env_flag(&raw))
-        .unwrap_or(cfg!(debug_assertions))
-}
 
 /// Signal handler for terminal resize events.
 ///
@@ -126,7 +114,7 @@ pub(crate) fn reserved_rows_for_mode(
     mode: OverlayMode,
     cols: u16,
     hud_style: HudStyle,
-    claude_prompt_suppressed: bool,
+    prompt_suppressed: bool,
 ) -> usize {
     match mode {
         OverlayMode::None => {
@@ -146,7 +134,7 @@ pub(crate) fn reserved_rows_for_mode(
                 if backend == BackendFamily::Claude {
                     reserved += runtime_compat::resolved_claude_extra_gap_rows();
                 }
-                if claude_prompt_suppressed && backend != BackendFamily::Claude {
+                if prompt_suppressed && backend != BackendFamily::Claude {
                     status_banner_height_with_policy(cols as usize, hud_style, true)
                 } else {
                     reserved
@@ -173,7 +161,7 @@ pub(crate) fn apply_pty_winsize(
     cols: u16,
     mode: OverlayMode,
     hud_style: HudStyle,
-    claude_prompt_suppressed: bool,
+    prompt_suppressed: bool,
 ) {
     if rows == 0 || cols == 0 {
         if claude_hud_debug_enabled() {
@@ -184,13 +172,13 @@ pub(crate) fn apply_pty_winsize(
                 rows,
                 cols,
                 hud_style,
-                claude_prompt_suppressed
+                prompt_suppressed
             ));
         }
         return;
     }
     let backend = runtime_compat::backend_family_from_env();
-    let reserved = adjusted_reserved_rows(rows, cols, mode, hud_style, claude_prompt_suppressed);
+    let reserved = adjusted_reserved_rows(rows, cols, mode, hud_style, prompt_suppressed);
     let pty_rows = rows.saturating_sub(reserved).max(1);
     if claude_hud_debug_enabled() {
         log_debug(&format!(
@@ -202,9 +190,9 @@ pub(crate) fn apply_pty_winsize(
             reserved,
             pty_rows,
             hud_style,
-            claude_prompt_suppressed
+            prompt_suppressed
         ));
-        if claude_prompt_suppressed && pty_rows <= 6 {
+        if prompt_suppressed && pty_rows <= 6 {
             log_debug(&format!(
                 "[claude-hud-anomaly] prompt overlap risk: suppressed Claude prompt has very low PTY row budget (rows={}, reserved_rows={}, pty_rows={})",
                 rows, reserved, pty_rows
@@ -219,11 +207,10 @@ fn adjusted_reserved_rows(
     cols: u16,
     mode: OverlayMode,
     hud_style: HudStyle,
-    claude_prompt_suppressed: bool,
+    prompt_suppressed: bool,
 ) -> u16 {
     let backend = runtime_compat::backend_family_from_env();
-    let reserved_raw =
-        reserved_rows_for_mode(mode, cols, hud_style, claude_prompt_suppressed) as u16;
+    let reserved_raw = reserved_rows_for_mode(mode, cols, hud_style, prompt_suppressed) as u16;
 
     if !matches!(mode, OverlayMode::None) || backend != BackendFamily::Claude {
         return reserved_raw;
@@ -244,7 +231,7 @@ fn adjusted_reserved_rows(
             rows,
             cols,
             hud_style,
-            claude_prompt_suppressed,
+            prompt_suppressed,
             reserved_raw,
             reserved_clamped,
             min_hud_rows_clamped,
@@ -261,28 +248,21 @@ pub(crate) fn update_pty_winsize(
     terminal_cols: &mut u16,
     mode: OverlayMode,
     hud_style: HudStyle,
-    claude_prompt_suppressed: bool,
+    prompt_suppressed: bool,
 ) {
     let rows = resolved_rows(*terminal_rows);
     let cols = resolved_cols(*terminal_cols);
     *terminal_rows = rows;
     *terminal_cols = cols;
-    apply_pty_winsize(
-        session,
-        rows,
-        cols,
-        mode,
-        hud_style,
-        claude_prompt_suppressed,
-    );
+    apply_pty_winsize(session, rows, cols, mode, hud_style, prompt_suppressed);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::env_lock;
     use rstest::rstest;
     use std::env;
-    use std::sync::{Mutex, OnceLock};
     use std::thread;
     use std::time::Duration;
 
@@ -305,9 +285,7 @@ mod tests {
             "CURSOR_VERSION",
             "CURSOR_BUILD_VERSION",
         ];
-        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let lock = ENV_LOCK.get_or_init(|| Mutex::new(()));
-        let _guard = lock.lock().expect("env lock poisoned");
+        let _guard = env_lock();
 
         let previous_host: Vec<(String, Option<String>)> = HOST_ENV_KEYS
             .iter()
@@ -356,7 +334,7 @@ mod tests {
         backend: runtime_compat::BackendFamily,
         cols: u16,
         hud_style: HudStyle,
-        claude_prompt_suppressed: bool,
+        prompt_suppressed: bool,
     ) -> usize {
         let base_unsuppressed = status_banner_height_with_policy(cols as usize, hud_style, false);
         if backend == runtime_compat::BackendFamily::Codex {
@@ -368,7 +346,7 @@ mod tests {
         if backend == runtime_compat::BackendFamily::Claude {
             reserved += runtime_compat::parse_claude_extra_gap_rows(None, host);
         }
-        if claude_prompt_suppressed && backend != runtime_compat::BackendFamily::Claude {
+        if prompt_suppressed && backend != runtime_compat::BackendFamily::Claude {
             status_banner_height_with_policy(cols as usize, hud_style, true)
         } else {
             reserved
@@ -427,24 +405,24 @@ mod tests {
         #[case] backend: runtime_compat::BackendFamily,
     ) {
         const COLS: u16 = 120;
-        for claude_prompt_suppressed in [false, true] {
+        for prompt_suppressed in [false, true] {
             with_backend_host_env(host, Some(backend_label), || {
                 let actual = reserved_rows_for_mode(
                     OverlayMode::None,
                     COLS,
                     HudStyle::Full,
-                    claude_prompt_suppressed,
+                    prompt_suppressed,
                 );
                 let expected = expected_reserved_rows_for_none_mode(
                     host,
                     backend,
                     COLS,
                     HudStyle::Full,
-                    claude_prompt_suppressed,
+                    prompt_suppressed,
                 );
                 assert_eq!(
                     actual, expected,
-                    "host={host:?}, backend={backend:?}, suppressed={claude_prompt_suppressed}"
+                    "host={host:?}, backend={backend:?}, suppressed={prompt_suppressed}"
                 );
             });
         }

@@ -69,7 +69,7 @@ fn frame_line(
     width: usize,
 ) -> String {
     let inner_width = width.saturating_sub(2);
-    let inner: String = std::iter::repeat(horizontal).take(inner_width).collect();
+    let inner: String = std::iter::repeat_n(horizontal, inner_width).collect();
     format!(
         "{}{}{}{}{}",
         colors.border, left_corner, inner, right_corner, colors.reset
@@ -96,6 +96,26 @@ pub(crate) fn centered_title_line(
         " ".repeat(left_pad),
         title,
         " ".repeat(right_pad),
+        colors.border,
+        borders.vertical,
+        colors.reset
+    )
+}
+
+#[must_use]
+pub(crate) fn section_line(colors: &ThemeColors, title: &str, width: usize) -> String {
+    let borders = &colors.borders;
+    let inner_width = width.saturating_sub(2);
+    let heading = format!(" {title}");
+    let clipped = truncate_display(&heading, inner_width);
+    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
+    format!(
+        "{}{}{}{}{}{}{}{}",
+        colors.border,
+        borders.vertical,
+        colors.dim,
+        clipped,
+        pad,
         colors.border,
         borders.vertical,
         colors.reset

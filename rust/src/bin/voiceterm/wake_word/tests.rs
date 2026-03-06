@@ -1,13 +1,9 @@
 use super::*;
+use crate::test_env::env_lock;
 use clap::Parser;
 use std::sync::atomic::AtomicUsize;
 
 static SPAWN_LISTENER_CALLS: AtomicUsize = AtomicUsize::new(0);
-
-fn wake_runtime_test_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
 
 struct SpawnHookGuard;
 
@@ -245,9 +241,7 @@ fn detect_wake_event_defaults_to_detection_for_non_send_suffix() {
 
 #[test]
 fn wake_runtime_sync_starts_stops_and_pauses_listener() {
-    let _lock = wake_runtime_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _lock = env_lock();
     let _guard = install_spawn_listener_hook(hook_spawn_listener);
     let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
 
@@ -290,9 +284,7 @@ fn wake_runtime_sync_starts_stops_and_pauses_listener() {
 
 #[test]
 fn wake_runtime_sync_restarts_listener_when_settings_change() {
-    let _lock = wake_runtime_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _lock = env_lock();
     let _guard = install_spawn_listener_hook(hook_spawn_listener);
     let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
 
@@ -367,9 +359,7 @@ fn hotword_guardrail_soak_false_positive_and_latency() {
 
 #[test]
 fn wake_runtime_sync_updates_prioritize_send_window_without_unpausing_capture() {
-    let _lock = wake_runtime_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _lock = env_lock();
     let _guard = install_spawn_listener_hook(hook_spawn_listener);
     let mut runtime = WakeWordRuntime::new(AppConfig::parse_from(["voiceterm"]));
 

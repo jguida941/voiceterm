@@ -4,6 +4,7 @@ mod mouse;
 mod render;
 mod sanitize;
 mod state;
+mod timing;
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use std::thread;
@@ -20,7 +21,10 @@ const STATUS_SEND_TIMEOUT_MS: u64 = 2;
 pub(crate) enum WriterMessage {
     PtyOutput(Vec<u8>),
     /// Simple status message (legacy format with auto-styled prefix)
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Legacy status payload kept for compatibility while writer-state migration completes."
+    )]
     Status {
         text: String,
     },

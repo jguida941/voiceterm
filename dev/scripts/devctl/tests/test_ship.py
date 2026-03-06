@@ -180,6 +180,68 @@ class ShipReleaseParityTests(TestCase):
         self.assertIn("--branch", second_call.args[1])
         self.assertIn("master", second_call.args[1])
 
+    def test_build_verify_checks_includes_release_enforcement_contract(self) -> None:
+        checks = ship_steps.build_verify_checks(verify_docs=False)
+        self.assertEqual([name for name, _cmd in checks], [
+            "coderabbit-gate",
+            "coderabbit-ralph-gate",
+            "check-release",
+            "hygiene",
+        ])
+        check_release_cmd = dict(checks)["check-release"]
+        self.assertEqual(
+            check_release_cmd,
+            ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"],
+        )
+        hygiene_cmd = dict(checks)["hygiene"]
+        self.assertEqual(
+            hygiene_cmd,
+            ["python3", "dev/scripts/devctl.py", "hygiene", "--format", "json"],
+        )
+
+    @patch("dev.scripts.devctl.commands.ship_steps.run_cmd")
+    def test_run_verify_fails_when_release_profile_check_fails(self, run_cmd_mock) -> None:
+        args = make_args()
+        args.dry_run = False
+        context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
+
+        run_cmd_mock.side_effect = [
+            {
+                "name": "coderabbit-gate",
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.01,
+                "skipped": False,
+            },
+            {
+                "name": "coderabbit-ralph-gate",
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.01,
+                "skipped": False,
+            },
+            {
+                "name": "check-release",
+                "cmd": ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"],
+                "cwd": ".",
+                "returncode": 1,
+                "duration_s": 0.01,
+                "skipped": False,
+                "error": "release profile failed",
+            },
+        ]
+        with patch(
+            "dev.scripts.devctl.commands.ship_steps.check_release_version_parity",
+            return_value=(True, {"version": "1.2.3"}),
+        ):
+            result = ship_steps.run_verify_step(args, context)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["details"]["failed_substep"], "check-release")
+        self.assertEqual(result["details"]["reason"], "release profile failed")
+
     def test_run_pypi_fails_when_release_parity_fails(self) -> None:
         args = make_args()
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}

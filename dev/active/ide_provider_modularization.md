@@ -1,6 +1,6 @@
 # IDE + Provider Modularization Plan (MP-346)
 
-**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`)  |  **Last updated**: 2026-03-04 | **Owner:** Runtime/tooling architecture
+**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`)  |  **Last updated**: 2026-03-05 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
 
 ## Scope
@@ -48,16 +48,28 @@ cd rust && cargo test --bin voiceterm
 
 ### Manual Runtime Verification (human gate)
 
-Required smoke checks before phase advancement (7 combinations):
+Required smoke checks before phase advancement (4 release-scope combinations):
 
 1. Cursor + Codex: startup, typing, scrolling, send path.
 2. Cursor + Claude: startup, typing while output streams, prompt visibility.
 3. JetBrains + Codex: HUD stability under output and resize.
 4. JetBrains + Claude: approval/prompt visibility and non-corrupt redraw.
-5. Other + Claude (iTerm2/Terminal.app): startup banner, status line render,
-   output scroll without HUD corruption, clean exit.
-6. Other + Codex (iTerm2/Terminal.app): same as above.
-7. Gemini baseline path: command startup + non-crash capability reporting.
+Post-next-release deferred cells (non-blocking for current release scope):
+
+1. Other + Claude: startup banner, status-line render, output scroll without
+   HUD corruption, clean exit.
+2. Other + Codex: same as above.
+3. Gemini baseline path: command startup + non-crash capability reporting.
+
+Checkpoint scope note (active):
+
+- `CP-006` accepted a temporary `5/7` matrix attestation during earlier
+  extraction stages.
+- Operator release-scope update (2026-03-05): final closure gating for this
+  release is IDE-only (`cursor` + `jetbrains`, `codex` + `claude`) with
+  required manual verification `4/4`.
+- `Other` host cells and `Gemini baseline` remain explicitly tracked as
+  post-next-release backlog intake and are non-blocking for this release gate.
 
 ### Checkpoint Artifacts
 
@@ -76,7 +88,9 @@ Packet contents:
 If any item below occurs, stop extraction work and return to last green state:
 
 1. any required check in the checkpoint bundle fails.
-2. any manual verification cell fails or is untested.
+2. any required manual verification cell for the current checkpoint gate fails,
+   or remains untested without explicit operator waiver noted in that checkpoint
+   packet.
 3. file-shape/lint-debt gates regress.
 4. prompt visibility, typing, or send flow regresses in previously green cells.
 
@@ -96,6 +110,8 @@ MP-346 includes explicit remediation for each gap above.
 ## Baseline Audit (Validated 2026-03-01)
 
 This section records code-verified findings (not assumptions).
+Treat this as a historical snapshot; current-state closure evidence belongs in
+`Guardrail Delivery Tracking`, `Progress Log`, and checkpoint artifacts.
 
 | Finding | Validation | Evidence |
 |---|---|---|
@@ -456,20 +472,22 @@ Each new check script must:
 | AI-guard in `ci` profile | Phase 0 | `check_profile.py` line 39: `with_ai_guard: True` | done |
 | Workspace path-contract repair | Phase 0 | workflow triggers + `AGENTS.md` + `check_agents_contract.py` move to `rust/src/**` contract | done |
 | Workspace path-contract gate | Phase 0 | extend `devctl path-audit` (or new check) to fail stale `src/**` contracts | done |
-| Runtime-lane AI-guard enforcement | Phase 0 | runtime workflow on `rust/src/**` executes AI guards in commit-range mode | pending |
+| Runtime-lane AI-guard enforcement | Phase 0 | runtime workflow on `rust/src/**` executes AI guards in commit-range mode | done |
 | `devctl check` AI-guard ref propagation | Phase 0 | `check` command accepts `--since-ref/--head-ref` and forwards refs to `AI_GUARD_CHECKS` scripts | done |
 | Dependency-policy CI gate (`cargo deny`) | Phase 0 | security/release lane enforces deny policy with explicit failure semantics | done |
 | `check_code_shape.py` evaluator coverage | Phase 0 | dedicated unit tests for `_evaluate_shape` branch matrix | done |
 | `check_agents_contract.py` dedicated coverage | Phase 0 | unit tests + contract-row migration to `rust/src/**` snippets | done |
-| Clippy threshold tightening | Phase 0 | `clippy.toml`: `cognitive-complexity-threshold = 25`, `Cargo.toml`: `too_many_lines = "warn"` | pending |
+| Clippy threshold tightening | Phase 0 | `clippy.toml`: `cognitive-complexity-threshold = 25`, `Cargo.toml`: `too_many_lines = "warn"` | done |
 | Parameterized characterization tests | Phase 0.5 | `rstest` crate + matrix tests for preclear/redraw/gap-rows | done |
-| Duplicate enum/type detector | Phase 1 | `check_duplicate_types.py` (~80 lines) | pending |
-| Structural complexity check | Phase 1 | `rust-code-analysis-cli` + `check_structural_complexity.py` (~80 lines) | pending |
-| IDE/provider isolation check | Phase 0 (report), Phase 2 (block) | `check_ide_provider_isolation.py` (~100 lines) with staged rollout | done (report-only baseline) |
+| Duplicate enum/type detector | Phase 1 | `check_duplicate_types.py` (~80 lines) | done |
+| Structural complexity check | Phase 1 | `check_structural_complexity.py` (AI-guard integrated score + nesting/branch policy with temporary exception governance) | done |
+| IDE/provider isolation check | Phase 0 (report), Phase 2 (block) | `check_ide_provider_isolation.py` (~100 lines) with staged rollout | done (blocking default + narrowed explicit allowlist) |
 | Mixed host/provider conditional budget | Phase 0 | baseline artifact (`rg`-based) + non-regressive checkpoint tracking until isolation check blocks | done (`dev/reports/mp346/baselines/host_provider_mix_counts.txt`) |
-| Compat matrix YAML + check | Phase 4 | `ide_provider_matrix.yaml` + `check_compat_matrix.py` | pending |
-| devctl `compat-matrix` command | Phase 4 | `devctl/commands/compat_matrix.py` | pending |
-| General duplication audit | Phase 4 | `jscpd` integration (periodic, not CI gate) | pending |
+| Compat matrix YAML + check | Phase 4 | `ide_provider_matrix.yaml` + `check_compat_matrix.py` | done |
+| Naming consistency gate | Phase 4 | `check_naming_consistency.py` + `AI_GUARD_CHECKS` + tooling-control-plane lane | done |
+| Workflow-shell hygiene gate | Phase 0 | `check_workflow_shell_hygiene.py` + `docs-check --strict-tooling` enforcement + bridge migration | done |
+| devctl `compat-matrix` command | Phase 4 | `devctl/commands/compat_matrix.py` | done |
+| General duplication audit | Phase 4 | `check_duplication_audit.py` periodic `jscpd` wrapper (`--run-jscpd` + freshness/threshold enforcement; not CI-blocking by default) | done |
 | Host/provider contract completion pass | Phase 0.5 | source-mapped adapter method inventory + closure plan for unresolved render/cross-product decisions | done |
 
 ## Concrete Extraction Targets
@@ -767,47 +785,48 @@ Provider/host cross-product policy coverage:
 
 ### Phase 1: Canonical Host Detection
 
-- [ ] Define one canonical `TerminalHost` detection owner in
+- [x] Define one canonical `TerminalHost` detection owner in
   `runtime_compat.rs`.
-- [ ] Replace duplicated detection implementations in:
-  - `writer/render.rs` (delete `TerminalFamily` enum, replace with
-    `TerminalHost`)
-  - `banner.rs` (delete `is_jetbrains_terminal()`)
-  - `color_mode.rs` lines 74-95 (route through canonical detection)
-  - `theme/detect.rs` (`is_warp_terminal` should consume canonical host signal,
+- [x] Replace duplicated detection implementations in:
+  - [x] `writer/render.rs` (removed writer-local `TerminalFamily` enum;
+    renderer now consumes canonical `TerminalHost` directly)
+  - [x] `banner.rs` (deleted local `is_jetbrains_terminal()` and now routes
+    through canonical `runtime_compat::is_jetbrains_terminal()`)
+  - [x] `color_mode.rs` lines 74-95 (host truecolor inference now routes
+    through canonical `runtime_compat::detect_terminal_host()`)
+  - [x] `theme/detect.rs` (`is_warp_terminal` now consumes canonical host signal,
     not direct env probing)
-  - `texture_profile.rs` (either unify `TerminalId` with `TerminalHost` or
-    explicitly layer `TerminalId` on top of `TerminalHost` with a documented
-    mapping)
-- [ ] Replace all `TerminalFamily` references in `state.rs` (30+ locations)
+  - [x] `texture_profile.rs` (`TerminalId` now layers on top of canonical
+    `TerminalHost` detection for Cursor/JetBrains host routing)
+- [x] Replace all `TerminalFamily` references in `state.rs` (30+ locations)
   with `TerminalHost`.
-- [ ] Define caching contract: canonical `detect_terminal_host()` returns a
+- [x] Define caching contract: canonical `detect_terminal_host()` returns a
   cached `OnceLock<TerminalHost>`. Tests use a thread-local override to inject
   test values without polluting the process-wide cache (follow existing
   `set_terminal_size_hook` pattern in `state.rs:97`).
-- [ ] Route all call sites to canonical host detection APIs.
-- [ ] Add regression tests for JetBrains/Cursor/Other environment fingerprints.
+- [x] Route all call sites to canonical host detection APIs.
+- [x] Add regression tests for JetBrains/Cursor/Other environment fingerprints.
 
 ### Phase 1.5: Shared Utilities + Backend Detection Consolidation
 
 Extract shared code before the big refactors to reduce diff noise and prevent
 merge conflicts.
 
-- [ ] Extract `parse_debug_env_flag`, `debug_bytes_preview`,
+- [x] Extract `parse_debug_env_flag`, `debug_bytes_preview`,
   `claude_hud_debug_enabled` into `writer/debug.rs` or a shared `debug`
   module. Delete the 3 copies in `state.rs`, `prompt_occlusion.rs`,
   `terminal.rs`.
-- [ ] Replace `is_codex_backend()` / `is_claude_backend()` in `state.rs` (raw
+- [x] Replace `is_codex_backend()` / `is_claude_backend()` in `state.rs` (raw
   string-contains) with `runtime_compat::BackendFamily` enum usage.
-- [ ] Consolidate the 5 ANSI-stripping implementations into one shared utility
+- [x] Consolidate the 5 ANSI-stripping implementations into one shared utility
   module.
-- [ ] Define the `ProviderAdapter` trait signature (without full
+- [x] Define the `ProviderAdapter` trait signature (without full
   implementation) so Phase 2 can code against trait methods instead of
   backend-name strings.
-- [ ] Create shared test utility module for env-var locking (replace the 14
+- [x] Create shared test utility module for env-var locking (replace the 14
   independent `OnceLock<Mutex<()>>` helpers with one canonical lock used by
   runtime tests and helper modules).
-- [ ] Rename `claude_prompt_suppressed` to `prompt_suppressed` (or
+- [x] Rename `claude_prompt_suppressed` to `prompt_suppressed` (or
   `prompt_occlusion_active`) across all 97+ references. This is a
   find-and-replace, not a behavioral change.
 
@@ -815,28 +834,59 @@ merge conflicts.
 
 Highest-risk phase. Use atomic sub-steps with individual checkpoints.
 
-- [ ] **Step 2a** (safe, data-only): Extract host timing constants from
+- [x] **Step 2a** (safe, data-only): Extract host timing constants from
   `writer/state.rs` into typed `HostTimingConfig` keyed by `TerminalHost`.
   No logic change -- pure data extraction. Checkpoint here.
-- [ ] **Step 2b**: Extract `should_preclear_bottom_rows` into a
+- [x] **Step 2b**: Extract `should_preclear_bottom_rows` into a
   `PreclearPolicy` that returns both the preclear decision AND the resulting
   flags (`pre_cleared`, `force_redraw_after_preclear`,
   `force_full_banner_redraw`). Checkpoint here.
-- [ ] **Step 2c**: Extract the scroll/non-scroll redraw decision block (lines
+- [x] **Step 2c**: Extract the scroll/non-scroll redraw decision block (lines
   741-858) into `RedrawPolicy` that consumes preclear outputs. Checkpoint
   here.
-- [ ] **Step 2d**: Extract `maybe_redraw_status` idle-gating into a separate
+- [x] **Step 2d**: Extract `maybe_redraw_status` idle-gating into a separate
   timing module. Checkpoint here.
-- [ ] **Step 2e**: Reduce `handle_message` to: dispatch message type -> call
+- [x] **Step 2e**: Reduce `handle_message` to: dispatch message type -> call
   policy pipeline -> apply state updates. Build `RuntimeProfile` cross-product
   resolver and inject via DI at `WriterState` construction. Final checkpoint.
-- [ ] **Step 2f**: Flip `check_ide_provider_isolation.py` from report-only to
+  (complete: runtime-profile DI + dispatch/redraw decomposition landed with
+  dedicated `writer/state/*` modules; `writer/state.rs` now 448 lines.)
+- [x] **Step 2f**: Flip `check_ide_provider_isolation.py` from report-only to
   blocking mode for runtime files outside approved adapter/policy modules.
-  Final checkpoint before Phase 3.
-- [ ] After each sub-step: run checkpoint bundle + verify no regression in
-  characterization tests from Phase 0.5.
+  Final checkpoint before Phase 3. (complete: blocking is now default;
+  allowlist narrowed to explicit policy-owner files.)
+- [x] **Step 2f.1**: Isolation allowlist burn-down + shape-budget reset
+  checkpoint:
+  - tighten `PATH_POLICY_OVERRIDES` to current decomposition reality:
+    - lower `writer/state.rs` soft/hard limits from legacy freeze (`2750`) to
+      a near-current budget (target <= `600` hard ceiling),
+    - add explicit path budgets for new writer decomposition modules:
+      `writer/state/dispatch.rs`, `writer/state/redraw.rs`,
+      `writer/state/policy.rs` so large extracted modules cannot regrow
+      unnoticed,
+  - remove broad mixed-signal allowlist entries first:
+    `event_loop.rs` and `terminal.rs` must exit explicit mixed-path allowlist
+    before broader prefix burn-down,
+  - narrow remaining allowlisted prefixes (`writer/`, `event_loop/`)
+    module-by-module with checkpoint evidence for each removal. (complete:
+    broad prefixes removed; explicit allowlist now only
+    `runtime_compat.rs`, `writer/state/profile.rs`, `writer/timing.rs`.)
+- [x] **Step 2f.2**: Function-shape guardrails (non-file-size) checkpoint:
+  - implement function-length enforcement for dispatcher/pipeline hotspots
+    (initially `writer/state/dispatch.rs`, `writer/state/redraw.rs`,
+    `event_loop/prompt_occlusion.rs`),
+  - wire guard into CI/runtime bundle so post-decomposition god-function drift
+    fails fast,
+  - publish temporary exception protocol (single-owner + expiry + follow-up MP
+    item) for unavoidable outliers. (complete: path-scoped function policies
+    landed in `code_shape_policy.py` with explicit owner/expiry/follow-up
+    exception entries.)
+- [x] After each sub-step: run checkpoint bundle + verify no regression in
+  characterization tests from Phase 0.5. (complete: `CP-007` through `CP-013`
+  checkpoint artifacts and bundle outcomes are recorded in the Operator
+  Checkpoint Log.)
 
-Rollback strategy: If step 2c breaks, revert to the 2b checkpoint, not to
+Rollback strategy: If step 2d breaks, revert to the 2c checkpoint, not to
 Phase 1. Each sub-step must be independently revertable via `git revert`.
 
 Feature flag option: consider `VOICETERM_USE_ADAPTER_POLICIES=1` env var to
@@ -844,53 +894,131 @@ run old and new code paths in parallel during validation.
 
 ### Phase 3: Provider Adapter Expansion
 
-- [ ] **Step 3a**: Introduce `PromptDetectionStrategy` trait and wire
+- [x] **Step 3a**: Introduce `PromptDetectionStrategy` trait and wire
   `claude_prompt_detect.rs` behind a Claude adapter-owned implementation while
-  keeping a short-lived fallback shim for parity testing.
-- [ ] **Step 3b**: Decompose `event_loop/prompt_occlusion.rs` into provider-
+  keeping a short-lived fallback shim for parity testing. (complete:
+  `provider_adapter::build_prompt_occlusion_detector` now routes detector
+  wiring through Claude adapter strategy ownership, with temporary legacy-shim
+  parity fallback.)
+- [x] **Step 3a.1**: Retire the prompt-detection legacy shim after parity
+  validation. (complete:
+  - no open parity regressions were introduced in `CP-014`/`CP-015`,
+  - repo-wide runtime usage scan shows no shim symbol usage outside prior
+    planning text,
+  - planning/docs state now removes shim-symbol references so it is not
+    advertised as active runtime policy.)
+- [x] **Step 3b**: Decompose `event_loop/prompt_occlusion.rs` into provider-
   neutral core + provider strategy hooks; remove direct Claude-specific pattern
-  logic from the event-loop module.
-- [ ] **Step 3c**: Expand provider abstraction so IPC/runtime lifecycle routes
+  logic from the event-loop module. (complete: prompt-occlusion signal parsing
+  moved to prompt-owned modules (`prompt/occlusion_signals.rs` +
+  `prompt/claude_prompt_detect/signals.rs`), `event_loop/prompt_occlusion.rs`
+  now keeps runtime orchestration only with prompt-owned signal hooks, and
+  absolute shape limits are back under policy (`prompt_occlusion.rs`=`679`,
+  `claude_prompt_detect.rs`=`541`) with prompt + IPC regression suites green.)
+- [x] **Step 3c**: Expand provider abstraction so IPC/runtime lifecycle routes
   through provider adapters (not codex/claude match arms in router/auth/session
-  code).
-- [ ] **Step 3d**: Reconcile backend registry and IPC provider model:
+  code). (complete: new `ipc/provider_lifecycle.rs` now owns provider lifecycle
+  start/cancel/drain routing; router and session loop runtime now delegate to
+  adapter helpers instead of direct codex/claude match arms; auth command
+  selection/reset policy now routes through `Provider` lifecycle helpers.)
+- [x] **Step 3d**: Reconcile backend registry and IPC provider model:
   - add `Gemini` support to `ipc::Provider` and capability emission if shipped,
     or
   - explicitly mark `Gemini` as non-IPC experimental with guardrails and docs.
-- [ ] **Step 3e**: Explicitly classify non-IPC backends (`aider`, `opencode`,
+    (complete via explicit non-IPC path: IPC provider selection/auth/override
+    now rejects `gemini` with recoverable "overlay-only experimental" errors,
+    startup env override no longer silently falls back, and IPC docs/env
+    surfaces now state codex/claude-only provider support.)
+- [x] **Step 3e**: Explicitly classify non-IPC backends (`aider`, `opencode`,
   `custom`) as overlay-only or promote them into the provider adapter surface;
-  do not leave ambiguous partial support behavior.
-- [ ] **Step 3f**: Replace codex/claude-only capability list in
+  do not leave ambiguous partial support behavior. (complete via explicit
+  non-IPC classification: provider resolution now recognizes these labels as
+  overlay-only non-IPC backends with dedicated diagnostics, matrix validation
+  requires explicit non-IPC modes, and docs now align on codex/claude-only IPC
+  support.)
+- [x] **Step 3f**: Replace codex/claude-only capability list in
   `ipc/session/state.rs::emit_capabilities` with adapter-derived values.
-- [ ] After each sub-step: run checkpoint bundle + manual matrix verification
-  and record `CP-3x` artifact.
+  (complete: capability labels now derive from backend-registry discovery via
+  `Provider::ipc_supported()`/`ipc_capability_labels()` with codex/claude
+  fallback retained and dedicated IPC regressions added.)
+- [ ] **Step 3g (post-next-release backlog)**: Stabilize Gemini overlay
+  behavior for `cursor` and `jetbrains` sessions where users still report
+  startup/HUD flash artifacts:
+  - preserve adapter ownership boundaries (no ad-hoc host+provider branching in
+    non-adapter modules),
+  - route any flash mitigation through typed runtime-profile/policy contracts,
+  - attach checkpoint + matrix evidence for `Cursor + Gemini` and
+    `JetBrains + Gemini` before closure.
+- [ ] **Step 3h (post-next-release backlog)**: Investigate JetBrains + Claude
+  intermittent overlay flash between normal HUD and help/settings surfaces
+  during heavy command-output sessions (for example long Bash and web-search
+  activity):
+  - include duplicated bottom status-strip/HUD row artifacts observed after
+    long output bursts followed by short user replies (for example `thanks`,
+    `testing`) as part of the same JetBrains+Claude render-sync investigation,
+  - treat current behavior as **non-regressive** versus the last release
+    baseline unless new evidence shows otherwise,
+  - keep release scope to documentation + matrix attestation (no risky late
+    runtime rewrites),
+  - after release, capture focused debug logs/screenshots and route fixes
+    through adapter/runtime-profile ownership paths (no ad-hoc mixed
+    host+provider conditionals).
+- [x] **Step 3 sequencing gate (`CP-016`)**: Steps `3a.1`, `3b`, `3c`, `3e`, and
+  `3f` are closed; release-scope manual matrix is complete for IDE cells
+  (`4/4`: Cursor+Codex, Cursor+Claude, JetBrains+Codex, JetBrains+Claude),
+  and post-next-release deferred cells (`Other + Claude`, `Other + Codex`,
+  `Gemini baseline`) remain tracked as non-blocking backlog.
+- [x] After each sub-step: run checkpoint bundle and record `CP-3x` artifact.
+  (complete: `CP-014`, `CP-015`, and `CP-016` checkpoint packets are recorded
+  in the Operator Checkpoint Log.)
+- [x] Manual matrix policy for Phase 3 checkpoints:
+  - rerun matrix when host/provider behavior changes,
+  - if behavior is contract-equivalent and matrix is not rerun, explicitly
+    cite the latest accepted matrix attestation in the checkpoint packet,
+  - for current release-readiness closure, IDE release-scope matrix (`4/4`) is
+    complete; deferred `Other`/`Gemini` cells are explicitly post-release
+    backlog scope.
 
 ### Phase 4: Matrix + Tooling Gates
 
-- [ ] Add machine-readable matrix source:
+- [x] Kick off Phase-4 compatibility-governance scaffold immediately after
+  Step 2f closure (do not defer to Phase 3 completion).
+- [x] Add machine-readable matrix source:
   `dev/config/compat/ide_provider_matrix.yaml`.
-- [ ] Add matrix validator check:
+- [x] Add matrix validator check:
   `python3 dev/scripts/checks/check_compat_matrix.py`.
-- [ ] Promote isolation check policy from Phase-2 blocking baseline to full CI
+- [x] Promote isolation check policy from Phase-2 blocking baseline to full CI
   governance (allowlist ownership + threshold owner + calibration evidence):
-  `python3 dev/scripts/checks/check_ide_provider_isolation.py`.
-- [ ] Add smoke harness:
+  `python3 dev/scripts/checks/check_ide_provider_isolation.py` (wired into
+  `devctl check` AI-guard profile and documented in AGENTS/runtime bundles).
+- [x] Add smoke harness:
   `python3 dev/scripts/checks/compat_matrix_smoke.py`.
-- [ ] Add `devctl compat-matrix` command for validate/report workflows.
+- [x] Add `devctl compat-matrix` command for validate/report workflows.
 
 ### Phase 5: AntiGravity Decision Gate
 
-- [ ] Decide one of:
-  - define concrete AntiGravity host fingerprints + detection + tests and keep
-    it in MP-346 active scope, or
-  - move AntiGravity to deferred MP scope until runtime host evidence exists.
-- [ ] Update `MASTER_PLAN`, `INDEX`, and compatibility matrix scope accordingly.
+- [x] Select defer path for AntiGravity:
+  - move AntiGravity to deferred MP scope until concrete runtime host
+    fingerprint evidence exists.
+- [x] Update `MASTER_PLAN`, `INDEX`, compatibility matrix scope, and user docs
+  accordingly.
+- [ ] Post-next-release backlog intake before AntiGravity reactivation:
+  - draft host fingerprint/detection contract requirements for AntiGravity,
+  - define compatibility-test plan covering `codex`, `claude`, and `gemini`
+    behavior expectations on the AntiGravity host path,
+  - require evidence-backed readiness review before moving AntiGravity out of
+    deferred scope.
 
 ### Phase 6: Governance + ADR Lock
 
-- [ ] Add ADR for host/provider boundary ownership and extension policy.
-- [ ] Add ADR for compatibility matrix governance and CI fail policy.
-- [ ] Close MP-346 only after all matrix gates and non-regression checks pass.
+- [x] Add ADR for host/provider boundary ownership and extension policy
+  (`dev/adr/0035-host-provider-boundary-ownership.md`).
+- [x] Add ADR for compatibility matrix governance and CI fail policy
+  (`dev/adr/0036-compat-matrix-governance-ci-fail-policy.md`).
+- [x] Close MP-346: all release-scope matrix gates (IDE-first 4/4) and
+  non-regression checks pass; post-release backlog items (Steps 3g, 3h,
+  Phase 5 AntiGravity intake) are explicitly tracked. Formal closure
+  recorded 2026-03-05.
 
 ## Operator Checkpoint Log
 
@@ -901,6 +1029,16 @@ run old and new code paths in parallel during validation.
 | `CP-004` | phase-0 phase-gate | `dev/reports/mp346/checkpoints/20260302T155409Z-cp004/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (phase 0.5 only)` | explicit operator approval to start characterization tests; phase-1+ extraction/refactor remains blocked until manual matrix completion. |
 | `CP-005` | phase-0.5 closure | `dev/reports/mp346/checkpoints/20260302T162839Z-cp005/` | pass (all automated bundle commands) | pending (all 7 cells) | `go (manual matrix execution)` | Phase-0.5 checklist closure verified; Phase-1+ extraction/refactor remains blocked until manual matrix completion. |
 | `CP-006` | manual matrix attestation | `dev/reports/mp346/checkpoints/20260304T010010Z-cp006/` | not rerun (latest full bundle pass: `CP-005`) | baseline accepted (`5/7` validated; `Other + Claude` and `Other + Codex` intentionally sequenced post-cleanup) | `go (phase 1+ cleanup now)` | operator attestation recorded for `Cursor + Codex`, `Cursor + Claude`, `JetBrains + Codex`, `JetBrains + Claude`, and Gemini baseline; remaining `Other` host cells are a post-cleanup stabilization checkpoint, not a phase-1+ blocker. |
+| `CP-007` | phase-2a host timing extraction | `dev/reports/mp346/checkpoints/20260304T113723Z-cp007/` | pass (all automated bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 2b next)` | data-only host timing extraction checkpoint; `HostTimingConfig` now owns writer timing constants and validation bundle stayed green. |
+| `CP-008` | phase-2b preclear policy extraction | `dev/reports/mp346/checkpoints/20260304T114813Z-cp008/` | pass (all automated bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 2c next)` | extracted typed `PreclearPolicy`/`PreclearOutcome` in writer state so preclear decision + post-preclear flag outcomes are resolved in one policy path while preserving existing host/provider behavior. |
+| `CP-009` | phase-2c redraw policy extraction | `dev/reports/mp346/checkpoints/20260304T121404Z-cp009/` | pass (all automated bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 2d next)` | extracted typed `RedrawPolicy` in writer state so scroll/non-scroll/destructive-clear redraw decisions now consume `PreclearOutcome` through one policy contract while preserving existing host/provider behavior. |
+| `CP-010` | phase-2d idle-gating timing extraction | `dev/reports/mp346/checkpoints/20260304T123641Z-cp010/` | pass (all automated bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 2e next)` | extracted typed idle-gating timing policy in `writer/timing.rs` so `maybe_redraw_status` throttling/quiet-window/repair settle decisions are centralized while preserving existing host/provider behavior. |
+| `CP-011` | phase-2e dispatch/runtime-profile extraction (partial) | `dev/reports/mp346/checkpoints/20260304T130908Z-cp011/` | pass (all automated bundle commands; `check_ci` rerun after dead-code fix) | not rerun (latest manual attestation: `CP-006`) | `hold (continue phase 2e)` | `WriterState` now resolves a typed `RuntimeProfile` at construction and routes PTY processing through explicit policy pipeline helpers, but `writer/state.rs` decomposition targets are still in progress. |
+| `CP-012` | phase-2e dispatch/runtime-profile extraction (closure) | `dev/reports/mp346/checkpoints/20260304T133654Z-cp012/` | pass (all automated bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 2f next)` | completed writer-state structural decomposition (`writer/state.rs` now 448 lines) with dedicated dispatch/redraw/profile/display/policy/chunk-analysis modules while preserving runtime validation parity. |
+| `CP-013` | phase-2f/2f.1/2f.2 + phase-4 kickoff closure | `dev/reports/mp346/checkpoints/20260304T163911Z-cp013/` | pass (targeted guard/runtime/governance bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 3 next)` | isolation guard is now blocking by default with narrowed allowlists, shape budgets reset to decomposition reality, function-size guardrails live with owner/expiry exceptions, and compatibility-matrix governance scaffold (`yaml` + check + smoke + `devctl compat-matrix`) is active. |
+| `CP-014` | phase-3a prompt strategy wiring | `dev/reports/mp346/checkpoints/20260304T174948Z-cp014/` | pass (`check_ci` + runtime/docs/governance bundle commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 3b next)` | prompt detector construction now routes through provider adapters with Claude-owned `PromptDetectionStrategy`, while a temporary legacy-shim fallback remained available for parity checks at that checkpoint. |
+| `CP-015` | phase-3d explicit non-IPC Gemini guardrails | `dev/reports/mp346/checkpoints/20260304T181236Z-cp015/` | pass (targeted IPC/docs/governance commands) | not rerun (latest manual attestation: `CP-006`) | `go (phase 3b next)` | Step-3d closed via explicit non-IPC path: IPC provider selection/auth/override now rejects `gemini` with recoverable errors, `VOICETERM_PROVIDER` unsupported overrides no longer silently fall through, and docs now state codex/claude-only IPC provider support. |
+| `CP-016` | phase-3 continuation sync (post-shim retirement + IPC/prompt/backend sequencing) | `dev/reports/mp346/checkpoints/20260305T032253Z-cp016/` | pass (automated runtime/governance bundle rerun) | IDE release-scope manual matrix complete (`4/4`: Cursor+Codex pass, Cursor+Claude pass with non-regressive known issues, JetBrains+Codex pass, JetBrains+Claude pass); deferred post-release backlog cells: `Other + Claude`, `Other + Codex`, `Gemini baseline` | `go (release-scope matrix complete)` | Findings cleanup for runtime artifacts + startup provider diagnostics is complete and automated gates are green; release closure uses IDE-first gating and defers `other` host/Gemini follow-up to post-next-release backlog. |
 
 ## Scope Splitting Recommendation
 
@@ -968,15 +1106,44 @@ MP-346 is complete only when all conditions below are true:
 
 ### Testing
 
-21. Test coverage exists for all 7 supported IDE/provider combinations (at
-    minimum parameterized matrix tests for preclear, redraw, timing, and
-    capability behavior per cell).
+21. Release-scope test coverage and manual validation exist for IDE-first
+    combinations (`cursor` + `jetbrains` crossed with `codex` + `claude`);
+    deferred `other` host and `gemini` follow-up combinations are explicitly
+    tracked in post-next-release backlog.
 22. No function in the codebase exceeds the function-length budget (100 lines)
     without an explicit `PATH_POLICY_OVERRIDES` exception with a follow-up MP.
 23. Maximum cyclomatic complexity per function is under 20 without exception.
 
 ## Progress Log
 
+- 2026-03-05: Operator scope update for release-readiness closure:
+  - manual closure matrix for this release is IDE-only (`4/4` required cells):
+    `Cursor + Codex`, `Cursor + Claude`, `JetBrains + Codex`,
+    `JetBrains + Claude`,
+  - `Other + Claude`, `Other + Codex`, and `Gemini baseline` are now explicit
+    post-next-release backlog items and non-blocking for current release
+    closure.
+- 2026-03-05: CP-016 manual matrix partial refresh recorded (operator local verification):
+  - pass: `Cursor + Codex` startup/typing/scroll/send behavior remains aligned
+    with the pre-change baseline,
+  - pass (non-regressive known issues): `Cursor + Claude` remains workable for
+    release; reported issues are the same as the last release baseline and are
+    already tracked in `Step 3g` post-next-release backlog,
+  - pass: `JetBrains + Codex` HUD stability under output/resize remained
+    non-regressive versus the pre-change baseline,
+  - pass: `JetBrains + Claude` approval/prompt visibility and redraw behavior
+    remained non-regressive for release-readiness execution,
+  - deferred post-next-release cells (non-blocking for release closure):
+    `Other + Claude`, `Other + Codex`, and `Gemini` baseline.
+- 2026-03-05: Backlog intake captured for post-next-release follow-up:
+  - added explicit `Step 3g` to stabilize Gemini `cursor`/`jetbrains` flashing
+    behavior under adapter/runtime-profile ownership rules,
+  - added explicit `Step 3h` for JetBrains+Claude intermittent help/settings
+    overlay flashing plus duplicated bottom status-strip artifacts during heavy
+    output as a non-regressive, post-release follow-up investigation,
+  - added explicit AntiGravity reactivation-readiness intake checklist with
+    planned `codex`/`claude`/`gemini` compatibility-test design requirements
+    before deferred-scope lift.
 - 2026-03-01: Initial MP-346 plan created and wired into active docs.
 - 2026-03-01: Plan rewritten with source-validated audit findings, concrete
   extraction targets, trait contracts, phased execution order, and explicit
@@ -1312,6 +1479,15 @@ MP-346 is complete only when all conditions below are true:
   - retained existing rendering semantics (DEC cursor save/restore rules,
     JetBrains-specific scroll-region bypass, and full-HUD single-line fallback
     behavior) with targeted runtime tests.
+- 2026-03-04: Phase-1 incremental cleanup slice (writer host-enum unification):
+  - removed `writer/render.rs` `TerminalFamily` enum and switched renderer
+    policy branches to canonical `TerminalHost`,
+  - migrated `writer/state.rs` host-policy checks from `TerminalFamily` to
+    `TerminalHost` across runtime paths (including redraw/preclear/timing
+    matrix logic) while preserving current behavior,
+  - updated writer/state characterization coverage to use canonical host enums
+    and reran writer-targeted tests plus `cargo test --bin voiceterm` for
+    regression containment.
 - 2026-03-04: MP-346 runtime checkpoint rerun for this cleanup slice:
   - `bundle.runtime` command set executed and green (including
     `devctl check --profile ci`, docs/hygiene/sync guards, parity checks,
@@ -1319,52 +1495,854 @@ MP-346 is complete only when all conditions below are true:
   - HUD/runtime risk add-on executed and green:
     `cd rust && cargo test --bin voiceterm`,
   - docs governance gate required user-facing evidence for runtime edits, so
-    this slice now records an `Unreleased` changelog entry plus README
-    compatibility clarification while keeping runtime behavior unchanged.
+    this slice now records an `Unreleased` changelog entry plus
+    `guides/USAGE.md` IDE-compatibility clarification while keeping runtime
+    behavior unchanged.
+- 2026-03-04: Phase-1 incremental cleanup slice (banner/color/theme host
+  routing):
+  - removed duplicated banner host detection by deleting local
+    `banner.rs::is_jetbrains_terminal` and routing skip policy to
+    `runtime_compat::is_jetbrains_terminal`,
+  - switched color truecolor inference to canonical host routing
+    (`runtime_compat::detect_terminal_host`) while preserving non-host
+    terminal-program hints (`vscode`, `wezterm`, `iterm`, `warp`),
+  - updated `theme/detect.rs` so Warp checks now honor canonical host
+    precedence (`JetBrains`/`Cursor` short-circuit before Warp fallback),
+  - expanded regression coverage for JetBrains/Cursor/Other host fingerprints
+    in banner/color/theme tests.
+- 2026-03-04: Phase-1 incremental cleanup slice (texture-profile host layering):
+  - routed `theme/texture_profile.rs` host identification through canonical
+    `runtime_compat::detect_terminal_host()` first, so Cursor/JetBrains mapping
+    is owned by one source of truth,
+  - reduced texture-profile env detection to non-host capability IDs
+    (`kitty`/`iterm`/`wezterm`/`warp`/etc.) while preserving existing
+    `KITTY_WINDOW_ID` and `ITERM_SESSION_ID` fallback behavior,
+  - added dedicated texture-profile regressions for host precedence and
+    non-host fallback paths.
+- 2026-03-04: Phase-1 incremental cleanup slice (canonical host cache
+  contract):
+  - moved terminal host fingerprint parsing into
+    `runtime_compat::detect_terminal_host_from_env` and made
+    `runtime_compat::detect_terminal_host` the canonical cached owner
+    (`OnceLock<TerminalHost>` in runtime builds),
+  - added a thread-local test override hook
+    (`runtime_compat::set_terminal_host_override`) with reset scoping around
+    env-based assertions so tests can inject deterministic host values without
+    polluting cache ownership semantics,
+  - removed writer-local host cache duplication in `writer/render.rs` so all
+    host cache ownership routes through `runtime_compat`.
+- 2026-03-04: Phase-1 follow-up hardening (panic-safe host override reset):
+  - replaced test helper override scoping with a drop-guard pattern in
+    `runtime_compat` tests so thread-local host overrides restore on both
+    normal return and unwind,
+  - added regression coverage that intentionally panics inside
+    `with_terminal_host_override` and asserts host detection returns to the
+    prior env-derived value after unwind.
+- 2026-03-04: Phase-1.5 incremental cleanup slice (shared HUD debug helpers):
+  - extracted canonical HUD debug helpers into shared
+    `hud_debug` module (`parse_debug_env_flag`, `claude_hud_debug_enabled`,
+    `debug_bytes_preview`),
+  - removed duplicated helper implementations from `writer/state.rs`,
+    `event_loop/prompt_occlusion.rs`, and `terminal.rs`,
+  - rerouted runtime HUD anomaly/log preview call sites to shared helpers
+    without behavior changes to prompt-occlusion or writer policies.
+- 2026-03-04: Phase-1.5 incremental cleanup slice (BackendFamily routing in
+  writer state):
+  - removed raw backend-label substring parsing from `writer/state.rs`,
+  - switched `is_codex_backend()` / `is_claude_backend()` to resolve through
+    canonical `runtime_compat::backend_family_from_env()` +
+    `BackendFamily` enum matching,
+  - reran full runtime test suite to confirm no behavior regression.
+- 2026-03-04: Phase-1.5 incremental cleanup slice (provider adapter signature):
+  - added `provider_adapter.rs` contract module with signature-only
+    definitions for `ProviderAdapter`, `PromptDetectionStrategy`,
+    `ProviderId`, `ReservedRowPolicy`, and `ProviderRunConfig`,
+  - registered the module in `main.rs` so later phase extraction can wire
+    runtime/provider paths against shared trait contracts,
+  - added focused contract tests and documented a temporary module-level
+    `dead_code` allowance because this phase intentionally lands signatures
+    before runtime wiring in Phase 2/3.
+- 2026-03-04: Phase-1.5 closure slice (ANSI utility + env-lock utility +
+  neutral suppression naming):
+  - added shared `ansi` utility module and rerouted ANSI stripping in
+    `prompt/strip.rs`, `event_loop/prompt_occlusion.rs`, and
+    `memory/ingest.rs`, plus test-side strip helpers in
+    `transcript_history.rs` and `toast.rs`,
+  - added shared test-only `test_env` utility module (`env_lock`,
+    `with_env_lock`) and replaced the duplicated env-lock helpers across
+    runtime test modules with one canonical lock owner,
+  - renamed `claude_prompt_suppressed` to provider-neutral
+    `prompt_suppressed` across runtime modules and tests,
+  - reran full runtime validation (`cargo test --bin voiceterm`) and
+    `bundle.runtime` checks green after the closure slice.
+- 2026-03-04: Phase-2a data-only host timing extraction:
+  - added canonical `runtime_compat::HostTimingConfig` keyed by
+    `TerminalHost` with typed duration helpers for host timing surfaces
+    (preclear cadence, scroll-redraw cadence, idle holds, typing holds, and
+    JetBrains/Cursor Claude repair windows),
+  - replaced writer-side hardcoded timing constants in runtime paths with
+    `HostTimingConfig` lookups while preserving behavior and existing
+    characterization expectations,
+  - kept timing resolution derived from `terminal_family` so runtime/tests do
+    not drift if host state is overridden during harness setup,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm`.
+- 2026-03-04: Phase-2b preclear policy extraction:
+  - added typed `PreclearPolicy`/`PreclearOutcome` in
+    `writer/state.rs` so preclear decisioning and post-preclear redraw flags
+    (`pre_cleared`, `force_redraw_after_preclear`,
+    `force_full_banner_redraw`) are resolved through one policy contract,
+  - refactored `WriterMessage::PtyOutput` preclear path to consume policy
+    outputs instead of mutating preclear flags inline,
+  - added focused policy coverage in `writer/state/tests.rs` for
+    Cursor+Claude immediate redraw flags, JetBrains+Claude resize-repair
+    preclear flags, and the no-preclear outcome gate,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm`.
+- 2026-03-04: Phase-2c redraw policy extraction:
+  - added typed `RedrawPolicyContext`/`RedrawPolicy` in `writer/state.rs`
+    so output-triggered redraw decisions (scroll cadence, non-scroll
+    cursor-line mutation, destructive-clear recovery, and host/provider
+    immediate-vs-idle redraw routing) are resolved through one policy contract
+    that consumes `PreclearOutcome`,
+  - refactored `WriterMessage::PtyOutput` redraw decision path to consume
+    `RedrawPolicy` outputs instead of mutating redraw flags inline,
+  - added focused policy coverage in `writer/state/tests.rs` for
+    JetBrains+Claude idle-gated scroll redraw behavior, Cursor+Claude
+    non-scroll immediate redraw forcing, JetBrains+Claude destructive-clear
+    deferred repair arming, and Codex+JetBrains preclear-outcome redraw
+    triggering,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm`.
+- 2026-03-04: Phase-2d idle-gating timing extraction:
+  - added dedicated `writer/timing.rs` policy module
+    (`IdleRedrawTimingContext` + `resolve_idle_redraw_timing`) and moved
+    non-urgent typing hold plus JetBrains idle/repair gating decisions out of
+    `writer/state.rs`,
+  - refactored `maybe_redraw_status` to consume timing policy outputs
+    (`defer_redraw`, `clear_cursor_restore_settle_until`) while preserving
+    existing redraw side effects and backend-specific guards,
+  - added focused timing policy tests in `writer/timing.rs` for
+    JetBrains+Claude idle hold selection, JetBrains+Codex scroll idle gating,
+    priority max-wait behavior, composer quiet-window gating, and expired
+    cursor-restore settle-window clearing,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm`.
+- 2026-03-04: Phase-2e message-dispatch + runtime-profile extraction (partial):
+  - introduced typed `RuntimeProfile` cross-product resolver in
+    `writer/state.rs` and injected it via `WriterState` construction (`new` ->
+    `with_runtime_profile`), replacing runtime env lookups inside writer
+    handling paths with injected profile fields,
+  - reduced `handle_message` to dispatch-only (`handle_message` ->
+    `dispatch_message`) and refactored PTY handling to call explicit
+    preclear/redraw policy pipeline helpers plus dedicated policy-outcome state
+    application helpers (`run_preclear_policy_pipeline`,
+    `run_redraw_policy_pipeline`, `apply_preclear_outcome`,
+    `apply_redraw_policy_outcome`),
+  - added runtime-profile matrix coverage in `writer/state/tests.rs` and
+    updated writer-state tests to use runtime-profile host override helper
+    (`set_terminal_family_for_tests`) so injected profile behavior is covered
+    without environment re-probing inside `handle_message`,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm`.
+- 2026-03-04: Phase-2e structural decomposition closure:
+  - completed god-file extraction for writer state by splitting
+    `writer/state.rs` into focused modules:
+    `state/dispatch.rs`, `state/redraw.rs`, `state/profile.rs`,
+    `state/display.rs`, `state/policy.rs`, `state/chunk_analysis.rs`,
+  - retained dispatch-only `handle_message` with policy-pipeline orchestration
+    and RuntimeProfile DI while removing policy/parser/state-shape bulk from
+    the root state file,
+  - reduced `writer/state.rs` from `2439` lines (pre-split baseline) to `448`
+    lines, satisfying the MP-346 Step-2e structural-size target,
+  - validation: `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm writer::state::tests:: -- --nocapture`.
+- 2026-03-04: Post-closure governance audit tightened remaining Phase-2 scope:
+  - added Step-2f.1 allowlist burn-down + shape-budget reset checklist so
+    report-only coupling debt cannot hide behind broad allowlists or legacy
+    `PATH_POLICY_OVERRIDES` ceilings,
+  - added Step-2f.2 function-shape guardrail checkpoint so dispatcher/pipeline
+    extractions cannot re-form into oversized single-function hubs,
+  - moved compatibility-governance kickoff to immediately after Step-2f
+    closure to avoid indefinite Phase-4 deferral.
+- 2026-03-04: Step-2f/2f.1/2f.2 + Phase-4 kickoff implementation closure:
+  - `check_ide_provider_isolation.py` now defaults to blocking mode and
+    mixed-signal allowlists were narrowed from broad prefixes to explicit
+    policy-owner files only (`runtime_compat.rs`, `writer/state/profile.rs`,
+    `writer/timing.rs`),
+  - removed `event_loop.rs` and `terminal.rs` explicit allowlist entries and
+    fixed remaining mixed runtime statement in `event_loop.rs` by splitting
+    host/provider conditions into separate policy booleans,
+  - tightened `code_shape_policy.py` to decomposition-era file budgets for
+    `writer/state.rs` and new writer decomposition modules
+    (`dispatch.rs`, `redraw.rs`, `policy.rs`),
+  - enabled function-size guardrails for dispatcher/pipeline hotspots with
+    explicit temporary exception protocol (owner + expiry + follow-up MP item),
+  - landed compatibility-governance scaffold:
+    `dev/config/compat/ide_provider_matrix.yaml`,
+    `check_compat_matrix.py`,
+    `compat_matrix_smoke.py`,
+    and `devctl compat-matrix` command wiring,
+  - captured checkpoint packet `CP-013` at
+    `dev/reports/mp346/checkpoints/20260304T163911Z-cp013/`.
+- 2026-03-04: Post-CP-013 hardening + Phase-3 prep cleanup:
+  - hardened `check_ide_provider_isolation.py` signal detection to catch
+    host-enum + provider-backend helper coupling patterns (including
+    `*_backend`/`is_*_backend`) while keeping broad helper-name false positives
+    out of blocking results,
+  - added isolation regression coverage for multiline `#[cfg(test)]` function
+    signatures so test helpers are skipped consistently before coupling
+    analysis,
+  - fixed `check_rust_lint_debt.py` allow-attribute matching so inner
+    `#![allow(...)]` attributes are counted; removed now-unneeded temporary
+    `#![allow(dead_code)]` from `provider_adapter.rs`,
+  - further reduced mixed host/provider call-site coupling by routing writer
+    geometry-collapse checks and JetBrains+Claude fallback decisions through
+    RuntimeProfile-owned booleans (`runtime_profile.claude_jetbrains`) and
+    canonical compatibility helpers,
+  - reduced prompt hotspot footprint by extracting Claude prompt detector tests
+    into `prompt/claude_prompt_detect/tests.rs` (`claude_prompt_detect.rs` now
+    `623` lines) and trimming redundant helper logic in
+    `event_loop/prompt_occlusion.rs` (now `1143` lines, under current
+    decomposition hard limit),
+  - validation: `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_rust_lint_debt`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py --format md`,
+    `python3 dev/scripts/checks/check_code_shape.py --format md`,
+    `python3 dev/scripts/checks/check_code_shape.py --absolute --format md`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py --format md`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`,
+    `cd rust && cargo test --bin voiceterm --quiet`.
 
+- 2026-03-04: Ran `devctl swarm_run` (`20260304-035730Z-c01`, `MP-346`); selected_agents=6, worker_agents=5, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260304-035730Z-c01/summary.md`.
+- 2026-03-04: Ran `devctl swarm_run` (`20260304-035730Z-c02`, `MP-346`); selected_agents=6, worker_agents=5, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260304-035730Z-c02/summary.md`.
+- 2026-03-04: Phase-3a prompt strategy wiring checkpoint (`CP-014`) landed:
+  - implemented concrete provider adapter resolution in
+    `rust/src/bin/voiceterm/provider_adapter.rs` and wired
+    `build_prompt_occlusion_detector` as the prompt detector entrypoint,
+  - routed runtime startup detector construction through adapter strategy
+    ownership in `main.rs` (replacing direct
+    `ClaudePromptDetector::new_for_backend` construction),
+  - Claude adapter now owns `PromptDetectionStrategy` detector policy; non-Claude
+    providers keep fallback behavior via existing backend-label policy path,
+  - added temporary parity shim so
+    detector routing can be toggled to legacy behavior during short-lived
+    phase-3 validation,
+  - validation: `cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture`,
+    `cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture`,
+    `python3 dev/scripts/devctl.py check --profile ci`,
+    `python3 dev/scripts/devctl.py docs-check --user-facing`,
+    `python3 dev/scripts/devctl.py hygiene`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py --format md`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py --format md`,
+    `python3 dev/scripts/checks/check_cli_flags_parity.py`,
+    `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`,
+    `python3 dev/scripts/checks/check_code_shape.py --format md`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py --format md`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py --format md`,
+    `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`,
+    `find . -maxdepth 1 -type f -name '--*'`,
+    `cd rust && cargo test --bin voiceterm --quiet`,
+  - captured checkpoint packet:
+    `dev/reports/mp346/checkpoints/20260304T174948Z-cp014/`.
+- 2026-03-04: Post-CP-014 review follow-up fixed a strategy-contract bug and
+  closed Phase-3 checklist gaps:
+  - fixed `provider_adapter::ClaudePromptDetectionStrategy::build_detector`
+    to honor the `backend_label` argument (removed hardcoded `"claude"`),
+  - added provider-adapter regression coverage for strategy backend-policy
+    forwarding and shim env restoration behavior,
+  - added explicit Step `3a.1` shim-retirement criteria and clarified Phase-3
+    manual-matrix rerun policy to match checkpoint evidence expectations,
+  - validation: `cd rust && cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture`.
+- 2026-03-04: Additional pre-Step-3b cleanup review landed:
+  - unified provider label classification in `provider_adapter` to use
+    canonical `runtime_compat::BackendFamily::from_label` mapping instead of a
+    duplicate parser,
+  - removed redundant `ProviderId::Claude` gate from
+    `build_prompt_occlusion_detector` so adapter behavior keys only on adapter
+    capability (`supports_prompt_occlusion`) plus strategy availability,
+  - tightened `check_code_shape` path budget for
+    `prompt/claude_prompt_detect.rs` to post-split reality (`soft=600`,
+    `hard=650`) so regrowth cannot hide behind the old `930` freeze ceiling,
+  - validation: `cd rust && cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_code_shape.py --format md`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`.
+- 2026-03-04: Step-3d explicit non-IPC Gemini guardrails landed:
+  - kept IPC provider surface codex/claude-only and codified Gemini as
+    overlay-only experimental in IPC provider-selection paths,
+  - `Provider` parsing now classifies `gemini` as unsupported-in-IPC and emits
+    explicit recoverable errors instead of silent fallback behavior,
+  - `/provider`, `/auth <provider>`, and `send_prompt` provider overrides now
+    reject unsupported/unknown provider names consistently using one parser
+    diagnostic path,
+  - startup `VOICETERM_PROVIDER` override now logs and falls back to codex on
+    unsupported provider values (including `gemini`) rather than silently
+    accepting ambiguous runtime state,
+  - user/developer docs now explicitly state IPC provider support is
+    `codex|claude` and that Gemini remains overlay-only experimental outside IPC,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_active_plan_sync.py --format md`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py --format md`.
+- 2026-03-04: Post-Step-3d IPC wrapper-override regression fix landed before
+  Step-3b kickoff:
+  - `handle_send_prompt` now handles wrapper commands before provider override
+    parsing so invalid overrides cannot block wrapper execution (notably `/exit`
+    during auth),
+  - added IPC regressions for `/exit` + invalid override during auth and wrapper
+    command behavior with invalid overrides,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`,
+    `python3 dev/scripts/checks/check_code_shape.py --format md`.
+- 2026-03-04: Ran `devctl swarm_run` (`mp346-swarmrun-20260304t1`, `MP-346`); selected_agents=5, worker_agents=4, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/mp346-swarmrun-20260304t1/summary.md`.
+- 2026-03-04: Tooling/CI guardrail follow-up for findings #3/#4/#5:
+  - `rust_ci.yml` now runs `devctl check --profile ai-guard` in the normal
+    runtime lane (`--skip-fmt --skip-clippy --skip-tests`) so isolation and AI
+    guard scripts are not release-only,
+  - `check_ide_provider_isolation.py` now scans both runtime and IPC roots and
+    tracks `let`-bound host/provider signals so split-statement coupling cases
+    are detected without broad helper-name false positives,
+  - `code_shape_policy.py` prompt hotspot budgets now match MP-346 DoD hard
+    ceilings (`prompt_occlusion.rs` `<=700`, `claude_prompt_detect.rs` `<=600`)
+    while keeping existing oversize files hard-locked against growth,
+  - `release_preflight.yml` AI-guard step now explicitly uses `--skip-tests`
+    to avoid duplicating the runtime-bundle test phase.
+- 2026-03-04: Ran `devctl swarm_run` (`20260304-mp346-multiagent-live`, `MP-346`); selected_agents=5, worker_agents=4, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260304-mp346-multiagent-live/summary.md`.
+- 2026-03-04: Post-review follow-up closed compact approval-card regression and
+  removed alias-level prompt detector coupling in runtime callsites:
+  - `prompt::PromptOcclusionDetector` is now a concrete wrapper type (not a
+    type alias), with delegated detector API used by runtime/event-loop state
+    and adapter construction paths,
+  - event-loop tests now construct `PromptOcclusionDetector` directly instead
+    of `ClaudePromptDetector`, eliminating runtime-type alias dependency,
+  - shared numbered-approval-card parsing now accepts compact dot-numbered
+    option payloads (`1.Yes` / `2.No`) so non-rolling approval suppression does
+    not miss compact Claude approval cards,
+  - validation: `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests::numbered_approval_hint_detects_compact_prefix_variant -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests::shared_approval_parser_accepts_compact_dot_numbering -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture`,
+    `cd rust && cargo clippy --bin voiceterm -- -D warnings`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`.
+- 2026-03-04: Plan-governance audit sync confirmed current continuation scope:
+  - Step `3a.1` is closed (shim retirement docs/state cleanup complete), and
+    `CP-016` continuation now starts at Step `3f`,
+  - Step `3c`/`3f` remain open: IPC lifecycle/capability emission is still
+    codex/claude-concrete in router/auth/session paths,
+  - Step `3e` was open at this checkpoint: explicit non-IPC classification for
+    `aider`/`opencode`/`custom` needed runtime + matrix + docs parity
+    (completed later on 2026-03-04 in the Step-3e closure entry below),
+  - Step `3b` remains open with prompt hotspot absolute-shape failures and
+    Claude-coupled logic still in `event_loop/prompt_occlusion.rs`,
+  - earlier progress-log wording that called Aider/OpenCode concerns "stale"
+    was narrowed to plan-scope presence only; runtime enforcement was still
+    open at this checkpoint and is now closed under Step `3e`.
+- 2026-03-04: Step-3a.1 shim-retirement docs/state cleanup landed:
+  - confirmed no runtime shim symbol usage remains via repo-wide search,
+  - retired remaining shim-symbol mentions from active tracker/spec text and
+    updated Step-3 + `CP-016` sequencing to start from Step `3f`,
+  - validation: `python3 dev/scripts/checks/check_active_plan_sync.py`,
+    `python3 dev/scripts/checks/check_multi_agent_sync.py`,
+    `rg -n "legacy shim" dev/active/ide_provider_modularization.md dev/active/MASTER_PLAN.md`.
+- 2026-03-04: Step-3e explicit non-IPC backend classification landed:
+  - `ipc::Provider` resolution now classifies `aider`, `opencode`, and
+    `custom` as explicit overlay-only non-IPC backends (not unknown typos),
+    while preserving explicit overlay-only-experimental diagnostics for
+    `gemini`,
+  - IPC help/provider diagnostics now call out codex/claude as IPC-only and
+    classify `gemini`/`aider`/`opencode`/`custom` as non-IPC overlay paths,
+  - compatibility matrix + smoke/validation checks now require explicit non-IPC
+    modes and declared matrix cells for `aider`/`opencode`/`custom`,
+  - docs (`CLI_FLAGS`, `USAGE`, `ARCHITECTURE`) now use aligned wording for the
+    codex/claude IPC surface vs overlay-only non-IPC backends,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`.
+- 2026-03-04: Step-3f adapter-derived IPC capability emission landed:
+  - `Provider::ipc_supported()` now derives IPC capability providers from
+    backend registry discovery filtered through IPC provider resolution,
+  - `emit_capabilities` now emits provider labels through the derived
+    `ipc_capability_labels()` path instead of a static codex/claude list,
+  - regression coverage now asserts derived capability labels plus explicit
+    non-IPC override rejections for `aider`/`opencode`/`custom` across
+    `/provider`, `send_prompt`, and `/auth` paths,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`.
+- 2026-03-04: Step-3c IPC lifecycle adapterization + isolation guard hardening landed:
+  - added `ipc/provider_lifecycle.rs` as the lifecycle adapter owner for
+    provider job start/cancel/drain paths so router + session loop runtime no
+    longer duplicate codex/claude lifecycle match arms,
+  - auth lifecycle now resolves command/reset policy through `Provider`
+    lifecycle helpers (`auth_command`, `resets_session_on_auth_success`) so
+    auth flow/event processing no longer hard-code provider-specific branches,
+  - provider job-end emissions in event processors now resolve provider labels
+    through `Provider::as_str()` ownership instead of literal strings,
+  - `check_ide_provider_isolation.py` now enforces file-scope host/provider
+    coupling detection (in addition to same-statement coupling), includes
+    non-IPC provider label coverage (`aider`/`opencode`/`custom`), and keeps
+    explicit temporary file-scope allowlist debt for open Step-3b hotspots,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests:: -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture`,
+    `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`,
+    `python3 dev/scripts/devctl.py check --profile ai-guard --skip-fmt --skip-clippy --skip-tests`.
+- 2026-03-04: Step-3b prompt-occlusion decomposition closure landed:
+  - split prompt-signal parsing and provider-marker heuristics out of
+    `event_loop/prompt_occlusion.rs` into prompt-owned modules
+    (`prompt/occlusion_signals.rs` and
+    `prompt/claude_prompt_detect/signals.rs`),
+  - event-loop prompt-occlusion runtime now consumes prompt-owned signal hooks
+    (no direct event-loop coupling to Claude parser internals),
+  - temporary `check_ide_provider_isolation.py` file-scope allowlist debt for
+    `event_loop/prompt_occlusion.rs` was removed after scanner rerun confirmed
+    no unauthorized mixed-signal coupling,
+  - hotspot absolute-shape blockers are closed with hard-limit compliance:
+    `event_loop/prompt_occlusion.rs`=`679` and
+    `prompt/claude_prompt_detect.rs`=`541`,
+  - validation: `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests:: -- --nocapture`,
+    `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md`,
+    `python3 dev/scripts/checks/check_code_shape.py --absolute --format md`.
+- 2026-03-05: Phase-5 defer-scope closure recorded:
+  - selected defer path: AntiGravity moved out of active MP-346 host matrix
+    scope until concrete runtime host fingerprint evidence exists,
+  - updated `MASTER_PLAN`, `INDEX`, `dev/config/compat/ide_provider_matrix.yaml`,
+    `README.md`, and `guides/USAGE.md` so active verified hosts remain Cursor
+    and JetBrains while `Other` stays stabilizing,
+  - historical checkpoint note (superseded): this entry originally tracked
+    `CP-016` pending on `7/7`; current release-scope closure is IDE-first
+    (`4/4`) per 2026-03-05 operator scope update.
+- 2026-03-05: Phase-6 ADR governance closure landed:
+  - added ADR `0035` (`host-provider-boundary-ownership`) and ADR `0036`
+    (`compat-matrix-governance-ci-fail-policy`) with `Accepted` status,
+  - updated `dev/adr/README.md` index to include both ADRs,
+  - historical checkpoint note (superseded): this entry originally tracked
+    `CP-016` pending `7/7`; release-scope closure now uses IDE-first `4/4`
+    with deferred `other`/`gemini` backlog follow-up.
+- 2026-03-05: Findings cleanup patch for runtime artifacts + startup provider override:
+  - `.gitignore` now ignores nested `.voiceterm/memory/` paths
+    (`**/.voiceterm/memory/`) and tracked runtime artifacts
+    `rust/.voiceterm/memory/events*.jsonl` were removed from git index,
+  - `ipc/session/state.rs` startup provider override handling now emits a
+    recoverable IPC error event when `VOICETERM_PROVIDER` is invalid, then
+    falls back to the discovered IPC default provider,
+  - added IPC regression coverage:
+    `ipc_state_invalid_voiceterm_provider_emits_recoverable_startup_error`,
+  - validation: `cd rust && cargo fmt --all -- --check`,
+    `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 dev/scripts/devctl.py check --profile ci`.
+- 2026-03-05: CP-016 checkpoint packet refresh captured:
+  - recorded automated runtime/governance rerun artifact at
+    `dev/reports/mp346/checkpoints/20260305T032253Z-cp016/`
+    (`summary.md`, `exit_codes.env`),
+  - added operator-facing manual closure assets in the same packet:
+    `manual_matrix_notes.md` (original `7/7` worksheet; now superseded by
+    IDE-first `4/4` release-scope closure update) and
+    `waiver_template.md` (explicit temporary-waiver template),
+  - full automated continuation bundle is green (`docs-check --user-facing`,
+    `hygiene`, parity/screenshot/shape/isolation/matrix/rust guards,
+    `markdownlint`, active-plan sync, multi-agent sync),
+  - historical checkpoint note (superseded): this entry originally marked
+    Phase-3 closure blocked on `7/7`; release-scope closure now uses IDE-first
+    `4/4` and tracks deferred cells as post-release backlog.
+- 2026-03-05: CP-016 waiver request drafted for blocked physical-host matrix gate:
+  - current execution environment is `TERM_PROGRAM=vscode`; this session cannot
+    exercise required Cursor/JetBrains/Other-host runtime surfaces,
+  - optional IPC sanity invocation (`voiceterm --json-ipc`) returns sandbox
+    `Operation not permitted (os error 1)`,
+  - populated `waiver_template.md` with risk/guardrails/expiry (`2026-03-12`)
+    and updated CP-016 `summary.md` to `waiver requested` pending operator
+    approve/deny.
+- 2026-03-05: CP-016 waiver decision approved:
+  - operator decision is now `approve waiver` in `waiver_template.md`,
+  - CP-016 state is `go (temporary waiver approved)`,
+  - historical waiver note (superseded): `7/7` requirement was later replaced
+    by IDE-first `4/4` release-scope closure.
+- 2026-03-05: CP-016 waiver-state consistency fix:
+  - aligned Step-3 checklist semantics with approved temporary-waiver state
+    (waiver is not closure),
+  - historical note (superseded): preserved `7/7` rerun requirement at that
+    time; current release-scope closure uses IDE-first `4/4`.
+- 2026-03-05: Post-waiver tooling hardening slice landed (under CP-016 guardrails):
+  - `check_ide_provider_isolation.py` now skips broader test-only cfg forms
+    (for example `#[cfg(any(test, feature = "mutants"))]`) to avoid false
+    production coupling signals,
+  - `check_compat_matrix.py` and `compat_matrix_smoke.py` now parse YAML
+    matrix payloads directly (with JSON fallback when YAML tooling is absent),
+  - `compat_matrix_smoke.py` runtime backend extraction now derives from
+    `BackendRegistry::new()` constructor ownership instead of `mod` declarations,
+  - added dedicated unit coverage for matrix scripts:
+    `test_check_compat_matrix.py` and `test_compat_matrix_smoke.py`, plus
+    expanded cfg-test coverage in `test_check_ide_provider_isolation.py`,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`.
+- 2026-03-05: Multi-agent review + cleanup continuation slice landed:
+  - fixed IPC cancellation parity: preemptive provider-job cancellation in
+    `handle_send_prompt` now emits `JobEnd(cancelled)` consistently (same
+    contract as `/cancel` and `/exit`),
+  - added IPC regression coverage for wrapper-command and prompt-preemption
+    cancellation paths,
+  - `check_compat_matrix.py` now detects duplicate `hosts[].id` and
+    `providers[].id` entries as explicit validation errors,
+  - `compat_matrix_smoke.py` now enforces runtime coverage against unfiltered
+    parsed runtime host/backend/provider sets (except explicit
+    `BackendFamily::Other` sentinel exclusion) so new runtime variants cannot
+    bypass matrix governance accidentally,
+  - validation:
+    `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md`.
+- 2026-03-05: Reviewer follow-up hardening slice landed (parallel lanes):
+  - isolation core cfg-test detection now refuses `cfg(...not(test)...)`
+    expressions so production paths are not skipped by mistake,
+  - matrix smoke backend discovery is now constructor-pattern based across the
+    backend module (not tied to a single `BackendRegistry` vec! layout),
+  - matrix validator now fails explicit malformed `hosts[]`/`providers[]`
+    entries that do not provide a string `id`,
+  - IPC regression coverage now includes active-Claude wrapper cancellation and
+    `/cancel` provider `JobEnd(cancelled)` emission,
+  - memory-guard targeted lane was rerun and is green in this session,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke`,
+    `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md`,
+    `python3 dev/scripts/checks/check_compat_matrix.py --format md`,
+    `python3 dev/scripts/checks/compat_matrix_smoke.py --format md`,
+    `cd rust && cargo test ipc::tests:: -- --nocapture`,
+    `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`.
+- 2026-03-05: Closure-gate CI stabilization slice landed:
+  - `legacy_tui::tests::memory_guard_backend_threads_drop` now waits for
+    backend-thread count to return to baseline before asserting no leak,
+    avoiding suite-order teardown race noise while preserving memory-guard
+    intent,
+  - full `devctl check --profile ci` rerun is now green in this session.
+- 2026-03-05: Tooling hygiene + workflow-bridge hardening slice landed:
+  - extracted remaining workflow shell-heavy range/scope/path logic into
+    `dev/scripts/workflow_shell_bridge.py` and rewired
+    `tooling_control_plane.yml`, `security_guard.yml`, `failure_triage.yml`,
+    and `mutation-testing.yml`,
+  - added `check_workflow_shell_hygiene.py` and wired it into
+    `docs-check --strict-tooling` plus explicit tooling-control-plane CI steps,
+  - added explicit naming-consistency guard execution in
+    `tooling_control_plane.yml` and synchronized release-governance docs to
+    require same-SHA `release_preflight.yml` before workflow-first publish,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_workflow_shell_bridge dev.scripts.devctl.tests.test_check_workflow_shell_hygiene dev.scripts.devctl.tests.test_docs_check dev.scripts.devctl.tests.test_check`,
+    `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`,
+    `python3 dev/scripts/checks/check_workflow_shell_hygiene.py --format md`,
+    `python3 dev/scripts/checks/check_naming_consistency.py --format md`.
+- 2026-03-05: Tooling closure + maintainability follow-up slice landed:
+  - split oversized workflow bridge logic into dedicated helper modules under
+    `dev/scripts/workflow_bridge/` and kept
+    `dev/scripts/autonomy_workflow_bridge.py` as a thin command router,
+  - split oversized hygiene ADR governance logic from
+    `dev/scripts/devctl/commands/hygiene_audits.py` into focused companion
+    modules (`hygiene_audits_archive.py`, `hygiene_audits_adrs*.py`) while
+    preserving existing command/test interfaces,
+  - expanded workflow-shell hygiene guard discovery to scan both `.yml` and
+    `.yaml` workflows and added auditable rule-level suppression token support
+    (`workflow-shell-hygiene: allow=<rule-id>[,<rule-id>|all]`),
+  - synchronized release docs to the same-SHA preflight-first sequence required
+    by `devctl release-gates` and publish workflow gates, and added explicit
+    compat-matrix drift checks to maintainer guidance,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_workflow_bridge dev.scripts.devctl.tests.test_hygiene dev.scripts.devctl.tests.test_check_workflow_shell_hygiene dev.scripts.devctl.tests.test_check_coderabbit_gate dev.scripts.devctl.tests.test_check_coderabbit_ralph_gate`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop --head-ref <git stash create snapshot>`,
+    `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`,
+    `python3 dev/scripts/devctl.py hygiene --fix --format md`.
+- 2026-03-05: Rust guardrail expansion follow-up landed:
+  - added `check_rust_test_shape.py` and
+    `check_rust_runtime_panic_policy.py` into the `devctl check` AI-guard
+    sequence, commit-range forwarding, and `audit-scaffold` action synthesis,
+  - added `check_clippy_high_signal.py` enforcement to `rust_ci.yml` using
+    lint histogram JSON emitted by `collect_clippy_warnings.py`,
+  - updated governance docs (`AGENTS.md`, `dev/scripts/README.md`,
+    `dev/DEVELOPMENT.md`, `dev/DEVCTL_AUTOGUIDE.md`,
+    `.github/workflows/README.md`) to include new guard behavior and command
+    surfaces,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_collect_clippy_warnings dev.scripts.devctl.tests.test_check_clippy_high_signal dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_audit_scaffold`,
+    `python3 dev/scripts/checks/check_rust_test_shape.py --format md`,
+    `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --format md`,
+    `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json`,
+    `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md`.
+- 2026-03-05: Runtime-lane AI-guard commit-range enforcement landed:
+  - `rust_ci.yml`, `release_preflight.yml`, and `security_guard.yml` now
+    resolve `since/head` refs via
+    `python3 dev/scripts/workflow_shell_bridge.py resolve-range` and pass those
+    refs into `devctl check --profile ai-guard`,
+  - `rust_ci.yml` and `security_guard.yml` now run checkout with
+    `fetch-depth: 0` so PR base/head refs are available for range-mode guards,
+  - `devctl check` now runs `clippy-high-signal-guard` after lint-histogram
+    collection completes (no setup-phase race), and
+    `check_naming_consistency.py` was split into
+    `naming_consistency_core.py` so shape policy remains green,
+  - validation:
+    `python3 -m unittest dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_check_naming_consistency dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_lint_debt dev.scripts.devctl.tests.test_collect_clippy_warnings`,
+    `python3 dev/scripts/devctl.py check --profile ai-guard --format md`,
+    `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`,
+    `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings --format md`.
+- 2026-03-05: Clippy zero-warning restoration + MSRV metadata sync landed:
+  - resolved new strict-clippy lints (`manual_repeat_n`,
+    `unnecessary_map_or`, `manual_is_multiple_of`) across runtime and benchmark
+    paths so `--deny-warnings` remains green,
+  - synchronized `rust/Cargo.toml` `rust-version` to `1.88.0` so manifest
+    metadata matches the active CI MSRV lane contract,
+  - validation:
+    `cd rust && cargo fmt --all`,
+    `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json`,
+    `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md`.
+- 2026-03-05: Pending MP-346 guardrail closure slice landed:
+  - fixed Python 3.11 compatibility in `devctl release-gates` markdown rendering
+    (`release_gates.py` no longer uses a 3.12-only f-string backslash expression),
+  - ratcheted Clippy thresholds to the planned Phase-0 values
+    (`rust/clippy.toml` cognitive complexity `35 -> 25`; `rust/Cargo.toml`
+    now sets `too_many_lines = "warn"`),
+  - added and integrated `check_duplicate_types.py` and
+    `check_structural_complexity.py` into `devctl check` AI-guard pack,
+    commit-range forwarding, and `audit-scaffold` guard synthesis,
+  - added `check_duplication_audit.py` as the periodic `jscpd` wrapper with
+    report-freshness and duplication-percentage policy checks (`--run-jscpd`),
+  - expanded unit coverage for all new scripts and updated `devctl` guard
+    wiring tests (`test_check.py`, `test_audit_scaffold.py`, and dedicated new
+    script tests),
+  - updated tooling docs (`dev/scripts/README.md`,
+    `dev/DEVCTL_AUTOGUIDE.md`) to include the new guardrails.
+- 2026-03-05: MP-346 continuation validation + audit-evidence cleanup landed:
+  - reran full `devctl check --profile ci` after interrupted prior session;
+    all 17 steps (including full workspace test suite) are green,
+  - resolved a post-merge shape regression by adding an explicit
+    `code_shape_policy.py` path budget for
+    `dev/scripts/checks/check_rust_lint_debt.py`,
+  - reran tooling bundle commands in contract order
+    (`docs-check --strict-tooling`, `hygiene --fix --strict-warnings`,
+    orchestration status/watch, workflow/rust/code-shape guards, markdownlint),
+  - removed stale pre-remediation audit rows that contradicted current MP-346
+    guard behavior (legacy `ci` profile/no commit-range forwarding/legacy
+    `src/**` contract findings).
+- 2026-03-05: Senior architecture reconciliation audit recorded (multi-agent):
+  - confirmed prior guardrail-delivery row dispute is resolved correctly:
+    rows `476`, `478`, `479`, and `486` are `done`,
+  - corrected checklist drift by marking Phase-2 and Phase-3
+    "after each sub-step" execution rows complete (`CP-007`..`CP-013` and
+    `CP-014`..`CP-016`),
+  - validated historical closure blockers at that checkpoint: `CP-016` manual
+    matrix pending (`7/7` at the time), and current non-regression rerun was
+    blocked by
+    `check_code_shape.py` (`check_router.py`, `docs_check_support.py`) plus
+    missing duplication-report evidence for `check_duplication_audit.py`,
+  - operator sequencing decision: defer physical-host matrix execution until
+    the final pre-release closure gate to avoid stale attestations while
+    modularization and tooling cleanup are still changing behavior,
+  - continuation sequence is now:
+    (1) resolve shape-policy blockers (`check_router.py`,
+    `docs_check_support.py`) and duplication evidence readiness (`jscpd`),
+    (2) rerun closure non-regression bundle with shape+duplication evidence
+    restored and green,
+    (3) execute/record physical-host matrix `7/7` as final pre-release
+    validation (historical plan step; superseded by IDE-first `4/4`
+    release-scope closure),
+    (4) update `CP-016` packet/checkpoint log from waiver to completed,
+    (5) close `MP-346` and sync `MASTER_PLAN` tracker row,
+  - follow-on tooling/process hardening work is tracked in reopened `MP-347`
+    scope.
+- 2026-03-05: MP-347 Phase-1 closure cleanup completion:
+  - resolved shape-policy blockers by decomposing check-router and docs-check
+    helper surfaces (`check_router.py` now orchestration-only with split
+    constants/support/render modules; `docs_check_support.py` now compatibility
+    exports over split policy/messaging modules),
+  - extended `check_duplication_audit.py` with explicit
+    `status`/`blocked_by_tooling` report fields so tooling/environment blockers
+    are first-class in evidence packets,
+  - added constrained-environment duplication evidence fallback support
+    (`--run-python-fallback` via shared `check_duplication_audit_support.py`) with
+    dedicated regression coverage in
+    `dev/scripts/devctl/tests/test_check_duplication_audit.py` while keeping
+    `jscpd` as the primary evidence generator,
+  - generated canonical duplication evidence via
+    `python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd` with
+    `dev/reports/duplication/jscpd-report.json` (`duplication_percent=0.93`,
+    `duplicates_count=34`, fresh report age),
+  - reran closure non-regression bundle row `2310` end-to-end and confirmed all
+    listed checks are green,
+  - cleaned stale changelog archive reference to retired legacy MVP notes.
+- 2026-03-05: MP-347 Phase-1 closure verification refresh:
+  - reconciled duplication-audit helper ownership to a single canonical module
+    (`check_duplication_audit_support.py`) and removed duplicate helper naming
+    drift,
+  - removed stale archive path literals from active docs/changelog so archive
+    reference scan reports `missing=0`,
+  - reran full closure non-regression command pack from row `2331`
+    end-to-end and confirmed all listed checks are green, including fresh
+    `check_duplication_audit.py --run-jscpd` evidence
+    (`duplication_percent=0.93`, `duplicates_count=34`).
+- 2026-03-05: Architecture audit refresh (parallel tracks, post-green rerun):
+  - reran tooling/runtime/governance guard packs (`check_code_shape`,
+    `check_duplication_audit --run-jscpd`, structural/naming/type checks,
+    rust quality guards, workflow parity checks, matrix checks, strict tooling
+    docs-check) and confirmed green status for core closure gates in the
+    current dirty-tree state,
+  - historical checkpoint note (superseded): this entry originally kept
+    `CP-016` open for deferred physical-host `7/7`; release-scope closure is
+    now IDE-first `4/4`,
+  - narrowed remaining MP-347 follow-up to five explicit hardening items:
+    (1) promote check-router risk add-ons to a single machine-readable source
+    of truth with parity enforcement,
+    (2) remove/consolidate duplicated docs-check policy constants
+    (`docs_check_constants.py` vs `docs_check_policy.py`) to avoid drift,
+    (3) harden strict-hygiene determinism so `docs-check --strict-tooling`
+    followed by `hygiene --strict-warnings` does not fail on regenerated
+    `dev/scripts/**/__pycache__` warnings in local dirty-tree runs,
+    (4) pay down expiring function-size exceptions before `2026-05-15`
+    (`dispatch_message`, `maybe_redraw_status`,
+    `feed_prompt_output_and_sync`),
+    (5) reduce documented dead-code allow backlog (`24` current instances),
+  - continuation sequencing:
+    (A) MP-347 Phase-2 SSOT/dedup + strict-hygiene determinism hardening,
+    (B) MP-347 Phase-3 exception/dead-code paydown,
+    (C) historical plan step: final pre-release manual matrix `7/7` + CP-016
+    closure (superseded by IDE-first `4/4` release-scope closure).
+- 2026-03-05: MP-347 Phase-2 hygiene-contract closure slice:
+  - registered `check_duplication_audit_support.py` in
+    `dev/scripts/devctl/script_catalog.py`,
+  - documented `check_duplication_audit_support.py` in
+    `dev/scripts/README.md` to satisfy hygiene script inventory policy,
+  - reran `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings`
+    and confirmed strict hygiene is green (`errors=0`, `warnings=0`),
+  - remaining MP-347 follow-up narrows to risk-add-on SSOT consolidation,
+    docs-check policy dedup, and function/dead-code debt paydown.
+- 2026-03-05: MP-347 duplication cleanup follow-up slice:
+  - consolidated repeated runtime/test env scaffolding into shared
+    `test_env` helpers (`with_terminal_host_env_overrides`,
+    `with_terminal_color_env_overrides`) and removed duplicate local env
+    setup blocks in `main.rs`, `runtime_compat.rs`, `config/theme.rs`,
+    `theme_ops.rs`,
+  - deduplicated PTY reader loop implementation via shared
+    `spawn_reader_thread_inner` and unified style-schema V2/V3/V4 pack
+    normalization through one constructor path,
+  - extracted shared memory-store test fixture helper and shared overlay
+    section-line renderer to reduce cross-module clone drift,
+  - refreshed duplication evidence via
+    `python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd`:
+    `duplication_percent=0.32`, `duplicates_count=14` (down from `0.93`/`34`).
+- 2026-03-05: mutation-policy alignment refresh:
+  - release profile remains non-blocking for mutation score
+    (`devctl check --profile release` uses mutation-score `--report-only`),
+  - scheduled mutation workflow threshold check is now advisory/report-only
+    across branches (warnings + badge updates, no hard-fail gate).
 ## Audit Evidence
 
 | Check | Evidence | Status |
 |---|---|---|
+| `python3 dev/scripts/devctl.py check --profile ci --format md` | confirms full CI profile is green after continuation rerun (`fmt`, `clippy`, AI-guard checks, `clippy-high-signal`, and full workspace tests) | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` + `python3 dev/scripts/devctl.py orchestrate-status --format md` + `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md` | confirms tooling-bundle preflight commands are green in current branch state | done |
+| `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` (2026-03-05 architecture-refresh rerun) | strict hygiene now passes after script-catalog alignment (`duplication_audit_support` registered) and local cache cleanup via `--fix` | done |
+| `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` + `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md` | confirms post-override shape/rust/style guards are green and the `check_rust_lint_debt.py` soft-limit violation is cleared | done |
+| `python3.11 dev/scripts/devctl.py list` + `python3 dev/scripts/devctl.py list` | confirms `devctl` command surface now parses under both Python 3.11 (CI contract) and Python 3.12 after release-gates rendering fix | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_duplicate_types dev.scripts.devctl.tests.test_check_structural_complexity dev.scripts.devctl.tests.test_check_duplication_audit dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_audit_scaffold` | validates new duplicate-type/structural-complexity/duplication-audit scripts and updated AI-guard/audit-scaffold wiring coverage | done |
+| `python3 dev/scripts/checks/check_duplicate_types.py --format md` + `python3 dev/scripts/checks/check_structural_complexity.py --format md` + `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md` | confirms new MP-346 guardrails execute cleanly in direct mode and inside AI-guard profile orchestration | done |
+| `python3 dev/scripts/checks/check_duplication_audit.py --report-path /tmp/nonexistent-jscpd-report.json --format md` | confirms periodic `jscpd` wrapper emits deterministic failure guidance when report evidence is missing (expected until scheduled/local jscpd runs are recorded) | done |
+| `python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd --allow-missing-tool --run-python-fallback --format md` + `python3 -m unittest dev.scripts.devctl.tests.test_check_duplication_audit` | confirms duplication evidence can be regenerated in constrained environments through explicit fallback scanning while preserving `jscpd`-first flow and regression coverage (`8` tests passed) | done |
+| `nl -ba .github/workflows/rust_ci.yml | sed -n '44,132p'` + `nl -ba .github/workflows/release_preflight.yml | sed -n '30,132p'` + `nl -ba .github/workflows/security_guard.yml | sed -n '68,148p'` | confirms runtime/release/security workflows now resolve commit ranges and pass `--since-ref/--head-ref` into `devctl check --profile ai-guard` | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_check_naming_consistency dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_lint_debt dev.scripts.devctl.tests.test_collect_clippy_warnings` + `python3 dev/scripts/devctl.py check --profile ai-guard --format md` + `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings --format md` | confirms clippy sequencing fix, naming-check shape split, and strict tooling/hygiene governance remain green | done |
+| `cd rust && cargo fmt --all` + `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --deny-warnings --quiet-json-stream --propagate-exit-code --output-lints-json /tmp/clippy-lints-postfix.json` + `python3 dev/scripts/devctl.py check --profile ai-guard --skip-tests --format md` | confirms strict clippy is back to zero warnings after lint-family updates and AI-guard/clippy-high-signal gates remain green | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_collect_clippy_warnings dev.scripts.devctl.tests.test_check_clippy_high_signal dev.scripts.devctl.tests.test_check_rust_test_shape dev.scripts.devctl.tests.test_check_rust_runtime_panic_policy dev.scripts.devctl.tests.test_check dev.scripts.devctl.tests.test_audit_scaffold` | confirms collector histogram output behavior, new Rust guard scripts, AI-guard wiring, and audit-scaffold integration are regression-safe | done |
+| `python3 dev/scripts/checks/check_rust_test_shape.py --format md` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --format md` + `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | confirms new test-shape/runtime-panic guards and clippy high-signal baseline gate execute cleanly against current tree | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_workflow_shell_bridge dev.scripts.devctl.tests.test_check_workflow_shell_hygiene dev.scripts.devctl.tests.test_docs_check` | confirms workflow bridge, workflow-shell hygiene guard, and strict-tooling docs-check wiring regressions are green (`25` tests passed) | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md` | confirms strict-tooling governance gates remain green with workflow-shell hygiene enforcement active | done |
+| `python3 dev/scripts/checks/check_workflow_shell_hygiene.py --format md` + `rg -n "find .*\\| head -n 1|python(?:3)? <<|python(?:3)? -c" .github/workflows/*.yml` | confirms no banned shell patterns remain in workflow run blocks | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_autonomy_workflow_bridge dev.scripts.devctl.tests.test_hygiene dev.scripts.devctl.tests.test_check_workflow_shell_hygiene` | confirms workflow bridge refactor + hygiene audit module split + workflow-shell suppression/discovery updates remain regression-safe (`39` tests passed) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop --head-ref <git stash create snapshot>` | confirms both working-tree and simulated commit-range shape policies are green after module-split cleanup | done |
 | `wc -l rust/src/bin/voiceterm/writer/state.rs` | reports `2750` lines | done |
 | `nl -ba rust/src/bin/voiceterm/writer/state.rs | sed -n '600,1505p'` | `handle_message` spans `605..1486` and next top-level helper starts at `1493` | done |
+| `wc -l rust/src/bin/voiceterm/writer/state.rs` (2026-03-04 closure rerun) | reports `448` lines after Step-2e decomposition extraction | done |
+| `wc -l rust/src/bin/voiceterm/writer/state/{dispatch.rs,redraw.rs,profile.rs,display.rs,policy.rs,chunk_analysis.rs}` | confirms policy/dispatch/runtime-profile decomposition landed in dedicated modules | done |
 | `sed -n '1,220p' rust/src/bin/voiceterm/runtime_compat.rs` | canonical host detection exists there today | done |
 | `sed -n '1,220p' rust/src/bin/voiceterm/writer/render.rs` and `sed -n '160,280p' rust/src/bin/voiceterm/banner.rs` | duplicate host-detection logic confirmed | done |
 | `sed -n '180,280p' rust/src/ipc/protocol.rs` and `sed -n '1,260p' rust/src/ipc/session/state.rs` | provider enum/capabilities limited to codex+claude | done |
 | `sed -n '1,220p' rust/src/backend/mod.rs` | backend registry includes Gemini backend | done |
 | `rg -n "antigravity|anti-gravity|anti gravity" .` | no runtime/source references outside docs/plans | done |
+| `rg -n "antigravity" dev/config/compat/ide_provider_matrix.yaml` | returns no matches, confirming AntiGravity host/cells were removed from the active matrix scope | done |
+| `rg -n "AntiGravity|deferred|runtime host fingerprint evidence" dev/active/MASTER_PLAN.md dev/active/INDEX.md README.md guides/USAGE.md` | confirms tracker/index/user docs now mark AntiGravity as deferred and outside active verified host scope | done |
+| `sed -n '1,220p' dev/adr/0035-host-provider-boundary-ownership.md` + `sed -n '1,240p' dev/adr/0036-compat-matrix-governance-ci-fail-policy.md` | confirms Phase-6 ADR deliverables are present with `Status: Accepted` and `Date: 2026-03-05` | done |
+| `python3 dev/scripts/devctl.py hygiene` | confirms ADR index/metadata governance stays green after adding ADR `0035` + `0036` (`ok: true`; warnings only) | done |
 | `rg -n "parse_debug_env_flag|debug_bytes_preview" rust/src/bin/voiceterm/writer/state.rs rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs` | helper duplication confirmed | done |
 | `cat dev/scripts/checks/check_code_shape.py` lines 60-115 | `writer/state.rs` absent from `PATH_POLICY_OVERRIDES`; 6 other files frozen | done |
-| `cat dev/scripts/checks/check_code_shape.py` lines 243-322 | diff-only evaluation; no absolute violation mode; no function-level analysis | done |
-| `cat dev/scripts/checks/check_rust_best_practices.py` | 4 regex metrics only; no complexity, duplication, or coupling checks | done |
-| `cat dev/scripts/devctl/commands/check_profile.py` lines 31-82 | `ci` profile sets `with_ai_guard=False`; only runs fmt+clippy+test | done |
-| `python3 dev/scripts/devctl.py check --profile ci --dry-run` | confirms ci profile executes only fmt/clippy/test (no AI-guard steps) | done |
-| `python3 dev/scripts/devctl.py check --profile release --dry-run` | confirms AI-guard steps exist but are release-profile scoped unless explicitly invoked | done |
-| `cat dev/scripts/devctl/cli_parser_builders_checks.py` + `cat dev/scripts/devctl/commands/check.py` | `devctl check` has no `--since-ref/--head-ref`, and AI-guard calls do not pass commit-range refs | done |
-| `rg -c "#\[test\]" rust/src/bin/voiceterm/writer/state.rs` + manual review | ~25 IDE/provider combo tests; no parameterized matrix coverage | done |
-| `cat dev/scripts/tests/claude_hud_stress.py` | hardcoded `TERM_PROGRAM=cursor`; no multi-host parameterization | done |
-| `rg -rn "TerminalFamily|TerminalHost|BackendFamily" rust/src/bin/voiceterm/` | IDE/provider types referenced in 12+ files with no boundary enforcement | done |
-| `rg -n "src/\*\*" .github/workflows/*.yml AGENTS.md` | runtime lanes + AGENTS routing still reference legacy `src/**` contracts | done |
-| `python3 dev/scripts/devctl.py path-audit --format md` | returned `ok: True` despite stale runtime workspace contracts; confirms audit blind spot | done |
-| `cat dev/scripts/checks/check_agents_contract.py` (`REQUIRED_ROUTER_SNIPPETS`) | guard script currently requires exact `src/**` router row text | done |
-| `nl -ba .github/dependabot.yml` + `nl -ba .github/CODEOWNERS` | Dependabot still points Cargo updates to `/src`; CODEOWNERS still maps `/src/` | done |
-| `nl -ba dev/scripts/checks/check_active_plan_sync.py` (`REQUIRED_REGISTRY_ROWS`) | active-plan sync hard-requires 6 docs only; missing several active scopes | done |
-| `nl -ba .github/workflows/failure_triage.yml` + workflow `name:` scan | failure triage omits `Swarm Run` and `publish_release_binaries` from watched workflow list | done |
-| `rg -n "name = \"bytes\"|version = \"1.11.0\"" rust/Cargo.lock` + `cat rustsec-audit.json` | lockfile still has `bytes 1.11.0`; RustSec artifact includes `RUSTSEC-2026-0007` | done |
-| `nl -ba .github/workflows/rust_ci.yml` + `nl -ba rust/Cargo.toml` | runtime lane uses Ubuntu only + `--all-features`; manifest declares `rust-version = "1.70"` with no dedicated MSRV job | done |
-| `rg -n "cargo doc" .github/workflows/*.yml` | no CI workflow currently runs `cargo doc` gate | done |
-| `nl -ba README.md`, `nl -ba dev/ARCHITECTURE.md`, `nl -ba guides/CLI_FLAGS.md` | Gemini support wording is inconsistent across user/developer docs | done |
-| `nl -ba dev/active/MASTER_PLAN.md` (agent board) + `nl -ba dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` (ledger) | board/ledger status drift: board is all `planned` while ledger includes `ready-for-review` entries | done |
-| `rg -n "MP-14[6-9]" dev/BACKLOG.md dev/active/MASTER_PLAN.md` | local backlog reuses MP IDs that already map to different work in MASTER_PLAN | done |
-| `rg -n "OnceLock<Mutex<\\(\\)>>" rust/src/bin/voiceterm | wc -l` | reports `14` independent env-lock helpers (broader than prior 6-file estimate) | done |
-| `find rust/src/bin/voiceterm -name '*.rs' -print0 | xargs -0 wc -l | sort -nr | head -n 25` | confirms top hotspots include `event_loop/tests.rs` (`5918`), `prompt_occlusion.rs` (`1143`), `claude_prompt_detect.rs` (`930`) | done |
-| `rg -n "(JetBrains|Cursor|TerminalHost|TerminalFamily).*(codex|claude|BackendFamily|Provider::)|((codex|claude|BackendFamily|Provider::).*(JetBrains|Cursor|TerminalHost|TerminalFamily))" rust/src/bin/voiceterm` | mixed host/provider conditionals still present in `writer/state.rs` and `event_loop.rs`; coupling budget gate required | done |
-| `python3 dev/scripts/checks/check_rust_audit_patterns.py --format json` | script reports `ok: true` with all 5 pattern totals at `0`; no violation signal emitted | done |
-| `nl -ba dev/scripts/checks/check_rust_audit_patterns.py` | source-root candidates still include legacy `src/src` and `src` fallbacks | done |
-| `nl -ba dev/scripts/checks/check_release_version_parity.py` | plist read path currently opens file directly without `.exists()` guard | done |
-| `nl -ba dev/scripts/checks/check_active_plan_sync.py` | `SPEC_RANGE_PATHS` omits active spec docs (`rust_workspace_layout_migration`, `naming_api_cohesion`, `ide_provider_modularization`) | done |
-| `wc -l rust/src/bin/voiceterm/event_loop/input_dispatch.rs` + `nl -ba dev/scripts/checks/check_code_shape.py` | stale override candidate: file is 555 lines while override soft/hard limits are 1200/1561 | done |
-| `nl -ba rust/src/bin/voiceterm/event_loop/input_dispatch.rs` + `nl -ba rust/src/bin/voiceterm/event_loop/tests.rs | sed -n '4647,4731p'` | confirms current arrow-routing split (`insert_pending_send` gates caret preservation) and existing tests encode mutually-exclusive HUD-focus vs caret behavior | done |
 | `nl -ba dev/scripts/checks/check_code_shape.py` | hotspot freeze overrides now include `writer/state.rs`, `prompt_occlusion.rs`, and `claude_prompt_detect.rs`; plus new `--absolute` mode | done |
 | `python3 dev/scripts/checks/check_code_shape.py --absolute --format md` | absolute mode executes and reports repository-wide hard-limit results | done |
 | `nl -ba dev/scripts/devctl/commands/check_profile.py` + `python3 dev/scripts/devctl.py check --profile ci --dry-run` | `ci` profile now enables AI-guard steps | done |
@@ -1396,7 +2374,16 @@ MP-346 is complete only when all conditions below are true:
 | `cat dev/reports/mp346/checkpoints/20260302T155409Z-cp004/summary.md` + `exit_codes.env` | confirms CP-004 full checkpoint bundle pass with explicit `go (phase 0.5 only)` and retained phase-1+ `no-go` | done |
 | `cat dev/reports/mp346/checkpoints/20260302T162839Z-cp005/summary.md` + `exit_codes.env` | confirms CP-005 Phase-0.5 closure bundle pass with explicit `go (manual matrix execution)` and retained phase-1+ `no-go` pending manual matrix evidence | done |
 | `cat dev/reports/mp346/checkpoints/20260304T010010Z-cp006/summary.md` | confirms CP-006 operator manual-matrix attestation (`5/7` cells pass) plus explicit phase-1+ `go`; remaining `Other` host cells are sequenced to post-cleanup stabilization validation | done |
+| `cat dev/reports/mp346/checkpoints/20260304T113723Z-cp007/summary.md` + `exit_codes.env` | confirms CP-007 Phase-2a checkpoint bundle pass with explicit `go (phase 2b next)` decision while reusing CP-006 manual-matrix attestation | done |
+| `cat dev/reports/mp346/checkpoints/20260304T114813Z-cp008/summary.md` + `exit_codes.env` | confirms CP-008 Phase-2b checkpoint bundle pass with explicit `go (phase 2c next)` decision while reusing CP-006 manual-matrix attestation | done |
+| `cat dev/reports/mp346/checkpoints/20260304T121404Z-cp009/summary.md` + `exit_codes.env` | confirms CP-009 Phase-2c checkpoint bundle pass with explicit `go (phase 2d next)` decision while reusing CP-006 manual-matrix attestation | done |
+| `cat dev/reports/mp346/checkpoints/20260304T123641Z-cp010/summary.md` + `exit_codes.env` | confirms CP-010 Phase-2d checkpoint bundle pass with explicit `go (phase 2e next)` decision while reusing CP-006 manual-matrix attestation | done |
+| `cat dev/reports/mp346/checkpoints/20260304T130908Z-cp011/summary.md` + `exit_codes.env` | confirms CP-011 Phase-2e partial checkpoint bundle pass with explicit hold (`continue phase 2e`) while reusing CP-006 manual-matrix attestation | done |
+| `rg -n "struct HostTimingConfig|impl HostTimingConfig" rust/src/bin/voiceterm/runtime_compat.rs` + `rg -n "fn host_timing\\(&self\\)|should_preclear_bottom_rows|scroll_redraw_min_interval_for_profile|should_defer_non_urgent_redraw_for_recent_input" rust/src/bin/voiceterm/writer/state.rs` | confirms Phase-2a host timing extraction now routes writer timing behavior through canonical `HostTimingConfig` keyed by `TerminalHost` | done |
 | `nl -ba rust/src/bin/voiceterm/writer/state/tests.rs` + matrix test names (`*_matrix_*`) | verifies 9-way host/provider matrix characterization coverage for preclear, scroll redraw interval, and force-redraw trigger timing | done |
+| `rg -n "struct PreclearPolicy|struct PreclearOutcome|fn resolve\\(ctx: PreclearPolicyContext\\)|fn outcome\\(self, pre_cleared: bool\\)" rust/src/bin/voiceterm/writer/state.rs` + `rg -n "preclear_policy_.*flags|preclear_policy_outcome_without_preclear_disables_post_preclear_flags" rust/src/bin/voiceterm/writer/state/tests.rs` | confirms Phase-2b extraction landed typed preclear policy outputs and focused regression coverage for policy flag outcomes | done |
+| `rg -n "struct RedrawPolicyContext|struct RedrawPolicy|fn resolve\\(ctx: RedrawPolicyContext" rust/src/bin/voiceterm/writer/state.rs` + `rg -n "redraw_policy_.*" rust/src/bin/voiceterm/writer/state/tests.rs` | confirms Phase-2c extraction landed typed redraw policy outputs wired to `PreclearOutcome` and focused regression coverage for scroll/non-scroll/destructive redraw policy outcomes | done |
+| `rg -n "struct IdleRedrawTimingContext|resolve_idle_redraw_timing|should_defer_non_urgent_redraw_for_recent_input" rust/src/bin/voiceterm/writer/timing.rs rust/src/bin/voiceterm/writer/state.rs` + `cd rust && cargo test --bin voiceterm writer::timing::tests::` | confirms Phase-2d extraction landed typed timing policy module for `maybe_redraw_status` idle/quiet-window gating with focused policy coverage | done |
 | `nl -ba rust/src/bin/voiceterm/event_loop/input_dispatch.rs` + input ownership test names (`insert_pending_preserves_caret_*`, `hud_navigation_direction_from_arrow_*`) | verifies deterministic caret-vs-HUD arrow ownership contract coverage for Codex/Claude across Cursor/JetBrains/Other labels | done |
 | `cd rust && cargo test --bin voiceterm` | validates runtime suite with new `rstest` dependency and Phase-0.5 characterization tests (`1387` passed) | done |
 | `rg -n "should_force_single_line_full_hud_for_env" rust/src/bin/voiceterm/status_line/layout.rs rust/src/bin/voiceterm/status_line/buttons.rs rust/src/bin/voiceterm/runtime_compat.rs` | confirms status-line host/provider full-HUD fallback routing now consumes canonical runtime-compat helper instead of inline host+provider conditionals | done |
@@ -1404,3 +2391,78 @@ MP-346 is complete only when all conditions below are true:
 | `cd rust && cargo test --bin voiceterm single_line_full_hud_policy_only_for_claude_on_jetbrains && cargo test --bin voiceterm full_single_line_fallback && cargo test --bin voiceterm terminal_family_maps_from_runtime_terminal_host` | validates canonical single-line fallback policy helper, status-line full-HUD fallback behavior, and writer render host-mapping coverage | done |
 | `python3 dev/scripts/devctl.py check --profile ci` | validates runtime guard/check/test profile for this slice (`fmt`, `clippy`, ai-guard scripts, and test lanes); sandbox-only warning observed for process sweep `ps` probing | done |
 | `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'` | validates remaining `bundle.runtime` documentation/governance/shape/parity/lint gates for this slice | done |
+| `nl -ba rust/src/bin/voiceterm/theme/texture_profile.rs` + `rg -n "detect_terminal_id_for_host|terminal_id_for_host|detect_terminal_host" rust/src/bin/voiceterm/theme/texture_profile.rs` | confirms `TerminalId` now layers Cursor/JetBrains routing through canonical runtime host detection before non-host terminal capability mapping | done |
+| `cd rust && cargo test --bin voiceterm --features theme_studio_v2 texture_profile` | validates texture-profile host-layering regressions and fallback coverage (`24` passed) | done |
+| `nl -ba rust/src/bin/voiceterm/runtime_compat.rs` + `rg -n "TERMINAL_HOST_CACHE|set_terminal_host_override|detect_terminal_host_from_env|detect_terminal_host\\(" rust/src/bin/voiceterm/runtime_compat.rs` + `nl -ba rust/src/bin/voiceterm/writer/render.rs` | confirms canonical host-detection cache ownership lives in runtime_compat with test override contract and writer render no longer duplicates host caching | done |
+| `cd rust && cargo test --bin voiceterm runtime_compat::tests::detect_terminal_host_handles_jetbrains_and_cursor && cargo test --bin voiceterm runtime_compat::tests::detect_terminal_host_allows_thread_local_override && cargo test --bin voiceterm runtime_compat::tests::detect_terminal_host_override_resets_after_panic && cargo test --bin voiceterm writer::render::tests::cursor_terminal_uses_combined_cursor_save_restore_sequences && cargo test --bin voiceterm writer::render::tests::jetbrains_terminal_uses_dec_only_cursor_save_restore_sequences` | validates env fingerprint detection, thread-local override behavior (including unwind-safe reset), and writer render host-path non-regression coverage | done |
+| `cd rust && cargo test --bin voiceterm` | validates full runtime suite after canonical host-cache contract cleanup (`1470` passed) | done |
+| `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/ide_provider_modularization.md --mp-scope MP-346 --run-label 20260304-035730Z-c01` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260304-035730Z-c01/summary.md` (2026-03-04 local run) | done |
+| `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/ide_provider_modularization.md --mp-scope MP-346 --run-label 20260304-035730Z-c02` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260304-035730Z-c02/summary.md` (2026-03-04 local run) | done |
+| `rg -n "parse_debug_env_flag|claude_hud_debug_enabled|debug_bytes_preview" rust/src/bin/voiceterm/writer/state.rs rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs rust/src/bin/voiceterm/terminal.rs && nl -ba rust/src/bin/voiceterm/hud_debug.rs` | confirms duplicate HUD debug helpers were removed from runtime hotspots and centralized in shared `hud_debug` module | done |
+| `cd rust && cargo test --bin voiceterm` | validates runtime suite after Phase-1.5 shared HUD debug extraction (`1471` passed) | done |
+| `rg -n "backend_label_contains|backend_family_from_env|BackendFamily::Codex|BackendFamily::Claude" rust/src/bin/voiceterm/writer/state.rs && sed -n '128,180p' rust/src/bin/voiceterm/writer/state.rs` | confirms writer-state backend routing no longer uses raw label substring parsing and now consumes canonical `BackendFamily` mapping | done |
+| `cd rust && cargo test --bin voiceterm` | validates runtime suite after BackendFamily routing update in writer state (`1471` passed) | done |
+| `nl -ba rust/src/bin/voiceterm/provider_adapter.rs && rg -n "mod provider_adapter" rust/src/bin/voiceterm/main.rs` | confirms Phase-1.5 provider adapter contract module is defined and registered for runtime extraction follow-up | done |
+| `cd rust && cargo test --bin voiceterm provider_adapter::tests && python3 dev/scripts/devctl.py check --profile ci` | validates provider adapter contract tests and confirms CI profile remains green after adding signature-only module (`1600` voiceterm-bin tests passed in check profile run) | done |
+| `nl -ba rust/src/bin/voiceterm/ansi.rs && rg -n "strip_ansi_preserve_controls|crate::ansi::strip_ansi|strip_ansi_for_approval_window" rust/src/bin/voiceterm/prompt/strip.rs rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs rust/src/bin/voiceterm/memory/ingest.rs rust/src/bin/voiceterm/transcript_history.rs rust/src/bin/voiceterm/toast.rs` | confirms shared ANSI utility module landed and former duplicate stripping call sites now route through it | done |
+| `nl -ba rust/src/bin/voiceterm/test_env.rs && rg -n "OnceLock<Mutex<\\(\\)>>" rust/src/bin/voiceterm` | confirms one canonical env-lock owner remains (`test_env.rs`) and duplicated per-module env-lock helpers were removed | done |
+| `rg -n "claude_prompt_suppressed" rust/src/bin/voiceterm && rg -n "prompt_suppressed" rust/src/bin/voiceterm/status_line/state.rs rust/src/bin/voiceterm/terminal.rs rust/src/bin/voiceterm/event_loop.rs rust/src/bin/voiceterm/writer/state.rs` | confirms provider-neutral rename completed in runtime and no legacy field references remain in code | done |
+| `cd rust && cargo test --bin voiceterm && python3 dev/scripts/devctl.py check --profile ci && python3 dev/scripts/devctl.py docs-check --user-facing && python3 dev/scripts/devctl.py hygiene && python3 dev/scripts/checks/check_active_plan_sync.py && python3 dev/scripts/checks/check_multi_agent_sync.py && python3 dev/scripts/checks/check_cli_flags_parity.py && python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120 && python3 dev/scripts/checks/check_code_shape.py && python3 dev/scripts/checks/check_rust_lint_debt.py && python3 dev/scripts/checks/check_rust_best_practices.py && markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md && find . -maxdepth 1 -type f -name '--*'` | validates full runtime and docs/governance bundle after Phase-1.5 closure slice (all passing; hygiene warnings remain non-blocking) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_rust_lint_debt` | regression coverage for isolation scanner edge-cases + lint-debt inner-allow parsing passes (`14` tests) | done |
+| `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` | blocking isolation gate stays green after scanner hardening (`files_with_mixed_signals=3`, `unauthorized_files=0`) | done |
+| `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` | lint-debt gate stays green with inner `#![allow(...)]` parsing enabled (`violations=0`) | done |
+| `python3 dev/scripts/checks/check_code_shape.py --format md` + `python3 dev/scripts/checks/check_code_shape.py --absolute --format md` | shape gates remain green after prompt/test decomposition and writer-profile cleanup (`function_violations=0`) | done |
+| `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` | compatibility governance remains valid (`12/12` declared cells) with expected Gemini non-IPC warning (`overlay-only-experimental`) | done |
+| `wc -l rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs rust/src/bin/voiceterm/prompt/claude_prompt_detect/tests.rs` | confirms prompt hotspot split (`prompt_occlusion.rs`=`1143`, `claude_prompt_detect.rs`=`623`) with extracted Claude detector tests in dedicated module | done |
+| `nl -ba rust/src/bin/voiceterm/writer/state/profile.rs | sed -n '55,75p'` + `nl -ba rust/src/bin/voiceterm/writer/state/dispatch.rs | sed -n '388,404p'` + `nl -ba rust/src/bin/voiceterm/writer/state/redraw.rs | sed -n '120,156p'` | geometry-collapse policy now consumes RuntimeProfile `claude_jetbrains` boolean at writer call sites instead of raw host+backend tuple checks | done |
+| `nl -ba rust/src/bin/voiceterm/writer/state/redraw.rs | sed -n '250,270p'` + `nl -ba rust/src/bin/voiceterm/runtime_compat.rs | sed -n '360,376p'` | JetBrains+Claude single-line fallback and cursor-toggle policy now route through profile/helper contracts rather than mixed inline conditionals | done |
+| `cd rust && cargo test --bin voiceterm --quiet` | validates full runtime suite after post-CP-013 hardening and profile-based writer routing cleanup (`1501` passed) | done |
+| `nl -ba rust/src/bin/voiceterm/provider_adapter.rs` + `nl -ba rust/src/bin/voiceterm/main.rs | sed -n '92,108p'` + `nl -ba rust/src/bin/voiceterm/main.rs | sed -n '524,540p'` | confirms Phase-3a adapter routing: runtime now constructs prompt detector via `build_prompt_occlusion_detector` and provider adapter owns Claude strategy wiring | done |
+| `cd rust && cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture` | validates provider-adapter strategy wiring plus Claude detector behavior regressions (`6` and `36` tests passed) | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --user-facing` + `python3 dev/scripts/devctl.py hygiene` + `python3 dev/scripts/checks/check_active_plan_sync.py --format md` + `python3 dev/scripts/checks/check_multi_agent_sync.py --format md` + `python3 dev/scripts/checks/check_cli_flags_parity.py` + `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` + `python3 dev/scripts/checks/check_code_shape.py --format md` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md` + `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` + `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` + `python3 dev/scripts/checks/check_rust_best_practices.py --format md` + `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md` + `find . -maxdepth 1 -type f -name '--*'` | full Step-3a runtime/governance/docs validation bundle passes (hygiene warnings remain non-blocking) | done |
+| `nl -ba rust/src/ipc/protocol.rs | sed -n '220,340p'` + `nl -ba rust/src/ipc/session/state.rs | sed -n '89,116p'` + `cd rust && cargo test ipc::tests:: -- --nocapture` | confirms Step-3f capability emission is adapter/registry-derived via `Provider::ipc_supported()` + `ipc_capability_labels()` with IPC regressions passing (`82` tests) | done |
+| `nl -ba rust/src/ipc/protocol.rs | sed -n '205,360p'` + `nl -ba rust/src/ipc/router.rs | sed -n '20,220p'` + `nl -ba rust/src/ipc/tests.rs | sed -n '108,520p'` | confirms Step-3e runtime classification: `aider`/`opencode`/`custom` are explicit overlay-only non-IPC labels with dedicated diagnostics and regression coverage | done |
+| `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` | confirms Step-3e matrix policy: explicit non-IPC provider modes required for `aider`/`opencode`/`custom`, with matrix coverage now `24/24` declared cells | done |
+| `nl -ba dev/config/compat/ide_provider_matrix.yaml | sed -n '20,260p'` + `nl -ba guides/CLI_FLAGS.md | sed -n '108,320p'` + `nl -ba guides/USAGE.md | sed -n '56,90p'` + `nl -ba dev/ARCHITECTURE.md | sed -n '45,70p'` | confirms Step-3e docs/matrix parity: IPC surface remains `codex`/`claude`; `gemini` is overlay-only experimental; `aider`/`opencode`/`custom` are explicit overlay-only non-IPC | done |
+| `cat dev/reports/mp346/checkpoints/20260304T174948Z-cp014/summary.md` + `cat dev/reports/mp346/checkpoints/20260304T174948Z-cp014/exit_codes.env` | captures Step-3a checkpoint packet with `go (phase 3b next)` and retained manual-matrix baseline from `CP-006` | done |
+| `cat dev/reports/mp346/checkpoints/20260304T181236Z-cp015/summary.md` + `cat dev/reports/mp346/checkpoints/20260304T181236Z-cp015/exit_codes.env` | captures Step-3d checkpoint packet with explicit non-IPC Gemini guardrails and codex/claude-only IPC policy confirmation | done |
+| `nl -ba rust/src/ipc/protocol.rs | sed -n '195,268p'` + `nl -ba rust/src/ipc/router.rs | sed -n '104,140p'` + `nl -ba rust/src/ipc/router.rs | sed -n '337,389p'` + `nl -ba rust/src/ipc/session/state.rs | sed -n '33,43p'` | confirms Step-3d non-IPC Gemini guardrails: shared provider-resolution diagnostics, explicit override/auth rejection, and no silent `VOICETERM_PROVIDER` fallback for unsupported provider values | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` | validates IPC provider parsing/routing/auth regression suite after explicit non-IPC Gemini guardrails | done |
+| `nl -ba guides/CLI_FLAGS.md | sed -n '250,306p'` + `nl -ba dev/ARCHITECTURE.md | sed -n '847,864p'` + `nl -ba dev/CHANGELOG.md | sed -n '8,24p'` | confirms docs/changelog explicitly describe IPC provider support as `codex|claude` with Gemini overlay-only experimental outside IPC | done |
+| `nl -ba rust/src/ipc/router.rs | sed -n '76,156p'` + `nl -ba rust/src/ipc/tests.rs | sed -n '518,592p'` | confirms wrapper commands now bypass provider override parsing and adds `/exit`-during-auth invalid-override regressions | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` + `python3 dev/scripts/checks/check_code_shape.py --format md` | validates post-Step-3d wrapper-override regression fix and guardrail parity | done |
+| `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/ide_provider_modularization.md --mp-scope MP-346 --run-label mp346-swarmrun-20260304t1` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/mp346-swarmrun-20260304t1/summary.md` (2026-03-04 local run) | done |
+| `nl -ba .github/workflows/rust_ci.yml | sed -n '32,80p'` + `nl -ba .github/workflows/release_preflight.yml | sed -n '114,126p'` | confirms runtime CI now executes `devctl` AI-guard in the standard lane and release preflight AI-guard step is explicitly non-duplicative (`--skip-tests`) | done |
+| `nl -ba dev/scripts/checks/check_ide_provider_isolation.py | sed -n '13,240p'` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` | confirms isolation scanner now covers both `rust/src/bin/voiceterm` and `rust/src/ipc`, with local-binding split-signal tracking active in blocking mode | done |
+| `nl -ba dev/scripts/checks/code_shape_policy.py | sed -n '90,101p'` + `python3 dev/scripts/checks/check_code_shape.py --format md` | confirms prompt hotspot budgets now enforce MP-346 DoD hard ceilings (`700/600`) with hard-lock growth policy retained | done |
+| `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/ide_provider_modularization.md --mp-scope MP-346 --run-label 20260304-mp346-multiagent-live` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260304-mp346-multiagent-live/summary.md` (2026-03-04 local run) | done |
+| `nl -ba rust/src/bin/voiceterm/prompt/mod.rs | sed -n '1,120p'` + `nl -ba rust/src/bin/voiceterm/event_state.rs | sed -n '12,50p'` | confirms `PromptOcclusionDetector` is now a concrete wrapper type used by event-loop runtime state (no alias-level coupling in runtime callsites) | done |
+| `nl -ba rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs | sed -n '520,640p'` + `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests::numbered_approval_hint_detects_compact_prefix_variant -- --nocapture` + `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests::shared_approval_parser_accepts_compact_dot_numbering -- --nocapture` | confirms shared numbered-card parser now detects compact dot-numbered approval cards (`1.Yes`/`2.No`) and fixes prompt-occlusion regression coverage | done |
+| `cd rust && cargo test --bin voiceterm provider_adapter::tests:: -- --nocapture` + `cd rust && cargo clippy --bin voiceterm -- -D warnings` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` | confirms provider-adapter detector-wrapper integration compiles cleanly and isolation gate remains green after decoupling follow-up | done |
+| `nl -ba rust/src/ipc/provider_lifecycle.rs` + `nl -ba rust/src/ipc/router.rs | sed -n '1,280p'` + `nl -ba rust/src/ipc/session/loop_runtime.rs | sed -n '1,120p'` | confirms Step-3c lifecycle adapterization: router/session runtime now delegate provider start/cancel/drain through dedicated adapter ownership (`ipc/provider_lifecycle.rs`) | done |
+| `nl -ba rust/src/ipc/protocol.rs | sed -n '286,338p'` + `nl -ba rust/src/ipc/session/auth_flow.rs | sed -n '1,80p'` + `nl -ba rust/src/ipc/session/event_processing/auth.rs | sed -n '1,90p'` | confirms auth lifecycle routes through provider helper policy (`auth_command`, `resets_session_on_auth_success`) instead of hard-coded provider branches | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture` | validates Step-3c lifecycle refactor and prompt-side non-regression tests remain green (`84`, `34`, and `40` tests passed) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` + `python3 dev/scripts/devctl.py check --profile ai-guard --skip-fmt --skip-clippy --skip-tests` | confirms isolation guardrail upgrade is enforced in blocking mode with unit coverage and AI-guard profile integration; temporary file-scope allowlist debt is explicit (`files_with_file_signal_coupling=5`, `unauthorized_files=0`) | done |
+| `python3 dev/scripts/checks/check_code_shape.py --absolute --format md` + `wc -l rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs rust/src/bin/voiceterm/prompt/claude_prompt_detect.rs` | confirms Step-3b hotspot closure: absolute shape gate is green and prompt hotspots are under hard limits (`prompt_occlusion.rs=679`, `claude_prompt_detect.rs=541`) | done |
+| `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm prompt::claude_prompt_detect::tests:: -- --nocapture` | validates prompt-occlusion orchestration and detector parser regressions remain green after Step-3b decomposition (`34` + `40` tests passed) | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` | validates IPC regression suite remains green after Step-3b prompt decomposition (`84` tests passed) | done |
+| `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` | confirms isolation blocking gate remains green after Step-3b decomposition (`unauthorized_files=0`) | done |
+| `nl -ba dev/scripts/checks/check_ide_provider_isolation.py | sed -n '53,72p'` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --format md` + `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation` | confirms temporary Step-3b allowlist entry for `event_loop/prompt_occlusion.rs` is removed and isolation checker coverage remains green (`14` tests) | done |
+| `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/summary.md` + `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/exit_codes.env` | captures CP-016 continuation packet refresh: automated runtime/governance bundle rerun is green, with temporary waiver approval while manual matrix remains due by expiry | done |
+| `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/manual_matrix_notes.md` + `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/waiver_template.md` | captures CP-016 manual closure scaffolding: original `7/7` worksheet + waiver template artifacts (historical), superseded by IDE-first `4/4` release-scope closure update | done |
+| `printf 'TERM_PROGRAM=%s\nTERM=%s\n' "${TERM_PROGRAM:-<unset>}" "${TERM:-<unset>}"` + attempted optional IPC sanity command (`printf '{"cmd":"get_capabilities"}\n'` piped to `voiceterm --json-ipc`) | confirms CP-016 session runs under VS Code terminal and sandbox blocks local JSON IPC runtime startup (`Operation not permitted (os error 1)`), so required physical-host matrix cells cannot be executed here | done |
+| `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/waiver_template.md` + `cat dev/reports/mp346/checkpoints/20260305T032253Z-cp016/summary.md` | confirms waiver packet records explicit `approve waiver` decision and CP-016 summary now records temporary waiver approval with expiry-bound exit criteria | done |
+| `git check-ignore -v rust/.voiceterm/memory/events.jsonl rust/.voiceterm/memory/events.1.jsonl` + `git status --short rust/.voiceterm/memory/events.jsonl rust/.voiceterm/memory/events.1.jsonl` | confirms runtime artifacts are ignored via `**/.voiceterm/memory/` and removed from tracked changeset | done |
+| `cd rust && cargo fmt --all -- --check` + `cd rust && cargo test ipc::tests:: -- --nocapture` + `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --user-facing` + `python3 dev/scripts/devctl.py hygiene` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_cli_flags_parity.py` + `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` + `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md` | confirms CP-016 automated continuation bundle remains green after findings cleanup slice; only documented non-blocking warnings remain (`hygiene` report-footprint/process-sweep warnings, expected non-IPC runtime labels in matrix smoke) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke` | validates post-waiver tooling hardening coverage for cfg-test isolation handling plus dedicated matrix check-script unit tests (`19` passed) | done |
+| `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md` + `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` | confirms hardening slice guardrails remain green: blocking isolation check passes, matrix policy check passes, and smoke runtime backend ownership now maps to `BackendRegistry` entries (non-IPC warnings remain expected) | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` | confirms IPC cancellation parity cleanup remains green with new regression coverage for wrapper-command and prompt-preemption cancellation event emission (`87` passed) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke` | confirms matrix/isolation tooling cleanup regressions remain green after duplicate-id detection and runtime-set enforcement updates (`24` passed) | done |
+| `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md` | confirms post-review guardrails remain green: duplicate-id policy active, runtime-set matrix smoke coverage active, and blocking isolation gate unchanged (`ok: True`) | done |
+| `python3 -m unittest dev.scripts.devctl.tests.test_check_ide_provider_isolation dev.scripts.devctl.tests.test_check_compat_matrix dev.scripts.devctl.tests.test_compat_matrix_smoke` | confirms reviewer follow-up script hardening coverage is green after cfg-not(test) precision + schema strictness + backend parser resilience updates (`27` passed) | done |
+| `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations --format md` + `python3 dev/scripts/checks/check_compat_matrix.py --format md` + `python3 dev/scripts/checks/compat_matrix_smoke.py --format md` | confirms CP-016 guardrails remain green after reviewer follow-up hardening (`ok: True` across blocking isolation + matrix validation + runtime smoke coverage) | done |
+| `cd rust && cargo test ipc::tests:: -- --nocapture` + `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` | confirms IPC regression suite remains green with added Claude cancellation assertions (`89` passed) and targeted memory-guard lane is green (`1` passed) | done |
+| `cd rust && cargo test legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` + `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture` | confirms memory-guard assertion remains green in both default-feature and no-default-feature lane variants after baseline-wait stabilization update (`1` passed in each lane) | done |
+| `python3 dev/scripts/devctl.py check --profile ci` | confirms MP-346 closure-gate bundle is green after reviewer follow-up + memory-guard stabilization (`exit:0`; non-blocking process-sweep `ps` sandbox warnings only) | done |
+| `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_duplication_audit.py` + `python3 dev/scripts/checks/check_structural_complexity.py` + `python3 dev/scripts/checks/check_duplicate_types.py` + `python3 dev/scripts/checks/check_naming_consistency.py` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `python3 dev/scripts/checks/check_rust_test_shape.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py --absolute --report-dead-code` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` + `python3 dev/scripts/checks/check_rust_security_footguns.py` + `python3 dev/scripts/collect_clippy_warnings.py --output-lints-json /tmp/clippy_lints.json --quiet-json-stream` + `python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy_lints.json` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` | architecture reconciliation rerun is now fully green after modularizing `check_router`/`docs_check_support` and generating fresh `jscpd` evidence (`duplication_percent=0.93`); historical `7/7` closure wording is superseded by IDE-first `4/4` release-scope gate | done |
+| `python3 dev/scripts/devctl.py hygiene --strict-warnings` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` | catalog/docs registration for `check_duplication_audit_support.py` is complete, but strict hygiene still shows local repeatability noise: after `docs-check --strict-tooling`, regenerated `dev/scripts/checks/__pycache__` warnings fail strict mode unless `--fix` is applied (`--fix --strict-warnings` rerun is green) | open |

@@ -27,37 +27,55 @@ pub(super) fn send_event(event: &IpcEvent) {
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn init_event_sink() {
     test_support::init_event_sink();
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn ipc_loop_count_set(count: u64) {
     test_support::set_ipc_loop_count(count);
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn ipc_loop_count_reset() {
     test_support::ipc_loop_count_reset();
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn ipc_loop_count() -> u64 {
     test_support::ipc_loop_count()
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn event_snapshot() -> usize {
     test_support::event_snapshot()
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — called from session.rs re-export"
+)]
 pub(super) fn events_since(start: usize) -> Vec<IpcEvent> {
     test_support::events_since(start)
 }

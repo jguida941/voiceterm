@@ -30,6 +30,7 @@ on:
       - "rust/src/config/mod.rs"
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
+      - "dev/config/compat/**"
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
@@ -53,6 +54,7 @@ on:
       - "rust/src/config/mod.rs"
       - "dev/config/markdownlint.yaml"
       - "dev/config/markdownlint.ignore"
+      - "dev/config/compat/**"
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
@@ -80,17 +82,8 @@ jobs:
 
       - name: Smoke devctl ship/pypi/list commands
         run: |
-          VERSION="$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          text = Path("rust/Cargo.toml").read_text(encoding="utf-8")
-          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
-          if not match:
-              raise SystemExit("Failed to resolve version from rust/Cargo.toml")
-          print(match.group(1))
-          PY
-          )"
+          set -euo pipefail
+          VERSION="$(python3 dev/scripts/checks/check_release_version_parity.py --print-version)"
           python3 dev/scripts/devctl.py list --format md
           python3 dev/scripts/devctl.py audit-scaffold --dry-run --force --yes --format md
           python3 dev/scripts/devctl.py pypi --dry-run
@@ -108,6 +101,7 @@ jobs:
 
       - name: bash -n maintainer scripts
         run: |
+          set -euo pipefail
           bash -n dev/scripts/*.sh
           bash -n scripts/*.sh
 
@@ -135,31 +129,36 @@ jobs:
 
       - name: Resolve commit range and changed files
         id: range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            SINCE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-          else
-            SINCE="${{ github.event.before }}"
-            HEAD="${{ github.sha }}"
-          fi
-          if [[ -z "${SINCE}" || "${SINCE}" == "0000000000000000000000000000000000000000" ]]; then
-            SINCE="HEAD~1"
-          fi
-          if ! git rev-parse --verify "${SINCE}" >/dev/null 2>&1; then
-            SINCE="HEAD"
-          fi
-          if ! git rev-parse --verify "${HEAD}" >/dev/null 2>&1; then
-            HEAD="HEAD"
-          fi
-          echo "since=${SINCE}" >> "${GITHUB_OUTPUT}"
-          echo "head=${HEAD}" >> "${GITHUB_OUTPUT}"
-          git diff --name-only "${SINCE}" "${HEAD}" > /tmp/docs-policy-changed-files.txt
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+            --event-name "${EVENT_NAME}" \
+            --push-before "${PUSH_BEFORE}" \
+            --push-head "${PUSH_HEAD}" \
+            --pr-base "${PR_BASE}" \
+            --pr-head "${PR_HEAD}" \
+            --changed-files-output /tmp/docs-policy-changed-files.txt \
+            --github-output "${GITHUB_OUTPUT}"
           echo "Changed files:"
           cat /tmp/docs-policy-changed-files.txt
 
+      - name: Evaluate strict user-doc gate signal
+        id: docs_signal
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py evaluate-user-docs-gate \
+            --changed-files-input /tmp/docs-policy-changed-files.txt \
+            --github-output "${GITHUB_OUTPUT}"
+
       - name: Run docs-check strict-tooling gate
         run: |
+          set -euo pipefail
           python3 dev/scripts/devctl.py docs-check \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}" \
@@ -167,8 +166,8 @@ jobs:
 
       - name: Run docs-check user-facing strict gate (conditional)
         run: |
-          USER_DOC_CHANGE_COUNT="$(grep -Ec '^(README\.md|QUICK_START\.md|guides/USAGE\.md|guides/CLI_FLAGS\.md|guides/INSTALL\.md|guides/TROUBLESHOOTING\.md)$' /tmp/docs-policy-changed-files.txt || true)"
-          if grep -Eq '^(rust/src/bin/voiceterm/config/cli\.rs|rust/src/config/mod\.rs)$' /tmp/docs-policy-changed-files.txt || [[ "${USER_DOC_CHANGE_COUNT}" -ge 3 ]]; then
+          set -euo pipefail
+          if [[ "${{ steps.docs_signal.outputs.run_user_facing_strict }}" == "true" ]]; then
             echo "Running strict user-facing docs-check gate."
             python3 dev/scripts/devctl.py docs-check \
               --since-ref "${{ steps.range.outputs.since }}" \
@@ -179,7 +178,7 @@ jobs:
           fi
 
       - name: Run governance hygiene gate
-        run: python3 dev/scripts/devctl.py hygiene --format md
+        run: python3 dev/scripts/devctl.py hygiene --strict-warnings --format md
 
       - name: Run AGENTS contract guard
         run: python3 dev/scripts/checks/check_agents_contract.py
@@ -207,24 +206,63 @@ jobs:
 
       - name: Run code-shape guard
         run: |
+          set -euo pipefail
           python3 dev/scripts/checks/check_code_shape.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run workflow shell hygiene guard
+        run: python3 dev/scripts/checks/check_workflow_shell_hygiene.py
+
+      - name: Run workflow action pinning guard
+        run: python3 dev/scripts/checks/check_workflow_action_pinning.py
+
+      - name: Run bundle/workflow parity guard
+        run: python3 dev/scripts/checks/check_bundle_workflow_parity.py
+
+      - name: Run IDE/provider isolation guard
+        run: python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
+
+      - name: Run compatibility matrix schema guard
+        run: python3 dev/scripts/checks/check_compat_matrix.py
+
+      - name: Run compatibility matrix runtime smoke guard
+        run: python3 dev/scripts/checks/compat_matrix_smoke.py
+
+      - name: Run naming consistency guard
+        run: python3 dev/scripts/checks/check_naming_consistency.py
+
+      - name: Run rust test-shape non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_rust_test_shape.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Run rust lint-debt non-regression guard
         run: |
+          set -euo pipefail
           python3 dev/scripts/checks/check_rust_lint_debt.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Run rust best-practices non-regression guard
         run: |
+          set -euo pipefail
           python3 dev/scripts/checks/check_rust_best_practices.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run rust runtime panic-policy non-regression guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_rust_runtime_panic_policy.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
       - name: Guard root-level accidental CLI artifact files
         run: |
+          set -euo pipefail
           ARTIFACTS="$(find . -maxdepth 1 -type f -name '--*' -print)"
           if [[ -n "${ARTIFACTS}" ]]; then
             echo "Unexpected root-level CLI artifact files detected:"
@@ -235,6 +273,7 @@ jobs:
 
       - name: Lint key docs
         run: |
+          set -euo pipefail
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \
             QUICK_START.md \
@@ -248,6 +287,7 @@ jobs:
       - name: Generate remediation audit scaffold on failure
         if: ${{ failure() }}
         run: |
+          set -euo pipefail
           python3 dev/scripts/devctl.py audit-scaffold \
             --source-guards \
             --since-ref "${{ steps.range.outputs.since }}" \

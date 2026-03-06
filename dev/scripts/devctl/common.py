@@ -62,10 +62,12 @@ def _run_with_live_output(
     env: Optional[dict],
 ) -> Tuple[int, str]:
     """Stream command output live while retaining a bounded failure excerpt."""
+    effective_env = dict(os.environ if env is None else env)
+    effective_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     process = subprocess.Popen(
         cmd,
         cwd=cwd,
-        env=env,
+        env=effective_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

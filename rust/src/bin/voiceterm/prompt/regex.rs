@@ -47,44 +47,13 @@ pub(crate) fn resolve_prompt_regex(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{OverlayConfig, VoiceSendMode};
-    use clap::Parser;
-    use voiceterm::config::AppConfig;
+    use crate::config::OverlayConfig;
+    use crate::test_env::default_overlay_config;
 
     fn make_default_config(prompt_regex: Option<&str>) -> OverlayConfig {
-        OverlayConfig {
-            help: false,
-            app: AppConfig::parse_from(["test"]),
-            prompt_regex: prompt_regex.map(str::to_string),
-            prompt_log: None,
-            auto_voice: false,
-            auto_voice_idle_ms: 1200,
-            transcript_idle_ms: 250,
-            voice_send_mode: VoiceSendMode::Auto,
-            wake_word: false,
-            wake_word_sensitivity: 0.55,
-            wake_word_cooldown_ms: 2000,
-            theme_name: None,
-            no_color: false,
-            hud_right_panel: crate::config::HudRightPanel::Ribbon,
-            hud_border_style: crate::config::HudBorderStyle::Theme,
-            hud_right_panel_recording_only: true,
-            hud_style: crate::config::HudStyle::Full,
-            latency_display: crate::config::LatencyDisplayMode::Short,
-            image_mode: false,
-            image_capture_command: None,
-            dev_mode: false,
-            dev_log: false,
-            dev_path: None,
-            minimal_hud: false,
-            backend: "codex".to_string(),
-            codex: false,
-            claude: false,
-            gemini: false,
-            login: false,
-            theme_file: None,
-            export_theme: None,
-        }
+        let mut config = default_overlay_config();
+        config.prompt_regex = prompt_regex.map(str::to_string);
+        config
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //!
 //! Detects what color modes the terminal supports and provides fallbacks.
 
+use crate::runtime_compat::{detect_terminal_host, TerminalHost};
 use std::env;
 
 /// Color mode capabilities of the terminal.
@@ -72,21 +73,18 @@ impl ColorMode {
 }
 
 fn env_supports_truecolor_without_colorterm() -> bool {
-    if let Ok(term_program) = env::var("TERM_PROGRAM") {
-        let program = term_program.to_lowercase();
-        if matches!(
-            program.as_str(),
-            "vscode" | "cursor" | "wezterm" | "iterm.app" | "warpterminal" | "jetbrains-jediterm"
-        ) || program.contains("jetbrains")
-            || program.contains("jediterm")
-        {
-            return true;
-        }
+    if matches!(
+        detect_terminal_host(),
+        TerminalHost::Cursor | TerminalHost::JetBrains
+    ) {
+        return true;
     }
 
-    if let Ok(terminal_emulator) = env::var("TERMINAL_EMULATOR") {
-        let emulator = terminal_emulator.to_lowercase();
-        if emulator.contains("jetbrains") || emulator.contains("jediterm") {
+    if let Ok(term_program) = env::var("TERM_PROGRAM") {
+        let program = term_program.to_ascii_lowercase();
+        if matches!(program.as_str(), "vscode" | "wezterm" | "iterm.app")
+            || program.contains("warp")
+        {
             return true;
         }
     }
@@ -169,16 +167,7 @@ pub fn rgb_to_ansi16(r: u8, g: u8, b: u8) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
-
-    fn with_env_lock<T>(f: impl FnOnce() -> T) -> T {
-        static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        f()
-    }
+    use crate::test_env::with_env_lock;
 
     fn detect_with_env(
         colorterm: Option<&str>,
@@ -187,12 +176,56 @@ mod tests {
         terminal_emulator: Option<&str>,
         no_color: Option<&str>,
     ) -> ColorMode {
+        detect_with_env_overrides(
+            colorterm,
+            term,
+            term_program,
+            terminal_emulator,
+            no_color,
+            &[],
+        )
+    }
+
+    fn detect_with_env_overrides(
+        colorterm: Option<&str>,
+        term: Option<&str>,
+        term_program: Option<&str>,
+        terminal_emulator: Option<&str>,
+        no_color: Option<&str>,
+        overrides: &[(&str, Option<&str>)],
+    ) -> ColorMode {
         with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
+            const KEYS: &[&str] = &[
+                "COLORTERM",
+                "TERM",
+                "TERM_PROGRAM",
+                "TERMINAL_EMULATOR",
+                "NO_COLOR",
+                "PYCHARM_HOSTED",
+                "JETBRAINS_IDE",
+                "IDEA_INITIAL_DIRECTORY",
+                "IDEA_INITIAL_PROJECT",
+                "CLION_IDE",
+                "WEBSTORM_IDE",
+                "CURSOR_TRACE_ID",
+                "CURSOR_APP_VERSION",
+                "CURSOR_VERSION",
+                "CURSOR_BUILD_VERSION",
+            ];
+            let mut keys = KEYS.to_vec();
+            for (key, _) in overrides {
+                if !keys.contains(key) {
+                    keys.push(key);
+                }
+            }
+            let previous: Vec<(String, Option<String>)> = keys
+                .iter()
+                .map(|key| ((*key).to_string(), std::env::var(key).ok()))
+                .collect();
+
+            for key in &keys {
+                std::env::remove_var(key);
+            }
 
             match colorterm {
                 Some(v) => std::env::set_var("COLORTERM", v),
@@ -214,28 +247,20 @@ mod tests {
                 Some(v) => std::env::set_var("NO_COLOR", v),
                 None => std::env::remove_var("NO_COLOR"),
             }
+            for (key, value) in overrides {
+                match value {
+                    Some(v) => std::env::set_var(key, v),
+                    None => std::env::remove_var(key),
+                }
+            }
 
             let detected = ColorMode::detect();
 
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
+            for (key, value) in previous {
+                match value {
+                    Some(v) => std::env::set_var(key, v),
+                    None => std::env::remove_var(key),
+                }
             }
 
             detected
@@ -344,430 +369,150 @@ mod tests {
 
     #[test]
     fn detect_truecolor_from_colorterm_24bit() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::set_var("COLORTERM", "24bit");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(Some("24bit"), Some("xterm-256color"), None, None, None),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
     fn detect_color256_when_term_program_unrecognized() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("TERM_PROGRAM", "acme-term");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::Color256);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(None, Some("xterm-256color"), Some("acme-term"), None, None),
+            ColorMode::Color256
+        );
     }
 
     #[test]
     fn detect_ansi16_when_term_is_xterm_without_256_hint() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::Ansi16);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(None, Some("xterm"), None, None, None),
+            ColorMode::Ansi16
+        );
     }
 
     #[test]
     fn detect_colorterm_non_truecolor_does_not_force_truecolor() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::set_var("COLORTERM", "ansi");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::Color256);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(Some("ansi"), Some("xterm-256color"), None, None, None),
+            ColorMode::Color256
+        );
     }
 
     #[test]
     fn detect_dumb_term_without_color_hints_is_none() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "dumb");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::None);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(None, Some("dumb"), None, None, None),
+            ColorMode::None
+        );
     }
 
     #[test]
     fn detect_truecolor_when_term_program_contains_jetbrains() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("TERM_PROGRAM", "my-jetbrains-shell");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(
+                None,
+                Some("xterm-256color"),
+                Some("my-jetbrains-shell"),
+                None,
+                None
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
     fn detect_truecolor_when_terminal_emulator_contains_jediterm_only() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::set_var("TERMINAL_EMULATOR", "jediterm-shell");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(
+                None,
+                Some("xterm-256color"),
+                None,
+                Some("jediterm-shell"),
+                None
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
     fn detect_truecolor_for_jetbrains_terminal_env() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("TERMINAL_EMULATOR", "JetBrains-JediTerm");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(
+                None,
+                Some("xterm-256color"),
+                None,
+                Some("JetBrains-JediTerm"),
+                None
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
     fn detect_truecolor_for_vscode_term_program_env() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
+        assert_eq!(
+            detect_with_env(None, Some("xterm-256color"), Some("vscode"), None, None),
+            ColorMode::TrueColor
+        );
+    }
 
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("TERM_PROGRAM", "vscode");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+    #[test]
+    fn detect_truecolor_for_warp_term_program_env() {
+        assert_eq!(
+            detect_with_env(
+                None,
+                Some("xterm-256color"),
+                Some("WarpTerminal"),
+                None,
+                None
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
     fn detect_truecolor_for_jetbrains_term_program_env() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
-
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("TERM_PROGRAM", "JetBrains-JediTerm");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::TrueColor);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+        assert_eq!(
+            detect_with_env(
+                None,
+                Some("xterm-256color"),
+                Some("JetBrains-JediTerm"),
+                None,
+                None
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]
-    fn detect_color256_for_jetbrains_ide_env_marker_without_term_hints() {
-        with_env_lock(|| {
-            let prev_colorterm = std::env::var("COLORTERM").ok();
-            let prev_term = std::env::var("TERM").ok();
-            let prev_idea_dir = std::env::var("IDEA_INITIAL_DIRECTORY").ok();
-            let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-            let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-            let prev_no_color = std::env::var("NO_COLOR").ok();
+    fn detect_truecolor_for_jetbrains_ide_env_marker_without_term_hints() {
+        assert_eq!(
+            detect_with_env_overrides(
+                None,
+                Some("xterm-256color"),
+                None,
+                None,
+                None,
+                &[("IDEA_INITIAL_DIRECTORY", Some("/tmp/project"))]
+            ),
+            ColorMode::TrueColor
+        );
+    }
 
-            std::env::remove_var("COLORTERM");
-            std::env::set_var("TERM", "xterm-256color");
-            std::env::set_var("IDEA_INITIAL_DIRECTORY", "/tmp/project");
-            std::env::remove_var("TERM_PROGRAM");
-            std::env::remove_var("TERMINAL_EMULATOR");
-            std::env::remove_var("NO_COLOR");
-
-            assert_eq!(ColorMode::detect(), ColorMode::Color256);
-
-            match prev_colorterm {
-                Some(v) => std::env::set_var("COLORTERM", v),
-                None => std::env::remove_var("COLORTERM"),
-            }
-            match prev_term {
-                Some(v) => std::env::set_var("TERM", v),
-                None => std::env::remove_var("TERM"),
-            }
-            match prev_idea_dir {
-                Some(v) => std::env::set_var("IDEA_INITIAL_DIRECTORY", v),
-                None => std::env::remove_var("IDEA_INITIAL_DIRECTORY"),
-            }
-            match prev_term_program {
-                Some(v) => std::env::set_var("TERM_PROGRAM", v),
-                None => std::env::remove_var("TERM_PROGRAM"),
-            }
-            match prev_terminal_emulator {
-                Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-                None => std::env::remove_var("TERMINAL_EMULATOR"),
-            }
-            match prev_no_color {
-                Some(v) => std::env::set_var("NO_COLOR", v),
-                None => std::env::remove_var("NO_COLOR"),
-            }
-        });
+    #[test]
+    fn detect_truecolor_for_cursor_env_marker_without_term_program() {
+        assert_eq!(
+            detect_with_env_overrides(
+                None,
+                Some("xterm-256color"),
+                None,
+                None,
+                None,
+                &[("CURSOR_TRACE_ID", Some("trace-id"))]
+            ),
+            ColorMode::TrueColor
+        );
     }
 
     #[test]

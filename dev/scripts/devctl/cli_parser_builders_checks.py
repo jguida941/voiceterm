@@ -16,7 +16,7 @@ def add_check_parser(
     check_cmd = sub.add_parser("check", help="Run fmt/clippy/tests/build (and optional extras)")
     check_cmd.add_argument(
         "--profile",
-        choices=["ci", "prepush", "release", "maintainer-lint", "quick", "ai-guard"],
+        choices=["ci", "prepush", "release", "maintainer-lint", "quick", "fast", "ai-guard"],
     )
     check_cmd.add_argument("--ci", action="store_true", help="Match rust_ci.yml scope (alias for --profile ci)")
     check_cmd.add_argument(

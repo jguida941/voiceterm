@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+from datetime import date
 from pathlib import Path
 import sys
 from unittest import TestCase
@@ -227,3 +228,71 @@ class CheckCodeShapeGuidanceTests(TestCase):
             review_window_line_counts=[555, 560],
         )
         self.assertIsNone(violation)
+
+    def test_scan_rust_functions_reports_name_and_line_range(self) -> None:
+        source = "\n".join(
+            [
+                "fn alpha() {",
+                "    let _ = 1;",
+                "}",
+                "",
+                "fn beta() {",
+                "    let _ = 2;",
+                "    let _ = 3;",
+                "}",
+            ]
+        )
+        functions = self.script._scan_rust_functions(source)
+        self.assertEqual([item["name"] for item in functions], ["alpha", "beta"])
+        self.assertEqual(functions[0]["line_count"], 3)
+        self.assertEqual(functions[1]["line_count"], 4)
+
+    def test_should_skip_test_path_true_without_override_policy(self) -> None:
+        should_skip = self.script._should_skip_test_path(
+            Path("rust/src/bin/voiceterm/event_loop/tests.rs"),
+            "language_default:.rs",
+        )
+        self.assertTrue(should_skip)
+
+    def test_should_skip_test_path_false_with_path_override_policy(self) -> None:
+        should_skip = self.script._should_skip_test_path(
+            Path("rust/src/bin/voiceterm/event_loop/tests.rs"),
+            "path_override:rust/src/bin/voiceterm/event_loop/tests.rs",
+        )
+        self.assertFalse(should_skip)
+
+    def test_evaluate_function_shape_flags_oversized_function_without_exception(self) -> None:
+        source = "\n".join(
+            ["fn oversized() {"]
+            + ["    let _value = 1;"] * 8
+            + ["}"]
+        )
+        policy = self.script.FunctionShapePolicy(max_lines=5)
+        violations, exceptions_used = self.script._evaluate_function_shape(
+            path=Path("rust/src/bin/voiceterm/example.rs"),
+            policy=policy,
+            policy_source="function_path_override:rust/src/bin/voiceterm/example.rs",
+            text=source,
+            today=date(2026, 3, 4),
+        )
+        self.assertEqual(exceptions_used, 0)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0]["reason"], "function_exceeds_max_lines")
+        self.assertEqual(violations[0]["function_name"], "oversized")
+
+    def test_evaluate_function_shape_honors_active_exception_budget(self) -> None:
+        source = "\n".join(
+            ["pub(super) fn dispatch_message(&mut self) -> bool {"]
+            + ["    let _value = 1;"] * 250
+            + ["    true", "}"]
+        )
+        policy = self.script.FunctionShapePolicy(max_lines=220)
+        violations, exceptions_used = self.script._evaluate_function_shape(
+            path=Path("rust/src/bin/voiceterm/writer/state/dispatch.rs"),
+            policy=policy,
+            policy_source="function_path_override:rust/src/bin/voiceterm/writer/state/dispatch.rs",
+            text=source,
+            today=date(2026, 3, 4),
+        )
+        self.assertEqual(exceptions_used, 1)
+        self.assertEqual(violations, [])

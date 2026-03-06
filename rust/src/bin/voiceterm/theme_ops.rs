@@ -139,7 +139,7 @@ pub(crate) fn apply_theme_picker_index(
         terminal_cols,
         *overlay_mode,
         status_state.hud_style,
-        status_state.claude_prompt_suppressed,
+        status_state.prompt_suppressed,
     );
     true
 }
@@ -165,11 +165,13 @@ fn resolve_theme_choice(config: &OverlayConfig, requested: Theme) -> (Theme, Opt
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::with_terminal_color_env_overrides;
     use clap::Parser;
     use crossbeam_channel::bounded;
-    use std::sync::{Mutex, OnceLock};
 
-    static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
+    fn with_theme_env<T>(pairs: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
+        with_terminal_color_env_overrides(pairs, f)
+    }
 
     #[test]
     fn cycle_theme_moves_relative_to_current_option_order() {
@@ -185,170 +187,92 @@ mod tests {
 
     #[test]
     fn resolve_theme_choice_keeps_theme_on_256color() {
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let prev_colorterm = std::env::var("COLORTERM").ok();
-        let prev_term = std::env::var("TERM").ok();
-        let prev_no_color = std::env::var("NO_COLOR").ok();
-        let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-        let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-
-        std::env::remove_var("COLORTERM");
-        std::env::set_var("TERM", "xterm-256color");
-        std::env::remove_var("NO_COLOR");
-        std::env::remove_var("TERM_PROGRAM");
-        std::env::remove_var("TERMINAL_EMULATOR");
-
-        let config = OverlayConfig::parse_from(["test"]);
-        let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
-        assert_eq!(resolved, Theme::Dracula);
-        assert_eq!(note, None);
-
-        match prev_colorterm {
-            Some(v) => std::env::set_var("COLORTERM", v),
-            None => std::env::remove_var("COLORTERM"),
-        }
-        match prev_term {
-            Some(v) => std::env::set_var("TERM", v),
-            None => std::env::remove_var("TERM"),
-        }
-        match prev_no_color {
-            Some(v) => std::env::set_var("NO_COLOR", v),
-            None => std::env::remove_var("NO_COLOR"),
-        }
-        match prev_term_program {
-            Some(v) => std::env::set_var("TERM_PROGRAM", v),
-            None => std::env::remove_var("TERM_PROGRAM"),
-        }
-        match prev_terminal_emulator {
-            Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-            None => std::env::remove_var("TERMINAL_EMULATOR"),
-        }
+        with_theme_env(
+            &[
+                ("COLORTERM", None),
+                ("TERM", Some("xterm-256color")),
+                ("NO_COLOR", None),
+                ("TERM_PROGRAM", None),
+                ("TERMINAL_EMULATOR", None),
+            ],
+            || {
+                let config = OverlayConfig::parse_from(["test"]);
+                let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
+                assert_eq!(resolved, Theme::Dracula);
+                assert_eq!(note, None);
+            },
+        );
     }
 
     #[test]
     fn resolve_theme_choice_keeps_theme_on_truecolor() {
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let prev_colorterm = std::env::var("COLORTERM").ok();
-        let prev_term = std::env::var("TERM").ok();
-        let prev_no_color = std::env::var("NO_COLOR").ok();
-
-        std::env::set_var("COLORTERM", "truecolor");
-        std::env::set_var("TERM", "xterm-256color");
-        std::env::remove_var("NO_COLOR");
-
-        let config = OverlayConfig::parse_from(["test"]);
-        let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
-        assert_eq!(resolved, Theme::Dracula);
-        assert_eq!(note, None);
-
-        match prev_colorterm {
-            Some(v) => std::env::set_var("COLORTERM", v),
-            None => std::env::remove_var("COLORTERM"),
-        }
-        match prev_term {
-            Some(v) => std::env::set_var("TERM", v),
-            None => std::env::remove_var("TERM"),
-        }
-        match prev_no_color {
-            Some(v) => std::env::set_var("NO_COLOR", v),
-            None => std::env::remove_var("NO_COLOR"),
-        }
+        with_theme_env(
+            &[
+                ("COLORTERM", Some("truecolor")),
+                ("TERM", Some("xterm-256color")),
+                ("NO_COLOR", None),
+            ],
+            || {
+                let config = OverlayConfig::parse_from(["test"]);
+                let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
+                assert_eq!(resolved, Theme::Dracula);
+                assert_eq!(note, None);
+            },
+        );
     }
 
     #[test]
     fn resolve_theme_choice_falls_back_on_ansi16_term() {
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let prev_colorterm = std::env::var("COLORTERM").ok();
-        let prev_term = std::env::var("TERM").ok();
-        let prev_no_color = std::env::var("NO_COLOR").ok();
-        let prev_term_program = std::env::var("TERM_PROGRAM").ok();
-        let prev_terminal_emulator = std::env::var("TERMINAL_EMULATOR").ok();
-
-        std::env::remove_var("COLORTERM");
-        std::env::set_var("TERM", "xterm");
-        std::env::remove_var("NO_COLOR");
-        std::env::remove_var("TERM_PROGRAM");
-        std::env::remove_var("TERMINAL_EMULATOR");
-
-        let config = OverlayConfig::parse_from(["test"]);
-        let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
-        assert_eq!(resolved, Theme::Ansi);
-        assert_eq!(note, Some("ansi fallback"));
-
-        match prev_colorterm {
-            Some(v) => std::env::set_var("COLORTERM", v),
-            None => std::env::remove_var("COLORTERM"),
-        }
-        match prev_term {
-            Some(v) => std::env::set_var("TERM", v),
-            None => std::env::remove_var("TERM"),
-        }
-        match prev_no_color {
-            Some(v) => std::env::set_var("NO_COLOR", v),
-            None => std::env::remove_var("NO_COLOR"),
-        }
-        match prev_term_program {
-            Some(v) => std::env::set_var("TERM_PROGRAM", v),
-            None => std::env::remove_var("TERM_PROGRAM"),
-        }
-        match prev_terminal_emulator {
-            Some(v) => std::env::set_var("TERMINAL_EMULATOR", v),
-            None => std::env::remove_var("TERMINAL_EMULATOR"),
-        }
+        with_theme_env(
+            &[
+                ("COLORTERM", None),
+                ("TERM", Some("xterm")),
+                ("NO_COLOR", None),
+                ("TERM_PROGRAM", None),
+                ("TERMINAL_EMULATOR", None),
+            ],
+            || {
+                let config = OverlayConfig::parse_from(["test"]);
+                let (resolved, note) = resolve_theme_choice(&config, Theme::Dracula);
+                assert_eq!(resolved, Theme::Ansi);
+                assert_eq!(note, Some("ansi fallback"));
+            },
+        );
     }
 
     #[test]
     fn apply_theme_selection_reports_style_pack_lock() {
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let prev_style_pack = std::env::var("VOICETERM_STYLE_PACK_JSON").ok();
-        let prev_style_pack_opt_in = std::env::var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV").ok();
-        std::env::set_var(
-            "VOICETERM_STYLE_PACK_JSON",
-            r#"{"version":2,"profile":"ops","base_theme":"codex"}"#,
+        with_terminal_color_env_overrides(
+            &[
+                (
+                    "VOICETERM_STYLE_PACK_JSON",
+                    Some(r#"{"version":2,"profile":"ops","base_theme":"codex"}"#),
+                ),
+                ("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", Some("1")),
+            ],
+            || {
+                let mut config = OverlayConfig::parse_from(["test"]);
+                let (writer_tx, _writer_rx) = bounded(4);
+                let mut status_clear_deadline = None;
+                let mut current_status = None;
+                let mut status_state = StatusLineState::new();
+
+                let resolved = apply_theme_selection(
+                    &mut config,
+                    Theme::Dracula,
+                    &writer_tx,
+                    &mut status_clear_deadline,
+                    &mut current_status,
+                    &mut status_state,
+                );
+
+                assert_eq!(resolved, Theme::Codex);
+                assert_eq!(config.theme_name, None);
+                assert_eq!(
+                    current_status.as_deref(),
+                    Some("Theme locked by VOICETERM_STYLE_PACK_JSON (codex)")
+                );
+            },
         );
-        std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", "1");
-
-        let mut config = OverlayConfig::parse_from(["test"]);
-        let (writer_tx, _writer_rx) = bounded(4);
-        let mut status_clear_deadline = None;
-        let mut current_status = None;
-        let mut status_state = StatusLineState::new();
-
-        let resolved = apply_theme_selection(
-            &mut config,
-            Theme::Dracula,
-            &writer_tx,
-            &mut status_clear_deadline,
-            &mut current_status,
-            &mut status_state,
-        );
-
-        assert_eq!(resolved, Theme::Codex);
-        assert_eq!(config.theme_name, None);
-        assert_eq!(
-            current_status.as_deref(),
-            Some("Theme locked by VOICETERM_STYLE_PACK_JSON (codex)")
-        );
-
-        match prev_style_pack {
-            Some(v) => std::env::set_var("VOICETERM_STYLE_PACK_JSON", v),
-            None => std::env::remove_var("VOICETERM_STYLE_PACK_JSON"),
-        }
-        match prev_style_pack_opt_in {
-            Some(v) => std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", v),
-            None => std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV"),
-        }
     }
 }

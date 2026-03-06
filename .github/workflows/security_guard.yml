@@ -67,6 +67,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -100,10 +102,32 @@ jobs:
       - name: Run cargo deny policy gate
         run: cargo deny --manifest-path rust/Cargo.toml check advisories bans licenses sources
 
+      - name: Resolve AI-guard commit range
+        id: ai_guard_range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+            --event-name "${EVENT_NAME}" \
+            --push-before "${PUSH_BEFORE}" \
+            --push-head "${PUSH_HEAD}" \
+            --pr-base "${PR_BASE}" \
+            --pr-head "${PR_HEAD}" \
+            --changed-files-output /tmp/security-ai-guard-changed-files.txt \
+            --github-output "${GITHUB_OUTPUT}"
+
       - name: Run Rust audit-pattern guard
         run: |
+          set -euo pipefail
           python3 dev/scripts/devctl.py check \
             --profile ai-guard \
+            --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
+            --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
             --skip-fmt \
             --skip-clippy \
             --format json \
@@ -118,26 +142,14 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          SINCE_REF=""
-          HEAD_REF=""
-          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
-            SINCE_REF="${PR_BASE}"
-            HEAD_REF="${PR_HEAD}"
-          elif [[ "${EVENT_NAME}" == "push" ]]; then
-            SINCE_REF="${PUSH_BEFORE}"
-            HEAD_REF="${PUSH_HEAD}"
-          fi
-
-          if [[ "${SINCE_REF}" == "0000000000000000000000000000000000000000" ]]; then
-            SINCE_REF=""
-          fi
-
-          if [[ -n "${SINCE_REF}" ]]; then
-            echo "since_ref=${SINCE_REF}" >> "${GITHUB_OUTPUT}"
-          fi
-          if [[ -n "${HEAD_REF}" ]]; then
-            echo "head_ref=${HEAD_REF}" >> "${GITHUB_OUTPUT}"
-          fi
+          set -euo pipefail
+          python3 dev/scripts/workflow_shell_bridge.py resolve-security-scope \
+            --event-name "${EVENT_NAME}" \
+            --push-before "${PUSH_BEFORE}" \
+            --push-head "${PUSH_HEAD}" \
+            --pr-base "${PR_BASE}" \
+            --pr-head "${PR_HEAD}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Run core security tier
         env:
@@ -145,6 +157,7 @@ jobs:
           SINCE_REF: ${{ steps.py_scope.outputs.since_ref }}
           HEAD_REF: ${{ steps.py_scope.outputs.head_ref }}
         run: |
+          set -euo pipefail
           CMD=(
             python3 dev/scripts/devctl.py security
             --scanner-tier core \
@@ -188,6 +201,7 @@ jobs:
 
       - name: Run zizmor workflow security scan
         run: |
+          # intentional: error suppression for report-only zizmor mode
           set +e
           cargo install zizmor --locked
           INSTALL_RC=$?

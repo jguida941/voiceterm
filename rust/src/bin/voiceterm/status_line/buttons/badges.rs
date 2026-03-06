@@ -70,11 +70,13 @@ pub(super) fn rtf_latency_severity(rtf_x1000: u32) -> LatencySeverity {
 }
 
 fn latency_severity(state: &StatusLineState, latency: u32) -> LatencySeverity {
-    let absolute = absolute_latency_severity(latency);
+    // Prefer speech-relative severity when we have both STT and speech metrics.
+    // This keeps long utterances from being flagged as "bad" purely because the
+    // absolute millisecond count is larger for longer speech.
     state
         .last_latency_rtf_x1000
         .map(rtf_latency_severity)
-        .map_or(absolute, |relative| absolute.max(relative))
+        .unwrap_or_else(|| absolute_latency_severity(latency))
 }
 
 fn latency_badge_color<'a>(
@@ -87,6 +89,10 @@ fn latency_badge_color<'a>(
         LatencySeverity::Warning => colors.warning,
         LatencySeverity::Error => colors.error,
     }
+}
+
+fn format_rtf(rtf_x1000: u32) -> String {
+    format!("{:.2}x", rtf_x1000 as f32 / 1000.0)
 }
 
 pub(super) fn format_latency_badge(
@@ -105,6 +111,14 @@ pub(super) fn format_latency_badge(
         match state.latency_display {
             LatencyDisplayMode::Short => format!("{latency}ms"),
             LatencyDisplayMode::Label => format!("Latency: {latency}ms"),
+            LatencyDisplayMode::Rtf => state
+                .last_latency_rtf_x1000
+                .map(format_rtf)
+                .unwrap_or_else(|| format!("{latency}ms")),
+            LatencyDisplayMode::Both => match state.last_latency_rtf_x1000 {
+                Some(rtf_x1000) => format!("{latency}ms | {}", format_rtf(rtf_x1000)),
+                None => format!("{latency}ms"),
+            },
             LatencyDisplayMode::Off => return None,
         }
     } else {

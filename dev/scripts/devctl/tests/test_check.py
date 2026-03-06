@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import check
+from dev.scripts.devctl.commands import check_phases
 from dev.scripts.devctl.commands import check_profile
 from dev.scripts.devctl.commands import check_progress
 from dev.scripts.devctl.commands import check_steps
@@ -75,6 +76,38 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--profile", "ai-guard"])
         self.assertEqual(args.profile, "ai-guard")
+
+    def test_cli_accepts_fast_profile(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--profile", "fast"])
+        self.assertEqual(args.profile, "fast")
+
+    def test_fast_profile_matches_quick_preset(self) -> None:
+        quick_settings, _ = check_profile.resolve_profile_settings(make_args("quick"))
+        fast_settings, _ = check_profile.resolve_profile_settings(make_args("fast"))
+        self.assertEqual(fast_settings, quick_settings)
+
+    def test_fast_and_quick_profiles_keep_heavy_checks_disabled(self) -> None:
+        for profile in ("fast", "quick"):
+            settings, _ = check_profile.resolve_profile_settings(make_args(profile))
+            self.assertFalse(settings["with_perf"])
+            self.assertFalse(settings["with_mem_loop"])
+            self.assertFalse(settings["with_mutation_score"])
+            self.assertFalse(settings["with_wake_guard"])
+            self.assertFalse(settings["with_ci_release_gate"])
+
+    def test_prepush_and_release_profiles_keep_heavy_checks_enabled(self) -> None:
+        prepush_settings, _ = check_profile.resolve_profile_settings(make_args("prepush"))
+        release_settings, _ = check_profile.resolve_profile_settings(make_args("release"))
+
+        self.assertTrue(prepush_settings["with_perf"])
+        self.assertTrue(prepush_settings["with_mem_loop"])
+        self.assertFalse(prepush_settings["with_ci_release_gate"])
+
+        self.assertTrue(release_settings["with_mutation_score"])
+        self.assertTrue(release_settings["mutation_score_report_only"])
+        self.assertTrue(release_settings["with_wake_guard"])
+        self.assertTrue(release_settings["with_ci_release_gate"])
 
     def test_cli_accepts_no_process_sweep_cleanup_flag(self) -> None:
         parser = build_parser()
@@ -190,8 +223,8 @@ class CheckProfileTests(TestCase):
         self.assertEqual(wake_call["env"]["WAKE_WORD_SOAK_ROUNDS"], "7")
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
-    @patch("dev.scripts.devctl.commands.check.build_mutation_score_cmd")
-    @patch("dev.scripts.devctl.commands.check.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check_phases.build_mutation_score_cmd")
+    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_release_profile_enables_wake_guard_and_mutation_score(
         self,
@@ -233,19 +266,39 @@ class CheckProfileTests(TestCase):
         self.assertIn("coderabbit-release-gate", names)
         self.assertIn("coderabbit-ralph-release-gate", names)
         self.assertIn("code-shape-guard", names)
+        self.assertIn("duplicate-types-guard", names)
+        self.assertIn("structural-complexity-guard", names)
+        self.assertIn("rust-test-shape-guard", names)
+        self.assertIn("ide-provider-isolation-guard", names)
+        self.assertIn("compat-matrix-guard", names)
+        self.assertIn("compat-matrix-smoke-guard", names)
+        self.assertIn("naming-consistency-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+        release_gate_commands = check.build_release_gate_commands()
+        ci_status_call = next(call for call in calls if call["name"] == "ci-status-gate")
+        self.assertEqual(ci_status_call["cmd"], release_gate_commands[0])
+        mock_build_mutation_score_cmd.assert_called_once_with(
+            "/tmp/outcomes.json",
+            args.mutation_score_threshold,
+            args.mutation_score_max_age_hours,
+            args.mutation_score_warn_age_hours,
+            True,
+        )
         coderabbit_gate_call = next(call for call in calls if call["name"] == "coderabbit-release-gate")
         coderabbit_ralph_gate_call = next(
             call for call in calls if call["name"] == "coderabbit-ralph-release-gate"
         )
+        self.assertEqual(coderabbit_gate_call["cmd"], release_gate_commands[1])
+        self.assertEqual(coderabbit_ralph_gate_call["cmd"], release_gate_commands[2])
         self.assertEqual(coderabbit_gate_call["env"]["CI"], "1")
         self.assertEqual(coderabbit_ralph_gate_call["env"]["CI"], "1")
 
-    @patch("dev.scripts.devctl.commands.check.write_output")
-    @patch("dev.scripts.devctl.commands.check.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check_phases.write_output")
+    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_with_mutation_score_missing_outcomes_fails(
         self,
@@ -275,6 +328,52 @@ class CheckProfileTests(TestCase):
         self.assertIn("mutation outcomes.json not found", check_halt["error"])
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_phases.build_mutation_score_cmd")
+    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_release_profile_allows_missing_outcomes_in_report_only_mode(
+        self,
+        mock_build_env,
+        mock_resolve_outcomes,
+        mock_build_mutation_score_cmd,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        mock_resolve_outcomes.return_value = None
+        mock_build_mutation_score_cmd.return_value = [
+            "python3",
+            "dev/scripts/checks/check_mutation_score.py",
+            "--threshold",
+            "0.80",
+            "--report-only",
+        ]
+        calls = []
+
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
+            return {"name": name, "cmd": cmd, "cwd": str(cwd), "returncode": 0, "duration_s": 0.0, "skipped": False}
+
+        mock_run_cmd.side_effect = fake_run_cmd
+        args = make_args("release")
+        args.skip_fmt = True
+        args.skip_clippy = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        mock_build_mutation_score_cmd.assert_called_once_with(
+            None,
+            args.mutation_score_threshold,
+            args.mutation_score_max_age_hours,
+            args.mutation_score_warn_age_hours,
+            True,
+        )
+        names = [call["name"] for call in calls]
+        self.assertIn("mutation-score", names)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_prepush_profile_enables_ai_guard_steps(
         self,
@@ -300,8 +399,16 @@ class CheckProfileTests(TestCase):
 
         names = [call["name"] for call in calls]
         self.assertIn("code-shape-guard", names)
+        self.assertIn("duplicate-types-guard", names)
+        self.assertIn("structural-complexity-guard", names)
+        self.assertIn("rust-test-shape-guard", names)
+        self.assertIn("ide-provider-isolation-guard", names)
+        self.assertIn("compat-matrix-guard", names)
+        self.assertIn("compat-matrix-smoke-guard", names)
+        self.assertIn("naming-consistency-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
 
@@ -330,12 +437,20 @@ class CheckProfileTests(TestCase):
 
         names = [call["name"] for call in calls]
         self.assertIn("code-shape-guard", names)
+        self.assertIn("duplicate-types-guard", names)
+        self.assertIn("structural-complexity-guard", names)
+        self.assertIn("rust-test-shape-guard", names)
+        self.assertIn("ide-provider-isolation-guard", names)
+        self.assertIn("compat-matrix-guard", names)
+        self.assertIn("compat-matrix-smoke-guard", names)
+        self.assertIn("naming-consistency-guard", names)
         self.assertIn("rust-lint-debt-guard", names)
         self.assertIn("rust-best-practices-guard", names)
+        self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
 
-    @patch("dev.scripts.devctl.commands.check.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_phases.run_cmd")
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_ai_guard_failure_triggers_audit_scaffold_auto_generation(
@@ -415,25 +530,58 @@ class CheckProfileTests(TestCase):
         self.assertEqual(rc, 0)
 
         code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
+        duplicate_types_cmd = next(call["cmd"] for call in calls if call["name"] == "duplicate-types-guard")
+        structural_complexity_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "structural-complexity-guard"
+        )
+        rust_test_shape_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "rust-test-shape-guard"
+        )
         rust_lint_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-lint-debt-guard")
         rust_best_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-best-practices-guard")
+        rust_panic_policy_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "rust-runtime-panic-policy-guard"
+        )
         rust_audit_patterns_cmd = next(
             call["cmd"] for call in calls if call["name"] == "rust-audit-patterns-guard"
         )
         rust_footguns_cmd = next(call["cmd"] for call in calls if call["name"] == "rust-security-footguns-guard")
+        isolation_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "ide-provider-isolation-guard"
+        )
+        compat_matrix_cmd = next(call["cmd"] for call in calls if call["name"] == "compat-matrix-guard")
+        compat_matrix_smoke_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "compat-matrix-smoke-guard"
+        )
+        naming_consistency_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "naming-consistency-guard"
+        )
 
         self.assertIn("--since-ref", code_shape_cmd)
         self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn("--since-ref", duplicate_types_cmd)
+        self.assertIn("--head-ref", duplicate_types_cmd)
+        self.assertIn("--since-ref", structural_complexity_cmd)
+        self.assertIn("--head-ref", structural_complexity_cmd)
+        self.assertIn("--since-ref", rust_test_shape_cmd)
+        self.assertIn("--head-ref", rust_test_shape_cmd)
         self.assertIn("--since-ref", rust_lint_cmd)
         self.assertIn("--head-ref", rust_lint_cmd)
         self.assertIn("--since-ref", rust_best_cmd)
         self.assertIn("--head-ref", rust_best_cmd)
+        self.assertIn("--since-ref", rust_panic_policy_cmd)
+        self.assertIn("--head-ref", rust_panic_policy_cmd)
         self.assertIn("--since-ref", rust_footguns_cmd)
         self.assertIn("--head-ref", rust_footguns_cmd)
         self.assertIn("--since-ref", rust_audit_patterns_cmd)
         self.assertIn("--head-ref", rust_audit_patterns_cmd)
+        self.assertIn("--fail-on-violations", isolation_cmd)
+        self.assertNotIn("--since-ref", isolation_cmd)
+        self.assertNotIn("--since-ref", compat_matrix_cmd)
+        self.assertNotIn("--since-ref", compat_matrix_smoke_cmd)
+        self.assertNotIn("--since-ref", naming_consistency_cmd)
 
-    @patch("dev.scripts.devctl.commands.check.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_parallel_mode_uses_parallel_runner_for_setup_phase(
         self,
@@ -470,7 +618,7 @@ class CheckProfileTests(TestCase):
         self.assertEqual([spec["name"] for spec in step_specs], ["fmt-check", "clippy"])
         self.assertTrue(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
 
-    @patch("dev.scripts.devctl.commands.check.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_no_parallel_flag_uses_serial_runner(
         self,
@@ -505,6 +653,52 @@ class CheckProfileTests(TestCase):
         self.assertEqual(rc, 0)
         mock_run_step_specs.assert_called_once()
         self.assertFalse(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
+
+    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_clippy_high_signal_guard_runs_after_setup_batch(
+        self,
+        mock_build_env,
+        mock_run_step_specs,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        def fake_run_step_specs(step_specs, *, dry_run, parallel_enabled, max_workers):
+            calls.append(
+                {
+                    "names": [spec["name"] for spec in step_specs],
+                    "parallel_enabled": parallel_enabled,
+                    "max_workers": max_workers,
+                }
+            )
+            return [
+                {
+                    "name": spec["name"],
+                    "cmd": spec["cmd"],
+                    "cwd": str(spec["cwd"]),
+                    "returncode": 0,
+                    "duration_s": 0.0,
+                    "skipped": False,
+                }
+                for spec in step_specs
+            ]
+
+        mock_run_step_specs.side_effect = fake_run_step_specs
+        args = make_args("ci")
+        args.skip_fmt = True
+        args.skip_tests = True
+        args.skip_build = True
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[0]["parallel_enabled"])
+        self.assertIn("clippy", calls[0]["names"])
+        self.assertNotIn("clippy-high-signal-guard", calls[0]["names"])
+        self.assertFalse(calls[1]["parallel_enabled"])
+        self.assertEqual(calls[1]["names"], ["clippy-high-signal-guard"])
 
 
 class CheckProcessSweepTests(TestCase):
@@ -759,7 +953,24 @@ class CheckProgressFeedbackTests(TestCase):
             "with_mutation_score": False,
         }
         total = check_progress.count_quality_steps(args, settings)
-        self.assertEqual(total, 5)
+        self.assertEqual(total, len(check_progress.AI_GUARD_CHECKS))
+
+    def test_count_quality_steps_with_clippy_high_signal(self) -> None:
+        args = make_args("")
+        args.skip_fmt = True
+        settings = {
+            "skip_tests": True,
+            "skip_build": True,
+            "with_ai_guard": False,
+            "with_wake_guard": False,
+            "with_perf": False,
+            "with_mem_loop": False,
+            "with_mutants": False,
+            "with_mutation_score": False,
+            "with_clippy_high_signal": True,
+        }
+        total = check_progress.count_quality_steps(args, settings)
+        self.assertEqual(total, 2)
 
     def test_count_quality_steps_with_release_ci_gates(self) -> None:
         args = make_args("")

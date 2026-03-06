@@ -137,101 +137,10 @@ jobs:
           LOOP_COMMENT_PR_NUMBER: ${{ vars.RALPH_COMMENT_PR_NUMBER }}
           LOOP_FIX_COMMAND: ${{ vars.RALPH_LOOP_FIX_COMMAND }}
         run: |
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            BRANCH="${DISPATCH_BRANCH}"
-            MAX_ATTEMPTS="${DISPATCH_MAX_ATTEMPTS:-3}"
-            POLL_SECONDS="${DISPATCH_POLL_SECONDS:-20}"
-            TIMEOUT_SECONDS="${DISPATCH_TIMEOUT_SECONDS:-1800}"
-            EXECUTION_MODE="${DISPATCH_EXECUTION_MODE:-plan-then-fix}"
-            NOTIFY_MODE="${DISPATCH_NOTIFY_MODE:-summary-and-comment}"
-            COMMENT_TARGET="${DISPATCH_COMMENT_TARGET:-auto}"
-            COMMENT_PR_NUMBER="${DISPATCH_COMMENT_PR_NUMBER}"
-            SOURCE_EVENT="workflow_dispatch"
-            SOURCE_RUN_ID=""
-            SOURCE_RUN_SHA=""
-            FIX_COMMAND="${DISPATCH_FIX_COMMAND}"
-          else
-            BRANCH="${WORKFLOW_BRANCH}"
-            MAX_ATTEMPTS="${LOOP_MAX_ATTEMPTS:-3}"
-            POLL_SECONDS="${LOOP_POLL_SECONDS:-20}"
-            TIMEOUT_SECONDS="${LOOP_TIMEOUT_SECONDS:-1800}"
-            EXECUTION_MODE="${LOOP_EXECUTION_MODE:-plan-then-fix}"
-            NOTIFY_MODE="${LOOP_NOTIFY_MODE:-summary-and-comment}"
-            COMMENT_TARGET="${LOOP_COMMENT_TARGET:-auto}"
-            COMMENT_PR_NUMBER="${LOOP_COMMENT_PR_NUMBER}"
-            SOURCE_EVENT="workflow_run"
-            SOURCE_RUN_ID="${WORKFLOW_RUN_ID}"
-            SOURCE_RUN_SHA="${WORKFLOW_HEAD_SHA}"
-            FIX_COMMAND="${LOOP_FIX_COMMAND:-python3 dev/scripts/devctl.py check --profile ci}"
-          fi
-
-          if [[ -z "${BRANCH}" ]]; then
-            echo "Branch is required."
-            exit 1
-          fi
-          if [[ ! "${MAX_ATTEMPTS}" =~ ^[0-9]+$ || "${MAX_ATTEMPTS}" -lt 1 ]]; then
-            echo "Invalid max attempts: ${MAX_ATTEMPTS}"
-            exit 1
-          fi
-          if [[ ! "${POLL_SECONDS}" =~ ^[0-9]+$ || "${POLL_SECONDS}" -lt 5 ]]; then
-            echo "Invalid poll seconds: ${POLL_SECONDS}"
-            exit 1
-          fi
-          if [[ ! "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ || "${TIMEOUT_SECONDS}" -lt 60 ]]; then
-            echo "Invalid timeout seconds: ${TIMEOUT_SECONDS}"
-            exit 1
-          fi
-          case "${EXECUTION_MODE}" in
-            report-only|plan-then-fix|fix-only) ;;
-            *)
-              echo "Invalid execution mode: ${EXECUTION_MODE}"
-              exit 1
-              ;;
-          esac
-          case "${NOTIFY_MODE}" in
-            summary-only|summary-and-comment) ;;
-            *)
-              echo "Invalid notify mode: ${NOTIFY_MODE}"
-              exit 1
-              ;;
-          esac
-          case "${COMMENT_TARGET}" in
-            auto|pr|commit) ;;
-            *)
-              echo "Invalid comment target: ${COMMENT_TARGET}"
-              exit 1
-              ;;
-          esac
-          if [[ "${SOURCE_EVENT}" == "workflow_run" ]]; then
-            if [[ -z "${SOURCE_RUN_ID}" || ! "${SOURCE_RUN_ID}" =~ ^[0-9]+$ ]]; then
-              echo "workflow_run source requires numeric run id"
-              exit 1
-            fi
-            if [[ -z "${SOURCE_RUN_SHA}" ]]; then
-              echo "workflow_run source requires head sha"
-              exit 1
-            fi
-          fi
-
-          {
-            echo "branch=${BRANCH}"
-            echo "max_attempts=${MAX_ATTEMPTS}"
-            echo "poll_seconds=${POLL_SECONDS}"
-            echo "timeout_seconds=${TIMEOUT_SECONDS}"
-            echo "execution_mode=${EXECUTION_MODE}"
-            echo "notify_mode=${NOTIFY_MODE}"
-            echo "comment_target=${COMMENT_TARGET}"
-            echo "comment_pr_number=${COMMENT_PR_NUMBER}"
-            echo "source_event=${SOURCE_EVENT}"
-            echo "source_run_id=${SOURCE_RUN_ID}"
-            echo "source_run_sha=${SOURCE_RUN_SHA}"
-          } >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "fix_command<<EOF"
-            echo "${FIX_COMMAND}"
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+          python3 dev/scripts/autonomy_workflow_bridge.py resolve-ralph-config \
+            --event-name "${EVENT_NAME}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Run CodeRabbit Ralph loop
         env:
@@ -252,6 +161,7 @@ jobs:
           SOURCE_RUN_ID: ${{ steps.cfg.outputs.source_run_id }}
           SOURCE_RUN_SHA: ${{ steps.cfg.outputs.source_run_sha }}
         run: |
+          set -euo pipefail
           CMD=(
             python3 dev/scripts/devctl.py triage-loop
             --repo "${TARGET_REPO}"
@@ -294,6 +204,7 @@ jobs:
           SUMMARY_NOTIFY: ${{ steps.cfg.outputs.notify_mode }}
           SUMMARY_MAX_ATTEMPTS: ${{ steps.cfg.outputs.max_attempts }}
         run: |
+          set -euo pipefail
           echo "## CodeRabbit Ralph Loop" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "- branch: \`${SUMMARY_BRANCH}\`" >> "${GITHUB_STEP_SUMMARY}"

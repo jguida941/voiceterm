@@ -41,6 +41,7 @@ whisper_models/*.onnx
 !.github/badges/
 !.github/badges/*.json
 !dev/config/control_plane_policy.json
+!dev/config/mcp_tools_allowlist.json
 
 # IDE
 .idea/
@@ -111,6 +112,7 @@ Testing_Guide.md
 
 # Local runtime memory artifacts
 .voiceterm/memory/
+**/.voiceterm/memory/
 
 # Local scanner scratch artifacts (external tools)
 /cvelist
@@ -119,3 +121,6 @@ Testing_Guide.md
 /cvelist-our-html
 /cvelist.diff
 /orb.db/
+
+# Personal notes (local only)
+personal/

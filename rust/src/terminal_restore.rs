@@ -53,7 +53,10 @@ impl TerminalRestoreGuard {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Mouse-capture helper is kept for terminal feature parity paths still under staged rollout."
+    )]
     /// Enable mouse capture and track state for guaranteed restoration.
     ///
     /// # Errors

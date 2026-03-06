@@ -285,7 +285,7 @@ impl SettingsActionContext<'_> {
                 self.hud.terminal_cols,
                 self.hud.overlay_mode,
                 self.status.status_state.hud_style,
-                self.status.status_state.claude_prompt_suppressed,
+                self.status.status_state.prompt_suppressed,
             );
         }
     }
@@ -306,6 +306,8 @@ impl SettingsActionContext<'_> {
         const LATENCY_DISPLAY_OPTIONS: &[LatencyDisplayMode] = &[
             LatencyDisplayMode::Short,
             LatencyDisplayMode::Label,
+            LatencyDisplayMode::Rtf,
+            LatencyDisplayMode::Both,
             LatencyDisplayMode::Off,
         ];
         self.config.latency_display = cycle_option(
@@ -316,8 +318,10 @@ impl SettingsActionContext<'_> {
         self.status.status_state.latency_display = self.config.latency_display;
         let label = match self.config.latency_display {
             LatencyDisplayMode::Off => "Latency display: OFF",
-            LatencyDisplayMode::Short => "Latency display: Nms",
+            LatencyDisplayMode::Short => "Latency display: STT ms",
             LatencyDisplayMode::Label => "Latency display: Latency: Nms",
+            LatencyDisplayMode::Rtf => "Latency display: RTF (speech-normalized)",
+            LatencyDisplayMode::Both => "Latency display: STT ms + RTF",
         };
         self.set_transient_status(label, Duration::from_secs(2));
     }

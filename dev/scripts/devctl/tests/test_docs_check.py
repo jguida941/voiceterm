@@ -237,6 +237,18 @@ class DocsCheckCommandTests(unittest.TestCase):
         },
     )
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -261,6 +273,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -301,6 +316,18 @@ class DocsCheckCommandTests(unittest.TestCase):
         },
     )
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -325,6 +352,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -366,6 +396,18 @@ class DocsCheckCommandTests(unittest.TestCase):
         },
     )
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -390,6 +432,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -420,6 +465,18 @@ class DocsCheckCommandTests(unittest.TestCase):
             "mode": "check",
             "changed_paths": [],
         },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
     )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
@@ -446,6 +503,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -476,6 +536,18 @@ class DocsCheckCommandTests(unittest.TestCase):
             "mode": "check",
             "changed_paths": [],
         },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
     )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
@@ -512,6 +584,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         _mock_write_output,
@@ -544,6 +619,18 @@ class DocsCheckCommandTests(unittest.TestCase):
         },
     )
     @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
         "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
         return_value={"ok": True},
     )
@@ -568,6 +655,9 @@ class DocsCheckCommandTests(unittest.TestCase):
         _mock_path_audit,
         _mock_active_plan_sync,
         _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
         _mock_metadata_header,
         _mock_scan_deprecated,
         mock_write_output,
@@ -593,6 +683,250 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "Markdown metadata header gate failed" in reason
+                for reason in payload["failure_reasons"]
+            )
+        )
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={"ok": True, "mode": "check", "changed_paths": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={
+            "ok": False,
+            "violations": [
+                {
+                    "file": ".github/workflows/mutation-testing.yml",
+                    "line": 84,
+                    "rule": "find-pipe-head",
+                    "line_text": "OUTCOME_PATH=$(find mutants.out -name outcomes.json | head -n 1)",
+                }
+            ],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_workflow_shell_hygiene_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(payload["workflow_shell_hygiene_ok"])
+        self.assertTrue(
+            any(
+                "Workflow shell hygiene gate failed" in reason
+                for reason in payload["failure_reasons"]
+            )
+        )
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={"ok": True, "mode": "check", "changed_paths": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={
+            "ok": False,
+            "targets": [
+                {
+                    "bundle": "bundle.tooling",
+                    "workflow": ".github/workflows/tooling_control_plane.yml",
+                    "missing_commands": ["python3 dev/scripts/checks/check_naming_consistency.py"],
+                }
+            ],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_bundle_workflow_parity_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(payload["bundle_workflow_parity_ok"])
+        self.assertTrue(
+            any(
+                "Bundle/workflow parity gate failed" in reason
+                for reason in payload["failure_reasons"]
+            )
+        )
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={"ok": True, "mode": "check", "changed_paths": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": False, "changed": True, "diff_preview": ["@@ sample @@"]},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_fails_when_agents_bundle_render_fails(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_bundle_workflow_parity,
+        _mock_agents_bundle_render,
+        _mock_workflow_shell_hygiene,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {"changes": []}
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref=None,
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+        payload = json.loads(mock_write_output.call_args.args[0])
+        self.assertFalse(payload["agents_bundle_render_ok"])
+        self.assertTrue(
+            any(
+                "AGENTS bundle render gate failed" in reason
                 for reason in payload["failure_reasons"]
             )
         )

@@ -20,9 +20,12 @@ For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 For automation-first `devctl` routing and Ralph loop controls, see
 `dev/DEVCTL_AUTOGUIDE.md`.
+For MCP-as-adapter rules and extension policy, see
+`dev/MCP_DEVCTL_ALIGNMENT.md`.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
+Canonical command-bundle lists live in `dev/scripts/devctl/bundle_registry.py`.
 Check scripts now live under `dev/scripts/checks/`, with centralized path
 registry wiring in `dev/scripts/devctl/script_catalog.py`.
 
@@ -38,6 +41,15 @@ Engineering quality rule:
   - `https://rust-lang.github.io/rust-clippy/master/`
 - Capture references consulted in handoff notes for non-trivial changes.
 
+Python module naming convention:
+
+- `*_core.py` — business logic implementation (e.g. `coderabbit_gate_core.py`)
+- `*_render.py` — output formatting and display (e.g. `check_router_render.py`)
+- `*_parser.py` — CLI argument wiring and builders (e.g. `cli_parser_builders_checks.py`)
+- `*_support.py` — legacy suffix; prefer `_core.py` for new modules
+- `*_helpers.py` — legacy suffix; prefer `_core.py` for new modules
+- Test files: `test_*.py` in `devctl/tests/`, mirroring the module under test
+
 Documentation style rule:
 
 - Write docs in plain language first.
@@ -52,16 +64,21 @@ python3 dev/scripts/devctl.py check --profile ci
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py check --profile release
+python3 dev/scripts/devctl.py check --profile fast
 # `release` adds strict remote gates: `status --ci --require-ci` + CI-mode CodeRabbit/Ralph checks.
 # Optional: force sequential check execution (parallel phases are default)
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: disable automatic orphaned/stale test-process cleanup sweep
 python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
+# Optional: path-aware pre-push routing from changed files
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
 
 # Docs + governance checks
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/devctl.py hygiene
+# Optional: fail when hygiene emits warnings
+python3 dev/scripts/devctl.py hygiene --strict-warnings
 # Optional: automatically clear detected dev/scripts/**/__pycache__ dirs
 python3 dev/scripts/devctl.py hygiene --fix
 python3 dev/scripts/devctl.py path-audit
@@ -97,8 +114,7 @@ python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
 # CodeRabbit release gates (strict local verification mode).
-CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_markdown_metadata_header.py
@@ -106,15 +122,32 @@ python3 dev/scripts/checks/check_markdown_metadata_header.py
 python3 dev/scripts/checks/check_markdown_metadata_header.py --fix
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_duplicate_types.py
+python3 dev/scripts/checks/check_structural_complexity.py
+python3 dev/scripts/checks/check_workflow_shell_hygiene.py
+python3 dev/scripts/checks/check_workflow_action_pinning.py
+python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
+python3 dev/scripts/checks/check_compat_matrix.py
+python3 dev/scripts/checks/compat_matrix_smoke.py
+python3 dev/scripts/checks/check_naming_consistency.py
+python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 python3 dev/scripts/checks/check_rust_audit_patterns.py
 python3 dev/scripts/checks/check_rust_security_footguns.py
+python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd --format md
+# Offline fallback when jscpd cannot be installed in the current environment:
+python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd --allow-missing-tool --run-python-fallback --format md
+# Optional clippy lint histogram + high-signal baseline check
+python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json
+python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md
 rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA-F]{40}$"
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
@@ -152,17 +185,31 @@ python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomou
 python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --agents 10 --mode report-only --run-label swarm-guarded --format md --output /tmp/swarm-run.md --json-output /tmp/swarm-run.json
 # Optional continuous mode: keep cycling through checklist scope until failure/limit
 python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --continuous --continuous-max-cycles 10 --feedback-sizing --feedback-no-signal-rounds 2 --feedback-stall-rounds 2 --run-label swarm-continuous --format md --output /tmp/swarm-run-continuous.md --json-output /tmp/swarm-run-continuous.json
+# Workflow helper bridges used by CodeRabbit/autonomy workflows
+python3 dev/scripts/coderabbit_triage_bridge.py collect
+python3 dev/scripts/coderabbit_triage_bridge.py enforce
+python3 dev/scripts/autonomy_workflow_bridge.py export-controller --input-file /tmp/autonomy-controller.json --github-output "${GITHUB_OUTPUT}"
+python3 dev/scripts/autonomy_workflow_bridge.py export-swarm --input-file /tmp/swarm-run.json --github-output "${GITHUB_OUTPUT}"
+python3 dev/scripts/autonomy_workflow_bridge.py assert-swarm-ok --input-file /tmp/swarm-run.json
+python3 dev/scripts/autonomy_workflow_bridge.py resolve-controller-config --github-output "${GITHUB_OUTPUT}" --default-plan-id acp-poc-001 --default-mode report-only
+python3 dev/scripts/autonomy_workflow_bridge.py resolve-ralph-config --github-output "${GITHUB_OUTPUT}" --default-mode report-only
+python3 dev/scripts/autonomy_workflow_bridge.py resolve-swarm-config --github-output "${GITHUB_OUTPUT}" --default-mode report-only
+python3 dev/scripts/workflow_shell_bridge.py resolve-range --event-name push --push-before "$(git rev-parse HEAD~1)" --push-head "$(git rev-parse HEAD)" --changed-files-output /tmp/changed-files.txt --github-output /tmp/github-output.txt
 # CI note: `.github/workflows/coderabbit_triage.yml` enforces a blocking
 # medium/high severity gate for CodeRabbit findings, and `release_preflight.yml`
 # verifies that gate passed for the exact release commit. Publish workflows
-# (`publish_pypi`, `publish_homebrew`, `release_attestation`) also enforce
-# the same gate before distribution/attestation steps run.
+# (`publish_pypi`, `publish_homebrew`, `publish_release_binaries`,
+# `release_attestation`) also enforce the same gate before distribution
+# or attestation steps run.
 # Scorecard note: keep workflow-level permissions read-only and place
 # `id-token: write`/`security-events: write` at the scorecard job level so
 # OpenSSF `publish_results` verification passes.
 # Rust CI note: the dedicated MSRV lane in `.github/workflows/rust_ci.yml`
 # currently pins `1.88.0` to stay compatible with transitive `edition2024`
 # manifests in the active dependency graph.
+# Rust CI also enforces a high-signal Clippy lint baseline by parsing lint-code
+# histogram output from `collect_clippy_warnings.py` and running
+# `check_clippy_high_signal.py`.
 # Pinning note: keep GitHub-owned actions pinned to valid 40-character SHAs
 # (for example `actions/attest-build-provenance`, `github/codeql-action/upload-sarif`).
 # If your cihub binary doesn't support `triage`, devctl records an infra warning
@@ -193,6 +240,12 @@ DEVCTL_EXECUTION_SOURCE=script_only \
 python3 dev/scripts/devctl.py check --profile ci
 # Data-science snapshot (command telemetry + swarm/benchmark agent sizing stats)
 python3 dev/scripts/devctl.py data-science --format md --output /tmp/data-science-summary.md
+# Compatibility matrix governance bundle (schema + runtime smoke parity)
+python3 dev/scripts/devctl.py compat-matrix --format md
+# Optional read-only MCP adapter surface (additive to devctl, not replacement)
+python3 dev/scripts/devctl.py mcp --format md
+python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json
+python3 dev/scripts/devctl.py mcp --serve-stdio
 # Optional: gate cleanup against a scoped CI slice
 python3 dev/scripts/devctl.py failure-cleanup --require-green-ci --ci-branch develop --ci-event push --ci-workflow "Rust TUI CI" --dry-run
 # Optional: override the default cleanup root guard (still restricted to dev/reports/**)
@@ -206,6 +259,8 @@ python3 dev/scripts/devctl.py reports-cleanup --max-age-days 14 --keep-recent 5 
 python3 dev/scripts/devctl.py release-notes --version X.Y.Z
 
 # Coverage workflow (mirrors .github/workflows/coverage.yml)
+# Coverage runs on every push to develop/master (not only rust/src path changes)
+# so Codecov branch-head badges stay fresh after docs/tooling/CI-only commits.
 cd rust && cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 gh run list --workflow coverage.yml --limit 1
 
@@ -214,20 +269,22 @@ python3 dev/scripts/devctl.py release --version X.Y.Z
 # Optional: auto-prepare release metadata before tag/notes
 python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 
-# Workflow-first release path (recommended)
+# Workflow-first release convenience (only after same-SHA preflight is green)
+gh workflow run release_preflight.yml -f version=X.Y.Z
+gh run list --workflow release_preflight.yml --limit 1
+# gh run watch <run-id>
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 # Optional explicit gate check (same check used by ship --verify and release CI)
-CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
+CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh run list --workflow publish_release_binaries.yml --limit 1
 gh run list --workflow release_attestation.yml --limit 1
 
 # Optional: run release preflight workflow in CI before tagging
-gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
+gh workflow run release_preflight.yml -f version=X.Y.Z
 
 # External integrations (pinned vendor bridges for reusable patterns)
 bash dev/scripts/sync_external_integrations.sh --status-only
@@ -261,7 +318,7 @@ gh workflow run autonomy_run.yml -f plan_doc=dev/active/autonomous_control_plane
 # MUTATION_LOOP_POLL_SECONDS=20
 # MUTATION_LOOP_TIMEOUT_SECONDS=1800
 # MUTATION_LOOP_THRESHOLD=0.80
-# MUTATION_ENFORCE_THRESHOLD=true         # set true to hard-fail mutation-testing threshold gate
+# Mutation threshold is advisory/report-only in workflow defaults; keep local evidence fresh with `devctl mutation-score`.
 # MUTATION_LOOP_FIX_COMMAND='<allowlisted fix command that commits + pushes>'
 # MUTATION_NOTIFY_MODE=summary-only
 # MUTATION_COMMENT_TARGET=auto
@@ -289,8 +346,17 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode syncs formula URL/version/SHA, canonical `desc`, and rewrites legacy Cargo manifest paths from `libexec/src/Cargo.toml` to `libexec/rust/Cargo.toml`. |
 | `dev/scripts/mutants.py` | Mutation helper | Interactive module/shard helper with `--shard`, `--results-only`, and JSON hotspot output (includes outcomes source age metadata). |
 | `dev/scripts/mutants_plot.py` | Mutation plot helper | Shared hotspot plotting helpers imported by `mutants.py` (keeps CLI logic and plotting logic separated for shape governance). |
+| `dev/scripts/coderabbit_triage_bridge.py` | CodeRabbit triage workflow bridge | CLI entrypoint used by workflow steps (`collect`, `enforce`, `count`) to normalize findings and gate release behavior. |
+| `dev/scripts/coderabbit_triage_collect.py` | CodeRabbit triage collection helper | Fetches review/comment/check-run signals from GitHub API and emits normalized finding rows for the bridge entrypoint. |
+| `dev/scripts/coderabbit_triage_support.py` | CodeRabbit triage shared helpers | Shared categorization/severity parsing and repository/PR resolution helpers used by triage collection logic. |
+| `dev/scripts/collect_clippy_warnings.py` | Clippy summary helper | Runs `cargo clippy` in JSON mode, streams output, and emits warning/status/exit-code fields for CI badge and gate steps. |
+| `dev/scripts/dependency_graph_probe.py` | Dependency graph probe helper | Emits package/dep graph snapshots used by dependency-review and security-lane diagnostics. |
+| `dev/scripts/mutation_ralph_workflow_bridge.py` | Mutation Ralph workflow bridge helper | Consolidates mutation loop workflow output/export logic so CI YAML stays thin and deterministic. |
+| `dev/scripts/workflow_shell_bridge.py` | Workflow shell bridge helper | Consolidates deterministic commit-range/scope/artifact/path resolution logic so workflow YAML avoids fragile inline shell parsing. |
+| `dev/scripts/write_sha256_checksum.py` | Checksum helper | Writes `<artifact>.sha256` files in release-compatible format (`<hex>  <filename>`). |
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
+| `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS bundle render gate | Verifies AGENTS rendered command-bundle section matches canonical output from `dev/scripts/devctl/bundle_registry.py`; supports `--write` to regenerate the section. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
@@ -301,29 +367,51 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_cli_flags_parity.py` | CLI docs/schema parity gate | Compares clap long flags in Rust schema files against `guides/CLI_FLAGS.md`. |
 | `dev/scripts/checks/check_markdown_metadata_header.py` | Markdown metadata header style gate | Normalizes `Status`/`Last updated`/`Owner` doc metadata to one canonical line style. |
 | `dev/scripts/checks/check_screenshot_integrity.py` | Screenshot docs integrity gate | Validates markdown image references and reports stale screenshot age. |
-| `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits plus path-level hotspot budgets for active decomposition targets, flags stale loose path overrides when files stay below language soft limits for the configured review window, and emits audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
-| `dev/scripts/checks/check_ide_provider_isolation.py` | IDE/provider coupling audit | Reports mixed host/provider signal references outside allowlisted runtime hotspots; supports report-only and optional blocking mode. |
-| `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage or `unwrap/expect` call-sites. |
-| `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces lacking `# Safety` docs, or `std::mem::forget`/`mem::forget` usage. |
+| `dev/scripts/checks/check_code_shape.py` | Source-shape drift guard | Blocks new Rust/Python God-file growth using language-level soft/hard limits, path-level hotspot budgets, targeted function-length guardrails for dispatcher/pipeline files, stale loose path-override detection, and audit-first remediation guidance (modularize/consolidate before merge, with Python/Rust best-practice links). |
+| `dev/scripts/checks/check_duplicate_types.py` | Duplicate Rust type-name guard | Detects duplicate `struct`/`enum` names across Rust files (with explicit allowlist for known transitional duplicates) so new cross-file type-shadowing does not slip in. |
+| `dev/scripts/checks/check_structural_complexity.py` | Structural-complexity guard | Flags Rust functions whose structural complexity score (branch points + nesting) exceeds policy limits, with expiry-bound exceptions for active MP-346 transition hotspots. |
+| `dev/scripts/checks/check_workflow_shell_hygiene.py` | Workflow-shell anti-pattern guard | Blocks fragile inline shell patterns in workflow run blocks (single-match find/head chains, inline Python snippets) across `.yml`/`.yaml` workflows; supports auditable line-level suppressions via `workflow-shell-hygiene: allow=inline-python-c` (or `allow=all`) when a justified exception is required. |
+| `dev/scripts/checks/check_workflow_action_pinning.py` | Workflow action pinning guard | Fails when third-party `uses:` refs are not pinned to full 40-character SHAs (with optional auditable suppressions for justified exceptions). |
+| `dev/scripts/checks/check_bundle_workflow_parity.py` | Bundle/workflow parity guard | Verifies registry commands for `bundle.tooling` and `bundle.release` remain present in the owning CI workflows so policy bundles and workflow execution do not silently drift. |
+| `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` are composed through shared command groups instead of duplicated command lists. |
+| `dev/scripts/checks/check_ide_provider_isolation.py` | IDE/provider coupling audit | Blocks mixed host/provider executable statements outside explicit policy-owner allowlists (default blocking mode; optional `--report-only`). Scanner ignores import blocks and `#[cfg(test)]` sections so enforcement stays runtime-focused. |
+| `dev/scripts/checks/check_compat_matrix.py` | Compatibility matrix schema gate | Validates `dev/config/compat/ide_provider_matrix.yaml` required hosts/providers, per-cell coverage, duplicate/missing entries, and provider IPC-mode policy labels. |
+| `dev/scripts/checks/compat_matrix_smoke.py` | Compatibility matrix runtime smoke gate | Cross-checks matrix coverage against runtime host/provider enums (`runtime_compat`) plus IPC provider enum (`ipc/protocol`) and enforces explicit non-IPC labeling for runtime-visible non-IPC providers. |
+| `dev/scripts/checks/check_naming_consistency.py` | Host/provider naming consistency gate | Verifies host/provider IDs and provider-token labels stay aligned across runtime enums/registry, compatibility-matrix IDs, and tooling-owned token contracts (matrix policy, smoke policy map, and isolation scanner token regex). |
+| `dev/scripts/checks/check_repo_url_parity.py` | Repository URL parity guard | Verifies canonical repository URL consistency across Cargo/PyPI/docs metadata surfaces. |
+| `dev/scripts/checks/check_rust_test_shape.py` | Rust test-shape non-regression guard | Fails when changed Rust test files cross soft/hard size budgets or grow oversize hotspots beyond configured growth limits. |
+| `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage, `#[allow(dead_code)]` usage, `unwrap/expect` calls, `unwrap_unchecked/expect_unchecked` calls, or panic-macro paths; supports dead-code inventory/report output and optional policy flags (`--fail-on-undocumented-dead-code`, `--fail-on-any-dead-code`). |
+| `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces lacking `# Safety` docs, `unsafe impl` blocks missing nearby safety rationale, or `std::mem::forget`/`mem::forget` usage. |
+| `dev/scripts/checks/check_rust_runtime_panic_policy.py` | Runtime panic policy non-regression guard | Fails when changed non-test Rust files introduce net-new unallowlisted runtime `panic!` call-sites; allowlisted panic paths require nearby `panic-policy: allow reason=...` rationale comments. |
 | `dev/scripts/checks/check_rust_audit_patterns.py` | Rust audit regression guard | Scans runtime Rust sources under `rust/src` and fails when known critical audit anti-patterns reappear (UTF-8-unsafe prefix slicing, byte-limit truncation via `INPUT_MAX_CHARS`, single-pass `redacted.find(...)` secret redaction, deterministic timestamp-hash ID suffixes, and lossy `clamped * 32_768.0 as i16` VAD casts). |
-| `dev/scripts/checks/check_rust_security_footguns.py` | Rust security-footguns non-regression guard | Fails when changed non-test Rust files add risky AI-prone patterns (`todo!/unimplemented!/dbg!`, shell-style process spawns, permissive `0o777/0o666` modes, weak-crypto references like MD5/SHA1). |
+| `dev/scripts/checks/check_rust_security_footguns.py` | Rust security-footguns non-regression guard | Fails when changed non-test Rust files add risky AI-prone patterns (`todo!/unimplemented!/dbg!`, shell-style process spawns, permissive `0o777/0o666` modes, weak-crypto references like MD5/SHA1); `#[cfg(test)]` blocks are excluded from this runtime-focused scan. |
+| `dev/scripts/checks/check_duplication_audit.py` | Periodic duplication audit wrapper | Runs/reads `jscpd` JSON reports, enforces report freshness, optionally fails when duplication percentage crosses the configured threshold, and supports an explicit built-in fallback scanner (`--run-python-fallback`) when `jscpd` is unavailable in constrained environments. |
+| `dev/scripts/checks/check_duplication_audit_support.py` | Duplication-audit shared support helpers | Shared status derivation, markdown rendering, and optional Python fallback-scanner helpers used by `check_duplication_audit.py`; not invoked directly by command bundles. |
+| `dev/scripts/checks/check_test_coverage_parity.py` | Check-script test coverage parity guard | Flags check scripts that are missing corresponding unit tests under `dev/scripts/devctl/tests/`. |
+| `dev/scripts/checks/check_clippy_high_signal.py` | Clippy high-signal lint baseline guard | Compares observed lint histogram JSON against `dev/config/clippy/high_signal_lints.json` and fails on baseline growth for tracked lints. |
 | `dev/scripts/render_ci_badge.py` | CI badge endpoint JSON renderer | Updates `.github/badges/ci-status.json` with pass/fail color state. |
+| `dev/scripts/render_clippy_badge.py` | Clippy warning badge endpoint JSON renderer | Updates `.github/badges/clippy-warnings.json` with warning-count state. |
 | `dev/scripts/render_mutation_badge.py` | Mutation badge endpoint JSON renderer | Updates `.github/badges/mutation-score.json`. |
 | `dev/scripts/checks/check_rustsec_policy.py` | RustSec policy gate | Enforces advisory thresholds. |
 
 ## Devctl Command Set
 
-- `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `ai-guard`)
+- `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `fast`, `ai-guard`)
   - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
   - Tune parallelism with `--parallel-workers <n>` or force sequential execution with `--no-parallel`.
   - Runs an automatic orphaned/stale test-process sweep before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
   - Disable only when needed with `--no-process-sweep-cleanup`.
-  - `release` profile includes wake-word regression/soak guardrails, mutation-score gating, and strict remote release gates (`status --ci --require-ci`, CodeRabbit, Ralph).
+  - AI guard pack includes shape, duplicate type detection, structural complexity, Rust test-shape, IDE/provider isolation, compat matrix schema/smoke, naming consistency, Rust lint debt, Rust best practices, runtime panic policy, Rust audit patterns, and Rust security footguns.
+  - `release` profile includes wake-word regression/soak guardrails, non-blocking mutation-score reporting (`--report-only` reminders), and strict remote release gates (`status --ci --require-ci`, CodeRabbit, Ralph).
   - Structured `check` report timestamps are UTC for consistent CI/local correlation.
+- `check-router`: path-aware lane selector for `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`
+  - Uses changed files (working tree or `--since-ref/--head-ref`) to choose lane.
+  - Reports required runtime risk add-ons and selection rationale.
+  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; unknown paths escalate to the stricter tooling lane.
 - `mutants`: mutation test helper wrapper
-- `mutation-score`: threshold gate for outcomes with freshness reporting and optional stale-data fail gate (`--max-age-hours`)
-- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + stale-path audit)
-- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); includes automatic report-retention drift warnings for stale `dev/reports/**` run artifacts; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
+- `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
+- `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + bundle/workflow parity + stale-path audit)
+- `hygiene`: archive/ADR/scripts governance checks plus orphaned/stale `target/debug/deps/voiceterm-*` test-process detection (stale active threshold: `>=600s`); ADR checks include numbering-gap governance (`Retired ADR IDs`, `Reserved ADR IDs`), `next:` pointer validation, active backlog parity checks between `MASTER_PLAN` and `autonomous_control_plane`, and stale ADR reference-pattern detection (hard-coded ADR counts/ranges) in long-lived governance docs; includes automatic report-retention drift warnings for stale `dev/reports/**` run artifacts; `--strict-warnings` promotes all warnings to failures (used by CI governance/release lanes); optional `--fix` removes detected `dev/scripts/**/__pycache__` directories and re-audits scripts hygiene
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
@@ -332,14 +420,17 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `cihub-setup`: allowlisted CIHub repo-setup helper (`detect/init/update/validate`) with capability probing, preview/apply modes, and strict unsupported-step gating
 - `security`: RustSec policy checks plus optional workflow/code-scanning security scans (`--with-zizmor`, `--with-codeql-alerts`) and Python-scope selection (`--python-scope auto|changed|all`)
 - `release`: tag + notes flow (legacy release behavior)
+- `release-gates`: shared release-gate helper (`check_coderabbit_gate` for triage + preflight workflows, plus `check_coderabbit_ralph_gate`) with common wait/poll defaults
 - `release-notes`: git-diff driven markdown notes generation
-- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` now includes both CodeRabbit gates (`check_coderabbit_gate` + `check_coderabbit_ralph_gate`) and version reads from TOML roots (`[package]`/`[project]`) with Python 3.10-compatible fallback parsing
+- `ship`: full release/distribution orchestrator with step toggles and optional metadata prep (`--prepare-release`); `--verify` includes release-gate verification (CodeRabbit triage + Ralph) and version reads from TOML roots (`[package]`/`[project]`) with Python 3.10-compatible fallback parsing
 - `homebrew`: Homebrew tap update flow (URL/version/SHA + canonical formula `desc` sync + legacy Cargo manifest path rewrite to `libexec/rust/Cargo.toml`)
 - `pypi`: PyPI build/check/upload flow
 - `orchestrate-status`: one-shot orchestrator accountability view (active-plan sync + multi-agent sync guard status with git context)
 - `orchestrate-watch`: SLA watchdog for stale lane updates and overdue instruction ACKs
 - `status` and `report`: machine-readable project status outputs (optional guarded Dev Mode session summaries via `--dev-logs`, `--dev-root`, and `--dev-sessions-limit`)
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/`, and supports local source/output overrides for experiments
+- `compat-matrix`: compatibility governance bundle wrapper that runs matrix schema validation (`check_compat_matrix.py`) plus runtime enum smoke parity (`compat_matrix_smoke.py`); use `--no-smoke` for schema-only checks
+- `mcp`: optional read-only MCP adapter for `devctl` surfaces (allowlisted tools/resources + stdio JSON-RPC transport); enforcement authority remains in `devctl` command contracts
 - `triage`: combined human/AI triage output with optional `cihub triage` artifact ingestion, optional external issue-file ingestion (`--external-issues-file` for CodeRabbit/custom bot payloads), and bundle emission (`<prefix>.md`, `<prefix>.ai.json`); extracts priority/triage records into normalized issue routing fields (`category`, `severity`, `owner`), supports optional category-owner overrides via `--owner-map-file`, emits rollups for severity/category/owner counts, and stamps reports with UTC timestamps
 - `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), policy-gated fix execution (`AUTONOMY_MODE=operate`, branch allowlist, command-prefix allowlist), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), automatic review-escalation comment upserts when max attempts are exhausted with unresolved backlog, attempt-level reporting, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
@@ -359,10 +450,16 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 
 | Command | Run it when | Why |
 |---|---|---|
+| `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; local-only lane and not a substitute for pre-push validation |
+| `check-router --since-ref origin/develop --execute` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons and executes the routed command set from `bundle_registry.py` (unknown paths escalate to tooling) |
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
+| `check --profile prepush` | runtime changes touch perf/latency/parser/wake-word/memory-sensitive paths | adds perf + memory-heavy validation before CI catches it |
+| `check --profile maintainer-lint` | you are doing focused lint/debt cleanup | runs stricter maintainer lint policy without full runtime build/test loop |
+| `check --profile quick` | you need a fast local sanity pass while iterating | runs minimal fmt/clippy checks for quick feedback |
 | `data-science --format md` | you want a fresh productivity/agent-sizing snapshot from current telemetry | builds `summary.{md,json}` + charts from devctl events and swarm/benchmark history |
-| `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local release checks |
-| `check --profile ai-guard` | after touching larger Rust/Python files | catches shape/lint-debt/best-practice drift |
+| `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates plus non-blocking mutation-score reminders on top of local release checks |
+| `mcp --tool release_contract_snapshot --format json` | an MCP client needs a read-only control-plane contract view | exposes allowlisted, read-only snapshots without changing `devctl` as enforcement authority |
+| `check --profile ai-guard` | after touching larger Rust/Python files or guard-owned governance files | runs the full AI guard pack without full test/build cycle for focused cleanup |
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance and active-plan sync |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
@@ -381,6 +478,27 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `autonomy-swarm --question \"<scope>\" --prompt-tokens <n> --token-budget <n>` | you want adaptive multi-agent autonomy execution | computes recommended agent count from metadata + budget, reserves one default reviewer lane (`AGENT-REVIEW`) when possible, runs bounded loops, writes one swarm summary bundle, then auto-runs a post-audit digest bundle (unless `--no-post-audit`) |
 | `audit-scaffold` | AI-guard/tooling guards failed | creates one shared fix list file |
 | `failure-cleanup --dry-run` | CI is green and you want to clean old failure artifacts | safely previews/removes stale failure bundles |
+
+### AI guard pack details
+
+`check --profile ai-guard` currently runs:
+
+1. `check_code_shape.py`
+2. `check_duplicate_types.py`
+3. `check_structural_complexity.py`
+4. `check_rust_test_shape.py`
+5. `check_ide_provider_isolation.py --fail-on-violations`
+6. `check_compat_matrix.py`
+7. `compat_matrix_smoke.py`
+8. `check_naming_consistency.py`
+9. `check_rust_lint_debt.py`
+10. `check_rust_best_practices.py`
+11. `check_rust_runtime_panic_policy.py`
+12. `check_rust_audit_patterns.py`
+13. `check_rust_security_footguns.py`
+
+Use this profile for fast guard-focused iteration; run your target full profile
+(`ci`, `prepush`, or `release`) before pushing.
 
 ## `audit-scaffold` in plain language
 
@@ -418,6 +536,8 @@ What you should expect:
 `devctl` keeps shared behavior in a few helper modules so command output stays
 consistent:
 
+- `dev/scripts/pyproject.toml`: local Python tooling configuration (ruff/mypy)
+  for `dev/scripts/**` sources.
 - `dev/scripts/devctl/process_sweep.py`: shared process parsing/cleanup logic
   used by both `check` and `hygiene`.
 - `dev/scripts/devctl/security_parser.py`: shared CLI parser wiring for the
@@ -503,6 +623,8 @@ consistent:
   builder plus serial/parallel execution helpers with stable result ordering.
 - `dev/scripts/devctl/status_report.py`: shared payload collection and markdown
   rendering used by both `status` and `report`.
+- `dev/scripts/devctl/commands/mcp.py`: optional read-only MCP adapter command
+  that exposes allowlisted `devctl` snapshots and stdio JSON-RPC transport.
 - `dev/scripts/devctl/triage_support.py`: shared triage classification,
   artifact-ingestion, markdown rendering, and bundle writers used by
   `dev/scripts/devctl/commands/triage.py`.
@@ -556,8 +678,9 @@ consistent:
   with protected paths, dry-run preview, and confirmation-safe deletion flow.
 - `dev/scripts/devctl/commands/audit_scaffold.py`: guard-driven remediation
   scaffold generator for Rust modularity/pattern drift; aggregates JSON outputs
-  from `check_code_shape.py`, `check_rust_lint_debt.py`,
-  `check_rust_best_practices.py`, `check_rust_audit_patterns.py`, and
+  from `check_code_shape.py`, `check_rust_test_shape.py`,
+  `check_rust_lint_debt.py`, `check_rust_best_practices.py`,
+  `check_rust_runtime_panic_policy.py`, `check_rust_audit_patterns.py`, and
   `check_rust_security_footguns.py` into one active markdown execution surface.
 - `dev/scripts/devctl/collect.py`: shared git/CI collection helpers with
   compatibility fallback for older `gh run list --json` field support.
@@ -587,31 +710,34 @@ Markdown lint policy files live under `dev/config/`:
 ```bash
 # 1) align release versions across Cargo/PyPI/macOS app plist + changelog
 python3 dev/scripts/checks/check_release_version_parity.py
-CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 # Optional: auto-prepare these files in one step
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release
 
-# 2) create tag + notes
+# 2) run release preflight for the exact version (publish workflows require this same-SHA gate)
+gh workflow run release_preflight.yml -f version=X.Y.Z
+# Optional: wait for the preflight run to complete before continuing
+# gh run watch <run-id>
+
+# 3) verify same-SHA release gates (preflight + triage + ralph)
+CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
+
+# 4) create tag + notes
 python3 dev/scripts/devctl.py release --version X.Y.Z
 
-# 3) run release preflight for the exact version (publish workflows require this same-SHA gate)
-gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
-
-# 4) publish GitHub release (triggers publish_pypi.yml + publish_homebrew.yml + publish_release_binaries.yml + release_attestation.yml)
+# 5) publish GitHub release (triggers publish_pypi.yml + publish_homebrew.yml + publish_release_binaries.yml + release_attestation.yml)
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/voiceterm-release-vX.Y.Z.md
 
-# 5) monitor publish workflows
+# 6) monitor publish workflows
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
 gh run list --workflow publish_release_binaries.yml --limit 1
 gh run list --workflow release_attestation.yml --limit 1
 # gh run watch <run-id>
 
-# 6) verify published package
+# 7) verify published package
 curl -fsSL https://pypi.org/pypi/voiceterm/X.Y.Z/json | rg '"version"'
 
-# 6) fallback Homebrew update (if workflow path is unavailable)
+# 8) fallback Homebrew update (if workflow path is unavailable)
 python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 ```
 
@@ -646,6 +772,7 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebr
 | `dev/scripts/tests/measure_latency.sh` | Latency profiling + CI guardrails |
 | `dev/scripts/tests/compare_python_rust_voice_latency.sh` | Interactive Rust-native vs Python-fallback voice-latency comparison |
 | `dev/scripts/tests/compare_python_rust_stt_strict.sh` | Strict STT-only benchmark on one shared WAV clip (same model, Rust vs Python) |
+| `dev/scripts/tests/audit_latency_math.py` | Validates `latency_audit` log math + badge rendering consistency |
 | `dev/scripts/tests/integration_test.sh` | IPC integration testing |
 | `dev/scripts/tests/wake_word_guard.sh` | Wake-word regression + soak guardrails |
 
@@ -660,6 +787,8 @@ dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --auto-install-
 dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3 --secs 3 --tail-ms 1500 --max-capture-ms 45000
 # Strict same-audio/same-model STT benchmark
 dev/scripts/tests/compare_python_rust_stt_strict.sh --count 3 --secs 3 --whisper-model base.en
+# Verify HUD/log latency math consistency from collected logs
+python3 dev/scripts/tests/audit_latency_math.py --log-path "${TMPDIR:-/tmp}/voiceterm_tui.log"
 ```
 
 Workspace-path note:

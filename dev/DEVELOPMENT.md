@@ -37,6 +37,7 @@ Use docs like this:
 - **`AGENTS.md`** -- which workflow to follow (read this first).
 - **`dev/DEVELOPMENT.md`** (this file) -- exact commands and check steps.
 - **`dev/scripts/README.md`** -- `devctl` and release command reference.
+- **`dev/MCP_DEVCTL_ALIGNMENT.md`** -- MCP adapter policy and extension rules.
 - **`.github/workflows/README.md`** -- what each GitHub workflow does.
 - **`dev/active/INDEX.md`** -- active plan docs and when to read each one.
 - **`dev/active/MASTER_PLAN.md`** -- source of truth for current work.
@@ -125,7 +126,7 @@ Latency guard note:
 | Continuous data-science telemetry snapshots (command productivity + lane-size recommendation) | `python3 dev/scripts/devctl.py data-science --format md` (auto-refresh also runs after every devctl command unless disabled) | `tooling_control_plane.yml` (tooling/docs governance checks) |
 | Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
 | Federated repo links/import workflow (your other repos) | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
-| Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` | `tooling_control_plane.yml` |
+| Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` + `python3 dev/scripts/checks/check_agents_bundle_render.py` | `tooling_control_plane.yml` |
 | Active plan/index/spec sync | `python3 dev/scripts/checks/check_active_plan_sync.py` | `tooling_control_plane.yml` |
 
 ## Ralph/Wiggum Loop Model
@@ -164,8 +165,19 @@ Why this model is safe:
 | CLI docs vs clap schema | `python3 dev/scripts/checks/check_cli_flags_parity.py` | `tooling_control_plane.yml` |
 | Screenshot links/staleness | `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` | `tooling_control_plane.yml` |
 | Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` (`check_code_shape.py` also audits stale loose path overrides via review-window policy) |
-| Rust lint-debt growth (`#[allow]`, `unwrap/expect`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `tooling_control_plane.yml` |
-| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `mem::forget`) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
+| Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
+| AGENTS rendered bundle reference drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` (`--write` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| Host/provider naming contract drift | `python3 dev/scripts/checks/check_naming_consistency.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
+| Host/provider compatibility matrix drift | `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
+| MCP allowlist/contract drift for read-only adapter surface | `python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json` + `python3 -m unittest dev.scripts.devctl.tests.test_mcp` | `tooling_control_plane.yml` (unit test lane) |
+| Rust test-file shape drift (`*tests.rs` growth) | `python3 dev/scripts/checks/check_rust_test_shape.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
+| Rust lint-debt growth (`#[allow]`, `#[allow(dead_code)]`, `unwrap/expect`, unchecked unwrap/expect, `panic!`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `tooling_control_plane.yml` |
+| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `unsafe impl` safety rationale, `mem::forget`) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
+| Rust runtime panic policy drift (new unallowlisted runtime `panic!`) | `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
+| Rust audit anti-pattern regressions | `python3 dev/scripts/checks/check_rust_audit_patterns.py` | `security_guard.yml` + `tooling_control_plane.yml` |
+| Rust security footgun regressions (`todo!/dbg!/unimplemented!`, shell spawns, weak crypto, permissive modes) | `python3 dev/scripts/checks/check_rust_security_footguns.py` | `tooling_control_plane.yml` |
+| High-signal Clippy lint baseline drift | `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json && python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | `rust_ci.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
 Workflow permissions note:
@@ -176,10 +188,11 @@ Workflow permissions note:
 ### Normal work (features, fixes, docs)
 
 1. Branch from `develop` (`feature/<topic>` or `fix/<topic>`).
-2. Run the matching bundle (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
-3. Fix any failures, then commit and push.
-4. Merge to `develop` only after review and green checks.
-5. Run `bundle.post-push`.
+2. Prefer `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` to auto-select the required lane and risk add-ons from changed paths.
+3. If you are not using `check-router`, run the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`).
+4. Fix any failures, then commit and push.
+5. Merge to `develop` only after review and green checks.
+6. Run `bundle.post-push`.
 
 ### Release/tag/publish work
 
@@ -215,7 +228,9 @@ flowchart TD
   N --> O[Run post-push audit]
 ```
 
-`AGENTS.md` stays the source of truth for exact bundle contents and branch policy.
+`AGENTS.md` stays the source of truth for policy/branch workflow.
+`dev/scripts/devctl/bundle_registry.py` is the source of truth for exact bundle
+command lists.
 
 ## Project structure
 
@@ -368,14 +383,20 @@ python3 dev/scripts/devctl.py check --profile prepush
 # Maintainer lint-hardening lane (strict clippy policy subset)
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 
-# AI guard lane (code-shape + lint-debt + Rust best-practices guards)
+# AI guard lane (shape/isolation/matrix/naming + Rust quality/security guards)
 python3 dev/scripts/devctl.py check --profile ai-guard
 
-# Release verification lane (wake guard + mutation score + strict remote CI/CodeRabbit gates)
+# Release verification lane (wake guard + non-blocking mutation-score reminders + strict remote CI/CodeRabbit gates)
 python3 dev/scripts/devctl.py check --profile release
 
-# Quick scope (fmt-check + clippy only)
+# Fast local iteration lane (alias of quick; local-only and never a pre-push/release replacement)
+python3 dev/scripts/devctl.py check --profile fast
+
+# Quick scope (fmt-check + clippy only; keep heavy checks in prepush/release lanes)
 python3 dev/scripts/devctl.py check --profile quick
+
+# Path-aware pre-push router (select lane + risk add-ons from changed paths)
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
 
 # Mutants wrapper (offline cache)
 python3 dev/scripts/devctl.py mutants --module overlay --offline \
@@ -398,6 +419,8 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 
 # Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
 python3 dev/scripts/devctl.py hygiene
+# Optional: promote hygiene warnings to failures (CI governance/release default)
+python3 dev/scripts/devctl.py hygiene --strict-warnings
 # Optional: remove detected dev/scripts/**/__pycache__ dirs after local test runs
 python3 dev/scripts/devctl.py hygiene --fix
 # Report-retention cleanup flow (run when hygiene warns about stale/heavy reports)
@@ -420,6 +443,7 @@ python3 dev/scripts/devctl.py security --with-zizmor --require-optional-tools
 
 # AGENTS + active-plan contract + release parity guards
 python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
 
@@ -432,24 +456,43 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 # Source-shape guard (blocks new Rust/Python God-file growth)
 python3 dev/scripts/checks/check_code_shape.py
 
+# Rust test-file shape non-regression guard
+python3 dev/scripts/checks/check_rust_test_shape.py
+
 # Rust lint-debt non-regression guard (changed-file growth only)
 python3 dev/scripts/checks/check_rust_lint_debt.py
 
 # Rust best-practices non-regression guard (changed-file growth only)
 python3 dev/scripts/checks/check_rust_best_practices.py
 
+# Runtime panic policy non-regression guard (changed-file growth only)
+python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
+
+# Rust audit anti-pattern regression guard (runtime source scan)
+python3 dev/scripts/checks/check_rust_audit_patterns.py
+
+# Rust security-footguns non-regression guard (runtime-focused changed-file growth only)
+python3 dev/scripts/checks/check_rust_security_footguns.py
+
+# Optional clippy high-signal baseline check
+python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json
+python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md
+
 # Release/distribution control plane
+# Run same-SHA preflight first
+gh workflow run release_preflight.yml -f version=X.Y.Z
+# Then run aggregated release gates (triage + preflight + ralph)
+CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
 python3 dev/scripts/devctl.py release --version X.Y.Z
 # Optional metadata prep (Cargo/PyPI/app plist/changelog)
 python3 dev/scripts/devctl.py release --version X.Y.Z --prepare-release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
-CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
-gh workflow run release_preflight.yml -f version=X.Y.Z -f verify_docs=true
+gh run list --workflow publish_release_binaries.yml --limit 1
+gh run list --workflow release_attestation.yml --limit 1
 gh workflow run publish_homebrew.yml -f version=X.Y.Z -f release_branch=master
 gh workflow run coderabbit_ralph_loop.yml -f branch=develop -f max_attempts=3 -f execution_mode=plan-then-fix
 gh workflow run mutation_ralph_loop.yml -f branch=develop -f execution_mode=report-only -f threshold=0.80
@@ -529,16 +572,19 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`), and warns when managed `dev/reports/**` artifacts become stale/heavy; `--fix` also removes detected `dev/scripts/**/__pycache__` directories.
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`), and warns when managed `dev/reports/**` artifacts become stale/heavy; `--strict-warnings` promotes warnings to failures (used in CI governance/release lanes), and `--fix` removes detected `dev/scripts/**/__pycache__` directories.
 - `python3 dev/scripts/devctl.py reports-cleanup --dry-run` previews retention cleanup candidates when hygiene warns on report drift.
 - `python3 dev/scripts/checks/check_agents_contract.py`
+- `python3 dev/scripts/checks/check_agents_bundle_render.py`
 - `python3 dev/scripts/checks/check_active_plan_sync.py`
 - `python3 dev/scripts/checks/check_release_version_parity.py`
 - `python3 dev/scripts/checks/check_cli_flags_parity.py`
 - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`
 - `python3 dev/scripts/checks/check_code_shape.py`
+- `python3 dev/scripts/checks/check_rust_test_shape.py`
 - `python3 dev/scripts/checks/check_rust_lint_debt.py`
 - `python3 dev/scripts/checks/check_rust_best_practices.py`
+- `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
 
 ### Documentation decisions
 
@@ -599,9 +645,16 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_cli_flags_parity.py` keeps clap long flags and `guides/CLI_FLAGS.md` synchronized.
 - `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` verifies image references and reports stale screenshots.
 - `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
-- `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes and non-test `unwrap/expect` call-sites in changed Rust files.
-- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, and `std::mem::forget`/`mem::forget` usage in changed Rust files.
-- `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change and enforces markdown metadata-header normalization (`Status`/`Last updated`/`Owner`).
+- `python3 dev/scripts/checks/check_rust_test_shape.py` blocks non-regressive growth of oversized Rust test hotspots (`tests.rs`, `tests/**`) with path-specific budgets for known large suites.
+- `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes (including `#[allow(dead_code)]`), non-test `unwrap/expect`, `unwrap_unchecked/expect_unchecked`, and `panic!` call-sites in changed Rust files; use `--report-dead-code` to inventory instances and `--fail-on-undocumented-dead-code` / `--fail-on-any-dead-code` for stricter policy modes.
+- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, and `std::mem::forget`/`mem::forget` usage in changed Rust files.
+- `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` blocks non-regressive growth of unallowlisted runtime `panic!` call-sites unless nearby rationale comments (`panic-policy: allow reason=...`) are present.
+- `python3 dev/scripts/checks/check_rust_audit_patterns.py` blocks reintroduction of known high-risk runtime audit anti-patterns across `rust/src/**`.
+- `python3 dev/scripts/checks/check_rust_security_footguns.py` blocks non-regressive growth of risky runtime patterns (`todo!/dbg!/unimplemented!`, shell-style spawns, permissive modes, weak-crypto references) while excluding `#[cfg(test)]` blocks.
+- `.github/workflows/rust_ci.yml` enforces a high-signal Clippy lint baseline by emitting lint-code histogram JSON (`collect_clippy_warnings.py --output-lints-json`) and running `check_clippy_high_signal.py`.
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change and enforces markdown metadata-header normalization (`Status`/`Last updated`/`Owner`) plus workflow-shell hygiene (`check_workflow_shell_hygiene.py`).
+- `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
+- `python3 dev/scripts/checks/check_agents_bundle_render.py` blocks AGENTS rendered bundle-reference drift against `dev/scripts/devctl/bundle_registry.py` and can regenerate the section with `--write`.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
@@ -651,17 +704,17 @@ For simple per-workflow intent/triggers, see `.github/workflows/README.md`.
 
 | Workflow | File | What it checks |
 |----------|------|----------------|
-| Rust TUI CI | `.github/workflows/rust_ci.yml` | Ubuntu build/test/clippy/fmt/doc, MSRV `1.88.0` check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke, and aggregate CI badge update |
+| Rust TUI CI | `.github/workflows/rust_ci.yml` | Ubuntu build/test/clippy/fmt/doc, MSRV `1.88.0` check, feature-mode matrix (`default` + `--no-default-features`), macOS runtime smoke, aggregate CI badge update, and Clippy warning-count badge update |
 | Voice Mode Guard | `.github/workflows/voice_mode_guard.yml` | Focused macros toggle + send-mode label regressions |
 | Wake Word Guard | `.github/workflows/wake_word_guard.yml` | Wake-word regression + soak guardrails |
 | Perf Smoke | `.github/workflows/perf_smoke.yml` | Perf smoke test + metrics verification |
 | Latency Guard | `.github/workflows/latency_guard.yml` | Synthetic latency regression guardrails |
 | Memory Guard | `.github/workflows/memory_guard.yml` | 20x memory guard loop |
-| Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated score report (warn-only threshold by default; enforce with `MUTATION_ENFORCE_THRESHOLD=true`) |
+| Mutation Testing | `.github/workflows/mutation-testing.yml` | sharded scheduled mutation run + aggregated score report (threshold is advisory/non-blocking via `--report-only`) |
 | Mutation Ralph Loop | `.github/workflows/mutation_ralph_loop.yml` | bounded follow-up mutation remediation loop with report-only default; `workflow_run` mode is opt-in via `MUTATION_LOOP_MODE` (`always`/`success-only`/`failure-only`) |
 | Security Guard | `.github/workflows/security_guard.yml` | RustSec advisory policy gate (high/critical threshold + yanked/unsound fail list), changed-file Python security scope on push/PR diffs, optional `zizmor` lane (`SECURITY_ZIZMOR_MODE=enforce` to hard-fail; unset/off disables) |
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
-| Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC) |
+| Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC); runs on every push to `develop`/`master` to keep branch-head coverage current |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
 | Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
 | CodeRabbit Triage Bridge | `.github/workflows/coderabbit_triage.yml` | normalizes CodeRabbit review/check signals into triage artifacts and blocks unresolved medium/high findings |
@@ -669,7 +722,7 @@ For simple per-workflow intent/triggers, see `.github/workflows/README.md`.
 | Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded controller orchestration (`autonomy-loop`) with checkpoint packet/queue artifacts and optional PR promote step; scheduled runs are enabled only when `AUTONOMY_MODE` is set |
 | Autonomy Run | `.github/workflows/autonomy_run.yml` | one-command guarded swarm pipeline (`swarm_run`) with plan-scope validation, reviewer lane, governance checks, and run artifact upload |
 | Failure Triage | `.github/workflows/failure_triage.yml` | workflow-run failure bundle capture and triage snapshot for high-signal failed lanes (`failure`/`timed_out`/`action_required`) |
-| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, metadata-header normalization guard, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, rust lint-debt guard, root artifact guard) |
+| Tooling Control Plane | `.github/workflows/tooling_control_plane.yml` | devctl unit tests, shell adapter integrity, and docs governance policy (`docs-check --strict-tooling` with Engineering Evolution enforcement, metadata-header normalization guard, workflow-shell hygiene guard, workflow action-pinning guard, conditional strict user-facing docs-check, hygiene, AGENTS contract guard, active-plan sync guard, release-version parity guard, markdownlint, CLI flag parity, screenshot integrity, code-shape guard, naming consistency guard, rust test-shape guard, rust lint-debt guard, rust runtime panic-policy guard, root artifact guard) |
 | Release Preflight | `.github/workflows/release_preflight.yml` | manual release-gate workflow (runtime CI + docs/governance bundle + release distribution dry-run smoke for requested version) |
 | Publish PyPI | `.github/workflows/publish_pypi.yml` | publishes `voiceterm` to PyPI when a GitHub release is published (requires successful `Release Preflight`, CodeRabbit gate, and Ralph gate checks for the release commit) |
 | Publish Homebrew | `.github/workflows/publish_homebrew.yml` | updates `homebrew-voiceterm` tap formula when a GitHub release is published or manual dispatch is requested (requires successful `Release Preflight`, CodeRabbit gate, and Ralph gate checks for the release commit) |
@@ -694,16 +747,20 @@ make prepush
 
 # Governance/doc architecture hygiene
 python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/devctl.py hygiene --strict-warnings
 python3 dev/scripts/devctl.py hygiene --fix
 python3 dev/scripts/devctl.py docs-check --strict-tooling
 python3 dev/scripts/checks/check_agents_contract.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_rust_test_shape.py
 python3 dev/scripts/checks/check_rust_lint_debt.py
 python3 dev/scripts/checks/check_rust_best_practices.py
+python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 find . -maxdepth 1 -type f -name '--*'
 
 # Security advisory policy gate (matches security_guard.yml)
@@ -738,7 +795,7 @@ cargo clippy --workspace --all-features -- -D warnings
 # Run tests
 cargo test --workspace --all-features
 
-# Check mutation score (optional, CI enforces this)
+# Check mutation score (optional; strict by default)
 cargo mutants --timeout 300 -o mutants.out --json
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 ```
@@ -778,6 +835,10 @@ gh secret list | rg HOMEBREW_TAP_TOKEN
 ```
 
 ```bash
+# Same-SHA preflight and release gates before tagging/publish
+gh workflow run release_preflight.yml -f version=X.Y.Z
+CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
+
 # Canonical control plane
 python3 dev/scripts/devctl.py release --version X.Y.Z
 # Optional: auto-prepare metadata files before release/tag
@@ -801,6 +862,8 @@ which publishes the matching `voiceterm` version to PyPI, and
 `.github/workflows/publish_homebrew.yml`, which updates the Homebrew tap
 formula metadata (URL/version/SHA, canonical description text, and legacy Cargo
 manifest-path rewrites from `libexec/src/Cargo.toml` to `libexec/rust/Cargo.toml`).
+It also triggers `.github/workflows/publish_release_binaries.yml` and
+`.github/workflows/release_attestation.yml`.
 
 ### Publish PyPI package
 
@@ -810,6 +873,8 @@ Default path: automatic from GitHub Actions when release is published.
 # Monitor the publish workflow
 gh run list --workflow publish_pypi.yml --limit 1
 gh run list --workflow publish_homebrew.yml --limit 1
+gh run list --workflow publish_release_binaries.yml --limit 1
+gh run list --workflow release_attestation.yml --limit 1
 # then watch the latest run:
 # gh run watch <run-id>
 ```

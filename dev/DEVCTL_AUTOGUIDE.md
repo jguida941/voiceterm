@@ -19,6 +19,7 @@ Use this with:
 3. Release verification and distribution (`ship`, `release`, `pypi`, `homebrew`)
 4. Orchestration guardrails (`orchestrate-status`, `orchestrate-watch`)
 5. External federation guardrails (`integrations-sync`, `integrations-import`)
+6. Optional MCP read-only adapter (`mcp`) for tool clients that need MCP transport
 
 Naming note: `swarm_run` is the canonical command name for the guarded
 plan-scoped swarm pipeline.
@@ -28,13 +29,17 @@ plan-scoped swarm pipeline.
 ### Normal push path
 
 ```bash
-python3 dev/scripts/devctl.py check --profile ci
-python3 dev/scripts/devctl.py docs-check --strict-tooling
-python3 dev/scripts/devctl.py hygiene
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
+# Optional local-only sanity lane while iterating
+python3 dev/scripts/devctl.py check --profile fast
 # Run this when hygiene warns about stale report growth
 python3 dev/scripts/devctl.py reports-cleanup --dry-run
 python3 dev/scripts/devctl.py triage --ci --format md
 ```
+
+`check-router` executes lane commands from
+`dev/scripts/devctl/bundle_registry.py` and escalates unknown paths to the
+stricter tooling lane.
 
 ### Tooling/process/CI path
 
@@ -49,19 +54,59 @@ python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle \
 ### Release path
 
 ```bash
+python3 dev/scripts/devctl.py check --profile release
+python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --format md
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes
 ```
 
-`ship --verify` requires both:
+`release-gates` enforces same-SHA release policy checks (CodeRabbit triage,
+release-preflight, Ralph loop) before publish/tag flow.
 
-- `check_coderabbit_gate.py`
-- `check_coderabbit_ralph_gate.py`
+## Check Profile Picker
 
-`check --profile release` also enforces strict remote release gates by running:
+Use this table when you are not sure which `check` profile to run.
 
-- `status --ci --require-ci`
-- `CI=1 check_coderabbit_gate.py --branch master`
-- `CI=1 check_coderabbit_ralph_gate.py --branch master`
+| Profile | Run it when | What it adds |
+|---|---|---|
+| `ci` | Normal runtime/UI/tooling changes before push | `fmt` + `clippy` + AI guards + full test lane (no release-only gates). |
+| `prepush` | Perf/latency/parser/wake-word/memory-sensitive changes | CI profile plus perf smoke and memory loop checks. |
+| `ai-guard` | Large refactors or guard-only audit passes | Runs guard scripts without full test/build cycle for fast iteration. |
+| `maintainer-lint` | Strict lint review and debt cleanup passes | Clippy hardening lane (`redundant_clone`, closure method-call redundancy, wrap-cast and dead-code drift). |
+| `release` | Release/tag readiness checks on `master` | Adds wake-word coverage, non-blocking mutation-score reminder output, and strict remote release gates. |
+| `fast` | Local fast sanity pass while iterating | Alias of `quick`; local-only lane, not a replacement for required pre-push bundles. |
+| `quick` | Local fast sanity pass while iterating | Minimal fmt/clippy path without full tests/build. |
+
+Heavy-check placement policy:
+
+1. Keep strict/heavy validation in `prepush` and `release` profiles (plus CI/scheduled workflows).
+2. Keep `fast`/`quick` minimal for local iteration only.
+3. Never skip release/CI gates by substituting `fast`/`quick`.
+
+Current AI guard pack in `check`:
+
+1. `check_code_shape.py`
+2. `check_duplicate_types.py`
+3. `check_structural_complexity.py`
+4. `check_rust_test_shape.py`
+5. `check_ide_provider_isolation.py --fail-on-violations`
+6. `check_compat_matrix.py`
+7. `compat_matrix_smoke.py`
+8. `check_naming_consistency.py`
+9. `check_rust_lint_debt.py`
+10. `check_rust_best_practices.py`
+11. `check_rust_runtime_panic_policy.py`
+12. `check_rust_audit_patterns.py`
+13. `check_rust_security_footguns.py`
+
+## Guard Failure Playbook
+
+When any AI guard fails, use this order:
+
+1. Run the failing guard directly with `--format md` for focused output.
+2. Run `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md`.
+3. Apply fixes from `dev/active/RUST_AUDIT_FINDINGS.md`.
+4. Re-run `python3 dev/scripts/devctl.py check --profile ai-guard`.
+5. Re-run your target profile (`ci`, `prepush`, or `release`) before push.
 
 ## Report Retention Guard
 
@@ -79,6 +124,40 @@ Safety model:
 1. cleanup is restricted to managed ephemeral run roots under `dev/reports/**`
 2. protected paths (`audits`, `data_science/latest`, queue/controller-state) are never deleted
 3. retention keeps the newest `--keep-recent` directories per managed root even if they are old
+
+## Optional MCP Adapter
+
+`devctl` remains the canonical enforcement path. MCP is additive, not a
+replacement layer.
+
+Use MCP surface only when a client needs MCP protocol transport:
+
+```bash
+# Render MCP contract + allowlisted tools/resources
+python3 dev/scripts/devctl.py mcp --format md
+
+# Call one read-only tool directly
+python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json
+
+# Serve MCP JSON-RPC over stdio (Content-Length framing)
+python3 dev/scripts/devctl.py mcp --serve-stdio
+```
+
+CLI note:
+
+- `--tool-args-json` is only valid with `--tool`.
+- If you are not integrating an MCP-native client, use native `devctl`
+  commands directly.
+
+Guardrails:
+
+1. Tool/resource exposure is controlled by `dev/config/mcp_tools_allowlist.json`.
+2. Non-read-only tool entries are rejected.
+3. Release and cleanup safety remains enforced by `devctl` command contracts.
+4. Contract tests lock in `check --profile release`, `ship --verify`, cleanup
+   path restrictions, and MCP allowlist behavior.
+
+See `dev/MCP_DEVCTL_ALIGNMENT.md` for extension rules and rationale.
 
 ## Always-On Ralph Loop
 
@@ -154,7 +233,7 @@ default until policy gates are promoted.
 
 Runtime controls are repo variables:
 
-- `MUTATION_LOOP_MODE`: `always` | `failure-only` | `disabled`
+- `MUTATION_LOOP_MODE`: `always` | `success-only` | `failure-only` | `disabled`
 - `MUTATION_EXECUTION_MODE`: `report-only` | `plan-then-fix` | `fix-only`
 - `MUTATION_LOOP_MAX_ATTEMPTS`
 - `MUTATION_LOOP_POLL_SECONDS`

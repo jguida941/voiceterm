@@ -47,50 +47,11 @@ pub(crate) fn default_theme_for_backend(backend_label: &str) -> Theme {
 mod tests {
     use super::*;
     use crate::config::cli::OverlayConfig;
+    use crate::test_env::with_terminal_color_env_overrides;
     use clap::Parser;
-    use std::collections::BTreeSet;
-    use std::sync::{Mutex, OnceLock};
-
-    static ENV_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
 
     fn with_env_vars<T>(pairs: &[(&str, Option<&str>)], f: impl FnOnce() -> T) -> T {
-        let _guard = ENV_GUARD
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let mut keys: BTreeSet<&str> = BTreeSet::from([
-            "COLORTERM",
-            "TERM",
-            "NO_COLOR",
-            "TERM_PROGRAM",
-            "TERMINAL_EMULATOR",
-            "PYCHARM_HOSTED",
-            "JETBRAINS_IDE",
-            "IDEA_INITIAL_DIRECTORY",
-            "IDEA_INITIAL_PROJECT",
-            "CLION_IDE",
-        ]);
-        for (key, _) in pairs {
-            keys.insert(key);
-        }
-        let prev: Vec<(String, Option<String>)> = keys
-            .iter()
-            .map(|key| ((*key).to_string(), std::env::var(key).ok()))
-            .collect();
-        for (key, value) in pairs {
-            match value {
-                Some(v) => std::env::set_var(key, v),
-                None => std::env::remove_var(key),
-            }
-        }
-        let result = f();
-        for (key, value) in prev {
-            match value {
-                Some(v) => std::env::set_var(key, v),
-                None => std::env::remove_var(key),
-            }
-        }
-        result
+        with_terminal_color_env_overrides(pairs, f)
     }
 
     fn with_truecolor_env<T>(f: impl FnOnce() -> T) -> T {

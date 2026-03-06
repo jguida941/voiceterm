@@ -14,6 +14,7 @@
 //! - Commands (client → Rust): {"cmd": "...", ...}
 
 mod protocol;
+mod provider_lifecycle;
 mod router;
 mod session;
 

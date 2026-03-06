@@ -1,7 +1,8 @@
 //! Help overlay that documents keyboard shortcuts directly in the terminal UI.
 
 use crate::overlay_frame::{
-    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, truncate_display,
+    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, section_line,
+    truncate_display,
 };
 use crate::theme::{
     overlay_close_symbol, overlay_separator, resolved_overlay_border_set, Theme, ThemeColors,
@@ -152,7 +153,7 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     lines.push(frame_separator(&colors, borders, content_width));
 
     for (idx, (title, shortcuts)) in SHORTCUT_SECTIONS.iter().enumerate() {
-        lines.push(format_section_line(&colors, title, content_width));
+        lines.push(section_line(&colors, title, content_width));
         for shortcut in *shortcuts {
             lines.push(format_shortcut_line(&colors, shortcut, content_width));
         }
@@ -162,7 +163,7 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     }
 
     lines.push(frame_separator(&colors, borders, content_width));
-    lines.push(format_section_line(&colors, "Resources", content_width));
+    lines.push(section_line(&colors, "Resources", content_width));
     lines.push(format_resource_link_line(
         &colors,
         "Docs",
@@ -188,25 +189,6 @@ pub fn format_help_overlay(theme: Theme, width: usize) -> String {
     lines.push(frame_bottom(&colors, borders, content_width));
 
     lines.join("\n")
-}
-
-fn format_section_line(colors: &ThemeColors, title: &str, width: usize) -> String {
-    let borders = &colors.borders;
-    let inner_width = width.saturating_sub(2);
-    let heading = format!(" {title}");
-    let clipped = truncate_display(&heading, inner_width);
-    let pad = " ".repeat(inner_width.saturating_sub(display_width(&clipped)));
-    format!(
-        "{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.dim,
-        clipped,
-        pad,
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
 }
 
 fn format_shortcut_line(colors: &ThemeColors, shortcut: &Shortcut, width: usize) -> String {

@@ -159,7 +159,7 @@ fn count_lines(path: &Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory::types::*;
+    use crate::memory::store::sample_event;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_path(suffix: &str) -> PathBuf {
@@ -168,27 +168,6 @@ mod tests {
             .map(|d| d.as_nanos())
             .unwrap_or(0);
         std::env::temp_dir().join(format!("voiceterm-memory-jsonl-{}-{nanos}.jsonl", suffix))
-    }
-
-    fn sample_event(id: &str, text: &str) -> MemoryEvent {
-        MemoryEvent {
-            event_id: id.to_string(),
-            session_id: "sess_test".to_string(),
-            project_id: "proj_test".to_string(),
-            ts: "2026-02-19T12:00:00.000Z".to_string(),
-            source: EventSource::PtyInput,
-            event_type: EventType::ChatTurn,
-            role: EventRole::User,
-            text: text.to_string(),
-            topic_tags: vec![],
-            entities: vec![],
-            task_refs: vec![],
-            artifacts: vec![],
-            importance: 0.5,
-            confidence: 1.0,
-            retrieval_state: RetrievalState::Eligible,
-            hash: None,
-        }
     }
 
     #[test]

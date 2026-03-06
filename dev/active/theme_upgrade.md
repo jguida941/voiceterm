@@ -1093,7 +1093,7 @@ themselves; implementation priority and status are tracked in `MASTER_PLAN.md`.
   mic calibration tool, startup splash.
 - **Distribution**: Homebrew tap, CI/CD (format + clippy + tests + mutation +
   perf + memory), macOS app launcher.
-- **Documentation**: 6 user guides, 2 dev docs, 24 ADRs, full changelog.
+- **Documentation**: 6 user guides, 2 dev docs, ADR catalog (`dev/adr/README.md`), full changelog.
 
 ### Known Gaps (from audit)
 

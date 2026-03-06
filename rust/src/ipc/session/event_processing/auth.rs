@@ -1,6 +1,6 @@
 use std::sync::mpsc::TryRecvError;
 
-use super::super::{send_event, IpcEvent, IpcState, Provider, AUTH_TIMEOUT};
+use super::super::{send_event, IpcEvent, IpcState, AUTH_TIMEOUT};
 
 pub(super) fn process_auth_events(state: &mut IpcState) -> bool {
     let job = match state.current_auth_job.as_mut() {
@@ -30,7 +30,7 @@ pub(super) fn process_auth_events(state: &mut IpcState) -> bool {
                 Err(err) => (false, Some(err)),
             };
 
-            if success && provider == Provider::Codex {
+            if success && provider.resets_session_on_auth_success() {
                 state.codex_cli_backend.reset_session();
             }
 

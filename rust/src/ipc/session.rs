@@ -71,7 +71,10 @@ pub(super) enum ClaudeJobOutput {
 
 pub(super) struct ClaudeJob {
     pub(super) output: ClaudeJobOutput,
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Lifecycle timestamp retained for timeout/telemetry hooks not yet wired."
+    )]
     pub(super) started_at: Instant,
     pub(super) pending_exit: Option<std::process::ExitStatus>,
 }
@@ -81,7 +84,10 @@ pub(super) type AuthResult = auth_flow::AuthResult;
 pub(super) struct AuthJob {
     pub(super) provider: Provider,
     pub(super) receiver: Receiver<AuthResult>,
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Auth lifecycle timestamp retained for timeout/telemetry hooks not yet wired."
+    )]
     pub(super) started_at: Instant,
 }
 
@@ -98,37 +104,55 @@ pub(super) fn utf8_prefix(text: &str, max_chars: usize) -> String {
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn init_event_sink() {
     event_sink::init_event_sink();
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn ipc_loop_count_set(count: u64) {
     event_sink::ipc_loop_count_set(count);
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn ipc_loop_count_reset() {
     event_sink::ipc_loop_count_reset();
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn ipc_loop_count() -> u64 {
     event_sink::ipc_loop_count()
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn event_snapshot() -> usize {
     event_sink::event_snapshot()
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — re-exported for IPC test harness"
+)]
 pub(super) fn events_since(start: usize) -> Vec<IpcEvent> {
     event_sink::events_since(start)
 }
@@ -177,7 +201,10 @@ pub(super) fn start_claude_job(
 }
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — PTY-mode job start for integration tests"
+)]
 pub(super) fn start_claude_job_with_pty(
     claude_cmd: &str,
     prompt: &str,
@@ -192,11 +219,17 @@ pub(super) fn start_claude_job_with_pty(
 // ============================================================================
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — auth hook injection for integration tests"
+)]
 pub(super) type AuthFlowHook = auth_flow::AuthFlowHook;
 
 #[cfg(any(test, feature = "mutants"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "test/mutant infrastructure — auth hook injection for integration tests"
+)]
 pub(super) fn set_auth_flow_hook(hook: Option<AuthFlowHook>) {
     auth_flow::set_auth_flow_hook(hook);
 }

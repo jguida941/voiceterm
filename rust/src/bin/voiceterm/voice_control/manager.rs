@@ -69,7 +69,10 @@ impl VoiceManager {
             .unwrap_or(false)
     }
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "Accessor retained for diagnostics/tests while source selection is staged."
+    )]
     pub(crate) fn active_source(&self) -> Option<VoiceCaptureSource> {
         self.active_source
     }

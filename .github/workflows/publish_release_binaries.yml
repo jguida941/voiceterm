@@ -45,6 +45,7 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           RELEASE_TARGET_BRANCH: ${{ github.event.release.target_commitish }}
         run: |
+          set -euo pipefail
           TAG="${RELEASE_TAG}"
           BRANCH="${RELEASE_TARGET_BRANCH}"
           if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -55,50 +56,35 @@ jobs:
             echo "Release target branch is missing."
             exit 1
           fi
-          git fetch --force --tags origin
+          if [[ "${BRANCH}" == "refs/heads/master" ]]; then
+            BRANCH="master"
+          fi
+          if [[ "${BRANCH}" != "master" && ! "${BRANCH}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Release target branch must be master (got: ${BRANCH})."
+            exit 1
+          fi
+          git fetch --force --tags origin master
           SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
           if [[ -z "${SHA}" ]]; then
             echo "Failed to resolve commit SHA for tag ${TAG}."
             exit 1
           fi
+          if ! git merge-base --is-ancestor "${SHA}" "origin/master"; then
+            echo "Release tag ${TAG} points to commit ${SHA} which is not on origin/master."
+            exit 1
+          fi
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
-          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "branch=master" >> "${GITHUB_OUTPUT}"
           echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify CodeRabbit gate passed for release commit
+      - name: Verify release gates passed for release commit
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
           RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
         run: |
-          python3 dev/scripts/checks/check_coderabbit_gate.py \
-            --branch "${RELEASE_BRANCH}" \
-            --sha "${RELEASE_SHA}" \
-            --wait-seconds 1800 \
-            --poll-seconds 20 \
-            --format md
-
-      - name: Verify release preflight passed for release commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
-          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
-        run: |
-          python3 dev/scripts/checks/check_coderabbit_gate.py \
-            --workflow "release_preflight.yml" \
-            --branch "${RELEASE_BRANCH}" \
-            --sha "${RELEASE_SHA}" \
-            --wait-seconds 1800 \
-            --poll-seconds 20 \
-            --format md
-
-      - name: Verify CodeRabbit Ralph gate passed for release commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ steps.release_ref.outputs.branch }}
-          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
-        run: |
-          python3 dev/scripts/checks/check_coderabbit_ralph_gate.py \
+          set -euo pipefail
+          python3 dev/scripts/devctl.py release-gates \
             --branch "${RELEASE_BRANCH}" \
             --sha "${RELEASE_SHA}" \
             --wait-seconds 1800 \
@@ -127,18 +113,11 @@ jobs:
           PACKAGE_OS: ${{ matrix.package_os }}
           PACKAGE_ARCH: ${{ matrix.arch }}
         run: |
+          set -euo pipefail
           VERSION="${TAG#v}"
           ARCHIVE="voiceterm-${VERSION}-${PACKAGE_OS}-${PACKAGE_ARCH}.tar.gz"
           tar -czf "${ARCHIVE}" -C rust/target/release voiceterm
-          python3 - <<'PY' "${ARCHIVE}"
-          import hashlib
-          import pathlib
-          import sys
-
-          archive = pathlib.Path(sys.argv[1])
-          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-          pathlib.Path(f"{archive}.sha256").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
-          PY
+          python3 dev/scripts/write_sha256_checksum.py --input "${ARCHIVE}"
           echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
           echo "checksum=${ARCHIVE}.sha256" >> "${GITHUB_OUTPUT}"
 
@@ -149,4 +128,5 @@ jobs:
           ARCHIVE: ${{ steps.package.outputs.archive }}
           CHECKSUM: ${{ steps.package.outputs.checksum }}
         run: |
+          set -euo pipefail
           gh release upload "${TAG}" "${ARCHIVE}" "${CHECKSUM}" --clobber
