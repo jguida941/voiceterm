@@ -354,15 +354,17 @@ without GH CLI auth drift, restoring deterministic release-gate behavior.
 ### Recent Governance Update (2026-03-06, Release Security Scope + Temp-Path Hardening)
 
 Fact: Release preflight security gating now runs Python scanners in
-changed-file scope using the same resolved `since/head` refs as AI-guard, and
-Bandit `B108` findings were removed by replacing hardcoded `/tmp` defaults with
-system temp-directory resolution in loop/release helper scripts.
+changed-file scope using the same resolved `since/head` refs as AI-guard
+without hard-blocking on repository-wide open CodeQL backlog, and Bandit
+`B108` findings were removed by replacing hardcoded `/tmp` defaults with system
+temp-directory resolution in loop/release helper scripts.
 
 Evidence:
 
 - `.github/workflows/release_preflight.yml` (release security gate switched from
   `--python-scope all` to `--python-scope changed` with
-  `--since-ref/--head-ref` wired from `ai_guard_range` outputs)
+  `--since-ref/--head-ref` wired from `ai_guard_range` outputs; explicit
+  CodeQL-open-alert hard gate removed from this lane)
 - `dev/scripts/devctl/commands/loop_packet_helpers.py`,
   `dev/scripts/devctl/commands/ship.py`,
   `dev/scripts/mutation_ralph_workflow_bridge.py`
@@ -374,8 +376,9 @@ Evidence:
 - `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
   `dev/active/MASTER_PLAN.md` (release/security governance docs synchronized)
 
-Inference: Release preflight remains strict for same-SHA security gating while
-avoiding unrelated full-repo Python formatting debt and temp-path policy drift.
+Inference: Release preflight remains strict for same-SHA, commit-scoped
+security gating while avoiding unrelated full-repo Python formatting debt,
+historical CodeQL backlog coupling, and temp-path policy drift.
 
 ### Recent Governance Update (2026-03-06, Compat-Matrix YAML Fallback Hardening)
 

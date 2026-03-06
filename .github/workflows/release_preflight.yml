@@ -158,9 +158,6 @@ jobs:
             --python-scope changed \
             --since-ref "${{ steps.ai_guard_range.outputs.since }}" \
             --head-ref "${{ steps.ai_guard_range.outputs.head }}" \
-            --with-codeql-alerts \
-            --codeql-repo "${{ github.repository }}" \
-            --codeql-min-severity high \
             --format json \
             --output /tmp/release-security.json
           cat /tmp/release-security.json

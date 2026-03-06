@@ -867,6 +867,8 @@ Preflight uses zizmor `online-audits: false` to avoid cross-repo API compare
 Preflight release security checks should stay commit-scoped:
 `devctl security` runs with `--python-scope changed` and consumes the same
 resolved `--since-ref/--head-ref` range used by AI-guard.
+Release preflight should not hard-fail on repository-wide open CodeQL backlog;
+that alert backlog is enforced/triaged in dedicated security lanes.
 
 `devctl release` auto-generates `/tmp/voiceterm-release-vX.Y.Z.md` from the git
 compare range (previous tag to current tag). You can also generate it manually:

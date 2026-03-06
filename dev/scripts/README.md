@@ -282,6 +282,8 @@ gh run list --workflow release_preflight.yml --limit 1
 # Preflight security gate runs `devctl security` in changed-file scope
 # (`--python-scope changed`) with the same resolved `--since-ref/--head-ref`
 # range used by AI-guard.
+# Preflight does not hard-fail on repository-wide open CodeQL backlog; keep
+# CodeQL alert enforcement in dedicated security/triage lanes.
 python3 dev/scripts/devctl.py ship --version X.Y.Z --verify --tag --notes --github --yes
 # One-command prep + verify + tag + notes + GitHub release
 python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --tag --notes --github --yes

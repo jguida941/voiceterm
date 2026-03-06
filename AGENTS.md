@@ -552,6 +552,9 @@ Use this exact sequence:
      `--python-scope changed` with the same resolved `--since-ref/--head-ref`
      range as AI-guard checks; do not run full-repo Python format/import scans
      in this lane.
+   - `release_preflight.yml` release security step should not hard-block on
+     repository-wide open CodeQL backlog (`--with-codeql-alerts`); keep CodeQL
+     alert enforcement in dedicated security lanes and triage workflows.
 
 6. Run release tagging and notes:
 

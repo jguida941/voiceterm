@@ -65,7 +65,9 @@
   `.github/workflows/release_preflight.yml` now runs
   `devctl security` with `--python-scope changed` and the same resolved
   `--since-ref/--head-ref` range used by AI-guard so preflight enforces
-  commit-scoped Python checks instead of full-repo formatting backlog.
+  commit-scoped Python checks instead of full-repo formatting backlog, and it
+  avoids hard-failing on repository-wide open CodeQL backlog in release
+  preflight.
 - Compat-matrix parser resilience update: compatibility/naming guard scripts now
   share a minimal YAML fallback parser so tooling CI and local checks stay
   deterministic in minimal Python environments without `PyYAML`.
