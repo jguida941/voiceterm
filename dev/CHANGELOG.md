@@ -7,6 +7,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-05
 ### Runtime Hardening
 
 - Route JetBrains+Claude full-HUD single-line fallback policy through canonical

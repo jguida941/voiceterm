@@ -16,8 +16,8 @@
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-03-05)
-- Last tagged release: `v1.0.99` (2026-03-03)
-- Current release target: `post-v1.0.99 planning`
+- Last tagged release: `v1.1.0` (2026-03-05)
+- Current release target: `post-v1.1.0 planning`
 - Active development branch: `develop`
 - Release branch: `master`
 - Strategic focus: sequential execution with one primary product lane at a
