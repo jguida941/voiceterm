@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 
 from ..collect import collect_ci_runs
 from ..common import confirm_or_abort, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 
 GREEN_CI_CONCLUSIONS = {"success", "neutral", "skipped"}
@@ -291,7 +291,7 @@ def run(args) -> int:
 
     report = {
         "command": "failure-cleanup",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "directory": str(target) if target is not None else args.directory,
         "directory_exists": directory_exists,
         "files_found": files_found,

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..bundle_registry import BUNDLE_AUTHORITY_PATH, get_bundle_commands
 from ..collect import collect_git_status
 from ..common import pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from .check_router_render import render_markdown
 from .check_router_support import BUNDLE_BY_LANE
@@ -40,7 +40,7 @@ def run(args) -> int:
     if "error" in git_info:
         report = {
             "command": "check-router",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "ok": False,
             "lane": "tooling",
             "bundle": BUNDLE_BY_LANE["tooling"],
@@ -107,7 +107,7 @@ def run(args) -> int:
 
     report = {
         "command": "check-router",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": ok,
         "lane": lane,
         "bundle": bundle_name,

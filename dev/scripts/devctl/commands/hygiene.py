@@ -10,15 +10,16 @@ import json
 import os
 import shutil
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
+    SECONDS_PER_DAY,
     format_process_rows,
     scan_voiceterm_test_binaries,
     split_orphaned_processes,
@@ -180,7 +181,7 @@ def _audit_mutation_badge() -> Dict:
         return {"errors": errors, "warnings": warnings}
     try:
         mtime = badge_path.stat().st_mtime
-        age_days = (time.time() - mtime) / 86400
+        age_days = (time.time() - mtime) / SECONDS_PER_DAY
         if age_days > MUTATION_BADGE_MAX_AGE_DAYS:
             warnings.append(
                 f"Mutation badge is {age_days:.0f} days old "
@@ -246,7 +247,7 @@ def run(args) -> int:
 
     report = {
         "command": "hygiene",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": ok,
         "strict_warnings": strict_warnings,
         "error_count": error_count,

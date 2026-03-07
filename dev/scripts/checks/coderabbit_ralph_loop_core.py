@@ -7,7 +7,7 @@ import os
 import shlex
 import subprocess
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -108,7 +108,7 @@ def build_report(
     normalized_source_sha = normalize_sha(source_run_sha)
     return {
         "command": "run_coderabbit_ralph_loop",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": False,
         "repo": repo,
         "branch": branch,

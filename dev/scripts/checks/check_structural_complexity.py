@@ -6,38 +6,26 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
 try:
-    from code_shape_function_policy import scan_rust_functions
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_function_policy import scan_rust_functions
-try:
-    from git_change_paths import list_changed_paths_with_base_map
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
-try:
-    from rust_guard_common import GuardContext
-    from rust_guard_common import is_test_path as _is_test_path
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import GuardContext
-    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
-try:
-    from rust_check_text_utils import strip_cfg_test_blocks
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
+    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+
+scan_rust_functions = import_attr("code_shape_function_policy", "scan_rust_functions")
+list_changed_paths_with_base_map = import_attr(
+    "git_change_paths", "list_changed_paths_with_base_map"
+)
+GuardContext = import_attr("rust_guard_common", "GuardContext")
+_collect_rust_files = import_attr("rust_guard_common", "collect_rust_files")
+_normalize_changed_paths = import_attr(
+    "rust_guard_common", "normalize_changed_rust_paths"
+)
+strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -115,33 +103,6 @@ def _max_nesting_depth(text: str) -> int:
     return max_depth
 
 
-def _collect_rust_files(*, include_tests: bool) -> tuple[list[Path], int]:
-    files: list[Path] = []
-    skipped_tests = 0
-    for path in SOURCE_ROOT.rglob("*.rs"):
-        relative = Path(_path_for_report(path))
-        if not include_tests and _is_test_path(relative):
-            skipped_tests += 1
-            continue
-        files.append(path)
-    return sorted(files), skipped_tests
-
-
-def _normalize_changed_paths(
-    changed_paths: list[Path], *, include_tests: bool
-) -> set[str]:
-    normalized: set[str] = set()
-    for path in changed_paths:
-        if path.suffix != ".rs":
-            continue
-        if not path.as_posix().startswith("rust/src/"):
-            continue
-        if not include_tests and _is_test_path(path):
-            continue
-        normalized.add(path.as_posix())
-    return normalized
-
-
 def _render_md(report: dict) -> str:
     lines = ["# check_structural_complexity", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -202,20 +163,12 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        report = {
-            "command": "check_structural_complexity",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": str(exc),
-        }
-        if args.format == "json":
-            print(json.dumps(report, indent=2))
-        else:
-            print("# check_structural_complexity\n")
-            print(f"- ok: False\n- error: {report['error']}")
-        return 2
+        return emit_runtime_error("check_structural_complexity", args.format, str(exc))
 
-    files, skipped_tests = _collect_rust_files(include_tests=args.include_tests)
+    files, skipped_tests = _collect_rust_files(
+        SOURCE_ROOT,
+        include_tests=args.include_tests,
+    )
     changed_path_filter = (
         _normalize_changed_paths(changed_paths, include_tests=args.include_tests)
         if args.since_ref
@@ -324,7 +277,7 @@ def main() -> int:
 
     report = {
         "command": "check_structural_complexity",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "mode": mode,
         "since_ref": args.since_ref,
         "head_ref": args.head_ref,

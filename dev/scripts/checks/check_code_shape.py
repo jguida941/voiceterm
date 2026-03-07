@@ -5,98 +5,41 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from datetime import date, datetime
 from pathlib import Path
 
 try:
-    from code_shape_policy import (
-        BEST_PRACTICE_DOCS,
-        FUNCTION_POLICY_EXCEPTIONS,
-        LANGUAGE_POLICIES,
-        PATH_POLICY_OVERRIDES,
-        SHAPE_AUDIT_GUIDANCE,
-        FunctionShapePolicy,
-        ShapePolicy,
-        function_policy_for_path,
-        policy_for_path,
-    )
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_policy import (
-        BEST_PRACTICE_DOCS,
-        FUNCTION_POLICY_EXCEPTIONS,
-        LANGUAGE_POLICIES,
-        PATH_POLICY_OVERRIDES,
-        SHAPE_AUDIT_GUIDANCE,
-        FunctionShapePolicy,
-        ShapePolicy,
-        function_policy_for_path,
-        policy_for_path,
-    )
+    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
 
-try:
-    from code_shape_function_policy import (
-        evaluate_function_shape as evaluate_function_shape_impl,
-    )
-    from code_shape_function_policy import (
-        scan_python_functions as scan_python_functions_impl,
-    )
-    from code_shape_function_policy import (
-        scan_rust_functions as scan_rust_functions_impl,
-    )
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.code_shape_function_policy import (
-        evaluate_function_shape as evaluate_function_shape_impl,
-    )
-    from dev.scripts.checks.code_shape_function_policy import (
-        scan_python_functions as scan_python_functions_impl,
-    )
-    from dev.scripts.checks.code_shape_function_policy import (
-        scan_rust_functions as scan_rust_functions_impl,
-    )
-try:
-    from rust_guard_common import GuardContext
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import GuardContext
+BEST_PRACTICE_DOCS = import_attr("code_shape_policy", "BEST_PRACTICE_DOCS")
+FUNCTION_POLICY_EXCEPTIONS = import_attr(
+    "code_shape_policy", "FUNCTION_POLICY_EXCEPTIONS"
+)
+LANGUAGE_POLICIES = import_attr("code_shape_policy", "LANGUAGE_POLICIES")
+PATH_POLICY_OVERRIDES = import_attr("code_shape_policy", "PATH_POLICY_OVERRIDES")
+SHAPE_AUDIT_GUIDANCE = import_attr("code_shape_policy", "SHAPE_AUDIT_GUIDANCE")
+FunctionShapePolicy = import_attr("code_shape_policy", "FunctionShapePolicy")
+ShapePolicy = import_attr("code_shape_policy", "ShapePolicy")
+function_policy_for_path = import_attr("code_shape_policy", "function_policy_for_path")
+policy_for_path = import_attr("code_shape_policy", "policy_for_path")
+evaluate_function_shape_impl = import_attr(
+    "code_shape_function_policy", "evaluate_function_shape"
+)
+scan_python_functions_impl = import_attr(
+    "code_shape_function_policy", "scan_python_functions"
+)
+scan_rust_functions_impl = import_attr(
+    "code_shape_function_policy", "scan_rust_functions"
+)
+GuardContext = import_attr("rust_guard_common", "GuardContext")
+list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 DEFAULT_STALE_OVERRIDE_REVIEW_WINDOW_DAYS = 30
-
-
-def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
-    if since_ref:
-        diff_cmd = [
-            "git",
-            "diff",
-            "--name-only",
-            "--diff-filter=ACMR",
-            since_ref,
-            head_ref,
-        ]
-    else:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
-
-    changed = {
-        Path(line.strip())
-        for line in guard.run_git(diff_cmd).stdout.splitlines()
-        if line.strip()
-    }
-
-    if since_ref is None:
-        untracked = guard.run_git(["git", "ls-files", "--others", "--exclude-standard"])
-        for line in untracked.stdout.splitlines():
-            if line.strip():
-                changed.add(Path(line.strip()))
-
-    return sorted(changed)
 
 
 def _list_all_source_paths() -> list[Path]:
@@ -470,18 +413,11 @@ def main() -> int:
     args = _build_parser().parse_args()
 
     if args.absolute and args.since_ref:
-        error_report = {
-            "command": "check_code_shape",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": "--absolute cannot be combined with --since-ref/--head-ref",
-        }
-        if args.format == "json":
-            print(json.dumps(error_report, indent=2))
-        else:
-            print("# check_code_shape\n")
-            print(f"- ok: False\n- error: {error_report['error']}")
-        return 2
+        return emit_runtime_error(
+            "check_code_shape",
+            args.format,
+            "--absolute cannot be combined with --since-ref/--head-ref",
+        )
 
     try:
         if args.absolute:
@@ -490,20 +426,9 @@ def main() -> int:
             if args.since_ref:
                 guard.validate_ref(args.since_ref)
                 guard.validate_ref(args.head_ref)
-            changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
+            changed_paths = list_changed_paths(guard.run_git, args.since_ref, args.head_ref)
     except RuntimeError as exc:
-        error_report = {
-            "command": "check_code_shape",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": str(exc),
-        }
-        if args.format == "json":
-            print(json.dumps(error_report, indent=2))
-        else:
-            print("# check_code_shape\n")
-            print(f"- ok: False\n- error: {error_report['error']}")
-        return 2
+        return emit_runtime_error("check_code_shape", args.format, str(exc))
 
     mode = (
         "absolute"
@@ -610,22 +535,11 @@ def main() -> int:
                     violations.append(stale_violation)
                     violation_paths.add(stale_violation["path"])
     except RuntimeError as exc:
-        error_report = {
-            "command": "check_code_shape",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": str(exc),
-        }
-        if args.format == "json":
-            print(json.dumps(error_report, indent=2))
-        else:
-            print("# check_code_shape\n")
-            print(f"- ok: False\n- error: {error_report['error']}")
-        return 2
+        return emit_runtime_error("check_code_shape", args.format, str(exc))
 
     report = {
         "command": "check_code_shape",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "mode": mode,
         "since_ref": args.since_ref if mode == "commit-range" else None,
         "head_ref": args.head_ref if mode == "commit-range" else None,

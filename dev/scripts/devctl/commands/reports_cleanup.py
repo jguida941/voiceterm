@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 
 from ..common import confirm_or_abort, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..reports_retention import (
     DEFAULT_RETENTION_KEEP_RECENT,
@@ -102,7 +102,7 @@ def run(args) -> int:
     ok = not errors
     report = {
         "command": "reports-cleanup",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "reports_root": plan["reports_root"],
         "reports_root_exists": plan["reports_root_exists"],
         "max_age_days": plan.get("max_age_days", DEFAULT_RETENTION_MAX_AGE_DAYS),

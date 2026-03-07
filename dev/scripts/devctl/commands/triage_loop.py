@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from typing import Any, Dict
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..triage_loop_escalation import (
     publish_review_escalation_comment as _publish_review_escalation_comment_support,
@@ -194,7 +194,7 @@ def run(args) -> int:
     report.update(
         {
             "command": "triage-loop",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "mode": args.mode,
             "notify": args.notify,
             "comment_target": args.comment_target,

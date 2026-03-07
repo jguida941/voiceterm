@@ -3,7 +3,6 @@
 //! native recorder/transcriber path hits driver issues.
 
 use crate::audio;
-use crate::config::VadEngineKind;
 use crate::log_debug;
 use crate::stt;
 use anyhow::{anyhow, Result};
@@ -382,7 +381,7 @@ fn capture_voice_native(
         let recorder_guard = recorder
             .lock()
             .map_err(|_| anyhow!("audio recorder lock poisoned"))?;
-        let mut vad_engine = create_vad_engine(&pipeline_cfg);
+        let mut vad_engine = audio::create_vad_engine(&pipeline_cfg);
         recorder_guard.record_with_vad(&vad_cfg, vad_engine.as_mut(), Some(stop_flag), meter)
     })();
     // Once record_with_vad returns, the microphone is no longer held.
@@ -470,22 +469,6 @@ pub(crate) fn log_voice_metrics(metrics: &audio::CaptureMetrics) {
     ));
 }
 
-fn create_vad_engine(cfg: &crate::config::VoicePipelineConfig) -> Box<dyn audio::VadEngine> {
-    match cfg.vad_engine {
-        VadEngineKind::Simple => Box::new(audio::SimpleThresholdVad::new(cfg.vad_threshold_db)),
-        VadEngineKind::Earshot => {
-            #[cfg(feature = "vad_earshot")]
-            {
-                Box::new(crate::vad_earshot::EarshotVad::from_config(cfg))
-            }
-            #[cfg(not(feature = "vad_earshot"))]
-            {
-                unreachable!("earshot VAD requested without 'vad_earshot' feature")
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -509,7 +492,7 @@ mod tests {
         let cfg = test_config();
         let mut pipeline = cfg.voice_pipeline_config();
         pipeline.vad_engine = VadEngineKind::Simple;
-        let engine = create_vad_engine(&pipeline);
+        let engine = audio::create_vad_engine(&pipeline);
         assert_eq!(engine.name(), "simple_threshold_vad");
     }
 
@@ -519,7 +502,7 @@ mod tests {
         let cfg = test_config();
         let mut pipeline = cfg.voice_pipeline_config();
         pipeline.vad_engine = VadEngineKind::Earshot;
-        let engine = create_vad_engine(&pipeline);
+        let engine = audio::create_vad_engine(&pipeline);
         assert_eq!(engine.name(), "earshot_vad");
     }
 

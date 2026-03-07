@@ -5,6 +5,11 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+try:
+    from git_change_paths import list_changed_paths_with_base_map
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
+
 
 def run_git(
     repo_root: Path,
@@ -42,6 +47,55 @@ def is_test_path(path: Path) -> bool:
         or name.endswith("_test.rs")
         or name.endswith("_tests.rs")
     )
+
+
+def list_changed_paths(
+    run_git_fn,
+    since_ref: str | None,
+    head_ref: str,
+) -> list[Path]:
+    """Return changed paths using the shared rename-aware git path helper."""
+    changed_paths, _base_map = list_changed_paths_with_base_map(
+        run_git_fn,
+        since_ref,
+        head_ref,
+    )
+    return changed_paths
+
+
+def collect_rust_files(
+    source_root: Path,
+    *,
+    include_tests: bool,
+) -> tuple[list[Path], int]:
+    """Collect Rust files under `source_root`, optionally excluding tests."""
+    files: list[Path] = []
+    skipped_tests = 0
+    for path in source_root.rglob("*.rs"):
+        relative = Path(path.relative_to(source_root.parent).as_posix())
+        if not include_tests and is_test_path(relative):
+            skipped_tests += 1
+            continue
+        files.append(path)
+    return sorted(files), skipped_tests
+
+
+def normalize_changed_rust_paths(
+    changed_paths: list[Path],
+    *,
+    include_tests: bool,
+) -> set[str]:
+    """Normalize changed Rust source paths to `rust/src/...` string form."""
+    normalized: set[str] = set()
+    for path in changed_paths:
+        if path.suffix != ".rs":
+            continue
+        if not path.as_posix().startswith("rust/src/"):
+            continue
+        if not include_tests and is_test_path(path):
+            continue
+        normalized.add(path.as_posix())
+    return normalized
 
 
 def read_text_from_ref(run_git_fn, path: Path, ref: str) -> str | None:

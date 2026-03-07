@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..path_audit import scan_path_audit_references
 
 MAX_MD_VIOLATIONS = 30
@@ -58,7 +58,7 @@ def run(args) -> int:
     scan = scan_path_audit_references()
     report = {
         "command": "path-audit",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         **scan,
     }
 

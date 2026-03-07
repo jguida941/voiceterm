@@ -3,6 +3,7 @@
 //! Displays version and configuration info on startup.
 
 use crate::runtime_compat;
+use crate::status_line::Pipeline;
 use crate::theme::{
     inline_separator, runtime_style_pack_overrides, RuntimeBannerStyleOverride,
     RuntimeStartupStyleOverride, Theme,
@@ -54,6 +55,13 @@ fn splash_duration_ms() -> u64 {
 fn clear_screen(stdout: &mut dyn Write) -> io::Result<()> {
     // Use both clear-screen and clear-scrollback sequences for IDE terminals.
     write!(stdout, "\x1b[0m\x1b[2J\x1b[3J\x1b[H")
+}
+
+fn pipeline_label(pipeline: Pipeline) -> &'static str {
+    match pipeline {
+        Pipeline::Rust => "Rust",
+        Pipeline::Python => "Python",
+    }
 }
 
 /// Format the ASCII startup banner with theme-routed color accents.
@@ -133,10 +141,10 @@ pub fn format_ascii_banner(
 pub struct BannerConfig {
     /// Whether auto-voice is enabled
     pub auto_voice: bool,
-    /// Current theme name
-    pub theme: String,
+    /// Current theme selection
+    pub theme: Theme,
     /// Pipeline in use (Rust or Python)
-    pub pipeline: String,
+    pub pipeline: Pipeline,
     /// Microphone sensitivity in dB
     pub sensitivity_db: f32,
     /// Backend CLI name (e.g., "claude", "gemini", "aider")
@@ -147,8 +155,8 @@ impl Default for BannerConfig {
     fn default() -> Self {
         Self {
             auto_voice: false,
-            theme: "coral".to_string(),
-            pipeline: "Rust".to_string(),
+            theme: Theme::Coral,
+            pipeline: Pipeline::Rust,
             sensitivity_db: -35.0,
             backend: "codex".to_string(),
         }
@@ -177,7 +185,7 @@ pub fn format_startup_banner(config: &BannerConfig, theme: Theme) -> String {
         colors.reset,
         VERSION,
         config.backend,
-        config.pipeline,
+        pipeline_label(config.pipeline),
         config.theme,
         auto_voice_status,
         config.sensitivity_db,
@@ -244,7 +252,12 @@ fn format_compact_banner(config: &BannerConfig, theme: Theme) -> String {
     };
     format!(
         "{}VoiceTerm{} v{} {separator} {} {separator} {} {separator} auto-voice: {}\n",
-        colors.info, colors.reset, VERSION, config.backend, config.pipeline, auto_voice_status
+        colors.info,
+        colors.reset,
+        VERSION,
+        config.backend,
+        pipeline_label(config.pipeline),
+        auto_voice_status
     )
 }
 
@@ -366,8 +379,8 @@ mod tests {
     fn format_startup_banner_shows_config() {
         let config = BannerConfig {
             auto_voice: true,
-            theme: "catppuccin".to_string(),
-            pipeline: "Rust".to_string(),
+            theme: Theme::Catppuccin,
+            pipeline: Pipeline::Rust,
             sensitivity_db: -40.0,
             backend: "gemini".to_string(),
         };

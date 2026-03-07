@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -144,7 +144,7 @@ def _is_token_subsequence(command: str, workflow_text: str) -> bool:
 def build_report() -> dict:
     report = {
         "command": "check_bundle_workflow_parity",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "bundle_registry": BUNDLE_AUTHORITY_PATH,
         "ok": True,
         "targets": [],

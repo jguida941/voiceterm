@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..loop_comment import coerce_pr_number, upsert_comment
 from ..mutation_loop_policy import evaluate_fix_policy, load_policy
@@ -241,7 +241,7 @@ def run(args) -> int:
     report.update(
         {
             "command": "mutation-loop",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "notify": args.notify,
             "comment_target": args.comment_target,
             "comment_pr_number": args.comment_pr_number,

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..collect import collect_git_status
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..path_audit import scan_legacy_path_references
 from ..policy_gate import run_json_policy_gate
@@ -226,7 +226,7 @@ def run(args) -> int:
 
     report = {
         "command": "docs-check",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "since_ref": since_ref,
         "head_ref": head_ref,
         "user_facing": args.user_facing,

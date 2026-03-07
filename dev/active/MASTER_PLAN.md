@@ -11,11 +11,11 @@
 - `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
 - `dev/active/rust_workspace_layout_migration.md` is the Rust workspace path migration execution spec; implementation tasks stay in this file under `MP-339`.
 - `dev/active/naming_api_cohesion.md` is the naming/API cohesion execution spec; implementation tasks stay in this file under `MP-267`.
-- `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`.
+- `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`, `MP-354`.
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-03-06)
+## Status Snapshot (2026-03-07)
 - Last tagged release: `v1.1.1` (2026-03-06)
 - Current release target: `post-v1.1.1 planning`
 - Active development branch: `develop`
@@ -26,6 +26,10 @@
   compatibility (`libexec/src/Cargo.toml` -> `libexec/rust/Cargo.toml`) plus
   Theme GA baseline execution (`MP-161`, `MP-162`, `MP-174`, `MP-166`,
   `MP-167`, `MP-173`).
+- In-flight architecture intake: `MP-354` is opened to execute post-release
+  writer/startup coupling remediation (`Phase 7` in
+  `dev/active/ide_provider_modularization.md`) before resuming lower-priority
+  runtime cleanup tracks.
 - Execution mode: keep autonomy/tooling/runtime reliability in maintenance-only
   mode while Theme and Memory product lanes are completed in order.
 - Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
@@ -43,6 +47,17 @@
 - Runtime cleanup update: startup splash logo coloring now uses a single
   theme-family accent (no rainbow line rotation), and the stale orphan
   `rust/src/bin/voiceterm/progress.rs` module has been removed.
+- Theme Studio maintainability cleanup update: home/colors/borders/components/
+  preview/export byte handling now routes through page-scoped helper functions
+  in `theme_studio_input.rs`, with runtime style-adjustment routing split into
+  focused helper paths; follow-up dedup also centralized vertical-arrow page
+  navigation + runtime override cycle wiring so page handlers avoid repeated
+  dispatch scaffolding. Theme Studio suite and full CI profile remained green.
+- Theme Studio readability follow-up update: `theme_studio/home_page.rs` now
+  uses a dedicated row-metadata struct with static tip strings (instead of
+  per-row tip `String` allocations), and writer-state test-only timing
+  constants were moved out of `writer/state.rs` production scope into
+  `writer/state/tests.rs` so runtime modules stay focused on shipped code.
 - CI compatibility hotfix update: release-binary workflow runner labels now use
   actionlint-supported macOS targets, latency guard script path resolution now
   supports `rust/` with `src/` fallback, and explicit `devctl triage --cihub`
@@ -315,7 +330,7 @@ Mapped scopes:
 
 Mapped scopes:
 
-- `MP-127..MP-138`, `MP-339`, `MP-341`, `MP-346`, runtime hardening + workspace migration + host/provider modularization docs.
+- `MP-127..MP-138`, `MP-339`, `MP-341`, `MP-346`, `MP-354`, runtime hardening + workspace migration + host/provider modularization docs.
 
 ### Phase C - Tooling Control Plane + Loop Foundations
 
@@ -588,7 +603,7 @@ Theme Studio mandatory verification bundle (per PR):
 
 - [x] MP-164 Implement dedicated `Theme Studio` overlay mode entry points/navigation and remove deep theme editing from generic Settings flows (landed `OverlayMode::ThemeStudio` with dedicated renderer/state selection, routed `Ctrl+Y`/theme-button entrypoints and cross-overlay theme hotkey flows into Theme Studio, added keyboard/mouse navigation (`Enter` action routing to Theme Picker/close plus arrow/ESC handling), wired periodic resize rerender + PTY reserved-row budgeting for Theme Studio mode, and covered interaction/status-row updates with new event-loop/theme-studio/status-line regression tests; TS-G07 evidence: `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `cd rust && cargo test --bin voiceterm`).
 - [x] MP-165 Migrate legacy visual controls out of settings list (`SettingsItem::Theme`, `SettingsItem::HudStyle`, `SettingsItem::HudBorders`, `SettingsItem::HudPanel`, `SettingsItem::HudAnimate`) so Settings keeps non-theme runtime controls only (landed by removing those rows from `SETTINGS_ITEMS`, preserving quick visual controls via `Ctrl+Y`/`Ctrl+G` theme paths plus `Ctrl+U` HUD-style cycling outside Settings).
-- [ ] MP-166 Deliver Studio page control parity for all `StylePack` fields (tokens, layout, widgets, motion, behavior, notifications, command/discovery surfaces, voice-state scenes, startup/wizard/progress/texture surfaces, accessibility, keybinds, profiles) with undo/redo + rollback (in progress: Theme Studio now includes interactive visual-control rows for existing runtime styling (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`) plus live `StylePack` runtime overrides for `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, `Voice scene`, `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, all adjustable with Enter and Left/Right controls and live current-value labels; overlay rendering now uses settings-style `label + [ value ]` rows with selected-row highlighting, a dedicated `tip:` description row, wider studio-width clamps (`60..=82`), and footer hints that expose left/right adjustment controls; runtime style-pack override edit safety is now wired with dedicated `Undo edit`, `Redo edit`, and `Rollback edits` rows backed by bounded in-session history; deep multi-page style-pack parity (`tokens`, `layout/motion`, broader field mapping) remains pending).
+- [ ] MP-166 Deliver Studio page control parity for all `StylePack` fields (tokens, layout, widgets, motion, behavior, notifications, command/discovery surfaces, voice-state scenes, startup/wizard/progress/texture surfaces, accessibility, keybinds, profiles) with undo/redo + rollback (in progress: Theme Studio now includes interactive visual-control rows for existing runtime styling (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`) plus live `StylePack` runtime overrides for `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, `Voice scene`, `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, all adjustable with Enter and Left/Right controls and live current-value labels; overlay rendering now uses settings-style `label + [ value ]` rows with selected-row highlighting, a dedicated `tip:` description row, wider studio-width clamps (`60..=82`), and footer hints that expose left/right adjustment controls; runtime style-pack override edit safety is now wired with dedicated `Undo edit`, `Redo edit`, and `Rollback edits` rows backed by bounded in-session history; Theme Studio input dispatch now routes through page-scoped helper handlers with shared global-key processing and focused runtime-style adjustment routing in `theme_studio_input.rs`, and home-page row rendering now uses structured row metadata with static tip ownership; deep multi-page style-pack parity (`tokens`, `layout/motion`, broader field mapping) remains pending).
 - [ ] MP-167 Run Theme Studio GA validation and docs lockstep updates (snapshot matrix, terminal compatibility matrix, architecture docs, user docs, troubleshooting guidance, changelog entry).
 - [ ] MP-173 Add CI policy gates for future visuals: fail if a new renderable component lacks style-ID registration, and fail if post-parity a style-pack field lacks Studio control mapping (in progress: framework capability parity now fails on any newly added Ratatui widget/symbol without registration/mapping coverage, component-registry tests now require exact inventory parity plus unique stable style IDs, and Theme Studio now enforces explicit style-pack field classification (`mapped` vs `deferred`) with the post-parity gate enabled (`STYLE_PACK_STUDIO_PARITY_COMPLETE = true`) so mapping tests now require zero deferred style-pack fields).
 - [ ] MP-177 Add widget-pack extensibility parity (first-party plus allowlisted third-party widgets) so newly adopted widget families must register style IDs + resolver bindings + Studio controls before GA.
@@ -709,7 +724,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-262 Publish a full senior-level engineering audit baseline in `dev/archive/2026-02-20-senior-engineering-audit.md` with measured code-shape, lint-debt, CI hardening, and automation findings mapped to executable follow-up MPs.
 - [x] MP-263 Harden GitHub Actions supply-chain posture: pin third-party actions by commit SHA, define explicit least-privilege `permissions:` on every workflow, and add `concurrency:` groups where duplicate in-flight runs can race or waste minutes (landed by pinning all workflow action refs to 40-char SHAs across `.github/workflows/*.yml`, adding explicit `permissions:`/`concurrency:` blocks to every workflow, and narrowing write scope to job-level where badge-update pushes require `contents: write`).
 - [x] MP-264 Add repository ownership and dependency automation baseline by introducing `.github/CODEOWNERS` and `.github/dependabot.yml` (grouped update policies + review routing) so tooling/runtime changes always have accountable reviewers and timely dependency refresh cadence (landed with explicit ownership coverage for runtime/tooling/distribution paths and weekly grouped update policies for GitHub Actions, Cargo, and PyPI packaging surfaces).
-- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slice extracts compact/minimal HUD helpers into `status_line/format/compact.rs`, then moves single-line layout helpers into `status_line/format/single_line.rs`, reducing `status_line/format.rs` from 990 -> 657, and moves `theme/rule_profile.rs` inline tests into `theme/rule_profile/tests.rs` (`theme/rule_profile.rs` 922 -> 265), allowing both raised file-shape overrides to be removed with focused runtime suites and clippy rerun green; follow-up slice split writer message routing into `writer/state/dispatch.rs` plus PTY-heavy handling in `writer/state/dispatch_pty.rs`, reducing mixed concerns and retiring temporary dispatch/redraw/prompt complexity exceptions after guard re-measurement).
+- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slices extract compact/minimal HUD helpers into `status_line/format/compact.rs`, then move single-line layout helpers into `status_line/format/single_line.rs`, reduce `theme/rule_profile.rs` by moving inline tests into `theme/rule_profile/tests.rs` (`922 -> 265`), and move writer-state test-only timing constants from `writer/state.rs` into `writer/state/tests.rs` so production writer modules remain runtime-focused; raised file-shape overrides were removed with focused runtime suites and clippy reruns green, and writer message routing remains split across `writer/state/dispatch.rs` plus `writer/state/dispatch_pty.rs` after retiring temporary dispatch/redraw/prompt complexity exceptions).
 - [ ] MP-266 Burn down Rust lint-debt hotspots by reducing `#[allow(...)]` surface area and non-test `unwrap/expect` usage, then add measurable gates/reporting so debt cannot silently regress (in progress: landed `dev/scripts/checks/check_rust_lint_debt.py` with working-tree + commit-range modes, wired governance bundles/docs references, and added tooling-control-plane CI enforcement so changed Rust files cannot add net-new lint debt without an explicit failure signal; latest slice removes 22 `#[allow(dead_code)]` suppressions by scoping PTY counter helper APIs/re-exports to tests in `pty_session/counters.rs` + `pty_session/mod.rs`, with full `devctl check --profile ci` and lifecycle matrix test coverage green).
 - [ ] MP-267 Run a naming/API cohesion pass across theme/event-loop/status/memory surfaces to remove ambiguous names, tighten public API intent, and consolidate duplicated helper logic into shared modules (`dev/active/naming_api_cohesion.md`; in progress: canonical `swarm_run` command naming now enforced in parser/dispatch/workflow/docs with no legacy alias in active command paths, duplicate triage/mutation policy engines consolidated into shared `loop_fix_policy.py` helper with tests, duplicated devctl numeric parsing consolidated into `dev/scripts/devctl/numeric.py` (`to_int`/`to_float`/`to_optional_float`) with callsite rewiring, Theme Studio list navigation consolidated under shared `theme_studio/nav.rs` with consistent `select_prev`/`select_next` naming across page state + input-dispatch call paths, and prompt-occlusion suppression transitions extracted into `event_loop/prompt_occlusion.rs` so output/input/periodic dispatchers share one runtime owner for suppression side effects).
 - [x] MP-268 Codify a Rust-reference-first engineering quality contract in `AGENTS.md` and `dev/DEVELOPMENT.md`, including mandatory official-doc reference pack links and handoff evidence requirements for non-trivial Rust changes.
@@ -862,6 +877,31 @@ documented `MS-G*` pass evidence.
   or a press-and-hold capture mode; wire the preference through Settings plus
   config/CLI surfaces, preserve current behavior by default, and require
   physical hotkey validation before closure.
+- [ ] MP-354 Execute post-release IDE/provider coupling remediation so the
+  writer dispatch/timing/startup paths reduce cross-product blast radius before
+  additional runtime feature work continues. Scope is tracked in
+  `dev/active/ide_provider_modularization.md` Phase 7 (`Step 7a`-`Step 7f`):
+  adapter-owned writer state split, `handle_pty_output` pipeline decomposition,
+  redraw timing/policy de-tangling, `main.rs` startup decomposition, shared VAD
+  factory ownership, and guard-script dedup follow-up with checkpoint packets.
+  2026-03-07 status: `Step 7a`, `Step 7b`, `Step 7c`, `Step 7d`, `Step 7e`,
+  and `Step 7f` complete (writer adapter-owned state split +
+  `handle_pty_output` staged decomposition + runtime-variant timing/policy
+  de-tangling + startup phase decomposition + shared
+  `audio::create_vad_engine` ownership + guard bootstrap/helper dedup
+  closure); queued follow-up `R8 + R9 + R10`, `R6 + R7 + R11`,
+  `R12 + R13 + R18`, and residual low-risk `R14 + R15 + R16 + R17` are now
+  complete, and Python residual follow-up `P11 + P12` is now complete as well
+  (typed `RuleEvalContext`, `AppConfig::validate` helper split, grouped
+  prompt-occlusion output signals, glyph-table style resolution,
+  runtime/schema + style-schema macro dedup cleanup, parser control-byte
+  dispatch helper extraction, wake-listener join lifecycle dedup, lookup-based
+  wake send-intent suffix matching, named legacy UI color constants, typed
+  `BannerConfig` ownership, render host-resolution threading cleanup,
+  style-pack override state accessor dedup, UTC tooling/check report timestamp
+  normalization, and explicit `SECONDS_PER_DAY` age-math constants). Phase-7
+  priority queue remains
+  closed.
 
 Control-plane program sequencing (maps to MP-330/331/332/336/338/340):
 

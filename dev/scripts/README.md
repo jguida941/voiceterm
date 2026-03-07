@@ -372,6 +372,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
 | `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS bundle render gate | Verifies AGENTS rendered command-bundle section matches canonical output from `dev/scripts/devctl/bundle_registry.py`; supports `--write` to regenerate the section. |
+| `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
@@ -814,6 +815,9 @@ Workspace-path note:
 - `dev/scripts/tests/measure_latency.sh` auto-detects `rust/` and falls back to
   legacy `src/` so CI/local guard commands remain stable across migration-era
   branches.
+- `dev/scripts/tests/measure_latency.sh` uses `set -u`-safe empty-array
+  expansion for optional args so voice-only and CI synthetic modes execute
+  cleanly when optional arg arrays are unset/empty.
 - `dev/scripts/tests/benchmark_voice.sh` and
   `dev/scripts/tests/compare_python_rust_voice_latency.sh` use the same
   `rust/`-first workspace detection with legacy `src/` fallback.

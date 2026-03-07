@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -262,7 +262,7 @@ def _build_report() -> dict:
     )
     return {
         "command": "check_naming_consistency",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not errors,
         "matrix_path": _path_for_report(MATRIX_PATH),
         "matrix_host_ids": sorted(matrix_host_ids),

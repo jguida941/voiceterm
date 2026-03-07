@@ -22,7 +22,9 @@ fn jetbrains_redraw_state() -> WriterState {
 
 fn jetbrains_destructive_clear_state(cursor_slot_busy: bool) -> WriterState {
     let mut state = jetbrains_state(26, 120);
-    state.jetbrains_dec_cursor_saved_active = cursor_slot_busy;
+    state
+        .adapter_state
+        .set_jetbrains_dec_cursor_saved_active(cursor_slot_busy);
     state.last_status_draw_at = Instant::now() - Duration::from_millis(2_000);
     state.last_output_at = Instant::now() - Duration::from_millis(2_000);
 
@@ -157,8 +159,12 @@ fn track_cursor_save_restore_ignores_csi_parameter_bytes() {
 fn maybe_redraw_status_defers_jetbrains_claude_when_cursor_save_is_active() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
-        state.jetbrains_dec_cursor_saved_active = true;
-        state.jetbrains_ansi_cursor_saved_active = false;
+        state
+            .adapter_state
+            .set_jetbrains_dec_cursor_saved_active(true);
+        state
+            .adapter_state
+            .set_jetbrains_ansi_cursor_saved_active(false);
 
         state.maybe_redraw_status();
         assert!(
@@ -172,10 +178,17 @@ fn maybe_redraw_status_defers_jetbrains_claude_when_cursor_save_is_active() {
 fn maybe_redraw_status_defers_jetbrains_claude_during_restore_settle_window() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
-        state.jetbrains_dec_cursor_saved_active = false;
-        state.jetbrains_ansi_cursor_saved_active = false;
-        state.jetbrains_cursor_restore_settle_until =
-            Some(Instant::now() + Duration::from_millis(80));
+        state
+            .adapter_state
+            .set_jetbrains_dec_cursor_saved_active(false);
+        state
+            .adapter_state
+            .set_jetbrains_ansi_cursor_saved_active(false);
+        state
+            .adapter_state
+            .set_jetbrains_cursor_restore_settle_until(Some(
+                Instant::now() + Duration::from_millis(80),
+            ));
 
         state.maybe_redraw_status();
         assert!(
@@ -190,8 +203,11 @@ fn jetbrains_claude_composer_repair_waits_for_due_deadline() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
         state.last_output_at = Instant::now();
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() + Duration::from_millis(80));
+        state
+            .adapter_state
+            .set_jetbrains_claude_composer_repair_due(Some(
+                Instant::now() + Duration::from_millis(80),
+            ));
 
         state.maybe_redraw_status();
         assert!(
@@ -211,7 +227,10 @@ fn jetbrains_claude_composer_keystroke_repaints_immediately_without_deferred_rep
         let composer_chunk = CLAUDE_COMPOSER_CHUNK.to_vec();
         assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_none(),
             "composer keystroke packets should repaint immediately without delayed repair arming"
         );
         assert!(
@@ -226,13 +245,18 @@ fn jetbrains_claude_composer_keystroke_falls_back_to_deferred_repair_when_cursor
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_state(24, 120);
         state.display.enhanced_status = Some(StatusLineState::new());
-        state.jetbrains_dec_cursor_saved_active = true;
+        state
+            .adapter_state
+            .set_jetbrains_dec_cursor_saved_active(true);
         assert!(state.handle_message(WriterMessage::UserInputActivity));
 
         let composer_chunk = CLAUDE_COMPOSER_CHUNK.to_vec();
         assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "when cursor save/restore is active, composer packets should use deferred repair path"
         );
     });
@@ -249,7 +273,10 @@ fn jetbrains_claude_composer_keystroke_ignored_without_recent_user_input() {
         let composer_chunk = CLAUDE_COMPOSER_CHUNK.to_vec();
         assert!(state.handle_message(WriterMessage::PtyOutput(composer_chunk)));
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_none(),
             "without recent input, composer-like packets should not arm repair redraws"
         );
     });
@@ -285,7 +312,10 @@ fn jetbrains_claude_full_hud_non_scroll_cursor_mutation_arms_repair() {
             "full HUD repair should stay deferred for synchronized rewrite bursts on JetBrains+Claude"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "full HUD non-scroll cursor mutation should arm a repair deadline"
         );
     });
@@ -306,11 +336,14 @@ fn jetbrains_claude_thinking_packet_without_recent_input_still_arms_repair() {
         let thinking_chunk = b"\x1b[?2026h\r\x1b[21C\x1b[6A\x1b[37m50\x1b[10C\x1b[38;2;174;174;174m(thinking)\x1b[39m\r\r\n\r\n\r\n\r\n\r\n\r\n\x1b[?2026l".to_vec();
         assert!(state.handle_message(WriterMessage::PtyOutput(thinking_chunk)));
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "thinking rewrite packets should arm repair even without recent input"
         );
         assert!(
-            !state.jetbrains_claude_repair_skip_quiet_window,
+            !state.adapter_state.jetbrains_claude_repair_skip_quiet_window(),
             "thinking rewrite packets should keep quiet-window gating to avoid repeated redraw races"
         );
     });
@@ -327,11 +360,16 @@ fn jetbrains_claude_destructive_clear_reanchors_hud_immediately_when_cursor_slot
             "destructive clears should repaint JetBrains+Claude HUD immediately when cursor slot is idle"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "destructive clear should still arm a near-term follow-up repair"
         );
         assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
+            state
+                .adapter_state
+                .jetbrains_claude_repair_skip_quiet_window(),
             "destructive-clear follow-up repair should bypass quiet window"
         );
     });
@@ -352,11 +390,16 @@ fn jetbrains_claude_destructive_clear_defers_immediate_repaint_when_cursor_slot_
             "busy cursor slot should block immediate preclear redraw path"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "deferred path should still arm follow-up repair"
         );
         assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
+            state
+                .adapter_state
+                .jetbrains_claude_repair_skip_quiet_window(),
             "deferred destructive-clear repair should bypass quiet window"
         );
     });
@@ -383,11 +426,16 @@ fn jetbrains_claude_repeated_destructive_clear_burst_uses_deferred_followup() {
             "burst follow-up should not repeatedly force immediate preclear redraw"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "burst follow-up should keep a deferred repair marker armed"
         );
         assert!(
-            state.jetbrains_claude_repair_skip_quiet_window,
+            state
+                .adapter_state
+                .jetbrains_claude_repair_skip_quiet_window(),
             "deferred repair from destructive-clear burst should bypass quiet window"
         );
     });
@@ -398,8 +446,11 @@ fn jetbrains_claude_composer_repair_requires_quiet_window_after_due() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
         state.last_output_at = Instant::now() - Duration::from_millis(90);
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
+        state
+            .adapter_state
+            .set_jetbrains_claude_composer_repair_due(Some(
+                Instant::now() - Duration::from_millis(1),
+            ));
 
         state.maybe_redraw_status();
         assert!(
@@ -407,7 +458,10 @@ fn jetbrains_claude_composer_repair_requires_quiet_window_after_due() {
             "ready composer repair should still wait for a post-burst quiet window"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "repair marker should stay armed while output is still settling"
         );
 
@@ -419,7 +473,10 @@ fn jetbrains_claude_composer_repair_requires_quiet_window_after_due() {
             "once output is quiet, composer repair should commit"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_none(),
             "composer repair deadline should clear after redraw commits"
         );
     });
@@ -430,9 +487,14 @@ fn jetbrains_claude_sync_repair_can_bypass_quiet_window() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
         state.last_output_at = Instant::now();
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
-        state.jetbrains_claude_repair_skip_quiet_window = true;
+        state
+            .adapter_state
+            .set_jetbrains_claude_composer_repair_due(Some(
+                Instant::now() - Duration::from_millis(1),
+            ));
+        state
+            .adapter_state
+            .set_jetbrains_claude_repair_skip_quiet_window(true);
 
         state.maybe_redraw_status();
         assert!(
@@ -440,11 +502,16 @@ fn jetbrains_claude_sync_repair_can_bypass_quiet_window() {
             "quiet-window bypass should allow scheduled repair redraw while synchronized rewrite packets are active"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_none(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_none(),
             "repair deadline should clear after bypassed redraw commits"
         );
         assert!(
-            !state.jetbrains_claude_repair_skip_quiet_window,
+            !state
+                .adapter_state
+                .jetbrains_claude_repair_skip_quiet_window(),
             "quiet-window bypass marker should reset after redraw commits"
         );
     });
@@ -455,9 +522,14 @@ fn jetbrains_claude_composer_repair_still_waits_when_cursor_save_is_active() {
     with_backend_label_env(Some("claude"), || {
         let mut state = jetbrains_redraw_state();
         state.last_output_at = Instant::now() - Duration::from_millis(90);
-        state.jetbrains_dec_cursor_saved_active = true;
-        state.jetbrains_claude_composer_repair_due =
-            Some(Instant::now() - Duration::from_millis(1));
+        state
+            .adapter_state
+            .set_jetbrains_dec_cursor_saved_active(true);
+        state
+            .adapter_state
+            .set_jetbrains_claude_composer_repair_due(Some(
+                Instant::now() - Duration::from_millis(1),
+            ));
 
         state.maybe_redraw_status();
         assert!(
@@ -465,7 +537,10 @@ fn jetbrains_claude_composer_repair_still_waits_when_cursor_save_is_active() {
             "active cursor-save should still block composer repair redraw"
         );
         assert!(
-            state.jetbrains_claude_composer_repair_due.is_some(),
+            state
+                .adapter_state
+                .jetbrains_claude_composer_repair_due()
+                .is_some(),
             "composer repair marker should stay armed until redraw can run safely"
         );
     });
@@ -572,7 +647,9 @@ fn cursor_claude_non_scroll_csi_mutation_triggers_redraw() {
         state.display.banner_height = 4;
         state.display.preclear_banner_height = 4;
         state.display.force_full_banner_redraw = false;
-        state.cursor_startup_scroll_preclear_pending = false;
+        state
+            .adapter_state
+            .set_cursor_startup_scroll_preclear_pending(false);
         // Simulate recent user typing so the typing-hold deferral is active.
         state.last_user_input_at = Instant::now();
         state.last_scroll_redraw_at = Instant::now();
@@ -601,7 +678,9 @@ fn cursor_claude_banner_preclear_handles_wrap_scroll_without_newline() {
         state.display.banner_height = 4;
         state.display.preclear_banner_height = 4;
         state.display.force_full_banner_redraw = false;
-        state.cursor_startup_scroll_preclear_pending = false;
+        state
+            .adapter_state
+            .set_cursor_startup_scroll_preclear_pending(false);
         state.last_preclear_at =
             Instant::now() - Duration::from_millis(CURSOR_CLAUDE_BANNER_PRECLEAR_COOLDOWN_MS);
         state.last_scroll_redraw_at = Instant::now();

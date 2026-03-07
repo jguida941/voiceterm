@@ -359,56 +359,30 @@ trait ThemeDefaultable {
     fn is_theme_default(&self) -> bool;
 }
 
-impl ThemeDefaultable for BorderStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
+macro_rules! impl_theme_defaultable {
+    ($($override_type:ty),+ $(,)?) => {
+        $(
+            impl ThemeDefaultable for $override_type {
+                fn is_theme_default(&self) -> bool {
+                    matches!(self, Self::Theme)
+                }
+            }
+        )+
+    };
 }
-impl ThemeDefaultable for IndicatorSetOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for GlyphSetOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ToastPositionOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for StartupStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ProgressStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for VoiceSceneStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ToastSeverityMode {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for BannerStyleOverride {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
-impl ThemeDefaultable for ProgressBarFamily {
-    fn is_theme_default(&self) -> bool {
-        matches!(self, Self::Theme)
-    }
-}
+
+impl_theme_defaultable!(
+    BorderStyleOverride,
+    IndicatorSetOverride,
+    GlyphSetOverride,
+    ToastPositionOverride,
+    StartupStyleOverride,
+    ProgressStyleOverride,
+    VoiceSceneStyleOverride,
+    ToastSeverityMode,
+    BannerStyleOverride,
+    ProgressBarFamily,
+);
 
 fn normalize_override<T: ThemeDefaultable>(value: Option<T>) -> Option<T> {
     value.filter(|v| !v.is_theme_default())

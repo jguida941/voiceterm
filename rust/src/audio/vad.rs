@@ -89,6 +89,26 @@ pub trait VadEngine {
     }
 }
 
+/// Build the configured VAD engine for a voice pipeline.
+#[must_use]
+pub fn create_vad_engine(cfg: &VoicePipelineConfig) -> Box<dyn VadEngine + Send> {
+    match cfg.vad_engine {
+        crate::config::VadEngineKind::Simple => {
+            Box::new(SimpleThresholdVad::new(cfg.vad_threshold_db))
+        }
+        crate::config::VadEngineKind::Earshot => {
+            #[cfg(feature = "vad_earshot")]
+            {
+                Box::new(crate::vad_earshot::EarshotVad::from_config(cfg))
+            }
+            #[cfg(not(feature = "vad_earshot"))]
+            {
+                unreachable!("earshot VAD requested without 'vad_earshot' feature")
+            }
+        }
+    }
+}
+
 /// Per-frame VAD classification consumed by capture stop logic.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum VadDecision {

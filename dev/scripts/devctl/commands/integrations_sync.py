@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..common import pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..integration_federation_policy import (
     federation_audit_log_path,
@@ -227,7 +227,7 @@ def run(args) -> int:
 
     report = {
         "command": "integrations-sync",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
         "mode": "status-only" if args.status_only else "sync",
         "remote_update": bool(args.remote),

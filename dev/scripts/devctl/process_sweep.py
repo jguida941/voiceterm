@@ -26,6 +26,7 @@ from typing import Pattern
 PROCESS_SWEEP_CMD = ["ps", "-axo", "pid=,ppid=,etime=,command="]
 DEFAULT_ORPHAN_MIN_AGE_SECONDS = 60
 DEFAULT_STALE_MIN_AGE_SECONDS = 600
+SECONDS_PER_DAY = 24 * 60 * 60
 # Match both full-path and basename launch styles:
 # - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
 # - voiceterm-deadbeef --nocapture
@@ -74,7 +75,7 @@ def parse_etime_seconds(raw: str) -> int | None:
     else:
         return None
 
-    return days * 86400 + seconds
+    return days * SECONDS_PER_DAY + seconds
 
 
 def scan_matching_processes(

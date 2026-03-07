@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..common import confirm_or_abort, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..integration_federation_policy import (
     federation_allowed_destination_roots,
@@ -45,7 +45,7 @@ def run(args) -> int:
     if args.list_profiles:
         payload = {
             "command": "integrations-import",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "ok": len(errors) == 0,
             "mode": "list-profiles",
             "audit_log": relative_or_str(audit_log_path, repo_root),
@@ -175,7 +175,7 @@ def run(args) -> int:
     mode = "apply" if apply_mode else "preview"
     report = {
         "command": "integrations-import",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
         "mode": mode,
         "source": source_name or None,

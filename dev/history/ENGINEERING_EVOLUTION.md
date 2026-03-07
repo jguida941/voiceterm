@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-03-07
 
 ## At a Glance
 
@@ -43,6 +43,20 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - STT: speech-to-text processing.
 - VAD: voice activity detection for start/stop capture behavior.
 - HUD: terminal overlay that shows voice state, controls, and metrics.
+
+## Recent Evolution Updates
+
+### 2026-03-07 - Theme Studio input dispatch cleanup
+
+Fact: Theme Studio overlay input handling was refactored into page-scoped
+dispatch helpers for Home/Colors/Borders/Components/Preview/Export plus a
+shared global-key path, while preserving existing runtime behavior.
+
+Evidence:
+
+- `rust/src/bin/voiceterm/event_loop/input_dispatch/overlay/theme_studio_input.rs`
+- `python3 dev/scripts/devctl.py check --profile ci`
+- `cd rust && cargo test --bin voiceterm theme_studio -- --nocapture`
 
 ## Audit Snapshot (Repo-Verified on 2026-02-17)
 

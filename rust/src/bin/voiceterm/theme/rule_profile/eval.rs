@@ -24,7 +24,7 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
             let below_max = max.is_none_or(|m| value <= m);
             above_min && below_max
         }
-        RuleCondition::Backend { backend } => ctx.backend == *backend,
+        RuleCondition::Backend { backend } => ctx.backend.label() == backend,
         RuleCondition::Capability {
             capability,
             present,
@@ -32,7 +32,7 @@ pub(crate) fn evaluate_condition(condition: &RuleCondition, ctx: &RuleEvalContex
             let has = ctx.capabilities.iter().any(|c| c == capability);
             has == *present
         }
-        RuleCondition::ColorMode { mode } => ctx.color_mode == *mode,
+        RuleCondition::ColorMode { mode } => ctx.color_mode.to_string() == *mode,
         RuleCondition::All { conditions } => conditions.iter().all(|c| evaluate_condition(c, ctx)),
         RuleCondition::Any { conditions } => conditions.iter().any(|c| evaluate_condition(c, ctx)),
     }

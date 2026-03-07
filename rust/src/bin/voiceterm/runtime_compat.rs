@@ -73,6 +73,40 @@ pub(crate) enum TerminalHost {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RuntimeVariant {
+    JetBrainsClaude,
+    JetBrainsCodex,
+    CursorClaude,
+    Generic,
+}
+
+impl RuntimeVariant {
+    pub(crate) const fn from_parts(
+        terminal_family: TerminalHost,
+        backend_family: BackendFamily,
+    ) -> Self {
+        match (terminal_family, backend_family) {
+            (TerminalHost::JetBrains, BackendFamily::Claude) => Self::JetBrainsClaude,
+            (TerminalHost::JetBrains, BackendFamily::Codex) => Self::JetBrainsCodex,
+            (TerminalHost::Cursor, BackendFamily::Claude) => Self::CursorClaude,
+            _ => Self::Generic,
+        }
+    }
+
+    pub(crate) const fn is_jetbrains_claude(self) -> bool {
+        matches!(self, Self::JetBrainsClaude)
+    }
+
+    pub(crate) const fn is_jetbrains_codex(self) -> bool {
+        matches!(self, Self::JetBrainsCodex)
+    }
+
+    pub(crate) const fn is_cursor_claude(self) -> bool {
+        matches!(self, Self::CursorClaude)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HostTimingConfig {
     preclear_cooldown_ms: u64,
     typing_redraw_hold_ms: u64,

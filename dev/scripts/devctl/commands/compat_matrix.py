@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..policy_gate import run_json_policy_gate
 from ..script_catalog import check_script_path
 
@@ -56,7 +56,7 @@ def run(args) -> int:
 
     report = {
         "command": "compat-matrix",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": validation_ok and smoke_ok,
         "run_smoke": run_smoke,
         "validation_ok": validation_ok,

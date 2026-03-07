@@ -23,6 +23,7 @@ Execution authority note:
 - [ ] LB-155 Add wake-word/speech calibration wizard per microphone/environment (sensitivity + noise floor + phrase rehearsal), storing profile-specific thresholds and surfacing miss/false-trigger diagnostics in logs.
 - [ ] LB-156 Add cross-provider intent router so one spoken command grammar maps cleanly to Codex and Claude backend actions, reducing provider-specific phrasing differences in day-to-day use.
 - [ ] LB-157 Process orphan-prevention hardening: add startup/shutdown sweeps and watchdog checks so stale `cargo test --bin voiceterm` and detached `target/debug/deps/voiceterm-*` processes (`PPID=1`) are detected/reaped automatically, with an auditable `devctl` process-health command and CI/test-lane post-run orphan assertions.
+- [ ] LB-158 Investigate startup overlay initialization gap in Cursor+Codex sessions: when launching VoiceTerm after login and entering Codex in Cursor, overlay/HUD can start in a not-loaded/blank state until later redraw. Capture reproducible logs/screenshots (`voiceterm --logs --codex`), verify first-frame geometry + redraw sequencing, and keep JetBrains non-regression validation in scope.
 
 
 

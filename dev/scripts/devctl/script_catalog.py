@@ -12,6 +12,7 @@ CHECK_SCRIPT_FILES = {
     "active_plan_sync": "check_active_plan_sync.py",
     "agents_contract": "check_agents_contract.py",
     "agents_bundle_render": "check_agents_bundle_render.py",
+    "bootstrap": "check_bootstrap.py",
     "bundle_registry_dry": "check_bundle_registry_dry.py",
     "bundle_workflow_parity": "check_bundle_workflow_parity.py",
     "cli_flags_parity": "check_cli_flags_parity.py",

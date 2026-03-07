@@ -1,6 +1,6 @@
-# IDE + Provider Modularization Plan (MP-346)
+# IDE + Provider Modularization Plan (MP-346, MP-354)
 
-**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`)  |  **Last updated**: 2026-03-05 | **Owner:** Runtime/tooling architecture
+**Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`, `MP-354`)  |  **Last updated**: 2026-03-07 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
 
 ## Scope
@@ -28,7 +28,7 @@ Out of scope (for initial MP-346 slices):
 
 ## Regression Containment Contract (Required)
 
-No MP-346 phase can advance without a fresh checkpoint packet and explicit
+No MP-346/MP-354 phase can advance without a fresh checkpoint packet and explicit
 operator review.
 
 ### Checkpoint Bundle (every major slice)
@@ -1020,6 +1020,88 @@ run old and new code paths in parallel during validation.
   Phase 5 AntiGravity intake) are explicitly tracked. Formal closure
   recorded 2026-03-05.
 
+### Phase 7: Post-Release Coupling Remediation (MP-354)
+
+Goal: eliminate the remaining high-blast-radius coupling that still causes
+"fix one IDE, break another" behavior in writer dispatch/timing and startup.
+
+- [x] Step 7a: Writer state ownership split.
+  - Introduce adapter-owned state containers so impossible cross-host/backend
+    fields cannot exist at runtime (`JetBrainsClaude`, `JetBrainsCodex`,
+    `CursorClaude`, `Generic` ownership model).
+  - Keep `WriterState` focused on shared runtime state (geometry, common timers,
+    display state, channels), and move adapter-specific repair fields behind
+    adapter-owned state.
+- [x] Step 7b: PTY output pipeline decomposition.
+  - Refactor `writer/state/dispatch_pty.rs::handle_pty_output` into explicit
+    stages: `analyze -> preclear policy -> write -> redraw policy -> state updates`.
+  - Replace ad-hoc local boolean preamble with typed analysis outputs so branch
+    ownership is visible and testable.
+- [x] Step 7c: Timing/policy de-tangling.
+  - Update `writer/timing.rs::resolve_idle_redraw_timing` and
+    `writer/state/policy.rs::RedrawPolicy::resolve` to consume typed runtime
+    profile + adapter analysis inputs without re-deriving duplicate
+    IDE/provider booleans.
+  - Remove duplicated cross-product gating conditions where policy ownership is
+    already encoded in runtime profile or adapter analysis.
+- [x] Step 7d: Startup orchestration decomposition.
+  - Split `main.rs::main` into startup phases (`load config`, `prepare runtime`,
+    `build state`, `run`, `shutdown`) with focused helpers and explicit data
+    handoff structs for startup dependencies.
+  - Preserve startup behavior parity with characterization tests and checkpoint
+    bundles after each slice.
+- [x] Step 7e: Shared VAD engine factory.
+  - Remove duplicated `create_vad_engine` implementations by introducing one
+    shared owner (audio/voice boundary), then route voice + wake-word callers
+    through the same factory.
+- [x] Step 7f: Python guard dedup closure.
+  - Remove repeated guard import bootstrap/fallback and shared helper
+    duplication by consolidating into one reusable check bootstrap path.
+  - Prioritize high-frequency guard scripts used by runtime/tooling bundles
+    before broader Python cleanup items.
+
+Phase-7 checkpoint contract (required after each step):
+
+```bash
+python3 dev/scripts/devctl.py check --profile ci
+python3 dev/scripts/devctl.py docs-check --strict-tooling
+python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
+python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop
+python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
+cd rust && cargo test --bin voiceterm
+```
+
+Phase-7 risk add-ons (required when applicable):
+
+1. Overlay/HUD/output behavior changes (`Step 7a`-`7c`):
+   - `python3 dev/scripts/devctl.py check --profile ci`
+   - `cd rust && cargo test --bin voiceterm`
+2. Timing/latency-sensitive policy changes (`Step 7b`, `Step 7c`):
+   - `python3 dev/scripts/devctl.py check --profile prepush`
+   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
+   - `./dev/scripts/tests/measure_latency.sh --ci-guard`
+3. Direct `cargo test` runs must be followed by:
+   - `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+4. Manual runtime verification for release-scope IDE matrix (`Cursor+Codex`,
+   `Cursor+Claude`, `JetBrains+Codex`, `JetBrains+Claude`) is required at
+   minimum after `Step 7c` and `Step 7d` checkpoints.
+
+Phase-7 exit criteria:
+
+1. `handle_pty_output` no longer owns a broad IDE/provider boolean preamble.
+2. Writer adapter-specific repair state no longer lives as unconditional fields
+   on the shared state struct.
+3. Idle redraw timing and redraw policy stop re-deriving duplicated
+   IDE/provider booleans when profile/analysis already encode ownership.
+4. `main.rs::main` is reduced to orchestration-only control flow with
+   decomposed startup/shutdown helpers.
+5. Duplicated VAD factory logic is fully removed.
+6. Guard-script bootstrap/helper duplication is reduced through shared
+   utilities without lowering check reliability.
+7. All checkpoint packets and operator go/no-go decisions are recorded.
+
 ## Operator Checkpoint Log
 
 | Checkpoint | Phase | Artifact path | Bundle status | Manual matrix status | Operator decision | Notes |
@@ -1116,6 +1198,171 @@ MP-346 is complete only when all conditions below are true:
 
 ## Progress Log
 
+- 2026-03-07: MP-354 Python residual closure `P11 + P12`:
+  - standardized tooling/check report timestamps on UTC by adding shared
+    `utc_timestamp()` ownership in `dev/scripts/checks/check_bootstrap.py` and
+    `dev/scripts/devctl/time_utils.py`, then routing local-time report emitters in
+    `dev/scripts/checks/`, `dev/scripts/devctl/commands/`, and
+    `dev/scripts/mutants.py` to UTC/Z timestamps so JSON/markdown outputs no
+    longer mix local wall-clock and UTC report metadata (`P11`),
+  - replaced raw seconds-per-day literals with named `SECONDS_PER_DAY`
+    constants in process-age/report-retention tooling paths
+    (`dev/scripts/devctl/process_sweep.py`,
+    `dev/scripts/devctl/commands/hygiene.py`,
+    `dev/scripts/devctl/reports_retention.py`,
+    `dev/scripts/checks/check_screenshot_integrity.py`) so age math is explicit
+    and shared across the remaining runtime/tooling cleanup surface (`P12`),
+  - initial strict-tooling reruns surfaced two governance follow-ups that were
+    resolved in-scope: registered/documented `check_bootstrap.py` in
+    `script_catalog.py` + `dev/scripts/README.md`, and moved the shared
+    `utc_timestamp()` helper from `devctl/common.py` into dedicated
+    `devctl/time_utils.py` when the working-tree shape guard flagged
+    `common.py` growth over the soft limit,
+  - added focused unit coverage in
+    `dev/scripts/devctl/tests/test_check_bootstrap.py` so the new
+    `check_bootstrap.py` catalog entry does not introduce fresh test-parity
+    debt,
+  - reran the MP-354 tooling checkpoint subset after docs sync to confirm the
+    UTC timestamp sweep and seconds-per-day constant cleanup are green.
+- 2026-03-07: MP-354 residual low-risk closure `R14 + R15 + R16 + R17`:
+  - replaced hardcoded legacy UI accent colors in `rust/src/legacy_ui.rs` with
+    named constants so color ownership is explicit and no longer buried as
+    anonymous `Color::Rgb` literals (`R14`),
+  - updated `banner::BannerConfig` known-domain fields to typed ownership
+    (`Theme` + `Pipeline`) and removed startup-callsite string allocations in
+    `main.rs` (`R15`),
+  - removed repeated `terminal_host()` re-resolution inside
+    `writer/render.rs` by resolving host family once per render/clear path and
+    threading it through cursor-prefix/suffix helpers (`R16`),
+  - reduced `#[cfg(test)]`/`#[cfg(not(test))]` accessor duplication in
+    `theme/style_pack/state.rs` by introducing shared read/write helper owners
+    for runtime style-pack and theme-file override state (`R17`),
+  - reran focused legacy/banner/writer/theme style-pack tests plus full
+    checkpoint/quick-sweep bundles with green results.
+- 2026-03-07: MP-354 queued `R12 + R13 + R18` closure (input/wake-word low-risk dedup):
+  - extracted control-byte parsing in `input/parser.rs` into
+    `parse_control_byte_event` so `consume_bytes` no longer repeats
+    `flush_pending + push` blocks for each control key event (`R12`),
+  - added `WakeListener::try_join(self) -> Result<(), WakeListener>` in
+    `wake_word.rs` and removed duplicated listener
+    destructure/join/reconstruct logic from `reap_finished_listener` and
+    `stop_listener` (`R13`),
+  - replaced the repetitive send-intent suffix `matches!` matrix in
+    `wake_word/matcher.rs` with `SEND_WORD_VARIANTS` +
+    `SEND_SUFFIX_WORDS` lookup-driven logic while preserving existing
+    `"son"` suffix behavior constraints (`R18`),
+  - reran focused parser/wake tests plus full checkpoint/quick-sweep bundles
+    with green results.
+- 2026-03-07: MP-354 queued `R6 + R7 + R11` closure (style/theme mapping cleanup):
+  - introduced a shared `GlyphTable` helper in `theme/mod.rs` and routed
+    repeated HUD/overlay glyph selectors through table-owned resolution without
+    behavior changes,
+  - replaced repeated runtime override enum mapping blocks in
+    `theme/style_pack/apply.rs` with macro-generated conversion impls plus a
+    shared `apply_runtime_override` helper that preserves existing "only apply
+    when override is present" semantics,
+  - replaced repetitive `ThemeDefaultable` impl blocks in
+    `theme/style_schema.rs` with one declarative macro invocation,
+  - reran focused theme tests + `theme_studio_v2` feature-gated compile check
+    and full checkpoint/quick-sweep bundles with green results.
+- 2026-03-07: MP-354 queued `R8 + R9 + R10` closure (typed context +
+  validator split + signal grouping):
+  - updated `theme/rule_profile.rs::RuleEvalContext` to use typed runtime
+    ownership (`BackendKind` + `ColorMode`) instead of stringly-typed backend
+    and color-mode fields, while preserving condition-evaluation behavior in
+    `theme/rule_profile/eval.rs`,
+  - split `AppConfig::validate` range/path/model responsibilities in
+    `rust/src/config/validation.rs` into focused helpers
+    (`validate_voice_pipeline_bounds`, `canonicalize_paths`,
+    `validate_whisper_config`) without changing validation contracts,
+  - grouped prompt-occlusion chunk flags in
+    `event_loop/prompt_occlusion/detection.rs` by introducing
+    `ApprovalSignals` and `PromptContextSignals` under `OutputChunkSignals`,
+    then updated coordinator wiring in `event_loop/prompt_occlusion.rs`,
+  - reran focused config/prompt-occlusion tests plus `theme_studio_v2`
+    feature-gated compile check and full checkpoint/quick-sweep bundles with
+    green results.
+- 2026-03-07: MP-354 Step 7f closure (Python guard dedup closure):
+  - added shared guard bootstrap helper
+    (`dev/scripts/checks/check_bootstrap.py`) to consolidate import fallback
+    resolution and runtime error report emission (`emit_runtime_error`),
+  - consolidated repeated guard helpers in `rust_guard_common.py`
+    (`list_changed_paths`, `collect_rust_files`,
+    `normalize_changed_rust_paths`) and migrated high-frequency guard scripts
+    (`check_code_shape`, `check_duplicate_types`,
+    `check_structural_complexity`, `check_rust_audit_patterns`,
+    `check_rust_lint_debt`, `check_rust_best_practices`,
+    `check_rust_runtime_panic_policy`, `check_rust_security_footguns`,
+    `check_rust_test_shape`) to shared ownership,
+  - reran focused guard-unit checks plus full Step-7 checkpoint and required
+    post-direct-`cargo test` quick sweep with green results.
+- 2026-03-07: MP-354 Step 7e closure (shared VAD engine factory):
+  - introduced shared `audio::create_vad_engine` ownership in
+    `rust/src/audio/vad.rs` and exported it via `rust/src/audio/mod.rs`,
+  - removed duplicated local `create_vad_engine` implementations from
+    `rust/src/voice.rs`, `rust/src/bin/voiceterm/wake_word/detector.rs`, and
+    `rust/src/bin/latency_measurement.rs`, routing all three callers through the
+    shared factory,
+  - reran focused voice/wake-word/latency tests plus full Step-7 checkpoint and
+    required post-direct-`cargo test` quick sweep with green results.
+- 2026-03-07: MP-354 Step 7d closure (startup orchestration decomposition):
+  - split `main.rs` startup flow into explicit phases (`load_config_phase`,
+    `prepare_runtime_phase`, `build_state_phase`, `run_runtime_phase`,
+    `shutdown_runtime_phase`) with typed handoff structs for backend/config,
+    runtime inputs, and execution/runtime teardown ownership,
+  - preserved startup behavior parity while resolving a Step-7d checkpoint
+    `check_code_shape` finding by moving `main.rs` inline tests into dedicated
+    `main_tests.rs`, keeping runtime logic unchanged and restoring file-shape
+    compliance,
+  - reran Step-7 checkpoint commands (CI profile, docs/governance sync, shape,
+    structural complexity, IDE/provider isolation, direct `cargo test --bin
+    voiceterm`, and required quick process sweep) with green results.
+- 2026-03-07: MP-354 Step 7c closure (timing/policy de-tangling):
+  - updated `writer/timing.rs::resolve_idle_redraw_timing` to consume typed
+    runtime ownership (`RuntimeVariant`) instead of re-deriving JetBrains
+    provider pairings from terminal/backend fields inside the timing resolver,
+  - updated `writer/state/policy.rs::RedrawPolicy::resolve` to branch on typed
+    runtime ownership (`RuntimeVariant`) while keeping adapter-analysis inputs
+    explicit (`composer/destructive-clear/cursor-save` signals) and removing
+    duplicate cross-product runtime booleans from policy context,
+  - wired runtime variant ownership through writer profile/adapter wiring
+    (`runtime_compat`, `writer/state/profile.rs`, `writer/state/adapter_state.rs`,
+    `writer/state/dispatch_pty.rs`, `writer/state/redraw.rs`) without changing
+    runtime behavior contracts,
+  - refreshed writer timing/policy tests and reran full Step-7 checkpoint and
+    timing risk add-on bundles with green results.
+- 2026-03-07: MP-354 Step 7b closure (PTY output pipeline decomposition):
+  - decomposed `writer/state/dispatch_pty.rs::handle_pty_output` into explicit
+    typed stages (`analyze -> preclear -> write -> redraw policy -> state
+    updates`) with stage-owned data handoff structs and focused helpers,
+  - removed mixed local boolean preamble ownership from `handle_pty_output`
+    while keeping adapter-owned state access behind writer adapter accessors,
+  - preserved runtime behavior parity via writer-state characterization tests
+    plus full runtime checkpoint reruns,
+  - fixed `dev/scripts/tests/measure_latency.sh` empty-array expansion under
+    `set -u` (`SKIP_STT_ARGS`/`VOICE_ONLY_ARGS`) so Step-7 risk latency gates
+    execute reliably in voice-only/CI synthetic modes.
+- 2026-03-07: MP-354 Step 7a closure (writer adapter state ownership split):
+  - added adapter-owned writer repair state container ownership in
+    `writer/state/adapter_state.rs` with explicit runtime variants
+    (`JetBrainsClaude`, `JetBrainsCodex`, `CursorClaude`, `Generic`),
+  - removed IDE/provider-specific repair fields from the shared `WriterState`
+    struct and rerouted writer dispatch/redraw flows through adapter-owned
+    state accessors without feature/behavior changes,
+  - updated writer-state tests to validate the same repair/redraw behavior
+    while using adapter-owned state ownership boundaries.
+- 2026-03-07: MP-354 execution intake + plan hardening:
+  - promoted post-release coupling/code-smell findings from backlog-only notes
+    into executable `Phase 7` steps (`7a`-`7f`) with required checkpoint bundle
+    and explicit exit criteria,
+  - prioritized runtime-critical slices first (`WriterState` adapter ownership,
+    `handle_pty_output` decomposition, startup decomposition, shared VAD
+    factory), with Python guard dedup as a parallel follow-up track,
+  - revalidated findings against current code shape and marked parser finding
+    `P1` as conditional (split-owner parser modules are not direct copy-paste
+    duplicates in current state),
+  - tied ongoing execution authority to `MASTER_PLAN` via new active scope
+    `MP-354` while retaining historical MP-346 closure evidence.
 - 2026-03-05: Operator scope update for release-readiness closure:
   - manual closure matrix for this release is IDE-only (`4/4` required cells):
     `Cursor + Codex`, `Cursor + Claude`, `JetBrains + Codex`,
@@ -2300,15 +2547,231 @@ MP-346 is complete only when all conditions below are true:
   - refreshed duplication evidence via
     `python3 dev/scripts/checks/check_duplication_audit.py --run-jscpd`:
     `duplication_percent=0.32`, `duplicates_count=14` (down from `0.93`/`34`).
+- 2026-03-07: Post-release code smell + coupling audit:
+  - full-codebase code smell audit (Rust: 18 findings, Python: 16 findings)
+    organized by severity (HIGH: 6, MEDIUM: 17, LOW: 15),
+  - targeted IDE/backend coupling audit confirmed the root cause of
+    cross-IDE regression ("fix one IDE, break another") is structural:
+    `handle_pty_output` (337 lines, 15+ boolean flags), `RedrawPolicy::resolve`
+    (125 lines, 27-field context), and `resolve_idle_redraw_timing` (119 lines)
+    are the three worst tangling points,
+  - 41% of WriterState fields are IDE/backend-specific, 15 functions branch on
+    BOTH IDE and backend, 3 impossible-state field groups exist,
+  - proposed PtyAdapter enum pattern to eliminate impossible states by having
+    each adapter own its specific fields (compiler-enforced isolation replacing
+    615 `if jetbrains { ... }` checks),
+  - all findings added to post-release execution backlog section with
+    prioritized execution order.
 - 2026-03-05: mutation-policy alignment refresh:
   - release profile remains non-blocking for mutation score
     (`devctl check --profile release` uses mutation-score `--report-only`),
   - scheduled mutation workflow threshold check is now advisory/report-only
     across branches (warnings + badge updates, no hard-fail gate).
+## Post-Release Code Smell + Coupling Audit (2026-03-07)
+
+Full-codebase code smell audit + targeted IDE/backend coupling audit performed
+post-release. Findings below extend MP-346 with concrete structural improvements
+that were not in the original release scope but directly support the plan's goal
+of preventing cross-regressions between IDE and backend behavior.
+
+### Coupling Audit Summary (WriterState + dispatch layer)
+
+Validates the architectural concern that drove MP-346. The coupling is confirmed
+to be the root cause of the "fix one IDE, break another" problem.
+
+| Metric | Count |
+|---|---|
+| WriterState fields that are IDE/backend-specific | 11 of 27 (41%) |
+| Functions that branch on BOTH IDE and backend | 15 |
+| Severely tangled functions (3+ cross-checks in one function) | 3 (581 lines total) |
+| "Impossible state" field groups (allocated but never used) | 3 |
+| References to "jetbrains" across writer/ tree | 615 |
+| IDE x Backend combos with specialized behavior | 3 of 9 (33%) |
+| IDE x Backend combos silently using generic "Other" fallback | 6 of 9 (67%) |
+
+#### The Three Worst Tangling Points
+
+1. **`handle_pty_output`** (`dispatch_pty.rs:4-341`, 337 lines): Computes 15+
+   boolean flags from the IDE x Backend cross-product before doing anything.
+   Lines 5-129 are a 110-line flag-computation preamble with each flag being a
+   specific (IDE, Backend) pair hardcoded as a local boolean. No dispatch table,
+   no trait, no strategy object.
+
+2. **`RedrawPolicy::resolve`** (`policy.rs:150-275`, 125 lines): Takes a
+   `RedrawPolicyContext` with 27 fields, 11 of which are IDE+Backend
+   cross-product flags. Nested if-chains combine `claude_jetbrains`,
+   `codex_jetbrains`, and `cursor_claude` in the same decision tree.
+
+3. **`resolve_idle_redraw_timing`** (`timing.rs:50-169`, 119 lines):
+   Re-derives `claude_jetbrains` and `codex_jetbrains` from raw fields even
+   though the caller already has these booleans on `RuntimeProfile`. Has 5
+   separate `if claude_jetbrains { ... }` guard blocks checking different
+   JetBrains cursor-state fields.
+
+#### Impossible State Fields
+
+| When running in... | Fields allocated but never used |
+|---|---|
+| Cursor IDE | 9 `jetbrains_*` fields (cursor tracking, composer repair, etc.) |
+| JetBrains IDE | 3 `cursor_*` fields (startup clear, scroll preclear) |
+| Codex backend | 6 `jetbrains_claude_*` fields (Claude-specific repair) |
+
+#### Cross-Regression Paths Confirmed
+
+- Fixing a JetBrains cursor bug touches `handle_pty_output`, which shares the
+  preclear pipeline with Cursor via `PreclearPolicy::resolve`.
+- Changing Codex output rendering touches `RedrawPolicy::resolve`, which shares
+  the `force_full_banner_redraw` flag with Claude's path.
+- `resolve_idle_redraw_timing` shares `jetbrains_idle_gated` boolean between
+  Claude and Codex timing, so changing one backend's idle hold affects the other.
+
+#### Target Architecture (PtyAdapter pattern)
+
+The clean fix is a three-layer architecture:
+
+**Layer 1: Terminal Capabilities** (how the IDE terminal works):
+```rust
+trait TerminalCapabilities {
+    fn cursor_save_sequence(&self) -> &[u8];
+    fn supports_scroll_regions(&self) -> bool;
+    fn supports_sync_output(&self) -> bool;
+}
+// Implementations: JetBrainsTerminal, CursorTerminal, GenericTerminal
+```
+
+**Layer 2: Backend HUD Policy** (how the AI backend wants the HUD):
+```rust
+trait HudPolicy {
+    fn reserved_row_budget(&self) -> usize;
+    fn treat_cr_as_scroll(&self) -> bool;
+    fn idle_redraw_hold(&self) -> Duration;
+}
+// Implementations: ClaudePolicy, CodexPolicy, GenericPolicy
+```
+
+**Layer 3: PTY Adapters** (cross-product combos that need special behavior):
+```rust
+enum PtyAdapter {
+    JetBrainsClaude(JetBrainsClaudeAdapter),  // owns 9 cursor repair fields
+    JetBrainsCodex(JetBrainsCodexAdapter),    // owns CR-as-scroll state
+    CursorClaude(CursorClaudeAdapter),        // owns input repair, startup preclear
+    Generic,                                   // no state needed
+}
+
+trait PtyChunkPolicy {
+    fn analyze_chunk(&mut self, bytes: &[u8], may_scroll: bool) -> ChunkAnalysis;
+    fn preclear_strategy(&self, display: &DisplayState) -> PreclearStrategy;
+    fn redraw_timing(&self, now: Instant) -> RedrawTiming;
+}
+```
+
+Each adapter owns its specific state. JetBrains cursor repair fields do not
+exist when running in Cursor. The compiler enforces what is currently enforced
+by 615 `if jetbrains { ... }` checks scattered across the codebase.
+
+### Rust Code Smell Findings
+
+| # | Severity | Category | File(s) | Description |
+|---|---|---|---|---|
+| R1 | HIGH | God function | `main.rs:193-726` | `main()` is 533 lines: CLI parsing, config validation, audio backend, session setup, PTY spawn, channel creation, writer thread, EventLoopState (40+ fields), run loop. Extract into `load_config()`, `setup_session()`, `build_event_loop()`, `run()`. |
+| R2 | HIGH | God struct | `writer/state.rs:137-167` | `WriterState` has 30+ fields mixing terminal geometry, 6 timing fields, 9 JetBrains-specific fields, display/theme/mouse. Compose into `TerminalGeometry`, `TimingState`, `PtyAdapter` (IDE-specific), `DisplayState`. |
+| R3 | HIGH | Long function | `dispatch_pty.rs:4-340` | `handle_pty_output` is 337 lines: 20+ boolean flags (5-129), policy context (131-147), stdout write (163-212), redraw triggers (215-310). Extract into analyze/write/update pipeline via `PtyChunkAnalysis` struct. |
+| R4 | HIGH | Duplicated logic | `voice.rs:473-487`, `wake_word/detector.rs:118-134` | `create_vad_engine` duplicated with only a minor trait bound difference (`Send` vs no `Send`). Move to shared `audio` module with `+ Send` bound. |
+| R5 | MEDIUM | Excessive clone | `main.rs:415-416, 499-566` | `config.app.clone()` copies full `AppConfig`. Move into last consumer, pass `&AppConfig` references earlier. |
+| R6 | MEDIUM | Repetitive functions | `theme/mod.rs:280-409` | 8 glyph functions with identical `match glyph_set { Unicode => ..., Ascii => ... }` structure. Replace with `GlyphTable` data struct. |
+| R7 | MEDIUM | Boilerplate mapping | `style_pack/apply.rs:22-101` | 9 blocks mapping Runtime→Schema enums 1:1 by variant name. Use `impl From<Runtime...> for Schema...` or a declarative macro. |
+| R8 | MEDIUM | Stringly-typed | `rule_profile.rs:236-246` | `RuleEvalContext` uses `backend: String`, `color_mode: String` where enums (`BackendKind`, `ColorMode`) would catch typos at compile time. |
+| R9 | MEDIUM | Long function | `config/validation.rs:34-258` | `validate()` is 224 lines of sequential range checks + path canonicalization + model discovery. Split into `validate_voice_pipeline_bounds()`, `validate_whisper_config()`, `canonicalize_paths()`. |
+| R10 | MEDIUM | God struct | `detection.rs:17-37` | `OutputChunkSignals` has 17 boolean fields. Group into `ApprovalSignals` and `PromptContextSignals` sub-structs. |
+| R11 | LOW | Boilerplate | `style_schema.rs:362-411` | 10 identical `impl ThemeDefaultable` blocks. Use a declarative macro. |
+| R12 | LOW | Repetitive dispatch | `input/parser.rs:44-121` | 15+ match arms each call `flush_pending` then `push(InputEvent::Xxx)`. Extract into const lookup table or helper. |
+| R13 | LOW | Duplicated logic | `wake_word.rs:253-268, 328-356` | `WakeListener` destructure-try-join-reconstruct pattern duplicated. Add `fn try_join(self) -> Result<(), WakeListener>`. |
+| R14 | LOW | Magic numbers | `legacy_ui.rs:179-184` | 6 hardcoded `Color::Rgb(...)` values. Define named constants or derive from theme. |
+| R15 | LOW | Clone-heavy | `banner.rs:133-144` | `BannerConfig` uses owned `String` fields for known-domain values. Use enums (`Theme`, `Pipeline`) instead. |
+| R16 | LOW | Leaky abstraction | `render.rs:73-381` (10+ call sites) | `terminal_host()` called repeatedly across render functions. Accept `TerminalHost` as parameter or thread through render context. |
+| R17 | LOW | Duplicated logic | `style_pack/state.rs:52-157` | Every state accessor has near-duplicated `#[cfg(test)]` and `#[cfg(not(test))]` bodies. Define `StateStorage<T>` trait or unify on single `Mutex` path. |
+| R18 | LOW | Repetitive match | `wake_word/matcher.rs:262-292` | 24 manually expanded phonetic variant match arms. Extract into `SEND_WORD_VARIANTS` + `SEND_SUFFIX_WORDS` lookup. |
+
+### Python Code Smell Findings
+
+| # | Severity | Category | File(s) | Description |
+|---|---|---|---|---|
+| P1 | HIGH | Duplicated logic | `cli_parser_quality.py` vs `cli_parser_builders_checks.py`, `cli_parser_reporting.py` vs `cli_parser_builders_ops.py` | ~430 lines of identical argparse registration across two file pairs. Pick one canonical source, delete duplicate. |
+| P2 | HIGH | Duplicated boilerplate | All 9 `check_*.py` in `dev/scripts/checks/` | Identical try/except import fallback blocks repeated 3-4 times per file (~180 lines total). Make checks directory a proper package or add shared bootstrap. |
+| P3 | MEDIUM | Duplicated logic | `mcp_tools.py:92-135` | `tool_status_snapshot` and `tool_report_snapshot` near-identical. Extract `_snapshot_handler(tool_name, include_ci_default)`. |
+| P4 | MEDIUM | Duplicated error handling | 8 guard scripts | Identical 10-line `RuntimeError` catch block in every `main()`. Extract `emit_error_report()` into `rust_guard_common.py`. |
+| P5 | MEDIUM | God functions | `check_rust_lint_debt.py` (192 lines), `check_code_shape.py` (186 lines), `mcp_transport.py` (150 lines), `hygiene.py` (146 lines) | `main()` / `run()` / `serve_stdio()` handle parsing, scanning, metrics, and reporting in one function. Extract `_scan_files()`, `_emit_report()`, or use method dispatch dict. |
+| P6 | MEDIUM | Duplicated helpers | `check_duplicate_types.py`, `check_structural_complexity.py` | Both contain identical `_collect_rust_files()` and `_normalize_changed_paths()`. Move to `rust_guard_common.py`. |
+| P7 | MEDIUM | Duplicated helpers | `check_code_shape.py`, `check_rust_audit_patterns.py` | Both reinvent `_list_changed_paths()` which already exists in `git_change_paths.py` as `list_changed_paths_with_base_map()`. Migrate. |
+| P8 | MEDIUM | Stringly-typed dicts | `mcp.py:28-90`, `mcp_tools.py:92-212` | `_load_allowlist()` returns raw dicts (`result["ok"]`, `result["error"]`). Use `@dataclass AllowlistResult`. |
+| P9 | MEDIUM | Missing abstraction | `mcp.py:199-261` | Same error payload dict pattern repeated 4 times. Extract `_emit_mcp_error(args, msg, code)`. |
+| P10 | MEDIUM | Deep nesting | `collect.py:238-298` | 5 indentation levels in `collect_dev_log_summary()`. Extract `_parse_session_file(path) -> SessionStats`. |
+| P11 | MEDIUM | Inconsistent timestamps | Multiple Python files | Some use `datetime.now(timezone.utc)` (UTC), some use `datetime.now()` (local time). Reports have mixed timezones. Standardize on UTC. |
+| P12 | LOW | Magic numbers | `process_sweep.py:77`, `hygiene.py:183` | Raw `86400` for seconds-per-day. Define `SECONDS_PER_DAY` constant. |
+| P13 | LOW | Stringly-typed dicts | `audit_scaffold.py:19-83`, `check_router_constants.py:71-158` | `GUARD_SPECS` and `RISK_ADDONS` use plain dicts. Use `@dataclass(frozen=True)`. |
+| P14 | LOW | Global state | All 9 guard scripts | `guard = GuardContext(REPO_ROOT)` at module level. Create inside `main()` and pass as parameter for testability. |
+| P15 | LOW | Overlapping constants | `check_router_constants.py:27-59`, `docs_check_policy.py:19-52` | Both define overlapping `TOOLING_CHANGE_PREFIXES` / `DOCS_PREFIXES`. Extract shared `PATH_CLASSIFICATION` module. |
+| P16 | LOW | Compatibility shims | `docs_check_constants.py`, `docs_check_support.py` | Re-export-only modules that add import indirection. Delete once all callers import from canonical source. |
+
+### Phase-7 Priority Queue (MP-354)
+
+Prioritized execution order after validating findings against current code.
+
+| Priority | Scope | Status | Notes |
+|---|---|---|---|
+| 1 | `R2 + R3` Writer adapter ownership + `handle_pty_output` decomposition + timing/policy de-tangling | complete (`Steps 7a/7b/7c/7d/7e/7f`) | Highest regression source in current runtime path is now closed with checkpoint parity. |
+| 2 | `R1` startup decomposition (`main.rs`) | complete (`Step 7d`) | Phase split landed with checkpoint parity and code-shape remediation. |
+| 3 | `R4` shared `create_vad_engine` owner | complete (`Step 7e`) | Shared `audio::create_vad_engine` now owns runtime + wake-word + benchmark callers. |
+| 4 | `P2 + P4 + P6 + P7` guard bootstrap/helper dedup | complete (`Step 7f`) | Shared guard bootstrap/error path and helper ownership are now centralized in check utilities. |
+| 5 | `R8 + R9 + R10` typed context + validator split + signal grouping | complete | Typed context ownership, validation helper split, and prompt-signal grouping landed with checkpoint parity. |
+| 6 | `R6 + R7 + R11` style/theme mapping cleanup | complete | Glyph-table consolidation, runtime→schema conversion dedup, and `ThemeDefaultable` macro cleanup landed with checkpoint parity. |
+| 7 | `R12 + R13 + R18` input/wake-word low-risk dedup cleanup | complete | Control-byte dispatch helper extraction, `WakeListener::try_join` lifecycle dedup, and send-intent lookup-table matcher simplification landed with checkpoint parity. |
+| 8 | `R14 + R15 + R16 + R17` residual low-risk cleanup (legacy/banner/render/style-pack state) | complete | Named legacy UI color constants, typed `BannerConfig` ownership, render host-resolution threading cleanup, and style-pack state accessor dedup landed with checkpoint parity. |
+| 9 | `P11 + P12` Python residual reporting cleanup | complete | UTC/Z report timestamp normalization landed across tooling/check emitters, and explicit `SECONDS_PER_DAY` constants now own process/report age math. |
+
+Revalidation note for Python parser finding `P1`:
+
+1. `cli_parser_quality.py` vs `cli_parser_builders_checks.py` and
+   `cli_parser_reporting.py` vs `cli_parser_builders_ops.py` are currently
+   split-owner parser modules, not direct copy-paste twins in current `develop`
+   state.
+2. Keep `P1` as a conditional cleanup candidate only if a concrete duplication
+   diff proves net deletion without reducing parser ownership clarity.
+
 ## Audit Evidence
 
 | Check | Evidence | Status |
 |---|---|---|
+| `python3 dev/scripts/devctl.py list` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/devctl.py hygiene --strict-warnings` + `python3 dev/scripts/devctl.py orchestrate-status --format md` + `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md` + `python3 dev/scripts/checks/check_agents_contract.py` + `python3 dev/scripts/checks/check_release_version_parity.py` + `python3 dev/scripts/checks/check_bundle_workflow_parity.py` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_cli_flags_parity.py` + `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120` + `python3 dev/scripts/checks/check_code_shape.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop --format json` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop --format json` + `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` + `python3 dev/scripts/checks/check_workflow_action_pinning.py` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` + `python3 dev/scripts/checks/check_naming_consistency.py` + `python3 dev/scripts/checks/check_rust_test_shape.py` + `python3 dev/scripts/checks/check_rust_lint_debt.py` + `python3 dev/scripts/checks/check_rust_best_practices.py` + `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` + `python3 -m unittest dev.scripts.devctl.tests.test_check_bootstrap dev.scripts.devctl.tests.test_script_catalog` + `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md` + `find . -maxdepth 1 -type f -name '--*'` | MP-354 Python residual `P11 + P12` checkpoint rerun is green after UTC/Z tooling/check timestamp normalization (`check_bootstrap.py` + `devctl/time_utils.py` + report emitters), explicit `SECONDS_PER_DAY` age-math constants (`process_sweep.py`, `hygiene.py`, `reports_retention.py`, `check_screenshot_integrity.py`), `check_bootstrap.py` catalog/README registration, and focused bootstrap helper unit coverage; initial `common.py` shape regression was resolved by extracting the shared timestamp helper into `devctl/time_utils.py`. | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | MP-354 residual low-risk `R14 + R15 + R16 + R17` checkpoint rerun is green after named legacy UI color constants (`legacy_ui.rs`), typed banner config ownership (`banner.rs` + `main.rs`), render host-resolution threading cleanup (`writer/render.rs`), and style-pack override state accessor dedup (`theme/style_pack/state.rs`); direct runtime checkpoint remains green (`1537 passed`, `0 failed`). | done |
+| `cd rust && cargo test --lib legacy_ui:: -- --nocapture` + `cd rust && cargo test --bin voiceterm banner::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm writer::render::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm theme::style_pack::tests:: -- --nocapture` | focused regression pack is green for the R14/R15/R16/R17 slice (legacy UI rendering constants, startup banner config typing, writer render host threading, and style-pack runtime override state behavior). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for R14/R15/R16/R17 scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | MP-354 queued `R12 + R13 + R18` checkpoint rerun is green after parser control-byte dispatch dedup (`input/parser.rs`), wake-listener lifecycle join dedup (`wake_word.rs`), and lookup-based send-intent suffix matching (`wake_word/matcher.rs`); direct runtime checkpoint remains green (`1537 passed`, `0 failed`). | done |
+| `cd rust && cargo test --bin voiceterm input::parser::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm wake_word::tests:: -- --nocapture` | focused regression pack is green for the R12/R13/R18 slice (input parser control dispatch, wake listener lifecycle ownership, and wake-word send-intent suffix matching). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for R12/R13/R18 scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | MP-354 queued `R6 + R7 + R11` checkpoint rerun is green after glyph-table consolidation (`theme/mod.rs`), runtime→schema conversion dedup (`theme/style_pack/apply.rs`), and macro-based `ThemeDefaultable` cleanup (`theme/style_schema.rs`); direct runtime checkpoint remains green (`1535 passed`, `0 failed`). | done |
+| `cd rust && cargo test --bin voiceterm theme:: -- --nocapture` + `cd rust && cargo check --bin voiceterm --features theme_studio_v2` | focused regression pack is green for the R6/R7/R11 style/theme mapping slice (theme glyph resolution behavior + runtime override conversion path + style-schema normalization path). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for R6/R7/R11 scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | MP-354 queued `R8 + R9 + R10` checkpoint rerun is green after typed `RuleEvalContext` ownership, `AppConfig::validate` helper decomposition, and grouped prompt-occlusion output signals; direct runtime checkpoint remains green (`1535 passed`, `0 failed`). | done |
+| `cd rust && cargo test --lib config::tests:: -- --nocapture` + `cd rust && cargo test --bin voiceterm event_loop::prompt_occlusion::tests:: -- --nocapture` + `cd rust && cargo check --bin voiceterm --features theme_studio_v2` | focused regression pack is green for the R8/R9/R10 slice (`config` validation contracts, prompt-occlusion signal behavior, and feature-gated Theme Studio rule-profile compilation). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for R8/R9/R10 scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | Step-7f checkpoint bundle rerun is green after shared Python guard bootstrap/helper dedup migration (`check_bootstrap.py` + `rust_guard_common.py` helper ownership); direct runtime checkpoint remains green (`1535 passed`, `0 failed`). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for Step-7f scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | Step-7e checkpoint bundle rerun is green after shared `audio::create_vad_engine` factory consolidation and duplicate owner removal (`voice`, `wake_word`, `latency_measurement`); direct runtime checkpoint remains green (`1535 passed`, `0 failed`). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for Step-7e scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | Step-7d checkpoint bundle rerun is green after startup phase decomposition; initial CI rerun surfaced a `main.rs` shape-limit regression, remediated by moving inline `main` tests to `main_tests.rs` without runtime behavior change (`cargo test --bin voiceterm`: `1535 passed`, `0 failed`). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for Step-7d scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | Step-7c checkpoint bundle rerun is green after timing/policy runtime-variant de-tangling and plan updates (`cargo test --bin voiceterm`: `1535 passed`, `0 failed`). | done |
+| `python3 dev/scripts/devctl.py check --profile prepush` + `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic` + `./dev/scripts/tests/measure_latency.sh --ci-guard` | Step-7c timing/latency risk add-ons are green after runtime-variant timing/policy changes (`voice-only` synthetic avg totals: short `1979.0 ms`, medium `3968.9 ms`; CI guard totals unchanged at short `1700.0 ms`, medium `3700.0 ms`). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun completed for Step-7c scope; no failures (sandbox-only `ps` permission warnings expected). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` + `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` + `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop` + `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations` + `cd rust && cargo test --bin voiceterm` | Step-7b checkpoint bundle rerun is green after `handle_pty_output` stage decomposition and docs updates. | done |
+| `python3 dev/scripts/devctl.py check --profile prepush` + `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic` + `./dev/scripts/tests/measure_latency.sh --ci-guard` | Step-7b timing/latency risk add-ons are green; both synthetic latency guards execute successfully after fixing empty-array expansion in `measure_latency.sh` for `set -u` shells. | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-`cargo test` process-sweep rerun is complete; no failures (sandbox-only `ps` permission warnings remain expected). | done |
+| `python3 dev/scripts/checks/check_active_plan_sync.py` + `python3 dev/scripts/checks/check_multi_agent_sync.py` | Step-7a checkpoint rerun confirms active-doc and multi-agent governance remain aligned after adapter-state ownership split (`ok: True` for both checks). | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | strict-tooling docs governance rerun is green after Step-7a plan updates (`ok: True`, `active_plan_sync_ok: True`, `multi_agent_sync_ok: True`). | done |
+| `python3 dev/scripts/devctl.py check --profile ci` | full CI-profile checkpoint passed after Step-7a implementation (`clippy` success, ai-guard checks green, and test suites completed including `src/lib.rs` `543` tests, `src/bin/voiceterm` `1661` tests, and CLI integration tests). | done |
+| `cd rust && cargo test --bin voiceterm` | required direct runtime checkpoint passed for Step-7a scope (`1535 passed`, `0 failed`). | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | required post-direct-cargo process sweep completed; no failures (sandbox emitted expected `ps` permission warnings for `process-sweep-pre/post`). | done |
 | `python3 dev/scripts/devctl.py check --profile ci --format md` | confirms full CI profile is green after continuation rerun (`fmt`, `clippy`, AI-guard checks, `clippy-high-signal`, and full workspace tests) | done |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` + `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` + `python3 dev/scripts/devctl.py orchestrate-status --format md` + `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md` | confirms tooling-bundle preflight commands are green in current branch state | done |
 | `python3 dev/scripts/devctl.py hygiene --fix --strict-warnings` (2026-03-05 architecture-refresh rerun) | strict hygiene now passes after script-catalog alignment (`duplication_audit_support` registered) and local cache cleanup via `--fix` | done |

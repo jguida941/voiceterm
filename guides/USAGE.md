@@ -212,6 +212,8 @@ Visual controls are now in Theme Studio:
 | **Export** | Export current theme to TOML file (`~/.config/voiceterm/themes/`), copy to clipboard via OSC 52, or import from file |
 
 - Use `Undo edit`, `Redo edit`, and `Rollback edits` on the Home page if you want to revert visual changes.
+- Keyboard behavior is consistent across Studio pages: `Up`/`Down` moves
+  selection, and `Left`/`Right` adjusts only rows that support value cycling.
 - `Ctrl+U` is still the fastest way to cycle HUD styles.
 - You can still set visuals with launch flags such as `--hud-border-style` and `--hud-right-panel`.
 

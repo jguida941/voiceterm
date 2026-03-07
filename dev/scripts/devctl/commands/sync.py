@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime
 from typing import Dict, List
 
 from ..collect import collect_git_status
 from ..common import pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 
 DEFAULT_SYNC_BRANCHES = ("develop", "master")
@@ -322,7 +322,7 @@ def run(args) -> int:
 
     report = {
         "command": "sync",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
         "remote": args.remote,
         "start_branch": start_branch,

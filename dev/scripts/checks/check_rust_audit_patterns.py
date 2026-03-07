@@ -6,17 +6,17 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 try:
-    from rust_guard_common import GuardContext
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import GuardContext
+    from check_bootstrap import import_attr, utc_timestamp
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import import_attr, utc_timestamp
+
+GuardContext = import_attr("rust_guard_common", "GuardContext")
+list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -38,34 +38,6 @@ PATTERNS = {
 }
 
 
-def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
-    if since_ref:
-        diff_cmd = [
-            "git",
-            "diff",
-            "--name-only",
-            "--diff-filter=ACMR",
-            since_ref,
-            head_ref,
-        ]
-    else:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
-
-    changed = {
-        Path(line.strip())
-        for line in guard.run_git(diff_cmd).stdout.splitlines()
-        if line.strip()
-    }
-
-    if since_ref is None:
-        untracked = guard.run_git(["git", "ls-files", "--others", "--exclude-standard"])
-        for line in untracked.stdout.splitlines():
-            if line.strip():
-                changed.add(Path(line.strip()))
-
-    return sorted(changed)
-
-
 def _iter_rust_paths() -> list[Path]:
     if not SOURCE_ROOT.exists():
         return []
@@ -75,6 +47,11 @@ def _iter_rust_paths() -> list[Path]:
             continue
         paths.add(path)
     return sorted(paths)
+
+
+def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
+    """Compatibility wrapper over shared changed-path helper."""
+    return list_changed_paths(guard.run_git, since_ref, head_ref)
 
 
 def _is_runtime_source_path(path: Path) -> bool:
@@ -207,7 +184,7 @@ def main() -> int:
 
     report = {
         "command": "check_rust_audit_patterns",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "mode": mode if not error else "error",
         "since_ref": args.since_ref,
         "head_ref": args.head_ref if args.since_ref else None,

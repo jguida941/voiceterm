@@ -6,31 +6,21 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 try:
-    from git_change_paths import list_changed_paths_with_base_map
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
-try:
-    from rust_guard_common import GuardContext
-    from rust_guard_common import is_test_path as _is_test_path
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import GuardContext
-    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
-try:
-    from rust_check_text_utils import strip_cfg_test_blocks
-except (
-    ModuleNotFoundError
-):  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
+    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+
+list_changed_paths_with_base_map = import_attr(
+    "git_change_paths", "list_changed_paths_with_base_map"
+)
+GuardContext = import_attr("rust_guard_common", "GuardContext")
+_is_test_path = import_attr("rust_guard_common", "is_test_path")
+strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
@@ -218,18 +208,11 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_parser().parse_args()
     if args.absolute and args.since_ref:
-        report = {
-            "command": "check_rust_lint_debt",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": "--absolute cannot be combined with --since-ref/--head-ref",
-        }
-        if args.format == "json":
-            print(json.dumps(report, indent=2))
-        else:
-            print("# check_rust_lint_debt\n")
-            print(f"- ok: False\n- error: {report['error']}")
-        return 2
+        return emit_runtime_error(
+            "check_rust_lint_debt",
+            args.format,
+            "--absolute cannot be combined with --since-ref/--head-ref",
+        )
 
     try:
         if args.absolute:
@@ -245,18 +228,7 @@ def main() -> int:
                 args.head_ref,
             )
     except RuntimeError as exc:
-        report = {
-            "command": "check_rust_lint_debt",
-            "timestamp": datetime.now().isoformat(),
-            "ok": False,
-            "error": str(exc),
-        }
-        if args.format == "json":
-            print(json.dumps(report, indent=2))
-        else:
-            print("# check_rust_lint_debt\n")
-            print(f"- ok: False\n- error: {report['error']}")
-        return 2
+        return emit_runtime_error("check_rust_lint_debt", args.format, str(exc))
 
     mode = (
         "absolute"
@@ -372,7 +344,7 @@ def main() -> int:
 
     report = {
         "command": "check_rust_lint_debt",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "mode": mode,
         "since_ref": args.since_ref if mode == "commit-range" else None,
         "head_ref": args.head_ref if mode == "commit-range" else None,

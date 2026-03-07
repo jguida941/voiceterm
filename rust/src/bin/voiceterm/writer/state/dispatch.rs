@@ -166,25 +166,32 @@ impl WriterState {
             .unwrap_or_default();
         self.last_preclear_at = Instant::now() - cursor_timing.preclear_cooldown();
         self.last_scroll_redraw_at = Instant::now() - scroll_redraw_min_interval;
-        self.cursor_startup_scroll_preclear_pending = true;
-        self.jetbrains_dec_cursor_saved_active = false;
-        self.jetbrains_ansi_cursor_saved_active = false;
-        self.jetbrains_cursor_restore_settle_until = None;
-        self.jetbrains_cursor_escape_carry.clear();
-        self.jetbrains_claude_composer_repair_due = None;
-        self.jetbrains_claude_repair_skip_quiet_window = false;
+        self.adapter_state
+            .set_cursor_startup_scroll_preclear_pending(true);
+        self.adapter_state
+            .set_jetbrains_dec_cursor_saved_active(false);
+        self.adapter_state
+            .set_jetbrains_ansi_cursor_saved_active(false);
+        self.adapter_state
+            .set_jetbrains_cursor_restore_settle_until(None);
+        self.adapter_state.clear_jetbrains_cursor_escape_carry();
+        self.adapter_state
+            .set_jetbrains_claude_composer_repair_due(None);
+        self.adapter_state
+            .set_jetbrains_claude_repair_skip_quiet_window(false);
         if self.display.has_any() || self.pending.has_any() {
             self.needs_redraw = true;
             self.force_redraw_after_preclear = true;
         }
         if self.runtime_profile.claude_jetbrains {
-            self.jetbrains_claude_resize_repair_until = Some(
-                Instant::now()
-                    + self
-                        .host_timing()
-                        .claude_resize_repair_window()
-                        .unwrap_or_default(),
-            );
+            self.adapter_state
+                .set_jetbrains_claude_resize_repair_until(Some(
+                    Instant::now()
+                        + self
+                            .host_timing()
+                            .claude_resize_repair_window()
+                            .unwrap_or_default(),
+                ));
         }
         self.maybe_redraw_status();
         true
@@ -205,7 +212,8 @@ impl WriterState {
                     .host_timing()
                     .claude_input_repair_delay()
                     .unwrap_or_default();
-            self.cursor_claude_input_repair_due = Some(repair_due);
+            self.adapter_state
+                .set_cursor_claude_input_repair_due(Some(repair_due));
             if claude_hud_debug_enabled() {
                 let hud_style = self
                     .display

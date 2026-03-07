@@ -86,6 +86,30 @@ pub(super) fn handle_theme_studio_bytes(
     bytes: &[u8],
 ) {
     use crate::theme_studio::StudioPage;
+    if handle_theme_studio_global_bytes(state, deps, bytes) {
+        return;
+    }
+
+    let should_redraw = match state.theme_studio.page {
+        StudioPage::Home => handle_theme_studio_home_bytes(state, timers, deps, bytes),
+        StudioPage::Colors => handle_theme_studio_colors_bytes(state, bytes),
+        StudioPage::Borders => handle_theme_studio_borders_bytes(state, bytes),
+        StudioPage::Components => handle_theme_studio_components_bytes(state, bytes),
+        StudioPage::Preview => handle_theme_studio_preview_bytes(state, bytes),
+        StudioPage::Export => handle_theme_studio_export_bytes(state, bytes),
+    };
+
+    if should_redraw {
+        render_theme_studio_overlay_for_state(state, deps);
+    }
+}
+
+fn handle_theme_studio_global_bytes(
+    state: &mut EventLoopState,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    use crate::theme_studio::StudioPage;
     if bytes == [0x1b] {
         // Esc: if color picker is open, close it; otherwise close overlay.
         if state.theme_studio.page == StudioPage::Colors {
@@ -93,16 +117,17 @@ pub(super) fn handle_theme_studio_bytes(
                 if editor.picker.is_some() {
                     editor.picker = None;
                     render_theme_studio_overlay_for_state(state, deps);
-                    return;
+                    return true;
                 }
             }
         }
+
         #[cfg(not(test))]
         {
             crate::theme::clear_runtime_color_override();
         }
         close_overlay(state, deps, false);
-        return;
+        return true;
     }
 
     if bytes == [0x09] {
@@ -110,7 +135,7 @@ pub(super) fn handle_theme_studio_bytes(
         state.theme_studio.page = state.theme_studio.page.next();
         ensure_studio_page_state(state);
         render_theme_studio_overlay_for_state(state, deps);
-        return;
+        return true;
     }
 
     if bytes == [0x1b, 0x5b, 0x5a] {
@@ -118,190 +143,213 @@ pub(super) fn handle_theme_studio_bytes(
         state.theme_studio.page = state.theme_studio.page.prev();
         ensure_studio_page_state(state);
         render_theme_studio_overlay_for_state(state, deps);
-        return;
+        return true;
+    }
+
+    false
+}
+
+fn handle_theme_studio_home_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    let mut should_redraw = false;
+    for key in parse_arrow_keys(bytes) {
+        match key {
+            ArrowKey::Up => {
+                if state.theme_studio.selected > 0 {
+                    state.theme_studio.selected = state.theme_studio.selected.saturating_sub(1);
+                    should_redraw = true;
+                }
+            }
+            ArrowKey::Down => {
+                let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
+                if state.theme_studio.selected < max {
+                    state.theme_studio.selected += 1;
+                    should_redraw = true;
+                }
+            }
+            ArrowKey::Left => {
+                should_redraw |= apply_theme_studio_adjustment(state, timers, deps, -1);
+            }
+            ArrowKey::Right => {
+                should_redraw |= apply_theme_studio_adjustment(state, timers, deps, 1);
+            }
+        }
+    }
+    should_redraw
+}
+
+fn handle_theme_studio_colors_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    let Some(editor) = state.theme_studio.colors_editor.as_mut() else {
+        return false;
+    };
+    if editor.picker.is_some() {
+        return handle_theme_studio_colors_picker_bytes(editor, bytes);
     }
 
     let mut should_redraw = false;
-    match state.theme_studio.page {
-        StudioPage::Home => {
-            for key in parse_arrow_keys(bytes) {
-                match key {
-                    ArrowKey::Up => {
-                        if state.theme_studio.selected > 0 {
-                            state.theme_studio.selected =
-                                state.theme_studio.selected.saturating_sub(1);
-                            should_redraw = true;
-                        }
-                    }
-                    ArrowKey::Down => {
-                        let max = THEME_STUDIO_ITEMS.len().saturating_sub(1);
-                        if state.theme_studio.selected < max {
-                            state.theme_studio.selected += 1;
-                            should_redraw = true;
-                        }
-                    }
-                    ArrowKey::Left => {
-                        should_redraw |= apply_theme_studio_adjustment(state, timers, deps, -1);
-                    }
-                    ArrowKey::Right => {
-                        should_redraw |= apply_theme_studio_adjustment(state, timers, deps, 1);
-                    }
-                }
+    for key in parse_arrow_keys(bytes) {
+        match key {
+            ArrowKey::Up => {
+                editor.select_prev();
+                should_redraw = true;
             }
-        }
-        StudioPage::Colors => {
-            if let Some(editor) = state.theme_studio.colors_editor.as_mut() {
-                if editor.picker.is_some() {
-                    should_redraw |= handle_color_picker_text_input(editor, bytes);
-                    let mut color_changed = false;
-                    if let Some(picker) = editor.picker.as_mut() {
-                        for key in parse_arrow_keys(bytes) {
-                            match key {
-                                ArrowKey::Up => {
-                                    picker.channel = picker.channel.prev();
-                                    should_redraw = true;
-                                }
-                                ArrowKey::Down => {
-                                    picker.channel = picker.channel.next();
-                                    should_redraw = true;
-                                }
-                                ArrowKey::Left => {
-                                    picker.adjust_channel(-1);
-                                    color_changed = true;
-                                    should_redraw = true;
-                                }
-                                ArrowKey::Right => {
-                                    picker.adjust_channel(1);
-                                    color_changed = true;
-                                    should_redraw = true;
-                                }
-                            }
-                        }
-                    }
-                    // Live-preview: apply current picker color as the user drags sliders.
-                    if color_changed {
-                        if let Some(ref picker) = editor.picker {
-                            let field = editor.selected_field();
-                            field.set(
-                                &mut editor.colors,
-                                crate::theme::color_value::ColorValue::Rgb(picker.rgb),
-                            );
-                        }
-                        #[cfg(not(test))]
-                        {
-                            let legacy = editor.colors.to_legacy_theme_colors();
-                            crate::theme::set_runtime_color_override(legacy);
-                        }
-                    }
+            ArrowKey::Down => {
+                editor.select_next();
+                should_redraw = true;
+            }
+            ArrowKey::Left | ArrowKey::Right => {
+                let direction = if matches!(key, ArrowKey::Right) {
+                    1
                 } else {
-                    for key in parse_arrow_keys(bytes) {
-                        match key {
-                            ArrowKey::Up => {
-                                editor.select_prev();
-                                should_redraw = true;
-                            }
-                            ArrowKey::Down => {
-                                editor.select_next();
-                                should_redraw = true;
-                            }
-                            ArrowKey::Left | ArrowKey::Right => {
-                                let dir = if matches!(key, ArrowKey::Right) {
-                                    1
-                                } else {
-                                    -1
-                                };
-                                let field_count = crate::theme_studio::ColorField::ALL.len();
-                                if editor.selected == field_count {
-                                    // Indicator set selector.
-                                    if editor.cycle_indicator_set(dir) {
-                                        let mut overrides =
-                                            crate::theme::runtime_style_pack_overrides();
-                                        overrides.indicator_set_override = editor.indicator_set;
-                                        crate::theme::set_runtime_style_pack_overrides(overrides);
-                                        should_redraw = true;
-                                    }
-                                } else if editor.selected == field_count + 1 {
-                                    // Glyph set selector.
-                                    if editor.cycle_glyph_set(dir) {
-                                        let mut overrides =
-                                            crate::theme::runtime_style_pack_overrides();
-                                        overrides.glyph_set_override = editor.glyph_set;
-                                        crate::theme::set_runtime_style_pack_overrides(overrides);
-                                        should_redraw = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                    -1
+                };
+                should_redraw |= handle_theme_studio_colors_selector_adjustment(editor, direction);
             }
         }
-        StudioPage::Borders => {
-            for key in parse_arrow_keys(bytes) {
-                match key {
-                    ArrowKey::Up => {
-                        state.theme_studio.borders_page.select_prev();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Down => {
-                        state.theme_studio.borders_page.select_next();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Left | ArrowKey::Right => {}
+    }
+    should_redraw
+}
+
+fn handle_theme_studio_colors_picker_bytes(
+    editor: &mut crate::theme_studio::ColorsEditorState,
+    bytes: &[u8],
+) -> bool {
+    let mut should_redraw = handle_color_picker_text_input(editor, bytes);
+    let mut color_changed = false;
+    if let Some(picker) = editor.picker.as_mut() {
+        for key in parse_arrow_keys(bytes) {
+            match key {
+                ArrowKey::Up => {
+                    picker.channel = picker.channel.prev();
+                    should_redraw = true;
                 }
-            }
-        }
-        StudioPage::Components => {
-            for key in parse_arrow_keys(bytes) {
-                match key {
-                    ArrowKey::Up => {
-                        state.theme_studio.components_editor.select_prev();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Down => {
-                        let max = state.theme_studio.components_editor.group_count();
-                        state.theme_studio.components_editor.select_next(max);
-                        should_redraw = true;
-                    }
-                    ArrowKey::Left | ArrowKey::Right => {}
+                ArrowKey::Down => {
+                    picker.channel = picker.channel.next();
+                    should_redraw = true;
                 }
-            }
-        }
-        StudioPage::Preview => {
-            for key in parse_arrow_keys(bytes) {
-                match key {
-                    ArrowKey::Up => {
-                        state.theme_studio.preview_page.scroll_up();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Down => {
-                        state.theme_studio.preview_page.scroll_down(20, 10);
-                        should_redraw = true;
-                    }
-                    ArrowKey::Left | ArrowKey::Right => {}
+                ArrowKey::Left => {
+                    picker.adjust_channel(-1);
+                    color_changed = true;
+                    should_redraw = true;
                 }
-            }
-        }
-        StudioPage::Export => {
-            for key in parse_arrow_keys(bytes) {
-                match key {
-                    ArrowKey::Up => {
-                        state.theme_studio.export_page.select_prev();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Down => {
-                        state.theme_studio.export_page.select_next();
-                        should_redraw = true;
-                    }
-                    ArrowKey::Left | ArrowKey::Right => {}
+                ArrowKey::Right => {
+                    picker.adjust_channel(1);
+                    color_changed = true;
+                    should_redraw = true;
                 }
             }
         }
     }
 
-    if should_redraw {
-        render_theme_studio_overlay_for_state(state, deps);
+    // Live-preview: apply current picker color as the user drags sliders.
+    if color_changed {
+        if let Some(ref picker) = editor.picker {
+            let field = editor.selected_field();
+            field.set(
+                &mut editor.colors,
+                crate::theme::color_value::ColorValue::Rgb(picker.rgb),
+            );
+        }
+        #[cfg(not(test))]
+        {
+            let legacy = editor.colors.to_legacy_theme_colors();
+            crate::theme::set_runtime_color_override(legacy);
+        }
     }
+    should_redraw
+}
+
+fn handle_theme_studio_colors_selector_adjustment(
+    editor: &mut crate::theme_studio::ColorsEditorState,
+    direction: i32,
+) -> bool {
+    let field_count = crate::theme_studio::ColorField::ALL.len();
+    if editor.selected == field_count {
+        // Indicator set selector.
+        if editor.cycle_indicator_set(direction) {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.indicator_set_override = editor.indicator_set;
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            return true;
+        }
+        return false;
+    }
+    if editor.selected == field_count + 1 {
+        // Glyph set selector.
+        if editor.cycle_glyph_set(direction) {
+            let mut overrides = crate::theme::runtime_style_pack_overrides();
+            overrides.glyph_set_override = editor.glyph_set;
+            crate::theme::set_runtime_style_pack_overrides(overrides);
+            return true;
+        }
+    }
+    false
+}
+
+fn apply_vertical_arrow_navigation<T>(
+    bytes: &[u8],
+    state: &mut T,
+    mut on_up: impl FnMut(&mut T),
+    mut on_down: impl FnMut(&mut T),
+) -> bool {
+    let mut changed = false;
+    for key in parse_arrow_keys(bytes) {
+        match key {
+            ArrowKey::Up => {
+                on_up(state);
+                changed = true;
+            }
+            ArrowKey::Down => {
+                on_down(state);
+                changed = true;
+            }
+            ArrowKey::Left | ArrowKey::Right => {}
+        }
+    }
+    changed
+}
+
+fn handle_theme_studio_borders_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    apply_vertical_arrow_navigation(
+        bytes,
+        state,
+        |state| state.theme_studio.borders_page.select_prev(),
+        |state| state.theme_studio.borders_page.select_next(),
+    )
+}
+
+fn handle_theme_studio_components_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    apply_vertical_arrow_navigation(
+        bytes,
+        state,
+        |state| state.theme_studio.components_editor.select_prev(),
+        |state| {
+            let max = state.theme_studio.components_editor.group_count();
+            state.theme_studio.components_editor.select_next(max);
+        },
+    )
+}
+
+fn handle_theme_studio_preview_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    apply_vertical_arrow_navigation(
+        bytes,
+        state,
+        |state| state.theme_studio.preview_page.scroll_up(),
+        |state| state.theme_studio.preview_page.scroll_down(20, 10),
+    )
+}
+
+fn handle_theme_studio_export_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    apply_vertical_arrow_navigation(
+        bytes,
+        state,
+        |state| state.theme_studio.export_page.select_prev(),
+        |state| state.theme_studio.export_page.select_next(),
+    )
 }
 
 /// Lazily initialize page-specific state when switching studio pages.
@@ -367,6 +415,22 @@ fn apply_theme_studio_adjustment(
     direction: i32,
 ) -> bool {
     match theme_studio_item_at(state.theme_studio.selected) {
+        ThemeStudioItem::ColorsGlyphs
+        | ThemeStudioItem::LayoutMotion
+        | ThemeStudioItem::ProgressSpinner
+        | ThemeStudioItem::ProgressBars
+        | ThemeStudioItem::ThemeBorders
+        | ThemeStudioItem::VoiceScene
+        | ThemeStudioItem::ToastPosition
+        | ThemeStudioItem::StartupSplash
+        | ThemeStudioItem::ToastSeverity
+        | ThemeStudioItem::BannerStyle => {
+            return apply_theme_studio_runtime_style_adjustment(state, direction);
+        }
+        _ => {}
+    }
+
+    match theme_studio_item_at(state.theme_studio.selected) {
         ThemeStudioItem::HudStyle => super::run_settings_item_action(
             state,
             timers,
@@ -399,89 +463,6 @@ fn apply_theme_studio_adjustment(
             direction,
             OverlayMode::ThemeStudio,
         ),
-        ThemeStudioItem::ColorsGlyphs => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.glyph_set_override = super::cycle_runtime_glyph_set_override(
-                    overrides.glyph_set_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::LayoutMotion => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.indicator_set_override = super::cycle_runtime_indicator_set_override(
-                    overrides.indicator_set_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressSpinner => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.progress_style_override = super::cycle_runtime_progress_style_override(
-                    overrides.progress_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressBars => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.progress_bar_family_override =
-                    super::cycle_runtime_progress_bar_family_override(
-                        overrides.progress_bar_family_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::ThemeBorders => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.border_style_override = super::cycle_runtime_border_style_override(
-                    overrides.border_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::VoiceScene => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.voice_scene_style_override =
-                    super::cycle_runtime_voice_scene_style_override(
-                        overrides.voice_scene_style_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::ToastPosition => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.toast_position_override = super::cycle_runtime_toast_position_override(
-                    overrides.toast_position_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::StartupSplash => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.startup_style_override = super::cycle_runtime_startup_style_override(
-                    overrides.startup_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ToastSeverity => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.toast_severity_mode_override =
-                    super::cycle_runtime_toast_severity_mode_override(
-                        overrides.toast_severity_mode_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::BannerStyle => {
-            apply_theme_studio_runtime_override_edit(state, |overrides| {
-                overrides.banner_style_override = super::cycle_runtime_banner_style_override(
-                    overrides.banner_style_override,
-                    direction,
-                );
-            })
-        }
         ThemeStudioItem::UndoEdit => {
             if direction == 0 {
                 theme_studio_undo_runtime_override_edit(state)
@@ -502,6 +483,95 @@ fn apply_theme_studio_adjustment(
             } else {
                 false
             }
+        }
+        _ => false,
+    }
+}
+
+fn apply_theme_studio_runtime_style_adjustment(state: &mut EventLoopState, direction: i32) -> bool {
+    match theme_studio_item_at(state.theme_studio.selected) {
+        ThemeStudioItem::ColorsGlyphs => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.glyph_set_override = super::cycle_runtime_glyph_set_override(
+                    overrides.glyph_set_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::LayoutMotion => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.indicator_set_override = super::cycle_runtime_indicator_set_override(
+                    overrides.indicator_set_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::ProgressSpinner => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.progress_style_override = super::cycle_runtime_progress_style_override(
+                    overrides.progress_style_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::ProgressBars => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.progress_bar_family_override =
+                    super::cycle_runtime_progress_bar_family_override(
+                        overrides.progress_bar_family_override,
+                        direction,
+                    );
+            })
+        }
+        ThemeStudioItem::ThemeBorders => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.border_style_override = super::cycle_runtime_border_style_override(
+                    overrides.border_style_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::VoiceScene => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.voice_scene_style_override =
+                    super::cycle_runtime_voice_scene_style_override(
+                        overrides.voice_scene_style_override,
+                        direction,
+                    );
+            })
+        }
+        ThemeStudioItem::ToastPosition => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.toast_position_override = super::cycle_runtime_toast_position_override(
+                    overrides.toast_position_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::StartupSplash => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.startup_style_override = super::cycle_runtime_startup_style_override(
+                    overrides.startup_style_override,
+                    direction,
+                );
+            })
+        }
+        ThemeStudioItem::ToastSeverity => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.toast_severity_mode_override =
+                    super::cycle_runtime_toast_severity_mode_override(
+                        overrides.toast_severity_mode_override,
+                        direction,
+                    );
+            })
+        }
+        ThemeStudioItem::BannerStyle => {
+            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
+                overrides.banner_style_override = super::cycle_runtime_banner_style_override(
+                    overrides.banner_style_override,
+                    direction,
+                );
+            })
         }
         _ => false,
     }
@@ -577,6 +647,14 @@ fn apply_theme_studio_runtime_override_edit(
     state.theme_studio.redo_history.clear();
     crate::theme::set_runtime_style_pack_overrides(next);
     true
+}
+
+fn apply_theme_studio_runtime_override_cycle(
+    state: &mut EventLoopState,
+    direction: i32,
+    edit: impl FnOnce(&mut crate::theme::RuntimeStylePackOverrides, i32),
+) -> bool {
+    apply_theme_studio_runtime_override_edit(state, |overrides| edit(overrides, direction))
 }
 
 fn theme_studio_undo_runtime_override_edit(state: &mut EventLoopState) -> bool {

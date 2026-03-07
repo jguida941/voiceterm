@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -117,7 +117,7 @@ def build_report(explicit_paths: list[str] | None = None) -> dict:
         violations.extend(_scan_file(path))
     return {
         "command": "check_workflow_action_pinning",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not violations,
         "workflow_count": len(paths),
         "violations": violations,

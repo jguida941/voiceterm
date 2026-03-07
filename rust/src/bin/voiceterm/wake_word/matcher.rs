@@ -28,6 +28,8 @@ const WAKE_MAX_PREFIX_TOKENS: usize = 1;
 const WAKE_MAX_SUFFIX_TOKENS: usize = 3;
 const WAKE_LEADING_PHRASE_MAX_SUFFIX_TOKENS: usize = 8;
 const WAKE_LEADING_SINGLE_WORD_MAX_SUFFIX_TOKENS: usize = 6;
+const SEND_WORD_VARIANTS: &[&str] = &["send", "sent", "sen", "sand", "son"];
+const SEND_SUFFIX_WORDS: &[&str] = &["it", "this", "message", "now"];
 
 #[must_use = "hotword matching expects normalized lowercase transcript text"]
 pub(super) fn normalize_for_hotword_match(raw: &str) -> String {
@@ -260,35 +262,21 @@ pub(super) fn find_hotword_window_start(
 
 #[must_use = "wake suffix matcher maps concise send phrases into submit action"]
 fn wake_suffix_is_send_intent(suffix_tokens: &[&str]) -> bool {
-    matches!(
-        suffix_tokens,
-        ["send"]
-            | ["sent"]
-            | ["sen"]
-            | ["sand"]
-            | ["son"]
-            | ["sending"]
-            | ["send", "it"]
-            | ["sent", "it"]
-            | ["sen", "it"]
-            | ["sand", "it"]
-            | ["son", "it"]
-            | ["send", "this"]
-            | ["sent", "this"]
-            | ["sen", "this"]
-            | ["sand", "this"]
-            | ["send", "message"]
-            | ["sent", "message"]
-            | ["sen", "message"]
-            | ["sand", "message"]
-            | ["submit"]
-            | ["send", "now"]
-            | ["sent", "now"]
-            | ["sen", "now"]
-            | ["sand", "now"]
-            | ["son", "now"]
-            | ["submit", "now"]
-    )
+    match suffix_tokens {
+        [single] => SEND_WORD_VARIANTS.contains(single) || matches!(*single, "sending" | "submit"),
+        [first, second] => {
+            if *first == "submit" {
+                return *second == "now";
+            }
+            if !SEND_WORD_VARIANTS.contains(first) || !SEND_SUFFIX_WORDS.contains(second) {
+                return false;
+            }
+            // Preserve existing matcher behavior: "son" maps only to
+            // "it"/"now" aliases, not the broader "this"/"message" set.
+            !(*first == "son" && matches!(*second, "this" | "message"))
+        }
+        _ => false,
+    }
 }
 
 #[must_use = "wake phrase window position determines intent confidence"]

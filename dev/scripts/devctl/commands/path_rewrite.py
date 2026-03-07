@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..path_audit import rewrite_legacy_path_references
 
 MAX_MD_CHANGES = 30
@@ -44,7 +44,7 @@ def run(args) -> int:
     rewrite_report = rewrite_legacy_path_references(dry_run=args.dry_run)
     report = {
         "command": "path-rewrite",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         **rewrite_report,
     }
 
