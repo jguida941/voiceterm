@@ -23,4 +23,4 @@ pub use capture::{offline_capture_from_pcm, CaptureMetrics, CaptureResult, StopR
 pub(crate) use meter::rms_db;
 pub use meter::LiveMeter;
 pub use recorder::Recorder;
-pub use vad::{SimpleThresholdVad, VadConfig, VadDecision, VadEngine};
+pub use vad::{create_vad_engine, SimpleThresholdVad, VadConfig, VadDecision, VadEngine};

@@ -488,6 +488,9 @@ find . -maxdepth 1 -type f -name '--*'
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
   - `./dev/scripts/tests/measure_latency.sh --ci-guard`
   - `dev/scripts/tests/measure_latency.sh` auto-detects `rust/` workspace paths and falls back to legacy `src/` layouts
+  - `dev/scripts/tests/measure_latency.sh` now uses `set -u`-safe empty-array
+    expansion so voice-only/CI synthetic modes do not raise `unbound variable`
+    errors when optional arg arrays are empty
 - Wake-word runtime/detection changes:
   - `bash dev/scripts/tests/wake_word_guard.sh`
   - `python3 dev/scripts/devctl.py check --profile release`

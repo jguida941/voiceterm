@@ -100,6 +100,9 @@ CI runs the same checks, so local failures are faster to fix.
 
 Latency guard note:
 - `dev/scripts/tests/measure_latency.sh` now resolves `rust/` first and falls back to legacy `src/`, so mixed-layout branches run the same guard command without path edits.
+- `dev/scripts/tests/measure_latency.sh` also uses `set -u`-safe empty-array
+  expansion for optional args, so `--voice-only --synthetic` and `--ci-guard`
+  modes remain stable under strict shells.
 - For human demos or quick A/B validation of STT path speed, run
   `dev/scripts/tests/compare_python_rust_voice_latency.sh --count 3` to compare
   Rust-native STT vs Python fallback using the same harness.

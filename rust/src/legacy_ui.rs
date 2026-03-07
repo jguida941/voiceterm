@@ -26,6 +26,12 @@ use unicode_width::UnicodeWidthChar;
 use unicode_width::UnicodeWidthStr;
 
 const MAX_LINE_WIDTH: usize = 500;
+const LEGACY_UI_BORDER_COLOR: Color = Color::Rgb(255, 90, 90);
+const LEGACY_UI_TITLE_COLOR: Color = Color::Rgb(255, 110, 110);
+const LEGACY_UI_DIM_BORDER_COLOR: Color = Color::Rgb(130, 70, 70);
+const LEGACY_UI_OUTPUT_TEXT_COLOR: Color = Color::Rgb(210, 205, 200);
+const LEGACY_UI_INPUT_TEXT_COLOR: Color = Color::Rgb(255, 220, 100);
+const LEGACY_UI_STATUS_TEXT_COLOR: Color = Color::Rgb(160, 150, 150);
 
 /// Configure the terminal, run the legacy TUI drawing loop, and tear everything down.
 ///
@@ -175,14 +181,6 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
         Text::from(lines)
     };
 
-    // Theme colors - Vibrant red
-    let border_color = Color::Rgb(255, 90, 90); // Vibrant red accent
-    let title_color = Color::Rgb(255, 110, 110); // Bright red for titles
-    let dim_border = Color::Rgb(130, 70, 70); // Dimmer border for less important areas
-    let output_text_color = Color::Rgb(210, 205, 200); // Soft white for output
-    let input_text_color = Color::Rgb(255, 220, 100); // Warm yellow for input
-    let status_text_color = Color::Rgb(160, 150, 150); // Dimmer for status
-
     // Text wrapping is disabled to avoid integer underflow in ratatui's
     // wrapping logic, which can panic with out-of-bounds byte indices.
     let output_block = Paragraph::new(output_text)
@@ -190,15 +188,15 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(border_color))
+                .border_style(Style::default().fg(LEGACY_UI_BORDER_COLOR))
                 .title(Span::styled(
                     " Codex Output ",
                     Style::default()
-                        .fg(title_color)
+                        .fg(LEGACY_UI_TITLE_COLOR)
                         .add_modifier(Modifier::BOLD),
                 )),
         )
-        .style(Style::default().fg(output_text_color))
+        .style(Style::default().fg(LEGACY_UI_OUTPUT_TEXT_COLOR))
         .scroll((app.get_scroll_offset(), 0));
     frame.render_widget(output_block, chunks[0]);
 
@@ -210,31 +208,31 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(border_color))
+                .border_style(Style::default().fg(LEGACY_UI_BORDER_COLOR))
                 .title(Span::styled(
                     " Prompt ",
                     Style::default()
-                        .fg(title_color)
+                        .fg(LEGACY_UI_TITLE_COLOR)
                         .add_modifier(Modifier::BOLD),
                 ))
                 .title_bottom(Line::from(vec![
                     Span::styled(
                         " Ctrl+R ",
                         Style::default()
-                            .fg(input_text_color)
+                            .fg(LEGACY_UI_INPUT_TEXT_COLOR)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled("voice  ", Style::default().fg(dim_border)),
+                    Span::styled("voice  ", Style::default().fg(LEGACY_UI_DIM_BORDER_COLOR)),
                     Span::styled(
                         "Ctrl+V ",
                         Style::default()
-                            .fg(input_text_color)
+                            .fg(LEGACY_UI_INPUT_TEXT_COLOR)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled("toggle ", Style::default().fg(dim_border)),
+                    Span::styled("toggle ", Style::default().fg(LEGACY_UI_DIM_BORDER_COLOR)),
                 ])),
         )
-        .style(Style::default().fg(input_text_color));
+        .style(Style::default().fg(LEGACY_UI_INPUT_TEXT_COLOR));
     frame.render_widget(input_block, chunks[1]);
 
     let status_block = Paragraph::new(app.status_text())
@@ -242,13 +240,13 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(dim_border))
+                .border_style(Style::default().fg(LEGACY_UI_DIM_BORDER_COLOR))
                 .title(Span::styled(
                     " Status ",
-                    Style::default().fg(status_text_color),
+                    Style::default().fg(LEGACY_UI_STATUS_TEXT_COLOR),
                 )),
         )
-        .style(Style::default().fg(status_text_color));
+        .style(Style::default().fg(LEGACY_UI_STATUS_TEXT_COLOR));
     frame.render_widget(status_block, chunks[2]);
 
     let inner_width = chunks[1].width.saturating_sub(2);

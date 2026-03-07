@@ -41,83 +41,14 @@ impl InputParser {
                 self.skip_lf = false;
             }
 
-            match byte {
-                0x11 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::Exit);
+            if let Some(event) = parse_control_byte_event(byte) {
+                self.flush_pending(out);
+                out.push(event);
+                if byte == 0x0d {
+                    self.skip_lf = true;
                 }
-                0x12 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::VoiceTrigger);
-                }
-                0x18 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ImageCaptureTrigger);
-                }
-                0x05 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::SendStagedText);
-                }
-                0x04 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DevPanelToggle);
-                }
-                0x16 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleAutoVoice);
-                }
-                0x14 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleSendMode);
-                }
-                0x1d => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::IncreaseSensitivity);
-                }
-                0x1c => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DecreaseSensitivity);
-                }
-                0x1f => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::DecreaseSensitivity);
-                }
-                0x19 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ThemePicker);
-                }
-                0x07 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::QuickThemeCycle);
-                }
-                0x0f => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::SettingsToggle);
-                }
-                0x15 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToggleHudStyle);
-                }
-                0x08 => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::TranscriptHistoryToggle);
-                }
-                0x0e => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::ToastHistoryToggle);
-                }
-                b'?' => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::HelpToggle);
-                }
-                0x0d | 0x0a => {
-                    self.flush_pending(out);
-                    out.push(InputEvent::EnterKey);
-                    if byte == 0x0d {
-                        self.skip_lf = true;
-                    }
-                }
-                _ => self.pending.push(byte),
+            } else {
+                self.pending.push(byte);
             }
         }
     }
@@ -211,11 +142,15 @@ impl InputParser {
                         (is_csi_u, event)
                     };
                     if is_csi_u {
-                        self.esc_buffer = None;
                         if let Some(event) = event {
                             self.flush_pending(out);
                             out.push(event);
+                        } else {
+                            // Preserve unmapped CSI-u key reports for the wrapped CLI.
+                            // We only consume CSI-u sequences that map to VoiceTerm actions.
+                            self.pending.extend_from_slice(buffer);
                         }
+                        self.esc_buffer = None;
                     } else if let Some((kind, x, y)) = parse_mouse_event(buffer) {
                         // Mouse click across supported protocols (SGR, URXVT, X10).
                         self.esc_buffer = None;
@@ -251,6 +186,30 @@ impl InputParser {
             return true;
         }
         false
+    }
+}
+
+#[inline]
+fn parse_control_byte_event(byte: u8) -> Option<InputEvent> {
+    match byte {
+        0x11 => Some(InputEvent::Exit),
+        0x12 => Some(InputEvent::VoiceTrigger),
+        0x18 => Some(InputEvent::ImageCaptureTrigger),
+        0x05 => Some(InputEvent::SendStagedText),
+        0x04 => Some(InputEvent::DevPanelToggle),
+        0x16 => Some(InputEvent::ToggleAutoVoice),
+        0x14 => Some(InputEvent::ToggleSendMode),
+        0x1d => Some(InputEvent::IncreaseSensitivity),
+        0x1c | 0x1f => Some(InputEvent::DecreaseSensitivity),
+        0x19 => Some(InputEvent::ThemePicker),
+        0x07 => Some(InputEvent::QuickThemeCycle),
+        0x0f => Some(InputEvent::SettingsToggle),
+        0x15 => Some(InputEvent::ToggleHudStyle),
+        0x08 => Some(InputEvent::TranscriptHistoryToggle),
+        0x0e => Some(InputEvent::ToastHistoryToggle),
+        b'?' => Some(InputEvent::HelpToggle),
+        0x0d | 0x0a => Some(InputEvent::EnterKey),
+        _ => None,
     }
 }
 
@@ -435,12 +394,47 @@ mod tests {
     }
 
     #[test]
-    fn input_parser_drops_csi_u_sequences() {
+    fn input_parser_forwards_unmapped_csi_u_sequences() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         parser.consume_bytes(b"\x1b[48;0;0u", &mut out);
         parser.flush_pending(&mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[48;0;0u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_escape_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[27u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_ctrl_c_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[99;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[99;5u".to_vec())]);
+    }
+
+    #[test]
+    // Contract: VoiceTerm-owned CSI-u shortcuts are intercepted as actions,
+    // while unmapped CSI-u sequences are preserved verbatim for the wrapped CLI.
+    fn input_parser_csi_u_contract_maps_owned_shortcuts_and_preserves_unmapped() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5u\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(
+            out,
+            vec![
+                InputEvent::VoiceTrigger,
+                InputEvent::Bytes(b"\x1b[27u".to_vec())
+            ]
+        );
     }
 
     #[test]

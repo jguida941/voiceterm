@@ -14,15 +14,10 @@ pub(super) const NON_ROLLING_APPROVAL_WINDOW_SCAN_TAIL_BYTES: usize = 8192;
 /// All computed signal flags from a single output chunk, used by the
 /// coordinator to decide suppression transitions and produce debug output.
 #[derive(Debug)]
-pub(super) struct OutputChunkSignals {
-    pub(super) use_rolling_detector: bool,
-    pub(super) backend_prompt_guard_enabled: bool,
-    pub(super) prompt_guard_enabled: bool,
+pub(super) struct ApprovalSignals {
     pub(super) approval_hint_seen: bool,
     pub(super) rolling_approval_hint_seen: bool,
     pub(super) non_rolling_approval_hint: bool,
-    pub(super) saw_tool_activity: bool,
-    pub(super) saw_synchronized_cursor_activity: bool,
     pub(super) explicit_approval_hint: bool,
     pub(super) numbered_approval_hint: bool,
     pub(super) explicit_approval_hint_chunk: bool,
@@ -30,10 +25,25 @@ pub(super) struct OutputChunkSignals {
     pub(super) explicit_approval_hint_window: bool,
     pub(super) numbered_approval_hint_window: bool,
     pub(super) non_rolling_live_approval_window_hint: bool,
+    pub(super) non_rolling_window_bytes: usize,
+}
+
+#[derive(Debug)]
+pub(super) struct PromptContextSignals {
+    pub(super) prompt_guard_enabled: bool,
     pub(super) prompt_context_chunk: bool,
     pub(super) prompt_context_window: bool,
+    pub(super) saw_tool_activity: bool,
+    pub(super) saw_synchronized_cursor_activity: bool,
     pub(super) ignore_synchronized_candidate: bool,
-    pub(super) non_rolling_window_bytes: usize,
+}
+
+#[derive(Debug)]
+pub(super) struct OutputChunkSignals {
+    pub(super) use_rolling_detector: bool,
+    pub(super) backend_prompt_guard_enabled: bool,
+    pub(super) approval: ApprovalSignals,
+    pub(super) prompt_context: PromptContextSignals,
 }
 
 /// Evaluate all signal flags from an output chunk and optional non-rolling
@@ -123,23 +133,27 @@ pub(super) fn evaluate_output_chunk_signals(
     OutputChunkSignals {
         use_rolling_detector,
         backend_prompt_guard_enabled,
-        prompt_guard_enabled,
-        approval_hint_seen,
-        rolling_approval_hint_seen,
-        non_rolling_approval_hint,
-        saw_tool_activity,
-        saw_synchronized_cursor_activity,
-        explicit_approval_hint,
-        numbered_approval_hint,
-        explicit_approval_hint_chunk,
-        numbered_approval_hint_chunk,
-        explicit_approval_hint_window,
-        numbered_approval_hint_window,
-        non_rolling_live_approval_window_hint,
-        prompt_context_chunk,
-        prompt_context_window,
-        ignore_synchronized_candidate,
-        non_rolling_window_bytes: non_rolling_window.map_or(0, <[u8]>::len),
+        approval: ApprovalSignals {
+            approval_hint_seen,
+            rolling_approval_hint_seen,
+            non_rolling_approval_hint,
+            explicit_approval_hint,
+            numbered_approval_hint,
+            explicit_approval_hint_chunk,
+            numbered_approval_hint_chunk,
+            explicit_approval_hint_window,
+            numbered_approval_hint_window,
+            non_rolling_live_approval_window_hint,
+            non_rolling_window_bytes: non_rolling_window.map_or(0, <[u8]>::len),
+        },
+        prompt_context: PromptContextSignals {
+            prompt_guard_enabled,
+            prompt_context_chunk,
+            prompt_context_window,
+            saw_tool_activity,
+            saw_synchronized_cursor_activity,
+            ignore_synchronized_candidate,
+        },
     }
 }
 
@@ -162,14 +176,14 @@ pub(super) fn log_output_chunk_signals(
         data.len(),
         backend_label,
         signals.backend_prompt_guard_enabled,
-        signals.prompt_guard_enabled,
-        signals.prompt_context_chunk,
-        signals.prompt_context_window,
+        signals.prompt_context.prompt_guard_enabled,
+        signals.prompt_context.prompt_context_chunk,
+        signals.prompt_context.prompt_context_window,
         debug_bytes_preview(data, 120)
     ));
     if !signals.backend_prompt_guard_enabled
-        && signals.prompt_guard_enabled
-        && (signals.explicit_approval_hint || signals.numbered_approval_hint)
+        && signals.prompt_context.prompt_guard_enabled
+        && (signals.approval.explicit_approval_hint || signals.approval.numbered_approval_hint)
     {
         log_debug(
             "[claude-hud-debug] prompt guard fallback engaged from Claude prompt context markers",
@@ -178,13 +192,13 @@ pub(super) fn log_output_chunk_signals(
     if !signals.use_rolling_detector {
         log_debug(&format!(
             "[claude-hud-debug] non-rolling approval scan (chunk_explicit={}, window_explicit={}, chunk_numbered={}, window_numbered={}, window_live={}, window_context={}, window_bytes={})",
-            signals.explicit_approval_hint_chunk,
-            signals.explicit_approval_hint_window,
-            signals.numbered_approval_hint_chunk,
-            signals.numbered_approval_hint_window,
-            signals.non_rolling_live_approval_window_hint,
-            signals.prompt_context_window,
-            signals.non_rolling_window_bytes
+            signals.approval.explicit_approval_hint_chunk,
+            signals.approval.explicit_approval_hint_window,
+            signals.approval.numbered_approval_hint_chunk,
+            signals.approval.numbered_approval_hint_window,
+            signals.approval.non_rolling_live_approval_window_hint,
+            signals.prompt_context.prompt_context_window,
+            signals.approval.non_rolling_window_bytes
         ));
         if let Some(window) = non_rolling_window {
             log_debug(&format!(
@@ -192,12 +206,14 @@ pub(super) fn log_output_chunk_signals(
                 debug_bytes_preview(window, 180)
             ));
         }
-    } else if signals.explicit_approval_hint_chunk && !signals.rolling_approval_hint_seen {
+    } else if signals.approval.explicit_approval_hint_chunk
+        && !signals.approval.rolling_approval_hint_seen
+    {
         log_debug(
             "[claude-hud-debug] rolling approval text ignored without live approval-choice markers",
         );
     }
-    if signals.ignore_synchronized_candidate {
+    if signals.prompt_context.ignore_synchronized_candidate {
         log_debug(
             "[claude-hud-debug] suppression candidate ignored: synchronized prompt-input echo rewrite",
         );

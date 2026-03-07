@@ -6,9 +6,9 @@ import json
 import re
 import shutil
 import subprocess
-from datetime import datetime
 
 from ..common import confirm_or_abort, pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 
 ALLOWED_SETUP_STEPS = ("detect", "init", "update", "validate")
@@ -197,7 +197,7 @@ def run(args) -> int:
 
     report = {
         "command": "cihub-setup",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": len(errors) == 0,
         "mode": "apply" if args.apply else "preview",
         "cihub_bin": args.cihub_bin,

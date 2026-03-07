@@ -275,31 +275,53 @@ pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct GlyphTable<T: Copy> {
+    unicode: T,
+    ascii: T,
+}
+
+impl<T: Copy> GlyphTable<T> {
+    const fn new(unicode: T, ascii: T) -> Self {
+        Self { unicode, ascii }
+    }
+
+    const fn resolve(self, glyph_set: GlyphSet) -> T {
+        match glyph_set {
+            GlyphSet::Unicode => self.unicode,
+            GlyphSet::Ascii => self.ascii,
+        }
+    }
+}
+
+const HUD_QUEUE_ICON_TABLE: GlyphTable<&str> = GlyphTable::new("▤", "Q");
+const HUD_LATENCY_ICON_TABLE: GlyphTable<&str> = GlyphTable::new("◷", "T");
+const WAVEFORM_BARS_TABLE: GlyphTable<&[char; 8]> =
+    GlyphTable::new(WAVEFORM_BARS_UNICODE, WAVEFORM_BARS_ASCII);
+const OVERLAY_SEPARATOR_TABLE: GlyphTable<&str> = GlyphTable::new("·", "|");
+const INLINE_SEPARATOR_TABLE: GlyphTable<&str> = GlyphTable::new("│", "|");
+const OVERLAY_CLOSE_SYMBOL_TABLE: GlyphTable<char> = GlyphTable::new('×', 'x');
+const OVERLAY_MOVE_HINT_TABLE: GlyphTable<&str> = GlyphTable::new("↑/↓", "up/down");
+const OVERLAY_ROW_MARKER_TABLE: GlyphTable<&str> = GlyphTable::new("▸", ">");
+const OVERLAY_SLIDER_TRACK_TABLE: GlyphTable<char> = GlyphTable::new('─', '-');
+const OVERLAY_SLIDER_KNOB_TABLE: GlyphTable<char> = GlyphTable::new('●', 'o');
+
 /// Resolve HUD queue label glyph by selected icon pack.
 #[must_use]
 pub(crate) fn hud_queue_icon(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "▤",
-        GlyphSet::Ascii => "Q",
-    }
+    HUD_QUEUE_ICON_TABLE.resolve(glyph_set)
 }
 
 /// Resolve HUD latency label glyph by selected icon pack.
 #[must_use]
 pub(crate) fn hud_latency_icon(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "◷",
-        GlyphSet::Ascii => "T",
-    }
+    HUD_LATENCY_ICON_TABLE.resolve(glyph_set)
 }
 
 /// Resolve sparkline waveform glyph set for meter/latency bars.
 #[must_use]
 pub(crate) fn waveform_bars(glyph_set: GlyphSet) -> &'static [char; 8] {
-    match glyph_set {
-        GlyphSet::Unicode => WAVEFORM_BARS_UNICODE,
-        GlyphSet::Ascii => WAVEFORM_BARS_ASCII,
-    }
+    WAVEFORM_BARS_TABLE.resolve(glyph_set)
 }
 
 /// Resolve progress-glyph family for bars/spinners.
@@ -348,64 +370,43 @@ pub(crate) fn progress_glyph_profile(colors: &ThemeColors) -> ProgressGlyphProfi
 /// Resolve overlay separator glyph (between footer controls).
 #[must_use]
 pub(crate) fn overlay_separator(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "·",
-        GlyphSet::Ascii => "|",
-    }
+    OVERLAY_SEPARATOR_TABLE.resolve(glyph_set)
 }
 
 /// Resolve inline separator glyph (used by startup/banner rows).
 #[must_use]
 pub(crate) fn inline_separator(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "│",
-        GlyphSet::Ascii => "|",
-    }
+    INLINE_SEPARATOR_TABLE.resolve(glyph_set)
 }
 
 /// Resolve overlay close button glyph.
 #[must_use]
 pub(crate) fn overlay_close_symbol(glyph_set: GlyphSet) -> char {
-    match glyph_set {
-        GlyphSet::Unicode => '×',
-        GlyphSet::Ascii => 'x',
-    }
+    OVERLAY_CLOSE_SYMBOL_TABLE.resolve(glyph_set)
 }
 
 /// Resolve overlay move-hint glyph cluster.
 #[must_use]
 pub(crate) fn overlay_move_hint(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "↑/↓",
-        GlyphSet::Ascii => "up/down",
-    }
+    OVERLAY_MOVE_HINT_TABLE.resolve(glyph_set)
 }
 
 /// Resolve selection marker glyph used by overlay menu rows.
 #[must_use]
 pub(crate) fn overlay_row_marker(glyph_set: GlyphSet) -> &'static str {
-    match glyph_set {
-        GlyphSet::Unicode => "▸",
-        GlyphSet::Ascii => ">",
-    }
+    OVERLAY_ROW_MARKER_TABLE.resolve(glyph_set)
 }
 
 /// Resolve slider track glyph used by settings rows.
 #[must_use]
 pub(crate) fn overlay_slider_track(glyph_set: GlyphSet) -> char {
-    match glyph_set {
-        GlyphSet::Unicode => '─',
-        GlyphSet::Ascii => '-',
-    }
+    OVERLAY_SLIDER_TRACK_TABLE.resolve(glyph_set)
 }
 
 /// Resolve slider knob glyph used by settings rows.
 #[must_use]
 pub(crate) fn overlay_slider_knob(glyph_set: GlyphSet) -> char {
-    match glyph_set {
-        GlyphSet::Unicode => '●',
-        GlyphSet::Ascii => 'o',
-    }
+    OVERLAY_SLIDER_KNOB_TABLE.resolve(glyph_set)
 }
 
 impl std::fmt::Display for Theme {

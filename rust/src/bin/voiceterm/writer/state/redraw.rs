@@ -58,7 +58,7 @@ impl WriterState {
         if self.needs_redraw {
             return true;
         }
-        let Some(due) = self.cursor_claude_input_repair_due else {
+        let Some(due) = self.adapter_state.cursor_claude_input_repair_due() else {
             return false;
         };
         let repair_ready = context.cursor_input_repair_profile
@@ -71,7 +71,7 @@ impl WriterState {
         self.display.force_full_banner_redraw = true;
         self.force_redraw_after_preclear = true;
         self.needs_redraw = true;
-        self.cursor_claude_input_repair_due = None;
+        self.adapter_state.set_cursor_claude_input_repair_due(None);
         if claude_hud_debug_enabled() {
             log_debug("[claude-hud-debug] scheduled cursor+claude HUD repair redraw fired");
         }
@@ -115,29 +115,40 @@ impl WriterState {
     fn should_defer_redraw_for_idle_timing(&mut self, context: &RedrawContext) -> bool {
         let idle_timing = resolve_idle_redraw_timing(IdleRedrawTimingContext {
             now: context.now,
-            terminal_family: self.terminal_family(),
-            backend_family: self.runtime_profile.backend_family,
+            runtime_variant: self.runtime_profile.runtime_variant,
             host_timing: self.host_timing(),
             since_output: context.now.duration_since(self.last_output_at),
             since_draw: context.now.duration_since(self.last_status_draw_at),
             suppression_transition_pending: context.suppression_transition_pending,
             force_redraw_after_preclear: self.force_redraw_after_preclear,
             in_resize_repair_window: self
-                .jetbrains_claude_resize_repair_until
+                .adapter_state
+                .jetbrains_claude_resize_repair_until()
                 .is_some_and(|until| context.now < until),
             display_force_full_banner_redraw: self.display.force_full_banner_redraw,
             pending_has_any: self.pending.has_any(),
             pending_overlay_panel_present: self.pending.overlay_panel.is_some(),
             pending_clear_overlay: self.pending.clear_overlay,
             pending_clear_status: self.pending.clear_status,
-            jetbrains_composer_repair_due: self.jetbrains_claude_composer_repair_due,
-            jetbrains_repair_skip_quiet_window: self.jetbrains_claude_repair_skip_quiet_window,
-            jetbrains_dec_cursor_saved_active: self.jetbrains_dec_cursor_saved_active,
-            jetbrains_ansi_cursor_saved_active: self.jetbrains_ansi_cursor_saved_active,
-            jetbrains_cursor_restore_settle_until: self.jetbrains_cursor_restore_settle_until,
+            jetbrains_composer_repair_due: self
+                .adapter_state
+                .jetbrains_claude_composer_repair_due(),
+            jetbrains_repair_skip_quiet_window: self
+                .adapter_state
+                .jetbrains_claude_repair_skip_quiet_window(),
+            jetbrains_dec_cursor_saved_active: self
+                .adapter_state
+                .jetbrains_dec_cursor_saved_active(),
+            jetbrains_ansi_cursor_saved_active: self
+                .adapter_state
+                .jetbrains_ansi_cursor_saved_active(),
+            jetbrains_cursor_restore_settle_until: self
+                .adapter_state
+                .jetbrains_cursor_restore_settle_until(),
         });
         if idle_timing.clear_cursor_restore_settle_until {
-            self.jetbrains_cursor_restore_settle_until = None;
+            self.adapter_state
+                .set_jetbrains_cursor_restore_settle_until(None);
         }
         idle_timing.defer_redraw
     }
@@ -386,26 +397,32 @@ impl WriterState {
 
     fn clear_committed_redraw_deadlines(&mut self, context: &RedrawContext) {
         if self
-            .jetbrains_claude_composer_repair_due
+            .adapter_state
+            .jetbrains_claude_composer_repair_due()
             .is_some_and(|due| context.now >= due)
         {
-            self.jetbrains_claude_composer_repair_due = None;
-            self.jetbrains_claude_repair_skip_quiet_window = false;
+            self.adapter_state
+                .set_jetbrains_claude_composer_repair_due(None);
+            self.adapter_state
+                .set_jetbrains_claude_repair_skip_quiet_window(false);
             if context.jetbrains_prompt_guard_profile && claude_hud_debug_enabled() {
                 log_debug("[claude-hud-debug] jetbrains+claude composer repair redraw committed");
             }
         }
         if self
-            .jetbrains_claude_resize_repair_until
+            .adapter_state
+            .jetbrains_claude_resize_repair_until()
             .is_some_and(|until| context.now >= until)
         {
-            self.jetbrains_claude_resize_repair_until = None;
+            self.adapter_state
+                .set_jetbrains_claude_resize_repair_until(None);
         }
         if self
-            .cursor_claude_input_repair_due
+            .adapter_state
+            .cursor_claude_input_repair_due()
             .is_some_and(|due| context.now >= due)
         {
-            self.cursor_claude_input_repair_due = None;
+            self.adapter_state.set_cursor_claude_input_repair_due(None);
         }
     }
 

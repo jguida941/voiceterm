@@ -9,9 +9,9 @@ Why this exists:
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..common import build_env, pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT, SRC_DIR
 from ..security_tiers import (
     CORE_SCANNER_IDS,
@@ -114,7 +114,7 @@ def run(args) -> int:
     success = not any(step_is_blocking_failure(step) for step in steps)
     report = {
         "command": "security",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": success,
         "rustsec_output": str(rustsec_output),
         "scanner_tier": args.scanner_tier,

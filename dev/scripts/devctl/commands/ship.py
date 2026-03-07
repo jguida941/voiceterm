@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import tempfile
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from .ship_common import VERSION_RE, render_md, render_text
 from .ship_steps import STEP_HANDLERS
 
@@ -67,7 +67,7 @@ def run(args) -> int:
 
     report = {
         "command": "ship",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "version": context["version"],
         "tag": context["tag"],
         "notes_file": context["notes_file"],

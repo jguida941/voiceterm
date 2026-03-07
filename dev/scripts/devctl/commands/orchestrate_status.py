@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..collect import collect_git_status
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..policy_gate import run_json_policy_gate
 from ..script_catalog import check_script_path
 
@@ -95,7 +95,7 @@ def run(args) -> int:
     ok = bool(not errors and active_plan_sync_ok and multi_agent_sync_ok)
     report = {
         "command": "orchestrate-status",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": ok,
         "git": git_summary,
         "active_plan_sync_ok": active_plan_sync_ok,

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 from ..common import confirm_or_abort, pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..script_catalog import check_script_cmd
 from .audit_scaffold_render import render_generated_doc, report_output
@@ -193,7 +193,7 @@ def run(args) -> int:
     if errors:
         report = {
             "command": "audit-scaffold",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_timestamp(),
             "ok": False,
             "output_path": output_path.as_posix(),
             "findings_detected": False,
@@ -227,7 +227,7 @@ def run(args) -> int:
             )
 
     findings_detected = any(bool(step.get("violations")) for step in guard_steps)
-    generated_at = datetime.now().isoformat()
+    generated_at = utc_timestamp()
     generated_doc = render_generated_doc(
         template_text=template_text,
         generated_at=generated_at,

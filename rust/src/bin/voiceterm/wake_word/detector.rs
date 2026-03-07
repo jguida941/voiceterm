@@ -4,10 +4,7 @@
 use anyhow::{anyhow, Result};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use voiceterm::{
-    audio,
-    config::{AppConfig, VadEngineKind},
-};
+use voiceterm::{audio, config::AppConfig};
 
 use super::matcher::{
     detect_wake_event_from_normalized, log_wake_transcript_decision, normalize_for_hotword_match,
@@ -60,7 +57,7 @@ impl AudioWakeDetector {
         pipeline_cfg.channel_capacity = WAKE_CAPTURE_CHANNEL_CAPACITY;
         pipeline_cfg.vad_threshold_db = settings.effective_vad_threshold_db;
         let vad_cfg = audio::VadConfig::from(&pipeline_cfg);
-        let vad_engine = create_vad_engine(&pipeline_cfg);
+        let vad_engine = audio::create_vad_engine(&pipeline_cfg);
 
         Ok(Self {
             recorder,
@@ -112,24 +109,6 @@ impl AudioWakeDetector {
             Some(event) => WakeListenOutcome::Detected(event),
             None => WakeListenOutcome::NoDetection,
         })
-    }
-}
-
-fn create_vad_engine(
-    cfg: &voiceterm::config::VoicePipelineConfig,
-) -> Box<dyn audio::VadEngine + Send> {
-    match cfg.vad_engine {
-        VadEngineKind::Simple => Box::new(audio::SimpleThresholdVad::new(cfg.vad_threshold_db)),
-        VadEngineKind::Earshot => {
-            #[cfg(feature = "vad_earshot")]
-            {
-                Box::new(voiceterm::vad_earshot::EarshotVad::from_config(cfg))
-            }
-            #[cfg(not(feature = "vad_earshot"))]
-            {
-                unreachable!("earshot VAD requested without 'vad_earshot' feature")
-            }
-        }
     }
 }
 

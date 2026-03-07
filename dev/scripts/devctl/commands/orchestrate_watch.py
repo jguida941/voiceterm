@@ -11,6 +11,7 @@ except ImportError:
     from checks import check_multi_agent_sync
 from ..collect import collect_git_status
 from ..common import pipe_output, write_output
+from ..time_utils import utc_timestamp
 from ..policy_gate import run_json_policy_gate
 from ..script_catalog import check_script_path
 
@@ -188,7 +189,7 @@ def run(args) -> int:
     ok = bool(not errors and active_plan_sync_ok and multi_agent_sync_ok)
     report = {
         "command": "orchestrate-watch",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": ok,
         "now_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "stale_minutes": stale_minutes,

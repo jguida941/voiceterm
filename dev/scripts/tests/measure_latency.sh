@@ -121,8 +121,8 @@ elif [[ "$MODE" == "synthetic" ]]; then
     --synthetic \
     --speech-ms 1000 \
     --silence-ms 700 \
-    "${VOICE_ONLY_ARGS[@]}" \
-    "${SKIP_STT_ARGS[@]}" \
+    ${VOICE_ONLY_ARGS[@]+"${VOICE_ONLY_ARGS[@]}"} \
+    ${SKIP_STT_ARGS[@]+"${SKIP_STT_ARGS[@]}"} \
     ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
   echo ""
@@ -136,8 +136,8 @@ elif [[ "$MODE" == "synthetic" ]]; then
     --synthetic \
     --speech-ms 3000 \
     --silence-ms 700 \
-    "${VOICE_ONLY_ARGS[@]}" \
-    "${SKIP_STT_ARGS[@]}" \
+    ${VOICE_ONLY_ARGS[@]+"${VOICE_ONLY_ARGS[@]}"} \
+    ${SKIP_STT_ARGS[@]+"${SKIP_STT_ARGS[@]}"} \
     ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 else
@@ -150,7 +150,7 @@ else
   cargo run --release --bin latency_measurement -- \
     --label "interactive" \
     --count "$COUNT" \
-    "${VOICE_ONLY_ARGS[@]}" \
+    ${VOICE_ONLY_ARGS[@]+"${VOICE_ONLY_ARGS[@]}"} \
     ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 fi
 

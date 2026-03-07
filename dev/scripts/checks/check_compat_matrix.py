@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -231,7 +231,7 @@ def main() -> int:
     if load_error is not None:
         report = {
             "command": "check_compat_matrix",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "ok": False,
             "matrix_path": _path_for_report(MATRIX_PATH),
             "errors": [load_error],
@@ -282,7 +282,7 @@ def main() -> int:
 
     report = {
         "command": "check_compat_matrix",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not (
             errors
             or missing_required_hosts

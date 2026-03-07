@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -70,7 +70,7 @@ def build_report() -> dict:
         violations.extend(_scan_file(path))
     return {
         "command": "check_repo_url_parity",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not violations,
         "files_scanned": scanned,
         "violations": violations,

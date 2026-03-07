@@ -7,6 +7,12 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Runtime Hardening
+
+- Refactored Theme Studio input handling into page-scoped helpers so keyboard
+  handling, picker edits, and style override adjustments follow one consistent
+  dispatch path with no behavior change.
+
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05
 ### Runtime Hardening

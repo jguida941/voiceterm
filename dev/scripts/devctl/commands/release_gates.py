@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from ..common import pipe_output, run_cmd, write_output
+from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..script_catalog import check_script_cmd
 
@@ -139,7 +139,7 @@ def run(args) -> int:
     ok = bool(steps) and all(step["returncode"] == 0 for step in steps)
     report = {
         "command": "release-gates",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "ok": ok,
         "branch": args.branch,
         "sha": args.sha,

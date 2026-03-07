@@ -351,7 +351,7 @@ def parse_results():
         "results_dir": str(outcomes_file.parent),
         "outcomes_updated_at": outcomes_updated_at,
         "outcomes_age_hours": round(outcomes_age_hours, 2),
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
 

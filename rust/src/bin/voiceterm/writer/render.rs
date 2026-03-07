@@ -69,8 +69,7 @@ fn should_hide_cursor_during_redraw_for_family(family: TerminalHost) -> bool {
     false
 }
 
-fn push_cursor_prefix(sequence: &mut Vec<u8>) {
-    let family = terminal_host();
+fn push_cursor_prefix(sequence: &mut Vec<u8>, family: TerminalHost) {
     if family != TerminalHost::JetBrains {
         sequence.extend_from_slice(SYNC_BEGIN);
     }
@@ -92,8 +91,7 @@ fn push_cursor_prefix(sequence: &mut Vec<u8>) {
     }
 }
 
-fn push_cursor_suffix(sequence: &mut Vec<u8>) {
-    let family = terminal_host();
+fn push_cursor_suffix(sequence: &mut Vec<u8>, family: TerminalHost) {
     if family != TerminalHost::JetBrains {
         if should_disable_autowrap_during_redraw() {
             sequence.extend_from_slice(WRAP_ENABLE);
@@ -134,8 +132,9 @@ pub(super) fn write_status_line(
         let truncated = truncate_status(&sanitized, max_text_len);
         format!("{prefix}{truncated}")
     };
+    let family = terminal_host();
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
     // Start from a known attribute baseline so stale backend styles
     // (underline/inverse/etc.) cannot leak into HUD text.
@@ -146,7 +145,7 @@ pub(super) fn write_status_line(
     sequence.extend_from_slice(SGR_RESET);
     // Clear only the remainder of the line to avoid clear-then-paint flicker.
     sequence.extend_from_slice(b"\x1b[K");
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 
@@ -163,7 +162,8 @@ pub(super) fn write_status_banner(
     }
     let height = banner.height.min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
-    let row_max_width = banner_row_max_render_width(terminal_host(), height, cols);
+    let family = terminal_host();
+    let row_max_width = banner_row_max_render_width(family, height, cols);
 
     let mut sequence = Vec::new();
     let mut any_changed = false;
@@ -176,7 +176,7 @@ pub(super) fn write_status_banner(
             continue;
         }
         if !any_changed {
-            push_cursor_prefix(&mut sequence);
+            push_cursor_prefix(&mut sequence, family);
             any_changed = true;
         }
         let row = start_row + idx as u16;
@@ -209,14 +209,14 @@ pub(super) fn write_status_banner(
     // Setting DECSTBM causes stacked/duplicated HUD frames and garbled approval
     // card text.  The PTY row reduction (startup_pty_geometry + apply_pty_winsize)
     // is sufficient for JetBrains — skip the scroll region there.
-    if terminal_host() != TerminalHost::JetBrains {
+    if family != TerminalHost::JetBrains {
         let scroll_bottom = rows.saturating_sub(height as u16);
         if scroll_bottom >= 1 {
             sequence.extend_from_slice(format!("\x1b[1;{scroll_bottom}r").as_bytes());
         }
     }
 
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
 
     stdout.write_all(&sequence)
 }
@@ -260,15 +260,16 @@ pub(super) fn build_clear_bottom_rows_bytes(rows: u16, height: usize) -> Vec<u8>
     }
     let clear_height = height.min(rows as usize);
     let start_row = rows.saturating_sub(clear_height as u16).saturating_add(1);
+    let family = terminal_host();
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     for idx in 0..clear_height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
         sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     sequence
 }
 
@@ -307,9 +308,10 @@ pub(super) fn clear_status_banner(
     // Only clear the banner rows to avoid erasing PTY content above the HUD.
     let clear_height = height.min(rows as usize);
     let start_row = rows.saturating_sub(clear_height as u16).saturating_add(1);
+    let family = terminal_host();
 
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
 
     for idx in 0..clear_height {
         let row = start_row + idx as u16;
@@ -323,11 +325,11 @@ pub(super) fn clear_status_banner(
     // region set in write_status_banner().  DO NOT remove — without this reset,
     // the terminal stays locked to a smaller scroll area after the HUD clears.
     // Skipped on JetBrains/JediTerm (see write_status_banner for rationale).
-    if terminal_host() != TerminalHost::JetBrains {
+    if family != TerminalHost::JetBrains {
         sequence.extend_from_slice(format!("\x1b[1;{rows}r").as_bytes());
     }
 
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 
@@ -344,15 +346,16 @@ pub(super) fn clear_status_banner_at(
     if start_row == 0 || height == 0 {
         return Ok(());
     }
+    let family = terminal_host();
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     for idx in 0..height {
         let row = start_row.saturating_add(idx as u16);
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
         sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 
@@ -360,12 +363,13 @@ pub(super) fn clear_status_line(stdout: &mut dyn Write, rows: u16, cols: u16) ->
     if rows == 0 || cols == 0 {
         return Ok(());
     }
+    let family = terminal_host();
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     sequence.extend_from_slice(format!("\x1b[{rows};1H").as_bytes());
     sequence.extend_from_slice(SGR_RESET);
     sequence.extend_from_slice(b"\x1b[2K");
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 
@@ -378,12 +382,13 @@ pub(super) fn write_overlay_panel(
     if rows == 0 || cols == 0 {
         return Ok(());
     }
-    let max_width = overlay_row_max_render_width(terminal_host(), cols);
+    let family = terminal_host();
+    let max_width = overlay_row_max_render_width(family, cols);
     let lines: Vec<&str> = panel.content.lines().collect();
     let height = panel.height.min(lines.len()).min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     for (idx, line) in lines.iter().take(height).enumerate() {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
@@ -395,7 +400,7 @@ pub(super) fn write_overlay_panel(
         sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[K");
     }
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 
@@ -409,15 +414,16 @@ pub(super) fn clear_overlay_panel(
     }
     let height = height.min(rows as usize);
     let start_row = rows.saturating_sub(height as u16).saturating_add(1);
+    let family = terminal_host();
     let mut sequence = Vec::new();
-    push_cursor_prefix(&mut sequence);
+    push_cursor_prefix(&mut sequence, family);
     for idx in 0..height {
         let row = start_row + idx as u16;
         sequence.extend_from_slice(format!("\x1b[{row};1H").as_bytes());
         sequence.extend_from_slice(SGR_RESET);
         sequence.extend_from_slice(b"\x1b[2K");
     }
-    push_cursor_suffix(&mut sequence);
+    push_cursor_suffix(&mut sequence, family);
     stdout.write_all(&sequence)
 }
 

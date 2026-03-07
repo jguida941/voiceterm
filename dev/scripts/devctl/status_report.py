@@ -8,9 +8,9 @@ Why this exists:
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 from typing import Any, Callable, Dict, List, Tuple
 
+from .time_utils import utc_timestamp
 from .collect import (
     collect_ci_runs,
     collect_dev_log_summary,
@@ -94,7 +94,7 @@ def build_project_report(
 
     report: dict = {
         "command": command,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
     }
     # Merge results in deterministic probe-definition order.
     for key, _func in probes:

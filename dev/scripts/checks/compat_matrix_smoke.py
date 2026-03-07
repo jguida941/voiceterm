@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -320,7 +320,7 @@ def main() -> int:
     if load_error is not None:
         report = {
             "command": "compat_matrix_smoke",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "ok": False,
             "matrix_path": _path_for_report(MATRIX_PATH),
             "errors": [load_error],
@@ -390,7 +390,7 @@ def main() -> int:
 
     report = {
         "command": "compat_matrix_smoke",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not errors,
         "matrix_path": _path_for_report(MATRIX_PATH),
         "runtime_hosts": runtime_hosts,

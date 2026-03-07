@@ -5,7 +5,7 @@ use super::chunk_analysis::{
 use super::display::{preclear_height, DisplayState};
 #[cfg(test)]
 use crate::runtime_compat::BackendFamily;
-use crate::runtime_compat::{HostTimingConfig, TerminalHost};
+use crate::runtime_compat::{HostTimingConfig, RuntimeVariant, TerminalHost};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy)]
@@ -103,6 +103,7 @@ impl PreclearPolicy {
 #[derive(Clone, Copy)]
 pub(super) struct RedrawPolicyContext<'a> {
     pub(super) family: TerminalHost,
+    pub(super) runtime_variant: RuntimeVariant,
     pub(super) bytes: &'a [u8],
     pub(super) now: Instant,
     pub(super) last_scroll_redraw_at: Instant,
@@ -116,9 +117,6 @@ pub(super) struct RedrawPolicyContext<'a> {
     pub(super) pending_clear_overlay: bool,
     pub(super) pending_overlay_panel_present: bool,
     pub(super) preclear_outcome: PreclearOutcome,
-    pub(super) codex_jetbrains: bool,
-    pub(super) claude_jetbrains: bool,
-    pub(super) cursor_claude: bool,
     pub(super) flash_sensitive_scroll_profile: bool,
     pub(super) claude_non_scroll_redraw_profile: bool,
     pub(super) claude_jetbrains_non_scroll_cursor_mutation: bool,
@@ -148,6 +146,10 @@ pub(super) struct RedrawPolicy {
 
 impl RedrawPolicy {
     pub(super) fn resolve(ctx: RedrawPolicyContext<'_>) -> Self {
+        let runtime_variant = ctx.runtime_variant;
+        let jetbrains_claude_runtime = runtime_variant.is_jetbrains_claude();
+        let jetbrains_codex_runtime = runtime_variant.is_jetbrains_codex();
+        let cursor_claude_runtime = runtime_variant.is_cursor_claude();
         let mut policy = Self {
             force_full_banner_redraw: ctx.display_force_full_banner_redraw,
             ..Self::default()
@@ -186,7 +188,7 @@ impl RedrawPolicy {
             false
         };
 
-        if ctx.cursor_claude
+        if cursor_claude_runtime
             && !ctx.may_scroll_rows
             && ctx.display_has_enhanced_status
             && pty_output_can_mutate_cursor_line(ctx.bytes)
@@ -195,7 +197,7 @@ impl RedrawPolicy {
             policy.force_redraw_after_preclear = true;
         }
 
-        let cursor_claude_destructive_clear_repaint = ctx.cursor_claude
+        let cursor_claude_destructive_clear_repaint = cursor_claude_runtime
             && ctx.display_has_unsuppressed_enhanced_status
             && pty_output_contains_destructive_clear(ctx.bytes);
         policy.jetbrains_claude_destructive_clear_repaint = ctx.claude_jetbrains_destructive_clear;
@@ -203,7 +205,7 @@ impl RedrawPolicy {
             || policy.jetbrains_claude_destructive_clear_repaint;
         if policy.destructive_clear_repaint {
             policy.force_full_banner_redraw = true;
-            let jetbrains_cursor_slot_busy = ctx.claude_jetbrains
+            let jetbrains_cursor_slot_busy = jetbrains_claude_runtime
                 && (ctx.claude_jetbrains_chunk_touches_cursor_save_restore
                     || ctx.jetbrains_dec_cursor_saved_active
                     || ctx.jetbrains_ansi_cursor_saved_active);
@@ -225,8 +227,7 @@ impl RedrawPolicy {
 
         if ctx.preclear_outcome.pre_cleared
             && ctx.family == TerminalHost::JetBrains
-            && !ctx.codex_jetbrains
-            && !ctx.claude_jetbrains
+            && matches!(runtime_variant, RuntimeVariant::Generic)
         {
             let transition_sensitive_preclear = ctx.pending_clear_status
                 || ctx.pending_clear_overlay
@@ -238,7 +239,7 @@ impl RedrawPolicy {
             }
         }
 
-        policy.output_redraw_needed = if ctx.claude_jetbrains {
+        policy.output_redraw_needed = if jetbrains_claude_runtime {
             if ctx.may_scroll_rows {
                 policy.force_full_banner_redraw = true;
                 policy.needs_redraw = true;
@@ -252,7 +253,7 @@ impl RedrawPolicy {
             }
             // JetBrains+Claude redraw is idle-gated; avoid immediate redraw.
             false
-        } else if ctx.codex_jetbrains {
+        } else if jetbrains_codex_runtime {
             if ctx.may_scroll_rows {
                 policy.force_full_banner_redraw = true;
                 policy.needs_redraw = true;

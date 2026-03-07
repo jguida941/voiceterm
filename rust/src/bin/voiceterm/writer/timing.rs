@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::runtime_compat::{BackendFamily, HostTimingConfig, TerminalHost};
+use crate::runtime_compat::{BackendFamily, HostTimingConfig, RuntimeVariant, TerminalHost};
 
 const STATUS_IDLE_MS: u64 = 50;
 const STATUS_MAX_WAIT_MS: u64 = 150;
@@ -10,8 +10,7 @@ const PRIORITY_STATUS_MAX_WAIT_MS: u64 = 40;
 #[derive(Debug, Clone, Copy)]
 pub(super) struct IdleRedrawTimingContext {
     pub(super) now: Instant,
-    pub(super) terminal_family: TerminalHost,
-    pub(super) backend_family: BackendFamily,
+    pub(super) runtime_variant: RuntimeVariant,
     pub(super) host_timing: HostTimingConfig,
     pub(super) since_output: Duration,
     pub(super) since_draw: Duration,
@@ -53,8 +52,7 @@ pub(super) fn resolve_idle_redraw_timing(ctx: IdleRedrawTimingContext) -> IdleRe
         && !ctx.pending_clear_overlay
         && !ctx.pending_clear_status
         && !ctx.suppression_transition_pending;
-    let claude_jetbrains = ctx.terminal_family == TerminalHost::JetBrains
-        && ctx.backend_family == BackendFamily::Claude;
+    let claude_jetbrains = ctx.runtime_variant.is_jetbrains_claude();
     let jetbrains_composer_repair_armed =
         claude_jetbrains && ctx.jetbrains_composer_repair_due.is_some();
     let jetbrains_composer_repair_ready = ctx
@@ -116,8 +114,7 @@ pub(super) fn resolve_idle_redraw_timing(ctx: IdleRedrawTimingContext) -> IdleRe
         && !ctx.force_redraw_after_preclear
         && !ctx.in_resize_repair_window
         && clean_pending_state;
-    let codex_jetbrains = ctx.terminal_family == TerminalHost::JetBrains
-        && ctx.backend_family == BackendFamily::Codex;
+    let codex_jetbrains = ctx.runtime_variant.is_jetbrains_codex();
     let codex_jetbrains_idle_gated_redraw = codex_jetbrains
         && ctx.display_force_full_banner_redraw
         && !ctx.force_redraw_after_preclear
@@ -176,8 +173,7 @@ mod tests {
         let now = Instant::now();
         IdleRedrawTimingContext {
             now,
-            terminal_family: TerminalHost::Other,
-            backend_family: BackendFamily::Other,
+            runtime_variant: RuntimeVariant::Generic,
             host_timing: HostTimingConfig::for_host(TerminalHost::Other),
             since_output: Duration::from_millis(0),
             since_draw: Duration::from_millis(0),
@@ -225,8 +221,7 @@ mod tests {
     #[test]
     fn idle_redraw_timing_uses_jetbrains_claude_scroll_hold_window() {
         let mut ctx = idle_context();
-        ctx.terminal_family = TerminalHost::JetBrains;
-        ctx.backend_family = BackendFamily::Claude;
+        ctx.runtime_variant = RuntimeVariant::JetBrainsClaude;
         ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
         ctx.display_force_full_banner_redraw = true;
         ctx.since_output = Duration::from_millis(120);
@@ -240,8 +235,7 @@ mod tests {
     #[test]
     fn idle_redraw_timing_uses_jetbrains_codex_scroll_hold_window() {
         let mut ctx = idle_context();
-        ctx.terminal_family = TerminalHost::JetBrains;
-        ctx.backend_family = BackendFamily::Codex;
+        ctx.runtime_variant = RuntimeVariant::JetBrainsCodex;
         ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
         ctx.display_force_full_banner_redraw = true;
         ctx.since_output = Duration::from_millis(220);
@@ -267,8 +261,7 @@ mod tests {
     #[test]
     fn idle_redraw_timing_applies_jetbrains_claude_composer_quiet_window() {
         let mut ctx = idle_context();
-        ctx.terminal_family = TerminalHost::JetBrains;
-        ctx.backend_family = BackendFamily::Claude;
+        ctx.runtime_variant = RuntimeVariant::JetBrainsClaude;
         ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
         ctx.jetbrains_composer_repair_due = Some(ctx.now - Duration::from_millis(1));
         ctx.since_output = Duration::from_millis(100);
@@ -282,8 +275,7 @@ mod tests {
     #[test]
     fn idle_redraw_timing_clears_expired_cursor_restore_settle_window() {
         let mut ctx = idle_context();
-        ctx.terminal_family = TerminalHost::JetBrains;
-        ctx.backend_family = BackendFamily::Claude;
+        ctx.runtime_variant = RuntimeVariant::JetBrainsClaude;
         ctx.host_timing = HostTimingConfig::for_host(TerminalHost::JetBrains);
         ctx.jetbrains_cursor_restore_settle_until = Some(ctx.now - Duration::from_millis(1));
         ctx.since_output = Duration::from_millis(500);

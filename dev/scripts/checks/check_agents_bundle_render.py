@@ -7,7 +7,7 @@ import argparse
 import difflib
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -51,7 +51,7 @@ def _diff_preview(expected: str, actual: str) -> list[str]:
 def build_report(*, write: bool = False) -> dict:
     report = {
         "command": "check_agents_bundle_render",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "agents_path": "AGENTS.md",
         "bundle_registry": BUNDLE_AUTHORITY_PATH,
         "section_heading": AGENTS_BUNDLE_SECTION_HEADING,

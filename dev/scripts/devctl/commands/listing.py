@@ -1,9 +1,9 @@
 """devctl list command implementation."""
 
 import json
-from datetime import datetime
 
 from ..common import write_output
+from ..time_utils import utc_timestamp
 
 COMMANDS = [
     "check",
@@ -56,7 +56,7 @@ def run(args) -> int:
     """List devctl commands and profiles."""
     payload = {
         "command": "list",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_timestamp(),
         "commands": COMMANDS,
         "profiles": PROFILES,
     }

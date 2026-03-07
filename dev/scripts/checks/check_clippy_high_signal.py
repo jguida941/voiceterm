@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -102,7 +102,7 @@ def main() -> int:
     except RuntimeError as exc:
         report = {
             "command": "check_clippy_high_signal",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "ok": False,
             "baseline_file": str(baseline_path),
             "input_file": str(input_path),
@@ -131,7 +131,7 @@ def main() -> int:
 
     report = {
         "command": "check_clippy_high_signal",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": len(violations) == 0,
         "baseline_file": str(baseline_path),
         "input_file": str(input_path),

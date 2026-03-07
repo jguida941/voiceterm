@@ -9,7 +9,7 @@ import inspect
 import json
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
@@ -68,7 +68,7 @@ def build_report(max_shared: int = DEFAULT_MAX_SHARED) -> dict:
 
     return {
         "command": "check_bundle_registry_dry",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ok": not violations,
         "bundle_count": len(bundles),
         "widely_shared_count": len(widely_shared),
