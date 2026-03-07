@@ -10,8 +10,8 @@ from datetime import datetime
 
 from ide_provider_isolation_core import (
     ALLOWLISTED_FILE_SIGNAL_PATHS,
-    ALLOWLISTED_MIXED_PATHS,
     ALLOWLISTED_MIXED_PATH_PREFIXES,
+    ALLOWLISTED_MIXED_PATHS,
     REPO_ROOT,
     SOURCE_ROOTS,
     _is_allowlisted_file_signal_path,

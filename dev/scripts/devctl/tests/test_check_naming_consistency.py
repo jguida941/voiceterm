@@ -5,15 +5,14 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
-from contextlib import redirect_stdout
-from pathlib import Path
 import sys
 import tempfile
+from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_naming_consistency.py"
 
@@ -92,8 +91,12 @@ class CheckNamingConsistencyTests(TestCase):
         tooling_errors: list[str] | None = None,
     ) -> tuple[int, dict]:
         buffer = io.StringIO()
-        runtime_tokens = runtime_tokens if runtime_tokens is not None else _runtime_tokens()
-        tooling_tokens = tooling_tokens if tooling_tokens is not None else _tooling_tokens()
+        runtime_tokens = (
+            runtime_tokens if runtime_tokens is not None else _runtime_tokens()
+        )
+        tooling_tokens = (
+            tooling_tokens if tooling_tokens is not None else _tooling_tokens()
+        )
         runtime_errors = runtime_errors if runtime_errors is not None else []
         tooling_errors = tooling_errors if tooling_errors is not None else []
 
@@ -125,7 +128,8 @@ class CheckNamingConsistencyTests(TestCase):
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             matrix_path = Path(temp_dir) / "matrix.yaml"
             _write_lines(matrix_path, _matrix_lines())
-            exit_code, report = self._run_main_json(matrix_path)
+            with patch.object(self.script._core, "yaml", None):
+                exit_code, report = self._run_main_json(matrix_path)
 
         self.assertEqual(exit_code, 0)
         self.assertTrue(report["ok"])
@@ -169,10 +173,7 @@ class CheckNamingConsistencyTests(TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(report["ok"])
         self.assertTrue(
-            any(
-                "PROVIDER_LABEL_PATTERN" in message
-                for message in report["errors"]
-            )
+            any("PROVIDER_LABEL_PATTERN" in message for message in report["errors"])
         )
 
     def test_parse_enum_ids_handles_struct_variants_and_attributes(self) -> None:
@@ -183,7 +184,7 @@ class CheckNamingConsistencyTests(TestCase):
                 [
                     "enum TerminalHost {",
                     "    Cursor,",
-                    "    #[cfg(feature = \"jetbrains\")]",
+                    '    #[cfg(feature = "jetbrains")]',
                     "    JetBrains { source: u8, label: &'static str },",
                     "    Other,",
                     "}",
@@ -203,7 +204,7 @@ class CheckNamingConsistencyTests(TestCase):
                     "    Codex,",
                     "    // not_a_variant,",
                     "    Claude,",
-                    "    #[doc = \"Gemini, still a real variant\"]",
+                    '    #[doc = "Gemini, still a real variant"]',
                     "    Gemini,",
                     "}",
                 ],

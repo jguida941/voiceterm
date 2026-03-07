@@ -43,7 +43,9 @@ def audit_scripts(repo_root: Path) -> Dict:
     readme_text = readme_path.read_text(encoding="utf-8")
 
     top_level_scripts = sorted(
-        path.name for path in scripts_dir.iterdir() if path.is_file() and path.name != "README.md"
+        path.name
+        for path in scripts_dir.iterdir()
+        if path.is_file() and path.name != "README.md"
     )
     undocumented = [name for name in top_level_scripts if name not in readme_text]
     filesystem_check_scripts = sorted(
@@ -52,15 +54,23 @@ def audit_scripts(repo_root: Path) -> Dict:
         if path.is_file()
     )
     catalog_check_script_set = (
-        set(CHECK_SCRIPT_RELATIVE_PATHS.values()) if catalog_contract_available else set()
+        set(CHECK_SCRIPT_RELATIVE_PATHS.values())
+        if catalog_contract_available
+        else set()
     )
     catalog_check_scripts = sorted(catalog_check_script_set)
     check_scripts = (
-        catalog_check_scripts if catalog_contract_available else filesystem_check_scripts
+        catalog_check_scripts
+        if catalog_contract_available
+        else filesystem_check_scripts
     )
     undocumented_checks = [path for path in check_scripts if path not in readme_text]
     unregistered_checks = (
-        [path for path in filesystem_check_scripts if path not in catalog_check_script_set]
+        [
+            path
+            for path in filesystem_check_scripts
+            if path not in catalog_check_script_set
+        ]
         if catalog_contract_available
         else []
     )

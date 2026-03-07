@@ -25,9 +25,8 @@ from .check_support import (
     maybe_emit_ai_guard_scaffold,
     resolve_perf_log_path,
 )
-from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 from .mutants import build_mutants_cmd
-
+from .mutation_score import build_mutation_score_cmd, resolve_outcomes_path
 
 # -------------------------------------------------------
 # Shared state for a single check run
@@ -122,7 +121,7 @@ def _add_steps(
         if scaffold_result["returncode"] == 0:
             print(
                 "[check] generated remediation scaffold:"
-                " dev/active/RUST_AUDIT_FINDINGS.md"
+                " dev/reports/audits/RUST_AUDIT_FINDINGS.md"
             )
         else:
             print("[check] failed to generate remediation scaffold")

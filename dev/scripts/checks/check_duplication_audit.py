@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 from check_duplication_audit_support import (
     derive_status,
@@ -168,9 +168,17 @@ def _run_jscpd(
     )
     if proc.returncode != 0:
         tail = "\n".join((proc.stderr or proc.stdout).splitlines()[-10:])
-        return False, f"jscpd failed (exit {proc.returncode}): {tail}", "execution_failed"
+        return (
+            False,
+            f"jscpd failed (exit {proc.returncode}): {tail}",
+            "execution_failed",
+        )
     if not report_path.exists():
-        return False, f"jscpd completed but report file missing: {_path_for_report(report_path)}", "missing_report"
+        return (
+            False,
+            f"jscpd completed but report file missing: {_path_for_report(report_path)}",
+            "missing_report",
+        )
     return True, None, "ok"
 
 

@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -31,9 +30,13 @@ class ReleaseVersionParityScriptTests(unittest.TestCase):
         )
 
     def test_build_report_expected_version_match_true(self) -> None:
-        with mock.patch.object(self.script, "_read_cargo_version", return_value="1.2.3"), mock.patch.object(
+        with mock.patch.object(
+            self.script, "_read_cargo_version", return_value="1.2.3"
+        ), mock.patch.object(
             self.script, "_read_pyproject_version", return_value="1.2.3"
-        ), mock.patch.object(self.script, "_read_init_version", return_value="1.2.3"), mock.patch.object(
+        ), mock.patch.object(
+            self.script, "_read_init_version", return_value="1.2.3"
+        ), mock.patch.object(
             self.script, "_read_plist_versions", return_value=("1.2.3", "1.2.3")
         ):
             report = self.script._build_report(expected_version="1.2.3")
@@ -43,9 +46,13 @@ class ReleaseVersionParityScriptTests(unittest.TestCase):
         self.assertEqual(report["versions_present"], ["1.2.3"])
 
     def test_build_report_expected_version_mismatch_false(self) -> None:
-        with mock.patch.object(self.script, "_read_cargo_version", return_value="1.2.3"), mock.patch.object(
+        with mock.patch.object(
+            self.script, "_read_cargo_version", return_value="1.2.3"
+        ), mock.patch.object(
             self.script, "_read_pyproject_version", return_value="1.2.3"
-        ), mock.patch.object(self.script, "_read_init_version", return_value="1.2.3"), mock.patch.object(
+        ), mock.patch.object(
+            self.script, "_read_init_version", return_value="1.2.3"
+        ), mock.patch.object(
             self.script, "_read_plist_versions", return_value=("1.2.3", "1.2.3")
         ):
             report = self.script._build_report(expected_version="9.9.9")

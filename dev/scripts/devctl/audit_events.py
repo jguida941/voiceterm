@@ -119,7 +119,9 @@ def build_audit_event_payload(
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "cycle_id": str(os.environ.get("DEVCTL_AUDIT_CYCLE_ID") or "local"),
         "area": str(os.environ.get("DEVCTL_AUDIT_AREA") or _infer_area(command)),
-        "step": str(os.environ.get("DEVCTL_AUDIT_STEP") or _default_step(command, args)),
+        "step": str(
+            os.environ.get("DEVCTL_AUDIT_STEP") or _default_step(command, args)
+        ),
         "command": command,
         "execution_source": source_bucket,
         "actor": str(os.environ.get("DEVCTL_EXECUTION_ACTOR") or "script"),

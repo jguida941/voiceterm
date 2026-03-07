@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -131,7 +130,9 @@ class CheckAgentsBundleRenderTests(unittest.TestCase):
             report = self.script.build_report()
 
             self.assertFalse(report["ok"])
-            self.assertIn("Unable to locate AGENTS bundle section boundaries", report["error"])
+            self.assertIn(
+                "Unable to locate AGENTS bundle section boundaries", report["error"]
+            )
 
 
 if __name__ == "__main__":

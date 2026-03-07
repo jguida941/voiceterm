@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 from typing import Callable
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -232,8 +231,12 @@ class CheckBundleWorkflowParityTests(unittest.TestCase):
         )
         scopes = self.script._extract_workflow_run_scopes(workflow_text)
         self.assertEqual(len(scopes), 1)
-        self.assertIn("python3 dev/scripts/devctl.py docs-check --strict-tooling", scopes[0])
-        self.assertIn("python3 dev/scripts/checks/check_bundle_workflow_parity.py", scopes[0])
+        self.assertIn(
+            "python3 dev/scripts/devctl.py docs-check --strict-tooling", scopes[0]
+        )
+        self.assertIn(
+            "python3 dev/scripts/checks/check_bundle_workflow_parity.py", scopes[0]
+        )
 
     def test_get_registered_bundle_commands_normalizes_leading_env_tokens(self) -> None:
         original = self.script.get_bundle_commands
@@ -248,10 +251,10 @@ class CheckBundleWorkflowParityTests(unittest.TestCase):
             ["python3 dev/scripts/checks/check_coderabbit_gate.py --branch master"],
         )
 
-    def test_get_registered_bundle_commands_returns_error_when_bundle_missing(self) -> None:
-        commands, error = self.script._get_registered_bundle_commands(
-            "bundle.missing"
-        )
+    def test_get_registered_bundle_commands_returns_error_when_bundle_missing(
+        self,
+    ) -> None:
+        commands, error = self.script._get_registered_bundle_commands("bundle.missing")
         self.assertEqual(commands, [])
         self.assertIsNotNone(error)
 

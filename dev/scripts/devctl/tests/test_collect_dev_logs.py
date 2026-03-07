@@ -19,7 +19,9 @@ class CollectDevLogsTests(unittest.TestCase):
     def test_missing_sessions_dir_returns_zero_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "dev"
-            summary = collect.collect_dev_log_summary(dev_root=str(root), session_limit=3)
+            summary = collect.collect_dev_log_summary(
+                dev_root=str(root), session_limit=3
+            )
             self.assertFalse(summary["sessions_dir_exists"])
             self.assertEqual(summary["session_files_total"], 0)
             self.assertEqual(summary["events_scanned"], 0)
@@ -49,7 +51,9 @@ class CollectDevLogsTests(unittest.TestCase):
             os.utime(old_file, ns=(1_000_000_000, 1_000_000_000))
             os.utime(new_file, ns=(2_000_000_000, 2_000_000_000))
 
-            summary = collect.collect_dev_log_summary(dev_root=str(root), session_limit=1)
+            summary = collect.collect_dev_log_summary(
+                dev_root=str(root), session_limit=1
+            )
 
             self.assertTrue(summary["sessions_dir_exists"])
             self.assertEqual(summary["session_files_total"], 2)

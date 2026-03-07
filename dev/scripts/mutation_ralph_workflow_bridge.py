@@ -8,13 +8,18 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Mapping
-
 
 ALLOWED_EXECUTION_MODES = {"report-only", "plan-then-fix", "fix-only"}
 ALLOWED_NOTIFY_MODES = {"summary-only", "summary-and-comment"}
 ALLOWED_COMMENT_TARGETS = {"auto", "pr", "commit"}
+SYSTEM_TMPDIR = Path(tempfile.gettempdir())
+
+
+def _tmp_path(filename: str) -> str:
+    return str(SYSTEM_TMPDIR / filename)
 
 
 def _validate_positive_int(raw_value: str, *, minimum: int, label: str) -> str:
@@ -152,7 +157,7 @@ def build_loop_command(args: argparse.Namespace) -> list[str]:
         args.comment_target,
         "--emit-bundle",
         "--bundle-dir",
-        "/tmp",
+        str(SYSTEM_TMPDIR),
         "--bundle-prefix",
         "mutation-ralph-loop",
         "--json-output",
@@ -252,8 +257,10 @@ def _build_parser() -> argparse.ArgumentParser:
     run_loop.add_argument("--comment-target", required=True)
     run_loop.add_argument("--comment-pr-number", default="")
     run_loop.add_argument("--fix-command", default="")
-    run_loop.add_argument("--json-output", default="/tmp/mutation-ralph-loop.json")
-    run_loop.add_argument("--output", default="/tmp/mutation-ralph-loop.md")
+    run_loop.add_argument(
+        "--json-output", default=_tmp_path("mutation-ralph-loop.json")
+    )
+    run_loop.add_argument("--output", default=_tmp_path("mutation-ralph-loop.md"))
 
     return parser
 

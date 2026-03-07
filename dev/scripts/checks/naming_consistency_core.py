@@ -14,6 +14,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     yaml = None
 
+try:
+    from .yaml_json_loader import load_yaml_or_json
+except ImportError:  # pragma: no cover
+    from yaml_json_loader import load_yaml_or_json
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -64,14 +69,16 @@ def _load_matrix_ids(path: Path) -> tuple[set[str], set[str], list[str]]:
     except OSError as exc:
         return set(), set(), [f"failed to read matrix file: {exc}"]
     try:
-        payload = yaml.safe_load(raw) if yaml is not None else json.loads(raw)
+        payload = load_yaml_or_json(raw, yaml_module=yaml)
     except Exception as exc:
         return set(), set(), [f"failed to parse matrix file: {exc}"]
     if not isinstance(payload, dict):
         return set(), set(), ["matrix root must be an object"]
-    return _extract_ids(payload.get("hosts"), "hosts", errors), _extract_ids(
-        payload.get("providers"), "providers", errors
-    ), errors
+    return (
+        _extract_ids(payload.get("hosts"), "hosts", errors),
+        _extract_ids(payload.get("providers"), "providers", errors),
+        errors,
+    )
 
 
 def _find_matching_brace(text: str, start: int) -> int | None:
@@ -247,7 +254,9 @@ def _split_top_level_variants(raw_body: str, masked_body: str) -> list[str]:
             angle_depth += 1
         elif char == ">" and angle_depth > 0:
             angle_depth -= 1
-        elif char == "," and not any((paren_depth, bracket_depth, brace_depth, angle_depth)):
+        elif char == "," and not any(
+            (paren_depth, bracket_depth, brace_depth, angle_depth)
+        ):
             segments.append(raw_body[start:index])
             start = index + 1
     if start < len(raw_body):
@@ -320,20 +329,30 @@ def _parse_isolation_provider_tokens(path: Path) -> set[str]:
     compiled_match = re.search(
         r"PROVIDER_LABEL_PATTERN\s*=\s*re\.compile\(\s*r?['\"]([^'\"]+)['\"]", text
     )
-    return _extract_provider_label_tokens(compiled_match.group(1)) if compiled_match else set()
+    return (
+        _extract_provider_label_tokens(compiled_match.group(1))
+        if compiled_match
+        else set()
+    )
 
 
-def _expect_str_set(value: object, *, label: str, source: Path, errors: list[str]) -> set[str]:
+def _expect_str_set(
+    value: object, *, label: str, source: Path, errors: list[str]
+) -> set[str]:
     if not isinstance(value, (set, frozenset)):
         errors.append(f"{label} in {_path_for_report(source)} must be a set/frozenset")
         return set()
     result = {item for item in value if isinstance(item, str)}
     if len(result) != len(value):
-        errors.append(f"{label} in {_path_for_report(source)} contains non-string values")
+        errors.append(
+            f"{label} in {_path_for_report(source)} contains non-string values"
+        )
     return result
 
 
-def _expect_dict_keys(value: object, *, label: str, source: Path, errors: list[str]) -> set[str]:
+def _expect_dict_keys(
+    value: object, *, label: str, source: Path, errors: list[str]
+) -> set[str]:
     if not isinstance(value, dict):
         errors.append(f"{label} in {_path_for_report(source)} must be a dict")
         return set()

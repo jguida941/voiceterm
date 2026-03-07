@@ -13,12 +13,26 @@ def add_check_parser(
     default_mutation_threshold: float,
 ) -> None:
     """Register the `check` command parser."""
-    check_cmd = sub.add_parser("check", help="Run fmt/clippy/tests/build (and optional extras)")
+    check_cmd = sub.add_parser(
+        "check", help="Run fmt/clippy/tests/build (and optional extras)"
+    )
     check_cmd.add_argument(
         "--profile",
-        choices=["ci", "prepush", "release", "maintainer-lint", "quick", "fast", "ai-guard"],
+        choices=[
+            "ci",
+            "prepush",
+            "release",
+            "maintainer-lint",
+            "quick",
+            "fast",
+            "ai-guard",
+        ],
     )
-    check_cmd.add_argument("--ci", action="store_true", help="Match rust_ci.yml scope (alias for --profile ci)")
+    check_cmd.add_argument(
+        "--ci",
+        action="store_true",
+        help="Match rust_ci.yml scope (alias for --profile ci)",
+    )
     check_cmd.add_argument(
         "--prepush",
         action="store_true",
@@ -28,9 +42,15 @@ def add_check_parser(
     check_cmd.add_argument("--skip-clippy", action="store_true")
     check_cmd.add_argument("--skip-tests", action="store_true")
     check_cmd.add_argument("--skip-build", action="store_true")
-    check_cmd.add_argument("--fix", action="store_true", help="Run cargo fmt (not --check)")
-    check_cmd.add_argument("--with-perf", action="store_true", help="Run perf smoke + verify")
-    check_cmd.add_argument("--with-mem-loop", action="store_true", help="Run memory guard loop")
+    check_cmd.add_argument(
+        "--fix", action="store_true", help="Run cargo fmt (not --check)"
+    )
+    check_cmd.add_argument(
+        "--with-perf", action="store_true", help="Run perf smoke + verify"
+    )
+    check_cmd.add_argument(
+        "--with-mem-loop", action="store_true", help="Run memory guard loop"
+    )
     check_cmd.add_argument("--mem-iterations", type=int, default=default_mem_iterations)
     check_cmd.add_argument(
         "--with-wake-guard",
@@ -43,15 +63,21 @@ def add_check_parser(
         default=4,
         help="Wake-word soak iterations when wake guard is enabled",
     )
-    check_cmd.add_argument("--with-mutants", action="store_true", help="Run mutants after checks")
-    check_cmd.add_argument("--with-mutation-score", action="store_true", help="Check mutation score")
+    check_cmd.add_argument(
+        "--with-mutants", action="store_true", help="Run mutants after checks"
+    )
+    check_cmd.add_argument(
+        "--with-mutation-score", action="store_true", help="Check mutation score"
+    )
     check_cmd.add_argument(
         "--with-ai-guard",
         action="store_true",
         help="Run code-shape, lint-debt, Rust best-practices, and Rust audit-pattern guards",
     )
     check_cmd.add_argument("--mutation-score-path", help="Path to outcomes.json")
-    check_cmd.add_argument("--mutation-score-threshold", type=float, default=default_mutation_threshold)
+    check_cmd.add_argument(
+        "--mutation-score-threshold", type=float, default=default_mutation_threshold
+    )
     check_cmd.add_argument(
         "--mutation-score-warn-age-hours",
         type=float,
@@ -65,7 +91,9 @@ def add_check_parser(
     )
     check_cmd.add_argument("--mutants-module", help="Mutants module filter")
     check_cmd.add_argument("--mutants-all", action="store_true")
-    check_cmd.add_argument("--mutants-timeout", type=int, default=default_mutants_timeout)
+    check_cmd.add_argument(
+        "--mutants-timeout", type=int, default=default_mutants_timeout
+    )
     check_cmd.add_argument("--mutants-shard", help="Mutants shard spec like 1/8")
     check_cmd.add_argument("--mutants-offline", action="store_true")
     check_cmd.add_argument("--mutants-cargo-home")
@@ -107,7 +135,7 @@ def add_check_parser(
     check_cmd.add_argument(
         "--no-process-sweep-cleanup",
         action="store_true",
-        help="Disable automatic orphaned voiceterm test-binary cleanup before/after checks",
+        help="Disable automatic orphaned voiceterm test-process cleanup before/after checks",
     )
 
 
@@ -144,7 +172,9 @@ def add_mutation_score_parser(
     """Register the `mutation-score` command parser."""
     score_cmd = sub.add_parser("mutation-score", help="Check mutation score threshold")
     score_cmd.add_argument("--path", help="Path to outcomes.json (optional)")
-    score_cmd.add_argument("--threshold", type=float, default=default_mutation_threshold)
+    score_cmd.add_argument(
+        "--threshold", type=float, default=default_mutation_threshold
+    )
     score_cmd.add_argument(
         "--warn-age-hours",
         type=float,

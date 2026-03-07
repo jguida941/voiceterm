@@ -68,7 +68,9 @@ def run(args) -> int:
         if str(entry.get("path", "")).strip()
     ]
     git_summary = {
-        "branch": None if git_error else str(git_info.get("branch", "")).strip() or None,
+        "branch": (
+            None if git_error else str(git_info.get("branch", "")).strip() or None
+        ),
         "changed_count": len(changed_paths),
         "sample_paths": changed_paths[:MAX_CHANGED_PATHS],
         "error": git_error or None,

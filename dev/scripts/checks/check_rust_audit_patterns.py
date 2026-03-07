@@ -11,7 +11,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from rust_guard_common import GuardContext
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 SOURCE_ROOT_RELATIVE = SOURCE_ROOT.relative_to(REPO_ROOT)
 
@@ -23,42 +31,34 @@ PATTERNS = {
     "single_pass_secret_find": re.compile(
         r"if\s+let\s+Some\([^)]*\)\s*=\s*redacted\.find\("
     ),
-    "deterministic_id_hash_suffix": re.compile(r"wrapping_mul\((?:2654435761|2246822519)\)"),
+    "deterministic_id_hash_suffix": re.compile(
+        r"wrapping_mul\((?:2654435761|2246822519)\)"
+    ),
     "lossy_vad_cast_i16": re.compile(r"\(\s*clamped\s*\*\s*32_768\.0\s*\)\s*as\s*i16"),
 }
 
 
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
-    return result
-
-
-def _validate_ref(ref: str) -> None:
-    _run_git(["git", "rev-parse", "--verify", ref], check=True)
-
-
 def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
     if since_ref:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", since_ref, head_ref]
+        diff_cmd = [
+            "git",
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMR",
+            since_ref,
+            head_ref,
+        ]
     else:
         diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
 
     changed = {
         Path(line.strip())
-        for line in _run_git(diff_cmd).stdout.splitlines()
+        for line in guard.run_git(diff_cmd).stdout.splitlines()
         if line.strip()
     }
 
     if since_ref is None:
-        untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"])
+        untracked = guard.run_git(["git", "ls-files", "--others", "--exclude-standard"])
         for line in untracked.stdout.splitlines():
             if line.strip():
                 changed.add(Path(line.strip()))
@@ -84,20 +84,6 @@ def _is_runtime_source_path(path: Path) -> bool:
         return True
     except ValueError:
         return False
-
-
-def _read_text_from_worktree(path: Path) -> str | None:
-    full_path = REPO_ROOT / path
-    if not full_path.exists():
-        return None
-    return full_path.read_text(encoding="utf-8", errors="replace")
-
-
-def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    result = _run_git(["git", "show", f"{ref}:{path}"], check=False)
-    if result.returncode != 0:
-        return None
-    return result.stdout
 
 
 def _count_metrics(text: str | None) -> dict[str, int]:
@@ -138,7 +124,9 @@ def _render_md(report: dict) -> str:
         )
         for item in report["violations"]:
             flagged = ", ".join(
-                f"{name}={count}" for name, count in item["metrics"].items() if count > 0
+                f"{name}={count}"
+                for name, count in item["metrics"].items()
+                if count > 0
             )
             lines.append(f"- `{item['path']}`: {flagged}")
     return "\n".join(lines)
@@ -147,7 +135,9 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref (only used with --since-ref)")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref (only used with --since-ref)"
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -164,8 +154,8 @@ def main() -> int:
 
     try:
         if args.since_ref:
-            _validate_ref(args.since_ref)
-            _validate_ref(args.head_ref)
+            guard.validate_ref(args.since_ref)
+            guard.validate_ref(args.head_ref)
 
         if args.since_ref:
             changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
@@ -183,9 +173,9 @@ def main() -> int:
             files_considered += 1
 
             if args.since_ref:
-                current_text = _read_text_from_ref(path, args.head_ref)
+                current_text = guard.read_text_from_ref(path, args.head_ref)
             else:
-                current_text = _read_text_from_worktree(path)
+                current_text = guard.read_text_from_worktree(path)
 
             metrics = _count_metrics(current_text)
             for name, value in metrics.items():

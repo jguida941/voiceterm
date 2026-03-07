@@ -53,7 +53,9 @@ def make_args(**overrides) -> SimpleNamespace:
     return SimpleNamespace(**defaults)
 
 
-def _triage_payload(*, mode: str, unresolved_count: int, reason: str, attempt: int) -> dict:
+def _triage_payload(
+    *, mode: str, unresolved_count: int, reason: str, attempt: int
+) -> dict:
     return {
         "command": "triage-loop",
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -137,7 +139,10 @@ class AutonomyLoopParserTests(unittest.TestCase):
 
 
 class AutonomyLoopCommandTests(unittest.TestCase):
-    @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",
+        return_value="owner/repo",
+    )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
     def test_run_emits_round_packets_and_resolves(
         self,
@@ -161,7 +166,9 @@ class AutonomyLoopCommandTests(unittest.TestCase):
             return 1 if unresolved else 0
 
         def packet_side_effect(args) -> int:
-            source_payload = json.loads(Path(args.source_json[0]).read_text(encoding="utf-8"))
+            source_payload = json.loads(
+                Path(args.source_json[0]).read_text(encoding="utf-8")
+            )
             payload = _loop_packet_payload(
                 unresolved_count=int(source_payload.get("unresolved_count") or 0)
             )
@@ -211,13 +218,18 @@ class AutonomyLoopCommandTests(unittest.TestCase):
                 phone_payload["controller"]["controller_run_id"],
                 report["controller_run_id"],
             )
-            self.assertIn("Loop feedback packet", phone_payload["terminal"]["draft_text"])
+            self.assertIn(
+                "Loop feedback packet", phone_payload["terminal"]["draft_text"]
+            )
             self.assertGreaterEqual(len(phone_payload["terminal"]["trace"]), 1)
 
             first_round_phone = Path(report["rounds"][0]["phone_status_json"])
             self.assertTrue(first_round_phone.exists())
 
-    @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",
+        return_value="owner/repo",
+    )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
     def test_non_operate_mode_forces_report_only(
         self,
@@ -253,7 +265,9 @@ class AutonomyLoopCommandTests(unittest.TestCase):
                 queue_out=str(Path(tmp_dir) / "queue"),
                 dry_run=True,
             )
-            with patch.dict(os.environ, {"AUTONOMY_MODE": "read-only"}, clear=False), patch(
+            with patch.dict(
+                os.environ, {"AUTONOMY_MODE": "read-only"}, clear=False
+            ), patch(
                 "dev.scripts.devctl.commands.autonomy_loop_rounds.triage_loop_command.run",
                 side_effect=triage_side_effect,
             ), patch(
@@ -265,10 +279,15 @@ class AutonomyLoopCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             report = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(report["mode_effective"], "report-only")
-            self.assertTrue(any("AUTONOMY_MODE" in row for row in report.get("warnings", [])))
+            self.assertTrue(
+                any("AUTONOMY_MODE" in row for row in report.get("warnings", []))
+            )
             self.assertEqual(observed_modes, ["report-only"])
 
-    @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",
+        return_value="owner/repo",
+    )
     @patch("dev.scripts.devctl.commands.autonomy_loop._load_policy", return_value={})
     def test_non_operate_mode_denies_non_dry_run(
         self,
@@ -291,9 +310,14 @@ class AutonomyLoopCommandTests(unittest.TestCase):
             report = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(report["ok"])
             self.assertEqual(report["reason"], "policy_denied")
-            self.assertTrue(any("AUTONOMY_MODE" in row for row in report.get("errors", [])))
+            self.assertTrue(
+                any("AUTONOMY_MODE" in row for row in report.get("errors", []))
+            )
 
-    @patch("dev.scripts.devctl.commands.autonomy_loop.resolve_repo", return_value="owner/repo")
+    @patch(
+        "dev.scripts.devctl.commands.autonomy_loop.resolve_repo",
+        return_value="owner/repo",
+    )
     @patch(
         "dev.scripts.devctl.commands.autonomy_loop._load_policy",
         return_value={"autonomy_loop": {"allowed_branches": ["develop"]}},

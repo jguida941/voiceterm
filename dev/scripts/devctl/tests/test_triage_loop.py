@@ -208,7 +208,9 @@ class TriageLoopCommandTests(unittest.TestCase):
         self.assertIsNotNone(fix_block_reason)
         self.assertIn("AUTONOMY_MODE", fix_block_reason or "")
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertTrue(any("AUTONOMY_MODE" in row for row in payload.get("warnings", [])))
+        self.assertTrue(
+            any("AUTONOMY_MODE" in row for row in payload.get("warnings", []))
+        )
 
     @patch("dev.scripts.devctl.commands.triage_loop.write_output")
     @patch("dev.scripts.devctl.commands.triage_loop.execute_loop")
@@ -413,8 +415,14 @@ class TriageLoopCommandTests(unittest.TestCase):
             "reason": "max attempts reached with unresolved medium+ backlog",
             "escalation_needed": True,
         }
-        publish_notification_mock.return_value = {"ok": True, "mode": "summary-and-comment"}
-        publish_escalation_mock.return_value = {"ok": True, "mode": "summary-and-comment"}
+        publish_notification_mock.return_value = {
+            "ok": True,
+            "mode": "summary-and-comment",
+        }
+        publish_escalation_mock.return_value = {
+            "ok": True,
+            "mode": "summary-and-comment",
+        }
         args = make_args(notify="summary-and-comment")
         rc = triage_loop.run(args)
         self.assertEqual(rc, 1)

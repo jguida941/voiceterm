@@ -5,15 +5,14 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
-from contextlib import redirect_stdout
-from pathlib import Path
 import sys
 import tempfile
+from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_compat_matrix.py"
 
@@ -22,7 +21,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("check_compat_matrix_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_compat_matrix_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_compat_matrix.py")
     module = importlib.util.module_from_spec(spec)
@@ -61,7 +62,8 @@ class CheckCompatMatrixTests(TestCase):
                     "matrix: []",
                 ],
             )
-            payload, error = self.script._load_matrix(matrix_path)
+            with patch.object(self.script, "yaml", None):
+                payload, error = self.script._load_matrix(matrix_path)
         self.assertIsNone(error)
         self.assertIsInstance(payload, dict)
         assert payload is not None
@@ -113,7 +115,9 @@ class CheckCompatMatrixTests(TestCase):
         self.assertEqual(report["duplicate_host_ids"], ["cursor"])
         self.assertEqual(report["duplicate_provider_ids"], ["codex"])
         self.assertTrue(any("duplicate host ids" in msg for msg in report["errors"]))
-        self.assertTrue(any("duplicate provider ids" in msg for msg in report["errors"]))
+        self.assertTrue(
+            any("duplicate provider ids" in msg for msg in report["errors"])
+        )
 
     def test_main_fails_when_hosts_or_providers_entries_miss_string_id(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
@@ -138,7 +142,10 @@ class CheckCompatMatrixTests(TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(report["ok"])
         self.assertTrue(
-            any("`hosts` contains 1 entries without a string `id`" in msg for msg in report["errors"])
+            any(
+                "`hosts` contains 1 entries without a string `id`" in msg
+                for msg in report["errors"]
+            )
         )
         self.assertTrue(
             any(

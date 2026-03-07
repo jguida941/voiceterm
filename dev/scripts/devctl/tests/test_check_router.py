@@ -63,7 +63,10 @@ class CheckRouterTests(unittest.TestCase):
         collect_git_status_mock.return_value = {
             "changes": [{"status": "M", "path": "guides/USAGE.md"}]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py docs-check --user-facing"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --user-facing"],
+            None,
+        )
 
         rc = check_router.run(make_args())
         self.assertEqual(rc, 0)
@@ -83,9 +86,14 @@ class CheckRouterTests(unittest.TestCase):
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {
-            "changes": [{"status": "M", "path": "rust/src/bin/voiceterm/status_line/format.rs"}]
+            "changes": [
+                {"status": "M", "path": "rust/src/bin/voiceterm/status_line/format.rs"}
+            ]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py check --profile ci"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py check --profile ci"],
+            None,
+        )
 
         rc = check_router.run(make_args())
         self.assertEqual(rc, 0)
@@ -110,7 +118,10 @@ class CheckRouterTests(unittest.TestCase):
                 {"status": "M", "path": "dev/scripts/devctl/commands/check.py"},
             ]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py docs-check --strict-tooling"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
 
         rc = check_router.run(make_args())
         self.assertEqual(rc, 0)
@@ -131,7 +142,10 @@ class CheckRouterTests(unittest.TestCase):
         collect_git_status_mock.return_value = {
             "changes": [{"status": "M", "path": "third_party/custom.txt"}]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py docs-check --strict-tooling"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
 
         rc = check_router.run(make_args())
         self.assertEqual(rc, 0)
@@ -153,7 +167,10 @@ class CheckRouterTests(unittest.TestCase):
         collect_git_status_mock.return_value = {
             "changes": [{"status": "M", "path": "rust/Cargo.toml"}]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py check --profile release"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py check --profile release"],
+            None,
+        )
 
         rc = check_router.run(make_args())
         self.assertEqual(rc, 0)
@@ -176,10 +193,17 @@ class CheckRouterTests(unittest.TestCase):
         collect_git_status_mock.return_value = {
             "changes": [{"status": "M", "path": "guides/USAGE.md"}]
         }
-        extract_bundle_mock.return_value = (["python3 dev/scripts/devctl.py docs-check --user-facing"], None)
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --user-facing"],
+            None,
+        )
         run_cmd_mock.return_value = {
             "name": "router-01",
-            "cmd": ["bash", "-lc", "python3 dev/scripts/devctl.py docs-check --user-facing"],
+            "cmd": [
+                "bash",
+                "-lc",
+                "python3 dev/scripts/devctl.py docs-check --user-facing",
+            ],
             "cwd": ".",
             "returncode": 0,
             "duration_s": 0.01,
@@ -197,5 +221,9 @@ class CheckRouterTests(unittest.TestCase):
     def test_bundle_contract_extracts_non_empty_commands(self) -> None:
         for lane, bundle_name in check_router.BUNDLE_BY_LANE.items():
             commands, error = check_router._extract_bundle_commands(bundle_name)
-            self.assertIsNone(error, msg=f"bundle extraction failed for lane `{lane}`: {error}")
-            self.assertGreater(len(commands), 0, msg=f"bundle `{bundle_name}` returned no commands")
+            self.assertIsNone(
+                error, msg=f"bundle extraction failed for lane `{lane}`: {error}"
+            )
+            self.assertGreater(
+                len(commands), 0, msg=f"bundle `{bundle_name}` returned no commands"
+            )

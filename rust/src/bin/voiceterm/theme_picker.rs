@@ -185,6 +185,26 @@ pub fn theme_picker_height() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_env::env_lock;
+    use crate::theme::{
+        runtime_style_pack_overrides, set_runtime_style_pack_overrides, RuntimeStylePackOverrides,
+    };
+
+    struct RuntimeOverridesGuard {
+        previous: RuntimeStylePackOverrides,
+    }
+
+    impl Drop for RuntimeOverridesGuard {
+        fn drop(&mut self) {
+            set_runtime_style_pack_overrides(self.previous);
+        }
+    }
+
+    fn install_runtime_overrides(overrides: RuntimeStylePackOverrides) -> RuntimeOverridesGuard {
+        let previous = runtime_style_pack_overrides();
+        set_runtime_style_pack_overrides(overrides);
+        RuntimeOverridesGuard { previous }
+    }
 
     fn fnv1a64(input: &str) -> u64 {
         let mut hash: u64 = 0xcbf29ce484222325;
@@ -235,6 +255,13 @@ mod tests {
 
     #[test]
     fn theme_picker_snapshot_matrix_is_stable() {
+        let _env_guard = env_lock();
+        let _override_guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+        let prev_style_pack = std::env::var("VOICETERM_STYLE_PACK_JSON").ok();
+        let prev_opt_in = std::env::var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV").ok();
+        std::env::remove_var("VOICETERM_STYLE_PACK_JSON");
+        std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV");
+
         let cases = [
             (
                 "none_w40_sel0",
@@ -269,6 +296,15 @@ mod tests {
             if actual != expected {
                 mismatches.push(name);
             }
+        }
+
+        match prev_style_pack {
+            Some(value) => std::env::set_var("VOICETERM_STYLE_PACK_JSON", value),
+            None => std::env::remove_var("VOICETERM_STYLE_PACK_JSON"),
+        }
+        match prev_opt_in {
+            Some(value) => std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", value),
+            None => std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV"),
         }
 
         if !mismatches.is_empty() {

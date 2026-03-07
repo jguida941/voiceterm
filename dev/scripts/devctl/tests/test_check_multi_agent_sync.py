@@ -79,7 +79,9 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
         self.assertTrue(report["ok"], report.get("errors"))
 
     @patch("dev.scripts.checks.check_multi_agent_sync._extract_table_rows")
-    def test_cycle_complete_requires_non_pending_signoff_rows(self, extract_mock) -> None:
+    def test_cycle_complete_requires_non_pending_signoff_rows(
+        self, extract_mock
+    ) -> None:
         master_rows = [
             _master_row("AGENT-1", "feature/a1-runtime-theme", "merged"),
             _master_row("AGENT-2", "feature/a2-tooling-control-plane", "merged"),
@@ -116,8 +118,14 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
 
         report = check_multi_agent_sync._build_report()
         self.assertFalse(report["ok"])
-        self.assertTrue(any("signoff Result must be `pass`" in err for err in report["errors"]))
-        self.assertTrue(any("signoff Signature must be populated" in err for err in report["errors"]))
+        self.assertTrue(
+            any("signoff Result must be `pass`" in err for err in report["errors"])
+        )
+        self.assertTrue(
+            any(
+                "signoff Signature must be populated" in err for err in report["errors"]
+            )
+        )
 
     @patch("dev.scripts.checks.check_multi_agent_sync._extract_table_rows")
     def test_dynamic_agent_count_is_supported(self, extract_mock) -> None:
@@ -187,7 +195,11 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
 
         report = check_multi_agent_sync._build_report()
         self.assertFalse(report["ok"])
-        self.assertTrue(any("MP collision requires handoff token" in err for err in report["errors"]))
+        self.assertTrue(
+            any(
+                "MP collision requires handoff token" in err for err in report["errors"]
+            )
+        )
 
 
 if __name__ == "__main__":

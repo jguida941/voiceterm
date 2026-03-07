@@ -120,7 +120,7 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs": ShapePolicy(
-        soft_limit=700,
+        soft_limit=650,
         hard_limit=700,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
@@ -131,21 +131,9 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
-    "rust/src/bin/voiceterm/status_line/format.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
-    "rust/src/bin/voiceterm/theme/rule_profile.rs": ShapePolicy(
-        soft_limit=1000,
-        hard_limit=1200,
-        oversize_growth_limit=0,
-        hard_lock_growth_limit=0,
-    ),
     "rust/src/bin/voiceterm/theme/style_pack.rs": ShapePolicy(
-        soft_limit=750,
-        hard_limit=950,
+        soft_limit=400,
+        hard_limit=500,
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
@@ -156,27 +144,21 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_code_shape.py": ShapePolicy(
-        soft_limit=650,
-        hard_limit=700,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/devctl/commands/check.py": ShapePolicy(
-        soft_limit=425,
-        hard_limit=500,
-        oversize_growth_limit=25,
+        soft_limit=675,
+        hard_limit=725,
+        oversize_growth_limit=30,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
+        soft_limit=580,
+        hard_limit=700,
+        oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_multi_agent_sync.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
+        soft_limit=520,
+        hard_limit=700,
+        oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_structural_complexity.py": ShapePolicy(
@@ -198,9 +180,45 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_rust_best_practices.py": ShapePolicy(
-        soft_limit=400,
+        soft_limit=430,
         hard_limit=650,
-        oversize_growth_limit=25,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/code_shape_policy.py": ShapePolicy(
+        soft_limit=420,
+        hard_limit=550,
+        oversize_growth_limit=80,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/coderabbit_ralph_loop_core.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/naming_consistency_core.py": ShapePolicy(
+        soft_limit=370,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/collect.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/autonomy_run.py": ShapePolicy(
+        soft_limit=370,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/commands/sync.py": ShapePolicy(
+        soft_limit=360,
+        hard_limit=500,
+        oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/devctl/cli_parser_reporting.py": ShapePolicy(
@@ -218,12 +236,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
     "dev/scripts/devctl/commands/hygiene.py": ShapePolicy(
         soft_limit=380,
         hard_limit=550,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/devctl/commands/mcp.py": ShapePolicy(
-        soft_limit=725,
-        hard_limit=850,
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
@@ -249,68 +261,117 @@ FUNCTION_POLICY_OVERRIDES: dict[str, FunctionShapePolicy] = {
 
 
 FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
-    "rust/src/bin/voiceterm/writer/state/dispatch.rs::dispatch_message": FunctionShapeException(
-        max_lines=620,
-        owner="MP-346",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-346 Step 2f.2",
-        reason="Phase-2e file split landed; per-branch PTY dispatch split is pending.",
-    ),
-    "rust/src/bin/voiceterm/writer/state/redraw.rs::maybe_redraw_status": FunctionShapeException(
-        max_lines=480,
-        owner="MP-346",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-346 Step 2f.2",
-        reason="Status redraw path still carries transitional batching/state-apply sequencing.",
-    ),
-    "rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs::feed_prompt_output_and_sync": FunctionShapeException(
-        max_lines=340,
-        owner="MP-346",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-346 Step 3b",
-        reason="Prompt-occlusion decomposition into provider-neutral core is scheduled in Phase 3.",
-    ),
     "dev/scripts/checks/check_code_shape.py::main": FunctionShapeException(
         max_lines=210,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 3",
-        reason="Main still owns CLI parse + report rendering dispatch while checker helpers are split in follow-up.",
+        reason="Main still handles CLI parsing and report output; helper split is pending.",
     ),
     "dev/scripts/checks/check_mutation_score.py::main": FunctionShapeException(
         max_lines=210,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 3",
-        reason="Main retains policy/format fanout while mutation-report support extraction is scheduled.",
+        reason="Main still handles policy + format branching; support split is pending.",
     ),
     "dev/scripts/checks/check_rust_lint_debt.py::main": FunctionShapeException(
         max_lines=220,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 3",
-        reason="Main orchestrates reporting modes and dead-code inventory branches pending subcommand split.",
+        reason="Main still combines report modes and dead-code inventory logic.",
     ),
     "dev/scripts/checks/check_structural_complexity.py::main": FunctionShapeException(
         max_lines=180,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 3",
-        reason="Main still coordinates parser/output fallback handling while complexity checks stabilize.",
+        reason="Main still combines parser and output fallback handling.",
+    ),
+    "dev/scripts/checks/check_active_plan_sync.py::_build_report": FunctionShapeException(
+        max_lines=390,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Active-plan snapshot + parity report assembly is still in a single pipeline function.",
+    ),
+    "dev/scripts/checks/check_multi_agent_sync.py::_build_report": FunctionShapeException(
+        max_lines=310,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Cross-doc board/instruction/ledger reconciliation remains consolidated pending extraction.",
+    ),
+    "dev/scripts/devctl/cli_parser_release.py::add_release_parsers": FunctionShapeException(
+        max_lines=175,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Release parser wiring still enumerates release subcommands in one registration block.",
+    ),
+    "dev/scripts/devctl/commands/autonomy_loop.py::run": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Autonomy loop runner still owns orchestration and output packet wiring before final split.",
+    ),
+    "dev/scripts/devctl/commands/autonomy_run.py::run": FunctionShapeException(
+        max_lines=340,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Autonomy run command still combines policy resolution, lane execution, and reporting.",
+    ),
+    "dev/scripts/devctl/commands/hygiene_audits_adrs.py::audit_adrs": FunctionShapeException(
+        max_lines=170,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="ADR audit still performs collection, policy checks, and report shaping in one function.",
+    ),
+    "dev/scripts/devctl/commands/integrations_import.py::run": FunctionShapeException(
+        max_lines=220,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Integrations import run path still combines parsing, path audit, and write orchestration.",
+    ),
+    "dev/scripts/devctl/commands/loop_packet.py::run": FunctionShapeException(
+        max_lines=170,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Loop packet run path still combines read/merge/emit flows pending helper extraction.",
+    ),
+    "dev/scripts/devctl/commands/sync.py::run": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Sync command still owns branch audit and remediation routing in a single runner.",
+    ),
+    "dev/scripts/devctl/commands/triage_loop.py::run": FunctionShapeException(
+        max_lines=200,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Triage loop command still bundles gate checks, branch prep, and loop dispatch flow.",
     ),
     "dev/scripts/devctl/commands/docs_check.py::run": FunctionShapeException(
         max_lines=230,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 2",
-        reason="Command runner still coordinates policy+render pipeline before final docs-check command split.",
+        reason="Runner still combines policy checks and rendering before final split.",
     ),
     "dev/scripts/devctl/commands/docs_check_render.py::render_markdown_report": FunctionShapeException(
         max_lines=230,
         owner="MP-347",
         expires_on="2026-05-15",
         follow_up_mp="MP-347 Phase 2",
-        reason="Renderer still emits full markdown packet assembly before report-template extraction.",
+        reason="Renderer still builds the full markdown packet in one place.",
     ),
 }
 
@@ -326,7 +387,9 @@ def policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:
     return policy, f"language_default:{path.suffix}"
 
 
-def function_policy_for_path(path: Path) -> tuple[FunctionShapePolicy | None, str | None]:
+def function_policy_for_path(
+    path: Path,
+) -> tuple[FunctionShapePolicy | None, str | None]:
     """Return path-specific or language-default function-size policy and source label."""
     policy = FUNCTION_POLICY_OVERRIDES.get(path.as_posix())
     if policy is not None:

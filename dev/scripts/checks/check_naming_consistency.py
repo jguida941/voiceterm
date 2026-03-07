@@ -37,21 +37,28 @@ ISOLATION_CORE_PATH = REPO_ROOT / "dev/scripts/checks/ide_provider_isolation_cor
 def _collect_runtime_tokens() -> tuple[dict[str, set[str]], list[str]]:
     runtime = {
         "runtime_host_ids": _parse_enum_ids(RUNTIME_COMPAT_PATH, "TerminalHost"),
-        "runtime_provider_ids": _parse_enum_ids(RUNTIME_COMPAT_PATH, "BackendFamily") - {"other"},
+        "runtime_provider_ids": _parse_enum_ids(RUNTIME_COMPAT_PATH, "BackendFamily")
+        - {"other"},
         "runtime_backend_ids": _parse_backend_registry_ids(BACKEND_REGISTRY_PATH),
         "ipc_provider_ids": _parse_enum_ids(IPC_PROTOCOL_PATH, "Provider"),
     }
     errors: list[str] = []
     if not runtime["runtime_host_ids"]:
-        errors.append(f"no runtime host ids found in {_path_for_report(RUNTIME_COMPAT_PATH)}")
+        errors.append(
+            f"no runtime host ids found in {_path_for_report(RUNTIME_COMPAT_PATH)}"
+        )
     if not runtime["runtime_provider_ids"]:
-        errors.append(f"no runtime provider ids found in {_path_for_report(RUNTIME_COMPAT_PATH)}")
+        errors.append(
+            f"no runtime provider ids found in {_path_for_report(RUNTIME_COMPAT_PATH)}"
+        )
     if not runtime["runtime_backend_ids"]:
         errors.append(
             f"no runtime backend ids found in {_path_for_report(BACKEND_REGISTRY_PATH)}"
         )
     if not runtime["ipc_provider_ids"]:
-        errors.append(f"no IPC provider ids found in {_path_for_report(IPC_PROTOCOL_PATH)}")
+        errors.append(
+            f"no IPC provider ids found in {_path_for_report(IPC_PROTOCOL_PATH)}"
+        )
     return runtime, errors
 
 
@@ -105,7 +112,9 @@ def _collect_tooling_tokens() -> tuple[dict[str, set[str]], list[str]]:
             source=COMPAT_MATRIX_SMOKE_PATH,
             errors=errors,
         ),
-        "isolation_provider_tokens": _parse_isolation_provider_tokens(ISOLATION_CORE_PATH),
+        "isolation_provider_tokens": _parse_isolation_provider_tokens(
+            ISOLATION_CORE_PATH
+        ),
     }
     if not tooling["isolation_provider_tokens"]:
         errors.append(
@@ -117,7 +126,13 @@ def _collect_tooling_tokens() -> tuple[dict[str, set[str]], list[str]]:
 
 
 def _append_set_diff(
-    errors: list[str], *, label: str, left_name: str, left: set[str], right_name: str, right: set[str]
+    errors: list[str],
+    *,
+    label: str,
+    left_name: str,
+    left: set[str],
+    right_name: str,
+    right: set[str],
 ) -> None:
     if left == right:
         return
@@ -204,7 +219,9 @@ def _evaluate_consistency(
     missing_runtime_provider_min = sorted(
         expected_runtime_provider_min.difference(runtime["runtime_provider_ids"])
     )
-    runtime_provider_extra = sorted(runtime["runtime_provider_ids"].difference(matrix_provider_ids))
+    runtime_provider_extra = sorted(
+        runtime["runtime_provider_ids"].difference(matrix_provider_ids)
+    )
     if missing_runtime_provider_min:
         errors.append(
             "runtime BackendFamily enum is missing required providers: "
@@ -219,7 +236,10 @@ def _evaluate_consistency(
     backend_ids = runtime["runtime_backend_ids"]
     backend_expected_full = matrix_provider_ids
     backend_expected_without_custom = matrix_provider_ids.difference({"custom"})
-    if backend_ids != backend_expected_full and backend_ids != backend_expected_without_custom:
+    if (
+        backend_ids != backend_expected_full
+        and backend_ids != backend_expected_without_custom
+    ):
         _append_set_diff(
             errors,
             label="provider ids",
@@ -237,7 +257,9 @@ def _build_report() -> dict:
     tooling, tooling_errors = _collect_tooling_tokens()
     errors.extend(runtime_errors)
     errors.extend(tooling_errors)
-    errors.extend(_evaluate_consistency(matrix_host_ids, matrix_provider_ids, runtime, tooling))
+    errors.extend(
+        _evaluate_consistency(matrix_host_ids, matrix_provider_ids, runtime, tooling)
+    )
     return {
         "command": "check_naming_consistency",
         "timestamp": datetime.now().isoformat(),
@@ -255,7 +277,12 @@ def _build_report() -> dict:
 
 
 def _render_md(report: dict) -> str:
-    lines = ["# check_naming_consistency", "", f"- ok: {report['ok']}", f"- errors: {len(report['errors'])}"]
+    lines = [
+        "# check_naming_consistency",
+        "",
+        f"- ok: {report['ok']}",
+        f"- errors: {len(report['errors'])}",
+    ]
     for key in (
         "matrix_host_ids",
         "matrix_provider_ids",

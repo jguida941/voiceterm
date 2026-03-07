@@ -1146,7 +1146,7 @@ fn format_status_line_exact_fit_layout_is_stable() {
 
     let tighter = format_status_line(&state, theme, exact_width - 1);
     assert_ne!(tighter, expected);
-    assert!(display_width(&tighter) <= exact_width - 1);
+    assert!(display_width(&tighter) < exact_width);
 }
 
 #[test]

@@ -128,7 +128,9 @@ class TriageCommandTests(unittest.TestCase):
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
             self.assertIn("CodeRabbit flagged unsafe command interpolation", summaries)
             self.assertEqual(
-                summaries["CodeRabbit flagged unsafe command interpolation"]["severity"],
+                summaries["CodeRabbit flagged unsafe command interpolation"][
+                    "severity"
+                ],
                 "high",
             )
             self.assertTrue(payload["external_inputs"])
@@ -150,11 +152,15 @@ class TriageCommandTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(
-            any("external issues ingest failed" in warning for warning in payload["warnings"])
+            any(
+                "external issues ingest failed" in warning
+                for warning in payload["warnings"]
+            )
         )
         self.assertTrue(
             any(
-                issue["summary"] == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
+                issue["summary"]
+                == "external issues ingest failed for /tmp/does-not-exist-triage-input.json"
                 for issue in payload["issues"]
             )
         )
@@ -312,8 +318,12 @@ class TriageCommandTests(unittest.TestCase):
 
             payload = json.loads(write_output_mock.call_args.args[0])
             summaries = {issue["summary"]: issue for issue in payload["issues"]}
-            self.assertEqual(summaries["Critical dependency exposure"]["severity"], "high")
-            self.assertEqual(summaries["Critical dependency exposure"]["owner"], "security")
+            self.assertEqual(
+                summaries["Critical dependency exposure"]["severity"], "high"
+            )
+            self.assertEqual(
+                summaries["Critical dependency exposure"]["owner"], "security"
+            )
             self.assertEqual(summaries["Flaky workflow retries"]["severity"], "medium")
             self.assertEqual(summaries["Flaky workflow retries"]["owner"], "platform")
 
@@ -367,10 +377,16 @@ class TriageCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
 
             payload = json.loads(write_output_mock.call_args.args[0])
-            matching = [issue for issue in payload["issues"] if issue["summary"] == "Policy drift detected"]
+            matching = [
+                issue
+                for issue in payload["issues"]
+                if issue["summary"] == "Policy drift detected"
+            ]
             self.assertTrue(matching)
             self.assertEqual(matching[0]["owner"], "secops")
-            self.assertTrue(any("owner map loaded" in warning for warning in payload["warnings"]))
+            self.assertTrue(
+                any("owner map loaded" in warning for warning in payload["warnings"])
+            )
 
     @patch("dev.scripts.devctl.commands.triage.run_cmd")
     @patch("dev.scripts.devctl.commands.triage._cihub_supports_triage")
@@ -399,10 +415,16 @@ class TriageCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertTrue(any("cihub triage command failed" in warning for warning in payload["warnings"]))
         self.assertTrue(
             any(
-                issue["summary"] == "cihub triage command failed; check cihub version/flags."
+                "cihub triage command failed" in warning
+                for warning in payload["warnings"]
+            )
+        )
+        self.assertTrue(
+            any(
+                issue["summary"]
+                == "cihub triage command failed; check cihub version/flags."
                 for issue in payload["issues"]
             )
         )
@@ -425,7 +447,9 @@ class TriageCommandTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         summaries = [issue["summary"] for issue in payload["issues"]]
-        self.assertNotIn("cihub triage command failed; check cihub version/flags.", summaries)
+        self.assertNotIn(
+            "cihub triage command failed; check cihub version/flags.", summaries
+        )
         self.assertIn("warning", payload["cihub"])
         self.assertIn("does not support `triage`", payload["cihub"]["warning"])
 

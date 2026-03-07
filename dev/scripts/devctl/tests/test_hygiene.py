@@ -94,7 +94,10 @@ class HygieneAuditTests(unittest.TestCase):
 
             self.assertTrue(report["errors"])
             self.assertTrue(
-                any("backlog scope mismatch" in error.lower() for error in report["errors"])
+                any(
+                    "backlog scope mismatch" in error.lower()
+                    for error in report["errors"]
+                )
             )
 
     def test_adr_audit_flags_backlog_ids_missing_reserved_metadata(self) -> None:
@@ -137,7 +140,10 @@ class HygieneAuditTests(unittest.TestCase):
 
             self.assertTrue(report["errors"])
             self.assertTrue(
-                any("missing from `Reserved ADR IDs`" in error for error in report["errors"])
+                any(
+                    "missing from `Reserved ADR IDs`" in error
+                    for error in report["errors"]
+                )
             )
 
     def test_adr_audit_flags_unexplained_numbering_gaps(self) -> None:
@@ -166,7 +172,10 @@ class HygieneAuditTests(unittest.TestCase):
 
             self.assertTrue(report["errors"])
             self.assertTrue(
-                any("Unexplained ADR numbering gaps" in error for error in report["errors"])
+                any(
+                    "Unexplained ADR numbering gaps" in error
+                    for error in report["errors"]
+                )
             )
 
     def test_adr_audit_allows_governed_numbering_gaps(self) -> None:
@@ -196,7 +205,10 @@ class HygieneAuditTests(unittest.TestCase):
             report = hygiene._audit_adrs()
 
             self.assertFalse(
-                any("Unexplained ADR numbering gaps" in error for error in report["errors"])
+                any(
+                    "Unexplained ADR numbering gaps" in error
+                    for error in report["errors"]
+                )
             )
             self.assertEqual(report["unexplained_gap_ids"], [])
 
@@ -486,7 +498,7 @@ class HygieneAuditTests(unittest.TestCase):
 
         self.assertEqual(report["total_detected"], 1)
         self.assertTrue(report["errors"])
-        self.assertIn("Orphaned voiceterm test binaries detected", report["errors"][0])
+        self.assertIn("Orphaned voiceterm test processes detected", report["errors"][0])
 
     @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_warns_for_active_test_binary(
@@ -510,7 +522,7 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertEqual(report["total_detected"], 1)
         self.assertFalse(report["errors"])
         self.assertTrue(report["warnings"])
-        self.assertIn("Active voiceterm test binaries detected", report["warnings"][0])
+        self.assertIn("Active voiceterm test processes detected", report["warnings"][0])
 
     @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_errors_for_stale_active_test_binary(
@@ -534,7 +546,7 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertEqual(report["total_detected"], 1)
         self.assertTrue(report["errors"])
         self.assertIn(
-            "Stale active voiceterm test binaries detected", report["errors"][0]
+            "Stale active voiceterm test processes detected", report["errors"][0]
         )
 
     @mock.patch("dev.scripts.devctl.commands.hygiene._scan_voiceterm_test_processes")
@@ -559,7 +571,9 @@ class HygieneAuditTests(unittest.TestCase):
     ) -> None:
         scan_mock.return_value = (
             [],
-            ["Process sweep skipped: unable to execute ps ([Errno 1] Operation not permitted: 'ps')"],
+            [
+                "Process sweep skipped: unable to execute ps ([Errno 1] Operation not permitted: 'ps')"
+            ],
         )
         with mock.patch.dict("os.environ", {"CI": ""}, clear=False):
             report = hygiene._audit_runtime_processes()

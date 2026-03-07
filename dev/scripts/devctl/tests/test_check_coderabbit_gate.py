@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
 
-
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_coderabbit_gate.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("check_coderabbit_gate_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_coderabbit_gate_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_coderabbit_gate.py")
     module = importlib.util.module_from_spec(spec)
@@ -45,7 +46,9 @@ class CheckCodeRabbitGateTests(TestCase):
         payload.update(overrides)
         return SimpleNamespace(**payload)
 
-    def test_branch_filter_falls_back_to_commit_only_when_explicitly_enabled(self) -> None:
+    def test_branch_filter_falls_back_to_commit_only_when_explicitly_enabled(
+        self,
+    ) -> None:
         calls: list[list[str]] = []
         run_payload = [
             {
@@ -118,7 +121,12 @@ class CheckCodeRabbitGateTests(TestCase):
         self.assertEqual(len(calls), 1)
         self.assertNotIn("--branch", calls[0])
         warnings = report.get("warnings") or []
-        self.assertTrue(any("branch argument resembles a commit SHA" in warning for warning in warnings))
+        self.assertTrue(
+            any(
+                "branch argument resembles a commit SHA" in warning
+                for warning in warnings
+            )
+        )
 
     def test_missing_local_branch_hint_is_non_fatal(self) -> None:
         calls: list[list[str]] = []
@@ -147,39 +155,57 @@ class CheckCodeRabbitGateTests(TestCase):
 
         self.assertTrue(report["ok"])
         warnings = report.get("warnings") or []
-        self.assertTrue(any("branch auto-detect skipped" in warning for warning in warnings))
+        self.assertTrue(
+            any("branch auto-detect skipped" in warning for warning in warnings)
+        )
         self.assertEqual(calls[-1][:3], ["gh", "run", "list"])
 
-    def test_missing_workflow_on_other_branch_is_non_blocking_when_defined_locally(self) -> None:
+    def test_missing_workflow_on_other_branch_is_non_blocking_when_defined_locally(
+        self,
+    ) -> None:
         def fake_run_capture(cmd: list[str]):
             if cmd[:3] == ["gh", "run", "list"]:
-                return 1, "", "could not find any workflows named CodeRabbit Triage Bridge"
+                return (
+                    1,
+                    "",
+                    "could not find any workflows named CodeRabbit Triage Bridge",
+                )
             if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
                 return 0, "develop\n", ""
             raise AssertionError(f"unexpected command: {cmd}")
 
         with (
             patch.object(self.script, "_run_capture", side_effect=fake_run_capture),
-            patch.object(self.script, "_local_workflow_exists_by_name", return_value=True),
+            patch.object(
+                self.script, "_local_workflow_exists_by_name", return_value=True
+            ),
         ):
             report = self.script._build_report(self._args(branch="master"))
 
         self.assertTrue(report["ok"])
         self.assertEqual(report["reason"], "workflow_not_present_on_target_branch_yet")
         warnings = report.get("warnings") or []
-        self.assertTrue(any("treated as non-blocking" in warning for warning in warnings))
+        self.assertTrue(
+            any("treated as non-blocking" in warning for warning in warnings)
+        )
 
     def test_missing_workflow_on_target_branch_still_fails(self) -> None:
         def fake_run_capture(cmd: list[str]):
             if cmd[:3] == ["gh", "run", "list"]:
-                return 1, "", "could not find any workflows named CodeRabbit Triage Bridge"
+                return (
+                    1,
+                    "",
+                    "could not find any workflows named CodeRabbit Triage Bridge",
+                )
             if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
                 return 0, "master\n", ""
             raise AssertionError(f"unexpected command: {cmd}")
 
         with (
             patch.object(self.script, "_run_capture", side_effect=fake_run_capture),
-            patch.object(self.script, "_local_workflow_exists_by_name", return_value=True),
+            patch.object(
+                self.script, "_local_workflow_exists_by_name", return_value=True
+            ),
         ):
             report = self.script._build_report(self._args(branch="master"))
 

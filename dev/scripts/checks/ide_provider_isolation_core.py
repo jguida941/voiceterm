@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_ROOTS = (
     REPO_ROOT / "rust" / "src" / "bin" / "voiceterm",
@@ -88,9 +87,8 @@ def _is_allowlisted_mixed_path(relative_path: str) -> bool:
 
 
 def _is_allowlisted_file_signal_path(relative_path: str) -> bool:
-    return (
-        relative_path in ALLOWLISTED_FILE_SIGNAL_PATHS
-        or _is_allowlisted_mixed_path(relative_path)
+    return relative_path in ALLOWLISTED_FILE_SIGNAL_PATHS or _is_allowlisted_mixed_path(
+        relative_path
     )
 
 
@@ -174,7 +172,9 @@ def _scan_text(relative_path: str, text: str) -> dict:
             continue
 
         has_host_signal_direct = any(pattern.search(line) for pattern in HOST_PATTERNS)
-        has_provider_signal_direct = any(pattern.search(line) for pattern in PROVIDER_PATTERNS)
+        has_provider_signal_direct = any(
+            pattern.search(line) for pattern in PROVIDER_PATTERNS
+        )
         has_host_signal = has_host_signal_direct or _contains_any_identifier(
             line, host_binding_names
         )
@@ -191,7 +191,9 @@ def _scan_text(relative_path: str, text: str) -> dict:
             statement_has_host_signal = False
             statement_has_provider_signal = False
         statement_has_host_signal = statement_has_host_signal or has_host_signal
-        statement_has_provider_signal = statement_has_provider_signal or has_provider_signal
+        statement_has_provider_signal = (
+            statement_has_provider_signal or has_provider_signal
+        )
 
         if not _statement_ends(line):
             continue
@@ -205,11 +207,13 @@ def _scan_text(relative_path: str, text: str) -> dict:
         if binding_match:
             binding_name = binding_match.group(1)
             binding_expr = binding_match.group(2)
-            binding_has_host_signal = has_host_signal_direct or _contains_any_identifier(
-                binding_expr, host_binding_names
+            binding_has_host_signal = (
+                has_host_signal_direct
+                or _contains_any_identifier(binding_expr, host_binding_names)
             )
-            binding_has_provider_signal = has_provider_signal_direct or _contains_any_identifier(
-                binding_expr, provider_binding_names
+            binding_has_provider_signal = (
+                has_provider_signal_direct
+                or _contains_any_identifier(binding_expr, provider_binding_names)
             )
             if binding_has_host_signal:
                 host_binding_names.add(binding_name)

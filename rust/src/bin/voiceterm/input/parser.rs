@@ -550,7 +550,7 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         let mut at_boundary = vec![0x1b, b'['];
-        at_boundary.extend(std::iter::repeat(b'1').take(30));
+        at_boundary.extend(std::iter::repeat_n(b'1', 30));
         parser.consume_bytes(&at_boundary, &mut out);
         parser.flush_pending(&mut out);
         assert!(
@@ -570,7 +570,7 @@ mod tests {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         let mut at_boundary = vec![0x1b, b'[', b'<'];
-        at_boundary.extend(std::iter::repeat(b'1').take(29));
+        at_boundary.extend(std::iter::repeat_n(b'1', 29));
         parser.consume_bytes(&at_boundary, &mut out);
         parser.flush_pending(&mut out);
         assert!(out.is_empty());

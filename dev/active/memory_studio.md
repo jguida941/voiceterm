@@ -47,6 +47,101 @@ Current memory surfaces are useful but limited:
 These are human-readable, but not enough for robust AI retrieval. We need a
 structured memory substrate that is both human-auditable and machine-queryable.
 
+## Implementation Snapshot (2026-03-06)
+
+### Shipped Foundation (Code Present)
+
+- Canonical memory schema/types + ID/timestamp helpers (`memory/types.rs`, `memory/schema.rs`)
+- Append-only JSONL event store with rotation (`memory/store/jsonl.rs`)
+- Query index APIs for recent/topic/task/text/timeline retrieval (`memory/store/sqlite.rs`)
+- Runtime ingest wiring from transcript + PTY input/output (`main.rs`, `event_loop.rs`, `event_loop/output_dispatch.rs`, `voice_control/drain/transcript_delivery.rs`, `memory/ingest.rs`)
+- Baseline governance controls (redaction + retention GC) (`memory/governance.rs`)
+- Context-pack builders (JSON + Markdown rendering helpers) (`memory/context_pack.rs`)
+- Action policy catalog/classification scaffolding (`memory/action_audit.rs`)
+
+### Partially Shipped (Scaffolded, Not Fully Wired)
+
+- Retrieval is deterministic but still basic; no intent planner, no semantic rerank, no graph boosts yet.
+- SQLite DDL contract exists, but runtime index remains in-memory vectors (no live SQLite read/write path).
+- Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) exist in types, but user-facing controls/persistence wiring are incomplete.
+- Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
+- Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
+
+### Missing for Product-Ready Persistent Memory
+
+- Memory Browser overlay UX (`MP-233`) and Action Center overlay UX (`MP-234`)
+- Memory Cards + Memory Units + contradiction workflow (`MP-240`)
+- MCP read-only memory exposure contract (`MP-242`)
+- Memory evaluation harness and release gates (`MP-237`)
+- External transcript import adapters (`MP-248`)
+- Isolation profiles for action execution (`MP-249`)
+
+## Plan Additions (2026-03-06)
+
+These additions came from an implementation audit plus current cross-model memory patterns.
+They fit inside existing MP scopes (no new MP IDs required).
+
+| Addition | Why it matters | Land under |
+|---|---|---|
+| Memory receipts in overlay (`why this was injected`, `keep`, `forget`, `not now`) | Builds trust and gives users direct control over what persists. | `MP-233`, `MP-243`, `MP-247` |
+| Promotion pipeline (`event -> candidate -> validated card`) with explicit approval state | Keeps durable memory clean and reduces noisy auto-saves. | `MP-240` |
+| Adapter profiles for `codex`, `claude`, `gemini` with one canonical pack input | Prevents provider-specific drift while keeping deterministic provenance. | `MP-238`, `MP-242` |
+| Scope layers (`session`, `project`, optional `user`) with strict default to project scope | Improves reuse without leaking unrelated context across repos. | `MP-243` |
+| Negative memory controls (`never remember this`, topic/path denylist) | Makes privacy behavior obvious and lowers accidental retention risk. | `MP-243`, `MP-248` |
+| Retrieval usefulness telemetry (`accepted`, `ignored`, `wrong`) tied to evidence IDs | Lets ranking improve from real usage instead of offline scoring only. | `MP-237`, `MP-247` |
+| Contradiction playbook (`auto-quarantine`, `show both`, `manual resolve`) | Avoids silently injecting conflicting memory claims. | `MP-240` |
+| Cold-start `repo_bootstrap_card` from docs + stable commands + guardrails | Makes first-run memory useful immediately, even before deep history exists. | `MP-232`, `MP-241` |
+
+### Execution Order Update (post-audit)
+
+1. Finish `MP-231` with intent-aware retrieval profiles and explicit scoring traces.
+2. Wire `MP-243` controls into runtime + persistent config so users can trust memory modes.
+3. Deliver `MP-233`/`MP-234` overlay surfaces with memory receipts and safe action approvals.
+4. Land `MP-240` validated cards/units before widening retrieval influence on prompts.
+5. Add `MP-237` quality harness as a release blocker before enabling advanced compaction/automation tracks.
+
+### Maintainability Track (Python + Rust)
+
+- Add a `devctl memory` command group (`status`, `query`, `export-pack`, `validate`) so memory ops do not spread across unrelated scripts.
+- Keep Rust memory runtime focused on capture/index/retrieve; move report-heavy compile/export helpers to Python tooling where possible.
+- Keep one responsibility per module:
+  - Rust runtime path: `ingest`, `retrieval`, `context_pack`, `governance`, `action_audit`
+  - Python tooling path: audits, quality scoring, benchmark reports, release evidence aggregation
+- Prefer one shared scoring/config surface so retrieval weights are not duplicated across Rust and Python.
+
+## Research Intake (2026-03-07): Nontraditional Memory Structures
+
+The goal of this intake is to improve memory quality beyond a standard
+`events + lexical + vector` stack. These items are additive and mapped to
+existing MP scopes.
+
+### Candidate structures to evaluate
+
+| Structure | What changes in VoiceTerm | Expected gain | Land under |
+|---|---|---|---|
+| Associative memory graph + Personalized PageRank retrieval | Add typed nodes/edges (`event`, `entity`, `task`, `decision`) and graph-walk scoring. | Better multi-hop recall and relationship-aware context. | `MP-231`, `MP-240`, `MP-250` |
+| Hierarchical memory tree (multi-resolution summaries) | Build `event -> segment -> summary` layers and retrieve from multiple levels. | Better long-context quality and less token waste. | `MP-231`, `MP-240`, `MP-250` |
+| Tiered hot/warm/cold memory manager | Split retrieval into working set, recent task packs, and full archive. | Faster retrieval and cleaner prompt injection. | `MP-235`, `MP-237`, `MP-243` |
+| Late-interaction retrieval index (token-level signals) | Add optional token-level rerank path for technical strings (flags, paths, symbols). | Stronger exact technical recall than single-vector chunks. | `MP-231`, `MP-237`, `MP-252` |
+| Learned memory operation policy (`add/update/delete/noop`) | Replace fixed save heuristics with guarded policy decisions + audit traces. | Lower memory noise and better long-term quality. | `MP-240`, `MP-247`, `MP-250` |
+| Forgetting-curve retention (recency x reinforcement) | Promote/demote memory by usefulness signals, not only fixed TTL days. | More stable long-term memory without manual cleanup overhead. | `MP-235`, `MP-237`, `MP-243` |
+
+### Execution constraints for all candidates
+
+- Keep canonical event history immutable and auditable.
+- Keep deterministic mode available and default-safe.
+- Require citation parity for any compacted or transformed output.
+- Fail closed when validation/expansion checks fail.
+- Keep user controls first-class (`off`, `paused`, `incognito`, explicit delete/forget).
+
+### Recommended execution order
+
+1. Graph retrieval prototype + replay fixtures (`MP-231`).
+2. Hierarchical summary tree prototype + deterministic pack comparison (`MP-250`).
+3. Tiered hot/warm/cold retrieval policy with clear UX controls (`MP-243`).
+4. Optional late-interaction reranker for technical queries (`MP-252`).
+5. Learned memory-operation policy only after telemetry and approval loops are stable (`MP-247`).
+
 ## Design Principles (Required)
 
 1. Local-first by default
@@ -1029,7 +1124,7 @@ Product docs:
 - Anthropic Claude Code memory: https://docs.anthropic.com/en/docs/claude-code/memory
 - Anthropic Claude Code slash commands: https://docs.anthropic.com/en/docs/claude-code/slash-commands
 - Anthropic Claude Code hooks: https://docs.anthropic.com/en/docs/claude-code/hooks
-- OpenAI ChatGPT memory controls: https://help.openai.com/en/articles/8590148-memory-in-chatgpt
+- OpenAI ChatGPT memory controls: https://help.openai.com/en/articles/8590148-memory-faq
 - OpenAI memory announcement: https://openai.com/index/memory-and-new-controls-for-chatgpt
 - OpenAI ChatGPT data export: https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data
 - Google Gemini memory controls: https://support.google.com/gemini/answer/16276260?hl=en
@@ -1057,6 +1152,14 @@ Memory/retrieval research:
 - LoCoMo (long-form conversational memory benchmark): https://arxiv.org/abs/2402.17753
 - Generative Agents (memory, reflection, planning): https://arxiv.org/abs/2304.03442
 - PrefixSpan (sequential pattern mining baseline for repeated workflow detection): https://dl.acm.org/doi/10.1145/335191.335372
+- HippoRAG (knowledge-graph retrieval for RAG): https://arxiv.org/abs/2405.14831
+- HippoRAG 2 (agentic graph-memory evolution): https://arxiv.org/abs/2502.14802
+- A-MEM (agentic memory architecture): https://arxiv.org/abs/2502.12110
+- Memory-R1 (reasoning-driven memory operations): https://arxiv.org/abs/2508.19828
+- ColBERT (late interaction retrieval): https://arxiv.org/abs/2004.12832
+- ColBERTv2 (lightweight late interaction retrieval): https://arxiv.org/abs/2112.01488
+- kNN-LM (nearest-neighbor language modeling): https://arxiv.org/abs/1911.00172
+- RETRO (retrieval-enhanced transformer): https://arxiv.org/abs/2112.04426
 
 Graph + indexing + safety:
 

@@ -45,7 +45,11 @@ def _run_git_capture(args: List[str]) -> tuple[int, str, str]:
         )
     except OSError as exc:
         return 127, "", str(exc)
-    return completed.returncode, (completed.stdout or "").strip(), (completed.stderr or "").strip()
+    return (
+        completed.returncode,
+        (completed.stdout or "").strip(),
+        (completed.stderr or "").strip(),
+    )
 
 
 def _remote_exists(remote: str) -> bool:
@@ -75,13 +79,21 @@ def _branch_divergence(remote: str, branch: str) -> Dict:
 
     parts = output.split()
     if len(parts) != 2:
-        return {"behind": None, "ahead": None, "error": f"Unexpected divergence output: {output!r}"}
+        return {
+            "behind": None,
+            "ahead": None,
+            "error": f"Unexpected divergence output: {output!r}",
+        }
 
     try:
         behind = int(parts[0])
         ahead = int(parts[1])
     except ValueError:
-        return {"behind": None, "ahead": None, "error": f"Unable to parse divergence output: {output!r}"}
+        return {
+            "behind": None,
+            "ahead": None,
+            "error": f"Unable to parse divergence output: {output!r}",
+        }
     return {"behind": behind, "ahead": ahead, "error": None}
 
 
@@ -146,7 +158,9 @@ def run(args) -> int:
     target_branches = _unique_preserve_order(requested)
 
     if not target_branches:
-        errors.append("No branches selected. Use --branches and/or remove --no-current.")
+        errors.append(
+            "No branches selected. Use --branches and/or remove --no-current."
+        )
     if start_branch == "HEAD":
         errors.append("Detached HEAD is not supported. Check out a branch first.")
     if dirty_paths and not args.allow_dirty:
@@ -229,7 +243,9 @@ def run(args) -> int:
 
         divergence = _branch_divergence(args.remote, branch)
         if divergence["error"]:
-            message = f"Unable to compute divergence for '{branch}': {divergence['error']}"
+            message = (
+                f"Unable to compute divergence for '{branch}': {divergence['error']}"
+            )
             branch_row["status"] = "divergence-error"
             branch_row["notes"].append(message)
             errors.append(message)

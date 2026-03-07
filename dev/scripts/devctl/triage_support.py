@@ -125,11 +125,17 @@ def build_next_actions(issues: List[dict]) -> List[str]:
     actions: List[str] = []
     categories = {str(issue.get("category", "")) for issue in issues}
     if "ci" in categories or "infra" in categories:
-        actions.append("Run `python3 dev/scripts/devctl.py status --ci --require-ci --format md` and inspect failing workflow runs.")
+        actions.append(
+            "Run `python3 dev/scripts/devctl.py status --ci --require-ci --format md` and inspect failing workflow runs."
+        )
     if "quality" in categories:
-        actions.append("Run `python3 dev/scripts/devctl.py check --profile ci` and `python3 dev/scripts/devctl.py mutation-score` to confirm quality gates.")
+        actions.append(
+            "Run `python3 dev/scripts/devctl.py check --profile ci` and `python3 dev/scripts/devctl.py mutation-score` to confirm quality gates."
+        )
     if "docs" in categories or "governance" in categories:
-        actions.append("Run `python3 dev/scripts/devctl.py docs-check --strict-tooling` and link updates in `dev/active/MASTER_PLAN.md`.")
+        actions.append(
+            "Run `python3 dev/scripts/devctl.py docs-check --strict-tooling` and link updates in `dev/active/MASTER_PLAN.md`."
+        )
     if not actions:
         actions.append("Review triage issues and resolve highest-severity items first.")
     return actions
@@ -177,7 +183,9 @@ def ingest_cihub_artifacts(emit_dir: Path) -> dict:
             payload["artifacts"]["triage_markdown_error"] = str(exc)
         else:
             payload["artifacts"]["triage_markdown_path"] = str(triage_md_path)
-            payload["artifacts"]["triage_markdown_preview"] = "\n".join(text.splitlines()[:40])
+            payload["artifacts"]["triage_markdown_preview"] = "\n".join(
+                text.splitlines()[:40]
+            )
 
     return payload
 
@@ -199,13 +207,21 @@ def render_triage_markdown(report: dict) -> str:
         lines.append(f"- total: {rollup.get('total', 0)}")
         by_severity = rollup.get("by_severity", {})
         if isinstance(by_severity, dict) and by_severity:
-            lines.append("- by_severity: " + ", ".join(f"{k}={v}" for k, v in by_severity.items()))
+            lines.append(
+                "- by_severity: "
+                + ", ".join(f"{k}={v}" for k, v in by_severity.items())
+            )
         by_category = rollup.get("by_category", {})
         if isinstance(by_category, dict) and by_category:
-            lines.append("- by_category: " + ", ".join(f"{k}={v}" for k, v in by_category.items()))
+            lines.append(
+                "- by_category: "
+                + ", ".join(f"{k}={v}" for k, v in by_category.items())
+            )
         by_owner = rollup.get("by_owner", {})
         if isinstance(by_owner, dict) and by_owner:
-            lines.append("- by_owner: " + ", ".join(f"{k}={v}" for k, v in by_owner.items()))
+            lines.append(
+                "- by_owner: " + ", ".join(f"{k}={v}" for k, v in by_owner.items())
+            )
         lines.append("")
 
     lines.append("## Project Snapshot")

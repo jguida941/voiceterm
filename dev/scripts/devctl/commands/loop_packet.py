@@ -61,7 +61,9 @@ def run(args) -> int:
         return 2
 
     source_inputs = list(args.source_json or []) or list(DEFAULT_SOURCE_CANDIDATES)
-    source_rows, source_warnings, checked_paths = _discover_artifact_sources(source_inputs)
+    source_rows, source_warnings, checked_paths = _discover_artifact_sources(
+        source_inputs
+    )
     source_row = _choose_source(rows=source_rows, prefer_source=args.prefer_source)
     if source_row is None:
         source_row = _build_live_triage_source()
@@ -84,7 +86,11 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings + ["source timestamp missing or invalid"],
         }
-        output = json.dumps(report, indent=2) if args.format == "json" else _render_markdown(report)
+        output = (
+            json.dumps(report, indent=2)
+            if args.format == "json"
+            else _render_markdown(report)
+        )
         write_output(output, args.output)
         if args.pipe_command:
             pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
@@ -106,7 +112,11 @@ def run(args) -> int:
             "checked_paths": checked_paths,
             "warnings": source_warnings,
         }
-        output = json.dumps(report, indent=2) if args.format == "json" else _render_markdown(report)
+        output = (
+            json.dumps(report, indent=2)
+            if args.format == "json"
+            else _render_markdown(report)
+        )
         write_output(output, args.output)
         if args.pipe_command:
             pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
@@ -119,7 +129,9 @@ def run(args) -> int:
         payload=payload,
     )
     confidence = RISK_CONFIDENCE.get(risk, RISK_CONFIDENCE["medium"])
-    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(source_command, payload, risk)
+    auto_send = bool(args.allow_auto_send) and _auto_send_eligible(
+        source_command, payload, risk
+    )
     draft_text = _truncate_chars(raw_draft, int(args.max_draft_chars))
     packet_seed = "|".join(
         [
@@ -182,7 +194,11 @@ def run(args) -> int:
         },
     }
 
-    output = json.dumps(report, indent=2) if args.format == "json" else _render_markdown(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else _render_markdown(report)
+    )
     write_output(output, args.output)
     if args.pipe_command:
         pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)

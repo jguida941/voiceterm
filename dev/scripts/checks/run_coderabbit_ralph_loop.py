@@ -5,15 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 
-from coderabbit_ralph_loop_core import (
-    DEFAULT_WORKFLOW,
-    execute_loop,
-    resolve_repo,
-)
+from coderabbit_ralph_loop_core import DEFAULT_WORKFLOW, execute_loop, resolve_repo
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -86,7 +82,9 @@ def main() -> int:
     args = _build_parser().parse_args()
     repo = resolve_repo(args.repo)
     if not repo:
-        print("Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY).")
+        print(
+            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
+        )
         return 2
     if args.max_attempts < 1:
         print("Error: --max-attempts must be >= 1")

@@ -79,7 +79,11 @@ def resolve_paths(path_args: List[str], glob_args: List[str]) -> List[Path]:
 
 def isoformat_utc(timestamp: float) -> str:
     """Render a POSIX timestamp in stable UTC ISO-8601 format."""
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def age_hours_from_timestamp(timestamp: float) -> float:
@@ -234,8 +238,10 @@ def main() -> int:
     )
 
     if score < args.threshold:
-        message = "mutation score {score:.2%} is below threshold {threshold:.2%}".format(
-            score=score, threshold=args.threshold
+        message = (
+            "mutation score {score:.2%} is below threshold {threshold:.2%}".format(
+                score=score, threshold=args.threshold
+            )
         )
         if args.report_only:
             print(f"WARN: {message}")
@@ -247,7 +253,9 @@ def main() -> int:
             return 1
 
     if args.warn_age_hours is not None and args.warn_age_hours >= 0:
-        stale_warn = [item for item in freshness if item["age_hours"] > args.warn_age_hours]
+        stale_warn = [
+            item for item in freshness if item["age_hours"] > args.warn_age_hours
+        ]
         if stale_warn:
             print(
                 "WARN: mutation outcomes are older than warn threshold "
@@ -257,7 +265,9 @@ def main() -> int:
                 print(f"  - {item['path']} ({item['age_label']} old)")
 
     if args.max_age_hours is not None:
-        stale_fail = [item for item in freshness if item["age_hours"] > args.max_age_hours]
+        stale_fail = [
+            item for item in freshness if item["age_hours"] > args.max_age_hours
+        ]
         if stale_fail:
             message = (
                 "mutation outcomes exceed max age threshold "

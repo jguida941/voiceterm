@@ -27,7 +27,13 @@ RELEASE_WORKFLOW_FILES = {
 TOOLING_EXACT_PATHS = {
     "AGENTS.md",
     "Makefile",
+    "dev/ARCHITECTURE.md",
     "dev/DEVELOPMENT.md",
+    "dev/MCP_DEVCTL_ALIGNMENT.md",
+    "dev/guides/DEVELOPMENT.md",
+    "dev/guides/ARCHITECTURE.md",
+    "dev/guides/DEVCTL_AUTOGUIDE.md",
+    "dev/guides/MCP_DEVCTL_ALIGNMENT.md",
     "dev/scripts/README.md",
     "dev/DEVCTL_AUTOGUIDE.md",
     "dev/history/ENGINEERING_EVOLUTION.md",
@@ -147,9 +153,6 @@ RISK_ADDONS = (
             "dev/security/",
             "security_guard.yml",
         ),
-        "commands": (
-            "python3 dev/scripts/devctl.py security",
-        ),
+        "commands": ("python3 dev/scripts/devctl.py security",),
     },
 )
-

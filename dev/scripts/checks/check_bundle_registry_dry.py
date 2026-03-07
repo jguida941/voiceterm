@@ -30,7 +30,11 @@ def _load_registry():
 
 def _has_shared_constants(module) -> bool:
     for name, obj in inspect.getmembers(module):
-        if name.startswith("_") and isinstance(obj, tuple) and all(isinstance(s, str) for s in obj):
+        if (
+            name.startswith("_")
+            and isinstance(obj, tuple)
+            and all(isinstance(s, str) for s in obj)
+        ):
             return True
     return False
 
@@ -50,12 +54,14 @@ def build_report(max_shared: int = DEFAULT_MAX_SHARED) -> dict:
     violations: list[dict[str, object]] = []
     if widely_shared and not uses_composition:
         for cmd in widely_shared:
-            violations.append({
-                "rule": "dry-violation",
-                "command_text": cmd,
-                "bundle_count": cmd_counts[cmd],
-                "hint": "Extract shared commands into a composition tuple in bundle_registry.py.",
-            })
+            violations.append(
+                {
+                    "rule": "dry-violation",
+                    "command_text": cmd,
+                    "bundle_count": cmd_counts[cmd],
+                    "hint": "Extract shared commands into a composition tuple in bundle_registry.py.",
+                }
+            )
 
     if len(widely_shared) > max_shared and not uses_composition:
         pass  # violations already collected above

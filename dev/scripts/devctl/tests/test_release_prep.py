@@ -55,7 +55,9 @@ class ReleasePrepTests(TestCase):
             ),
         )
 
-    def test_prepare_release_metadata_dry_run_reports_changes_without_writing(self) -> None:
+    def test_prepare_release_metadata_dry_run_reports_changes_without_writing(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             self._seed_repo_tree(root)
@@ -101,10 +103,16 @@ class ReleasePrepTests(TestCase):
             self.assertIn("## [1.0.91] - 2026-02-23", changelog)
             self.assertEqual(changelog.count("## [1.0.91]"), 1)
 
-            init_py = (root / "pypi/src/voiceterm/__init__.py").read_text(encoding="utf-8")
+            init_py = (root / "pypi/src/voiceterm/__init__.py").read_text(
+                encoding="utf-8"
+            )
             self.assertIn('__version__ = "1.0.91"', init_py)
 
-            master_plan = (root / "dev/active/MASTER_PLAN.md").read_text(encoding="utf-8")
+            master_plan = (root / "dev/active/MASTER_PLAN.md").read_text(
+                encoding="utf-8"
+            )
             self.assertIn("## Status Snapshot (2026-02-23)", master_plan)
             self.assertIn("- Last tagged release: `v1.0.91` (2026-02-23)", master_plan)
-            self.assertIn("- Current release target: `post-v1.0.91 planning`", master_plan)
+            self.assertIn(
+                "- Current release target: `post-v1.0.91 planning`", master_plan
+            )

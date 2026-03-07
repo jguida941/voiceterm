@@ -10,13 +10,10 @@ from pathlib import Path
 from ..common import confirm_or_abort, pipe_output, write_output
 from ..config import REPO_ROOT
 from ..script_catalog import check_script_cmd
-from .audit_scaffold_render import (
-    report_output,
-    render_generated_doc,
-)
+from .audit_scaffold_render import render_generated_doc, report_output
 
-ACTIVE_ROOT = (REPO_ROOT / "dev" / "active").resolve()
-DEFAULT_OUTPUT = "dev/active/RUST_AUDIT_FINDINGS.md"
+REPORTS_AUDIT_ROOT = (REPO_ROOT / "dev" / "reports" / "audits").resolve()
+DEFAULT_OUTPUT = "dev/reports/audits/RUST_AUDIT_FINDINGS.md"
 DEFAULT_TEMPLATE = "dev/config/templates/rust_audit_findings_template.md"
 
 GUARD_SPECS = (
@@ -93,12 +90,12 @@ def _resolve_repo_path(raw_path: str) -> Path:
     return (REPO_ROOT / candidate).resolve()
 
 
-def _is_under_active_root(path: Path) -> bool:
+def _is_under_reports_audit_root(path: Path) -> bool:
     try:
-        path.relative_to(ACTIVE_ROOT)
+        path.relative_to(REPORTS_AUDIT_ROOT)
+        return True
     except ValueError:
         return False
-    return True
 
 
 def _repo_relative(path: Path) -> str:
@@ -117,7 +114,9 @@ def _guard_cmd(spec: dict, *, since_ref: str | None, head_ref: str) -> list[str]
     return cmd
 
 
-def _run_guard(spec: dict, *, since_ref: str | None, head_ref: str, dry_run: bool) -> dict:
+def _run_guard(
+    spec: dict, *, since_ref: str | None, head_ref: str, dry_run: bool
+) -> dict:
     cmd = _guard_cmd(spec, since_ref=since_ref, head_ref=head_ref)
     if dry_run:
         return {
@@ -160,7 +159,11 @@ def _run_guard(spec: dict, *, since_ref: str | None, head_ref: str, dry_run: boo
         "focus": spec["focus"],
         "cmd": cmd,
         "returncode": proc.returncode,
-        "ok": bool(report.get("ok", proc.returncode == 0)) if isinstance(report, dict) else False,
+        "ok": (
+            bool(report.get("ok", proc.returncode == 0))
+            if isinstance(report, dict)
+            else False
+        ),
         "skipped": False,
         "violations": violations if isinstance(violations, list) else [],
         "error": parse_error,
@@ -176,18 +179,16 @@ def run(args) -> int:
     output_path = _resolve_repo_path(args.output_path)
     template_path = _resolve_repo_path(args.template_path)
 
-    if not _is_under_active_root(output_path):
+    if not _is_under_reports_audit_root(output_path):
         errors.append(
-            f"output path must stay under dev/active/ (got: {output_path})"
+            "output path must stay under dev/reports/audits/ " f"(got: {output_path})"
         )
 
     if not template_path.exists():
         errors.append(f"template file does not exist: {template_path}")
 
     if output_path.exists() and not args.force:
-        errors.append(
-            "output file already exists; pass --force to overwrite"
-        )
+        errors.append("output file already exists; pass --force to overwrite")
 
     if errors:
         report = {
@@ -220,7 +221,9 @@ def run(args) -> int:
     if args.source_guards:
         for spec in GUARD_SPECS:
             guard_steps.append(
-                _run_guard(spec, since_ref=since_ref, head_ref=head_ref, dry_run=args.dry_run)
+                _run_guard(
+                    spec, since_ref=since_ref, head_ref=head_ref, dry_run=args.dry_run
+                )
             )
 
     findings_detected = any(bool(step.get("violations")) for step in guard_steps)

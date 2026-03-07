@@ -10,7 +10,6 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DOC_GLOBS = (
     "README.md",
@@ -87,7 +86,10 @@ def main() -> int:
 
     docs = _resolve_doc_paths(args.docs)
     if not docs:
-        print("error: no markdown files matched requested --docs patterns", file=sys.stderr)
+        print(
+            "error: no markdown files matched requested --docs patterns",
+            file=sys.stderr,
+        )
         return 2
 
     missing_refs: list[dict[str, str]] = []
@@ -128,7 +130,8 @@ def main() -> int:
                         "image": str(image_path.relative_to(REPO_ROOT)),
                         "age_days": age_days,
                         "referenced_by": sorted(
-                            str(path.relative_to(REPO_ROOT)) for path in image_to_docs[image_path]
+                            str(path.relative_to(REPO_ROOT))
+                            for path in image_to_docs[image_path]
                         ),
                     }
                 )

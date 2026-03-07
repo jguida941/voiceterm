@@ -64,4 +64,6 @@ def add_failure_cleanup_parser(
     cleanup_cmd.add_argument("--format", choices=["json", "md"], default="md")
     cleanup_cmd.add_argument("--output")
     cleanup_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    cleanup_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+    cleanup_cmd.add_argument(
+        "--pipe-args", nargs="*", help="Extra args for pipe command"
+    )

@@ -8,7 +8,9 @@ from pathlib import Path
 
 try:
     from code_shape_policy import FunctionShapeException, FunctionShapePolicy
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.code_shape_policy import (
         FunctionShapeException,
         FunctionShapePolicy,

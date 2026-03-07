@@ -13,11 +13,13 @@ from .autonomy_loop_helpers import load_policy, resolve_path
 try:
     from dev.scripts.checks.coderabbit_gate_support import (
         is_ci_environment as _is_ci_environment,
+    )
+    from dev.scripts.checks.coderabbit_gate_support import (
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 except ModuleNotFoundError:
+    from checks.coderabbit_gate_support import is_ci_environment as _is_ci_environment
     from checks.coderabbit_gate_support import (
-        is_ci_environment as _is_ci_environment,
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 
@@ -31,7 +33,11 @@ def utc_now() -> datetime:
 
 
 def is_non_blocking_local_connectivity_error(message: str) -> bool:
-    return bool(message) and _looks_like_connectivity_error(message) and not _is_ci_environment()
+    return (
+        bool(message)
+        and _looks_like_connectivity_error(message)
+        and not _is_ci_environment()
+    )
 
 
 def workflow_allowed(policy: dict[str, Any], workflow_path: str) -> bool:
@@ -56,7 +62,9 @@ def branch_allowed(policy: dict[str, Any], branch: str) -> bool:
 
 
 def autonomy_mode(policy: dict[str, Any]) -> str:
-    default_mode = str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
+    default_mode = (
+        str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
+    )
     mode = str(os.getenv("AUTONOMY_MODE") or default_mode).strip() or default_mode
     return mode
 

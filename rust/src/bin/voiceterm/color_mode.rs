@@ -307,7 +307,7 @@ mod tests {
     fn rgb_to_256_colors() {
         // Pure red should map to color cube
         let red = rgb_to_256(255, 0, 0);
-        assert!(red >= 16 && red < 232);
+        assert!((16..232).contains(&red));
     }
 
     #[test]

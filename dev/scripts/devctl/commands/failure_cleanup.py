@@ -30,7 +30,11 @@ def _resolve_target_dir(
     try:
         target.relative_to(root)
     except ValueError:
-        return None, failure_root, f"target directory is outside repository root: {target}"
+        return (
+            None,
+            failure_root,
+            f"target directory is outside repository root: {target}",
+        )
     if target == root:
         return None, failure_root, "refusing to delete repository root"
     if target == (root / ".git"):
@@ -135,11 +139,27 @@ def _evaluate_ci_gate(
         return False, ci_report, [], 0, str(ci_report.get("error") or "ci gate error")
     runs = ci_report.get("runs", [])
     if not isinstance(runs, list):
-        return False, {"error": "invalid gh run list payload"}, [], 0, "invalid gh run list payload"
+        return (
+            False,
+            {"error": "invalid gh run list payload"},
+            [],
+            0,
+            "invalid gh run list payload",
+        )
 
-    matched_runs = [run for run in runs if isinstance(run, dict) and _run_matches_filters(run, filters)]
+    matched_runs = [
+        run
+        for run in runs
+        if isinstance(run, dict) and _run_matches_filters(run, filters)
+    ]
     if not matched_runs:
-        return False, ci_report, [], 0, "No CI runs matched the selected cleanup filters."
+        return (
+            False,
+            ci_report,
+            [],
+            0,
+            "No CI runs matched the selected cleanup filters.",
+        )
 
     blocking_runs: list[dict] = []
     for run in matched_runs:
@@ -167,7 +187,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- files_found: {report['files_found']}")
     lines.append(f"- directories_found: {report['directories_found']}")
     lines.append(f"- failure_root: {report['failure_root']}")
-    lines.append(f"- allow_outside_failure_root: {report['allow_outside_failure_root']}")
+    lines.append(
+        f"- allow_outside_failure_root: {report['allow_outside_failure_root']}"
+    )
     lines.append(f"- require_green_ci: {report['require_green_ci']}")
     lines.append(f"- ci_limit: {report['ci_limit']}")
     lines.append(f"- ci_filters: {report['ci_filters']}")
@@ -209,7 +231,9 @@ def run(args) -> int:
     ci_filters = _normalize_ci_filters(args)
     target, failure_root, target_error = _resolve_target_dir(
         args.directory,
-        allow_outside_failure_root=bool(getattr(args, "allow_outside_failure_root", False)),
+        allow_outside_failure_root=bool(
+            getattr(args, "allow_outside_failure_root", False)
+        ),
     )
     errors: list[str] = []
     if target_error:
@@ -221,9 +245,11 @@ def run(args) -> int:
     ci_matched_runs = 0
     ci_error = None
     if args.require_green_ci:
-        ci_gate_ok, ci_report, blocking_ci_runs, ci_matched_runs, gate_error = _evaluate_ci_gate(
-            args.ci_limit,
-            filters=ci_filters,
+        ci_gate_ok, ci_report, blocking_ci_runs, ci_matched_runs, gate_error = (
+            _evaluate_ci_gate(
+                args.ci_limit,
+                filters=ci_filters,
+            )
         )
         if gate_error:
             ci_error = gate_error
@@ -271,7 +297,9 @@ def run(args) -> int:
         "files_found": files_found,
         "directories_found": directories_found,
         "failure_root": str(failure_root),
-        "allow_outside_failure_root": bool(getattr(args, "allow_outside_failure_root", False)),
+        "allow_outside_failure_root": bool(
+            getattr(args, "allow_outside_failure_root", False)
+        ),
         "require_green_ci": bool(args.require_green_ci),
         "ci_limit": int(args.ci_limit),
         "ci_filters": ci_filters,

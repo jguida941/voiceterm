@@ -17,10 +17,13 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/rust_workspace_layout_migration.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-339` | when migrating the Rust workspace path/layout or updating repository path contracts from `src/` to `rust/` |
 | `dev/active/naming_api_cohesion.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-267` | when running naming/API cohesion cleanup across theme/event-loop/status/memory and related tooling surfaces |
 | `dev/active/ide_provider_modularization.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-346` | when modularizing active host IDE adapters (`cursor`, `jetbrains`, `other`), provider adapters (`codex`, `claude`, `gemini`), and God-file prevention/tooling gates (AntiGravity is deferred until runtime fingerprint evidence exists) |
-| `dev/active/pre_release_architecture_audit.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-347`, `MP-349` | when running full-surface pre-release architecture/tooling audits and capturing newly discovered cleanup backlog intake |
+| `dev/active/pre_release_architecture_audit.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-347`, `MP-349` | when running full-surface pre-release architecture/tooling audits, reviewing consolidated findings, and executing remediation intake |
+| `dev/active/audit.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing consolidated full-surface findings and sequencing remediation work under the pre-release architecture audit plan |
+| `dev/active/move.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing raw multi-agent merge transcript evidence that supports `dev/active/audit.md` findings |
 | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` | `runbook` | `supporting` | multi-agent worktree orchestration | only when running parallel area execution |
-| `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | guard-driven Rust remediation scaffold/findings notes (`devctl audit-scaffold`; supporting context, not execution authority) | when AI guard checks fail, when running full-codebase Rust audits, or when updating remediation findings artifacts |
-| `dev/active/phase2.md` | `reference` | `reference-only` | phase-2 companion-platform research context (not active MP execution state) | only when evaluating long-range terminal companion planning |
+| `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | bridge pointer to canonical guard-driven remediation scaffold at `dev/reports/audits/RUST_AUDIT_FINDINGS.md` (supporting context, not execution authority) | when AI guard checks fail or guard findings are referenced; follow the bridge to canonical reports path |
+| `dev/active/slash_command_standalone.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-352`, `MP-353` | when implementing standalone `/voice` slash command for Codex/Claude without overlay, MCP server extraction, or cross-platform plugin packaging |
+| `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
 
 ## Load Order (Agent Bootstrap)
 

@@ -9,7 +9,9 @@ def add_orchestrate_parsers(subparsers) -> None:
         "orchestrate-status",
         help="Summarize active-plan and multi-agent coordination guard status",
     )
-    orchestrate_status_cmd.add_argument("--format", choices=["json", "md"], default="md")
+    orchestrate_status_cmd.add_argument(
+        "--format", choices=["json", "md"], default="md"
+    )
     orchestrate_status_cmd.add_argument("--output")
     orchestrate_status_cmd.add_argument(
         "--pipe-command", help="Pipe report output to a command"

@@ -100,7 +100,9 @@ def _resolve_use_cihub(args) -> tuple[bool, str | None]:
 
 def run(args) -> int:
     """Generate triage report with optional CIHub integration."""
-    owner_map, owner_map_warnings = load_owner_map(getattr(args, "owner_map_file", None))
+    owner_map, owner_map_warnings = load_owner_map(
+        getattr(args, "owner_map_file", None)
+    )
     project_report = build_project_report(
         command="triage",
         include_ci=args.ci,
@@ -129,7 +131,9 @@ def run(args) -> int:
         triage_report["cihub"].update(_run_cihub_triage(args, emit_dir))
         step = triage_report["cihub"].get("step", {})
         if isinstance(step, dict) and step.get("returncode") not in (None, 0):
-            triage_report["warnings"].append("cihub triage command failed; using local-only signals.")
+            triage_report["warnings"].append(
+                "cihub triage command failed; using local-only signals."
+            )
             triage_report["issues"].append(
                 {
                     "category": "infra",
@@ -181,9 +185,9 @@ def run(args) -> int:
         artifacts = triage_report["cihub"].get("artifacts", {})
         missing_artifacts = not isinstance(artifacts, dict) or not artifacts
         if not use_cihub or step_failed or missing_artifacts:
-            triage_report["cihub"]["warning"] = (
-                "cihub triage is required but command/artifacts were not successful."
-            )
+            triage_report["cihub"][
+                "warning"
+            ] = "cihub triage is required but command/artifacts were not successful."
             triage_report["issues"].append(
                 {
                     "category": "infra",
@@ -194,7 +198,9 @@ def run(args) -> int:
                 }
             )
 
-    triage_report["issues"] = apply_defaults_to_issues(triage_report["issues"], owner_map)
+    triage_report["issues"] = apply_defaults_to_issues(
+        triage_report["issues"], owner_map
+    )
     triage_report["rollup"] = build_issue_rollup(triage_report["issues"])
     triage_report["next_actions"] = build_next_actions(triage_report["issues"])
     if args.emit_bundle:

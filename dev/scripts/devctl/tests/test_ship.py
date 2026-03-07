@@ -182,12 +182,15 @@ class ShipReleaseParityTests(TestCase):
 
     def test_build_verify_checks_includes_release_enforcement_contract(self) -> None:
         checks = ship_steps.build_verify_checks(verify_docs=False)
-        self.assertEqual([name for name, _cmd in checks], [
-            "coderabbit-gate",
-            "coderabbit-ralph-gate",
-            "check-release",
-            "hygiene",
-        ])
+        self.assertEqual(
+            [name for name, _cmd in checks],
+            [
+                "coderabbit-gate",
+                "coderabbit-ralph-gate",
+                "check-release",
+                "hygiene",
+            ],
+        )
         check_release_cmd = dict(checks)["check-release"]
         self.assertEqual(
             check_release_cmd,
@@ -200,7 +203,9 @@ class ShipReleaseParityTests(TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.ship_steps.run_cmd")
-    def test_run_verify_fails_when_release_profile_check_fails(self, run_cmd_mock) -> None:
+    def test_run_verify_fails_when_release_profile_check_fails(
+        self, run_cmd_mock
+    ) -> None:
         args = make_args()
         args.dry_run = False
         context = {"version": "1.2.3", "tag": "v1.2.3", "notes_file": "/tmp/notes.md"}
@@ -224,7 +229,13 @@ class ShipReleaseParityTests(TestCase):
             },
             {
                 "name": "check-release",
-                "cmd": ["python3", "dev/scripts/devctl.py", "check", "--profile", "release"],
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "check",
+                    "--profile",
+                    "release",
+                ],
                 "cwd": ".",
                 "returncode": 1,
                 "duration_s": 0.01,
@@ -376,7 +387,7 @@ class ShipCommonVersionReadTests(TestCase):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "Cargo.toml"
             path.write_text(
-                "[package]\nname = \"voiceterm\"\nversion = \"1.2.3\"\n",
+                '[package]\nname = "voiceterm"\nversion = "1.2.3"\n',
                 encoding="utf-8",
             )
             self.assertEqual(ship_common.read_version(path), "1.2.3")
@@ -385,7 +396,7 @@ class ShipCommonVersionReadTests(TestCase):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "pyproject.toml"
             path.write_text(
-                "[project]\nname = \"voiceterm\"\nversion = \"2.3.4\"\n",
+                '[project]\nname = "voiceterm"\nversion = "2.3.4"\n',
                 encoding="utf-8",
             )
             self.assertEqual(ship_common.read_version(path), "2.3.4")

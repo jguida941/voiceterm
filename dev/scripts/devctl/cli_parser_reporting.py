@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from .autonomy_status_parsers import (
-    add_autonomy_report_parser,
-    add_phone_status_parser,
-)
+from .autonomy_status_parsers import add_autonomy_report_parser, add_phone_status_parser
 from .data_science_parser import add_data_science_parser
 
 
@@ -104,7 +101,9 @@ def add_reporting_parsers(
     )
     compat_matrix_cmd.add_argument("--format", choices=["json", "md"], default="md")
     compat_matrix_cmd.add_argument("--output")
-    compat_matrix_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
+    compat_matrix_cmd.add_argument(
+        "--pipe-command", help="Pipe report output to a command"
+    )
     compat_matrix_cmd.add_argument(
         "--pipe-args", nargs="*", help="Extra args for pipe command"
     )
@@ -129,9 +128,7 @@ def add_reporting_parsers(
     mcp_cmd.add_argument("--format", choices=["json", "md"], default="md")
     mcp_cmd.add_argument("--output")
     mcp_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    mcp_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
+    mcp_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
 
     add_data_science_parser(sub)
 
@@ -292,7 +289,7 @@ def add_reporting_parsers(
     # audit-scaffold
     audit_cmd = sub.add_parser(
         "audit-scaffold",
-        help="Generate dev/active Rust remediation scaffold from guard findings",
+        help="Generate Rust remediation scaffold from guard findings",
     )
     audit_cmd.add_argument(
         "--since-ref", help="Optional base ref for changed-file guard scripts"
@@ -310,8 +307,8 @@ def add_reporting_parsers(
     )
     audit_cmd.add_argument(
         "--output-path",
-        default="dev/active/RUST_AUDIT_FINDINGS.md",
-        help="Scaffold output path (must stay under dev/active/)",
+        default="dev/reports/audits/RUST_AUDIT_FINDINGS.md",
+        help="Scaffold output path (must be under dev/reports/audits/)",
     )
     audit_cmd.add_argument(
         "--template-path",

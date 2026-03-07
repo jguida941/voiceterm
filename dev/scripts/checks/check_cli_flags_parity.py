@@ -8,7 +8,6 @@ import re
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DOC_PATH = REPO_ROOT / "guides/CLI_FLAGS.md"
 DEFAULT_SCHEMA_PATHS = (
@@ -62,7 +61,12 @@ def _collect_arg_attribute_blocks(text: str) -> list[tuple[str, str | None]]:
         probe = cursor
         while probe < len(lines):
             candidate = lines[probe].strip()
-            if not candidate or candidate.startswith("#[") or candidate.startswith("///") or candidate.startswith("//"):
+            if (
+                not candidate
+                or candidate.startswith("#[")
+                or candidate.startswith("///")
+                or candidate.startswith("//")
+            ):
                 probe += 1
                 continue
             field_match = FIELD_RE.search(lines[probe])
@@ -122,7 +126,10 @@ def main() -> int:
 
     try:
         doc_path = _resolve_path(args.doc)
-        schema_paths = [_resolve_path(raw) for raw in (args.schema or [str(path) for path in DEFAULT_SCHEMA_PATHS])]
+        schema_paths = [
+            _resolve_path(raw)
+            for raw in (args.schema or [str(path) for path in DEFAULT_SCHEMA_PATHS])
+        ]
 
         doc_flags = _extract_doc_flags(doc_path)
         code_flags: set[str] = set()

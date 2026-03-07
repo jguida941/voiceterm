@@ -527,7 +527,7 @@ fn bytes_contains_short_cursor_up_csi_only_matches_small_upward_moves() {
 #[test]
 fn claude_composer_packet_detection_matches_long_wrapped_variant() {
     let mut packet = b"\x1b[?2026h\r\x1b[193C\x1b[2A \r\x1b[1B  sdfdsfsfsfdsfds".to_vec();
-    packet.extend(std::iter::repeat(b' ').take(700));
+    packet.extend(std::iter::repeat_n(b' ', 700));
     packet.extend_from_slice(b"\x1b[7m \x1b[27m\r\r\n\r\n\x1b[?2026l");
     assert!(
         chunk_looks_like_claude_composer_keystroke(&packet),

@@ -138,6 +138,7 @@ def _collect_benchmark_rows(root: Path, *, max_files: int) -> list[dict[str, Any
                 )
     return rows
 
+
 def run_data_science_snapshot(
     *,
     trigger_command: str,
@@ -168,9 +169,9 @@ def run_data_science_snapshot(
 
     event_rows = _read_jsonl_tail(event_log, max_rows=max_events)
     event_stats = build_event_metrics(event_rows)
-    agent_rows = _collect_swarm_rows(swarm_dir, max_files=max_swarm_files) + _collect_benchmark_rows(
-        benchmark_dir, max_files=max_benchmark_files
-    )
+    agent_rows = _collect_swarm_rows(
+        swarm_dir, max_files=max_swarm_files
+    ) + _collect_benchmark_rows(benchmark_dir, max_files=max_benchmark_files)
     agent_stats = build_agent_metrics(agent_rows)
 
     report = {
@@ -196,7 +197,9 @@ def run_data_science_snapshot(
     )
 
     markdown = render_data_science_markdown(report)
-    (latest_dir / "summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (latest_dir / "summary.json").write_text(
+        json.dumps(report, indent=2), encoding="utf-8"
+    )
     (latest_dir / "summary.md").write_text(markdown, encoding="utf-8")
     with (history_dir / "snapshots.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(report, sort_keys=True))
@@ -223,9 +226,15 @@ def maybe_auto_refresh_data_science(
     }:
         return
 
-    output_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_OUTPUT_ROOT") or "").strip() or None
-    event_log = str(os.environ.get("DEVCTL_DATA_SCIENCE_EVENT_LOG") or "").strip() or None
-    swarm_root = str(os.environ.get("DEVCTL_DATA_SCIENCE_SWARM_ROOT") or "").strip() or None
+    output_root = (
+        str(os.environ.get("DEVCTL_DATA_SCIENCE_OUTPUT_ROOT") or "").strip() or None
+    )
+    event_log = (
+        str(os.environ.get("DEVCTL_DATA_SCIENCE_EVENT_LOG") or "").strip() or None
+    )
+    swarm_root = (
+        str(os.environ.get("DEVCTL_DATA_SCIENCE_SWARM_ROOT") or "").strip() or None
+    )
     benchmark_root = (
         str(os.environ.get("DEVCTL_DATA_SCIENCE_BENCHMARK_ROOT") or "").strip() or None
     )

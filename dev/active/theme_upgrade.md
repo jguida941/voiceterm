@@ -138,9 +138,10 @@ not supported.
 
 ### Ratatui (already in repo)
 
-- current dependency is `ratatui = 0.26` with `default-features = false` and
-  backend feature `crossterm` only (`rust/Cargo.toml`), so parity must be
-  tracked against that shipped capability set.
+- current dependencies are `ratatui = 0.30` (with `default-features = false`
+  and backend feature `crossterm`) and `crossterm = 0.29`
+  (`rust/Cargo.toml`), so parity must be tracked against that shipped
+  capability set.
 - supports rich layout composition, constraints, and many widgets (charts,
   sparklines, bars, tables, tabs, scrollbars, paragraph/list/block/canvas) and
   custom widget extensions.
@@ -1689,7 +1690,7 @@ When toggled ON, sets all animation fields to their "static" equivalents and sto
 
 ## Ratatui Capabilities Available for Future Expansion
 
-Based on research of Ratatui 0.26 + Crossterm 0.27 (current dependency pins):
+Based on research of Ratatui 0.30 + Crossterm 0.29 (current dependency pins):
 
 ### Additional Border Sets (could add to cycling)
 - **Dashed**: `┌ ┐ └ ┘ ╌ ╎` (light dashed) or `┏ ┓ ┗ ┛ ╍ ╏` (heavy dashed)

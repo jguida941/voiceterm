@@ -33,8 +33,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--limit", type=int, default=gate_core.DEFAULT_LIMIT)
     parser.add_argument("--require-conclusion", default="success")
-    parser.add_argument("--wait-seconds", type=int, default=gate_core.DEFAULT_WAIT_SECONDS)
-    parser.add_argument("--poll-seconds", type=int, default=gate_core.DEFAULT_POLL_SECONDS)
+    parser.add_argument(
+        "--wait-seconds", type=int, default=gate_core.DEFAULT_WAIT_SECONDS
+    )
+    parser.add_argument(
+        "--poll-seconds", type=int, default=gate_core.DEFAULT_POLL_SECONDS
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 

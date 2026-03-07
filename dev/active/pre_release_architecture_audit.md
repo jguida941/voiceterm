@@ -1,6 +1,6 @@
 # Pre-Release Architecture Audit & Cleanup Plan
 
-**Status**: pre-release completion point reached (Phases 1-7 complete; Phases 8-14 deferred post-release)  |  **Last updated**: 2026-03-05 | **Owner:** Runtime/tooling architecture
+**Status**: pre-release completion point reached (Phases 1-7 complete; Phase 15 docs-IA audit intake added; Phases 8-14 deferred post-release)  |  **Last updated**: 2026-03-06 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
 
 ## Scope
@@ -9,8 +9,22 @@ Full-surface architecture audit and cleanup before next release cycle. Goal: mak
 
 Keep this file active as the detailed execution spec for remaining phases;
 `dev/active/MASTER_PLAN.md` remains the authoritative tracker state.
+This file is the single canonical source for both pre-release findings and
+execution sequencing in this lane.
 
 Operator execution note (2026-03-05): pre-release execution checkpoint reached (Phases 1-7 complete). Phases labeled "deferred post-release" remain default policy but may be promoted by explicit operator direction.
+
+## Execution Quality Contract (Plan-Specific)
+
+All remediation work executed from this plan must preserve the project's
+existing readability baseline:
+
+- Keep comments simple and intent-focused (explain "why", not obvious "what").
+- Use concise, plain-language docstrings for public Python APIs.
+- Prefer small, named functions over dense logic blocks.
+- Keep naming explicit so behavior is understandable without cross-file guesswork.
+- If a cleanup may reduce clarity, choose the clearer implementation even if it
+  is slightly less compact.
 
 ## Context
 
@@ -482,6 +496,119 @@ The `toml` crate is already a dependency (in Cargo.toml). These custom parsers a
 
 **Files:** `dev/active/MASTER_PLAN.md` (tracking), runtime writer/terminal redraw path follow-up after release.
 
+### Round 4 Findings (Developer Information Architecture + Active Directory Hygiene)
+
+#### 36. CRITICAL: Durable maintainer guides are mixed into `dev/` root without a dedicated namespace
+**Finding (Round 4 — docs organization audit):**
+- `dev/` currently contains 76 markdown files, with 7 top-level policy/guide docs mixed together (`ARCHITECTURE`, `DEVELOPMENT`, `DEVCTL_AUTOGUIDE`, `MCP_DEVCTL_ALIGNMENT`, `BACKLOG`, `CHANGELOG`, `README`).
+- Stable guide material is interleaved with tracker/governance surfaces, making discovery and ownership boundaries blurry.
+
+**Impact:** New contributors and agents must memorize path exceptions; move operations are high-risk because ownership boundaries are implicit rather than structural.
+
+**Fix:** Create `dev/guides/` and move durable maintainer guides there:
+- `dev/guides/ARCHITECTURE.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/guides/MCP_DEVCTL_ALIGNMENT.md`
+- `dev/guides/README.md` as the canonical maintainer-guide index.
+
+#### 37. HIGH: Duplicate developer entrypoints create drift risk (`DEV_INDEX.md` vs `dev/README.md`)
+**Finding (Round 4 — docs organization audit):**
+- Both files are "Developer Index" entrypoints with overlapping navigation lists.
+- This duplicates maintenance and increases drift risk during path reorganizations.
+
+**Impact:** Source-of-truth ambiguity for onboarding and AI agents; link drift becomes likely during staged moves.
+
+**Fix:** Make `dev/README.md` the canonical developer index and reduce `DEV_INDEX.md` to a short bridge page that points to `dev/README.md` + key top-level user docs only.
+
+#### 38. HIGH: `dev/BACKLOG.md` is orphaned from active execution governance
+**Finding (Round 4 — docs organization audit):**
+- `dev/BACKLOG.md` has `LB-*` items but no references in AGENTS/devctl/docs checks (`0` matches from code/docs/workflow scan).
+- Items in this file are not tied to `MASTER_PLAN` execution state.
+
+**Impact:** Hidden backlog state bypasses active-plan governance and can diverge from tracked `MP-*` commitments.
+
+**Fix:** Either:
+1. Merge actionable items into `dev/active/MASTER_PLAN.md` as `MP-*`, or
+2. Move file to `dev/deferred/LOCAL_BACKLOG.md` with explicit "non-execution, reference-only" contract.
+
+#### 39. HIGH: `dev/active/` mixes execution docs with generated/reference artifacts
+**Finding (Round 4 — docs organization audit):**
+- `dev/active/RUST_AUDIT_FINDINGS.md` is generated artifact output, not long-lived execution intent.
+- `dev/active/phase2.md` is long-range reference research, not active execution state.
+- Active directory currently has 15 files with mixed intent classes.
+
+**Impact:** Active execution surface is noisy; generated/reference files dilute the "what is active now" signal.
+
+**Fix:** Keep `MASTER_PLAN` + active specs/runbooks in `dev/active/`; move generated/reference material out:
+- Move generated findings to `dev/reports/audits/` (or `dev/audits/findings/`), keep a pointer doc only if needed.
+- Move long-range references to `dev/reference/` or `dev/deferred/` and keep INDEX links explicit.
+
+#### 40. CRITICAL: Documentation path moves have a broad guard/workflow blast radius
+**Finding (Round 4 — migration safety audit):**
+- Top-level guide paths are hardcoded across checks, workflow path filters, docs indexes, and tests.
+- Example coupling: `dev/DEVELOPMENT.md` is referenced by tooling workflow triggers and multiple `docs-check`/`check-router` constants.
+- `dev/CHANGELOG.md` is deeply coupled to release scripts and parity checks.
+
+**Impact:** Blind path moves will break docs gates, CI trigger routing, and release automation.
+
+**Fix:** Use a two-step compatibility migration:
+1. Introduce new canonical paths and update all constants/parsers/tests/workflow path filters.
+2. Keep temporary bridge docs at old paths for one cycle; remove after all checks pass and references converge.
+
+#### 41. MEDIUM: docs-check path policy is duplicated in two modules
+**Finding (Round 4 — tooling organization audit):**
+- `docs_check_constants.py` and `docs_check_policy.py` carry overlapping path constants.
+- Any reorg requires dual edits, increasing mismatch risk.
+
+**Impact:** Directory migration changes are harder and error-prone.
+
+**Fix:** Consolidate path policy constants into a single module and import it in both call paths.
+
+#### 42. MEDIUM: `pre_release_architecture_audit.md` is active but weakly discoverable
+**Finding (Round 4 — docs discovery audit):**
+- This plan is indexed in `dev/active/INDEX.md` but not linked in AGENTS source-of-truth map.
+
+**Impact:** Operators can miss the current architecture audit execution state.
+
+**Fix:** Add this file to AGENTS source-of-truth map under architecture/tooling audit context.
+
+### Round 4 Proposed Target Layout
+
+```text
+dev/
+  guides/
+    README.md
+    ARCHITECTURE.md
+    DEVELOPMENT.md
+    DEVCTL_AUTOGUIDE.md
+    MCP_DEVCTL_ALIGNMENT.md
+  active/
+    INDEX.md
+    MASTER_PLAN.md
+    *.md (execution specs/runbooks only)
+  audits/
+  reports/
+  deferred/
+  history/
+  adr/
+  README.md
+  CHANGELOG.md
+```
+
+Round 4 pushback decision: keep `dev/CHANGELOG.md` at its current path for now; it is tightly coupled to release scripts/tests/checks and is not worth moving during the first organization pass.
+
+### Round 4 Compatibility Map (Required Before Any Path Moves)
+
+| Surface | Coupled files today | Required update for guide-path migration |
+|---|---|---|
+| Docs policy gates | `dev/scripts/devctl/commands/docs_check_constants.py`, `dev/scripts/devctl/commands/docs_check_policy.py`, `dev/scripts/devctl/commands/docs_check.py` | Update required-doc and evolution-trigger path lists to new `dev/guides/*` paths |
+| Router lane classification | `dev/scripts/devctl/commands/check_router_constants.py` | Update `TOOLING_EXACT_PATHS` for moved guide docs |
+| Workflow triggers | `.github/workflows/tooling_control_plane.yml` | Update `on.push.paths` and `on.pull_request.paths` entries |
+| Active-plan governance links | `AGENTS.md`, `DEV_INDEX.md`, `dev/README.md` | Repoint canonical links and remove duplicate entrypoint drift |
+| Generated findings default path | `dev/scripts/devctl/commands/audit_scaffold.py`, parser defaults + tests + docs | Repoint default output path if `RUST_AUDIT_FINDINGS.md` leaves `dev/active/` |
+| Release metadata/changelog | `check_release_version_parity.py`, `ship_common.py`, `release_prep.py`, `generate-release-notes.sh`, `update-homebrew.sh`, tests | Keep `dev/CHANGELOG.md` stable in Phase 15; re-evaluate only in a later dedicated release-path migration |
+
 ---
 
 ## Execution Checklist
@@ -593,7 +720,7 @@ The `toml` crate is already a dependency (in Cargo.toml). These custom parsers a
 ### Phase 13: Supply Chain + Dependency Health (Round 3) (deferred post-release)
 - [ ] Plan `serde_norway` replacement (track as MP item if multi-sprint)
 - [ ] Plan `gag` replacement (custom stdout redirect or alternative crate)
-- [ ] Upgrade `ratatui` from 0.26 to latest compatible (0.29.x)
+- [x] Upgrade `ratatui` from 0.26 to latest compatible (landed at `ratatui 0.30.0` + `crossterm 0.29.0`; transitive `lru` moved to `0.16.3` and cleared the `RUSTSEC-2026-0002` path)
 - [ ] Add `cargo-vet init` + begin auditing direct dependencies
 - [ ] Add `cargo-auditable` to release profile in Cargo.toml
 - [ ] Fix Python CI/PyPI version mismatch (test on 3.9 or raise floor to 3.11)
@@ -609,12 +736,55 @@ The `toml` crate is already a dependency (in Cargo.toml). These custom parsers a
 - [ ] Add `check_serde_compatibility.py` — flag tagged enums without forward-compat handling
 - [ ] Run verification: full `bundle.tooling` pass
 
+### Phase 15: Developer Docs IA Reorganization + Active Directory Hygiene (Round 4) (new)
+- [x] Create `dev/guides/` and move durable maintainer guides (`ARCHITECTURE`, `DEVELOPMENT`, `DEVCTL_AUTOGUIDE`, `MCP_DEVCTL_ALIGNMENT`) into canonical guide paths (completed with temporary bridge files at legacy `dev/*.md` paths for one migration cycle)
+- [x] Reduce duplicate index drift: make `dev/README.md` canonical; convert `DEV_INDEX.md` into a thin bridge page (completed: `DEV_INDEX.md` is now a compact bridge to canonical `dev/README.md`)
+- [x] Resolve `dev/BACKLOG.md` governance gap (completed: moved canonical local backlog to `dev/deferred/LOCAL_BACKLOG.md` with explicit reference-only contract and retained `dev/BACKLOG.md` bridge file)
+- [x] Clean `dev/active/` intent boundaries (completed: moved generated/reference ownership to canonical `dev/reports/audits/RUST_AUDIT_FINDINGS.md` + `dev/deferred/phase2.md`, with explicit bridge pointers retained in `dev/active/INDEX.md`)
+- [x] Consolidate docs path-policy constants (`docs_check_constants.py` + `docs_check_policy.py`) into single-source ownership before path move rollout (completed by making `docs_check_policy.py` canonical and converting `docs_check_constants.py` into a compatibility re-export shim with regression coverage in `test_docs_check_constants.py`)
+- [x] Update all coupled path surfaces listed in Round 4 compatibility map in one atomic change set (completed for guide-path migration surfaces: docs policy constants, router exact-path classification, tooling-control-plane workflow path filters, and active governance entrypoint links)
+- [x] Run verification: `bundle.tooling` + `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --format md` + `python3 dev/scripts/checks/check_release_version_parity.py` (rerun 2026-03-06 after docs-policy, index-authority, and guide-path migration slices; all gates green)
+
+### Phase 16: Consolidated Audit Execution Kickoff (2026-03-06)
+- [x] Treat `dev/active/pre_release_architecture_audit.md` as the sole execution checklist authority for this lane
+- [x] Keep all audit findings and remediation sequencing in this document (no split active-doc audit authority)
+- [x] Correct stale/contradictory audit statements before implementation batches begin
+- [x] Tag uncertain findings as "investigate-first" (for example: `Arc::clone` in `rust/src/voice.rs`, shared join helper extraction scope)
+- [x] Define import-fallback migration contract before removing `ModuleNotFoundError` fallback paths
+- [x] Run verification: `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+- [x] Start implementation: remove `env::set_var` usage from `main.rs` by wiring runtime theme/backend overrides (`set_runtime_theme_file_override`, `set_runtime_backend_label`) and validate with `cd rust && cargo test --bin voiceterm`
+- [x] Retire `audit-scaffold` legacy output-root compatibility (`dev/active/`) so generated remediation artifacts are constrained to canonical `dev/reports/audits/`
+- [x] Retire `docs-check` legacy tooling-doc alias acceptance for `dev/DEVELOPMENT.md` and require canonical `dev/guides/DEVELOPMENT.md`
+- [x] Fix strict-tooling false negatives for canonical docs in untracked directories by collecting git status with `--untracked-files=all`
+- [x] Continue MP-265 runtime decomposition by splitting writer message routing (`writer/state/dispatch.rs`) from PTY-heavy output handling (`writer/state/dispatch_pty.rs`) and remove temporary dispatch/redraw/prompt exceptions after functions fell below default limits
+
 ---
 
 ## Progress Log
 
 | Date | Phase | Action | Result |
 |------|-------|--------|--------|
+| 2026-03-06 | Phase 16 (execution) | Completed readability pass on Rust/Python comment and policy language (writer dispatch path + shape/complexity guard text), then reran full runtime CI profile after targeted rustfmt alignment | complete: `python3 dev/scripts/devctl.py check --profile ci` is green, comments are simpler in touched files, and governance docs checks remain green |
+| 2026-03-06 | Phase 16 (execution) | Continued MP-265 writer-state cleanup by splitting message routing into `writer/state/dispatch.rs` and PTY-heavy output into `writer/state/dispatch_pty.rs`; removed temporary complexity exceptions for dispatch/redraw/prompt after re-checking function metrics | complete: `check_structural_complexity.py` now runs with `exceptions_defined=0`, `check_code_shape.py` is green, and `cargo test --bin voiceterm` passed (`1535` tests) |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Revalidated backlog/active-boundary cleanup coupling updates with targeted checks (`test_audit_scaffold`, `docs-check --strict-tooling`, `hygiene --strict-warnings`, `check_active_plan_sync`, `check_multi_agent_sync`, `check_agents_contract`, `check_bundle_workflow_parity`, `check-router --since-ref origin/develop`, `check_release_version_parity`) | complete: all targeted verification gates passed after canonical-path migration updates (`dev/deferred/*`, `dev/reports/audits/*`) |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Closed backlog-governance gap by moving canonical local backlog to `dev/deferred/LOCAL_BACKLOG.md`, keeping a bridge at `dev/BACKLOG.md`, and adding reference-only execution contract text | complete: local `LB-*` backlog tracking is now explicitly non-authoritative and decoupled from active `MASTER_PLAN` execution state |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Closed active-intent boundary cleanup by moving canonical generated/reference surfaces to `dev/reports/audits/RUST_AUDIT_FINDINGS.md` and `dev/deferred/phase2.md`, then updating AGENTS/docs/workflow/index references | complete: `dev/active/` retains bridge pointers only, while canonical generated/reference ownership now lives outside active execution surfaces |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Reran verification pack after guide-path migration coupling updates (`bundle.tooling`, `check-router --since-ref origin/develop`, `check_release_version_parity.py`) | complete: migration remains non-regressive across docs policy gates, workflow parity, and tooling control-plane checks |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Completed guide-path migration (`dev/guides/`) for durable maintainer docs and added temporary bridge files at legacy `dev/*.md` paths | complete: canonical maintainer-guide ownership now lives under `dev/guides/` while existing links remain stable during transition |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Updated all mapped guide-path coupling surfaces in one batch (docs-check policy constants, check-router tooling exact paths, tooling-control-plane workflow path filters, AGENTS/DEV_INDEX/dev README governance links, and related tests) | complete: migration blast radius controls from Round 4 compatibility map are now implemented for the guide-path rollout |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Ran full verification pack after docs-path policy and index-authority updates (`bundle.tooling`, `check-router --since-ref origin/develop`, `check_release_version_parity.py`) | complete: all commands succeeded; no new guard violations introduced by Phase-15 slices |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Reduced duplicate index drift by converting `DEV_INDEX.md` into a bridge page and explicitly marking `dev/README.md` as canonical | complete: one authoritative developer index remains (`dev/README.md`) while root discovery remains intact through the bridge |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Consolidated docs-check path-policy ownership by keeping `docs_check_policy.py` as canonical and converting `docs_check_constants.py` into compatibility exports only | complete: path constants no longer have dual-maintenance drift risk; compatibility imports preserved and covered by `dev/scripts/devctl/tests/test_docs_check_constants.py` |
+| 2026-03-06 | Phase 16 (execution) | Removed the stale structural-complexity exception for `writer/state/redraw.rs::maybe_redraw_status` after splitting redraw gating, geometry sync, pending-state apply, render, and commit helpers | complete: measured complexity is now below default policy (`score=13`, `branch_points=2`, `max_nesting_depth=2`) and `check_structural_complexity.py` now has only one active exception left |
+| 2026-03-06 | Phase 16 (execution) | Removed the stale structural-complexity exception for `event_loop/prompt_occlusion.rs::feed_prompt_output_and_sync` after the detection split reduced the function below default guard thresholds | complete: measured complexity is now below default policy (`score=9`, `branch_points=7`, `max_nesting_depth=3`) and `check_structural_complexity.py` remains green with two active exceptions left |
+| 2026-03-06 | Phase 16 (execution) | Retired `audit-scaffold` transition output-root compatibility by removing `dev/active/` output acceptance and keeping canonical `dev/reports/audits/` enforcement in parser/help text + tests | complete: output-root policy now enforces one canonical remediation artifact location and regression coverage stays green (`test_audit_scaffold`) |
+| 2026-03-06 | Phase 16 (execution) | Retired `docs-check` bridge-alias acceptance for `dev/DEVELOPMENT.md` and required canonical `dev/guides/DEVELOPMENT.md`; updated docs-check tests to reject legacy-only updates | complete: strict-tooling governance now enforces canonical maintainer-doc ownership without legacy aliases |
+| 2026-03-06 | Phase 16 (execution) | Fixed strict-tooling untracked-directory false negatives by collecting git status with `--untracked-files=all` in `collect_git_status` | complete: strict-tooling docs policy now detects canonical untracked files directly (`dev/guides/*`) while preserving existing commit-range behavior |
+| 2026-03-06 | Phase 16 (execution) | Landed MP-265 shape-budget cleanup slice by extracting compact/minimal plus single-line status-line helpers and moving `theme/rule_profile.rs` inline tests into a submodule | complete for slice: `status_line/format.rs` 990 -> 657, `theme/rule_profile.rs` 922 -> 265, and both raised `PATH_POLICY_OVERRIDES` entries were removed |
+| 2026-03-06 | Phase 15 (active-dir hygiene) | Registered raw multi-agent audit merge transcript at `dev/active/move.md` and linked it as supporting evidence | complete: transcript provenance retained in active-doc context while execution authority remains with this plan and `dev/active/MASTER_PLAN.md` |
+| 2026-03-06 | Phase 16 (execution) | Completed governance sync and corrected audit-plan sequencing assumptions; started do-now remediation by replacing `main.rs` `env::set_var` flow with runtime overrides | complete for kickoff slice: active-plan gates green + `cargo test --bin voiceterm` green (`1526` passed) |
+| 2026-03-06 | Phase 16 (kickoff) | Consolidated pre-release findings + execution authority into this single plan while adding explicit readability contract (simple comments, clear docstrings, easy-to-understand naming) | complete |
+| 2026-03-06 | Phase 15 (intake) | Ran full docs-information-architecture and active-directory organization audit with path-coupling analysis | added Round 4 findings + target layout + compatibility map; execution now staged for migration implementation |
 | 2026-03-05 | Phase 7 | Landed DevCtl guard hardening batch (5 new guards, 3 extended guards) | complete: verification pack is green (`596/596` tests); pre-release completion point reached with Phases 8-14 explicitly deferred post-release |
 | 2026-03-05 | Phase 6 | Decomposed `check.py` into phase-oriented orchestration and added Python module naming convention docs | complete: `check.py` slim orchestrator + `check_phases.py` extracted; Phase 7 is the next execution scope |
 | 2026-03-05 | Accuracy refresh | Revalidated stale audit claims against current repo state | Updated counts/claims (AGENTS lines, `_run_git` duplication, README existence, `check.py` run length, repo URL scope) |
@@ -645,3 +815,12 @@ The `toml` crate is already a dependency (in Cargo.toml). These custom parsers a
 | Python tooling deep audit (Explore agent, round 3) | 2026-03-05 | 19 issues: broad exceptions, sys.exit testability, import fallbacks, oversized functions |
 | DX + dependency health audit (Explore agent, round 3) | 2026-03-05 | serde_norway/gag/whisper-rs unmaintained, ratatui 3 versions behind, Python version mismatch |
 | Cross-platform + perf baseline audit (Explore agent, round 3) | 2026-03-05 | Asymmetric platform testing, no perf baselines, ARM64 Linux unverified, dead Windows code |
+| Docs IA census + path-coupling audit (manual) | 2026-03-06 | `dev/` markdown layout inventory (`76` files), orphan backlog detection (`dev/BACKLOG.md` referenced `0` times), and migration blast-radius map across checks/workflows/tests/docs |
+| Audit merge transcript evidence (manual) | 2026-03-06 | Raw 4-agent merge transcript retained at `dev/active/move.md`; authoritative findings remain in `dev/active/audit.md` and execution sequencing remains in this document |
+| Active-plan governance checks | 2026-03-06 | `check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, and `hygiene` all pass after audit-doc registration/link updates |
+| Phase-16 transition-compat cleanup verification | 2026-03-06 | `python3 -m unittest dev.scripts.devctl.tests.test_audit_scaffold`, `python3 -m unittest dev.scripts.devctl.tests.test_docs_check dev.scripts.devctl.tests.test_docs_check_constants`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene --strict-warnings`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_bundle_workflow_parity.py`, `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --format md`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/devctl.py orchestrate-status --format md`, and `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md` all pass (watch warnings remain non-blocking stale-agent notices) |
+| Phase-15 boundary cleanup verification | 2026-03-06 | `python3 -m unittest dev.scripts.devctl.tests.test_audit_scaffold`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene --strict-warnings`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_bundle_workflow_parity.py`, `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --format md`, and `python3 dev/scripts/checks/check_release_version_parity.py` all pass after canonical path updates |
+| Runtime do-now kickoff validation | 2026-03-06 | `cd rust && cargo test --bin voiceterm` passes after removing `main.rs` `env::set_var` usage via runtime overrides (`1526` passed) |
+| MP-265 shape-budget cleanup slice | 2026-03-06 | `theme/rule_profile.rs` tests extracted to `theme/rule_profile/tests.rs`; compact/minimal status-line helpers extracted to `status_line/format/compact.rs`; single-line status helpers extracted to `status_line/format/single_line.rs`; raised `PATH_POLICY_OVERRIDES` entries removed | `cargo clippy --bin voiceterm --all-targets -- -D warnings`, `cargo test --bin voiceterm`, and `check_code_shape` green after runtime module sizes dropped below the Rust default soft limit |
+| Phase-16 writer dispatch decomposition + exception retirement | 2026-03-06 | `dispatch.rs` now handles message routing, PTY-heavy logic moved to `dispatch_pty.rs`, and temporary `dispatch`/`redraw`/`prompt_occlusion` complexity exceptions were removed | `cd rust && cargo test --bin voiceterm` (`1535` passed), `python3 dev/scripts/checks/check_code_shape.py --format md`, and `python3 dev/scripts/checks/check_structural_complexity.py --format md` all pass with structural exceptions at `0` |
+| Phase-16 readability + full CI rerun | 2026-03-06 | Simplified dense comments/reason text in `writer/state/dispatch*.rs`, `check_structural_complexity.py`, and `code_shape_policy.py` after formatting in-flight Rust files that previously blocked `fmt-check` | `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling` all pass |

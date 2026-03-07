@@ -326,7 +326,9 @@ class AutonomyRunCommandTests(unittest.TestCase):
             output_json = root / "swarm-run.json"
 
             _write_plan_fixture(plan_doc)
-            index_doc.write_text("autonomous_control_plane.md MP-338\n", encoding="utf-8")
+            index_doc.write_text(
+                "autonomous_control_plane.md MP-338\n", encoding="utf-8"
+            )
             master_doc.write_text("MP-338\n", encoding="utf-8")
 
             args = make_args(

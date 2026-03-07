@@ -5,14 +5,13 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
-import sys
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_ide_provider_isolation.py"
 
@@ -21,7 +20,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("check_ide_provider_isolation_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_ide_provider_isolation_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_ide_provider_isolation.py")
     module = importlib.util.module_from_spec(spec)
@@ -70,16 +71,22 @@ class CheckIdeProviderIsolationTests(TestCase):
             )
         )
         self.assertTrue(
-            self.script._is_allowlisted_mixed_path("rust/src/bin/voiceterm/writer/timing.rs")
+            self.script._is_allowlisted_mixed_path(
+                "rust/src/bin/voiceterm/writer/timing.rs"
+            )
         )
         self.assertFalse(
-            self.script._is_allowlisted_mixed_path("rust/src/bin/voiceterm/event_loop.rs")
+            self.script._is_allowlisted_mixed_path(
+                "rust/src/bin/voiceterm/event_loop.rs"
+            )
         )
         self.assertFalse(
             self.script._is_allowlisted_mixed_path("rust/src/bin/voiceterm/terminal.rs")
         )
         self.assertFalse(
-            self.script._is_allowlisted_mixed_path("rust/src/bin/voiceterm/writer/state.rs")
+            self.script._is_allowlisted_mixed_path(
+                "rust/src/bin/voiceterm/writer/state.rs"
+            )
         )
 
     def test_scan_text_detects_multiline_statement_coupling(self) -> None:
@@ -133,7 +140,9 @@ class CheckIdeProviderIsolationTests(TestCase):
         self.assertEqual(result["host_signal_lines"], 1)
         self.assertEqual(result["provider_signal_lines"], 1)
 
-    def test_scan_text_ignores_claude_hud_debug_literal_without_provider_signal(self) -> None:
+    def test_scan_text_ignores_claude_hud_debug_literal_without_provider_signal(
+        self,
+    ) -> None:
         text = "\n".join(
             [
                 'log_debug("[claude-hud-debug] transition observed");',

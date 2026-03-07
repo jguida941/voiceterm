@@ -11,7 +11,9 @@ def run(args) -> int:
     if os.environ.get("CI") and not args.allow_ci and not args.dry_run:
         print("Refusing to run homebrew updates in CI. Use --allow-ci to override.")
         return 2
-    confirm_or_abort(f"Run update-homebrew.sh {args.version}?", args.yes or args.dry_run)
+    confirm_or_abort(
+        f"Run update-homebrew.sh {args.version}?", args.yes or args.dry_run
+    )
     env = build_env(args)
     env["VOICETERM_DEVCTL_INTERNAL"] = "1"
     if args.yes or args.dry_run:

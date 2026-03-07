@@ -10,11 +10,12 @@ from dev.scripts.devctl.status_report import (
     build_project_report,
 )
 
-
 # Deterministic fake collectors for testing.
 FAKE_GIT = {"branch": "develop", "changes": [{"status": "M", "path": "a.rs"}]}
 FAKE_MUTANTS = {"results": {"score": 85.0}}
-FAKE_CI = {"runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]}
+FAKE_CI = {
+    "runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]
+}
 FAKE_DEV_LOGS = {
     "dev_root": "/tmp/dev",
     "sessions_scanned": 1,
@@ -56,7 +57,9 @@ class RunProbesSerialTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_serial(probes)
-        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
+        self.assertEqual(
+            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
+        )
 
     def test_serial_empty_probes(self) -> None:
         self.assertEqual(_run_probes_serial([]), {})
@@ -72,7 +75,9 @@ class RunProbesParallelTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_parallel(probes, max_workers=4)
-        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
+        self.assertEqual(
+            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
+        )
 
     def test_parallel_empty_probes(self) -> None:
         self.assertEqual(_run_probes_parallel([], max_workers=4), {})
@@ -105,9 +110,15 @@ class RunProbesParallelTests(unittest.TestCase):
 class BuildProjectReportParallelTests(unittest.TestCase):
     """Validate build_project_report produces identical output in parallel vs sequential mode."""
 
-    @patch("dev.scripts.devctl.status_report.collect_dev_log_summary", side_effect=_fake_dev_logs)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_dev_log_summary",
+        side_effect=_fake_dev_logs,
+    )
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
-    @patch("dev.scripts.devctl.status_report.collect_mutation_summary", side_effect=_fake_mutants)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
     @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
     def test_parallel_and_serial_produce_same_report_keys(
         self,
@@ -136,7 +147,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
                 f"Mismatch in report key '{key}'",
             )
 
-    @patch("dev.scripts.devctl.status_report.collect_mutation_summary", side_effect=_fake_mutants)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
     @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
     def test_parallel_base_probes_only(
         self,
@@ -158,7 +172,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertNotIn("ci", report)
         self.assertNotIn("dev_logs", report)
 
-    @patch("dev.scripts.devctl.status_report.collect_mutation_summary", side_effect=_fake_mutants)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
     @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
     def test_serial_base_probes_only(
         self,
@@ -181,7 +198,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertNotIn("dev_logs", report)
 
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
-    @patch("dev.scripts.devctl.status_report.collect_mutation_summary", side_effect=_fake_mutants)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
     @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
     def test_report_key_order_is_deterministic(
         self,
@@ -204,9 +224,15 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertEqual(keys[:2], ["command", "timestamp"])
         self.assertEqual(keys[2:], ["git", "mutants", "ci"])
 
-    @patch("dev.scripts.devctl.status_report.collect_dev_log_summary", side_effect=_fake_dev_logs)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_dev_log_summary",
+        side_effect=_fake_dev_logs,
+    )
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
-    @patch("dev.scripts.devctl.status_report.collect_mutation_summary", side_effect=_fake_mutants)
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
     @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
     def test_report_key_order_all_probes(
         self,

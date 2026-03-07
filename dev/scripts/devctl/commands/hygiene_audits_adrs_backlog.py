@@ -120,9 +120,7 @@ def analyze_adr_id_governance(
         autonomy_backlog_ids_set = {
             int(match.group(1))
             for match in ADR_REF_RE.finditer(
-                extract_markdown_section(
-                    autonomy_text, AUTONOMY_ADR_BACKLOG_HEADING
-                )
+                extract_markdown_section(autonomy_text, AUTONOMY_ADR_BACKLOG_HEADING)
             )
         }
 

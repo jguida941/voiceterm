@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List
 
 from ..common import pipe_output, write_output
@@ -45,10 +47,13 @@ def run(args) -> int:
         )
         return 2
 
+    notes_file = args.notes_output or str(
+        Path(tempfile.gettempdir()) / f"voiceterm-release-v{args.version}.md"
+    )
     context = {
         "version": args.version,
         "tag": f"v{args.version}",
-        "notes_file": args.notes_output or f"/tmp/voiceterm-release-v{args.version}.md",
+        "notes_file": notes_file,
     }
 
     steps: List[Dict] = []

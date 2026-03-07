@@ -10,6 +10,14 @@ from typing import Any
 
 from ..common import confirm_or_abort, pipe_output, write_output
 from ..config import REPO_ROOT
+from ..integration_federation_policy import (
+    federation_allowed_destination_roots,
+    federation_audit_log_path,
+    federation_max_files,
+    federation_sources,
+    load_federation_policy,
+    source_repo_path,
+)
 from ..integration_import_core import (
     append_audit_log,
     collect_mapping_plan,
@@ -19,14 +27,6 @@ from ..integration_import_core import (
     render_import_md,
     render_profiles_md,
     run_git_capture,
-)
-from ..integration_federation_policy import (
-    federation_allowed_destination_roots,
-    federation_audit_log_path,
-    federation_max_files,
-    federation_sources,
-    load_federation_policy,
-    source_repo_path,
 )
 
 
@@ -75,16 +75,26 @@ def run(args) -> int:
     if source_name and not isinstance(source_cfg, dict):
         errors.append(f"Unknown integration source: {source_name}")
     profiles_cfg = source_cfg.get("profiles") if isinstance(source_cfg, dict) else None
-    profile_cfg = profiles_cfg.get(profile_name) if isinstance(profiles_cfg, dict) else None
+    profile_cfg = (
+        profiles_cfg.get(profile_name) if isinstance(profiles_cfg, dict) else None
+    )
     if source_name and profile_name and not isinstance(profile_cfg, dict):
         errors.append(f"Unknown profile '{profile_name}' for source '{source_name}'.")
 
-    source_root = source_repo_path(repo_root, source_cfg) if isinstance(source_cfg, dict) else None
+    source_root = (
+        source_repo_path(repo_root, source_cfg)
+        if isinstance(source_cfg, dict)
+        else None
+    )
     if source_root is None:
         if source_cfg is not None:
-            errors.append(f"Source '{source_name}' is missing required `path` in policy.")
+            errors.append(
+                f"Source '{source_name}' is missing required `path` in policy."
+            )
     elif not source_root.exists():
-        errors.append(f"Source path does not exist: {relative_or_str(source_root, repo_root)}")
+        errors.append(
+            f"Source path does not exist: {relative_or_str(source_root, repo_root)}"
+        )
 
     policy_cap = federation_max_files(policy_section)
     if args.max_files is not None and args.max_files <= 0:
@@ -93,7 +103,11 @@ def run(args) -> int:
         errors.append(
             f"--max-files={args.max_files} exceeds policy cap ({policy_cap}) for integrations-import."
         )
-    effective_cap = args.max_files if isinstance(args.max_files, int) and args.max_files > 0 else policy_cap
+    effective_cap = (
+        args.max_files
+        if isinstance(args.max_files, int) and args.max_files > 0
+        else policy_cap
+    )
 
     allowed_dest_roots = federation_allowed_destination_roots(repo_root, policy_section)
 
@@ -132,7 +146,9 @@ def run(args) -> int:
         )
 
     apply_mode = bool(args.apply and not args.dry_run)
-    existing_destinations = [destination for _, destination in plan_pairs if destination.exists()]
+    existing_destinations = [
+        destination for _, destination in plan_pairs if destination.exists()
+    ]
     if apply_mode and existing_destinations and not args.overwrite:
         errors.append(
             f"{len(existing_destinations)} destination files already exist; re-run with --overwrite to replace."
@@ -204,7 +220,11 @@ def run(args) -> int:
         },
     )
 
-    output = json.dumps(report, indent=2) if args.format == "json" else render_import_md(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else render_import_md(report)
+    )
     write_output(output, args.output)
     if args.pipe_command:
         pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)

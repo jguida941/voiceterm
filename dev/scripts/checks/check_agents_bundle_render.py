@@ -122,7 +122,9 @@ def render_markdown(report: dict) -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="Rewrite AGENTS bundle section.")
+    parser.add_argument(
+        "--write", action="store_true", help="Rewrite AGENTS bundle section."
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 

@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -14,6 +14,11 @@ try:
     import yaml
 except ModuleNotFoundError:  # pragma: no cover - guarded fallback for minimal envs
     yaml = None
+
+try:
+    from .yaml_json_loader import load_yaml_or_json
+except ImportError:  # pragma: no cover
+    from yaml_json_loader import load_yaml_or_json
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MATRIX_PATH = REPO_ROOT / "dev/config/compat/ide_provider_matrix.yaml"
@@ -52,10 +57,7 @@ def _load_matrix(path: Path) -> tuple[dict | None, str | None]:
     except OSError as exc:
         return None, f"failed to parse matrix file: {exc}"
     try:
-        if yaml is not None:
-            payload = yaml.safe_load(raw)
-        else:
-            payload = json.loads(raw)
+        payload = load_yaml_or_json(raw, yaml_module=yaml)
     except Exception as exc:
         return None, f"failed to parse matrix file: {exc}"
     if not isinstance(payload, dict):
@@ -100,7 +102,9 @@ def _find_duplicate_values(values: list[str]) -> list[str]:
     return sorted(value for value, count in counts.items() if count > 1)
 
 
-def _collect_provider_modes(providers: list[object]) -> tuple[dict[str, str], list[str]]:
+def _collect_provider_modes(
+    providers: list[object],
+) -> tuple[dict[str, str], list[str]]:
     provider_mode_by_id: dict[str, str] = {}
     invalid_provider_modes: list[str] = []
     for item in providers:
@@ -268,9 +272,12 @@ def main() -> int:
         for (host, provider), count in declared_cells.items()
         if count > 1
     )
-    expected_cells = {(host, provider) for host in host_ids for provider in provider_ids}
+    expected_cells = {
+        (host, provider) for host in host_ids for provider in provider_ids
+    }
     missing_cells = sorted(
-        f"{host}::{provider}" for (host, provider) in expected_cells.difference(declared_cells)
+        f"{host}::{provider}"
+        for (host, provider) in expected_cells.difference(declared_cells)
     )
 
     report = {

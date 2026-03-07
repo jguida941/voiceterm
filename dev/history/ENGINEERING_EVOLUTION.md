@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-03-06
 
 ## At a Glance
 
@@ -21,8 +21,8 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 **Key docs to cross-reference:**
 
 - `dev/active/MASTER_PLAN.md`
-- `dev/ARCHITECTURE.md`
-- `dev/DEVELOPMENT.md`
+- `dev/guides/ARCHITECTURE.md`
+- `dev/guides/DEVELOPMENT.md`
 - `dev/CHANGELOG.md`
 - `dev/adr/README.md`
 
@@ -72,7 +72,7 @@ Fact: The source range includes 357 commits and tags from `v0.2.0` through `v1.0
 Evidence:
 
 - Original plan: `8aef111:docs/plan.md`
-- Architecture docs: `dev/ARCHITECTURE.md`
+- Architecture docs: `dev/guides/ARCHITECTURE.md`
 - ADR index and records: `dev/adr/README.md` and `dev/adr/*.md`
 - Release history: `dev/CHANGELOG.md`, git tags
 - Full history replay: `git log --reverse`
@@ -87,7 +87,7 @@ Fact: Claims in this document follow three labels.
 
 Fact: The project moved from an MVP-style plan to production-oriented architecture under real runtime pressure.
 
-Evidence: `8aef111`, `dev/ARCHITECTURE.md`, `39b36e4`, `b6987f5`.
+Evidence: `8aef111`, `dev/guides/ARCHITECTURE.md`, `39b36e4`, `b6987f5`.
 
 Fact: Decision quality improved once governance became explicit.
 
@@ -103,7 +103,7 @@ Evidence: `fe6d79a`, `b60ebc3`.
 
 Fact: Release flow became explicit and traceable.
 
-Evidence: `695b652`, `50f2738`, `05ff790`, `dev/DEVELOPMENT.md`.
+Evidence: `695b652`, `50f2738`, `05ff790`, `dev/guides/DEVELOPMENT.md`.
 
 Inference: This repo shows full-lifecycle engineering work: runtime design, incident response, governance, and release operations.
 
@@ -135,8 +135,8 @@ Inference: These screenshots improve readability for users. They show current UI
 ### Where to Look First
 
 - Planning and active scope: `dev/active/MASTER_PLAN.md`
-- Architecture and lifecycle: `dev/ARCHITECTURE.md`
-- Verification workflow: `dev/DEVELOPMENT.md`
+- Architecture and lifecycle: `dev/guides/ARCHITECTURE.md`
+- Verification workflow: `dev/guides/DEVELOPMENT.md`
 - Decision records: `dev/adr/README.md`
 - Latency display logic path: `rust/src/bin/voiceterm/voice_control/drain/message_processing.rs`
 
@@ -153,6 +153,52 @@ Inference: These screenshots improve readability for users. They show current UI
 3. Verify you are not reintroducing a previously reverted pattern.
 4. Add new evidence (commit, ADR, or docs path) when behavior changes.
 5. If SDLC/tooling/CI governance surfaces change (`AGENTS.md`, workflow YAMLs, `dev/scripts/*`, release mechanics), update this file in the same change (`devctl docs-check --strict-tooling` enforces this).
+
+### Recent Governance Update (2026-03-06, MP-347 Phase-15 Docs IA Boundary Cleanup)
+
+Fact: Phase-15 docs-information-architecture cleanup closed the remaining
+backlog-governance and active-intent boundary gaps by moving canonical
+generated/reference artifacts out of `dev/active/` while retaining bridge files
+for one migration cycle.
+
+Evidence:
+
+- `dev/deferred/LOCAL_BACKLOG.md` + `dev/BACKLOG.md` (bridge + reference-only
+  execution-authority contract)
+- `dev/reports/audits/RUST_AUDIT_FINDINGS.md` +
+  `dev/active/RUST_AUDIT_FINDINGS.md` (bridge)
+- `dev/deferred/phase2.md` + `dev/active/phase2.md` (bridge)
+- `dev/active/INDEX.md`, `AGENTS.md`, `dev/scripts/README.md`,
+  `dev/guides/DEVCTL_AUTOGUIDE.md`, `.github/workflows/tooling_control_plane.yml`
+
+Inference: Active execution surfaces now stay focused on tracker/spec/runbook
+state, while long-range reference research and generated remediation artifacts
+live in deferred/reports locations with explicit pointer bridges.
+
+### Recent Governance Update (2026-03-06, MP-347 Phase-16 Transition Compatibility Retirement)
+
+Fact: The post-migration compatibility shims for audit-scaffold output location
+and strict-tooling docs aliasing were retired so canonical paths are now
+enforced directly.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/audit_scaffold.py` +
+  `dev/scripts/devctl/cli_parser_reporting.py` +
+  `dev/scripts/devctl/cli_parser_builders_ops.py` +
+  `dev/scripts/devctl/tests/test_audit_scaffold.py`
+  (`audit-scaffold` now accepts only `dev/reports/audits/*` output roots)
+- `dev/scripts/devctl/commands/docs_check_policy.py` +
+  `dev/scripts/devctl/commands/docs_check.py` +
+  `dev/scripts/devctl/tests/test_docs_check.py`
+  (legacy `dev/DEVELOPMENT.md` alias acceptance removed from strict-tooling)
+- `dev/scripts/devctl/collect.py`
+  (`git status` collection now uses `--untracked-files=all` so canonical
+  untracked docs are visible to policy checks)
+
+Inference: Governance checks now enforce canonical maintainer-doc ownership and
+canonical remediation-artifact ownership without legacy bridge allowances, while
+preserving strict-tooling reliability on untracked migration files.
 
 ### Recent Governance Update (2026-03-02, MP-346 Phase-0 Tooling Gate Closure)
 
@@ -331,6 +377,193 @@ Evidence:
 Inference: Tooling closures now satisfy code-shape governance without policy
 bypasses, and maintainer release instructions are consistent with enforced CI
 release-gate behavior.
+
+### Recent Governance Update (2026-03-06, Release Preflight GH Auth Stabilization)
+
+Fact: Release preflight now exports `GH_TOKEN` for runtime-bundle `gh` calls
+and grants job-level `security-events: write` so zizmor SARIF uploads can
+publish to code scanning without permission failures; zizmor runs with
+`online-audits: false` in this lane to avoid cross-repo compare API 403s.
+
+Evidence:
+
+- `.github/workflows/release_preflight.yml` (runtime bundle step exports
+  `GH_TOKEN: ${{ github.token }}` and preflight job grants
+  `security-events: write`, with zizmor configured as `online-audits: false`)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (release-flow and governance docs synchronized
+  to the workflow auth contract)
+
+Inference: Same-SHA release preflight runs now execute the full release bundle
+without GH CLI auth drift, restoring deterministic release-gate behavior.
+
+### Recent Governance Update (2026-03-06, Release Security Scope + Temp-Path Hardening)
+
+Fact: Release preflight security gating now runs Python scanners in
+changed-file scope using the same resolved `since/head` refs as AI-guard
+without hard-blocking on repository-wide open CodeQL backlog, and Bandit
+`B108` findings were removed by replacing hardcoded `/tmp` defaults with system
+temp-directory resolution in loop/release helper scripts. In this lane,
+`cargo deny` remains the blocking gate while `devctl security` output is
+retained as advisory evidence.
+
+Evidence:
+
+- `.github/workflows/release_preflight.yml` (release security gate switched from
+  `--python-scope all` to `--python-scope changed` with
+  `--since-ref/--head-ref` wired from `ai_guard_range` outputs; explicit
+  CodeQL-open-alert hard gate removed from this lane; `devctl security`
+  non-zero results reported as advisory warnings while `cargo deny` remains
+  blocking)
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`,
+  `dev/scripts/devctl/commands/ship.py`,
+  `dev/scripts/mutation_ralph_workflow_bridge.py`
+  (temp artifact default paths now derive from `tempfile.gettempdir()`)
+- `dev/scripts/devctl/tests/test_mutation_ralph_workflow_bridge.py`,
+  `dev/scripts/devctl/tests/test_loop_packet.py`,
+  `dev/scripts/devctl/tests/test_ship.py`
+  (non-regression coverage for touched helper surfaces)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (release/security governance docs synchronized)
+
+Inference: Release preflight remains strict for same-SHA, commit-scoped
+security gating while avoiding unrelated full-repo Python formatting debt,
+historical CodeQL backlog coupling, and temp-path policy drift, with explicit
+separation between blocking (`cargo deny`) and advisory (`devctl security`)
+signals.
+
+### Recent Governance Update (2026-03-06, Compat-Matrix YAML Fallback Hardening)
+
+Fact: Compatibility-matrix and naming-consistency guards now share a minimal
+YAML fallback parser so CI/unit-test behavior remains deterministic when
+`PyYAML` is unavailable, and malformed inline collection scalars now fail
+closed instead of being silently coerced.
+
+Evidence:
+
+- `dev/scripts/checks/yaml_json_loader.py` (shared YAML/JSON loader with
+  no-dependency YAML subset fallback)
+- `dev/scripts/checks/check_compat_matrix.py`,
+  `dev/scripts/checks/compat_matrix_smoke.py`,
+  `dev/scripts/checks/naming_consistency_core.py` (matrix/naming guards now use
+  shared loader)
+- `dev/scripts/devctl/tests/test_check_compat_matrix.py`,
+  `dev/scripts/devctl/tests/test_compat_matrix_smoke.py`,
+  `dev/scripts/devctl/tests/test_check_naming_consistency.py`
+  (tests now force no-`PyYAML` path coverage)
+- `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md` (maintainer docs synced with the fallback
+  contract)
+
+Inference: Tooling-control and release guard scripts no longer depend on
+ambient Python package state for matrix parsing correctness.
+
+### Recent Governance Update (2026-03-06, Pre-Release Audit Authority Consolidation)
+
+Fact: The pre-release audit lane now keeps findings and execution sequencing in
+one canonical active-plan document.
+
+Evidence:
+
+- `dev/active/pre_release_architecture_audit.md`
+  (added Phase 16 kickoff checklist and an explicit execution quality contract
+  covering simple comments, concise docstrings, and readability-first naming)
+- `dev/active/MASTER_PLAN.md`
+  (status + references updated to point to the single canonical pre-release
+  audit plan)
+- `dev/active/INDEX.md`
+  (registry now routes pre-release audit work through one spec document)
+
+Inference: This removes ambiguity between planning and findings updates so
+implementation starts from one checklist while still preserving full audit
+traceability.
+
+### Recent Governance Update (2026-03-06, Docs IA Audit Intake + Active Directory Hygiene Scope)
+
+Fact: A new Round 4 documentation information-architecture audit intake is now
+captured under the active pre-release architecture audit plan, with explicit
+scope for `dev/guides/` consolidation, `dev/active/` intent-boundary cleanup,
+and path-migration compatibility gating before any file moves.
+
+Evidence:
+
+- `dev/active/pre_release_architecture_audit.md`
+  (added Round 4 findings, target layout, compatibility map, and Phase 15
+  execution checklist for docs IA reorganization)
+- `dev/active/MASTER_PLAN.md`
+  (`MP-347` progress notes now explicitly track the Round 4 docs IA intake and
+  pending migration implementation)
+- `dev/scripts/devctl/commands/docs_check_constants.py`,
+  `dev/scripts/devctl/commands/docs_check_policy.py`,
+  `dev/scripts/devctl/commands/check_router_constants.py`,
+  `.github/workflows/tooling_control_plane.yml`
+  (identified as primary path-coupled migration surfaces in the compatibility
+  map)
+
+Inference: This converts documentation cleanup from ad-hoc directory reshuffling
+into a policy-scoped execution lane with defined blast-radius controls.
+
+### Recent Governance Update (2026-03-06, Docs-Check Path Policy SSOT Consolidation)
+
+Fact: docs-check path-policy constants now use one canonical owner module.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/docs_check_policy.py`
+  (retains canonical docs-check path/policy constants and helper logic)
+- `dev/scripts/devctl/commands/docs_check_constants.py`
+  (converted to compatibility re-export surface instead of duplicate constant
+  definitions)
+- `dev/scripts/devctl/tests/test_docs_check_constants.py`
+  (adds regression coverage proving compatibility exports share policy-module
+  objects/functions)
+- `dev/active/pre_release_architecture_audit.md`
+  (Phase 15 checklist + progress log updated to capture closure of this slice)
+
+Inference: Future docs-path migrations now require a single constant update
+path, reducing drift risk across docs-check gate surfaces.
+
+### Recent Governance Update (2026-03-06, Developer Index Authority Consolidation)
+
+Fact: developer-index ownership is now explicit: `dev/README.md` is canonical,
+and `DEV_INDEX.md` is a bridge page only.
+
+Evidence:
+
+- `dev/README.md`
+  (adds explicit canonical-index contract at the top of the page)
+- `DEV_INDEX.md`
+  (trimmed to a compact bridge surface that points to `dev/README.md` and
+  active-plan entrypoints)
+- `dev/active/pre_release_architecture_audit.md`
+  (Phase 15 checklist/progress updated for duplicate-index drift closure)
+
+Inference: path migrations can now target one canonical index, reducing
+double-maintenance risk and doc drift during Round 4 reorganization.
+
+### Recent Governance Update (2026-03-06, Maintainer Guide Path Migration)
+
+Fact: durable maintainer guides now live under `dev/guides/` with temporary
+bridge files retained at legacy `dev/*.md` paths for one migration cycle.
+
+Evidence:
+
+- `dev/guides/ARCHITECTURE.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/guides/MCP_DEVCTL_ALIGNMENT.md`
+- `dev/guides/README.md`
+- `dev/ARCHITECTURE.md`, `dev/DEVELOPMENT.md`,
+  `dev/DEVCTL_AUTOGUIDE.md`, `dev/MCP_DEVCTL_ALIGNMENT.md`
+  (bridge wrappers to canonical `dev/guides/*` paths)
+- `dev/scripts/devctl/commands/docs_check_policy.py`,
+  `dev/scripts/devctl/commands/check_router_constants.py`,
+  `.github/workflows/tooling_control_plane.yml`
+  (updated coupling-policy/workflow path filters for guide-path migration)
+
+Inference: canonical ownership for maintainer guides is now explicit and the
+migration is guarded by updated policy/workflow surfaces while legacy links
+remain stable during transition.
 
 ### Recent Governance Update (2026-03-05, Rust Guardrail Expansion + Clippy High-Signal Baseline)
 

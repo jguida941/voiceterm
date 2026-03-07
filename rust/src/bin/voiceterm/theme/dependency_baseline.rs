@@ -30,18 +30,18 @@ pub(crate) struct DependencyPin {
 /// Core framework dependency pins for the current release.
 pub(crate) const RATATUI_PIN: DependencyPin = DependencyPin {
     name: "ratatui",
-    pinned_version: "0.26",
-    min_compatible: "0.26.0",
-    max_compatible: "0.27.0",
+    pinned_version: "0.30",
+    min_compatible: "0.30.0",
+    max_compatible: "0.31.0",
     no_default_features: true,
     features: &["crossterm"],
 };
 
 pub(crate) const CROSSTERM_PIN: DependencyPin = DependencyPin {
     name: "crossterm",
-    pinned_version: "0.27",
-    min_compatible: "0.27.0",
-    max_compatible: "0.28.0",
+    pinned_version: "0.29",
+    min_compatible: "0.29.0",
+    max_compatible: "0.30.0",
     no_default_features: false,
     features: &[],
 };
@@ -135,56 +135,59 @@ pub(crate) const COMPATIBILITY_MATRIX: &[CompatibilityEntry] = &[
         version_range: ">=0.4,<0.7",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "0.4.x series targets ratatui 0.26; 0.7+ requires ratatui >=0.28",
+        notes: "0.4.x series previously targeted ratatui 0.26; re-validate against 0.30 baseline",
     },
     CompatibilityEntry {
         crate_name: "tui-tree-widget",
         version_range: ">=0.19,<0.22",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "0.19-0.21 series targets ratatui 0.26",
+        notes:
+            "0.19-0.21 series previously targeted ratatui 0.26; re-validate against 0.30 baseline",
     },
     CompatibilityEntry {
         crate_name: "throbber-widgets-tui",
         version_range: ">=0.6,<0.8",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "0.6-0.7 series compatible with ratatui 0.26",
+        notes:
+            "0.6-0.7 series previously validated on ratatui 0.26; re-validate against 0.30 baseline",
     },
     CompatibilityEntry {
         crate_name: "tui-popup",
         version_range: ">=0.3,<0.5",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "tui-widgets family; 0.3-0.4 targets ratatui 0.26",
+        notes: "tui-widgets family; 0.3-0.4 previously targeted ratatui 0.26; re-validate for 0.30",
     },
     CompatibilityEntry {
         crate_name: "tui-scrollview",
         version_range: ">=0.3,<0.5",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "tui-widgets family; 0.3-0.4 targets ratatui 0.26",
+        notes: "tui-widgets family; 0.3-0.4 previously targeted ratatui 0.26; re-validate for 0.30",
     },
     CompatibilityEntry {
         crate_name: "tui-big-text",
         version_range: ">=0.4,<0.6",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "tui-widgets family; 0.4-0.5 targets ratatui 0.26",
+        notes: "tui-widgets family; 0.4-0.5 previously targeted ratatui 0.26; re-validate for 0.30",
     },
     CompatibilityEntry {
         crate_name: "tui-prompts",
         version_range: ">=0.3,<0.5",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "tui-widgets family; 0.3-0.4 targets ratatui 0.26",
+        notes: "tui-widgets family; 0.3-0.4 previously targeted ratatui 0.26; re-validate for 0.30",
     },
     CompatibilityEntry {
         crate_name: "ratatui-image",
         version_range: ">=1.0,<2.0",
         ratatui_compat: CompatibilityStatus::ConditionallyCompatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "requires feature-gated image protocol; verify ratatui 0.26 compat per release",
+        notes:
+            "requires feature-gated image protocol; verify ratatui 0.30 compatibility per release",
     },
     CompatibilityEntry {
         crate_name: "tuirealm",
@@ -219,9 +222,9 @@ pub(crate) struct UpgradeStep {
 pub(crate) const STAGED_UPGRADE_PLAN: &[UpgradeStep] = &[
     UpgradeStep {
         crate_name: "crossterm",
-        target_version: "0.28",
+        target_version: "0.30",
         prerequisites: &[
-            "audit crossterm 0.28 changelog for breaking input/event changes",
+            "audit crossterm 0.30 changelog for breaking input/event changes",
             "verify keyboard enhancement flag compatibility",
             "verify synchronized update compatibility",
         ],
@@ -233,10 +236,10 @@ pub(crate) const STAGED_UPGRADE_PLAN: &[UpgradeStep] = &[
     },
     UpgradeStep {
         crate_name: "ratatui",
-        target_version: "0.27",
+        target_version: "0.31",
         prerequisites: &[
-            "crossterm upgrade to 0.28 must land first",
-            "audit ratatui 0.27 changelog for widget API changes",
+            "crossterm upgrade to 0.30 must land first",
+            "audit ratatui 0.31 changelog for widget API changes",
             "verify symbol family backward compatibility",
             "update capability_matrix.rs snapshot",
         ],
@@ -300,16 +303,16 @@ mod tests {
 
     #[test]
     fn ratatui_pin_matches_cargo_toml_version() {
-        // The Cargo.toml pins ratatui = "0.26".
-        assert!(validate_pin_against_cargo(&RATATUI_PIN, "0.26"));
-        assert!(!validate_pin_against_cargo(&RATATUI_PIN, "0.27"));
+        // The Cargo.toml pins ratatui = "0.30".
+        assert!(validate_pin_against_cargo(&RATATUI_PIN, "0.30"));
+        assert!(!validate_pin_against_cargo(&RATATUI_PIN, "0.31"));
     }
 
     #[test]
     fn crossterm_pin_matches_cargo_toml_version() {
-        // The Cargo.toml pins crossterm = "0.27".
-        assert!(validate_pin_against_cargo(&CROSSTERM_PIN, "0.27"));
-        assert!(!validate_pin_against_cargo(&CROSSTERM_PIN, "0.28"));
+        // The Cargo.toml pins crossterm = "0.29".
+        assert!(validate_pin_against_cargo(&CROSSTERM_PIN, "0.29"));
+        assert!(!validate_pin_against_cargo(&CROSSTERM_PIN, "0.30"));
     }
 
     #[test]

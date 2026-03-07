@@ -130,7 +130,9 @@ def _scan_subroot(
     if not subroot_path.exists():
         return summary
     if not subroot_path.is_dir():
-        summary["warnings"].append(f"Managed reports path is not a directory: {subroot_path}")
+        summary["warnings"].append(
+            f"Managed reports path is not a directory: {subroot_path}"
+        )
         return summary
 
     entries: list[dict] = []
@@ -177,7 +179,9 @@ def _scan_subroot(
             "relative_path": str(relative_repo),
             "subroot": str(subroot),
             "age_days": round(item["age_days"], 2),
-            "modified_at": datetime.fromtimestamp(item["mtime"], tz=timezone.utc).isoformat(),
+            "modified_at": datetime.fromtimestamp(
+                item["mtime"], tz=timezone.utc
+            ).isoformat(),
             "size_bytes": size_bytes,
             "size_human": format_bytes(size_bytes),
         }
@@ -211,7 +215,9 @@ def build_reports_cleanup_plan(
         errors.append(resolve_error)
 
     report = {
-        "reports_root": str(reports_root) if reports_root is not None else str(reports_root_arg),
+        "reports_root": (
+            str(reports_root) if reports_root is not None else str(reports_root_arg)
+        ),
         "reports_root_exists": bool(reports_root and reports_root.exists()),
         "max_age_days": int(max_age_days),
         "keep_recent": int(keep_recent),

@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from ..common import find_latest_outcomes_file, run_cmd
-from ..config import REPO_ROOT, DEFAULT_MUTATION_THRESHOLD
+from ..config import DEFAULT_MUTATION_THRESHOLD, REPO_ROOT
 from ..script_catalog import check_script_cmd
 
 
@@ -43,7 +43,9 @@ def run(args) -> int:
     if outcomes_path is None:
         print("No mutation outcomes.json found under rust/mutants.out")
         return 2
-    threshold = args.threshold if args.threshold is not None else DEFAULT_MUTATION_THRESHOLD
+    threshold = (
+        args.threshold if args.threshold is not None else DEFAULT_MUTATION_THRESHOLD
+    )
     cmd = build_mutation_score_cmd(
         outcomes_path,
         threshold,
@@ -51,5 +53,7 @@ def run(args) -> int:
         args.warn_age_hours,
         False,
     )
-    result = run_cmd("mutation-score", cmd, cwd=REPO_ROOT, env=None, dry_run=args.dry_run)
+    result = run_cmd(
+        "mutation-score", cmd, cwd=REPO_ROOT, env=None, dry_run=args.dry_run
+    )
     return 0 if result["returncode"] == 0 else result["returncode"]

@@ -21,9 +21,7 @@ def to_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def to_optional_float(
-    value: Any, default: float | None = None
-) -> float | None:
+def to_optional_float(value: Any, default: float | None = None) -> float | None:
     """Convert optional value to float with a nullable fallback."""
     if value is None:
         return default

@@ -20,29 +20,32 @@ same execution path with minimal ambiguity.
 | What active docs exist and what role does each play? | `dev/active/INDEX.md` |
 | Where is active-doc execution authority vs reference-only scope defined? | `dev/active/INDEX.md` (`Role`, `Execution authority`, `When agents read`) |
 | Where is consolidated Theme Studio + overlay visual planning context? | `dev/active/theme_upgrade.md` |
-| Where is long-range phase-2 research context? | `dev/active/phase2.md` |
+| Where is long-range phase-2 research context? | `dev/deferred/phase2.md` (bridge at `dev/active/phase2.md`) |
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the Rust workspace path/layout migration execution plan? | `dev/active/rust_workspace_layout_migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
 | Where is the IDE/provider adapter modularization execution plan? | `dev/active/ide_provider_modularization.md` |
+| Where is the pre-release architecture/tooling cleanup execution plan? | `dev/active/pre_release_architecture_audit.md` |
+| Where is the consolidated full-surface audit evidence used by that plan? | `dev/active/audit.md` (reference-only) |
+| Where is the raw multi-agent audit merge transcript for that evidence set? | `dev/active/move.md` (reference-only supporting evidence) |
 | Where are federated internal repo links/import rules (`code-link-ide`, `ci-cd-hub`)? | `dev/integrations/EXTERNAL_REPOS.md` |
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
 | Where are audit metrics definitions (AI vs script share, automation coverage, charts)? | `dev/audits/METRICS_SCHEMA.md` |
 | How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
-| Where is the devctl automation playbook? | `dev/DEVCTL_AUTOGUIDE.md` |
-| Where is MCP-to-devctl architecture alignment and extension policy? | `dev/MCP_DEVCTL_ALIGNMENT.md` |
+| Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
+| Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
 | Where is the remediation scaffold template used by guard-driven Rust audits? | `dev/config/templates/rust_audit_findings_template.md` |
 | What user behavior is current? | `guides/USAGE.md`, `guides/CLI_FLAGS.md` |
 | What flags are actually supported? | `rust/src/bin/voiceterm/config/cli.rs`, `rust/src/config/mod.rs` |
-| How do we build/test/release? | `dev/DEVELOPMENT.md`, `dev/scripts/README.md` |
-| Where is the developer lifecycle quick guide? | `dev/DEVELOPMENT.md` (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) |
-| Where are clean-code and Rust-reference rules defined? | `AGENTS.md` (`Engineering quality contract`), `dev/DEVELOPMENT.md` (`Engineering quality review protocol`) |
+| How do we build/test/release? | `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md` |
+| Where is the developer lifecycle quick guide? | `dev/guides/DEVELOPMENT.md` (`End-to-end lifecycle flow`, `What checks protect us`, `When to push where`) |
+| Where are clean-code and Rust-reference rules defined? | `AGENTS.md` (`Engineering quality contract`), `dev/guides/DEVELOPMENT.md` (`Engineering quality review protocol`) |
 | What process is mandatory? | `AGENTS.md` |
-| What architecture/lifecycle is current? | `dev/ARCHITECTURE.md` |
+| What architecture/lifecycle is current? | `dev/guides/ARCHITECTURE.md` |
 | Where are CI lane implementations and release publishers? | `.github/workflows/` |
 | Where is the plain-language workflow guide? | `.github/workflows/README.md` |
 | Where is process history tracked? | `dev/history/ENGINEERING_EVOLUTION.md` |
@@ -88,7 +91,7 @@ Run this sequence for every task. Do not skip steps.
 9. Update docs/screenshots/ADRs required by governance.
 10. Self-review security, memory, errors, concurrency, performance, and style.
 11. Push through branch policy and run post-push audit (`bundle.post-push`).
-12. Capture handoff summary using `dev/DEVELOPMENT.md` template.
+12. Capture handoff summary using `dev/guides/DEVELOPMENT.md` template.
 
 ## Execution-plan traceability (required)
 
@@ -126,7 +129,7 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
-   (`AGENTS.md`, `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md` as needed).
+   (`AGENTS.md`, `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md` as needed).
 5. Baseline full-surface audit execution starts from
    `dev/audits/2026-02-24-autonomy-baseline-audit.md` and should be copied
    forward for each new audit cycle.
@@ -169,6 +172,9 @@ When a bundle command fails mid-run:
    the active plan's progress log before continuing.
 5. **Never use `--no-verify`, `set +e`, or manual workarounds** to bypass a
    failing gate without an explicit waiver recorded in the checkpoint log.
+6. **After any direct/raw `cargo test` or manual test-binary run**, execute:
+   `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+   and confirm the `process-sweep-pre/process-sweep-post` steps report no orphaned/stale VoiceTerm test processes.
 
 ## Engineering quality contract (required)
 
@@ -277,7 +283,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 - `rust/src/bin/voiceterm/event_state.rs`
 - `rust/src/bin/voiceterm/status_line/`
 - `rust/src/bin/voiceterm/hud/`
-- `dev/ARCHITECTURE.md`
+- `dev/guides/ARCHITECTURE.md`
 - `guides/USAGE.md`
 - `guides/CLI_FLAGS.md`
 
@@ -299,8 +305,8 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 - `AGENTS.md`
 - `dev/active/INDEX.md`
 - `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
-- `dev/DEVELOPMENT.md`
-- `dev/MCP_DEVCTL_ALIGNMENT.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/MCP_DEVCTL_ALIGNMENT.md`
 - `dev/scripts/README.md`
 - `dev/history/ENGINEERING_EVOLUTION.md`
 - `.github/workflows/`
@@ -476,6 +482,7 @@ find . -maxdepth 1 -type f -name '--*'
 - Overlay/input/status/HUD changes:
   - `python3 dev/scripts/devctl.py check --profile ci`
   - `cd rust && cargo test --bin voiceterm`
+  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
 - Performance/latency-sensitive changes:
   - `python3 dev/scripts/devctl.py check --profile prepush`
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
@@ -486,15 +493,18 @@ find . -maxdepth 1 -type f -name '--*'
   - `python3 dev/scripts/devctl.py check --profile release`
 - Threading/lifecycle/memory changes:
   - `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
+  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
 - Unsafe/FFI lifecycle changes:
   - Update `dev/security/unsafe_governance.md`
   - `cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture`
   - `cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture`
   - `cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture`
+  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
 - Parser/ANSI boundary hardening changes:
   - `cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture`
   - `cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture`
   - `cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture`
+  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
 - Mutation-hardening work:
   - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72`
   - optional: `python3 dev/scripts/devctl.py mutants --module overlay`
@@ -539,6 +549,24 @@ Use this exact sequence:
    gh run list --workflow release_preflight.yml --limit 1
    # gh run watch <run-id>
    ```
+
+   - `release_preflight.yml` must provide `GH_TOKEN` to steps that invoke
+     `gh` inside `devctl check --profile release`; workflow uses
+     `${{ github.token }}` for this wiring.
+   - `release_preflight.yml` job must grant `security-events: write` so the
+     zizmor SARIF upload step can publish scan results without permission
+     failures.
+   - `release_preflight.yml` uses `online-audits: false` for zizmor so
+     cross-repo compare API restrictions do not hard-fail preflight in CI.
+   - `release_preflight.yml` release security step must use
+     `--python-scope changed` with the same resolved `--since-ref/--head-ref`
+     range as AI-guard checks; do not run full-repo Python format/import scans
+     in this lane.
+   - `release_preflight.yml` release security step should not hard-block on
+     repository-wide open CodeQL backlog (`--with-codeql-alerts`); keep CodeQL
+     alert enforcement in dedicated security lanes and triage workflows.
+   - In `release_preflight.yml`, `cargo deny` remains the blocking security
+     gate; `devctl security` report output is retained as advisory evidence.
 
 6. Run release tagging and notes:
 
@@ -658,7 +686,7 @@ schedule / workflow_dispatch
 | GitHub release publication / native binaries | `publish_release_binaries.yml` |
 | Release source provenance attestation | `release_attestation.yml` |
 | Any non-success CI workflow run in watched lanes | `failure_triage.yml` (workflow-run triage bundle + artifact upload for high-signal failures in watched lanes; trusted same-repo events only, branch allowlist defaults to `develop,master` and can be overridden with repo variable `FAILURE_TRIAGE_BRANCHES`) |
-| Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
+| Tooling/process/docs governance surfaces (`dev/scripts/**`, `scripts/macro-packs/**`, `.github/workflows/**`, `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `Makefile`) | `tooling_control_plane.yml` |
 | Mutation-hardening work | `mutation-testing.yml` (scheduled; threshold is advisory/report-only across branches) plus local mutation-score evidence |
 
 Runner-label note:
@@ -681,8 +709,8 @@ Always evaluate:
 - `guides/CLI_FLAGS.md`
 - `guides/INSTALL.md`
 - `guides/TROUBLESHOOTING.md`
-- `dev/ARCHITECTURE.md`
-- `dev/DEVELOPMENT.md`
+- `dev/guides/ARCHITECTURE.md`
+- `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `.github/workflows/README.md`
 - `dev/audits/README.md`
@@ -747,6 +775,10 @@ Core commands:
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
 - `check-router` (path-aware lane selector that maps changed files to `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`, reports required risk add-ons, and can execute the routed command set with `--execute`)
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
+  - Matrix checks now include a minimal no-dependency YAML fallback parser so
+    tooling lanes remain deterministic when `PyYAML` is unavailable.
+  - Malformed inline collection scalars in fallback mode now fail closed (no
+    silent coercion), preserving guard reliability.
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
@@ -785,7 +817,7 @@ Core commands:
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
 - `reports-cleanup` (retention-based cleanup for stale run artifacts under managed `dev/reports/**` roots with protected-path exclusions, dry-run preview, and explicit confirmation/`--yes` delete flow)
 - `audit-scaffold`
-  - Builds/updates `dev/active/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
+  - Builds/updates `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
   - Run manually when you want a fresh findings file or a commit-range scoped view.
 - `list`
@@ -1036,7 +1068,7 @@ Before calling implementation done, review for:
 
 ## Handoff paper trail protocol
 
-For substantive sessions, use `dev/DEVELOPMENT.md` -> `Handoff paper trail template`.
+For substantive sessions, use `dev/guides/DEVELOPMENT.md` -> `Handoff paper trail template`.
 Include:
 
 - exact commands run

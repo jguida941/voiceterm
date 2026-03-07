@@ -119,7 +119,9 @@ def maybe_emit_ai_guard_scaffold(
         return already_emitted, None
 
     failed_guard_steps = [
-        result["name"] for result in failed_results if result["name"] in AI_GUARD_STEP_NAMES
+        result["name"]
+        for result in failed_results
+        if result["name"] in AI_GUARD_STEP_NAMES
     ]
     if not failed_guard_steps:
         return already_emitted, None

@@ -67,9 +67,13 @@ def _update_changelog_heading(text: str, version: str, release_date: str) -> str
         return text
 
     replacement = f"## [Unreleased]\n\n## [{version}] - {release_date}"
-    updated, count = re.subn(r"^## \[Unreleased\]\s*$", replacement, text, count=1, flags=re.MULTILINE)
+    updated, count = re.subn(
+        r"^## \[Unreleased\]\s*$", replacement, text, count=1, flags=re.MULTILINE
+    )
     if count != 1:
-        raise RuntimeError("failed to update dev/CHANGELOG.md (missing ## [Unreleased] heading)")
+        raise RuntimeError(
+            "failed to update dev/CHANGELOG.md (missing ## [Unreleased] heading)"
+        )
     return updated
 
 

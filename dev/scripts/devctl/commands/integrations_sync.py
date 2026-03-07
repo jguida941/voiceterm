@@ -29,7 +29,11 @@ def _run_git_capture(args: list[str], *, cwd: Path = REPO_ROOT) -> tuple[int, st
         )
     except OSError as exc:
         return 127, "", str(exc)
-    return completed.returncode, (completed.stdout or "").strip(), (completed.stderr or "").strip()
+    return (
+        completed.returncode,
+        (completed.stdout or "").strip(),
+        (completed.stderr or "").strip(),
+    )
 
 
 def _append_audit_log(path: Path, payload: dict[str, Any]) -> None:
@@ -138,7 +142,9 @@ def _render_md(report: dict[str, Any]) -> str:
     lines.append(f"- mode: {report['mode']}")
     lines.append(f"- remote_update: {report['remote_update']}")
     lines.append(f"- dry_run: {report['dry_run']}")
-    lines.append(f"- selected_sources: {', '.join(report['selected_sources']) or 'none'}")
+    lines.append(
+        f"- selected_sources: {', '.join(report['selected_sources']) or 'none'}"
+    )
     lines.append(f"- audit_log: `{report['audit_log']}`")
     lines.append(f"- errors: {len(report['errors'])}")
     lines.append("")
@@ -216,9 +222,7 @@ def run(args) -> int:
             continue
         row = _source_status(name, cfg, policy_audit_log=audit_log_path)
         if row.get("errors"):
-            errors.extend(
-                [f"{name}: {message}" for message in row.get("errors", [])]
-            )
+            errors.extend([f"{name}: {message}" for message in row.get("errors", [])])
         sources.append(row)
 
     report = {
@@ -249,7 +253,9 @@ def run(args) -> int:
         },
     )
 
-    output = json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
+    output = (
+        json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
+    )
     write_output(output, args.output)
     if args.pipe_command:
         pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)

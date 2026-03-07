@@ -35,7 +35,10 @@ def run_json_policy_gate(script_path: Path, gate_label: str) -> dict:
     output = completed.stdout.strip()
     if not output:
         detail = completed.stderr.strip() or f"exit code {completed.returncode}"
-        return {"ok": False, "error": f"{gate_label} produced no JSON output ({detail})."}
+        return {
+            "ok": False,
+            "error": f"{gate_label} produced no JSON output ({detail}).",
+        }
 
     try:
         report = json.loads(output)

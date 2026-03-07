@@ -81,7 +81,9 @@ class IntegrationsSyncCommandTests(unittest.TestCase):
             "submodule_status": " abc123 integrations/code-link-ide",
             "errors": [],
         }
-        with patch("dev.scripts.devctl.commands.integrations_sync.run_cmd") as run_cmd_mock:
+        with patch(
+            "dev.scripts.devctl.commands.integrations_sync.run_cmd"
+        ) as run_cmd_mock:
             rc = integrations_sync.run(make_args(status_only=True))
         self.assertEqual(rc, 0)
         run_cmd_mock.assert_not_called()
@@ -113,7 +115,9 @@ class IntegrationsSyncCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
-        self.assertTrue(any("Unknown integration source" in err for err in payload["errors"]))
+        self.assertTrue(
+            any("Unknown integration source" in err for err in payload["errors"])
+        )
 
 
 if __name__ == "__main__":

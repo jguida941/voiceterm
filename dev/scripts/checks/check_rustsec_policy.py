@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 SEVERITY_SCORES = {
     "critical": 9.0,
     "high": 7.0,
@@ -25,7 +24,9 @@ def parse_args() -> argparse.Namespace:
             "Fails on high/critical advisories and configured warning kinds."
         )
     )
-    parser.add_argument("--input", required=True, help="Path to cargo-audit JSON output")
+    parser.add_argument(
+        "--input", required=True, help="Path to cargo-audit JSON output"
+    )
     parser.add_argument(
         "--min-cvss",
         type=float,
@@ -156,7 +157,9 @@ def main() -> int:
     warnings = payload.get("warnings", [])
 
     if not isinstance(vuln_list, list):
-        raise SystemExit("cargo-audit JSON did not contain a vulnerabilities.list array")
+        raise SystemExit(
+            "cargo-audit JSON did not contain a vulnerabilities.list array"
+        )
     warning_items: list[object] = []
     if isinstance(warnings, list):
         warning_items = warnings
@@ -165,7 +168,9 @@ def main() -> int:
             if isinstance(value, list):
                 warning_items.extend(value)
     else:
-        raise SystemExit("cargo-audit JSON did not contain a supported warnings structure")
+        raise SystemExit(
+            "cargo-audit JSON did not contain a supported warnings structure"
+        )
 
     high_hits: list[str] = []
     warning_hits: list[str] = []

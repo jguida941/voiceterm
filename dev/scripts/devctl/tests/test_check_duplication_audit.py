@@ -5,15 +5,14 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
-from contextlib import redirect_stdout
-from pathlib import Path
 import sys
 import tempfile
+from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_duplication_audit.py"
 
@@ -22,7 +21,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("check_duplication_audit_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_duplication_audit_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_duplication_audit.py")
     module = importlib.util.module_from_spec(spec)
@@ -47,7 +48,9 @@ class CheckDuplicationAuditTests(TestCase):
 
     def _run(self, *argv: str) -> tuple[int, dict]:
         out = io.StringIO()
-        with patch.object(sys, "argv", ["check_duplication_audit.py", "--format", "json", *argv]):
+        with patch.object(
+            sys, "argv", ["check_duplication_audit.py", "--format", "json", *argv]
+        ):
             with redirect_stdout(out):
                 exit_code = self.script.main()
         return exit_code, json.loads(out.getvalue())
@@ -77,7 +80,12 @@ class CheckDuplicationAuditTests(TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertFalse(report["ok"])
-        self.assertTrue(any("duplication percent exceeds threshold" in err for err in report["errors"]))
+        self.assertTrue(
+            any(
+                "duplication percent exceeds threshold" in err
+                for err in report["errors"]
+            )
+        )
 
     def test_fresh_report_passes(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
@@ -126,7 +134,9 @@ class CheckDuplicationAuditTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(report["status"], "error")
         self.assertFalse(report["blocked_by_tooling"])
-        self.assertTrue(any("jscpd binary not found" in err for err in report["errors"]))
+        self.assertTrue(
+            any("jscpd binary not found" in err for err in report["errors"])
+        )
         self.assertTrue(any("--allow-missing-tool" in err for err in report["errors"]))
         self.assertEqual(report["jscpd_status"], "missing_tool")
 
@@ -160,7 +170,9 @@ class CheckDuplicationAuditTests(TestCase):
         self.assertEqual(report["status"], "ok_with_warnings")
         self.assertFalse(report["blocked_by_tooling"])
         self.assertEqual(report["errors"], [])
-        self.assertTrue(any("jscpd binary not found" in warning for warning in report["warnings"]))
+        self.assertTrue(
+            any("jscpd binary not found" in warning for warning in report["warnings"])
+        )
         self.assertEqual(report["jscpd_status"], "missing_tool")
 
     def test_allow_missing_tool_does_not_hide_missing_report_failure(self) -> None:
@@ -192,7 +204,9 @@ class CheckDuplicationAuditTests(TestCase):
         self.assertEqual(report["status"], "blocked_by_tooling")
         self.assertTrue(report["blocked_by_tooling"])
         self.assertTrue(any("missing report file" in err for err in report["errors"]))
-        self.assertTrue(any("jscpd binary not found" in warning for warning in report["warnings"]))
+        self.assertTrue(
+            any("jscpd binary not found" in warning for warning in report["warnings"])
+        )
         self.assertEqual(report["jscpd_status"], "missing_tool")
 
     def test_run_python_fallback_generates_report_when_jscpd_missing(self) -> None:
@@ -277,7 +291,12 @@ class CheckDuplicationAuditTests(TestCase):
         self.assertEqual(report["status"], "duplication_threshold_exceeded")
         self.assertFalse(report["blocked_by_tooling"])
         self.assertEqual(report["jscpd_status"], "python_fallback")
-        self.assertTrue(any("duplication percent exceeds threshold" in err for err in report["errors"]))
+        self.assertTrue(
+            any(
+                "duplication percent exceeds threshold" in err
+                for err in report["errors"]
+            )
+        )
 
 
 if __name__ == "__main__":

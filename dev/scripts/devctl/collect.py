@@ -35,7 +35,7 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
             )
         else:
             status_raw = subprocess.check_output(
-                ["git", "status", "--porcelain"],
+                ["git", "status", "--porcelain", "--untracked-files=all"],
                 cwd=REPO_ROOT,
                 text=True,
             )
@@ -108,7 +108,10 @@ def collect_ci_runs(limit: int) -> Dict:
             return result
         except subprocess.CalledProcessError as exc:
             last_error = exc
-            if fields == CI_RUN_FIELDS_EXTENDED and _should_retry_ci_runs_with_fallback(exc):
+            if (
+                fields == CI_RUN_FIELDS_EXTENDED
+                and _should_retry_ci_runs_with_fallback(exc)
+            ):
                 continue
             return {"error": _format_collect_ci_error(exc)}
         except Exception as exc:
@@ -172,7 +175,9 @@ def collect_mutation_summary() -> Dict:
         payload = output.strip()
         if not payload:
             result = dict(unavailable_result)
-            result["warning"] = "mutation outcomes are unavailable (empty results payload)"
+            result["warning"] = (
+                "mutation outcomes are unavailable (empty results payload)"
+            )
             return result
         if payload.lower().startswith("no results found under"):
             result = dict(unavailable_result)
@@ -196,7 +201,9 @@ def collect_mutation_summary() -> Dict:
         return {"error": f"mutants summary failed: {exc}"}
 
 
-def collect_dev_log_summary(dev_root: str | None = None, session_limit: int = 5) -> Dict[str, Any]:
+def collect_dev_log_summary(
+    dev_root: str | None = None, session_limit: int = 5
+) -> Dict[str, Any]:
     """Return aggregate summary for guarded Dev Mode JSONL sessions."""
     root = _resolve_dev_root(dev_root)
     sessions_dir = root / "sessions"
@@ -280,7 +287,9 @@ def collect_dev_log_summary(dev_root: str | None = None, session_limit: int = 5)
                         session_latency_sum += latency
                         latency_sum += latency
 
-                    timestamp = _coerce_nonnegative_int_or_none(event.get("timestamp_unix_ms"))
+                    timestamp = _coerce_nonnegative_int_or_none(
+                        event.get("timestamp_unix_ms")
+                    )
                     if timestamp is not None and (
                         summary["latest_event_unix_ms"] is None
                         or timestamp > summary["latest_event_unix_ms"]

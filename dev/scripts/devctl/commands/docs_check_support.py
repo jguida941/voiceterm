@@ -14,6 +14,7 @@ from .docs_check_policy import (
     EVOLUTION_DOC,
     MARKDOWN_METADATA_HEADER_SCRIPT_REL,
     MULTI_AGENT_SYNC_SCRIPT_REL,
+    TOOLING_REQUIRED_DOC_ALIASES,
     TOOLING_REQUIRED_DOCS,
     USER_DOCS,
     WORKFLOW_SHELL_HYGIENE_SCRIPT_REL,
@@ -29,6 +30,7 @@ __all__ = [
     "EVOLUTION_DOC",
     "MARKDOWN_METADATA_HEADER_SCRIPT_REL",
     "MULTI_AGENT_SYNC_SCRIPT_REL",
+    "TOOLING_REQUIRED_DOC_ALIASES",
     "TOOLING_REQUIRED_DOCS",
     "USER_DOCS",
     "WORKFLOW_SHELL_HYGIENE_SCRIPT_REL",
@@ -39,4 +41,3 @@ __all__ = [
     "requires_evolution_update",
     "scan_deprecated_references",
 ]
-

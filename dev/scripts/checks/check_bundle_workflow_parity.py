@@ -48,7 +48,10 @@ def _get_registered_bundle_commands(bundle_name: str) -> tuple[list[str], str | 
     try:
         commands = get_bundle_commands(bundle_name)
     except KeyError:
-        return [], f"bundle `{bundle_name}` is not registered in {BUNDLE_AUTHORITY_PATH}"
+        return (
+            [],
+            f"bundle `{bundle_name}` is not registered in {BUNDLE_AUTHORITY_PATH}",
+        )
 
     normalized: list[str] = []
     for command in commands:
@@ -84,10 +87,7 @@ def _dedent_yaml_block(lines: list[str]) -> str:
             min_indent = indent
     if min_indent is None:
         return ""
-    dedented_lines = [
-        line[min_indent:] if line.strip() else ""
-        for line in lines
-    ]
+    dedented_lines = [line[min_indent:] if line.strip() else "" for line in lines]
     return "\n".join(dedented_lines)
 
 

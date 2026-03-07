@@ -48,7 +48,9 @@ def resolve_repo(raw: str | None) -> str:
     return str(os.getenv("GITHUB_REPOSITORY", "")).strip()
 
 
-def list_runs(repo: str, workflow: str, branch: str, limit: int) -> tuple[list[dict], str | None]:
+def list_runs(
+    repo: str, workflow: str, branch: str, limit: int
+) -> tuple[list[dict], str | None]:
     payload, error = gh_json(
         repo,
         [
@@ -71,7 +73,9 @@ def list_runs(repo: str, workflow: str, branch: str, limit: int) -> tuple[list[d
     return [row for row in payload if isinstance(row, dict)], None
 
 
-def latest_run(repo: str, workflow: str, branch: str, limit: int) -> tuple[dict | None, str | None]:
+def latest_run(
+    repo: str, workflow: str, branch: str, limit: int
+) -> tuple[dict | None, str | None]:
     runs, error = list_runs(repo, workflow, branch, limit)
     if error:
         return None, error
@@ -118,7 +122,10 @@ def wait_for_latest_completed(
         if str(run.get("status") or "").lower() == "completed":
             return run, None
         time.sleep(poll_seconds)
-    return None, f"timeout waiting for completed run ({last_error or 'no completed run yet'})"
+    return (
+        None,
+        f"timeout waiting for completed run ({last_error or 'no completed run yet'})",
+    )
 
 
 def wait_for_run_completed_by_id(
@@ -139,7 +146,10 @@ def wait_for_run_completed_by_id(
         if str(run.get("status") or "").lower() == "completed":
             return run, None
         time.sleep(poll_seconds)
-    return None, f"timeout waiting for source run {run_id} to complete ({last_error or 'still running'})"
+    return (
+        None,
+        f"timeout waiting for source run {run_id} to complete ({last_error or 'still running'})",
+    )
 
 
 def wait_for_new_completed_run(
@@ -166,7 +176,10 @@ def wait_for_new_completed_run(
         if sha and sha != previous_sha and status == "completed":
             return run, None
         time.sleep(poll_seconds)
-    return None, f"timeout waiting for new completed run (last_seen_sha={last_seen or previous_sha})"
+    return (
+        None,
+        f"timeout waiting for new completed run (last_seen_sha={last_seen or previous_sha})",
+    )
 
 
 def download_run_artifacts(repo: str, run_id: int, out_dir: Path) -> str | None:

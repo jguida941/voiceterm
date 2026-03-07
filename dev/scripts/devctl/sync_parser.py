@@ -7,8 +7,12 @@ import argparse
 
 def add_sync_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register sync parser and arguments."""
-    sync_cmd = subparsers.add_parser("sync", help="Sync develop/master/current branches with guardrails")
-    sync_cmd.add_argument("--remote", default="origin", help="Remote to sync against (default: origin)")
+    sync_cmd = subparsers.add_parser(
+        "sync", help="Sync develop/master/current branches with guardrails"
+    )
+    sync_cmd.add_argument(
+        "--remote", default="origin", help="Remote to sync against (default: origin)"
+    )
     sync_cmd.add_argument(
         "--branches",
         nargs="+",

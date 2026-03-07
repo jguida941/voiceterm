@@ -82,9 +82,15 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- packet_root: {report.get('packet_root')}")
     lines.append(f"- queue_root: {report.get('queue_root')}")
     lines.append(f"- latest_packet: {report.get('latest_packet') or 'n/a'}")
-    lines.append(f"- phone_status_latest_json: {report.get('phone_status_latest_json') or 'n/a'}")
-    lines.append(f"- phone_status_latest_md: {report.get('phone_status_latest_md') or 'n/a'}")
-    lines.append(f"- latest_working_branch: {report.get('latest_working_branch') or 'n/a'}")
+    lines.append(
+        f"- phone_status_latest_json: {report.get('phone_status_latest_json') or 'n/a'}"
+    )
+    lines.append(
+        f"- phone_status_latest_md: {report.get('phone_status_latest_md') or 'n/a'}"
+    )
+    lines.append(
+        f"- latest_working_branch: {report.get('latest_working_branch') or 'n/a'}"
+    )
     warnings = report.get("warnings", [])
     if isinstance(warnings, list) and warnings:
         lines.append("- warnings: " + " | ".join(str(row) for row in warnings))
@@ -153,7 +159,9 @@ def terminal_trace(triage_report: dict[str, Any], max_lines: int) -> list[str]:
     return lines[:max_lines]
 
 
-def packet_risk(loop_packet_report: dict[str, Any], triage_report: dict[str, Any]) -> str:
+def packet_risk(
+    loop_packet_report: dict[str, Any], triage_report: dict[str, Any]
+) -> str:
     risk = str(loop_packet_report.get("risk") or "").strip().lower()
     if risk in {"low", "medium", "high"}:
         return risk

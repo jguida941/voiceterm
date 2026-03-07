@@ -26,7 +26,9 @@ FINGERPRINT_FIELDS = (
 
 
 def _utc_timestamp() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    )
 
 
 def append_metric(source: str, record: Any) -> None:

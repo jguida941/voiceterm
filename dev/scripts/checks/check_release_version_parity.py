@@ -112,12 +112,20 @@ def _render_md(report: dict) -> str:
     expected_version = report.get("expected_version")
     if expected_version:
         lines.append(f"- expected_version: {expected_version}")
-        lines.append(f"- expected_version_match: {report.get('expected_version_match')}")
+        lines.append(
+            f"- expected_version_match: {report.get('expected_version_match')}"
+        )
     lines.append(
         "- versions_present: "
-        + (", ".join(report["versions_present"]) if report["versions_present"] else "none")
+        + (
+            ", ".join(report["versions_present"])
+            if report["versions_present"]
+            else "none"
+        )
     )
-    lines.append(f"- missing: {', '.join(report['missing']) if report['missing'] else 'none'}")
+    lines.append(
+        f"- missing: {', '.join(report['missing']) if report['missing'] else 'none'}"
+    )
     for name, value in report["values"].items():
         lines.append(f"- {name}: {value if value else 'missing'}")
     return "\n".join(lines)
@@ -148,7 +156,10 @@ def main() -> int:
         if report.get("ok") and len(versions) == 1:
             print(str(versions[0]))
             return 0
-        print("Unable to resolve canonical release version from parity metadata.", file=sys.stderr)
+        print(
+            "Unable to resolve canonical release version from parity metadata.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.format == "json":

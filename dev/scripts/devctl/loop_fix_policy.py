@@ -106,7 +106,9 @@ def evaluate_fix_policy(
     loop_cfg = policy.get(policy_key, {})
     configured_prefixes: list[list[str]] = []
     if isinstance(loop_cfg, dict):
-        configured_prefixes = _coerce_prefixes(loop_cfg.get("allowed_fix_command_prefixes"))
+        configured_prefixes = _coerce_prefixes(
+            loop_cfg.get("allowed_fix_command_prefixes")
+        )
     env_prefixes = _parse_prefix_env(os.getenv(env_prefixes_key))
     allowed_prefixes = env_prefixes or configured_prefixes
     if not allowed_prefixes:

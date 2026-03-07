@@ -143,8 +143,10 @@ def _extract_record_fields(record: dict, source: str, owner_map: dict) -> dict |
         or record.get("level")
         or record.get("rank")
     )
-    owner = str(record.get("owner") or "").strip() or owner_map.get(category) or owner_map.get(
-        "general", "maintainers"
+    owner = (
+        str(record.get("owner") or "").strip()
+        or owner_map.get(category)
+        or owner_map.get("general", "maintainers")
     )
     return {
         "category": category,
@@ -203,11 +205,15 @@ def extract_cihub_issues(cihub_payload: dict, owner_map: dict) -> List[dict]:
         ("cihub.priority_json", artifacts.get("priority_json")),
     ]
     for source, payload in sources:
-        issues.extend(extract_issues_from_payload(payload, source=source, owner_map=owner_map))
+        issues.extend(
+            extract_issues_from_payload(payload, source=source, owner_map=owner_map)
+        )
     return _dedupe_issues(issues)
 
 
-def extract_issues_from_payload(payload: Any, source: str, owner_map: dict) -> List[dict]:
+def extract_issues_from_payload(
+    payload: Any, source: str, owner_map: dict
+) -> List[dict]:
     """Extract normalized issues from any issue-like JSON payload."""
     issues: List[dict] = []
     for record in _iter_issue_like_records(payload):
@@ -219,7 +225,9 @@ def extract_issues_from_payload(payload: Any, source: str, owner_map: dict) -> L
     return _dedupe_issues(issues)
 
 
-def extract_issues_from_file(path: str, source: str, owner_map: dict) -> Tuple[List[dict], str | None]:
+def extract_issues_from_file(
+    path: str, source: str, owner_map: dict
+) -> Tuple[List[dict], str | None]:
     """Load a JSON file and return normalized issues + optional error string."""
     payload_path = Path(path).expanduser()
     try:
@@ -228,7 +236,10 @@ def extract_issues_from_file(path: str, source: str, owner_map: dict) -> Tuple[L
         return [], str(exc)
     except json.JSONDecodeError as exc:
         return [], f"invalid JSON ({exc})"
-    return extract_issues_from_payload(payload, source=source, owner_map=owner_map), None
+    return (
+        extract_issues_from_payload(payload, source=source, owner_map=owner_map),
+        None,
+    )
 
 
 def _dedupe_issues(issues: List[dict]) -> List[dict]:
@@ -260,8 +271,10 @@ def apply_defaults_to_issues(issues: List[dict], owner_map: dict) -> List[dict]:
         summary = normalize_summary(issue.get("summary"))
         if not summary:
             continue
-        owner = str(issue.get("owner") or "").strip() or owner_map.get(category) or owner_map.get(
-            "general", "maintainers"
+        owner = (
+            str(issue.get("owner") or "").strip()
+            or owner_map.get(category)
+            or owner_map.get("general", "maintainers")
         )
         normalized.append(
             {

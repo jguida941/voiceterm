@@ -15,6 +15,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - guarded fallback for minimal envs
     yaml = None
 
+try:
+    from .yaml_json_loader import load_yaml_or_json
+except ImportError:  # pragma: no cover
+    from yaml_json_loader import load_yaml_or_json
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MATRIX_PATH = REPO_ROOT / "dev/config/compat/ide_provider_matrix.yaml"
 RUNTIME_COMPAT_PATH = REPO_ROOT / "rust/src/bin/voiceterm/runtime_compat.rs"
@@ -96,10 +101,7 @@ def _load_matrix(path: Path) -> tuple[dict | None, str | None]:
     except OSError as exc:
         return None, f"failed to parse matrix file: {exc}"
     try:
-        if yaml is not None:
-            payload = yaml.safe_load(raw)
-        else:
-            payload = json.loads(raw)
+        payload = load_yaml_or_json(raw, yaml_module=yaml)
     except Exception as exc:
         return None, f"failed to parse matrix file: {exc}"
     if not isinstance(payload, dict):
@@ -112,12 +114,14 @@ def _render_md(report: dict) -> str:
     lines.append(f"- ok: {report.get('ok')}")
     lines.append(f"- matrix_path: {report.get('matrix_path')}")
     lines.append(f"- runtime_hosts: {', '.join(report.get('runtime_hosts', []))}")
-    lines.append(f"- runtime_providers: {', '.join(report.get('runtime_providers', []))}")
     lines.append(
-        "- runtime_backends: " + ", ".join(report.get("runtime_backends", []))
+        f"- runtime_providers: {', '.join(report.get('runtime_providers', []))}"
     )
+    lines.append("- runtime_backends: " + ", ".join(report.get("runtime_backends", [])))
     lines.append(f"- ipc_providers: {', '.join(report.get('ipc_providers', []))}")
-    lines.append(f"- missing_runtime_cells: {len(report.get('missing_runtime_cells', []))}")
+    lines.append(
+        f"- missing_runtime_cells: {len(report.get('missing_runtime_cells', []))}"
+    )
     lines.append(
         f"- missing_runtime_backends: {len(report.get('missing_runtime_backends', []))}"
     )
@@ -185,12 +189,16 @@ def _collect_runtime_state() -> tuple[list[str], list[str], list[str], list[str]
         }
     )
     runtime_provider_variants = {
-        value.lower() for value in _parse_enum_variants(RUNTIME_COMPAT_PATH, "BackendFamily")
+        value.lower()
+        for value in _parse_enum_variants(RUNTIME_COMPAT_PATH, "BackendFamily")
     }
     # `BackendFamily::Other` is a fallback sentinel, not a matrix provider id.
     runtime_providers = sorted(runtime_provider_variants.difference({"other"}))
     runtime_backends = sorted(
-        {value.lower() for value in _parse_backend_registry_names(BACKEND_REGISTRY_PATH)}
+        {
+            value.lower()
+            for value in _parse_backend_registry_names(BACKEND_REGISTRY_PATH)
+        }
     )
     ipc_providers = sorted(
         {value.lower() for value in _parse_enum_variants(IPC_PROTOCOL_PATH, "Provider")}
@@ -234,7 +242,9 @@ def _validate_runtime_discovery_contract(
             "runtime host discovery missing required ids: " + ", ".join(missing_hosts)
         )
 
-    missing_providers = sorted(EXPECTED_RUNTIME_PROVIDER_IDS.difference(runtime_providers))
+    missing_providers = sorted(
+        EXPECTED_RUNTIME_PROVIDER_IDS.difference(runtime_providers)
+    )
     if missing_providers:
         errors.append(
             "runtime provider discovery missing required ids: "
@@ -268,7 +278,9 @@ def _validate_non_ipc_mode_policy(
     errors: list[str],
     warnings: list[str],
 ) -> list[str]:
-    runtime_non_ipc_provider_labels = sorted(set(runtime_backends).difference(ipc_providers))
+    runtime_non_ipc_provider_labels = sorted(
+        set(runtime_backends).difference(ipc_providers)
+    )
     ipc_provider_set = set(ipc_providers)
     for provider in runtime_non_ipc_provider_labels:
         mode = provider_modes.get(provider)
@@ -346,7 +358,8 @@ def main() -> int:
     missing_runtime_providers = sorted(set(runtime_providers).difference(provider_ids))
     if missing_runtime_providers:
         errors.append(
-            "matrix missing runtime provider ids: " + ", ".join(missing_runtime_providers)
+            "matrix missing runtime provider ids: "
+            + ", ".join(missing_runtime_providers)
         )
 
     missing_runtime_backends = sorted(set(runtime_backends).difference(provider_ids))

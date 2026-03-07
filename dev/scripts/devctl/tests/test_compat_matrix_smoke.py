@@ -5,15 +5,14 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
-from contextlib import redirect_stdout
-from pathlib import Path
 import sys
 import tempfile
+from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/compat_matrix_smoke.py"
 
@@ -22,7 +21,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("compat_matrix_smoke_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "compat_matrix_smoke_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load compat_matrix_smoke.py")
     module = importlib.util.module_from_spec(spec)
@@ -61,7 +62,8 @@ class CompatMatrixSmokeTests(TestCase):
                     "matrix: []",
                 ],
             )
-            payload, error = self.script._load_matrix(matrix_path)
+            with patch.object(self.script, "yaml", None):
+                payload, error = self.script._load_matrix(matrix_path)
         self.assertIsNone(error)
         self.assertIsInstance(payload, dict)
         assert payload is not None
@@ -93,7 +95,9 @@ class CompatMatrixSmokeTests(TestCase):
             names = self.script._parse_backend_registry_names(registry_path)
         self.assertEqual(names, ["claude", "codex", "opencode"])
 
-    def test_parse_backend_registry_names_handles_non_vector_constructor_layout(self) -> None:
+    def test_parse_backend_registry_names_handles_non_vector_constructor_layout(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             registry_path = Path(temp_dir) / "backend_mod.rs"
             _write_lines(
@@ -167,8 +171,12 @@ class CompatMatrixSmokeTests(TestCase):
                 return []
 
             with patch.object(
-                self.script, "_parse_enum_variants", side_effect=fake_parse_enum_variants
-            ), patch.object(self.script, "_parse_backend_registry_names", return_value=["codex"]):
+                self.script,
+                "_parse_enum_variants",
+                side_effect=fake_parse_enum_variants,
+            ), patch.object(
+                self.script, "_parse_backend_registry_names", return_value=["codex"]
+            ):
                 exit_code, report = self._run_main_json(matrix_path, "--format", "json")
 
         self.assertEqual(exit_code, 1)
@@ -202,7 +210,9 @@ class CompatMatrixSmokeTests(TestCase):
                 ],
             )
 
-            with patch.object(self.script, "_parse_enum_variants", return_value=[]), patch.object(
+            with patch.object(
+                self.script, "_parse_enum_variants", return_value=[]
+            ), patch.object(
                 self.script, "_parse_backend_registry_names", return_value=[]
             ):
                 exit_code, report = self._run_main_json(matrix_path, "--format", "json")
@@ -210,8 +220,14 @@ class CompatMatrixSmokeTests(TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(report["ok"])
         self.assertTrue(
-            any("failed to discover runtime host variants" in msg for msg in report["errors"])
+            any(
+                "failed to discover runtime host variants" in msg
+                for msg in report["errors"]
+            )
         )
         self.assertTrue(
-            any("failed to discover backend registry entries" in msg for msg in report["errors"])
+            any(
+                "failed to discover backend registry entries" in msg
+                for msg in report["errors"]
+            )
         )

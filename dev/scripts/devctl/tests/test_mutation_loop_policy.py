@@ -14,7 +14,9 @@ def _policy() -> dict:
         "autonomy_mode_default": "read-only",
         "mutation_loop": {
             "allowed_branches": ["develop"],
-            "allowed_fix_command_prefixes": [["python3", "dev/scripts/devctl.py", "mutants"]],
+            "allowed_fix_command_prefixes": [
+                ["python3", "dev/scripts/devctl.py", "mutants"]
+            ],
         },
     }
 

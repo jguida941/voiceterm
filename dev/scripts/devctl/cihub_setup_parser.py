@@ -33,7 +33,9 @@ def add_cihub_setup_parser(sub) -> None:
         action="store_true",
         help="Fail when requested setup steps are unsupported by the local CIHub binary",
     )
-    cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompt when --apply")
+    cmd.add_argument(
+        "--yes", action="store_true", help="Skip confirmation prompt when --apply"
+    )
     cmd.add_argument("--dry-run", action="store_true")
     cmd.add_argument("--format", choices=["text", "json", "md"], default="md")
     cmd.add_argument("--output")

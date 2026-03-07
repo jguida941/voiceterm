@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from datetime import date
 from pathlib import Path
-import sys
 from unittest import TestCase
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_code_shape.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("check_code_shape_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_code_shape_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_code_shape.py")
     module = importlib.util.module_from_spec(spec)
@@ -61,7 +62,9 @@ class CheckCodeShapeGuidanceTests(TestCase):
             current_lines=910,
         )
         self.assertIn("https://doc.rust-lang.org/book/", violation["guidance"])
-        self.assertIn("https://rust-lang.github.io/api-guidelines/", violation["guidance"])
+        self.assertIn(
+            "https://rust-lang.github.io/api-guidelines/", violation["guidance"]
+        )
 
     def test_missing_file_guidance_skips_audit_directive(self) -> None:
         violation = self.script._violation(
@@ -179,9 +182,13 @@ class CheckCodeShapeGuidanceTests(TestCase):
             review_window_line_counts=[555, 560, 575],
         )
         self.assertIsNotNone(violation)
-        self.assertEqual(violation["reason"], "stale_path_override_below_default_soft_limit")
+        self.assertEqual(
+            violation["reason"], "stale_path_override_below_default_soft_limit"
+        )
 
-    def test_evaluate_stale_path_override_skips_when_recent_history_exceeds_default(self) -> None:
+    def test_evaluate_stale_path_override_skips_when_recent_history_exceeds_default(
+        self,
+    ) -> None:
         override = self.script.ShapePolicy(
             soft_limit=1200,
             hard_limit=1500,
@@ -205,7 +212,9 @@ class CheckCodeShapeGuidanceTests(TestCase):
         )
         self.assertIsNone(violation)
 
-    def test_evaluate_stale_path_override_skips_when_override_is_not_looser(self) -> None:
+    def test_evaluate_stale_path_override_skips_when_override_is_not_looser(
+        self,
+    ) -> None:
         override = self.script.ShapePolicy(
             soft_limit=750,
             hard_limit=950,
@@ -261,12 +270,10 @@ class CheckCodeShapeGuidanceTests(TestCase):
         )
         self.assertFalse(should_skip)
 
-    def test_evaluate_function_shape_flags_oversized_function_without_exception(self) -> None:
-        source = "\n".join(
-            ["fn oversized() {"]
-            + ["    let _value = 1;"] * 8
-            + ["}"]
-        )
+    def test_evaluate_function_shape_flags_oversized_function_without_exception(
+        self,
+    ) -> None:
+        source = "\n".join(["fn oversized() {"] + ["    let _value = 1;"] * 8 + ["}"])
         policy = self.script.FunctionShapePolicy(max_lines=5)
         violations, exceptions_used = self.script._evaluate_function_shape(
             path=Path("rust/src/bin/voiceterm/example.rs"),

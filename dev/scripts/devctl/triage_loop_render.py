@@ -120,6 +120,10 @@ def build_master_plan_proposal(report: dict) -> str:
     lines.append("")
     lines.append("## Guardrails")
     lines.append("")
-    lines.append("- Proposal only: this artifact does not edit `dev/active/MASTER_PLAN.md`.")
-    lines.append("- A reviewer/automation stage should validate check bundles before applying changes.")
+    lines.append(
+        "- Proposal only: this artifact does not edit `dev/active/MASTER_PLAN.md`."
+    )
+    lines.append(
+        "- A reviewer/automation stage should validate check bundles before applying changes."
+    )
     return "\n".join(lines)

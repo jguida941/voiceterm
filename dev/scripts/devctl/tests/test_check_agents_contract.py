@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
 
-
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_agents_contract.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("check_agents_contract_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_agents_contract_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_agents_contract.py")
     module = importlib.util.module_from_spec(spec)
@@ -64,12 +65,16 @@ class CheckAgentsContractTests(TestCase):
         self.assertEqual(report["missing_router_rows"], [])
 
     def test_build_report_flags_missing_router_row(self) -> None:
-        text = _valid_agents_text(self.script).replace(self.script.REQUIRED_ROUTER_SNIPPETS[0], "")
+        text = _valid_agents_text(self.script).replace(
+            self.script.REQUIRED_ROUTER_SNIPPETS[0], ""
+        )
         agents_path = self._with_temp_agents(text)
         with patch.object(self.script, "AGENTS_PATH", agents_path):
             report = self.script._build_report()
         self.assertFalse(report["ok"])
-        self.assertEqual(report["missing_router_rows"], [self.script.REQUIRED_ROUTER_SNIPPETS[0]])
+        self.assertEqual(
+            report["missing_router_rows"], [self.script.REQUIRED_ROUTER_SNIPPETS[0]]
+        )
 
     def test_build_report_missing_file_returns_error(self) -> None:
         missing_path = REPO_ROOT / "tmp-check-agents-contract-missing.md"
@@ -79,4 +84,3 @@ class CheckAgentsContractTests(TestCase):
             report = self.script._build_report()
         self.assertFalse(report["ok"])
         self.assertIn("Missing file", report["error"])
-

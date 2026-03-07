@@ -248,7 +248,9 @@ def execute_loop(
             backlog_items = backlog_payload.get("items", [])
             if not isinstance(backlog_items, list):
                 attempt_row["status"] = "failed"
-                attempt_row["message"] = "backlog parse failed: backlog items is not a list"
+                attempt_row["message"] = (
+                    "backlog parse failed: backlog items is not a list"
+                )
                 report["attempts"].append(attempt_row)
                 report["reason"] = "backlog parse failed"
                 break
@@ -289,7 +291,9 @@ def execute_loop(
 
             if not fix_command:
                 attempt_row["status"] = "blocked"
-                attempt_row["message"] = "medium+ backlog remains but no --fix-command configured"
+                attempt_row["message"] = (
+                    "medium+ backlog remains but no --fix-command configured"
+                )
                 report["attempts"].append(attempt_row)
                 report["completed_attempts"] = attempt
                 report["reason"] = "no fix command configured"

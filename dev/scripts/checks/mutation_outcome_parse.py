@@ -132,7 +132,9 @@ def aggregate_outcomes(root: Path) -> tuple[dict[str, Any], str | None]:
     score = 1.0 if denom == 0 else totals["caught"] / denom
     hotspot_rows = [
         {"path": path, "survivors": count}
-        for path, count in sorted(hotspots.items(), key=lambda item: (-item[1], item[0]))
+        for path, count in sorted(
+            hotspots.items(), key=lambda item: (-item[1], item[0])
+        )
     ]
     return {
         "files": [str(path) for path in files],

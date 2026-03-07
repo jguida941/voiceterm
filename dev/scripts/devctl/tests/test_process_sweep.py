@@ -11,15 +11,20 @@ from dev.scripts.devctl import process_sweep
 
 class ProcessSweepTests(TestCase):
     @patch("dev.scripts.devctl.process_sweep.subprocess.run")
-    def test_scan_voiceterm_test_binaries_matches_path_and_basename(self, run_mock) -> None:
+    def test_scan_voiceterm_test_binaries_matches_path_and_basename(
+        self, run_mock
+    ) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             process_sweep.PROCESS_SWEEP_CMD,
             0,
             stdout=(
                 "123 1 05:00 /tmp/project/target/debug/deps/voiceterm-deadbeef --test-threads=4\n"
                 "124 1 04:00 voiceterm-feedface --nocapture\n"
-                "125 1 03:00 /usr/bin/python3 some_script.py\n"
-                "126 1 02:00 /tmp/project/target/debug/deps/voiceterm-nothex --nocapture\n"
+                "125 1 03:30 cargo test --bin voiceterm\n"
+                "126 1 03:00 /bin/zsh -c cd /repo/rust && cargo test --bin voiceterm 2>&1 | tail -5\n"
+                "127 1 03:00 /usr/bin/python3 some_script.py\n"
+                "128 1 02:00 /tmp/project/target/debug/deps/voiceterm-nothex --nocapture\n"
+                "129 1 01:00 cargo test --bin not-voiceterm\n"
             ),
             stderr="",
         )
@@ -27,8 +32,10 @@ class ProcessSweepTests(TestCase):
         rows, warnings = process_sweep.scan_voiceterm_test_binaries(skip_pid=9999)
 
         self.assertEqual(warnings, [])
-        self.assertEqual([row["pid"] for row in rows], [123, 124])
-        self.assertTrue(all("voiceterm-" in row["command"] for row in rows))
+        self.assertEqual([row["pid"] for row in rows], [123, 124, 125, 126])
+        self.assertTrue(
+            any("cargo test --bin voiceterm" in row["command"] for row in rows)
+        )
 
     @patch("dev.scripts.devctl.process_sweep.subprocess.run")
     def test_scan_voiceterm_test_binaries_respects_skip_pid(self, run_mock) -> None:

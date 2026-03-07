@@ -226,9 +226,7 @@ def collect_report(args) -> tuple[dict[str, Any], Path, Path]:
             status_summary.get("errors_count"), default=0
         )
         + to_int(watch_summary.get("errors_count"), default=0),
-        "stale_agent_count": to_int(
-            watch_summary.get("stale_agent_count"), default=0
-        ),
+        "stale_agent_count": to_int(watch_summary.get("stale_agent_count"), default=0),
         "overdue_instruction_ack_count": to_int(
             watch_summary.get("overdue_instruction_ack_count"), default=0
         ),

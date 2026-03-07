@@ -5,6 +5,7 @@ Why this exists:
 - sometimes `cargo test` appears to "hang" and people force-stop it, which has
   the same orphan-process risk as a normal interrupt
 - interrupted runs can leave detached `voiceterm-*` test binaries alive
+- interrupted runs can also leave detached `cargo test --bin voiceterm` runners alive
 - interrupted stress harness runs can leave detached `screen` sessions alive
 - both orphaned and stale long-running test processes can keep using CPU/memory
   and make later runs flaky
@@ -29,13 +30,19 @@ DEFAULT_STALE_MIN_AGE_SECONDS = 600
 # - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
 # - voiceterm-deadbeef --nocapture
 VOICETERM_TEST_BINARY_RE = re.compile(r"(?:^|/|\s)voiceterm-[0-9a-f]{8,}(?:\s|$)")
+# Match raw and wrapped cargo test runners:
+# - cargo test --bin voiceterm
+# - /bin/zsh -c "... cargo test --bin voiceterm 2>&1 | tail -5"
+VOICETERM_CARGO_TEST_RE = re.compile(
+    r"\bcargo\s+test\b[^\n]*(?:^|\s)--bin\s+voiceterm(?:\s|$)"
+)
 # Match leaked detached stress sessions:
 # - SCREEN -dmS vt_hud_stress_12345 bash -lc ...
 VOICETERM_STRESS_SCREEN_RE = re.compile(
     r"(?:^|/|\s)(?:SCREEN|screen)\s+-dmS\s+vt_hud_stress_[0-9]+(?:\s|$)"
 )
 VOICETERM_SWEEP_TARGET_RE = re.compile(
-    rf"(?:{VOICETERM_TEST_BINARY_RE.pattern})|(?:{VOICETERM_STRESS_SCREEN_RE.pattern})"
+    rf"(?:{VOICETERM_TEST_BINARY_RE.pattern})|(?:{VOICETERM_CARGO_TEST_RE.pattern})|(?:{VOICETERM_STRESS_SCREEN_RE.pattern})"
 )
 
 
@@ -70,7 +77,9 @@ def parse_etime_seconds(raw: str) -> int | None:
     return days * 86400 + seconds
 
 
-def scan_matching_processes(command_regex: Pattern[str], *, skip_pid: int | None = None) -> tuple[list[dict], list[str]]:
+def scan_matching_processes(
+    command_regex: Pattern[str], *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
     """Read `ps` output and return rows whose command matches `command_regex`."""
     warnings: list[str] = []
     try:
@@ -86,7 +95,9 @@ def scan_matching_processes(command_regex: Pattern[str], *, skip_pid: int | None
 
     if result.returncode != 0:
         stderr = result.stderr.strip() if result.stderr else "unknown ps error"
-        warnings.append(f"Process sweep skipped: ps returned {result.returncode} ({stderr})")
+        warnings.append(
+            f"Process sweep skipped: ps returned {result.returncode} ({stderr})"
+        )
         return [], warnings
 
     this_pid = os.getpid() if skip_pid is None else skip_pid
@@ -125,8 +136,10 @@ def scan_matching_processes(command_regex: Pattern[str], *, skip_pid: int | None
     return rows, warnings
 
 
-def scan_voiceterm_test_binaries(*, skip_pid: int | None = None) -> tuple[list[dict], list[str]]:
-    """Return process rows for VoiceTerm test binaries and stress sessions."""
+def scan_voiceterm_test_binaries(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    """Return process rows for VoiceTerm test processes and stress sessions."""
     return scan_matching_processes(VOICETERM_SWEEP_TARGET_RE, skip_pid=skip_pid)
 
 
@@ -156,7 +169,9 @@ def split_stale_processes(
     return stale, recent
 
 
-def kill_processes(rows: list[dict], *, kill_signal: int = signal.SIGKILL) -> tuple[list[int], list[str]]:
+def kill_processes(
+    rows: list[dict], *, kill_signal: int = signal.SIGKILL
+) -> tuple[list[int], list[str]]:
     """Best-effort kill for rows we already decided are safe to stop."""
     killed_pids: list[int] = []
     warnings: list[str] = []
@@ -174,7 +189,9 @@ def kill_processes(rows: list[dict], *, kill_signal: int = signal.SIGKILL) -> tu
     return killed_pids, warnings
 
 
-def format_process_rows(rows: list[dict], *, line_max_len: int = 180, row_limit: int = 8) -> str:
+def format_process_rows(
+    rows: list[dict], *, line_max_len: int = 180, row_limit: int = 8
+) -> str:
     """Render short process summaries for human-readable warnings/errors."""
 
     def truncate(command: str) -> str:

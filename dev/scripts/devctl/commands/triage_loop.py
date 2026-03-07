@@ -12,14 +12,18 @@ from ..config import REPO_ROOT
 from ..triage_loop_escalation import (
     publish_review_escalation_comment as _publish_review_escalation_comment_support,
 )
-from ..triage_loop_render import build_master_plan_proposal, render_markdown
 from ..triage_loop_policy import evaluate_fix_policy, load_policy
+from ..triage_loop_render import build_master_plan_proposal, render_markdown
 from ..triage_loop_support import (
     build_dry_run_report,
     default_mp_proposal_path,
     mode_fix_command,
     non_blocking_connectivity_report,
+)
+from ..triage_loop_support import (
     publish_notification_comment as _publish_notification_comment_support,
+)
+from ..triage_loop_support import (
     resolve_path,
     write_report_bundle,
 )
@@ -27,11 +31,13 @@ from ..triage_loop_support import (
 try:
     from dev.scripts.checks.coderabbit_gate_support import (
         is_ci_environment as _is_ci_environment,
+    )
+    from dev.scripts.checks.coderabbit_gate_support import (
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 except ModuleNotFoundError:
+    from checks.coderabbit_gate_support import is_ci_environment as _is_ci_environment
     from checks.coderabbit_gate_support import (
-        is_ci_environment as _is_ci_environment,
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 
@@ -54,11 +60,17 @@ except ModuleNotFoundError:
 
 
 def _is_non_blocking_local_connectivity_error(message: str) -> bool:
-    return bool(message) and _looks_like_connectivity_error(message) and not _is_ci_environment()
+    return (
+        bool(message)
+        and _looks_like_connectivity_error(message)
+        and not _is_ci_environment()
+    )
 
 
 def _preflight_github_connectivity() -> str | None:
-    rc, stdout, stderr = run_capture(["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"])
+    rc, stdout, stderr = run_capture(
+        ["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"]
+    )
     if rc == 0:
         return None
     message = (stderr or stdout or "gh api rate_limit failed").strip()
@@ -249,7 +261,11 @@ def run(args) -> int:
             "mp_proposal": str(proposal_path),
         }
 
-    output = json.dumps(report, indent=2) if args.format == "json" else render_markdown(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else render_markdown(report)
+    )
 
     write_output(output, args.output)
     if args.json_output:

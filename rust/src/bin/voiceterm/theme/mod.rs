@@ -74,7 +74,7 @@ pub(crate) use style_pack::clear_runtime_color_override;
 pub(crate) use style_pack::set_runtime_color_override;
 pub(crate) use style_pack::{
     resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
-    set_runtime_style_pack_overrides,
+    set_runtime_style_pack_overrides, set_runtime_theme_file_override,
 };
 #[cfg(test)]
 pub(crate) use style_schema::StylePackFieldId;
@@ -680,6 +680,7 @@ mod tests {
             "src/bin/voiceterm/theme/color_value.rs",
             "src/bin/voiceterm/theme/theme_file.rs",
             "src/bin/voiceterm/theme/style_pack.rs",
+            "src/bin/voiceterm/theme/style_pack/apply.rs",
             "src/bin/voiceterm/theme/style_pack/tests.rs",
             "src/bin/voiceterm/status_line/format.rs",
             "src/bin/voiceterm/theme_studio/borders_page.rs",

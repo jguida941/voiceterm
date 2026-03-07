@@ -74,7 +74,9 @@ class ReportsCleanupCommandTests(TestCase):
             os.utime(fresh_dir, (fresh_ts, fresh_ts))
 
             args = self._args(dry_run=True, keep_recent=1, max_age_days=30)
-            with patch("dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root
+            ):
                 code = reports_cleanup.run(args)
 
             self.assertEqual(code, 0)
@@ -107,7 +109,9 @@ class ReportsCleanupCommandTests(TestCase):
             os.utime(fresh, (fresh_ts, fresh_ts))
 
             args = self._args(dry_run=False, keep_recent=1, max_age_days=30, yes=True)
-            with patch("dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root
+            ):
                 code = reports_cleanup.run(args)
 
             self.assertEqual(code, 0)
@@ -127,7 +131,9 @@ class ReportsCleanupCommandTests(TestCase):
             repo_root = Path(temp_root)
             args = self._args(reports_root="/tmp", dry_run=True)
 
-            with patch("dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.reports_cleanup.REPO_ROOT", repo_root
+            ):
                 code = reports_cleanup.run(args)
 
         self.assertEqual(code, 1)

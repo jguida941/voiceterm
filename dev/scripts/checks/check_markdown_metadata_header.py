@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PATHS = (".",)
 DEFAULT_EXCLUDES = (
@@ -121,7 +120,9 @@ def _metadata_line(status: str, last_updated: str, owner: str) -> str:
     )
 
 
-def _normalize_file(path: Path, max_scan_lines: int, apply_fix: bool) -> tuple[bool, bool]:
+def _normalize_file(
+    path: Path, max_scan_lines: int, apply_fix: bool
+) -> tuple[bool, bool]:
     original_lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     if not original_lines:
         return False, False

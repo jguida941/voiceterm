@@ -162,7 +162,7 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
             Constraint::Length(3),
             Constraint::Length(2),
         ])
-        .split(frame.size());
+        .split(frame.area());
 
     let output_text = if app.output_lines().is_empty() {
         Text::from("No Codex output yet. Press Ctrl+R to capture voice or type and press Enter.")
@@ -183,10 +183,8 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
     let input_text_color = Color::Rgb(255, 220, 100); // Warm yellow for input
     let status_text_color = Color::Rgb(160, 150, 150); // Dimmer for status
 
-    // CRITICAL: Disable text wrapping entirely to avoid ratatui's underflow bug
-    // The bug in tui/src/wrapping.rs:21 causes integer underflow when calculating
-    // slice positions, leading to "byte index 18446... out of bounds" panics.
-    // Until ratatui fixes this, we must avoid text wrapping completely.
+    // Text wrapping is disabled to avoid integer underflow in ratatui's
+    // wrapping logic, which can panic with out-of-bounds byte indices.
     let output_block = Paragraph::new(output_text)
         .block(
             Block::default()
@@ -204,8 +202,8 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
         .scroll((app.get_scroll_offset(), 0));
     frame.render_widget(output_block, chunks[0]);
 
-    // CRITICAL FIX: Sanitize the input text before rendering to prevent crashes
-    // from terminal control sequences like "0;0;0u" that can appear in the input buffer
+    // Sanitize input text before rendering — terminal control sequences in the
+    // input buffer can cause rendering panics.
     let sanitized_input = app.sanitized_input_text();
     let input_block = Paragraph::new(sanitized_input.as_str())
         .block(
@@ -259,7 +257,7 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
     let cursor_offset = input_width.min(inner_width);
     let cursor_x = chunks[1].x.saturating_add(1).saturating_add(cursor_offset);
     let cursor_y = chunks[1].y + 1;
-    frame.set_cursor(cursor_x, cursor_y);
+    frame.set_cursor_position((cursor_x, cursor_y));
 }
 
 fn sanitize_output_line(s: &str) -> String {

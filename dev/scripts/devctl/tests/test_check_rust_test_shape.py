@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest import TestCase
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_rust_test_shape.py"
 
@@ -17,7 +16,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("check_rust_test_shape_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_rust_test_shape_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_rust_test_shape.py")
     module = importlib.util.module_from_spec(spec)

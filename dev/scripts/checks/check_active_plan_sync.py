@@ -25,34 +25,76 @@ INDEX_PATH = ACTIVE_DIR / "INDEX.md"
 MASTER_PLAN_PATH = ACTIVE_DIR / "MASTER_PLAN.md"
 
 ALLOWED_ROLES = {"tracker", "spec", "runbook", "reference"}
-ALLOWED_AUTHORITIES = {"canonical", "mirrored in MASTER_PLAN", "supporting", "reference-only"}
+ALLOWED_AUTHORITIES = {
+    "canonical",
+    "mirrored in MASTER_PLAN",
+    "supporting",
+    "reference-only",
+}
 
 REQUIRED_REGISTRY_ROWS = {
     "dev/active/MASTER_PLAN.md": {"role": "tracker", "authority": "canonical"},
-    "dev/active/theme_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
-    "dev/active/memory_studio.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
-    "dev/active/devctl_reporting_upgrade.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
-    "dev/active/autonomous_control_plane.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/theme_upgrade.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/memory_studio.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/devctl_reporting_upgrade.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/autonomous_control_plane.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
     "dev/active/loop_chat_bridge.md": {"role": "runbook", "authority": "supporting"},
-    "dev/active/rust_workspace_layout_migration.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
-    "dev/active/naming_api_cohesion.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
-    "dev/active/ide_provider_modularization.md": {"role": "spec", "authority": "mirrored in MASTER_PLAN"},
+    "dev/active/rust_workspace_layout_migration.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/naming_api_cohesion.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/ide_provider_modularization.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
     "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
     "dev/active/phase2.md": {"role": "reference", "authority": "reference-only"},
 }
 
 REQUIRED_DISCOVERY_REFERENCES = [
-    {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]}, {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
+    {"path": "AGENTS.md", "tokens": ["dev/active/INDEX.md"]},
+    {"path": "DEV_INDEX.md", "tokens": ["dev/active/INDEX.md"]},
     {"path": "dev/README.md", "tokens": ["active/INDEX.md", "dev/active/INDEX.md"]},
 ]
 
-REQUIRED_AGENT_MARKERS = ["## Active-plan onboarding (adding files under `dev/active/`)", "Add an entry in `dev/active/INDEX.md`", "Run `python3 dev/scripts/checks/check_active_plan_sync.py`"]
-SPEC_RANGE_PATHS = ["dev/active/theme_upgrade.md", "dev/active/memory_studio.md", "dev/active/devctl_reporting_upgrade.md", "dev/active/autonomous_control_plane.md", "dev/active/rust_workspace_layout_migration.md", "dev/active/naming_api_cohesion.md", "dev/active/ide_provider_modularization.md"]
+REQUIRED_AGENT_MARKERS = [
+    "## Active-plan onboarding (adding files under `dev/active/`)",
+    "Add an entry in `dev/active/INDEX.md`",
+    "Run `python3 dev/scripts/checks/check_active_plan_sync.py`",
+]
+SPEC_RANGE_PATHS = [
+    "dev/active/theme_upgrade.md",
+    "dev/active/memory_studio.md",
+    "dev/active/devctl_reporting_upgrade.md",
+    "dev/active/autonomous_control_plane.md",
+    "dev/active/rust_workspace_layout_migration.md",
+    "dev/active/naming_api_cohesion.md",
+    "dev/active/ide_provider_modularization.md",
+]
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
 EXPECTED_RELEASE_BRANCH = "master"
 SEMVER_TAG_PATTERN = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
-PHASE_HEADING_PATTERN = re.compile(r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE)
+PHASE_HEADING_PATTERN = re.compile(
+    r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE
+)
+
 
 def _strip_code_ticks(value: str) -> str:
     value = value.strip()
@@ -83,6 +125,7 @@ def _parse_registry_rows(index_text: str) -> list[dict]:
         )
     return rows
 
+
 def _expand_mp_ranges(text: str) -> set[str]:
     mp_ids: set[str] = set()
     for value_s in re.findall(r"MP-(\d{3})", text):
@@ -95,6 +138,7 @@ def _expand_mp_ranges(text: str) -> set[str]:
         for value in range(start, end + 1):
             mp_ids.add(f"MP-{value:03d}")
     return mp_ids
+
 
 def _build_report() -> dict:
     errors: list[str] = []
@@ -132,13 +176,25 @@ def _build_report() -> dict:
         if not target.exists():
             missing_registry_files.append(path)
 
-    active_markdown_files = sorted(str(path.relative_to(REPO_ROOT)) for path in ACTIVE_DIR.glob("*.md") if path.name != "INDEX.md")
-    registry_paths = sorted(path for path in registry_by_path if path != "dev/active/INDEX.md")
+    active_markdown_files = sorted(
+        str(path.relative_to(REPO_ROOT))
+        for path in ACTIVE_DIR.glob("*.md")
+        if path.name != "INDEX.md"
+    )
+    registry_paths = sorted(
+        path for path in registry_by_path if path != "dev/active/INDEX.md"
+    )
 
-    unindexed_active_files = sorted(path for path in active_markdown_files if path not in registry_by_path)
-    registry_paths_not_active = sorted(path for path in registry_paths if path not in active_markdown_files)
+    unindexed_active_files = sorted(
+        path for path in active_markdown_files if path not in registry_by_path
+    )
+    registry_paths_not_active = sorted(
+        path for path in registry_paths if path not in active_markdown_files
+    )
 
-    tracker_paths = sorted(row["path"] for row in registry_rows if row["role"] == "tracker")
+    tracker_paths = sorted(
+        row["path"] for row in registry_rows if row["role"] == "tracker"
+    )
     if len(tracker_paths) != 1 or tracker_paths[0] != "dev/active/MASTER_PLAN.md":
         errors.append(
             "Registry must declare exactly one tracker and it must be dev/active/MASTER_PLAN.md."
@@ -223,21 +279,35 @@ def _build_report() -> dict:
                 )
 
         if snapshot_values["active_development_branch"] and (
-            snapshot_values["active_development_branch"] != EXPECTED_ACTIVE_DEVELOPMENT_BRANCH
+            snapshot_values["active_development_branch"]
+            != EXPECTED_ACTIVE_DEVELOPMENT_BRANCH
         ):
             errors.append(
                 "MASTER_PLAN active development branch must be "
                 f"`{EXPECTED_ACTIVE_DEVELOPMENT_BRANCH}`."
             )
-        if snapshot_values["release_branch"] and snapshot_values["release_branch"] != EXPECTED_RELEASE_BRANCH:
-            errors.append(f"MASTER_PLAN release branch must be `{EXPECTED_RELEASE_BRANCH}`.")
+        if (
+            snapshot_values["release_branch"]
+            and snapshot_values["release_branch"] != EXPECTED_RELEASE_BRANCH
+        ):
+            errors.append(
+                f"MASTER_PLAN release branch must be `{EXPECTED_RELEASE_BRANCH}`."
+            )
 
-        latest_git_tag, git_tag_error = latest_git_semver_tag(REPO_ROOT, SEMVER_TAG_PATTERN)
+        latest_git_tag, git_tag_error = latest_git_semver_tag(
+            REPO_ROOT, SEMVER_TAG_PATTERN
+        )
         if git_tag_error:
             warnings.append(f"Unable to read latest git release tag: {git_tag_error}")
 
-        valid_snapshot_tags = {tag for tag in (latest_git_tag, cargo_release_tag) if tag}
-        if release_tag and valid_snapshot_tags and release_tag not in valid_snapshot_tags:
+        valid_snapshot_tags = {
+            tag for tag in (latest_git_tag, cargo_release_tag) if tag
+        }
+        if (
+            release_tag
+            and valid_snapshot_tags
+            and release_tag not in valid_snapshot_tags
+        ):
             errors.append(
                 "MASTER_PLAN last tagged release must match either the latest git semver tag "
                 "or the current Cargo release version: "
@@ -276,16 +346,22 @@ def _build_report() -> dict:
             spec_missing_phase_headings.append(relative)
         if relative not in master_plan_text:
             spec_missing_master_links.append(relative)
-        mirror_line = next((line for line in spec_text.splitlines() if mirror_marker in line), "")
+        mirror_line = next(
+            (line for line in spec_text.splitlines() if mirror_marker in line), ""
+        )
         spec_range_ids = _expand_mp_ranges(mirror_line)
         if not spec_range_ids:
             spec_range_ids = _expand_mp_ranges(spec_text)
         if not spec_range_ids:
             spec_missing_ranges.append(relative)
             continue
-        missing_from_master = sorted(mp_id for mp_id in spec_range_ids if mp_id not in master_plan_text)
+        missing_from_master = sorted(
+            mp_id for mp_id in spec_range_ids if mp_id not in master_plan_text
+        )
         if missing_from_master:
-            spec_range_drift.append(f"{relative} -> missing in MASTER_PLAN: {', '.join(missing_from_master)}")
+            spec_range_drift.append(
+                f"{relative} -> missing in MASTER_PLAN: {', '.join(missing_from_master)}"
+            )
 
         index_row = registry_by_path.get(relative)
         if not index_row:
@@ -304,7 +380,11 @@ def _build_report() -> dict:
                 details.append("index_extra=" + ",".join(index_only))
             index_scope_drift.append(f"{relative} ({'; '.join(details)})")
 
-    execution_plan_missing_rows, execution_plan_missing_markers, execution_plan_missing_sections = validate_execution_plan_contract(
+    (
+        execution_plan_missing_rows,
+        execution_plan_missing_markers,
+        execution_plan_missing_sections,
+    ) = validate_execution_plan_contract(
         repo_root=REPO_ROOT,
         active_markdown_files=active_markdown_files,
         registry_by_path=registry_by_path,
@@ -331,35 +411,67 @@ def _build_report() -> dict:
         missing_discovery_refs.append("AGENTS.md (file missing)")
 
     if duplicate_paths:
-        errors.append(f"Duplicate registry rows: {', '.join(sorted(set(duplicate_paths)))}")
+        errors.append(
+            f"Duplicate registry rows: {', '.join(sorted(set(duplicate_paths)))}"
+        )
     if invalid_role_paths:
-        errors.append(f"Invalid registry roles: {', '.join(sorted(invalid_role_paths))}")
+        errors.append(
+            f"Invalid registry roles: {', '.join(sorted(invalid_role_paths))}"
+        )
     if invalid_authority_paths:
-        errors.append(f"Invalid registry authorities: {', '.join(sorted(invalid_authority_paths))}")
+        errors.append(
+            f"Invalid registry authorities: {', '.join(sorted(invalid_authority_paths))}"
+        )
     if missing_registry_files:
-        errors.append(f"Registry references missing files: {', '.join(sorted(missing_registry_files))}")
+        errors.append(
+            f"Registry references missing files: {', '.join(sorted(missing_registry_files))}"
+        )
     if unindexed_active_files:
-        errors.append(f"Active markdown files missing from registry: {', '.join(unindexed_active_files)}")
+        errors.append(
+            f"Active markdown files missing from registry: {', '.join(unindexed_active_files)}"
+        )
     if registry_paths_not_active:
-        errors.append(f"Registry includes non-active paths: {', '.join(registry_paths_not_active)}")
+        errors.append(
+            f"Registry includes non-active paths: {', '.join(registry_paths_not_active)}"
+        )
     if missing_required_rows:
-        errors.append(f"Missing required registry rows: {', '.join(missing_required_rows)}")
+        errors.append(
+            f"Missing required registry rows: {', '.join(missing_required_rows)}"
+        )
     if required_row_mismatches:
         errors.append(f"Required row mismatches: {'; '.join(required_row_mismatches)}")
     if spec_missing_mirror_markers:
-        errors.append("Spec docs missing master-plan mirror marker: " + ", ".join(spec_missing_mirror_markers))
+        errors.append(
+            "Spec docs missing master-plan mirror marker: "
+            + ", ".join(spec_missing_mirror_markers)
+        )
     if spec_missing_phase_headings:
-        errors.append("Spec docs missing phase-structured headings: " + ", ".join(spec_missing_phase_headings))
+        errors.append(
+            "Spec docs missing phase-structured headings: "
+            + ", ".join(spec_missing_phase_headings)
+        )
     if spec_missing_master_links:
-        errors.append("Spec docs missing explicit MASTER_PLAN links: " + ", ".join(spec_missing_master_links))
+        errors.append(
+            "Spec docs missing explicit MASTER_PLAN links: "
+            + ", ".join(spec_missing_master_links)
+        )
     if spec_missing_ranges:
-        warnings.append("Spec docs missing MP scope declarations: " + ", ".join(spec_missing_ranges))
+        warnings.append(
+            "Spec docs missing MP scope declarations: " + ", ".join(spec_missing_ranges)
+        )
     if spec_range_drift:
-        errors.append("Spec MP ranges not found in MASTER_PLAN: " + " | ".join(spec_range_drift))
+        errors.append(
+            "Spec MP ranges not found in MASTER_PLAN: " + " | ".join(spec_range_drift)
+        )
     if index_scope_missing:
-        errors.append("INDEX rows missing MP ranges for spec docs: " + ", ".join(index_scope_missing))
+        errors.append(
+            "INDEX rows missing MP ranges for spec docs: "
+            + ", ".join(index_scope_missing)
+        )
     if index_scope_drift:
-        errors.append("INDEX MP scope drift vs spec docs: " + " | ".join(index_scope_drift))
+        errors.append(
+            "INDEX MP scope drift vs spec docs: " + " | ".join(index_scope_drift)
+        )
     if execution_plan_missing_rows:
         errors.append(
             "Required execution-plan docs missing from INDEX registry: "
@@ -376,9 +488,15 @@ def _build_report() -> dict:
             + " | ".join(sorted(set(execution_plan_missing_sections)))
         )
     if missing_discovery_refs:
-        errors.append("Missing active-index discovery references: " + ", ".join(missing_discovery_refs))
+        errors.append(
+            "Missing active-index discovery references: "
+            + ", ".join(missing_discovery_refs)
+        )
     if agent_marker_gaps:
-        errors.append("AGENTS active-plan onboarding markers missing: " + ", ".join(agent_marker_gaps))
+        errors.append(
+            "AGENTS active-plan onboarding markers missing: "
+            + ", ".join(agent_marker_gaps)
+        )
     if snapshot_policy_warnings:
         warnings.extend(snapshot_policy_warnings)
 
@@ -396,6 +514,7 @@ def _build_report() -> dict:
         "warnings": warnings,
     }
 
+
 def _render_md(report: dict) -> str:
     lines = ["# check_active_plan_sync", ""]
     lines.append(f"- ok: {report.get('ok', False)}")
@@ -404,9 +523,13 @@ def _render_md(report: dict) -> str:
         return "\n".join(lines)
 
     lines.append(f"- index: {report['index_path']}")
-    lines.append(f"- active_markdown_files: {len(report.get('active_markdown_files', []))}")
+    lines.append(
+        f"- active_markdown_files: {len(report.get('active_markdown_files', []))}"
+    )
     lines.append(f"- registry_paths: {len(report.get('registry_paths', []))}")
-    lines.append("- tracker_paths: " + (", ".join(report.get("tracker_paths", [])) or "none"))
+    lines.append(
+        "- tracker_paths: " + (", ".join(report.get("tracker_paths", [])) or "none")
+    )
     snapshot = report.get("snapshot", {})
     for key in (
         "last_tagged_release",
@@ -417,14 +540,22 @@ def _render_md(report: dict) -> str:
         lines.append(f"- snapshot_{key}: {snapshot.get(key) or 'missing'}")
     lines.append("- latest_git_tag: " + (report.get("latest_git_tag") or "none"))
     lines.append("- cargo_release_tag: " + (report.get("cargo_release_tag") or "none"))
-    lines.append("- warnings: " + (", ".join(report.get("warnings", [])) if report.get("warnings") else "none"))
-    lines.append("- errors: " + (", ".join(report.get("errors", [])) if report.get("errors") else "none"))
+    lines.append(
+        "- warnings: "
+        + (", ".join(report.get("warnings", [])) if report.get("warnings") else "none")
+    )
+    lines.append(
+        "- errors: "
+        + (", ".join(report.get("errors", [])) if report.get("errors") else "none")
+    )
     return "\n".join(lines)
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
+
 
 def main() -> int:
     args = _build_parser().parse_args()

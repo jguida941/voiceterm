@@ -22,7 +22,9 @@ try:
         function_policy_for_path,
         policy_for_path,
     )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.code_shape_policy import (
         BEST_PRACTICE_DOCS,
         FUNCTION_POLICY_EXCEPTIONS,
@@ -38,56 +40,58 @@ except ModuleNotFoundError:  # pragma: no cover - import fallback for package-st
 try:
     from code_shape_function_policy import (
         evaluate_function_shape as evaluate_function_shape_impl,
+    )
+    from code_shape_function_policy import (
         scan_python_functions as scan_python_functions_impl,
+    )
+    from code_shape_function_policy import (
         scan_rust_functions as scan_rust_functions_impl,
     )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.code_shape_function_policy import (
         evaluate_function_shape as evaluate_function_shape_impl,
+    )
+    from dev.scripts.checks.code_shape_function_policy import (
         scan_python_functions as scan_python_functions_impl,
+    )
+    from dev.scripts.checks.code_shape_function_policy import (
         scan_rust_functions as scan_rust_functions_impl,
     )
 try:
-    from rust_guard_common import (
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import (
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
+    from rust_guard_common import GuardContext
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 DEFAULT_STALE_OVERRIDE_REVIEW_WINDOW_DAYS = 30
-
-
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_git_with_root(REPO_ROOT, args, check=check)
-
-
-def _validate_ref(ref: str) -> None:
-    _validate_ref_with_git(_run_git, ref)
 
 
 def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
     if since_ref:
-        diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", since_ref, head_ref]
+        diff_cmd = [
+            "git",
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMR",
+            since_ref,
+            head_ref,
+        ]
     else:
         diff_cmd = ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"]
 
     changed = {
         Path(line.strip())
-        for line in _run_git(diff_cmd).stdout.splitlines()
+        for line in guard.run_git(diff_cmd).stdout.splitlines()
         if line.strip()
     }
 
     if since_ref is None:
-        untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"])
+        untracked = guard.run_git(["git", "ls-files", "--others", "--exclude-standard"])
         for line in untracked.stdout.splitlines():
             if line.strip():
                 changed.add(Path(line.strip()))
@@ -97,7 +101,7 @@ def _list_changed_paths(since_ref: str | None, head_ref: str) -> list[Path]:
 
 def _list_all_source_paths() -> list[Path]:
     paths: set[Path] = set()
-    for line in _run_git(["git", "ls-files"]).stdout.splitlines():
+    for line in guard.run_git(["git", "ls-files"]).stdout.splitlines():
         if not line.strip():
             continue
         path = Path(line.strip())
@@ -105,7 +109,9 @@ def _list_all_source_paths() -> list[Path]:
         if policy is not None:
             paths.add(path)
 
-    for line in _run_git(["git", "ls-files", "--others", "--exclude-standard"]).stdout.splitlines():
+    for line in guard.run_git(
+        ["git", "ls-files", "--others", "--exclude-standard"]
+    ).stdout.splitlines():
         if not line.strip():
             continue
         path = Path(line.strip())
@@ -121,9 +127,15 @@ def _is_test_path(path: Path) -> bool:
     name = path.name
 
     if path.suffix == ".rs":
-        return "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
+        return (
+            "/tests/" in normalized or name == "tests.rs" or name.endswith("_test.rs")
+        )
     if path.suffix == ".py":
-        return "/tests/" in normalized or name.startswith("test_") or name.endswith("_test.py")
+        return (
+            "/tests/" in normalized
+            or name.startswith("test_")
+            or name.endswith("_test.py")
+        )
     return False
 
 
@@ -132,14 +144,6 @@ def _should_skip_test_path(path: Path, policy_source: str | None) -> bool:
         return False
     # Explicit path overrides can opt specific high-signal tests into shape governance.
     return not (policy_source and policy_source.startswith("path_override:"))
-
-
-def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    return _read_text_from_ref_with_git(_run_git, path, ref)
-
-
-def _read_text_from_worktree(path: Path) -> str | None:
-    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _count_lines(text: str | None) -> int | None:
@@ -257,7 +261,11 @@ def _evaluate_shape(
             current_lines=current_lines,
         )
 
-    if base_lines <= policy.hard_limit and current_lines > policy.hard_limit and growth > 0:
+    if (
+        base_lines <= policy.hard_limit
+        and current_lines > policy.hard_limit
+        and growth > 0
+    ):
         return _violation(
             path=path,
             reason="crossed_hard_limit",
@@ -331,7 +339,7 @@ def _recent_history_line_counts(path: Path, review_window_days: int) -> list[int
     if review_window_days <= 0:
         return []
     since_value = f"{review_window_days}.days"
-    commits = _run_git(
+    commits = guard.run_git(
         ["git", "log", "--since", since_value, "--format=%H", "--", path.as_posix()]
     ).stdout.splitlines()
     line_counts: list[int] = []
@@ -341,7 +349,7 @@ def _recent_history_line_counts(path: Path, review_window_days: int) -> list[int
         if not ref or ref in seen:
             continue
         seen.add(ref)
-        lines = _count_lines(_read_text_from_ref(path, ref))
+        lines = _count_lines(guard.read_text_from_ref(path, ref))
         if lines is not None:
             line_counts.append(lines)
     return line_counts
@@ -362,7 +370,9 @@ def _evaluate_stale_path_override(
     if override_policy.soft_limit <= language_default_policy.soft_limit:
         return None
 
-    max_recent_lines = max([current_lines, *review_window_line_counts], default=current_lines)
+    max_recent_lines = max(
+        [current_lines, *review_window_line_counts], default=current_lines
+    )
     if max_recent_lines > language_default_policy.soft_limit:
         return None
 
@@ -387,7 +397,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- ok: {report['ok']}")
     lines.append(f"- files_changed: {report['files_changed']}")
     lines.append(f"- files_considered: {report['files_considered']}")
-    lines.append(f"- files_using_path_overrides: {report['files_using_path_overrides']}")
+    lines.append(
+        f"- files_using_path_overrides: {report['files_using_path_overrides']}"
+    )
     lines.append(f"- function_policies_applied: {report['function_policies_applied']}")
     lines.append(f"- function_exceptions_used: {report['function_exceptions_used']}")
     lines.append(f"- function_violations: {report['function_violations']}")
@@ -447,7 +459,9 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -474,8 +488,8 @@ def main() -> int:
             changed_paths = _list_all_source_paths()
         else:
             if args.since_ref:
-                _validate_ref(args.since_ref)
-                _validate_ref(args.head_ref)
+                guard.validate_ref(args.since_ref)
+                guard.validate_ref(args.head_ref)
             changed_paths = _list_changed_paths(args.since_ref, args.head_ref)
     except RuntimeError as exc:
         error_report = {
@@ -491,7 +505,11 @@ def main() -> int:
             print(f"- ok: False\n- error: {error_report['error']}")
         return 2
 
-    mode = "absolute" if args.absolute else ("commit-range" if args.since_ref else "working-tree")
+    mode = (
+        "absolute"
+        if args.absolute
+        else ("commit-range" if args.since_ref else "working-tree")
+    )
     violations: list[dict] = []
     files_skipped_non_source = 0
     files_skipped_tests = 0
@@ -519,7 +537,7 @@ def main() -> int:
 
         current_text: str | None
         if args.absolute:
-            current_text = _read_text_from_worktree(path)
+            current_text = guard.read_text_from_worktree(path)
             violation = _evaluate_absolute_shape(
                 path=path,
                 policy=policy,
@@ -528,12 +546,14 @@ def main() -> int:
             )
         else:
             if args.since_ref:
-                base_lines = _count_lines(_read_text_from_ref(path, args.since_ref))
-                current_text = _read_text_from_ref(path, args.head_ref)
+                base_lines = _count_lines(
+                    guard.read_text_from_ref(path, args.since_ref)
+                )
+                current_text = guard.read_text_from_ref(path, args.head_ref)
                 current_lines = _count_lines(current_text)
             else:
-                base_lines = _count_lines(_read_text_from_ref(path, "HEAD"))
-                current_text = _read_text_from_worktree(path)
+                base_lines = _count_lines(guard.read_text_from_ref(path, "HEAD"))
+                current_text = guard.read_text_from_worktree(path)
                 current_lines = _count_lines(current_text)
 
             violation = _evaluate_shape(
@@ -580,7 +600,7 @@ def main() -> int:
                     override_policy=override_policy,
                     language_default_policy=default_policy,
                     policy_source=f"path_override:{override_path}",
-                    current_lines=_count_lines(_read_text_from_worktree(path)),
+                    current_lines=_count_lines(guard.read_text_from_worktree(path)),
                     review_window_days=stale_override_review_window_days,
                     review_window_line_counts=_recent_history_line_counts(
                         path, stale_override_review_window_days
