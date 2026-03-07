@@ -466,6 +466,23 @@ mod tests {
     }
 
     #[test]
+    // Contract: VoiceTerm-owned CSI-u shortcuts are intercepted as actions,
+    // while unmapped CSI-u sequences are preserved verbatim for the wrapped CLI.
+    fn input_parser_csi_u_contract_maps_owned_shortcuts_and_preserves_unmapped() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[114;5u\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(
+            out,
+            vec![
+                InputEvent::VoiceTrigger,
+                InputEvent::Bytes(b"\x1b[27u".to_vec())
+            ]
+        );
+    }
+
+    #[test]
     fn input_parser_preserves_arrow_sequences() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
