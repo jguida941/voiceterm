@@ -162,7 +162,7 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
             Constraint::Length(3),
             Constraint::Length(2),
         ])
-        .split(frame.size());
+        .split(frame.area());
 
     let output_text = if app.output_lines().is_empty() {
         Text::from("No Codex output yet. Press Ctrl+R to capture voice or type and press Enter.")
@@ -259,7 +259,7 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
     let cursor_offset = input_width.min(inner_width);
     let cursor_x = chunks[1].x.saturating_add(1).saturating_add(cursor_offset);
     let cursor_y = chunks[1].y + 1;
-    frame.set_cursor(cursor_x, cursor_y);
+    frame.set_cursor_position((cursor_x, cursor_y));
 }
 
 fn sanitize_output_line(s: &str) -> String {

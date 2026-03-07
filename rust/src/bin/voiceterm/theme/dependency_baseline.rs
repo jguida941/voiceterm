@@ -142,14 +142,16 @@ pub(crate) const COMPATIBILITY_MATRIX: &[CompatibilityEntry] = &[
         version_range: ">=0.19,<0.22",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "0.19-0.21 series previously targeted ratatui 0.26; re-validate against 0.30 baseline",
+        notes:
+            "0.19-0.21 series previously targeted ratatui 0.26; re-validate against 0.30 baseline",
     },
     CompatibilityEntry {
         crate_name: "throbber-widgets-tui",
         version_range: ">=0.6,<0.8",
         ratatui_compat: CompatibilityStatus::Compatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "0.6-0.7 series previously validated on ratatui 0.26; re-validate against 0.30 baseline",
+        notes:
+            "0.6-0.7 series previously validated on ratatui 0.26; re-validate against 0.30 baseline",
     },
     CompatibilityEntry {
         crate_name: "tui-popup",
@@ -184,7 +186,8 @@ pub(crate) const COMPATIBILITY_MATRIX: &[CompatibilityEntry] = &[
         version_range: ">=1.0,<2.0",
         ratatui_compat: CompatibilityStatus::ConditionallyCompatible,
         crossterm_compat: CompatibilityStatus::Compatible,
-        notes: "requires feature-gated image protocol; verify ratatui 0.30 compatibility per release",
+        notes:
+            "requires feature-gated image protocol; verify ratatui 0.30 compatibility per release",
     },
     CompatibilityEntry {
         crate_name: "tuirealm",
