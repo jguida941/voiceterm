@@ -7,7 +7,9 @@ from pathlib import Path
 
 ALLOWED_ADR_STATUSES = {"Proposed", "Accepted", "Deprecated", "Superseded"}
 ADR_INDEX_LINK_RE = re.compile(r"\[(\d{4})\]\(([^)]+)\)")
-ADR_INDEX_ROW_RE = re.compile(r"\|\s*\[(\d{4})\]\([^)]+\)\s*\|[^|]*\|\s*([A-Za-z]+)\s*\|")
+ADR_INDEX_ROW_RE = re.compile(
+    r"\|\s*\[(\d{4})\]\([^)]+\)\s*\|[^|]*\|\s*([A-Za-z]+)\s*\|"
+)
 ADR_NEXT_RE = re.compile(r"\bnext:\s*(\d{4})\b", flags=re.IGNORECASE)
 ADR_IDS_LINE_RE_TEMPLATE = r"^\s*{label}\s*:\s*(.+?)\s*$"
 ADR_ID_OR_RANGE_RE = re.compile(r"\b(\d{4})(?:\s*-\s*(\d{4}))?\b")
@@ -105,7 +107,9 @@ def scan_stale_adr_reference_patterns(repo_root: Path) -> list[dict]:
         path = repo_root / relative
         if not path.exists():
             continue
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        for lineno, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
             if ADR_STATIC_COUNT_RE.search(line):
                 violations.append(
                     {

@@ -67,7 +67,9 @@ def _scan_run_blocks(lines: list[str], report_path: str) -> list[dict[str, objec
         run_indent = len(match.group(1))
         # check for inline suppression on the run: line itself
         if SUPPRESSION_PREFIX in lines[i]:
-            suffix = lines[i][lines[i].index(SUPPRESSION_PREFIX) + len(SUPPRESSION_PREFIX):]
+            suffix = lines[i][
+                lines[i].index(SUPPRESSION_PREFIX) + len(SUPPRESSION_PREFIX) :
+            ]
             suppressed = {s.strip() for s in suffix.split(",") if s.strip()}
             if "all" in suppressed or "missing-pipefail" in suppressed:
                 i += 1

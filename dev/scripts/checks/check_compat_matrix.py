@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -102,7 +102,9 @@ def _find_duplicate_values(values: list[str]) -> list[str]:
     return sorted(value for value, count in counts.items() if count > 1)
 
 
-def _collect_provider_modes(providers: list[object]) -> tuple[dict[str, str], list[str]]:
+def _collect_provider_modes(
+    providers: list[object],
+) -> tuple[dict[str, str], list[str]]:
     provider_mode_by_id: dict[str, str] = {}
     invalid_provider_modes: list[str] = []
     for item in providers:
@@ -270,9 +272,12 @@ def main() -> int:
         for (host, provider), count in declared_cells.items()
         if count > 1
     )
-    expected_cells = {(host, provider) for host in host_ids for provider in provider_ids}
+    expected_cells = {
+        (host, provider) for host in host_ids for provider in provider_ids
+    }
     missing_cells = sorted(
-        f"{host}::{provider}" for (host, provider) in expected_cells.difference(declared_cells)
+        f"{host}::{provider}"
+        for (host, provider) in expected_cells.difference(declared_cells)
     )
 
     report = {

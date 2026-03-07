@@ -571,7 +571,10 @@ Ctrl+R record │ ? help │ Ctrl+O settings │ mouse: click HUD buttons │ Ct
 
     #[test]
     fn startup_splash_default_duration_is_short() {
-        assert!(DEFAULT_STARTUP_SPLASH_CLEAR_MS <= 2_000);
+        with_splash_env(None, || {
+            assert_eq!(splash_duration_ms(), DEFAULT_STARTUP_SPLASH_CLEAR_MS);
+            assert!(splash_duration_ms() <= 2_000);
+        });
     }
 
     #[test]

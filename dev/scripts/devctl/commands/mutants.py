@@ -45,5 +45,7 @@ def build_mutants_cmd(args) -> List[str]:
 def run(args) -> int:
     """Run mutation testing with the configured args."""
     cmd = build_mutants_cmd(args)
-    result = run_cmd("mutants", cmd, cwd=REPO_ROOT, env=build_env(args), dry_run=args.dry_run)
+    result = run_cmd(
+        "mutants", cmd, cwd=REPO_ROOT, env=build_env(args), dry_run=args.dry_run
+    )
     return 0 if result["returncode"] == 0 else result["returncode"]

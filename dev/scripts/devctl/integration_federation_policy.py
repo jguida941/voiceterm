@@ -7,7 +7,6 @@ from typing import Any
 
 from .mutation_loop_policy import load_policy
 
-
 DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/integrations/imports"]
 DEFAULT_AUDIT_LOG_PATH = "dev/reports/integration_import_audit.jsonl"
 POLICY_KEY = "integration_federation"

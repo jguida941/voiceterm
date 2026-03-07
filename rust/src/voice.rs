@@ -402,7 +402,7 @@ fn capture_voice_native(
         let mut transcriber_guard = transcriber
             .lock()
             .map_err(|_| anyhow!("transcriber lock poisoned"))?;
-        // Output suppression is now handled inside transcribe() method
+        // Output suppression is handled inside transcribe()
         transcriber_guard.transcribe(&audio, config)?
     };
     let stt_elapsed = stt_start.elapsed();

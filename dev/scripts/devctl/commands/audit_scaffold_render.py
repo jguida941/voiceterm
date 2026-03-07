@@ -46,13 +46,21 @@ def _format_violation_line(violation: dict) -> str:
 
     growth = violation.get("growth")
     if isinstance(growth, dict):
-        growth_bits = [f"{key} {value:+d}" for key, value in growth.items() if isinstance(value, int) and value > 0]
+        growth_bits = [
+            f"{key} {value:+d}"
+            for key, value in growth.items()
+            if isinstance(value, int) and value > 0
+        ]
         if growth_bits:
             return f"- `{path}` ({', '.join(growth_bits)})"
 
     metrics = violation.get("metrics")
     if isinstance(metrics, dict):
-        metric_bits = [f"{key}={value}" for key, value in metrics.items() if isinstance(value, int) and value > 0]
+        metric_bits = [
+            f"{key}={value}"
+            for key, value in metrics.items()
+            if isinstance(value, int) and value > 0
+        ]
         if metric_bits:
             return f"- `{path}` ({', '.join(metric_bits)})"
     return f"- `{path}`"

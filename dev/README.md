@@ -2,6 +2,7 @@
 
 Start here when working in the repo.
 This page points you to the right doc based on your task.
+This is the canonical developer index.
 Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 
 ## Pick Your Path
@@ -9,8 +10,8 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 | I want to... | Go here |
 |---|---|
 | See what is in scope right now | [`dev/active/INDEX.md`](active/INDEX.md), then [`dev/active/MASTER_PLAN.md`](active/MASTER_PLAN.md) |
-| Build, test, or release | [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) |
-| Understand how the runtime works | [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
+| Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
 | Change tooling, process, or CI | [`AGENTS.md`](../AGENTS.md) and [`dev/scripts/README.md`](scripts/README.md) |
 
 ## Recommended Reading Order
@@ -24,25 +25,26 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 7. [`dev/active/rust_workspace_layout_migration.md`](active/rust_workspace_layout_migration.md) -- Rust workspace path/layout migration plan.
 8. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
 9. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
-10. [`dev/MCP_DEVCTL_ALIGNMENT.md`](MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
-11. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
-12. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
-13. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
-14. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
-15. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
-16. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-17. [`dev/history/README.md`](history/README.md) -- index for historical records.
-18. [`dev/ARCHITECTURE.md`](ARCHITECTURE.md) -- how the runtime is structured today.
-19. [`dev/DEVELOPMENT.md`](DEVELOPMENT.md) -- build, test, and release commands.
-20. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
-21. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
+10. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
+11. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
+12. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
+13. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
+14. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
+15. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
+16. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
+17. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+18. [`dev/history/README.md`](history/README.md) -- index for historical records.
+19. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) -- how the runtime is structured today.
+20. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) -- build, test, and release commands.
+21. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.
+22. [`dev/CHANGELOG.md`](CHANGELOG.md) -- release history and user-visible changes.
 
 ## Three Core Docs
 
 | Doc | What it tells you | Update when... |
 |---|---|---|
-| `dev/ARCHITECTURE.md` | How the system works right now | Runtime, data flow, lifecycle, or CI/release mechanics change |
-| `dev/DEVELOPMENT.md` | Exact commands to build, test, and release | Build workflow, checks, toolchain, or contribution flow change |
+| `dev/guides/ARCHITECTURE.md` | How the system works right now | Runtime, data flow, lifecycle, or CI/release mechanics change |
+| `dev/guides/DEVELOPMENT.md` | Exact commands to build, test, and release | Build workflow, checks, toolchain, or contribution flow change |
 | `dev/history/ENGINEERING_EVOLUTION.md` | Why we do it this way | Major inflection points, reversals, or process shifts happen |
 
 User docs start here:

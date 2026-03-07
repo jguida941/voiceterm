@@ -1,5 +1,14 @@
 use super::*;
 use crate::test_env::env_lock;
+use crate::theme::runtime_overrides::{
+    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
+    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStylePackOverrides,
+    RuntimeVoiceSceneStyleOverride,
+};
+use crate::theme::{
+    GlyphSet, ProgressBarFamily, SpinnerStyle, VoiceSceneStyle, BORDER_HEAVY, BORDER_NONE,
+    BORDER_ROUNDED,
+};
 
 struct RuntimeOverridesGuard {
     previous: RuntimeStylePackOverrides,
@@ -333,4 +342,54 @@ fn resolve_theme_colors_reads_style_pack_env_when_test_opted_in() {
         Some(value) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, value),
         None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
     }
+}
+
+// -- Runtime theme-file override tests --
+
+/// RAII guard that restores the thread-local theme file override on drop.
+struct ThemeFileOverrideGuard {
+    previous: Option<String>,
+}
+
+impl ThemeFileOverrideGuard {
+    fn push(path: Option<String>) -> Self {
+        let previous = runtime_theme_file_override();
+        RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| *slot.borrow_mut() = path);
+        Self { previous }
+    }
+}
+
+impl Drop for ThemeFileOverrideGuard {
+    fn drop(&mut self) {
+        RUNTIME_THEME_FILE_OVERRIDE_TEST.with(|slot| *slot.borrow_mut() = self.previous.take());
+    }
+}
+
+#[test]
+fn runtime_theme_file_override_roundtrip() {
+    let _guard = ThemeFileOverrideGuard::push(Some("/tmp/test.toml".into()));
+    assert_eq!(runtime_theme_file_override(), Some("/tmp/test.toml".into()));
+}
+
+#[test]
+fn runtime_theme_file_override_none_by_default() {
+    let _guard = ThemeFileOverrideGuard::push(None);
+    assert_eq!(runtime_theme_file_override(), None);
+}
+
+#[test]
+fn set_runtime_theme_file_override_writes_to_thread_local() {
+    let _guard = ThemeFileOverrideGuard::push(None);
+    set_runtime_theme_file_override(Some("/tmp/custom.toml".into()));
+    assert_eq!(
+        runtime_theme_file_override(),
+        Some("/tmp/custom.toml".into())
+    );
+}
+
+#[test]
+fn set_runtime_theme_file_override_clears_with_none() {
+    let _guard = ThemeFileOverrideGuard::push(Some("/tmp/active.toml".into()));
+    set_runtime_theme_file_override(None);
+    assert_eq!(runtime_theme_file_override(), None);
 }

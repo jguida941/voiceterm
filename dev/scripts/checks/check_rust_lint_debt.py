@@ -13,54 +13,37 @@ from pathlib import Path
 
 try:
     from git_change_paths import list_changed_paths_with_base_map
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 try:
-    from rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
+    from rust_guard_common import GuardContext
+    from rust_guard_common import is_test_path as _is_test_path
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
+    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
 try:
     from rust_check_text_utils import strip_cfg_test_blocks
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 
 ALLOW_ATTR_RE = re.compile(r"#\s*!?\s*\[\s*allow\s*\(")
-ALLOW_ATTR_BODY_RE = re.compile(r"#\s*!?\s*\[\s*allow\s*\((?P<body>[^\]]*)\)\s*\]", re.DOTALL)
+ALLOW_ATTR_BODY_RE = re.compile(
+    r"#\s*!?\s*\[\s*allow\s*\((?P<body>[^\]]*)\)\s*\]", re.DOTALL
+)
 DEAD_CODE_ALLOW_RE = re.compile(r"\bdead_code\b")
 ALLOW_REASON_RE = re.compile(r"\breason\s*=")
 UNWRAP_EXPECT_RE = re.compile(r"\b(?:unwrap|expect)\s*\(")
 UNWRAP_EXPECT_UNCHECKED_RE = re.compile(r"\b(?:unwrap_unchecked|expect_unchecked)\s*\(")
 PANIC_MACRO_RE = re.compile(r"\bpanic!\s*\(")
-
-
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_git_with_root(REPO_ROOT, args, check=check)
-
-
-def _validate_ref(ref: str) -> None:
-    _validate_ref_with_git(_run_git, ref)
-
-
-def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    return _read_text_from_ref_with_git(_run_git, path, ref)
-
-
-def _read_text_from_worktree(path: Path) -> str | None:
-    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _strip_cfg_test_blocks(text: str) -> str:
@@ -109,8 +92,10 @@ def _count_metrics(text: str | None) -> dict[str, int]:
 
 def _list_all_rust_paths(*, include_tests: bool) -> list[Path]:
     paths: set[Path] = set()
-    tracked = _run_git(["git", "ls-files"]).stdout.splitlines()
-    untracked = _run_git(["git", "ls-files", "--others", "--exclude-standard"]).stdout.splitlines()
+    tracked = guard.run_git(["git", "ls-files"]).stdout.splitlines()
+    untracked = guard.run_git(
+        ["git", "ls-files", "--others", "--exclude-standard"]
+    ).stdout.splitlines()
     for raw in [*tracked, *untracked]:
         if not raw.strip():
             continue
@@ -202,7 +187,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include Rust test files in scan results.",
     )
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
+    )
     parser.add_argument(
         "--report-dead-code",
         action="store_true",
@@ -250,10 +237,10 @@ def main() -> int:
             base_map: dict[Path, Path] = {}
         else:
             if args.since_ref:
-                _validate_ref(args.since_ref)
-                _validate_ref(args.head_ref)
+                guard.validate_ref(args.since_ref)
+                guard.validate_ref(args.head_ref)
             changed_paths, base_map = list_changed_paths_with_base_map(
-                _run_git,
+                guard.run_git,
                 args.since_ref,
                 args.head_ref,
             )
@@ -302,14 +289,14 @@ def main() -> int:
 
         base_path = base_map.get(path, path)
         if args.absolute:
-            base_text = _read_text_from_worktree(path)
+            base_text = guard.read_text_from_worktree(path)
             current_text = base_text
         elif args.since_ref:
-            base_text = _read_text_from_ref(base_path, args.since_ref)
-            current_text = _read_text_from_ref(path, args.head_ref)
+            base_text = guard.read_text_from_ref(base_path, args.since_ref)
+            current_text = guard.read_text_from_ref(path, args.head_ref)
         else:
-            base_text = _read_text_from_ref(base_path, "HEAD")
-            current_text = _read_text_from_worktree(path)
+            base_text = guard.read_text_from_ref(base_path, "HEAD")
+            current_text = guard.read_text_from_worktree(path)
 
         base = _count_metrics(base_text)
         current = _count_metrics(current_text)
@@ -317,10 +304,12 @@ def main() -> int:
             "allow_attrs": current["allow_attrs"] - base["allow_attrs"],
             "dead_code_allow_attrs": current["dead_code_allow_attrs"]
             - base["dead_code_allow_attrs"],
-            "unwrap_expect_calls": current["unwrap_expect_calls"] - base["unwrap_expect_calls"],
+            "unwrap_expect_calls": current["unwrap_expect_calls"]
+            - base["unwrap_expect_calls"],
             "unchecked_unwrap_expect_calls": current["unchecked_unwrap_expect_calls"]
             - base["unchecked_unwrap_expect_calls"],
-            "panic_macro_calls": current["panic_macro_calls"] - base["panic_macro_calls"],
+            "panic_macro_calls": current["panic_macro_calls"]
+            - base["panic_macro_calls"],
         }
 
         totals_allow_growth += growth["allow_attrs"]
@@ -336,7 +325,9 @@ def main() -> int:
             or args.fail_on_any_dead_code
         ):
             file_dead_code_instances = _collect_dead_code_allow_instances(
-                _strip_cfg_test_blocks(current_text) if current_text is not None else None
+                _strip_cfg_test_blocks(current_text)
+                if current_text is not None
+                else None
             )
             dead_code_without_reason_count += sum(
                 1 for item in file_dead_code_instances if not item["has_reason"]

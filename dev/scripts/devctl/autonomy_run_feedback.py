@@ -164,9 +164,7 @@ def build_feedback_state(
     enabled = feedback_requested and continuous_enabled
 
     stall_rounds = to_int(getattr(args, "feedback_stall_rounds", 2), default=2)
-    no_signal_rounds = to_int(
-        getattr(args, "feedback_no_signal_rounds", 2), default=2
-    )
+    no_signal_rounds = to_int(getattr(args, "feedback_no_signal_rounds", 2), default=2)
     downshift_factor = float(getattr(args, "feedback_downshift_factor", 0.5))
     upshift_rounds = to_int(getattr(args, "feedback_upshift_rounds", 2), default=2)
     upshift_factor = float(getattr(args, "feedback_upshift_factor", 1.25))
@@ -258,9 +256,13 @@ def update_feedback_state(
     state["last_unresolved_total"] = unresolved_total
 
     if enabled:
-        settings = state.get("settings") if isinstance(state.get("settings"), dict) else {}
+        settings = (
+            state.get("settings") if isinstance(state.get("settings"), dict) else {}
+        )
         min_agents = to_int(state.get("min_agents"), default=1)
-        max_agents = max(min_agents, to_int(state.get("max_agents"), default=min_agents))
+        max_agents = max(
+            min_agents, to_int(state.get("max_agents"), default=min_agents)
+        )
         current_agents = max(min_agents, min(max_agents, selected_agents))
         no_signal_rounds = to_int(settings.get("no_signal_rounds"), default=2)
         stall_rounds = to_int(settings.get("stall_rounds"), default=2)

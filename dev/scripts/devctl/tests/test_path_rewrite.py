@@ -31,7 +31,7 @@ class PathRewriteCommandTests(TestCase):
             "replacement_count": 4,
             "changes": [
                 {"file": "AGENTS.md", "replacements": 2},
-                {"file": "dev/DEVELOPMENT.md", "replacements": 2},
+                {"file": "dev/guides/DEVELOPMENT.md", "replacements": 2},
             ],
             "post_scan": {"ok": True, "violations": []},
         }

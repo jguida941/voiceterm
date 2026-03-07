@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 
-
 try:
     import yaml as _yaml
 except ModuleNotFoundError:  # pragma: no cover
@@ -188,7 +187,9 @@ def _parse_minimal_yaml(raw: str) -> object:
     parsed, index = _parse_block(lines, 0, first_indent)
     if index != len(lines):
         line_no = lines[index][2]
-        raise YamlFallbackParseError(f"line {line_no}: trailing content could not be parsed")
+        raise YamlFallbackParseError(
+            f"line {line_no}: trailing content could not be parsed"
+        )
     return parsed
 
 

@@ -52,7 +52,13 @@ class MutationRalphLoopCoreTests(TestCase):
                 return_value=(
                     {
                         "score": 0.62,
-                        "counts": {"caught": 10, "missed": 6, "timeout": 0, "unviable": 0, "other": 0},
+                        "counts": {
+                            "caught": 10,
+                            "missed": 6,
+                            "timeout": 0,
+                            "unviable": 0,
+                            "other": 0,
+                        },
                         "hotspots": [{"path": "src/foo.rs", "survivors": 4}],
                         "freshness": [],
                     },
@@ -100,7 +106,13 @@ class MutationRalphLoopCoreTests(TestCase):
                 return_value=(
                     {
                         "score": 0.50,
-                        "counts": {"caught": 5, "missed": 5, "timeout": 0, "unviable": 0, "other": 0},
+                        "counts": {
+                            "caught": 5,
+                            "missed": 5,
+                            "timeout": 0,
+                            "unviable": 0,
+                            "other": 0,
+                        },
                         "hotspots": [],
                         "freshness": [],
                     },

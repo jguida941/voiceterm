@@ -75,45 +75,13 @@ impl MemoryIndex {
     /// Retrieve events by topic tag (case-insensitive), newest first.
     #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn by_topic(&self, topic: &str, n: usize) -> Vec<&MemoryEvent> {
-        let key = topic.to_ascii_lowercase();
-        let Some(indices) = self.topic_index.get(&key) else {
-            return Vec::new();
-        };
-        indices
-            .iter()
-            .rev()
-            .filter_map(|&idx| {
-                let event = self.events.get(idx)?;
-                if event.retrieval_state == RetrievalState::Eligible {
-                    Some(event)
-                } else {
-                    None
-                }
-            })
-            .take(n)
-            .collect()
+        self.lookup_indexed(&self.topic_index, topic, n)
     }
 
     /// Retrieve events by task reference (case-insensitive), newest first.
     #[must_use = "retrieval result should be consumed by callers"]
     pub(crate) fn by_task(&self, task: &str, n: usize) -> Vec<&MemoryEvent> {
-        let key = task.to_ascii_lowercase();
-        let Some(indices) = self.task_index.get(&key) else {
-            return Vec::new();
-        };
-        indices
-            .iter()
-            .rev()
-            .filter_map(|&idx| {
-                let event = self.events.get(idx)?;
-                if event.retrieval_state == RetrievalState::Eligible {
-                    Some(event)
-                } else {
-                    None
-                }
-            })
-            .take(n)
-            .collect()
+        self.lookup_indexed(&self.task_index, task, n)
     }
 
     /// Full-text search across event text (simple case-insensitive substring).
@@ -175,6 +143,25 @@ impl MemoryIndex {
             .iter()
             .rev()
             .filter(|e| e.retrieval_state == RetrievalState::Eligible)
+            .collect()
+    }
+
+    fn lookup_indexed<'a>(
+        &'a self,
+        index_map: &HashMap<String, Vec<usize>>,
+        key: &str,
+        n: usize,
+    ) -> Vec<&'a MemoryEvent> {
+        let normalized = key.to_ascii_lowercase();
+        let Some(indices) = index_map.get(&normalized) else {
+            return Vec::new();
+        };
+        indices
+            .iter()
+            .rev()
+            .filter_map(|&idx| self.events.get(idx))
+            .filter(|event| event.retrieval_state == RetrievalState::Eligible)
+            .take(n)
             .collect()
     }
 }

@@ -119,7 +119,9 @@ class FeedbackSizingConfigTests(unittest.TestCase):
 
         self.assertFalse(errors)
         self.assertFalse(state["enabled"])
-        self.assertIn("feedback sizing ignored because --continuous is disabled", warnings)
+        self.assertIn(
+            "feedback sizing ignored because --continuous is disabled", warnings
+        )
 
 
 class FeedbackSizingBehaviorTests(unittest.TestCase):

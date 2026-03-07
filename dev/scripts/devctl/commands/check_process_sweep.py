@@ -24,7 +24,7 @@ def cleanup_orphaned_voiceterm_test_binaries(
     split_stale: Callable[[list[dict]], tuple[list[dict], list[dict]]],
     killer: Callable[[list[dict]], tuple[list[int], list[str]]],
 ) -> dict:
-    """Clean up detached/stale test binaries so local runs stay stable over time."""
+    """Clean up detached/stale test processes so local runs stay stable over time."""
     start = time.time()
     if dry_run:
         return {
@@ -49,13 +49,17 @@ def cleanup_orphaned_voiceterm_test_binaries(
     for warning in warnings:
         print(f"[{step_name}] warning: {warning}")
     if orphaned:
-        print(f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test binaries")
+        print(
+            f"[{step_name}] detected {len(orphaned)} orphaned voiceterm test processes"
+        )
     if stale_active:
         print(
-            f"[{step_name}] detected {len(stale_active)} stale active voiceterm test binaries"
+            f"[{step_name}] detected {len(stale_active)} stale active voiceterm test processes"
         )
     if killed_pids:
-        print(f"[{step_name}] killed {len(killed_pids)} orphaned/stale voiceterm test binaries")
+        print(
+            f"[{step_name}] killed {len(killed_pids)} orphaned/stale voiceterm test processes"
+        )
     for warning in kill_warnings:
         print(f"[{step_name}] warning: {warning}")
 

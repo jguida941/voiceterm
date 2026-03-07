@@ -13,53 +13,37 @@ from pathlib import Path
 
 try:
     from git_change_paths import list_changed_paths_with_base_map
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 try:
-    from rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
+    from rust_guard_common import GuardContext
+    from rust_guard_common import is_test_path as _is_test_path
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
+    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
 try:
-    from rust_check_text_utils import mask_rust_comments_and_strings, strip_cfg_test_blocks
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from rust_check_text_utils import (
+        mask_rust_comments_and_strings,
+        strip_cfg_test_blocks,
+    )
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.rust_check_text_utils import (
         mask_rust_comments_and_strings,
         strip_cfg_test_blocks,
     )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 
 PANIC_MACRO_RE = re.compile(r"\bpanic!\s*\(")
 PANIC_ALLOW_MARKER_RE = re.compile(r"panic-policy:\s*allow\b", re.IGNORECASE)
 PANIC_ALLOW_REASON_RE = re.compile(r"\breason\s*=", re.IGNORECASE)
-
-
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_git_with_root(REPO_ROOT, args, check=check)
-
-
-def _validate_ref(ref: str) -> None:
-    _validate_ref_with_git(_run_git, ref)
-
-
-def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    return _read_text_from_ref_with_git(_run_git, path, ref)
-
-
-def _read_text_from_worktree(path: Path) -> str | None:
-    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _is_comment_like(raw_line: str) -> bool:
@@ -67,7 +51,9 @@ def _is_comment_like(raw_line: str) -> bool:
     return stripped.startswith(("//", "/*", "*", "///", "//!"))
 
 
-def _has_allowlisted_panic_comment(lines: list[str], index: int, lookback: int = 3) -> bool:
+def _has_allowlisted_panic_comment(
+    lines: list[str], index: int, lookback: int = 3
+) -> bool:
     min_index = max(0, index - lookback)
     for probe in range(index, min_index - 1, -1):
         raw = lines[probe].strip()
@@ -137,7 +123,9 @@ def _render_md(report: dict) -> str:
             "for any new runtime panic path, or replace with typed error handling."
         )
         for item in report["violations"]:
-            line_hint = ", ".join(str(v) for v in item["current"]["unallowlisted_panic_line_numbers"][:8])
+            line_hint = ", ".join(
+                str(v) for v in item["current"]["unallowlisted_panic_line_numbers"][:8]
+            )
             if line_hint:
                 line_hint = f" lines {line_hint}"
             lines.append(
@@ -152,7 +140,9 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -162,10 +152,10 @@ def main() -> int:
 
     try:
         if args.since_ref:
-            _validate_ref(args.since_ref)
-            _validate_ref(args.head_ref)
+            guard.validate_ref(args.since_ref)
+            guard.validate_ref(args.head_ref)
         changed_paths, base_map = list_changed_paths_with_base_map(
-            _run_git,
+            guard.run_git,
             args.since_ref,
             args.head_ref,
         )
@@ -202,11 +192,11 @@ def main() -> int:
 
         base_path = base_map.get(path, path)
         if args.since_ref:
-            base_text = _read_text_from_ref(base_path, args.since_ref)
-            current_text = _read_text_from_ref(path, args.head_ref)
+            base_text = guard.read_text_from_ref(base_path, args.since_ref)
+            current_text = guard.read_text_from_ref(path, args.head_ref)
         else:
-            base_text = _read_text_from_ref(base_path, "HEAD")
-            current_text = _read_text_from_worktree(path)
+            base_text = guard.read_text_from_ref(base_path, "HEAD")
+            current_text = guard.read_text_from_worktree(path)
 
         base = _count_metrics(base_text)
         current = _count_metrics(current_text)

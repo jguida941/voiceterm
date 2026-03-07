@@ -137,7 +137,9 @@ def render_md(report: Dict) -> str:
     lines.append("| Step | Status | Exit | Details |")
     lines.append("|---|---|---:|---|")
     for step in report["steps"]:
-        details = ", ".join(f"{k}={v}" for k, v in step.get("details", {}).items()) or "-"
+        details = (
+            ", ".join(f"{k}={v}" for k, v in step.get("details", {}).items()) or "-"
+        )
         lines.append(
             f"| `{step['name']}` | {step['status']} | {step['returncode']} | {details} |"
         )

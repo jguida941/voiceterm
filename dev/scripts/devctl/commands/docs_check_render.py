@@ -10,10 +10,14 @@ def render_markdown_report(report: dict) -> str:
         lines.append(f"- commit_range: {since_ref}...{head_ref}")
     lines.append(f"- changelog_updated: {report.get('changelog_updated')}")
     updated_docs = report.get("updated_docs", [])
-    lines.append(f"- updated_docs: {', '.join(updated_docs) if updated_docs else 'none'}")
+    lines.append(
+        f"- updated_docs: {', '.join(updated_docs) if updated_docs else 'none'}"
+    )
     if report.get("user_facing"):
         missing_docs = report.get("missing_docs", [])
-        lines.append(f"- missing_docs: {', '.join(missing_docs) if missing_docs else 'none'}")
+        lines.append(
+            f"- missing_docs: {', '.join(missing_docs) if missing_docs else 'none'}"
+        )
         lines.append(f"- user_facing_ok: {report.get('user_facing_ok')}")
 
     tooling_changes = report.get("tooling_changes_detected", [])
@@ -48,7 +52,9 @@ def render_markdown_report(report: dict) -> str:
         if not report.get("active_plan_sync_ok"):
             active_sync_errors = active_sync_report.get("errors", [])
             if active_sync_errors:
-                lines.append("- active_plan_sync_errors: " + " | ".join(active_sync_errors))
+                lines.append(
+                    "- active_plan_sync_errors: " + " | ".join(active_sync_errors)
+                )
             active_sync_error = active_sync_report.get("error")
             if active_sync_error:
                 lines.append(f"- active_plan_sync_error: {active_sync_error}")
@@ -58,7 +64,9 @@ def render_markdown_report(report: dict) -> str:
         if not report.get("multi_agent_sync_ok"):
             multi_agent_errors = multi_agent_report.get("errors", [])
             if multi_agent_errors:
-                lines.append("- multi_agent_sync_errors: " + " | ".join(multi_agent_errors))
+                lines.append(
+                    "- multi_agent_sync_errors: " + " | ".join(multi_agent_errors)
+                )
             multi_agent_error = multi_agent_report.get("error")
             if multi_agent_error:
                 lines.append(f"- multi_agent_sync_error: {multi_agent_error}")
@@ -156,8 +164,7 @@ def render_markdown_report(report: dict) -> str:
                 )
 
         lines.append(
-            "- agents_bundle_render_ok: "
-            + str(report.get("agents_bundle_render_ok"))
+            "- agents_bundle_render_ok: " + str(report.get("agents_bundle_render_ok"))
         )
         agents_bundle_report = report.get("agents_bundle_render_report") or {}
         if not report.get("agents_bundle_render_ok"):

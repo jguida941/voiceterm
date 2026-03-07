@@ -62,7 +62,9 @@ def build_failure_reasons(
     reasons: list[str] = []
     if user_facing_enabled:
         if not changelog_updated:
-            reasons.append("Missing required `dev/CHANGELOG.md` update for user-facing changes.")
+            reasons.append(
+                "Missing required `dev/CHANGELOG.md` update for user-facing changes."
+            )
         if strict_user_docs and missing_docs:
             reasons.append(
                 "Strict user-facing docs mode requires all canonical docs; missing: "
@@ -98,13 +100,15 @@ def build_failure_reasons(
     if strict_tooling and not active_plan_sync_ok:
         gate_messages = collect_gate_messages(active_plan_sync_report)
         reasons.append(
-            "Active-plan sync gate failed" + (": " + " | ".join(gate_messages) if gate_messages else ".")
+            "Active-plan sync gate failed"
+            + (": " + " | ".join(gate_messages) if gate_messages else ".")
         )
 
     if strict_tooling and not multi_agent_sync_ok:
         gate_messages = collect_gate_messages(multi_agent_sync_report)
         reasons.append(
-            "Multi-agent sync gate failed" + (": " + " | ".join(gate_messages) if gate_messages else ".")
+            "Multi-agent sync gate failed"
+            + (": " + " | ".join(gate_messages) if gate_messages else ".")
         )
 
     if strict_tooling and not legacy_path_audit_ok:
@@ -195,15 +199,23 @@ def build_next_actions(
     actions: list[str] = []
     if user_facing_enabled and missing_docs:
         if strict_user_docs:
-            actions.append("Update all missing user docs: " + ", ".join(missing_docs) + ".")
+            actions.append(
+                "Update all missing user docs: " + ", ".join(missing_docs) + "."
+            )
         else:
-            actions.append("Update at least one user doc from the canonical set in USER_DOCS.")
+            actions.append(
+                "Update at least one user doc from the canonical set in USER_DOCS."
+            )
     if tooling_changes_detected and missing_tooling_docs and strict_tooling:
-        actions.append("Update missing maintainer docs: " + ", ".join(missing_tooling_docs) + ".")
+        actions.append(
+            "Update missing maintainer docs: " + ", ".join(missing_tooling_docs) + "."
+        )
     if strict_tooling and evolution_relevant_changes and not evolution_policy_ok:
         actions.append(f"Update `{EVOLUTION_DOC}` with this tooling/process change.")
     if strict_tooling and not active_plan_sync_ok:
-        actions.append(f"Fix active-plan sync drift: `python3 {ACTIVE_PLAN_SYNC_SCRIPT_REL}`.")
+        actions.append(
+            f"Fix active-plan sync drift: `python3 {ACTIVE_PLAN_SYNC_SCRIPT_REL}`."
+        )
     if strict_tooling and not multi_agent_sync_ok:
         actions.append(
             f"Fix multi-agent board/runbook drift: `python3 {MULTI_AGENT_SYNC_SCRIPT_REL}`."
@@ -233,7 +245,9 @@ def build_next_actions(
             f"`python3 {AGENTS_BUNDLE_RENDER_SCRIPT_REL} --write`."
         )
     if deprecated_violations:
-        actions.append("Replace deprecated release helper paths with `devctl` equivalents.")
+        actions.append(
+            "Replace deprecated release helper paths with `devctl` equivalents."
+        )
     actions.append(
         "Generate triage snapshot for owner routing: `python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle --bundle-dir dev/reports/failures/local --bundle-prefix docs-check-failure --format md --output dev/reports/failures/local/docs-check-failure-summary.md`."
     )
@@ -242,8 +256,5 @@ def build_next_actions(
         if strict_tooling
         else "python3 dev/scripts/devctl.py docs-check --user-facing --strict --format md"
     )
-    actions.append(
-        f"Re-run the failing gate with details: `{rerun_command}`."
-    )
+    actions.append(f"Re-run the failing gate with details: `{rerun_command}`.")
     return actions
-

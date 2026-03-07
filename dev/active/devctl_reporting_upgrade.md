@@ -372,7 +372,7 @@ pending merge/push promotion.
 3. Failure cleanup must be constrained to failure-artifact paths by default and
    support CI-gated scoped cleanup decisions.
 4. AI guard failures must emit one canonical remediation scaffold so humans and
-   agents can coordinate fixes from a shared active document.
+   agents can coordinate fixes from one shared remediation document.
 
 ### Required Acceptance Gates
 
@@ -391,7 +391,7 @@ pending merge/push promotion.
    no candidate runs.
 6. Regression tests cover parser flags and command-gate behavior.
 7. Failure/security workflow jobs define explicit `timeout-minutes` budgets.
-8. `devctl check --profile ai-guard` auto-generates `dev/active/RUST_AUDIT_FINDINGS.md`
+8. `devctl check --profile ai-guard` auto-generates `dev/reports/audits/RUST_AUDIT_FINDINGS.md`
    when AI guard steps fail, and `.github/workflows/tooling_control_plane.yml`
    generates/uploads the same scaffold on docs-policy failure paths.
 

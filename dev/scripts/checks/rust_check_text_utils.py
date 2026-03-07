@@ -84,13 +84,13 @@ def mask_rust_comments_and_strings(text: str) -> str:
                 escape_next = False
             elif char == "\\":
                 escape_next = True
-            elif char == "\"":
+            elif char == '"':
                 in_string = False
             index += 1
             continue
 
         if in_raw_string:
-            if char == "\"" and text.startswith("#" * raw_hashes, index + 1):
+            if char == '"' and text.startswith("#" * raw_hashes, index + 1):
                 if char != "\n":
                     chars[index] = " "
                 end = index + 1 + raw_hashes
@@ -119,7 +119,7 @@ def mask_rust_comments_and_strings(text: str) -> str:
             index += 2
             continue
 
-        if char == "\"":
+        if char == '"':
             chars[index] = " "
             in_string = True
             escape_next = False
@@ -130,7 +130,7 @@ def mask_rust_comments_and_strings(text: str) -> str:
             probe = index + 1
             while probe < length and text[probe] == "#":
                 probe += 1
-            if probe < length and text[probe] == "\"":
+            if probe < length and text[probe] == '"':
                 chars[index] = " "
                 for hash_index in range(index + 1, probe + 1):
                     if chars[hash_index] != "\n":
@@ -284,8 +284,7 @@ def strip_cfg_test_blocks(text: str) -> str:
 
         _mask_range(output_chars, item_start, item_end)
         replacement = "".join(
-            "\n" if char == "\n" else " "
-            for char in sanitized[item_start:item_end]
+            "\n" if char == "\n" else " " for char in sanitized[item_start:item_end]
         )
         sanitized = sanitized[:item_start] + replacement + sanitized[item_end:]
         cursor = item_end

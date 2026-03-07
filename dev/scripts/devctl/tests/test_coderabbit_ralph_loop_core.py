@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
 
-
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/coderabbit_ralph_loop_core.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("coderabbit_ralph_loop_core_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "coderabbit_ralph_loop_core_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load coderabbit_ralph_loop_core.py")
     module = importlib.util.module_from_spec(spec)
@@ -43,7 +44,7 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
         )
 
     def test_run_fix_command_rejects_invalid_quoted_command(self) -> None:
-        rc, error = self._call_run_fix("\"unterminated")
+        rc, error = self._call_run_fix('"unterminated')
         self.assertEqual(rc, 2)
         self.assertIsNotNone(error)
         self.assertIn("invalid --fix-command", error or "")
@@ -54,8 +55,12 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
         self.assertEqual(error, "invalid --fix-command: empty command")
 
     def test_run_fix_command_uses_argument_vector_without_shell(self) -> None:
-        with patch.object(self.script.subprocess, "run", return_value=SimpleNamespace(returncode=0)) as run_mock:
-            rc, error = self._call_run_fix("python3 dev/scripts/devctl.py check --profile ci")
+        with patch.object(
+            self.script.subprocess, "run", return_value=SimpleNamespace(returncode=0)
+        ) as run_mock:
+            rc, error = self._call_run_fix(
+                "python3 dev/scripts/devctl.py check --profile ci"
+            )
 
         self.assertEqual(rc, 0)
         self.assertIsNone(error)
@@ -109,7 +114,9 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(report["reason"], "source_run_sha_mismatch")
         self.assertEqual(report["source_correlation"], "source_run_sha_mismatch")
-        self.assertEqual(report["attempts"][0]["source_correlation"], "source_run_sha_mismatch")
+        self.assertEqual(
+            report["attempts"][0]["source_correlation"], "source_run_sha_mismatch"
+        )
 
     def test_execute_loop_validates_source_artifact_sha_and_pr_metadata(self) -> None:
         with (
@@ -131,7 +138,10 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
             patch.object(
                 self.script,
                 "load_backlog_payload",
-                return_value=({"items": [], "head_sha": "a" * 40, "pr_number": 19}, None),
+                return_value=(
+                    {"items": [], "head_sha": "a" * 40, "pr_number": 19},
+                    None,
+                ),
             ),
         ):
             report = self.script.execute_loop(
@@ -243,5 +253,7 @@ class CodeRabbitRalphLoopCoreTests(TestCase):
             )
 
         self.assertFalse(report["ok"])
-        self.assertEqual(report["reason"], "max attempts reached with unresolved medium+ backlog")
+        self.assertEqual(
+            report["reason"], "max attempts reached with unresolved medium+ backlog"
+        )
         self.assertTrue(report["escalation_needed"])

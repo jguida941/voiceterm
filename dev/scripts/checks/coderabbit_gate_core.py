@@ -151,8 +151,12 @@ def build_report(
         "allow_branch_fallback": allow_branch_fallback,
         "warnings": [],
         "latest_match": {},
-        "wait_seconds": max(int(getattr(args, "wait_seconds", default_wait_seconds) or 0), 0),
-        "poll_seconds": max(int(getattr(args, "poll_seconds", default_poll_seconds) or 1), 1),
+        "wait_seconds": max(
+            int(getattr(args, "wait_seconds", default_wait_seconds) or 0), 0
+        ),
+        "poll_seconds": max(
+            int(getattr(args, "poll_seconds", default_poll_seconds) or 1), 1
+        ),
     }
 
     sha, sha_error = resolve_sha(args.sha, run_capture=run_capture)
@@ -187,7 +191,9 @@ def build_report(
     wait_seconds = report["wait_seconds"]
     poll_seconds = report["poll_seconds"]
     deadline = time.monotonic() + wait_seconds
-    fallback_warning = "no runs found for branch filter; retried with commit-only filter."
+    fallback_warning = (
+        "no runs found for branch filter; retried with commit-only filter."
+    )
 
     while True:
         runs, run_error = gh_run_list(
@@ -260,6 +266,7 @@ def build_report(
         report["matching_runs"] = len(matching)
 
         if matching:
+
             def _sort_key(row: dict[str, Any]) -> tuple[int, datetime]:
                 parsed_ok, parsed_value = parse_iso(row.get("createdAt"))
                 return (1 if parsed_ok else 0, parsed_value)

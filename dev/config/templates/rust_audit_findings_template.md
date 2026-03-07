@@ -16,8 +16,8 @@ planning and implementation, not a historical archive.
 ## Required Sources
 
 - `AGENTS.md`
-- `dev/DEVELOPMENT.md`
-- `dev/ARCHITECTURE.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/ARCHITECTURE.md`
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/INDEX.md`
 - `rust/Cargo.toml`

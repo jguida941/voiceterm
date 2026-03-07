@@ -61,7 +61,9 @@ def _tracked_repo_paths() -> tuple[list[str], str | None]:
 
 
 def _include_path(relative_path: str) -> bool:
-    return not any(relative_path.startswith(prefix) for prefix in PATH_AUDIT_EXCLUDED_PREFIXES)
+    return not any(
+        relative_path.startswith(prefix) for prefix in PATH_AUDIT_EXCLUDED_PREFIXES
+    )
 
 
 def _include_workspace_contract_path(relative_path: str) -> bool:
@@ -90,7 +92,9 @@ def _scan_text_for_legacy_references(relative_path: str, text: str) -> list[dict
     return violations
 
 
-def _scan_text_for_workspace_contract_references(relative_path: str, text: str) -> list[dict]:
+def _scan_text_for_workspace_contract_references(
+    relative_path: str, text: str
+) -> list[dict]:
     violations: list[dict] = []
     lines = text.splitlines()
     for lineno, line in enumerate(lines, start=1):
@@ -161,7 +165,11 @@ def scan_workspace_contract_references() -> dict:
             "scan_prefixes": list(WORKSPACE_CONTRACT_SCAN_PREFIXES),
             "scan_files": list(WORKSPACE_CONTRACT_SCAN_FILES),
             "rules": [
-                {"id": rule["id"], "token": rule["token"], "replacement": rule["replacement"]}
+                {
+                    "id": rule["id"],
+                    "token": rule["token"],
+                    "replacement": rule["replacement"],
+                }
                 for rule in WORKSPACE_CONTRACT_RULES
             ],
             "violations": [],
@@ -180,7 +188,9 @@ def scan_workspace_contract_references() -> dict:
         except OSError:
             continue
         checked_file_count += 1
-        violations.extend(_scan_text_for_workspace_contract_references(relative_path, text))
+        violations.extend(
+            _scan_text_for_workspace_contract_references(relative_path, text)
+        )
 
     return {
         "ok": not violations,
@@ -189,7 +199,11 @@ def scan_workspace_contract_references() -> dict:
         "scan_prefixes": list(WORKSPACE_CONTRACT_SCAN_PREFIXES),
         "scan_files": list(WORKSPACE_CONTRACT_SCAN_FILES),
         "rules": [
-            {"id": rule["id"], "token": rule["token"], "replacement": rule["replacement"]}
+            {
+                "id": rule["id"],
+                "token": rule["token"],
+                "replacement": rule["replacement"],
+            }
             for rule in WORKSPACE_CONTRACT_RULES
         ],
         "violations": violations,
@@ -214,7 +228,8 @@ def scan_path_audit_references() -> dict:
     legacy_checked_file_count = int(legacy_scan.get("checked_file_count", 0))
     workspace_checked_file_count = int(workspace_scan.get("checked_file_count", 0))
     return {
-        "ok": bool(legacy_scan.get("ok", False)) and bool(workspace_scan.get("ok", False)),
+        "ok": bool(legacy_scan.get("ok", False))
+        and bool(workspace_scan.get("ok", False)),
         "error": "; ".join(errors) if errors else None,
         "checked_file_count": legacy_checked_file_count + workspace_checked_file_count,
         "unique_checked_file_count": legacy_checked_file_count,

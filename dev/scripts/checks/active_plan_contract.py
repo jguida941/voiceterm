@@ -35,7 +35,9 @@ def validate_execution_plan_contract(
         if EXECUTION_PLAN_MARKER not in plan_text:
             missing_markers.append(relative)
         section_gaps = [
-            section for section in EXECUTION_PLAN_REQUIRED_SECTIONS if section not in plan_text
+            section
+            for section in EXECUTION_PLAN_REQUIRED_SECTIONS
+            if section not in plan_text
         ]
         if section_gaps:
             missing_sections.append(f"{relative} missing: {', '.join(section_gaps)}")
@@ -48,7 +50,9 @@ def validate_execution_plan_contract(
         if EXECUTION_PLAN_MARKER not in plan_text:
             continue
         section_gaps = [
-            section for section in EXECUTION_PLAN_REQUIRED_SECTIONS if section not in plan_text
+            section
+            for section in EXECUTION_PLAN_REQUIRED_SECTIONS
+            if section not in plan_text
         ]
         if section_gaps:
             missing_sections.append(f"{relative} missing: {', '.join(section_gaps)}")

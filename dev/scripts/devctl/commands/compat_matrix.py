@@ -50,7 +50,9 @@ def run(args) -> int:
             or "compatibility matrix validation gate failed"
         )
     if run_smoke and not smoke_ok:
-        errors.append(smoke_report.get("error") or "compatibility matrix smoke gate failed")
+        errors.append(
+            smoke_report.get("error") or "compatibility matrix smoke gate failed"
+        )
 
     report = {
         "command": "compat-matrix",

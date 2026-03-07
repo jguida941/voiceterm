@@ -13,8 +13,14 @@ def add_autonomy_loop_parser(sub) -> None:
         ),
     )
     loop_cmd.add_argument("--repo", help="owner/repo (default: $GITHUB_REPOSITORY)")
-    loop_cmd.add_argument("--plan-id", required=True, help="Stable plan identifier for this controller run")
-    loop_cmd.add_argument("--branch-base", default="develop", help="Target integration branch")
+    loop_cmd.add_argument(
+        "--plan-id",
+        required=True,
+        help="Stable plan identifier for this controller run",
+    )
+    loop_cmd.add_argument(
+        "--branch-base", default="develop", help="Target integration branch"
+    )
     loop_cmd.add_argument(
         "--working-branch-prefix",
         default="autoloop",
@@ -40,7 +46,9 @@ def add_autonomy_loop_parser(sub) -> None:
             "CodeRabbit workflow triggers)"
         ),
     )
-    loop_cmd.add_argument("--fix-command", help="Optional nested fix command for plan-then-fix/fix-only")
+    loop_cmd.add_argument(
+        "--fix-command", help="Optional nested fix command for plan-then-fix/fix-only"
+    )
     loop_cmd.add_argument("--max-rounds", type=int, default=6)
     loop_cmd.add_argument("--max-hours", type=float, default=4.0)
     loop_cmd.add_argument("--max-tasks", type=int, default=24)

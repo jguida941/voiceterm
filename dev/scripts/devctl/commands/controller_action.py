@@ -17,8 +17,8 @@ from ..controller_action_support import (
     load_phone_payload,
     remote_mode_command,
     render_markdown,
-    write_controller_mode,
     workflow_allowed,
+    write_controller_mode,
 )
 from ..phone_status_views import view_payload
 
@@ -50,7 +50,9 @@ def _base_report(args, repo: str, runtime_mode: str) -> dict[str, Any]:
     }
 
 
-def _run_command(command: list[str], *, dry_run: bool) -> tuple[bool, str, dict[str, Any]]:
+def _run_command(
+    command: list[str], *, dry_run: bool
+) -> tuple[bool, str, dict[str, Any]]:
     if dry_run:
         return True, "dry-run", {"command": " ".join(command)}
     rc, stdout, stderr = run_capture(command)
@@ -106,8 +108,12 @@ def _set_mode(report: dict[str, Any], args, *, requested_mode: str) -> None:
     remote_ok = True
     remote_result: dict[str, Any] = {}
     if args.remote:
-        command = remote_mode_command(repo=report["repo"], requested_mode=requested_mode)
-        remote_ok, message, remote_result = _run_command(command, dry_run=bool(args.dry_run))
+        command = remote_mode_command(
+            repo=report["repo"], requested_mode=requested_mode
+        )
+        remote_ok, message, remote_result = _run_command(
+            command, dry_run=bool(args.dry_run)
+        )
         if not remote_ok and is_non_blocking_local_connectivity_error(message):
             report["warnings"].append(
                 "unable to reach GitHub API in local environment; remote mode update treated as non-blocking"
@@ -161,13 +167,19 @@ def run(args) -> int:
     if int(args.max_attempts) < 1:
         print("Error: --max-attempts must be >= 1")
         return 2
-    if not args.dry_run and str(args.action) != "refresh-status" and not shutil.which("gh"):
+    if (
+        not args.dry_run
+        and str(args.action) != "refresh-status"
+        and not shutil.which("gh")
+    ):
         print("Error: gh CLI is required for controller actions that call GitHub.")
         return 2
 
     repo = resolve_repo(args.repo)
     if not repo and str(args.action) != "refresh-status":
-        print("Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY).")
+        print(
+            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
+        )
         return 2
     if not repo:
         repo = str(args.repo or "unknown/unknown")
@@ -189,7 +201,11 @@ def run(args) -> int:
         report["reason"] = "unsupported_action"
         report["errors"].append(f"unsupported action: {action}")
 
-    output = json.dumps(report, indent=2) if args.format == "json" else render_markdown(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else render_markdown(report)
+    )
     write_output(output, args.output)
     if args.json_output:
         write_output(json.dumps(report, indent=2), args.json_output)

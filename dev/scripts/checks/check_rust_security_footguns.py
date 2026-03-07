@@ -13,30 +13,27 @@ from pathlib import Path
 
 try:
     from git_change_paths import list_changed_paths_with_base_map
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 try:
-    from rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import (
-        is_test_path as _is_test_path,
-        read_text_from_ref as _read_text_from_ref_with_git,
-        read_text_from_worktree as _read_text_from_worktree_with_root,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
+    from rust_guard_common import GuardContext
+    from rust_guard_common import is_test_path as _is_test_path
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
+    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
 try:
     from rust_check_text_utils import strip_cfg_test_blocks
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 
 TODO_MACRO_RE = re.compile(r"\btodo!\s*\(")
 UNIMPLEMENTED_MACRO_RE = re.compile(r"\bunimplemented!\s*\(")
@@ -48,22 +45,6 @@ SHELL_SPAWN_RE = re.compile(
 SHELL_CONTROL_FLAG_RE = re.compile(r"""\.arg\s*\(\s*"(?:-c|/C)"\s*\)""")
 PERMISSIVE_MODE_RE = re.compile(r"\b0o(?:777|666)\b")
 WEAK_CRYPTO_RE = re.compile(r"\b(?:md5|sha1)\b", re.IGNORECASE)
-
-
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_git_with_root(REPO_ROOT, args, check=check)
-
-
-def _validate_ref(ref: str) -> None:
-    _validate_ref_with_git(_run_git, ref)
-
-
-def _read_text_from_ref(path: Path, ref: str) -> str | None:
-    return _read_text_from_ref_with_git(_run_git, path, ref)
-
-
-def _read_text_from_worktree(path: Path) -> str | None:
-    return _read_text_from_worktree_with_root(REPO_ROOT, path)
 
 
 def _count_metrics(text: str | None) -> dict[str, int]:
@@ -144,7 +125,9 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -154,10 +137,10 @@ def main() -> int:
 
     try:
         if args.since_ref:
-            _validate_ref(args.since_ref)
-            _validate_ref(args.head_ref)
+            guard.validate_ref(args.since_ref)
+            guard.validate_ref(args.head_ref)
         changed_paths, base_map = list_changed_paths_with_base_map(
-            _run_git,
+            guard.run_git,
             args.since_ref,
             args.head_ref,
         )
@@ -202,18 +185,20 @@ def main() -> int:
 
         base_path = base_map.get(path, path)
         if args.since_ref:
-            base_text = _read_text_from_ref(base_path, args.since_ref)
-            current_text = _read_text_from_ref(path, args.head_ref)
+            base_text = guard.read_text_from_ref(base_path, args.since_ref)
+            current_text = guard.read_text_from_ref(path, args.head_ref)
         else:
-            base_text = _read_text_from_ref(base_path, "HEAD")
-            current_text = _read_text_from_worktree(path)
+            base_text = guard.read_text_from_ref(base_path, "HEAD")
+            current_text = guard.read_text_from_worktree(path)
 
         base = _count_metrics(base_text)
         current = _count_metrics(current_text)
         growth = _growth(base, current)
 
         totals["todo_macro_calls_growth"] += growth["todo_macro_calls"]
-        totals["unimplemented_macro_calls_growth"] += growth["unimplemented_macro_calls"]
+        totals["unimplemented_macro_calls_growth"] += growth[
+            "unimplemented_macro_calls"
+        ]
         totals["dbg_macro_calls_growth"] += growth["dbg_macro_calls"]
         totals["shell_spawn_calls_growth"] += growth["shell_spawn_calls"]
         totals["shell_control_flag_calls_growth"] += growth["shell_control_flag_calls"]

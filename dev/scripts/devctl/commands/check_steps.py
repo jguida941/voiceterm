@@ -40,7 +40,9 @@ def run_step_specs_serial(step_specs: List[dict], dry_run: bool) -> List[dict]:
     return results
 
 
-def run_step_specs_parallel(step_specs: List[dict], dry_run: bool, max_workers: int) -> List[dict]:
+def run_step_specs_parallel(
+    step_specs: List[dict], dry_run: bool, max_workers: int
+) -> List[dict]:
     """Run independent step specs in parallel while preserving report order."""
     if not step_specs:
         return []
@@ -68,7 +70,9 @@ def run_step_specs_parallel(step_specs: List[dict], dry_run: bool, max_workers: 
     ordered_results: List[dict] = []
     for result in indexed_results:
         if result is None:
-            raise RuntimeError("parallel step execution returned an incomplete result set")
+            raise RuntimeError(
+                "parallel step execution returned an incomplete result set"
+            )
         ordered_results.append(result)
     return ordered_results
 
@@ -82,5 +86,7 @@ def run_step_specs(
 ) -> List[dict]:
     """Run specs using serial or parallel mode based on command settings."""
     if parallel_enabled:
-        return run_step_specs_parallel(step_specs, dry_run=dry_run, max_workers=max_workers)
+        return run_step_specs_parallel(
+            step_specs, dry_run=dry_run, max_workers=max_workers
+        )
     return run_step_specs_serial(step_specs, dry_run=dry_run)

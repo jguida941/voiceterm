@@ -18,7 +18,7 @@ def make_args(**overrides) -> SimpleNamespace:
         "since_ref": None,
         "head_ref": "HEAD",
         "source_guards": True,
-        "output_path": "dev/active/RUST_AUDIT_FINDINGS.md",
+        "output_path": "dev/reports/audits/RUST_AUDIT_FINDINGS.md",
         "template_path": "dev/config/templates/rust_audit_findings_template.md",
         "trigger": "manual",
         "trigger_steps": None,
@@ -60,7 +60,9 @@ class AuditScaffoldParserTests(TestCase):
 
 class AuditScaffoldCommandTests(TestCase):
     @patch("dev.scripts.devctl.commands.audit_scaffold.write_output")
-    def test_rejects_output_path_outside_active_root(self, write_output_mock) -> None:
+    def test_rejects_output_path_outside_reports_audits_root(
+        self, write_output_mock
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_root:
             root = Path(temp_root)
             template = root / "dev/config/templates/rust_audit_findings_template.md"
@@ -68,20 +70,24 @@ class AuditScaffoldCommandTests(TestCase):
             template.write_text("# template", encoding="utf-8")
 
             args = make_args(
-                output_path="tmp/report.md",
+                output_path="dev/active/RUST_AUDIT_FINDINGS.md",
                 template_path="dev/config/templates/rust_audit_findings_template.md",
                 force=True,
             )
-            with patch("dev.scripts.devctl.commands.audit_scaffold.REPO_ROOT", root), patch(
-                "dev.scripts.devctl.commands.audit_scaffold.ACTIVE_ROOT",
-                (root / "dev/active").resolve(),
+            with patch(
+                "dev.scripts.devctl.commands.audit_scaffold.REPO_ROOT", root
+            ), patch(
+                "dev.scripts.devctl.commands.audit_scaffold.REPORTS_AUDIT_ROOT",
+                (root / "dev/reports/audits").resolve(),
             ):
                 rc = audit_scaffold.run(args)
 
         self.assertEqual(rc, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
-        self.assertTrue(any("dev/active/" in error for error in payload["errors"]))
+        self.assertTrue(
+            any("dev/reports/audits/" in error for error in payload["errors"])
+        )
 
     @patch("dev.scripts.devctl.commands.audit_scaffold._run_guard")
     @patch("dev.scripts.devctl.commands.audit_scaffold.write_output")
@@ -92,8 +98,8 @@ class AuditScaffoldCommandTests(TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_root:
             root = Path(temp_root)
-            active_dir = (root / "dev/active").resolve()
-            active_dir.mkdir(parents=True, exist_ok=True)
+            reports_audit_dir = (root / "dev/reports/audits").resolve()
+            reports_audit_dir.mkdir(parents=True, exist_ok=True)
             template = root / "dev/config/templates/rust_audit_findings_template.md"
             template.parent.mkdir(parents=True, exist_ok=True)
             template.write_text(
@@ -122,7 +128,10 @@ class AuditScaffoldCommandTests(TestCase):
                     "ok": False,
                     "skipped": False,
                     "violations": [
-                        {"path": "rust/src/bin/voiceterm/event_loop.rs", "reason": "crossed_soft_limit"}
+                        {
+                            "path": "rust/src/bin/voiceterm/event_loop.rs",
+                            "reason": "crossed_soft_limit",
+                        }
                     ],
                     "error": None,
                     "stderr_tail": "",
@@ -244,20 +253,22 @@ class AuditScaffoldCommandTests(TestCase):
 
             args = make_args(
                 force=True,
-                output_path="dev/active/RUST_AUDIT_FINDINGS.md",
+                output_path="dev/reports/audits/RUST_AUDIT_FINDINGS.md",
                 template_path="dev/config/templates/rust_audit_findings_template.md",
                 trigger="check-ai-guard",
                 trigger_steps="code-shape-guard",
                 since_ref="origin/develop",
                 head_ref="HEAD",
             )
-            with patch("dev.scripts.devctl.commands.audit_scaffold.REPO_ROOT", root), patch(
-                "dev.scripts.devctl.commands.audit_scaffold.ACTIVE_ROOT",
-                active_dir,
+            with patch(
+                "dev.scripts.devctl.commands.audit_scaffold.REPO_ROOT", root
+            ), patch(
+                "dev.scripts.devctl.commands.audit_scaffold.REPORTS_AUDIT_ROOT",
+                reports_audit_dir,
             ):
                 rc = audit_scaffold.run(args)
 
-            generated_path = active_dir / "RUST_AUDIT_FINDINGS.md"
+            generated_path = reports_audit_dir / "RUST_AUDIT_FINDINGS.md"
             generated_text = generated_path.read_text(encoding="utf-8")
 
         self.assertEqual(rc, 0)

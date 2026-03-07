@@ -16,12 +16,14 @@ For consolidated visual planning context (Theme Studio + overlay research +
 redesign), use `dev/active/theme_upgrade.md`.
 For IDE/provider adapter modularization execution scope, use
 `dev/active/ide_provider_modularization.md`.
-For a quick lifecycle/check/push guide, see `dev/DEVELOPMENT.md` sections
+For pre-release architecture/tooling remediation execution scope, use
+`dev/active/pre_release_architecture_audit.md`.
+For a quick lifecycle/check/push guide, see `dev/guides/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 For automation-first `devctl` routing and Ralph loop controls, see
-`dev/DEVCTL_AUTOGUIDE.md`.
+`dev/guides/DEVCTL_AUTOGUIDE.md`.
 For MCP-as-adapter rules and extension policy, see
-`dev/MCP_DEVCTL_ALIGNMENT.md`.
+`dev/guides/MCP_DEVCTL_ALIGNMENT.md`.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
@@ -32,7 +34,7 @@ registry wiring in `dev/scripts/devctl/script_catalog.py`.
 Engineering quality rule:
 
 - For non-trivial Rust runtime/tooling changes, follow the Rust reference pack
-  in `AGENTS.md` and `dev/DEVELOPMENT.md` before coding:
+  in `AGENTS.md` and `dev/guides/DEVELOPMENT.md` before coding:
   - `https://doc.rust-lang.org/book/`
   - `https://doc.rust-lang.org/reference/`
   - `https://rust-lang.github.io/api-guidelines/`
@@ -149,7 +151,7 @@ markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore R
 find . -maxdepth 1 -type f -name '--*'
 # `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
-# see dev/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
+# see dev/guides/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
 # Triage output for humans + AI agents (optional CIHub ingestion)
 python3 dev/scripts/devctl.py triage --ci --format md --output /tmp/devctl-triage.md
@@ -459,7 +461,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 - `autonomy-swarm`: adaptive swarm orchestrator that sizes agent count from change/question metadata (with optional token-budget cap), runs per-agent bounded `autonomy-loop` lanes in parallel, reserves a default `AGENT-REVIEW` lane for post-audit review when execution runs with >1 lane, writes one dated swarm bundle under `dev/reports/autonomy/swarms/<label>`, and by default runs a post-audit digest bundle under `dev/reports/autonomy/library/<label>-digest` (use `--no-post-audit` and/or `--no-reviewer-lane` to disable; non-report modes require `--fix-command`)
 - `failure-cleanup`: guarded cleanup for local failure triage bundles (`dev/reports/failures`) with default path-root enforcement, optional override constrained to `dev/reports/**` (`--allow-outside-failure-root`), optional scoped CI gate filters (`--ci-branch`, `--ci-workflow`, `--ci-event`, `--ci-sha`), plus dry-run/confirmation controls
 - `reports-cleanup`: retention-based cleanup for stale run artifacts under managed `dev/reports/**` roots (default `max-age-days=30`, `keep-recent=10`) with protected paths, preview mode (`--dry-run`), and explicit confirmation/`--yes` before deletion
-- `audit-scaffold`: build/update `dev/active/RUST_AUDIT_FINDINGS.md` from guard findings (with safe output path and overwrite guards)
+- `audit-scaffold`: build/update `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from guard findings (with safe output path and overwrite guards)
 - `list`: command/profile inventory
 
 ## Quick command guide (plain language)
@@ -472,6 +474,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `check --profile prepush` | runtime changes touch perf/latency/parser/wake-word/memory-sensitive paths | adds perf + memory-heavy validation before CI catches it |
 | `check --profile maintainer-lint` | you are doing focused lint/debt cleanup | runs stricter maintainer lint policy without full runtime build/test loop |
 | `check --profile quick` | you need a fast local sanity pass while iterating | runs minimal fmt/clippy checks for quick feedback |
+| `check --profile quick --skip-fmt --skip-clippy --no-parallel` | you ran raw `cargo test` / manual test binaries and need orphan cleanup immediately after | runs process-sweep pre/post only, reaps orphaned/stale VoiceTerm test processes, and protects later runs from detached leftovers |
 | `data-science --format md` | you want a fresh productivity/agent-sizing snapshot from current telemetry | builds `summary.{md,json}` + charts from devctl events and swarm/benchmark history |
 | `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates plus non-blocking mutation-score reminders on top of local release checks |
 | `mcp --tool release_contract_snapshot --format json` | an MCP client needs a read-only control-plane contract view | exposes allowlisted, read-only snapshots without changing `devctl` as enforcement authority |
@@ -520,7 +523,7 @@ Use this profile for fast guard-focused iteration; run your target full profile
 
 What it does:
 
-- Creates one fix list at `dev/active/RUST_AUDIT_FINDINGS.md`.
+- Creates one fix list at `dev/reports/audits/RUST_AUDIT_FINDINGS.md`.
 - Pulls findings from the guard scripts so you do not have to read many logs.
 
 When it runs automatically:

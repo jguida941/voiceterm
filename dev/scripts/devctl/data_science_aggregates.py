@@ -120,7 +120,9 @@ def build_agent_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             {
                 "selected_agents": selected_agents,
                 "runs": runs,
-                "success_rate_pct": round((successes / runs) * 100.0, 2) if runs else 0.0,
+                "success_rate_pct": (
+                    round((successes / runs) * 100.0, 2) if runs else 0.0
+                ),
                 "avg_tasks_completed": round(tasks_total / runs, 3) if runs else 0.0,
                 "avg_tasks_per_agent": round(tasks_per_agent_avg, 3),
                 "tasks_per_minute": round(tasks_per_minute, 3),

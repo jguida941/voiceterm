@@ -74,7 +74,9 @@ def audit_adrs(repo_root: Path) -> Dict:
     for adr_id, status in status_by_id.items():
         listed_status = index_row_status.get(adr_id)
         if listed_status and listed_status != status:
-            index_status_mismatch.append(f"{adr_id} (file={status}, index={listed_status})")
+            index_status_mismatch.append(
+                f"{adr_id} (file={status}, index={listed_status})"
+            )
 
     for match in ADR_INDEX_LINK_RE.finditer(index_text):
         path = match.group(2)
@@ -108,9 +110,13 @@ def audit_adrs(repo_root: Path) -> Dict:
     if index_missing:
         errors.append(f"ADRs missing from ADR index: {', '.join(index_missing)}")
     if index_status_mismatch:
-        errors.append(f"ADR status mismatch between file and index: {', '.join(index_status_mismatch)}")
+        errors.append(
+            f"ADR status mismatch between file and index: {', '.join(index_status_mismatch)}"
+        )
     if broken_index_links:
-        errors.append(f"Broken ADR index links: {', '.join(sorted(set(broken_index_links)))}")
+        errors.append(
+            f"Broken ADR index links: {', '.join(sorted(set(broken_index_links)))}"
+        )
 
     return {
         "total_adrs": len(tracked_adrs),
@@ -122,17 +128,29 @@ def audit_adrs(repo_root: Path) -> Dict:
         "index_missing": index_missing,
         "index_status_mismatch": index_status_mismatch,
         "broken_index_links": sorted(set(broken_index_links)),
-        "missing_sequence_ids": [f"{value:04d}" for value in tracking["missing_sequence_ids"]],
+        "missing_sequence_ids": [
+            f"{value:04d}" for value in tracking["missing_sequence_ids"]
+        ],
         "retired_ids": [f"{value:04d}" for value in tracking["retired_ids"]],
         "reserved_ids": [f"{value:04d}" for value in tracking["reserved_ids"]],
-        "unexplained_gap_ids": [f"{value:04d}" for value in tracking["unexplained_gap_ids"]],
-        "stale_governed_ids": [f"{value:04d}" for value in tracking["stale_governed_ids"]],
-        "backlog_master_ids": [f"{value:04d}" for value in tracking["backlog_master_ids"]],
-        "backlog_autonomy_ids": [f"{value:04d}" for value in tracking["backlog_autonomy_ids"]],
+        "unexplained_gap_ids": [
+            f"{value:04d}" for value in tracking["unexplained_gap_ids"]
+        ],
+        "stale_governed_ids": [
+            f"{value:04d}" for value in tracking["stale_governed_ids"]
+        ],
+        "backlog_master_ids": [
+            f"{value:04d}" for value in tracking["backlog_master_ids"]
+        ],
+        "backlog_autonomy_ids": [
+            f"{value:04d}" for value in tracking["backlog_autonomy_ids"]
+        ],
         "backlog_missing_reserved_ids": [
             f"{value:04d}" for value in tracking["backlog_missing_reserved_ids"]
         ],
-        "backlog_existing_ids": [f"{value:04d}" for value in tracking["backlog_existing_ids"]],
+        "backlog_existing_ids": [
+            f"{value:04d}" for value in tracking["backlog_existing_ids"]
+        ],
         "reserved_not_backlog_ids": [
             f"{value:04d}" for value in tracking["reserved_not_backlog_ids"]
         ],

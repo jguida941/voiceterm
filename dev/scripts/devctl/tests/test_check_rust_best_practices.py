@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest import TestCase
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_rust_best_practices.py"
 
@@ -17,7 +16,9 @@ def _load_script_module():
     script_dir = str(SCRIPT_PATH.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    spec = importlib.util.spec_from_file_location("check_rust_best_practices_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_rust_best_practices_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_rust_best_practices.py")
     module = importlib.util.module_from_spec(spec)
@@ -38,6 +39,8 @@ pub unsafe fn raw() {
     unsafe { std::ptr::read_volatile(0 as *const u8); }
     std::mem::forget(String::from("x"));
     mem::forget(String::from("y"));
+    env::set_var("VOICETERM_X", "1");
+    std::env::remove_var("VOICETERM_X");
 }
 """
         metrics = self.script._count_metrics(text)
@@ -46,6 +49,7 @@ pub unsafe fn raw() {
         self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 1)
         self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
         self.assertEqual(metrics["mem_forget_calls"], 2)
+        self.assertEqual(metrics["env_mutation_calls"], 2)
 
     def test_count_metrics_accepts_documented_unsafe_and_no_forget(self) -> None:
         text = """
@@ -62,6 +66,7 @@ pub unsafe fn documented() {
         self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 0)
         self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
         self.assertEqual(metrics["mem_forget_calls"], 0)
+        self.assertEqual(metrics["env_mutation_calls"], 0)
 
     def test_count_metrics_tracks_unsafe_impl_missing_safety_comment(self) -> None:
         text = """
@@ -80,6 +85,7 @@ mod tests {
     pub unsafe fn test_only() {
         unsafe { std::ptr::read_volatile(0 as *const u8); }
         std::mem::forget(String::from("x"));
+        env::set_var("VOICETERM_TEST", "1");
     }
 }
 """
@@ -89,3 +95,4 @@ mod tests {
         self.assertEqual(metrics["pub_unsafe_fn_missing_safety_docs"], 0)
         self.assertEqual(metrics["unsafe_impl_missing_safety_comment"], 0)
         self.assertEqual(metrics["mem_forget_calls"], 0)
+        self.assertEqual(metrics["env_mutation_calls"], 0)

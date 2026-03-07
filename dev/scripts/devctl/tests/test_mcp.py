@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import build_parser
-from dev.scripts.devctl.commands import check, mcp, ship_steps
+from dev.scripts.devctl.commands import check, mcp, mcp_tools, mcp_transport, ship_steps
 
 
 class McpParserTests(TestCase):
@@ -30,12 +30,12 @@ class McpParserTests(TestCase):
                 "--tool",
                 "status_snapshot",
                 "--tool-args-json",
-                "{\"include_ci\": true}",
+                '{"include_ci": true}',
             ]
         )
         self.assertEqual(args.command, "mcp")
         self.assertEqual(args.tool, "status_snapshot")
-        self.assertEqual(args.tool_args_json, "{\"include_ci\": true}")
+        self.assertEqual(args.tool_args_json, '{"include_ci": true}')
 
 
 class McpCommandTests(TestCase):
@@ -54,7 +54,9 @@ class McpCommandTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.mcp.write_output")
     @patch("dev.scripts.devctl.commands.mcp._load_allowlist")
-    def test_run_outputs_contract_json(self, load_allowlist_mock, write_output_mock) -> None:
+    def test_run_outputs_contract_json(
+        self, load_allowlist_mock, write_output_mock
+    ) -> None:
         load_allowlist_mock.return_value = {
             "ok": True,
             "path": "dev/config/mcp_tools_allowlist.json",
@@ -77,12 +79,16 @@ class McpCommandTests(TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["command"], "mcp")
-        self.assertEqual(payload["allowlist_path"], "dev/config/mcp_tools_allowlist.json")
+        self.assertEqual(
+            payload["allowlist_path"], "dev/config/mcp_tools_allowlist.json"
+        )
         self.assertGreaterEqual(len(payload["tools"]), 2)
 
     @patch("dev.scripts.devctl.commands.mcp.write_output")
     @patch("dev.scripts.devctl.commands.mcp._load_allowlist")
-    def test_run_fails_when_allowlist_has_unknown_tool(self, load_allowlist_mock, write_output_mock) -> None:
+    def test_run_fails_when_allowlist_has_unknown_tool(
+        self, load_allowlist_mock, write_output_mock
+    ) -> None:
         load_allowlist_mock.return_value = {
             "ok": True,
             "path": "dev/config/mcp_tools_allowlist.json",
@@ -123,7 +129,9 @@ class McpCommandTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.mcp.write_output")
     @patch("dev.scripts.devctl.commands.mcp._load_allowlist")
-    def test_run_tool_fails_when_tool_is_unknown(self, load_allowlist_mock, write_output_mock) -> None:
+    def test_run_tool_fails_when_tool_is_unknown(
+        self, load_allowlist_mock, write_output_mock
+    ) -> None:
         load_allowlist_mock.return_value = {
             "ok": True,
             "path": "dev/config/mcp_tools_allowlist.json",
@@ -187,7 +195,11 @@ class McpCommandTests(TestCase):
     def test_validate_allowlist_contract_rejects_unimplemented_resource(self) -> None:
         allowlist = {
             "tools": {"status_snapshot": {"id": "status_snapshot", "read_only": True}},
-            "resources": {"devctl://unsupported/resource": {"uri": "devctl://unsupported/resource"}},
+            "resources": {
+                "devctl://unsupported/resource": {
+                    "uri": "devctl://unsupported/resource"
+                }
+            },
         }
         errors = mcp._validate_allowlist_contract(allowlist)
         self.assertTrue(errors)
@@ -255,26 +267,32 @@ class McpCommandTests(TestCase):
             "tools": {"status_snapshot": {"id": "status_snapshot", "read_only": False}},
             "resources": {},
         }
-        result = mcp._call_tool("status_snapshot", {}, allowlist)
+        result = mcp.call_tool("status_snapshot", {}, allowlist)
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], mcp.READ_ONLY_ERROR)
 
     def test_release_contract_snapshot_contains_required_guardrails(self) -> None:
-        payload = mcp._tool_release_contract_snapshot({})["payload"]
+        payload = mcp_tools.tool_release_contract_snapshot({})["payload"]
         self.assertEqual(
             payload["check_release_gate_commands"],
             check.build_release_gate_commands(),
         )
         verify_checks = payload["ship_verify_checks"]
-        self.assertEqual([item["name"] for item in verify_checks[:4]], [
-            "coderabbit-gate",
-            "coderabbit-ralph-gate",
-            "check-release",
-            "hygiene",
-        ])
+        self.assertEqual(
+            [item["name"] for item in verify_checks[:4]],
+            [
+                "coderabbit-gate",
+                "coderabbit-ralph-gate",
+                "check-release",
+                "hygiene",
+            ],
+        )
         self.assertEqual(
             verify_checks,
-            [{"name": name, "cmd": cmd} for name, cmd in ship_steps.build_verify_checks(verify_docs=True)],
+            [
+                {"name": name, "cmd": cmd}
+                for name, cmd in ship_steps.build_verify_checks(verify_docs=True)
+            ],
         )
 
     def test_read_resource_supports_contract_payloads(self) -> None:
@@ -295,16 +313,18 @@ class McpCommandTests(TestCase):
                 },
             },
         }
-        allowlist_resource = mcp._read_resource("devctl://mcp/allowlist", allowlist)
+        allowlist_resource = mcp.read_resource("devctl://mcp/allowlist", allowlist)
         self.assertTrue(allowlist_resource["ok"])
         self.assertIn("tools", allowlist_resource["payload"])
 
-        release_resource = mcp._read_resource("devctl://devctl/release-contract", allowlist)
+        release_resource = mcp.read_resource(
+            "devctl://devctl/release-contract", allowlist
+        )
         self.assertTrue(release_resource["ok"])
         self.assertIn("check_release_gate_commands", release_resource["payload"])
 
-    @patch("dev.scripts.devctl.commands.mcp._write_mcp_message")
-    @patch("dev.scripts.devctl.commands.mcp._read_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.write_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.read_mcp_message")
     def test_serve_stdio_returns_invalid_params_for_non_object_tool_call(
         self,
         read_message_mock,
@@ -322,15 +342,15 @@ class McpCommandTests(TestCase):
             None,
         ]
 
-        rc = mcp._serve_stdio(allowlist)
+        rc = mcp_transport.serve_stdio(allowlist)
 
         self.assertEqual(rc, 0)
         response = write_message_mock.call_args_list[0].args[0]
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("invalid params", response["error"]["message"])
 
-    @patch("dev.scripts.devctl.commands.mcp._write_mcp_message")
-    @patch("dev.scripts.devctl.commands.mcp._read_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.write_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.read_mcp_message")
     def test_serve_stdio_returns_invalid_params_for_missing_tool_name(
         self,
         read_message_mock,
@@ -348,15 +368,15 @@ class McpCommandTests(TestCase):
             None,
         ]
 
-        rc = mcp._serve_stdio(allowlist)
+        rc = mcp_transport.serve_stdio(allowlist)
 
         self.assertEqual(rc, 0)
         response = write_message_mock.call_args_list[0].args[0]
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("missing tool name", response["error"]["message"])
 
-    @patch("dev.scripts.devctl.commands.mcp._write_mcp_message")
-    @patch("dev.scripts.devctl.commands.mcp._read_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.write_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.read_mcp_message")
     def test_serve_stdio_returns_invalid_params_for_non_object_tool_arguments(
         self,
         read_message_mock,
@@ -379,15 +399,15 @@ class McpCommandTests(TestCase):
             None,
         ]
 
-        rc = mcp._serve_stdio(allowlist)
+        rc = mcp_transport.serve_stdio(allowlist)
 
         self.assertEqual(rc, 0)
         response = write_message_mock.call_args_list[0].args[0]
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("arguments", response["error"]["message"])
 
-    @patch("dev.scripts.devctl.commands.mcp._write_mcp_message")
-    @patch("dev.scripts.devctl.commands.mcp._read_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.write_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.read_mcp_message")
     def test_serve_stdio_returns_invalid_params_for_missing_resource_uri(
         self,
         read_message_mock,
@@ -405,15 +425,15 @@ class McpCommandTests(TestCase):
             None,
         ]
 
-        rc = mcp._serve_stdio(allowlist)
+        rc = mcp_transport.serve_stdio(allowlist)
 
         self.assertEqual(rc, 0)
         response = write_message_mock.call_args_list[0].args[0]
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("missing resource uri", response["error"]["message"])
 
-    @patch("dev.scripts.devctl.commands.mcp._write_mcp_message")
-    @patch("dev.scripts.devctl.commands.mcp._read_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.write_mcp_message")
+    @patch("dev.scripts.devctl.commands.mcp_transport.read_mcp_message")
     def test_serve_stdio_resources_read_uses_allowlist_mime_type(
         self,
         read_message_mock,
@@ -441,7 +461,7 @@ class McpCommandTests(TestCase):
             None,
         ]
 
-        rc = mcp._serve_stdio(allowlist)
+        rc = mcp_transport.serve_stdio(allowlist)
 
         self.assertEqual(rc, 0)
         response = write_message_mock.call_args_list[0].args[0]

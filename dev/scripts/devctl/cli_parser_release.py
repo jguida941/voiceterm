@@ -55,8 +55,12 @@ def add_release_parsers(sub: argparse._SubParsersAction) -> None:
     release_gates_cmd.add_argument("--dry-run", action="store_true")
     release_gates_cmd.add_argument("--format", choices=["md", "json"], default="md")
     release_gates_cmd.add_argument("--output")
-    release_gates_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    release_gates_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+    release_gates_cmd.add_argument(
+        "--pipe-command", help="Pipe report output to a command"
+    )
+    release_gates_cmd.add_argument(
+        "--pipe-args", nargs="*", help="Extra args for pipe command"
+    )
 
     # release
     release_cmd = sub.add_parser(
@@ -69,7 +73,9 @@ def add_release_parsers(sub: argparse._SubParsersAction) -> None:
         help="Auto-update release metadata files before tag/notes steps",
     )
     release_cmd.add_argument("--homebrew", action="store_true")
-    release_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    release_cmd.add_argument(
+        "--yes", action="store_true", help="Skip confirmation prompts"
+    )
     release_cmd.add_argument("--allow-ci", action="store_true")
     release_cmd.add_argument("--dry-run", action="store_true")
 
@@ -84,12 +90,16 @@ def add_release_parsers(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Auto-update release metadata files before verify/tag/publish steps",
     )
-    ship_cmd.add_argument("--verify", action="store_true", help="Run release verification checks")
+    ship_cmd.add_argument(
+        "--verify", action="store_true", help="Run release verification checks"
+    )
     ship_cmd.add_argument(
         "--verify-docs", action="store_true", help="Include docs-check in verify step"
     )
     ship_cmd.add_argument("--tag", action="store_true", help="Create/push git tag")
-    ship_cmd.add_argument("--notes", action="store_true", help="Generate release notes markdown")
+    ship_cmd.add_argument(
+        "--notes", action="store_true", help="Generate release notes markdown"
+    )
     ship_cmd.add_argument("--github", action="store_true", help="Create GitHub release")
     ship_cmd.add_argument(
         "--github-fail-on-no-commits",
@@ -102,7 +112,9 @@ def add_release_parsers(sub: argparse._SubParsersAction) -> None:
         "--verify-pypi", action="store_true", help="Verify PyPI JSON endpoint version"
     )
     ship_cmd.add_argument("--notes-output", help="Release notes output file path")
-    ship_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    ship_cmd.add_argument(
+        "--yes", action="store_true", help="Skip confirmation prompts"
+    )
     ship_cmd.add_argument("--allow-ci", action="store_true")
     ship_cmd.add_argument("--dry-run", action="store_true")
     ship_cmd.add_argument("--format", choices=["text", "json", "md"], default="text")
@@ -133,13 +145,19 @@ def add_release_parsers(sub: argparse._SubParsersAction) -> None:
     # homebrew
     homebrew_cmd = sub.add_parser("homebrew", help="Run Homebrew tap update flow")
     homebrew_cmd.add_argument("--version", required=True)
-    homebrew_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    homebrew_cmd.add_argument(
+        "--yes", action="store_true", help="Skip confirmation prompts"
+    )
     homebrew_cmd.add_argument("--allow-ci", action="store_true")
     homebrew_cmd.add_argument("--dry-run", action="store_true")
 
     # pypi
     pypi_cmd = sub.add_parser("pypi", help="Run PyPI build/check/upload flow")
-    pypi_cmd.add_argument("--upload", action="store_true", help="Upload package to PyPI")
-    pypi_cmd.add_argument("--yes", action="store_true", help="Skip confirmation prompts")
+    pypi_cmd.add_argument(
+        "--upload", action="store_true", help="Upload package to PyPI"
+    )
+    pypi_cmd.add_argument(
+        "--yes", action="store_true", help="Skip confirmation prompts"
+    )
     pypi_cmd.add_argument("--allow-ci", action="store_true")
     pypi_cmd.add_argument("--dry-run", action="store_true")

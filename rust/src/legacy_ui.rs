@@ -183,10 +183,8 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
     let input_text_color = Color::Rgb(255, 220, 100); // Warm yellow for input
     let status_text_color = Color::Rgb(160, 150, 150); // Dimmer for status
 
-    // CRITICAL: Disable text wrapping entirely to avoid ratatui's underflow bug
-    // The bug in tui/src/wrapping.rs:21 causes integer underflow when calculating
-    // slice positions, leading to "byte index 18446... out of bounds" panics.
-    // Until ratatui fixes this, we must avoid text wrapping completely.
+    // Text wrapping is disabled to avoid integer underflow in ratatui's
+    // wrapping logic, which can panic with out-of-bounds byte indices.
     let output_block = Paragraph::new(output_text)
         .block(
             Block::default()
@@ -204,8 +202,8 @@ pub fn draw(frame: &mut ratatui::Frame<'_>, app: &CodexApp) {
         .scroll((app.get_scroll_offset(), 0));
     frame.render_widget(output_block, chunks[0]);
 
-    // CRITICAL FIX: Sanitize the input text before rendering to prevent crashes
-    // from terminal control sequences like "0;0;0u" that can appear in the input buffer
+    // Sanitize input text before rendering — terminal control sequences in the
+    // input buffer can cause rendering panics.
     let sanitized_input = app.sanitized_input_text();
     let input_block = Paragraph::new(sanitized_input.as_str())
         .block(

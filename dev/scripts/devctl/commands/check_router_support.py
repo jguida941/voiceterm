@@ -97,7 +97,8 @@ def classify_lane(changed_paths: list[str]) -> dict:
     elif tooling_paths:
         lane = "tooling"
         reasons.append(
-            "Tooling/process/CI files changed: " + ", ".join(sample_paths(tooling_paths))
+            "Tooling/process/CI files changed: "
+            + ", ".join(sample_paths(tooling_paths))
         )
     elif runtime_paths:
         lane = "runtime"

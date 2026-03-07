@@ -101,16 +101,22 @@ class DataScienceSnapshotTests(unittest.TestCase):
                 max_benchmark_files=100,
             )
 
-            recommendation = (report.get("agent_stats") or {}).get("recommendation") or {}
+            recommendation = (report.get("agent_stats") or {}).get(
+                "recommendation"
+            ) or {}
             self.assertEqual(recommendation.get("selected_agents"), 5)
 
             summary_json = Path((report.get("paths") or {}).get("summary_json") or "")
             summary_md = Path((report.get("paths") or {}).get("summary_md") or "")
             self.assertTrue(summary_json.exists())
             self.assertTrue(summary_md.exists())
-            self.assertTrue((summary_json.parent / "charts" / "command_frequency.svg").exists())
             self.assertTrue(
-                (summary_json.parent / "charts" / "agent_recommendation_score.svg").exists()
+                (summary_json.parent / "charts" / "command_frequency.svg").exists()
+            )
+            self.assertTrue(
+                (
+                    summary_json.parent / "charts" / "agent_recommendation_score.svg"
+                ).exists()
             )
 
 
@@ -149,7 +155,9 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
             self.assertTrue(snapshot.exists())
             payload = json.loads(snapshot.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("trigger_command"), "devctl:list")
-            self.assertGreaterEqual(int((payload.get("event_stats") or {}).get("total_events") or 0), 1)
+            self.assertGreaterEqual(
+                int((payload.get("event_stats") or {}).get("total_events") or 0), 1
+            )
 
 
 class DataScienceParserTests(unittest.TestCase):

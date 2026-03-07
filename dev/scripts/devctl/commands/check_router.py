@@ -10,12 +10,10 @@ from ..collect import collect_git_status
 from ..common import pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
 from .check_router_render import render_markdown
-from .check_router_support import (
-    BUNDLE_BY_LANE,
-    classify_lane as _classify_lane,
-    dedupe_commands as _dedupe_commands,
-    detect_risk_addons as _detect_risk_addons,
-)
+from .check_router_support import BUNDLE_BY_LANE
+from .check_router_support import classify_lane as _classify_lane
+from .check_router_support import dedupe_commands as _dedupe_commands
+from .check_router_support import detect_risk_addons as _detect_risk_addons
 
 
 def _extract_bundle_commands(bundle_name: str) -> tuple[list[str], str | None]:
@@ -56,7 +54,11 @@ def run(args) -> int:
             "execute": bool(getattr(args, "execute", False)),
             "error": git_info["error"],
         }
-        output = json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
+        output = (
+            json.dumps(report, indent=2)
+            if args.format == "json"
+            else _render_md(report)
+        )
         write_output(output, args.output)
         if args.pipe_command:
             pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
@@ -71,7 +73,9 @@ def run(args) -> int:
     bundle_commands, bundle_error = _extract_bundle_commands(bundle_name)
     risk_addons = _detect_risk_addons(changed_paths)
 
-    planned_rows = [{"source": bundle_name, "command": command} for command in bundle_commands]
+    planned_rows = [
+        {"source": bundle_name, "command": command} for command in bundle_commands
+    ]
     for addon in risk_addons:
         planned_rows.extend(
             {"source": addon["id"], "command": command} for command in addon["commands"]

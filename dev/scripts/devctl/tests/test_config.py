@@ -1,8 +1,8 @@
 """Tests for devctl shared path configuration."""
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from dev.scripts.devctl.config import resolve_src_dir
 
@@ -15,7 +15,9 @@ class ConfigPathTests(unittest.TestCase):
             legacy_src_dir = repo_root / "src"
             rust_dir.mkdir(parents=True)
             legacy_src_dir.mkdir(parents=True)
-            (rust_dir / "Cargo.toml").write_text("[package]\nname='x'\nversion='0.1.0'\n")
+            (rust_dir / "Cargo.toml").write_text(
+                "[package]\nname='x'\nversion='0.1.0'\n"
+            )
             (legacy_src_dir / "Cargo.toml").write_text(
                 "[package]\nname='legacy'\nversion='0.1.0'\n"
             )

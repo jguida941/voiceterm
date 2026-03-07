@@ -156,8 +156,7 @@ def render_bundle_reference_markdown(bundle_name: str) -> str:
 def render_all_bundle_reference_markdown() -> str:
     """Render all bundles in AGENTS markdown style."""
     return "\n\n".join(
-        render_bundle_reference_markdown(bundle_name)
-        for bundle_name in bundle_names()
+        render_bundle_reference_markdown(bundle_name) for bundle_name in bundle_names()
     )
 
 

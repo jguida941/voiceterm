@@ -8,6 +8,10 @@ use crate::voice_control::VoiceManager;
 use clap::Parser;
 use crossbeam_channel::bounded;
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Test fixture mirrors SettingsActionContext so each mutable dependency stays explicit."
+)]
 fn make_context<'a>(
     config: &'a mut OverlayConfig,
     voice_manager: &'a mut VoiceManager,

@@ -21,7 +21,9 @@ def run_git(
         check=False,
     )
     if check and result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip() or "git command failed")
+        raise RuntimeError(
+            (result.stderr or result.stdout).strip() or "git command failed"
+        )
     return result
 
 
@@ -62,3 +64,28 @@ def read_text_from_worktree(repo_root: Path, path: Path) -> str | None:
     if not absolute.exists():
         return None
     return absolute.read_text(encoding="utf-8", errors="replace")
+
+
+class GuardContext:
+    """Bound repo-root context for guard scripts."""
+
+    def __init__(self, repo_root: Path) -> None:
+        self.repo_root = repo_root
+
+    def run_git(
+        self, args: list[str], *, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        """Run git with this context's repo root."""
+        return run_git(self.repo_root, args, check=check)
+
+    def validate_ref(self, ref: str) -> None:
+        """Ensure a ref resolves."""
+        validate_ref(self.run_git, ref)
+
+    def read_text_from_ref(self, path: Path, ref: str) -> str | None:
+        """Read file text from a git ref."""
+        return read_text_from_ref(self.run_git, path, ref)
+
+    def read_text_from_worktree(self, path: Path) -> str | None:
+        """Read file text from the worktree."""
+        return read_text_from_worktree(self.repo_root, path)

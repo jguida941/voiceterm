@@ -7,7 +7,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -103,7 +102,9 @@ class CollectClippyWarningsTests(unittest.TestCase):
         self.assertEqual(payload["lints"]["clippy::panic"], 1)
         self.assertEqual(payload["lints"]["clippy::unwrap_used"], 2)
 
-    def test_build_clippy_command_includes_strict_warning_flag_when_requested(self) -> None:
+    def test_build_clippy_command_includes_strict_warning_flag_when_requested(
+        self,
+    ) -> None:
         command = self.collector.build_clippy_command(deny_warnings=True)
         self.assertIn("-D", command)
         self.assertIn("warnings", command)

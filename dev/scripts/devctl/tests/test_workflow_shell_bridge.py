@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -82,8 +81,12 @@ class WorkflowShellBridgeTests(unittest.TestCase):
             rc = self.script.evaluate_user_docs_gate(args)
 
             self.assertEqual(rc, 0)
-            self.assertIn("run_user_facing_strict=true", output.read_text(encoding="utf-8"))
-            self.assertIn("reason=cli-schema-change", output.read_text(encoding="utf-8"))
+            self.assertIn(
+                "run_user_facing_strict=true", output.read_text(encoding="utf-8")
+            )
+            self.assertIn(
+                "reason=cli-schema-change", output.read_text(encoding="utf-8")
+            )
 
     def test_resolve_security_scope_zero_sha_is_cleared(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -123,10 +126,14 @@ class WorkflowShellBridgeTests(unittest.TestCase):
             rc = self.script.prepare_failure_artifact_dir(args)
 
             self.assertEqual(rc, 0)
-            self.assertIn("workflow_slug=failure-triage", output.read_text(encoding="utf-8"))
+            self.assertIn(
+                "workflow_slug=failure-triage", output.read_text(encoding="utf-8")
+            )
             self.assertIn(
                 "artifact_dir="
-                + (tmp_root / "bundles" / "failure-triage" / "run-123-attempt-2").as_posix(),
+                + (
+                    tmp_root / "bundles" / "failure-triage" / "run-123-attempt-2"
+                ).as_posix(),
                 output.read_text(encoding="utf-8"),
             )
 
@@ -149,9 +156,10 @@ class WorkflowShellBridgeTests(unittest.TestCase):
                 rc = self.script.find_first_file(args)
 
             self.assertEqual(rc, 0)
-            self.assertIn((root / "a" / "backlog-medium.json").as_posix(), "".join(
-                call.args[0] for call in mock_stdout.call_args_list
-            ))
+            self.assertIn(
+                (root / "a" / "backlog-medium.json").as_posix(),
+                "".join(call.args[0] for call in mock_stdout.call_args_list),
+            )
 
     def test_resolve_range_falls_back_to_head_when_refs_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

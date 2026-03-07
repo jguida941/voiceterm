@@ -2,10 +2,10 @@
 
 use std::env;
 #[cfg(not(test))]
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 #[cfg(test)]
-use std::{cell::Cell, thread_local};
+use std::{cell::Cell, cell::RefCell, thread_local};
 
 // Gap rows previously provided buffer space for the ToolExecution
 // suppress/unsuppress cycle which toggled PTY winsize rapidly.  That cycle
@@ -275,10 +275,45 @@ impl HostTimingConfig {
 
 #[cfg(not(test))]
 static TERMINAL_HOST_CACHE: OnceLock<TerminalHost> = OnceLock::new();
+#[cfg(not(test))]
+static RUNTIME_BACKEND_LABEL_OVERRIDE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 
 #[cfg(test)]
 thread_local! {
     static TERMINAL_HOST_OVERRIDE: Cell<Option<TerminalHost>> = const { Cell::new(None) };
+    static RUNTIME_BACKEND_LABEL_TEST: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+#[cfg(test)]
+fn runtime_backend_label_override() -> Option<String> {
+    RUNTIME_BACKEND_LABEL_TEST.with(|slot| slot.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn runtime_backend_label_override() -> Option<String> {
+    let cell = RUNTIME_BACKEND_LABEL_OVERRIDE.get_or_init(|| Mutex::new(None));
+    match cell.lock() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
+    }
+}
+
+pub(crate) fn set_runtime_backend_label(label: impl Into<String>) {
+    #[cfg(test)]
+    {
+        RUNTIME_BACKEND_LABEL_TEST.with(|slot| *slot.borrow_mut() = Some(label.into()));
+    }
+    #[cfg(not(test))]
+    {
+        let cell = RUNTIME_BACKEND_LABEL_OVERRIDE.get_or_init(|| Mutex::new(None));
+        match cell.lock() {
+            Ok(mut guard) => *guard = Some(label.into()),
+            Err(poisoned) => {
+                let mut guard = poisoned.into_inner();
+                *guard = Some(label.into());
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -292,6 +327,9 @@ pub(crate) fn set_terminal_host_override(host: Option<TerminalHost>) {
 }
 
 pub(crate) fn backend_family_from_env() -> BackendFamily {
+    if let Some(label) = runtime_backend_label_override() {
+        return BackendFamily::from_label(&label);
+    }
     env::var("VOICETERM_BACKEND_LABEL")
         .map(|label| BackendFamily::from_label(&label))
         .unwrap_or(BackendFamily::Other)
@@ -664,5 +702,61 @@ mod tests {
                 env::remove_var("VOICETERM_BACKEND_LABEL");
             }
         });
+    }
+
+    // -- Runtime backend label override tests --
+
+    /// RAII guard that restores the thread-local backend label override on drop.
+    struct BackendLabelOverrideGuard {
+        previous: Option<String>,
+    }
+
+    impl BackendLabelOverrideGuard {
+        fn push(label: Option<String>) -> Self {
+            let previous = runtime_backend_label_override();
+            RUNTIME_BACKEND_LABEL_TEST.with(|slot| *slot.borrow_mut() = label);
+            Self { previous }
+        }
+    }
+
+    impl Drop for BackendLabelOverrideGuard {
+        fn drop(&mut self) {
+            RUNTIME_BACKEND_LABEL_TEST.with(|slot| *slot.borrow_mut() = self.previous.take());
+        }
+    }
+
+    #[test]
+    fn runtime_backend_label_override_roundtrip() {
+        let _guard = BackendLabelOverrideGuard::push(Some("claude".into()));
+        assert_eq!(runtime_backend_label_override(), Some("claude".into()));
+    }
+
+    #[test]
+    fn runtime_backend_label_override_none_by_default() {
+        let _guard = BackendLabelOverrideGuard::push(None);
+        assert_eq!(runtime_backend_label_override(), None);
+    }
+
+    #[test]
+    fn set_runtime_backend_label_writes_to_thread_local() {
+        let _guard = BackendLabelOverrideGuard::push(None);
+        set_runtime_backend_label("codex");
+        assert_eq!(runtime_backend_label_override(), Some("codex".into()));
+    }
+
+    #[test]
+    fn backend_family_from_env_prefers_runtime_override() {
+        let _guard = BackendLabelOverrideGuard::push(Some("claude".into()));
+        // Runtime override should take precedence regardless of env var.
+        assert_eq!(backend_family_from_env(), BackendFamily::Claude);
+    }
+
+    #[test]
+    fn backend_family_from_env_falls_back_without_override() {
+        let _guard = BackendLabelOverrideGuard::push(None);
+        // With no runtime override, falls back to env var (or Other).
+        let result = backend_family_from_env();
+        // Result depends on env state; just verify no panic and it returns something.
+        let _ = result;
     }
 }

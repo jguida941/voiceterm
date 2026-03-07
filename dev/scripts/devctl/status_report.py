@@ -46,10 +46,7 @@ def _run_probes_parallel(
     worker_count = min(max_workers, len(probes))
     results: Dict[str, Any] = {}
     with ThreadPoolExecutor(max_workers=worker_count) as pool:
-        futures = {
-            pool.submit(func): key
-            for key, func in probes
-        }
+        futures = {pool.submit(func): key for key, func in probes}
         for future in as_completed(futures):
             key = futures[future]
             try:
@@ -79,13 +76,15 @@ def build_project_report(
     if include_ci:
         probes.append(("ci", lambda: collect_ci_runs(ci_limit)))
     if include_dev_logs:
-        probes.append((
-            "dev_logs",
-            lambda: collect_dev_log_summary(
-                dev_root=dev_root,
-                session_limit=dev_sessions_limit,
-            ),
-        ))
+        probes.append(
+            (
+                "dev_logs",
+                lambda: collect_dev_log_summary(
+                    dev_root=dev_root,
+                    session_limit=dev_sessions_limit,
+                ),
+            )
+        )
 
     # Execute probes (parallel or sequential based on caller preference).
     if parallel:
@@ -182,6 +181,8 @@ def render_project_markdown(
             )
             lines.append(f"- Dev parse errors: {dev_info.get('parse_errors', 0)}")
             latest_iso = dev_info.get("latest_event_iso")
-            lines.append("- Dev latest event: " + (latest_iso if latest_iso else "none"))
+            lines.append(
+                "- Dev latest event: " + (latest_iso if latest_iso else "none")
+            )
 
     return "\n".join(lines)

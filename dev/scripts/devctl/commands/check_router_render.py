@@ -54,4 +54,3 @@ def render_markdown(report: dict) -> str:
                 lines.append(f"| `{step['name']} output` | excerpt | - | - |")
                 lines.append(f"|  | `{escaped_output}` | - | - |")
     return "\n".join(lines)
-

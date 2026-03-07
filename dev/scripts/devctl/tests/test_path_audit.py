@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
+from dev.scripts.devctl import path_audit as path_audit_helpers
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import path_audit
-from dev.scripts.devctl import path_audit as path_audit_helpers
 
 
 class PathAuditCommandTests(TestCase):

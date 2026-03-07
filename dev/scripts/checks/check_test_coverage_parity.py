@@ -41,10 +41,12 @@ def build_report() -> dict:
         if _find_test_file(stem):
             tested_count += 1
         else:
-            violations.append({
-                "file": f"dev/scripts/checks/{filename}",
-                "hint": f"No test file found matching test_{stem}*.py or test_{stem.removeprefix('check_')}*.py",
-            })
+            violations.append(
+                {
+                    "file": f"dev/scripts/checks/{filename}",
+                    "hint": f"No test file found matching test_{stem}*.py or test_{stem.removeprefix('check_')}*.py",
+                }
+            )
 
     total = tested_count + len(violations)
     return {

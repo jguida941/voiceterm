@@ -93,7 +93,9 @@ def run(args) -> int:
                     deleted_paths.append(candidate["relative_path"])
                     deleted_count += 1
                 except OSError as exc:
-                    errors.append(f"failed to delete {candidate['relative_path']}: {exc}")
+                    errors.append(
+                        f"failed to delete {candidate['relative_path']}: {exc}"
+                    )
         except SystemExit:
             errors.append("cleanup aborted by user")
 
@@ -120,9 +122,7 @@ def run(args) -> int:
     }
 
     output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else _render_md(report)
+        json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
     )
     write_output(output, args.output)
     if args.pipe_command:

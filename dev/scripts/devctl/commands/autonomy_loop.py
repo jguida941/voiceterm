@@ -5,29 +5,25 @@ from __future__ import annotations
 import hashlib
 import os
 
-from ..autonomy_loop_helpers import (
-    DEFAULT_REPLAY_WINDOW_SECONDS,
-    allowed_branch as _allowed_branch,
-    autonomy_policy as _autonomy_policy,
-    iso_z as _iso_z,
-    load_policy as _load_policy,
-    render_markdown as _render_markdown,
-    resolve_path as _resolve_path,
-    slug as _slug,
-    utc_now as _utc_now,
-)
+from ..autonomy_loop_helpers import DEFAULT_REPLAY_WINDOW_SECONDS
+from ..autonomy_loop_helpers import allowed_branch as _allowed_branch
+from ..autonomy_loop_helpers import autonomy_policy as _autonomy_policy
+from ..autonomy_loop_helpers import iso_z as _iso_z
+from ..autonomy_loop_helpers import load_policy as _load_policy
+from ..autonomy_loop_helpers import render_markdown as _render_markdown
+from ..autonomy_loop_helpers import resolve_path as _resolve_path
+from ..autonomy_loop_helpers import slug as _slug
+from ..autonomy_loop_helpers import utc_now as _utc_now
+from ..autonomy_phone_status import build_phone_status as _build_phone_status
 from ..autonomy_phone_status import (
-    build_phone_status as _build_phone_status,
     render_phone_status_markdown as _render_phone_status_markdown,
 )
 from .autonomy_loop_rounds import run_controller_rounds as _run_controller_rounds
-from .autonomy_loop_support import (
-    build_controller_report as _build_controller_report,
-    emit_controller_report as _emit_controller_report,
-    validate_args as _validate_args,
-    write_final_phone_status as _write_final_phone_status,
-    write_validation_error as _write_validation_error,
-)
+from .autonomy_loop_support import build_controller_report as _build_controller_report
+from .autonomy_loop_support import emit_controller_report as _emit_controller_report
+from .autonomy_loop_support import validate_args as _validate_args
+from .autonomy_loop_support import write_final_phone_status as _write_final_phone_status
+from .autonomy_loop_support import write_validation_error as _write_validation_error
 
 try:
     from dev.scripts.checks.coderabbit_ralph_loop_core import resolve_repo
@@ -44,7 +40,9 @@ def run(args) -> int:
     """Run bounded autonomous controller rounds over triage-loop + packet emission."""
     repo = resolve_repo(args.repo)
     if not repo:
-        print("Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY).")
+        print(
+            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
+        )
         return 2
 
     arg_error = _validate_args(args)
@@ -62,27 +60,39 @@ def run(args) -> int:
     policy = _load_policy()
     autonomy_cfg = _autonomy_policy(policy)
     if not _allowed_branch(branch_base, autonomy_cfg):
-        errors.append(f"branch '{branch_base}' is not allowed by autonomy_loop.allowed_branches policy")
+        errors.append(
+            f"branch '{branch_base}' is not allowed by autonomy_loop.allowed_branches policy"
+        )
 
     max_rounds_cap = int(autonomy_cfg.get("max_rounds_hard_cap") or 0)
     if max_rounds_cap > 0 and args.max_rounds > max_rounds_cap:
-        errors.append(f"--max-rounds={args.max_rounds} exceeds policy cap {max_rounds_cap}")
+        errors.append(
+            f"--max-rounds={args.max_rounds} exceeds policy cap {max_rounds_cap}"
+        )
     max_hours_cap = float(autonomy_cfg.get("max_hours_hard_cap") or 0)
     if max_hours_cap > 0 and args.max_hours > max_hours_cap:
-        errors.append(f"--max-hours={args.max_hours} exceeds policy cap {max_hours_cap}")
+        errors.append(
+            f"--max-hours={args.max_hours} exceeds policy cap {max_hours_cap}"
+        )
     max_tasks_cap = int(autonomy_cfg.get("max_tasks_hard_cap") or 0)
     if max_tasks_cap > 0 and args.max_tasks > max_tasks_cap:
-        errors.append(f"--max-tasks={args.max_tasks} exceeds policy cap {max_tasks_cap}")
+        errors.append(
+            f"--max-tasks={args.max_tasks} exceeds policy cap {max_tasks_cap}"
+        )
 
     requested_mode = str(args.mode)
-    default_autonomy_mode = str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
+    default_autonomy_mode = (
+        str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
+    )
     runtime_autonomy_mode = _resolve_env_or_default(
         "AUTONOMY_MODE", default_autonomy_mode
     )
     effective_mode = requested_mode
     if requested_mode != "report-only" and runtime_autonomy_mode != "operate":
         if bool(args.dry_run):
-            warnings.append("AUTONOMY_MODE is not 'operate'; forced controller mode to report-only for safety")
+            warnings.append(
+                "AUTONOMY_MODE is not 'operate'; forced controller mode to report-only for safety"
+            )
             effective_mode = "report-only"
         else:
             errors.append(
@@ -164,7 +174,12 @@ def run(args) -> int:
 
     finished_at = _utc_now()
     elapsed_hours = max((finished_at - started_at).total_seconds() / 3600.0, 0.0)
-    ok = not errors and reason in {"resolved", "max_rounds_reached", "max_hours_reached", "max_tasks_reached"}
+    ok = not errors and reason in {
+        "resolved",
+        "max_rounds_reached",
+        "max_hours_reached",
+        "max_tasks_reached",
+    }
 
     final_phone_payload = _build_phone_status(
         plan_id=plan_id,

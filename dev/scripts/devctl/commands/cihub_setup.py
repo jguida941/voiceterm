@@ -86,7 +86,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- cihub_bin: {report['cihub_bin']}")
     lines.append(f"- strict_capabilities: {report['strict_capabilities']}")
     lines.append(f"- capability_probe: {report['capability_probe'].get('probe')}")
-    lines.append(f"- available_commands: {', '.join(report['capability_probe'].get('commands', [])) or 'none'}")
+    lines.append(
+        f"- available_commands: {', '.join(report['capability_probe'].get('commands', [])) or 'none'}"
+    )
     lines.append(f"- warnings: {len(report['warnings'])}")
     lines.append(f"- errors: {len(report['errors'])}")
 
@@ -130,7 +132,9 @@ def run(args) -> int:
     unsupported_steps: list[str] = []
     for step in requested_steps:
         cmd = _build_step_cmd(args, step)
-        supported = capability_probe.get("available", False) and step in available_commands
+        supported = (
+            capability_probe.get("available", False) and step in available_commands
+        )
         row = {
             "step": step,
             "cmd": cmd,
@@ -158,7 +162,9 @@ def run(args) -> int:
                 errors.append(warning)
         else:
             confirm_or_abort(
-                "Run allowlisted CIHub setup steps " + ", ".join(step["step"] for step in runnable) + "?",
+                "Run allowlisted CIHub setup steps "
+                + ", ".join(step["step"] for step in runnable)
+                + "?",
                 args.yes or args.dry_run,
             )
 
@@ -173,9 +179,11 @@ def run(args) -> int:
                 )
                 row.update(
                     {
-                        "status": "applied"
-                        if step_result.get("returncode") == 0
-                        else "failed",
+                        "status": (
+                            "applied"
+                            if step_result.get("returncode") == 0
+                            else "failed"
+                        ),
                         "returncode": step_result.get("returncode"),
                         "skipped": step_result.get("skipped", False),
                     }

@@ -140,7 +140,9 @@ class MutationLoopCommandTests(unittest.TestCase):
             "autonomy_mode_default": "read-only",
             "mutation_loop": {
                 "allowed_branches": ["develop"],
-                "allowed_fix_command_prefixes": [["python3", "dev/scripts/devctl.py", "check"]],
+                "allowed_fix_command_prefixes": [
+                    ["python3", "dev/scripts/devctl.py", "check"]
+                ],
             },
         },
     )
@@ -172,7 +174,9 @@ class MutationLoopCommandTests(unittest.TestCase):
         self.assertIsNotNone(fix_block_reason)
         self.assertIn("AUTONOMY_MODE", fix_block_reason or "")
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertTrue(any("AUTONOMY_MODE" in row for row in payload.get("warnings", [])))
+        self.assertTrue(
+            any("AUTONOMY_MODE" in row for row in payload.get("warnings", []))
+        )
 
 
 if __name__ == "__main__":

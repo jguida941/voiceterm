@@ -14,7 +14,9 @@ class CollectGitStatusTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
     @patch("dev.scripts.devctl.collect.subprocess.check_output")
-    def test_collect_git_status_uses_worktree_porcelain(self, mock_check_output, _mock_git) -> None:
+    def test_collect_git_status_uses_worktree_porcelain(
+        self, mock_check_output, _mock_git
+    ) -> None:
         mock_check_output.side_effect = [
             "feature/test\n",
             " M guides/USAGE.md\nA  dev/CHANGELOG.md\n",
@@ -35,12 +37,14 @@ class CollectGitStatusTests(unittest.TestCase):
         )
         self.assertEqual(
             mock_check_output.call_args_list[1].args[0],
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
         )
 
     @patch("dev.scripts.devctl.collect.shutil.which", return_value="/usr/bin/git")
     @patch("dev.scripts.devctl.collect.subprocess.check_output")
-    def test_collect_git_status_uses_commit_range_diff(self, mock_check_output, _mock_git) -> None:
+    def test_collect_git_status_uses_commit_range_diff(
+        self, mock_check_output, _mock_git
+    ) -> None:
         mock_check_output.side_effect = [
             "feature/test\n",
             "M\tguides/USAGE.md\nR100\told.md\tdev/CHANGELOG.md\n",
@@ -68,7 +72,10 @@ class DocsCheckCommandTests(unittest.TestCase):
     """Validate docs-check command wiring for commit-range mode."""
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_forwards_commit_range(
         self,
@@ -100,7 +107,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         mock_collect_git_status.assert_called_once_with("origin/develop", "HEAD")
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_fails_when_tooling_changes_without_tooling_docs(
         self,
@@ -130,7 +140,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_user_facing_commit_range_no_changes_is_noop_pass(
         self,
@@ -158,7 +171,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertTrue(payload["empty_commit_range"])
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
     def test_docs_check_json_includes_failure_reasons_and_next_actions(
         self,
@@ -187,7 +203,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertIn("failure_reasons", payload)
         self.assertIn("next_actions", payload)
         self.assertTrue(
-            any("Missing required `dev/CHANGELOG.md` update" in reason for reason in payload["failure_reasons"])
+            any(
+                "Missing required `dev/CHANGELOG.md` update" in reason
+                for reason in payload["failure_reasons"]
+            )
         )
         self.assertTrue(any("triage" in action for action in payload["next_actions"]))
 
@@ -227,7 +246,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -284,7 +306,7 @@ class DocsCheckCommandTests(unittest.TestCase):
             "changes": [
                 {"status": "M", "path": ".github/workflows/tooling_control_plane.yml"},
                 {"status": "M", "path": "AGENTS.md"},
-                {"status": "M", "path": "dev/DEVELOPMENT.md"},
+                {"status": "M", "path": "dev/guides/DEVELOPMENT.md"},
                 {"status": "M", "path": "dev/scripts/README.md"},
                 {"status": "M", "path": "dev/active/MASTER_PLAN.md"},
             ]
@@ -306,7 +328,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -363,7 +388,7 @@ class DocsCheckCommandTests(unittest.TestCase):
             "changes": [
                 {"status": "M", "path": ".github/workflows/tooling_control_plane.yml"},
                 {"status": "M", "path": "AGENTS.md"},
-                {"status": "M", "path": "dev/DEVELOPMENT.md"},
+                {"status": "M", "path": "dev/guides/DEVELOPMENT.md"},
                 {"status": "M", "path": "dev/scripts/README.md"},
                 {"status": "M", "path": "dev/active/MASTER_PLAN.md"},
                 {"status": "M", "path": "dev/history/ENGINEERING_EVOLUTION.md"},
@@ -386,7 +411,93 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 0)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
+        return_value={
+            "ok": True,
+            "mode": "check",
+            "changed_paths": [],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_workflow_shell_hygiene_gate",
+        return_value={"ok": True, "violations": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_agents_bundle_render_gate",
+        return_value={"ok": True, "changed": False, "wrote": False},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_bundle_workflow_parity_gate",
+        return_value={"ok": True, "targets": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_multi_agent_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._run_active_plan_sync_gate",
+        return_value={"ok": True},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.docs_check.scan_legacy_path_references",
+        return_value={
+            "ok": True,
+            "checked_file_count": 10,
+            "excluded_prefixes": ["dev/archive/"],
+            "rules": {},
+            "violations": [],
+        },
+    )
+    @patch("dev.scripts.devctl.commands.docs_check.collect_git_status")
+    def test_docs_check_strict_tooling_rejects_legacy_development_bridge_path(
+        self,
+        mock_collect_git_status,
+        _mock_path_audit,
+        _mock_active_plan_sync,
+        _mock_multi_agent_sync,
+        _mock_agents_bundle_render,
+        _mock_bundle_workflow_parity,
+        _mock_workflow_shell_hygiene,
+        _mock_metadata_header,
+        _mock_scan_deprecated,
+        _mock_write_output,
+    ) -> None:
+        mock_collect_git_status.return_value = {
+            "changes": [
+                {"status": "M", "path": ".github/workflows/tooling_control_plane.yml"},
+                {"status": "M", "path": "AGENTS.md"},
+                {"status": "M", "path": "dev/DEVELOPMENT.md"},
+                {"status": "M", "path": "dev/scripts/README.md"},
+                {"status": "M", "path": "dev/active/MASTER_PLAN.md"},
+                {"status": "M", "path": "dev/history/ENGINEERING_EVOLUTION.md"},
+            ]
+        }
+        args = SimpleNamespace(
+            user_facing=False,
+            strict=False,
+            strict_tooling=True,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+            since_ref="HEAD~1",
+            head_ref="HEAD",
+        )
+
+        code = docs_check.run(args)
+
+        self.assertEqual(code, 1)
+
+    @patch("dev.scripts.devctl.commands.docs_check.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -457,7 +568,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -528,7 +642,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -564,7 +681,8 @@ class DocsCheckCommandTests(unittest.TestCase):
             "checked_file_count": 10,
             "excluded_prefixes": ["dev/archive/"],
             "rules": {
-                "dev/scripts/" + "check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"
+                "dev/scripts/"
+                + "check_agents_contract.py": "dev/scripts/checks/check_agents_contract.py"
             },
             "violations": [
                 {
@@ -609,7 +727,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={
@@ -688,7 +809,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={"ok": True, "mode": "check", "changed_paths": []},
@@ -773,7 +897,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={"ok": True, "mode": "check", "changed_paths": []},
@@ -794,7 +921,9 @@ class DocsCheckCommandTests(unittest.TestCase):
                 {
                     "bundle": "bundle.tooling",
                     "workflow": ".github/workflows/tooling_control_plane.yml",
-                    "missing_commands": ["python3 dev/scripts/checks/check_naming_consistency.py"],
+                    "missing_commands": [
+                        "python3 dev/scripts/checks/check_naming_consistency.py"
+                    ],
                 }
             ],
         },
@@ -857,7 +986,10 @@ class DocsCheckCommandTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.docs_check.write_output")
-    @patch("dev.scripts.devctl.commands.docs_check._scan_deprecated_references", return_value=[])
+    @patch(
+        "dev.scripts.devctl.commands.docs_check._scan_deprecated_references",
+        return_value=[],
+    )
     @patch(
         "dev.scripts.devctl.commands.docs_check._run_markdown_metadata_header_gate",
         return_value={"ok": True, "mode": "check", "changed_paths": []},

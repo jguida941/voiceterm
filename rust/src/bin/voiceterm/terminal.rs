@@ -91,7 +91,7 @@ pub(crate) fn resolved_rows(cached: u16) -> u16 {
     }
 }
 
-/// CRITICAL — HUD overlap fix: Returns `(terminal_rows, terminal_cols,
+/// INVARIANT — HUD scroll region: Returns `(terminal_rows, terminal_cols,
 /// pty_rows, pty_cols)` with the PTY rows reduced by the HUD reservation.
 /// This MUST be called before `PtyOverlaySession::new()`.  DO NOT remove the
 /// reserved-row subtraction or move PTY creation before this call — backends
@@ -589,35 +589,37 @@ mod tests {
     #[cfg(all(unix, feature = "mutants"))]
     #[test]
     fn apply_pty_winsize_updates_session_size() {
-        let mut session =
-            PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80).expect("pty session");
-        let rows = 30;
-        let cols = 100;
-        apply_pty_winsize(
-            &mut session,
-            rows,
-            cols,
-            OverlayMode::None,
-            HudStyle::Full,
-            false,
-        );
-        let reserved =
-            reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false) as u16;
-        let expected_rows = rows.saturating_sub(reserved).max(1);
-        let (set_rows, set_cols) = session.current_winsize();
-        assert_eq!(set_cols, cols);
-        assert_eq!(set_rows, expected_rows);
+        with_backend_host_env(runtime_compat::TerminalHost::Other, None, || {
+            let mut session = PtyOverlaySession::new("cat", ".", &[], "xterm-256color", 24, 80)
+                .expect("pty session");
+            let rows = 30;
+            let cols = 100;
+            apply_pty_winsize(
+                &mut session,
+                rows,
+                cols,
+                OverlayMode::None,
+                HudStyle::Full,
+                false,
+            );
+            let reserved =
+                reserved_rows_for_mode(OverlayMode::None, cols, HudStyle::Full, false) as u16;
+            let expected_rows = rows.saturating_sub(reserved).max(1);
+            let (set_rows, set_cols) = session.current_winsize();
+            assert_eq!(set_cols, cols);
+            assert_eq!(set_rows, expected_rows);
 
-        let before = session.current_winsize();
-        apply_pty_winsize(
-            &mut session,
-            0,
-            cols,
-            OverlayMode::None,
-            HudStyle::Full,
-            false,
-        );
-        assert_eq!(session.current_winsize(), before);
+            let before = session.current_winsize();
+            apply_pty_winsize(
+                &mut session,
+                0,
+                cols,
+                OverlayMode::None,
+                HudStyle::Full,
+                false,
+            );
+            assert_eq!(session.current_winsize(), before);
+        });
     }
 
     #[cfg(unix)]

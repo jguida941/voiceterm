@@ -11,8 +11,12 @@ from typing import Any
 from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
 from ..loop_comment import coerce_pr_number, upsert_comment
-from ..mutation_loop_render import render_attempt_lines, render_markdown, render_playbook
 from ..mutation_loop_policy import evaluate_fix_policy, load_policy
+from ..mutation_loop_render import (
+    render_attempt_lines,
+    render_markdown,
+    render_playbook,
+)
 
 try:
     from dev.scripts.checks.mutation_ralph_loop_core import (
@@ -22,7 +26,12 @@ try:
         run_capture,
     )
 except ModuleNotFoundError:
-    from checks.mutation_ralph_loop_core import execute_loop, gh_json, resolve_repo, run_capture
+    from checks.mutation_ralph_loop_core import (
+        execute_loop,
+        gh_json,
+        resolve_repo,
+        run_capture,
+    )
 
 
 def _resolve_path(raw_path: str, *, relative_to_repo: bool = True) -> Path:
@@ -49,7 +58,10 @@ def _resolve_comment_target(report: dict, args) -> tuple[dict[str, Any], str | N
 
     if target == "pr":
         if explicit_pr is None:
-            return {}, "comment-target=pr requires --comment-pr-number for mutation-loop"
+            return (
+                {},
+                "comment-target=pr requires --comment-pr-number for mutation-loop",
+            )
         return {"kind": "pr", "id": explicit_pr, "source_sha": source_sha}, None
     if target == "commit":
         if not source_sha:
@@ -136,7 +148,9 @@ def _publish_notification_comment(report: dict, args) -> dict[str, Any]:
     }
 
 
-def _write_report_bundle(report: dict, *, bundle_dir: Path, prefix: str) -> dict[str, Any]:
+def _write_report_bundle(
+    report: dict, *, bundle_dir: Path, prefix: str
+) -> dict[str, Any]:
     bundle_dir.mkdir(parents=True, exist_ok=True)
     md_path = bundle_dir / f"{prefix}.md"
     json_path = bundle_dir / f"{prefix}.json"
@@ -160,7 +174,9 @@ def run(args) -> int:
     """Run a bounded mutation remediation loop and emit reports."""
     repo = resolve_repo(args.repo)
     if not repo:
-        print("Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY).")
+        print(
+            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
+        )
         return 2
     if args.max_attempts < 1:
         print("Error: --max-attempts must be >= 1")
@@ -252,7 +268,9 @@ def run(args) -> int:
 
     if args.emit_bundle:
         bundle_dir = _resolve_path(args.bundle_dir)
-        report["bundle"] = _write_report_bundle(report, bundle_dir=bundle_dir, prefix=args.bundle_prefix)
+        report["bundle"] = _write_report_bundle(
+            report, bundle_dir=bundle_dir, prefix=args.bundle_prefix
+        )
 
     if args.format == "json":
         output = json.dumps(report, indent=2)

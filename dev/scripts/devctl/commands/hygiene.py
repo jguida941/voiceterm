@@ -16,7 +16,6 @@ from typing import Dict, List, Tuple
 
 from ..common import pipe_output, write_output
 from ..config import REPO_ROOT
-from ..reports_retention import build_reports_hygiene_guard
 from ..process_sweep import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
@@ -25,6 +24,7 @@ from ..process_sweep import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ..reports_retention import build_reports_hygiene_guard
 from . import hygiene_audits
 
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
@@ -66,7 +66,7 @@ def _scan_voiceterm_test_processes() -> Tuple[List[Dict], List[str]]:
 
 
 def _audit_runtime_processes() -> Dict:
-    """Detect orphaned test runners and report active ones."""
+    """Detect orphaned VoiceTerm test processes and report active ones."""
     test_processes, scan_warnings = _scan_voiceterm_test_processes()
     errors: List[str] = []
     warnings: List[str] = []
@@ -94,19 +94,19 @@ def _audit_runtime_processes() -> Dict:
 
     if orphaned:
         errors.append(
-            "Orphaned voiceterm test binaries detected (detached PPID=1). "
+            "Orphaned voiceterm test processes detected (detached PPID=1). "
             "Stop leaked runners before continuing: "
             f"{_format_process_rows(orphaned)}"
         )
     if stale_active:
         errors.append(
-            "Stale active voiceterm test binaries detected. "
+            "Stale active voiceterm test processes detected. "
             f"Any process running >= {STALE_ACTIVE_TEST_MIN_AGE_SECONDS}s should be stopped: "
             f"{_format_process_rows(stale_active)}"
         )
     if fresh_active:
         warnings.append(
-            "Active voiceterm test binaries detected during hygiene run: "
+            "Active voiceterm test processes detected during hygiene run: "
             f"{_format_process_rows(fresh_active)}"
         )
 
@@ -229,7 +229,15 @@ def run(args) -> int:
     reports = build_reports_hygiene_guard(REPO_ROOT)
     mutation_badge = _audit_mutation_badge()
     readme_presence = _audit_readme_presence()
-    sections = [archive, adr, scripts, runtime_processes, reports, mutation_badge, readme_presence]
+    sections = [
+        archive,
+        adr,
+        scripts,
+        runtime_processes,
+        reports,
+        mutation_badge,
+        readme_presence,
+    ]
 
     error_count = sum(len(section["errors"]) for section in sections)
     warning_count = sum(len(section["warnings"]) for section in sections)
@@ -307,7 +315,7 @@ def run(args) -> int:
         lines.append("")
         lines.append("## Runtime Processes")
         lines.append(
-            f"- voiceterm test binaries detected: {runtime_processes['total_detected']}"
+            f"- voiceterm test processes detected: {runtime_processes['total_detected']}"
         )
         lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
         lines.extend(
@@ -319,9 +327,7 @@ def run(args) -> int:
         lines.append(f"- reports root exists: {reports['reports_root_exists']}")
         lines.append(f"- managed run dirs: {reports['managed_run_dirs']}")
         lines.append(f"- stale cleanup candidates: {reports['candidate_count']}")
-        lines.append(
-            f"- reclaim estimate: {reports['candidate_reclaim_human']}"
-        )
+        lines.append(f"- reclaim estimate: {reports['candidate_reclaim_human']}")
         lines.extend(f"- error: {message}" for message in reports["errors"])
         lines.extend(f"- warning: {message}" for message in reports["warnings"])
         lines.append("")

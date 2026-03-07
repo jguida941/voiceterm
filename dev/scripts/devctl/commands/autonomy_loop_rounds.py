@@ -16,10 +16,7 @@ from ..autonomy_loop_helpers import (
     packet_risk,
     utc_now,
 )
-from ..autonomy_phone_status import (
-    build_phone_status,
-    render_phone_status_markdown,
-)
+from ..autonomy_phone_status import build_phone_status, render_phone_status_markdown
 from . import loop_packet as loop_packet_command
 from . import triage_loop as triage_loop_command
 from .autonomy_loop_support import write_round_phone_status
@@ -65,7 +62,9 @@ def run_controller_rounds(
             reason = "max_tasks_reached"
             break
 
-        working_branch = f"{working_prefix}/{plan_id}/{controller_run_id}/r{round_index:03d}"
+        working_branch = (
+            f"{working_prefix}/{plan_id}/{controller_run_id}/r{round_index:03d}"
+        )
         latest_working_branch = working_branch
         loop_branch = branch_base if args.loop_branch_mode == "base" else working_branch
 
@@ -95,7 +94,9 @@ def run_controller_rounds(
         triage_rc = triage_loop_command.run(triage_args)
         triage_report, triage_error = json_load(triage_json_path)
         if triage_error or triage_report is None:
-            errors.append(f"round {round_index}: failed to read triage-loop report ({triage_error})")
+            errors.append(
+                f"round {round_index}: failed to read triage-loop report ({triage_error})"
+            )
             reason = "triage_report_missing"
             break
 
@@ -127,9 +128,13 @@ def run_controller_rounds(
             trace_lines=args.terminal_trace_lines,
             packet_source_refs=[str(triage_json_path), str(loop_packet_json_path)],
         )
-        packet_id = str(checkpoint_packet.get("idempotency_key") or f"r{round_index:03d}")
+        packet_id = str(
+            checkpoint_packet.get("idempotency_key") or f"r{round_index:03d}"
+        )
         checkpoint_path = round_dir / "checkpoint-packet.json"
-        checkpoint_path.write_text(json.dumps(checkpoint_packet, indent=2), encoding="utf-8")
+        checkpoint_path.write_text(
+            json.dumps(checkpoint_packet, indent=2), encoding="utf-8"
+        )
         last_triage_report = triage_report
         last_loop_packet_report = loop_packet_report
         last_checkpoint_packet = checkpoint_packet
@@ -169,8 +174,12 @@ def run_controller_rounds(
         )
 
         if round_index % int(args.checkpoint_every) == 0 or triage_rc != 0:
-            inbox_path = queue_inbox / f"{controller_run_id}-r{round_index:03d}-{packet_id}.json"
-            inbox_path.write_text(json.dumps(checkpoint_packet, indent=2), encoding="utf-8")
+            inbox_path = (
+                queue_inbox / f"{controller_run_id}-r{round_index:03d}-{packet_id}.json"
+            )
+            inbox_path.write_text(
+                json.dumps(checkpoint_packet, indent=2), encoding="utf-8"
+            )
         latest_packet = str(checkpoint_path)
 
         unresolved = int(triage_report.get("unresolved_count") or 0)
@@ -193,7 +202,9 @@ def run_controller_rounds(
         tasks_completed += 1
 
         if triage_reason in HARD_REASON_CODES:
-            errors.append(f"round {round_index}: hard stop reason from triage-loop ({triage_reason})")
+            errors.append(
+                f"round {round_index}: hard stop reason from triage-loop ({triage_reason})"
+            )
             reason = triage_reason
             break
         if triage_rc not in (0, 1):

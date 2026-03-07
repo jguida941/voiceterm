@@ -648,8 +648,22 @@ mod tests {
 
     #[test]
     fn theme_studio_none_theme_has_no_ansi_sequences() {
-        let rendered = format_theme_studio(&sample_view(Theme::None), 80);
-        assert!(!rendered.contains("\x1b["));
+        crate::test_env::with_env_overrides(
+            &[
+                "VOICETERM_STYLE_PACK_JSON",
+                "VOICETERM_TEST_ENABLE_STYLE_PACK_ENV",
+                "VOICETERM_THEME_FILE",
+            ],
+            &[],
+            || {
+                crate::theme::set_runtime_style_pack_overrides(
+                    crate::theme::RuntimeStylePackOverrides::default(),
+                );
+                crate::theme::set_runtime_theme_file_override(None);
+                let rendered = format_theme_studio(&sample_view(Theme::None), 80);
+                assert!(!rendered.contains("\x1b["));
+            },
+        );
     }
 
     #[test]

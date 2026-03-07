@@ -10,7 +10,7 @@ fn combined_output(output: &std::process::Output) -> String {
 }
 
 fn voiceterm_bin() -> &'static str {
-    option_env!("CARGO_BIN_EXE_voiceterm").expect("voiceterm test binary not built")
+    env!("CARGO_BIN_EXE_voiceterm")
 }
 
 #[test]

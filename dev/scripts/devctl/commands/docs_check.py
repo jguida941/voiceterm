@@ -30,6 +30,7 @@ WORKFLOW_SHELL_HYGIENE_SCRIPT = check_script_path("workflow_shell_hygiene")
 BUNDLE_WORKFLOW_PARITY_SCRIPT = check_script_path("bundle_workflow_parity")
 AGENTS_BUNDLE_RENDER_SCRIPT = check_script_path("agents_bundle_render")
 
+
 def _scan_deprecated_references() -> list[dict]:
     """Wrapper kept for unit-test patch stability."""
     return scan_deprecated_references(REPO_ROOT)
@@ -106,7 +107,9 @@ def run(args) -> int:
             elif not updated_docs:
                 user_facing_ok = False
 
-    tooling_changes_detected = sorted(path for path in changed if is_tooling_change(path))
+    tooling_changes_detected = sorted(
+        path for path in changed if is_tooling_change(path)
+    )
     updated_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc in changed]
     missing_tooling_docs = [doc for doc in TOOLING_REQUIRED_DOCS if doc not in changed]
     evolution_relevant_changes = sorted(
@@ -154,13 +157,9 @@ def run(args) -> int:
             markdown_metadata_header_report.get("ok", False)
         )
         workflow_shell_hygiene_report = _run_workflow_shell_hygiene_gate()
-        workflow_shell_hygiene_ok = bool(
-            workflow_shell_hygiene_report.get("ok", False)
-        )
+        workflow_shell_hygiene_ok = bool(workflow_shell_hygiene_report.get("ok", False))
         bundle_workflow_parity_report = _run_bundle_workflow_parity_gate()
-        bundle_workflow_parity_ok = bool(
-            bundle_workflow_parity_report.get("ok", False)
-        )
+        bundle_workflow_parity_ok = bool(bundle_workflow_parity_report.get("ok", False))
         agents_bundle_render_report = _run_agents_bundle_render_gate()
         agents_bundle_render_ok = bool(agents_bundle_render_report.get("ok", False))
 

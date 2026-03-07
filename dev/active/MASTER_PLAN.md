@@ -121,6 +121,11 @@
   single-source ownership (`docs_check_policy.py`), and
   `docs_check_constants.py` is a compatibility re-export shim with dedicated
   regression coverage in `dev/scripts/devctl/tests/test_docs_check_constants.py`.
+- MP-347 shape-governance refresh (2026-03-06): code-shape policy budgets and
+  temporary function exceptions were synchronized for the current tooling
+  refactor batch (active-plan sync, multi-agent sync, release parser wiring,
+  and devctl command runners), with explicit owner/follow-up metadata and
+  expiry tracking through `2026-05-15`.
 - MP-347 docs-IA boundary cleanup update (2026-03-06): Phase-15 backlog/active
   boundary work is closed; canonical local backlog now lives at
   `dev/deferred/LOCAL_BACKLOG.md`, canonical guard remediation scaffold output

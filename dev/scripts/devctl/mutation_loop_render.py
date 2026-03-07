@@ -45,9 +45,7 @@ def render_playbook(report: dict) -> str:
             if not isinstance(row, dict):
                 continue
             lines.append(
-                "- "
-                + f"path={row.get('path')} "
-                + f"survivors={row.get('survivors')}"
+                "- " + f"path={row.get('path')} " + f"survivors={row.get('survivors')}"
             )
     lines.extend(
         [

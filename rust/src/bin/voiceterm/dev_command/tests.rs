@@ -158,11 +158,9 @@ fn broker_executes_status_and_emits_completion() -> TestResult {
     let deadline = Instant::now() + Duration::from_secs(15);
     let mut completion: Option<DevCommandCompletion> = None;
     while Instant::now() < deadline {
-        if let Some(update) = broker.try_recv_update() {
-            if let DevCommandUpdate::Completed(done) = update {
-                completion = Some(done);
-                break;
-            }
+        if let Some(DevCommandUpdate::Completed(done)) = broker.try_recv_update() {
+            completion = Some(done);
+            break;
         }
         thread::sleep(Duration::from_millis(20));
     }

@@ -352,78 +352,66 @@ fn parse_theme(theme_name: &str) -> Result<Theme, StyleSchemaError> {
     Theme::from_name(theme_name).ok_or_else(|| StyleSchemaError::InvalidTheme(theme_name.into()))
 }
 
-fn normalize_border_override(value: Option<BorderStyleOverride>) -> Option<BorderStyleOverride> {
-    match value {
-        Some(BorderStyleOverride::Theme) | None => None,
-        other => other,
+/// Trait for override enums whose `Theme` variant means "use the base theme
+/// default." Enables a single generic normalizer to collapse `Some(T::Theme)`
+/// and `None` into `None`.
+trait ThemeDefaultable {
+    fn is_theme_default(&self) -> bool;
+}
+
+impl ThemeDefaultable for BorderStyleOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for IndicatorSetOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for GlyphSetOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for ToastPositionOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for StartupStyleOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for ProgressStyleOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for VoiceSceneStyleOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for ToastSeverityMode {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for BannerStyleOverride {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
+    }
+}
+impl ThemeDefaultable for ProgressBarFamily {
+    fn is_theme_default(&self) -> bool {
+        matches!(self, Self::Theme)
     }
 }
 
-fn normalize_indicator_override(
-    value: Option<IndicatorSetOverride>,
-) -> Option<IndicatorSetOverride> {
-    match value {
-        Some(IndicatorSetOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_glyph_override(value: Option<GlyphSetOverride>) -> Option<GlyphSetOverride> {
-    match value {
-        Some(GlyphSetOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_toast_position(value: Option<ToastPositionOverride>) -> Option<ToastPositionOverride> {
-    match value {
-        Some(ToastPositionOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_startup_style(value: Option<StartupStyleOverride>) -> Option<StartupStyleOverride> {
-    match value {
-        Some(StartupStyleOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_progress_style(value: Option<ProgressStyleOverride>) -> Option<ProgressStyleOverride> {
-    match value {
-        Some(ProgressStyleOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_voice_scene_style(
-    value: Option<VoiceSceneStyleOverride>,
-) -> Option<VoiceSceneStyleOverride> {
-    match value {
-        Some(VoiceSceneStyleOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_toast_severity_mode(value: Option<ToastSeverityMode>) -> Option<ToastSeverityMode> {
-    match value {
-        Some(ToastSeverityMode::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_banner_style(value: Option<BannerStyleOverride>) -> Option<BannerStyleOverride> {
-    match value {
-        Some(BannerStyleOverride::Theme) | None => None,
-        other => other,
-    }
-}
-
-fn normalize_progress_bar_family(value: Option<ProgressBarFamily>) -> Option<ProgressBarFamily> {
-    match value {
-        Some(ProgressBarFamily::Theme) | None => None,
-        other => other,
-    }
+fn normalize_override<T: ThemeDefaultable>(value: Option<T>) -> Option<T> {
+    value.filter(|v| !v.is_theme_default())
 }
 
 fn normalize_profile_name(profile: String) -> String {
@@ -436,20 +424,20 @@ fn normalize_profile_name(profile: String) -> String {
 
 fn normalize_surface_overrides(surfaces: StyleSchemaSurfaces) -> SurfaceOverrides {
     SurfaceOverrides {
-        toast_position: normalize_toast_position(surfaces.toast_position),
-        startup_style: normalize_startup_style(surfaces.startup_style),
-        progress_style: normalize_progress_style(surfaces.progress_style),
-        voice_scene_style: normalize_voice_scene_style(surfaces.voice_scene_style),
+        toast_position: normalize_override(surfaces.toast_position),
+        startup_style: normalize_override(surfaces.startup_style),
+        progress_style: normalize_override(surfaces.progress_style),
+        voice_scene_style: normalize_override(surfaces.voice_scene_style),
     }
 }
 
 fn normalize_component_overrides(components: StyleSchemaComponents) -> ComponentOverrides {
     ComponentOverrides {
-        overlay_border: normalize_border_override(components.overlay_border),
-        hud_border: normalize_border_override(components.hud_border),
-        toast_severity_mode: normalize_toast_severity_mode(components.toast_severity_mode),
-        banner_style: normalize_banner_style(components.banner_style),
-        progress_bar_family: normalize_progress_bar_family(components.progress_bar_family),
+        overlay_border: normalize_override(components.overlay_border),
+        hud_border: normalize_override(components.hud_border),
+        toast_severity_mode: normalize_override(components.toast_severity_mode),
+        banner_style: normalize_override(components.banner_style),
+        progress_bar_family: normalize_override(components.progress_bar_family),
     }
 }
 
@@ -464,9 +452,9 @@ fn build_style_schema_pack(
         version: CURRENT_STYLE_SCHEMA_VERSION,
         profile: normalize_profile_name(profile),
         base_theme: parse_theme(&base_theme)?,
-        border_style_override: normalize_border_override(overrides.border_style),
-        indicator_set_override: normalize_indicator_override(overrides.indicators),
-        glyph_set_override: normalize_glyph_override(overrides.glyphs),
+        border_style_override: normalize_override(overrides.border_style),
+        indicator_set_override: normalize_override(overrides.indicators),
+        glyph_set_override: normalize_override(overrides.glyphs),
         surface_overrides: normalize_surface_overrides(surfaces),
         component_overrides: normalize_component_overrides(components),
     })

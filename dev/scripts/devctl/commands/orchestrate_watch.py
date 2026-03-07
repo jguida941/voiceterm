@@ -16,7 +16,13 @@ from ..script_catalog import check_script_path
 
 ACTIVE_PLAN_SYNC_SCRIPT = check_script_path("active_plan_sync")
 MULTI_AGENT_SYNC_SCRIPT = check_script_path("multi_agent_sync")
-ACTIVE_STATUSES = {"in-progress", "ready-for-review", "changes-requested", "approved", "blocked"}
+ACTIVE_STATUSES = {
+    "in-progress",
+    "ready-for-review",
+    "changes-requested",
+    "approved",
+    "blocked",
+}
 
 
 def _run_active_plan_sync_gate() -> dict:
@@ -52,7 +58,9 @@ def _render_md(report: dict) -> str:
     lines.append(f"- stale_minutes: {report['stale_minutes']}")
     lines.append(f"- active_plan_sync_ok: {report['active_plan_sync_ok']}")
     lines.append(f"- multi_agent_sync_ok: {report['multi_agent_sync_ok']}")
-    lines.append(f"- overdue_instruction_ack_count: {report['overdue_instruction_ack_count']}")
+    lines.append(
+        f"- overdue_instruction_ack_count: {report['overdue_instruction_ack_count']}"
+    )
     lines.append(f"- stale_agent_count: {report['stale_agent_count']}")
     if report["agent_watch"]:
         lines.append("")
@@ -115,11 +123,17 @@ def run(args) -> int:
             row = master_by_agent.get(agent)
             if not row:
                 continue
-            status = check_multi_agent_sync._normalize(str(row.get("Status", ""))).lower()
-            last_update = check_multi_agent_sync._normalize(str(row.get("Last update (UTC)", "")))
+            status = check_multi_agent_sync._normalize(
+                str(row.get("Status", ""))
+            ).lower()
+            last_update = check_multi_agent_sync._normalize(
+                str(row.get("Last update (UTC)", ""))
+            )
             timestamp = _parse_utc_z(last_update)
             if timestamp is None:
-                errors.append(f"{agent} has invalid Last update (UTC) value {last_update!r}.")
+                errors.append(
+                    f"{agent} has invalid Last update (UTC) value {last_update!r}."
+                )
                 continue
             age_minutes = int((now - timestamp).total_seconds() // 60)
             stale = age_minutes > stale_minutes
@@ -145,8 +159,12 @@ def run(args) -> int:
     overdue_instruction_ack_count = 0
     if not instruction_error:
         for row in instruction_rows:
-            instruction_id = check_multi_agent_sync._normalize(str(row.get("Instruction ID", "")))
-            status = check_multi_agent_sync._normalize(str(row.get("Status", ""))).lower()
+            instruction_id = check_multi_agent_sync._normalize(
+                str(row.get("Instruction ID", ""))
+            )
+            status = check_multi_agent_sync._normalize(
+                str(row.get("Status", ""))
+            ).lower()
             due_utc = check_multi_agent_sync._normalize(str(row.get("Due (UTC)", "")))
             ack_token = check_multi_agent_sync._normalize(str(row.get("Ack token", "")))
             if status not in {"pending", "acked"}:

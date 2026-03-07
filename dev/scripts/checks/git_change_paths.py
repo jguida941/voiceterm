@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def list_changed_paths_with_base_map(run_git, since_ref: str | None, head_ref: str) -> tuple[list[Path], dict[Path, Path]]:
+def list_changed_paths_with_base_map(
+    run_git, since_ref: str | None, head_ref: str
+) -> tuple[list[Path], dict[Path, Path]]:
     """Return changed paths and baseline-path mapping with rename awareness.
 
     The returned mapping maps each current path to the path that should be used

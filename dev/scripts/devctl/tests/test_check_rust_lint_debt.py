@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest import TestCase
 
 from dev.scripts.devctl.config import REPO_ROOT
-
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_rust_lint_debt.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("check_rust_lint_debt_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_rust_lint_debt_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_rust_lint_debt.py")
     module = importlib.util.module_from_spec(spec)
@@ -33,7 +34,7 @@ class CheckRustLintDebtTests(TestCase):
             "fn runtime() { value.unwrap(); }\n"
             "#[cfg(test)]\n"
             "mod tests {\n"
-            "    fn nested() { if true { value.expect(\"x\"); } }\n"
+            '    fn nested() { if true { value.expect("x"); } }\n'
             "}\n"
             "fn still_runtime() { #[allow(dead_code)] fn x() {} }\n"
         )
@@ -50,7 +51,7 @@ class CheckRustLintDebtTests(TestCase):
             "#[cfg(test)]\n"
             "mod tests {\n"
             "    #[allow(clippy::unwrap_used)]\n"
-            "    fn helper() { value.expect(\"test\"); }\n"
+            '    fn helper() { value.expect("test"); }\n'
             "}\n"
         )
         metrics = self.script._count_metrics(text)
@@ -77,8 +78,8 @@ class CheckRustLintDebtTests(TestCase):
         text = (
             "fn runtime() {\n"
             "    let _ = value.unwrap_unchecked();\n"
-            "    panic!(\"boom\");\n"
-            "    unreachable!(\"impossible\");\n"
+            '    panic!("boom");\n'
+            '    unreachable!("impossible");\n'
             "}\n"
         )
         metrics = self.script._count_metrics(text)
@@ -96,10 +97,10 @@ class CheckRustLintDebtTests(TestCase):
 
     def test_strip_cfg_test_blocks_handles_cfg_any_test_and_cfg_not_test(self) -> None:
         text = (
-            "#[cfg(any(test, feature = \"bench\"))]\n"
-            "fn test_only() { value.expect(\"x\"); }\n"
+            '#[cfg(any(test, feature = "bench"))]\n'
+            'fn test_only() { value.expect("x"); }\n'
             "#[cfg(not(test))]\n"
-            "fn runtime_only() { value.expect(\"runtime\"); }\n"
+            'fn runtime_only() { value.expect("runtime"); }\n'
         )
         stripped = self.script._strip_cfg_test_blocks(text)
         self.assertNotIn("test_only", stripped)
@@ -108,7 +109,7 @@ class CheckRustLintDebtTests(TestCase):
     def test_collect_dead_code_allow_instances_reports_reason_presence(self) -> None:
         text = (
             "#![allow(dead_code)]\n"
-            "#[allow(dead_code, reason = \"staged\")]\n"
+            '#[allow(dead_code, reason = "staged")]\n'
             "#[allow(clippy::too_many_lines)]\n"
         )
         instances = self.script._collect_dead_code_allow_instances(text)
@@ -122,7 +123,7 @@ class CheckRustLintDebtTests(TestCase):
         text = (
             "#![allow(dead_code)]\n"
             "#[allow(clippy::too_many_lines)]\n"
-            "#[allow(dead_code, reason = \"staged\")]\n"
+            '#[allow(dead_code, reason = "staged")]\n'
         )
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["allow_attrs"], 3)

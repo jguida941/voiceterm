@@ -40,7 +40,9 @@ class RunCmdTests(TestCase):
         self.assertEqual(result["returncode"], 127)
         self.assertIn("error", result)
 
-    @patch("dev.scripts.devctl.common._run_with_live_output", side_effect=KeyboardInterrupt)
+    @patch(
+        "dev.scripts.devctl.common._run_with_live_output", side_effect=KeyboardInterrupt
+    )
     def test_run_cmd_interrupt_returns_structured_error(self, _run_mock) -> None:
         result = run_cmd("interrupt", [sys.executable, "-c", "print('x')"])
         self.assertEqual(result["returncode"], 130)
@@ -48,12 +50,15 @@ class RunCmdTests(TestCase):
 
     @patch("builtins.print")
     @patch(
-        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds", return_value=0.05
+        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
+        return_value=0.05,
     )
     def test_run_cmd_timeout_returns_124_and_failure_excerpt(
         self, _timeout_mock, _print_mock
     ) -> None:
-        result = run_cmd("timeout", [sys.executable, "-c", "import time; time.sleep(0.2)"])
+        result = run_cmd(
+            "timeout", [sys.executable, "-c", "import time; time.sleep(0.2)"]
+        )
         self.assertEqual(result["returncode"], 124)
         self.assertIn("timed out", result.get("failure_output", ""))
 
@@ -85,7 +90,9 @@ class RunWithLiveOutputTests(TestCase):
         popen_mock.return_value = process
 
         with self.assertRaises(KeyboardInterrupt):
-            common._run_with_live_output([sys.executable, "-c", "print('x')"], cwd=None, env=None)
+            common._run_with_live_output(
+                [sys.executable, "-c", "print('x')"], cwd=None, env=None
+            )
 
         terminate_mock.assert_called_once_with(process)
 

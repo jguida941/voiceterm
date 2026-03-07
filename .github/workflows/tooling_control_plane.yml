@@ -34,7 +34,11 @@ on:
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
+      - "dev/ARCHITECTURE.md"
       - "dev/DEVELOPMENT.md"
+      - "dev/DEVCTL_AUTOGUIDE.md"
+      - "dev/MCP_DEVCTL_ALIGNMENT.md"
+      - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
   pull_request:
@@ -58,7 +62,11 @@ on:
       - "scripts/macro-packs/**"
       - "Makefile"
       - "AGENTS.md"
+      - "dev/ARCHITECTURE.md"
       - "dev/DEVELOPMENT.md"
+      - "dev/DEVCTL_AUTOGUIDE.md"
+      - "dev/MCP_DEVCTL_ALIGNMENT.md"
+      - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
 
@@ -302,5 +310,5 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: tooling-control-plane-rust-audit-scaffold
-          path: dev/active/RUST_AUDIT_FINDINGS.md
+          path: dev/reports/audits/RUST_AUDIT_FINDINGS.md
           if-no-files-found: warn

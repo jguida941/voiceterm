@@ -149,8 +149,14 @@ def _build_fallback_payload(*, source_root: Path, min_lines: int) -> dict:
                 {
                     "format": "python_fallback",
                     "fragment": "\n".join(window),
-                    "firstFile": {"name": anchor_file_path.as_posix(), "start": anchor_start + 1},
-                    "secondFile": {"name": other_file_path.as_posix(), "start": other_start + 1},
+                    "firstFile": {
+                        "name": anchor_file_path.as_posix(),
+                        "start": anchor_start + 1,
+                    },
+                    "secondFile": {
+                        "name": other_file_path.as_posix(),
+                        "start": other_start + 1,
+                    },
                     "lines": min_lines,
                     "tokens": min_lines,
                 }
@@ -179,4 +185,3 @@ def _build_fallback_payload(*, source_root: Path, min_lines: int) -> dict:
             "minLines": min_lines,
         },
     }
-

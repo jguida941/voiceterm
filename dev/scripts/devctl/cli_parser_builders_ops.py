@@ -211,7 +211,7 @@ def add_governance_parsers(sub: argparse._SubParsersAction) -> None:
 
     audit_cmd = sub.add_parser(
         "audit-scaffold",
-        help="Generate dev/active Rust remediation scaffold from guard findings",
+        help="Generate Rust remediation scaffold from guard findings",
     )
     audit_cmd.add_argument(
         "--since-ref", help="Optional base ref for changed-file guard scripts"
@@ -229,8 +229,8 @@ def add_governance_parsers(sub: argparse._SubParsersAction) -> None:
     )
     audit_cmd.add_argument(
         "--output-path",
-        default="dev/active/RUST_AUDIT_FINDINGS.md",
-        help="Scaffold output path (must stay under dev/active/)",
+        default="dev/reports/audits/RUST_AUDIT_FINDINGS.md",
+        help="Scaffold output path (must be under dev/reports/audits/)",
     )
     audit_cmd.add_argument(
         "--template-path",

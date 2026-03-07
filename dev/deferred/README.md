@@ -6,6 +6,8 @@ executed from `dev/active/`.
 ## Current deferred plans
 
 - `DEV_MODE_PLAN.md` - devtools overlay and offline analytics tool.
+- `LOCAL_BACKLOG.md` - local-only reference backlog (`LB-*` IDs); promote
+  items to `MASTER_PLAN` as `MP-*` before active execution.
 
 ## Rules
 

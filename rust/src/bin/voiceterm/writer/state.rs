@@ -444,10 +444,12 @@ fn pty_output_may_scroll_rows(
 
 mod chunk_analysis;
 mod dispatch;
+mod dispatch_pty;
 pub(super) mod display;
 mod policy;
 mod profile;
 mod redraw;
+mod redraw_support;
 
 #[cfg(test)]
 mod tests;

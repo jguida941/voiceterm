@@ -136,7 +136,15 @@ def resolve_profile_settings(args) -> tuple[dict, list[str]]:
         "with_clippy_high_signal": False,
         "with_ci_release_gate": False,
     }
-    clippy_cmd = ["cargo", "clippy", "--workspace", "--all-features", "--", "-D", "warnings"]
+    clippy_cmd = [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings",
+    ]
 
     profile = getattr(args, "profile", None)
     preset = PROFILE_PRESETS.get(profile or "")

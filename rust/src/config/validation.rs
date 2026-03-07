@@ -162,7 +162,6 @@ impl AppConfig {
         // Keep helper scripts inside this repo.
         self.pipeline_script =
             canonicalize_within_repo(&self.pipeline_script, "pipeline script", &repo_root)?;
-        // PTY helper removed - using native Rust PtyCliSession instead
 
         if self.whisper_model_path.is_none() {
             if let Some(auto_model) =

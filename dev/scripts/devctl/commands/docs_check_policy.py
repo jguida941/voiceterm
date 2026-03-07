@@ -25,14 +25,17 @@ TOOLING_CHANGE_EXACT = {
     "Makefile",
     "AGENTS.md",
     "dev/DEVELOPMENT.md",
+    "dev/guides/DEVELOPMENT.md",
     "dev/scripts/README.md",
 }
 TOOLING_REQUIRED_DOCS = [
     "AGENTS.md",
-    "dev/DEVELOPMENT.md",
+    "dev/guides/DEVELOPMENT.md",
     "dev/scripts/README.md",
     "dev/active/MASTER_PLAN.md",
 ]
+# Legacy bridge aliases are retired; tooling updates must touch canonical docs.
+TOOLING_REQUIRED_DOC_ALIASES: dict[str, tuple[str, ...]] = {}
 EVOLUTION_DOC = "dev/history/ENGINEERING_EVOLUTION.md"
 EVOLUTION_CHANGE_PREFIXES = (
     "dev/scripts/",
@@ -42,6 +45,8 @@ EVOLUTION_CHANGE_EXACT = {
     "AGENTS.md",
     "dev/ARCHITECTURE.md",
     "dev/DEVELOPMENT.md",
+    "dev/guides/ARCHITECTURE.md",
+    "dev/guides/DEVELOPMENT.md",
     "dev/scripts/README.md",
     "dev/active/MASTER_PLAN.md",
 }
@@ -49,6 +54,7 @@ EVOLUTION_CHANGE_EXACT = {
 DEPRECATED_REFERENCE_TARGETS = [
     "AGENTS.md",
     "dev/DEVELOPMENT.md",
+    "dev/guides/DEVELOPMENT.md",
     "dev/scripts/README.md",
     "scripts/macro-packs/full-dev.yaml",
     "Makefile",
@@ -81,15 +87,9 @@ MULTI_AGENT_SYNC_SCRIPT_REL = check_script_relative_path("multi_agent_sync")
 MARKDOWN_METADATA_HEADER_SCRIPT_REL = check_script_relative_path(
     "markdown_metadata_header"
 )
-WORKFLOW_SHELL_HYGIENE_SCRIPT_REL = check_script_relative_path(
-    "workflow_shell_hygiene"
-)
-BUNDLE_WORKFLOW_PARITY_SCRIPT_REL = check_script_relative_path(
-    "bundle_workflow_parity"
-)
-AGENTS_BUNDLE_RENDER_SCRIPT_REL = check_script_relative_path(
-    "agents_bundle_render"
-)
+WORKFLOW_SHELL_HYGIENE_SCRIPT_REL = check_script_relative_path("workflow_shell_hygiene")
+BUNDLE_WORKFLOW_PARITY_SCRIPT_REL = check_script_relative_path("bundle_workflow_parity")
+AGENTS_BUNDLE_RENDER_SCRIPT_REL = check_script_relative_path("agents_bundle_render")
 
 
 def is_tooling_change(path: str) -> bool:
@@ -109,7 +109,9 @@ def scan_deprecated_references(repo_root: Path) -> list[dict]:
         path = repo_root / relative
         if not path.exists():
             continue
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        for lineno, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
             for spec in DEPRECATED_REFERENCE_PATTERNS:
                 if spec["regex"].search(line):
                     violations.append(
@@ -122,4 +124,3 @@ def scan_deprecated_references(repo_root: Path) -> list[dict]:
                         }
                     )
     return violations
-

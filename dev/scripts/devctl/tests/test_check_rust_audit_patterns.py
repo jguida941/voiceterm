@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import io
 import importlib.util
+import io
 import json
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
-import sys
 from unittest import TestCase
 from unittest.mock import call, patch
 
 from dev.scripts.devctl.config import REPO_ROOT
 
-
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_rust_audit_patterns.py"
 
 
 def _load_script_module():
-    spec = importlib.util.spec_from_file_location("check_rust_audit_patterns_script", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "check_rust_audit_patterns_script", SCRIPT_PATH
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load check_rust_audit_patterns.py")
     module = importlib.util.module_from_spec(spec)
@@ -62,7 +63,11 @@ fn sample(prompt: &str, line: &str, mut input: String) {
         self.assertEqual(metrics["lossy_vad_cast_i16"], 1)
 
     def test_has_positive_metrics(self) -> None:
-        self.assertFalse(self.script._has_positive_metrics({name: 0 for name in self.script.PATTERNS}))
+        self.assertFalse(
+            self.script._has_positive_metrics(
+                {name: 0 for name in self.script.PATTERNS}
+            )
+        )
         self.assertTrue(
             self.script._has_positive_metrics(
                 {
@@ -88,9 +93,15 @@ fn sample(prompt: &str, line: &str, mut input: String) {
             self.assertNotIn("target", path.parts)
 
     def test_runtime_source_scope_rejects_prefix_collisions(self) -> None:
-        self.assertTrue(self.script._is_runtime_source_path(Path("rust/src/bin/main.rs")))
-        self.assertFalse(self.script._is_runtime_source_path(Path("rust/src2/bin/main.rs")))
-        self.assertFalse(self.script._is_runtime_source_path(Path("rust/src_backup/bin/main.rs")))
+        self.assertTrue(
+            self.script._is_runtime_source_path(Path("rust/src/bin/main.rs"))
+        )
+        self.assertFalse(
+            self.script._is_runtime_source_path(Path("rust/src2/bin/main.rs"))
+        )
+        self.assertFalse(
+            self.script._is_runtime_source_path(Path("rust/src_backup/bin/main.rs"))
+        )
 
     def test_main_commit_range_uses_refs_and_runtime_scope(self) -> None:
         changed = [
@@ -99,17 +110,19 @@ fn sample(prompt: &str, line: &str, mut input: String) {
             Path("rust/src_backup/bin/voiceterm/not_ok.rs"),
             Path("docs/not_rust.rs"),
         ]
-        with patch.object(self.script, "_validate_ref") as validate_ref, patch.object(
+        with patch.object(
+            self.script.guard, "validate_ref"
+        ) as validate_ref, patch.object(
             self.script,
             "_list_changed_paths",
             return_value=changed,
         ), patch.object(
-            self.script,
-            "_read_text_from_ref",
+            self.script.guard,
+            "read_text_from_ref",
             return_value="fn scoped() {}\n",
         ) as read_ref, patch.object(
-            self.script,
-            "_read_text_from_worktree",
+            self.script.guard,
+            "read_text_from_worktree",
         ) as read_worktree:
             code, report = self._run_main_json(
                 "--since-ref",
@@ -124,7 +137,9 @@ fn sample(prompt: &str, line: &str, mut input: String) {
         self.assertEqual(report["since_ref"], "origin/master")
         self.assertEqual(report["head_ref"], "HEAD")
         self.assertEqual(report["files_considered"], 1)
-        self.assertEqual(validate_ref.call_args_list, [call("origin/master"), call("HEAD")])
+        self.assertEqual(
+            validate_ref.call_args_list, [call("origin/master"), call("HEAD")]
+        )
         read_ref.assert_called_once_with(Path("rust/src/bin/voiceterm/ok.rs"), "HEAD")
         read_worktree.assert_not_called()
 
@@ -134,8 +149,8 @@ fn sample(prompt: &str, line: &str, mut input: String) {
             "_list_changed_paths",
             return_value=[Path("rust/src/bin/voiceterm/no_matches.rs")],
         ), patch.object(
-            self.script,
-            "_read_text_from_worktree",
+            self.script.guard,
+            "read_text_from_worktree",
             return_value="fn no_matches() {}\n",
         ):
             code, report = self._run_main_json("--format", "json")
@@ -148,12 +163,15 @@ fn sample(prompt: &str, line: &str, mut input: String) {
 
     def test_main_error_on_invalid_since_ref(self) -> None:
         with patch.object(
-            self.script,
-            "_validate_ref",
+            self.script.guard,
+            "validate_ref",
             side_effect=RuntimeError("unknown revision"),
         ):
             code, report = self._run_main_json(
-                "--since-ref", "nonexistent", "--format", "json",
+                "--since-ref",
+                "nonexistent",
+                "--format",
+                "json",
             )
         self.assertEqual(code, 2)
         self.assertEqual(report["mode"], "error")

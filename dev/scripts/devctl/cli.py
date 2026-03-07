@@ -7,12 +7,10 @@ import sys
 import time
 
 from .audit_events import emit_devctl_audit_event
-from .data_science_metrics import maybe_auto_refresh_data_science
 from .autonomy_benchmark_parser import add_autonomy_benchmark_parser
 from .autonomy_loop_parser import add_autonomy_loop_parser
 from .autonomy_run_parser import add_autonomy_run_parser
 from .cihub_setup_parser import add_cihub_setup_parser
-from .controller_action_parser import add_controller_action_parser
 from .cli_parser_builders import add_standard_parsers
 from .commands import (
     audit_scaffold,
@@ -45,11 +43,11 @@ from .commands import (
     path_rewrite,
     phone_status,
     pypi,
-    reports_cleanup,
     release,
     release_gates,
     release_notes,
     report,
+    reports_cleanup,
     security,
     ship,
     status,
@@ -63,6 +61,8 @@ from .config import (
     DEFAULT_MUTANTS_TIMEOUT,
     DEFAULT_MUTATION_THRESHOLD,
 )
+from .controller_action_parser import add_controller_action_parser
+from .data_science_metrics import maybe_auto_refresh_data_science
 from .failure_cleanup_parser import add_failure_cleanup_parser
 from .integrations_import_parser import add_integrations_import_parser
 from .integrations_sync_parser import add_integrations_sync_parser

@@ -1,14 +1,14 @@
 """Shared helper functions used across devctl commands."""
 
-from collections import deque
 import os
 import queue
 import shlex
-import signal
 import shutil
+import signal
 import subprocess
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Deque, List, Optional, Tuple
 
@@ -82,9 +82,7 @@ def _run_with_live_output(
             _terminate_subprocess_tree(process)
             raise
     timeout_seconds = _resolve_live_output_timeout_seconds()
-    deadline = (
-        time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
-    )
+    deadline = time.monotonic() + timeout_seconds if timeout_seconds > 0 else None
     line_queue: "queue.Queue[object]" = queue.Queue()
     reader = threading.Thread(
         target=_enqueue_stdout_lines,
@@ -110,7 +108,11 @@ def _run_with_live_output(
             try:
                 line = line_queue.get(timeout=wait_timeout)
             except queue.Empty:
-                if process.poll() is not None and not reader.is_alive() and line_queue.empty():
+                if (
+                    process.poll() is not None
+                    and not reader.is_alive()
+                    and line_queue.empty()
+                ):
                     break
                 continue
 
@@ -283,7 +285,9 @@ def write_output(content: str, output_path: Optional[str]) -> None:
         print(content)
 
 
-def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[List[str]]) -> int:
+def pipe_output(
+    content: str, pipe_command: Optional[str], pipe_args: Optional[List[str]]
+) -> int:
     """Send report output to another command through stdin."""
     if not pipe_command:
         return 0
@@ -312,7 +316,11 @@ def pipe_output(content: str, pipe_command: Optional[str], pipe_args: Optional[L
 
 def should_emit_output(args) -> bool:
     """Return True when the caller asked for formatted/output report text."""
-    return args.format != "text" or bool(args.output) or bool(getattr(args, "pipe_command", None))
+    return (
+        args.format != "text"
+        or bool(args.output)
+        or bool(getattr(args, "pipe_command", None))
+    )
 
 
 def confirm_or_abort(message: str, assume_yes: bool) -> None:

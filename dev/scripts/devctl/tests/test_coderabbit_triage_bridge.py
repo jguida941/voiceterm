@@ -6,10 +6,9 @@ import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
-from contextlib import redirect_stdout
-
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -113,14 +112,22 @@ class CodeRabbitTriageBridgeTests(unittest.TestCase):
                 output_dir=str(output_dir),
             )
 
-            with mock.patch.object(self.script, "_resolve_repository", return_value="owner/repo"), mock.patch.object(
+            with mock.patch.object(
+                self.script, "_resolve_repository", return_value="owner/repo"
+            ), mock.patch.object(
                 self.script, "_resolve_pr_number", return_value="123"
-            ), mock.patch.object(self.script, "_collect_findings", return_value=(findings, "abc123")):
+            ), mock.patch.object(
+                self.script, "_collect_findings", return_value=(findings, "abc123")
+            ):
                 rc = self.script.collect_command(args)
 
             self.assertEqual(rc, 0)
-            priority = json.loads((output_dir / "priority.json").read_text(encoding="utf-8"))
-            backlog = json.loads((output_dir / "backlog-medium.json").read_text(encoding="utf-8"))
+            priority = json.loads(
+                (output_dir / "priority.json").read_text(encoding="utf-8")
+            )
+            backlog = json.loads(
+                (output_dir / "backlog-medium.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(priority["repository"], "owner/repo")
             self.assertEqual(priority["pr_number"], 123)
             self.assertEqual(priority["head_sha"], "abc123")

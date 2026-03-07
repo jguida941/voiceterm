@@ -7,6 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..autonomy_run_feedback import build_feedback_state as _build_feedback_state
+from ..autonomy_run_feedback import (
+    summarize_feedback_state as _summarize_feedback_state,
+)
+from ..autonomy_run_feedback import update_feedback_state as _update_feedback_state
 from ..autonomy_run_helpers import build_swarm_command as _build_swarm_command
 from ..autonomy_run_helpers import collect_next_steps as _collect_next_steps
 from ..autonomy_run_helpers import derive_prompt as _derive_prompt
@@ -16,11 +21,6 @@ from ..autonomy_run_helpers import (
 from ..autonomy_run_helpers import governance_commands as _governance_commands
 from ..autonomy_run_helpers import run_command as _run_command
 from ..autonomy_run_helpers import utc_timestamp as _utc_timestamp
-from ..autonomy_run_feedback import (
-    build_feedback_state as _build_feedback_state,
-)
-from ..autonomy_run_feedback import summarize_feedback_state as _summarize_feedback_state
-from ..autonomy_run_feedback import update_feedback_state as _update_feedback_state
 from ..autonomy_run_plan import update_plan_doc as _update_plan_doc
 from ..autonomy_run_plan import validate_plan_scope as _validate_plan_scope
 from ..autonomy_run_render import render_markdown as _render_markdown
@@ -101,15 +101,21 @@ def run(args) -> int:
 
     for cycle_index in range(1, cycle_limit + 1):
         current_plan_text = plan_doc.read_text(encoding="utf-8")
-        next_steps = _collect_next_steps(current_plan_text, limit=int(args.next_steps_limit))
+        next_steps = _collect_next_steps(
+            current_plan_text, limit=int(args.next_steps_limit)
+        )
         if not next_steps:
             if cycle_index == 1:
-                aggregate_warnings.append("no unchecked checklist items found in plan doc")
+                aggregate_warnings.append(
+                    "no unchecked checklist items found in plan doc"
+                )
             stop_reason = "plan_complete"
             break
 
         cycle_run_label = (
-            run_label_seed if not continuous_enabled else f"{run_label_seed}-c{cycle_index:02d}"
+            run_label_seed
+            if not continuous_enabled
+            else f"{run_label_seed}-c{cycle_index:02d}"
         )
         run_dir = run_root / cycle_run_label
         log_dir = run_dir / "logs"
@@ -134,9 +140,11 @@ def run(args) -> int:
             run_label=cycle_run_label,
             output_md=swarm_md,
             output_json=swarm_json,
-            agent_override=feedback_state.get("next_agents")
-            if bool(feedback_state.get("enabled"))
-            else None,
+            agent_override=(
+                feedback_state.get("next_agents")
+                if bool(feedback_state.get("enabled"))
+                else None
+            ),
         )
         swarm_result = _run_command(
             swarm_command, timeout_seconds=max(60, int(args.agent_timeout_seconds))
@@ -263,7 +271,10 @@ def run(args) -> int:
     if cycle_reports:
         all_cycles_ok = all(bool(row.get("ok")) for row in cycle_reports)
         if continuous_enabled:
-            overall_ok = all_cycles_ok and stop_reason in {"plan_complete", "max_cycles_reached"}
+            overall_ok = all_cycles_ok and stop_reason in {
+                "plan_complete",
+                "max_cycles_reached",
+            }
         else:
             overall_ok = bool(last_cycle.get("ok"))
     else:
@@ -290,7 +301,11 @@ def run(args) -> int:
         "swarm": last_cycle.get("swarm", {"ok": False}),
         "governance": last_cycle.get(
             "governance",
-            {"ok": bool(args.skip_governance), "skipped": bool(args.skip_governance), "steps": []},
+            {
+                "ok": bool(args.skip_governance),
+                "skipped": bool(args.skip_governance),
+                "steps": [],
+            },
         ),
         "plan_update": last_cycle.get(
             "plan_update",

@@ -1,91 +1,51 @@
-"""Constants and policy patterns shared by docs-check helpers."""
+"""Compatibility exports for docs-check policy constants.
+
+`docs_check_policy.py` is the single source of truth for docs-check path/policy
+constants. This module intentionally re-exports that surface for legacy imports.
+"""
 
 from __future__ import annotations
 
-import re
+from .docs_check_policy import (
+    ACTIVE_PLAN_SYNC_SCRIPT_REL,
+    AGENTS_BUNDLE_RENDER_SCRIPT_REL,
+    BUNDLE_WORKFLOW_PARITY_SCRIPT_REL,
+    DEPRECATED_REFERENCE_PATTERNS,
+    DEPRECATED_REFERENCE_TARGETS,
+    EVOLUTION_CHANGE_EXACT,
+    EVOLUTION_CHANGE_PREFIXES,
+    EVOLUTION_DOC,
+    MARKDOWN_METADATA_HEADER_SCRIPT_REL,
+    MULTI_AGENT_SYNC_SCRIPT_REL,
+    TOOLING_CHANGE_EXACT,
+    TOOLING_CHANGE_PREFIXES,
+    TOOLING_REQUIRED_DOC_ALIASES,
+    TOOLING_REQUIRED_DOCS,
+    USER_DOCS,
+    WORKFLOW_SHELL_HYGIENE_SCRIPT_REL,
+    is_tooling_change,
+    requires_evolution_update,
+    scan_deprecated_references,
+)
 
-from ..script_catalog import check_script_relative_path
-
-USER_DOCS = [
-    "README.md",
-    "QUICK_START.md",
-    "guides/USAGE.md",
-    "guides/CLI_FLAGS.md",
-    "guides/INSTALL.md",
-    "guides/TROUBLESHOOTING.md",
+__all__ = [
+    "ACTIVE_PLAN_SYNC_SCRIPT_REL",
+    "AGENTS_BUNDLE_RENDER_SCRIPT_REL",
+    "BUNDLE_WORKFLOW_PARITY_SCRIPT_REL",
+    "DEPRECATED_REFERENCE_PATTERNS",
+    "DEPRECATED_REFERENCE_TARGETS",
+    "EVOLUTION_CHANGE_EXACT",
+    "EVOLUTION_CHANGE_PREFIXES",
+    "EVOLUTION_DOC",
+    "MARKDOWN_METADATA_HEADER_SCRIPT_REL",
+    "MULTI_AGENT_SYNC_SCRIPT_REL",
+    "TOOLING_CHANGE_EXACT",
+    "TOOLING_CHANGE_PREFIXES",
+    "TOOLING_REQUIRED_DOC_ALIASES",
+    "TOOLING_REQUIRED_DOCS",
+    "USER_DOCS",
+    "WORKFLOW_SHELL_HYGIENE_SCRIPT_REL",
+    "is_tooling_change",
+    "requires_evolution_update",
+    "scan_deprecated_references",
 ]
-
-TOOLING_CHANGE_PREFIXES = (
-    "dev/scripts/",
-    "scripts/macro-packs/",
-    ".github/workflows/",
-)
-TOOLING_CHANGE_EXACT = {
-    "Makefile",
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-}
-TOOLING_REQUIRED_DOCS = [
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "dev/active/MASTER_PLAN.md",
-]
-EVOLUTION_DOC = "dev/history/ENGINEERING_EVOLUTION.md"
-EVOLUTION_CHANGE_PREFIXES = (
-    "dev/scripts/",
-    ".github/workflows/",
-)
-EVOLUTION_CHANGE_EXACT = {
-    "AGENTS.md",
-    "dev/ARCHITECTURE.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "dev/active/MASTER_PLAN.md",
-}
-
-DEPRECATED_REFERENCE_TARGETS = [
-    "AGENTS.md",
-    "dev/DEVELOPMENT.md",
-    "dev/scripts/README.md",
-    "scripts/macro-packs/full-dev.yaml",
-    "Makefile",
-]
-DEPRECATED_REFERENCE_PATTERNS = [
-    {
-        "name": "release-script",
-        "regex": re.compile(r"\./dev/scripts/release\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py release --version <version>",
-    },
-    {
-        "name": "homebrew-script",
-        "regex": re.compile(r"\./dev/scripts/update-homebrew\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py homebrew --version <version>",
-    },
-    {
-        "name": "pypi-script",
-        "regex": re.compile(r"\./dev/scripts/publish-pypi\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py pypi --upload",
-    },
-    {
-        "name": "notes-script",
-        "regex": re.compile(r"\./dev/scripts/generate-release-notes\.sh\b"),
-        "replacement": "python3 dev/scripts/devctl.py release-notes --version <version>",
-    },
-]
-
-ACTIVE_PLAN_SYNC_SCRIPT_REL = check_script_relative_path("active_plan_sync")
-MULTI_AGENT_SYNC_SCRIPT_REL = check_script_relative_path("multi_agent_sync")
-MARKDOWN_METADATA_HEADER_SCRIPT_REL = check_script_relative_path(
-    "markdown_metadata_header"
-)
-WORKFLOW_SHELL_HYGIENE_SCRIPT_REL = check_script_relative_path(
-    "workflow_shell_hygiene"
-)
-BUNDLE_WORKFLOW_PARITY_SCRIPT_REL = check_script_relative_path(
-    "bundle_workflow_parity"
-)
-AGENTS_BUNDLE_RENDER_SCRIPT_REL = check_script_relative_path(
-    "agents_bundle_render"
-)

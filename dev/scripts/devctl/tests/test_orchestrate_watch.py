@@ -56,9 +56,15 @@ class OrchestrateWatchCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.orchestrate_watch._run_active_plan_sync_gate",
         return_value={"ok": True, "errors": []},
     )
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync._extract_table_rows")
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.MASTER_PLAN_PATH")
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.RUNBOOK_PATH")
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync._extract_table_rows"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.MASTER_PLAN_PATH"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.RUNBOOK_PATH"
+    )
     def test_watch_passes_with_fresh_updates(
         self,
         runbook_path_mock,
@@ -75,7 +81,9 @@ class OrchestrateWatchCommandTests(unittest.TestCase):
         extract_table_rows_mock.side_effect = [
             (
                 [
-                    _master_row("AGENT-1", "in-progress", _utc(now - timedelta(minutes=5))),
+                    _master_row(
+                        "AGENT-1", "in-progress", _utc(now - timedelta(minutes=5))
+                    ),
                     _master_row("AGENT-2", "planned", _utc(now - timedelta(minutes=4))),
                     _master_row("AGENT-3", "planned", _utc(now - timedelta(minutes=3))),
                 ],
@@ -119,9 +127,15 @@ class OrchestrateWatchCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.orchestrate_watch._run_active_plan_sync_gate",
         return_value={"ok": True, "errors": []},
     )
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync._extract_table_rows")
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.MASTER_PLAN_PATH")
-    @patch("dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.RUNBOOK_PATH")
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync._extract_table_rows"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.MASTER_PLAN_PATH"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.orchestrate_watch.check_multi_agent_sync.RUNBOOK_PATH"
+    )
     def test_watch_fails_for_stale_agent_and_overdue_ack(
         self,
         runbook_path_mock,
@@ -138,7 +152,9 @@ class OrchestrateWatchCommandTests(unittest.TestCase):
         extract_table_rows_mock.side_effect = [
             (
                 [
-                    _master_row("AGENT-1", "in-progress", _utc(now - timedelta(minutes=95))),
+                    _master_row(
+                        "AGENT-1", "in-progress", _utc(now - timedelta(minutes=95))
+                    ),
                     _master_row("AGENT-2", "planned", _utc(now - timedelta(minutes=4))),
                     _master_row("AGENT-3", "planned", _utc(now - timedelta(minutes=3))),
                 ],

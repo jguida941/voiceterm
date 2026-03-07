@@ -155,7 +155,9 @@ def render_phone_status_markdown(payload: dict[str, Any]) -> str:
         f"- progress: rounds {controller.get('rounds_completed')}/{controller.get('max_rounds')} | "
         f"tasks {controller.get('tasks_completed')}/{controller.get('max_tasks')}"
     )
-    lines.append(f"- working_branch: {controller.get('latest_working_branch') or 'n/a'}")
+    lines.append(
+        f"- working_branch: {controller.get('latest_working_branch') or 'n/a'}"
+    )
     lines.append(f"- unresolved_count: {loop.get('unresolved_count')}")
     lines.append(f"- risk: {loop.get('risk')}")
     lines.append(f"- triage_reason: {loop.get('triage_reason')}")

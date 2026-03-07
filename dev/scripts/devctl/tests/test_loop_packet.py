@@ -124,9 +124,7 @@ class LoopPacketCommandTests(unittest.TestCase):
                 json.dumps(
                     {
                         "command": "mutation-loop",
-                        "timestamp": (
-                            datetime.now(timezone.utc) - timedelta(hours=200)
-                        )
+                        "timestamp": (datetime.now(timezone.utc) - timedelta(hours=200))
                         .isoformat()
                         .replace("+00:00", "Z"),
                         "reason": "report_only_below_threshold",
@@ -158,7 +156,9 @@ class LoopPacketCommandTests(unittest.TestCase):
                 .isoformat()
                 .replace("+00:00", "Z"),
                 "rollup": {"total": 0, "by_severity": {"high": 0, "medium": 0}},
-                "next_actions": ["No urgent triage actions detected from current signals."],
+                "next_actions": [
+                    "No urgent triage actions detected from current signals."
+                ],
             },
             "timestamp": datetime.now(timezone.utc),
             "mtime": datetime.now(timezone.utc).timestamp(),
@@ -171,7 +171,9 @@ class LoopPacketCommandTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["source_path"], "<generated:live-triage>")
         self.assertEqual(payload["source_command"], "triage")
-        self.assertTrue(any("no artifact source found" in row for row in payload["warnings"]))
+        self.assertTrue(
+            any("no artifact source found" in row for row in payload["warnings"])
+        )
 
 
 if __name__ == "__main__":

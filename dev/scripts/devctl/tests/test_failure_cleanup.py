@@ -71,7 +71,9 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 0)
@@ -118,7 +120,9 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 1)
@@ -166,7 +170,9 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
                 self.assertFalse((repo_root / "dev/reports/failures").exists())
 
@@ -201,13 +207,17 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
-        self.assertTrue(any("outside default failure root" in msg for msg in payload["errors"]))
+        self.assertTrue(
+            any("outside default failure root" in msg for msg in payload["errors"])
+        )
 
     @patch("dev.scripts.devctl.commands.failure_cleanup.write_output")
     def test_failure_cleanup_allows_outside_failure_root_with_override(
@@ -236,7 +246,9 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 0)
@@ -270,13 +282,17 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
-        self.assertTrue(any("outside allowed override root" in msg for msg in payload["errors"]))
+        self.assertTrue(
+            any("outside allowed override root" in msg for msg in payload["errors"])
+        )
 
     @patch("dev.scripts.devctl.commands.failure_cleanup.write_output")
     def test_failure_cleanup_override_rejects_git_directory(
@@ -304,13 +320,17 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
-        self.assertTrue(any("refusing to delete .git" in msg for msg in payload["errors"]))
+        self.assertTrue(
+            any("refusing to delete .git" in msg for msg in payload["errors"])
+        )
 
     @patch("dev.scripts.devctl.commands.failure_cleanup.write_output")
     @patch("dev.scripts.devctl.commands.failure_cleanup.collect_ci_runs")
@@ -354,7 +374,9 @@ class FailureCleanupCommandTests(TestCase):
                 pipe_command=None,
                 pipe_args=None,
             )
-            with patch("dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root):
+            with patch(
+                "dev.scripts.devctl.commands.failure_cleanup.REPO_ROOT", repo_root
+            ):
                 code = failure_cleanup.run(args)
 
         self.assertEqual(code, 1)

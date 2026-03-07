@@ -24,7 +24,11 @@ def _render_md(report: dict) -> str:
     )
     lines.append(
         "- excluded_prefixes: "
-        + (", ".join(report["excluded_prefixes"]) if report["excluded_prefixes"] else "none")
+        + (
+            ", ".join(report["excluded_prefixes"])
+            if report["excluded_prefixes"]
+            else "none"
+        )
     )
     if report.get("error"):
         lines.append(f"- error: {report['error']}")

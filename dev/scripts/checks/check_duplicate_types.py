@@ -5,34 +5,35 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-import re
 
 try:
     from git_change_paths import list_changed_paths_with_base_map
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.git_change_paths import list_changed_paths_with_base_map
 try:
-    from rust_guard_common import (
-        is_test_path as _is_test_path,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.rust_guard_common import (
-        is_test_path as _is_test_path,
-        run_git as _run_git_with_root,
-        validate_ref as _validate_ref_with_git,
-    )
+    from rust_guard_common import GuardContext
+    from rust_guard_common import is_test_path as _is_test_path
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.rust_guard_common import GuardContext
+    from dev.scripts.checks.rust_guard_common import is_test_path as _is_test_path
 try:
     from rust_check_text_utils import strip_cfg_test_blocks
-except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.rust_check_text_utils import strip_cfg_test_blocks
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+guard = GuardContext(REPO_ROOT)
 SOURCE_ROOT = REPO_ROOT / "rust" / "src"
 TYPE_DEF_RE = re.compile(
     r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:crate\s+)?(?:unsafe\s+)?(?:struct|enum)\s+([A-Za-z_][A-Za-z0-9_]*)\b",
@@ -51,14 +52,6 @@ ALLOWLIST_DUPLICATES: dict[str, set[str]] = {
         "rust/src/bin/voiceterm/theme/style_schema.rs",
     },
 }
-
-
-def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run_git_with_root(REPO_ROOT, args, check=check)
-
-
-def _validate_ref(ref: str) -> None:
-    _validate_ref_with_git(_run_git, ref)
 
 
 def _path_for_report(path: Path) -> str:
@@ -95,7 +88,9 @@ def _build_type_index(files: list[Path]) -> tuple[dict[str, set[str]], int]:
     return index, type_definitions
 
 
-def _normalize_changed_paths(changed_paths: list[Path], *, include_tests: bool) -> set[str]:
+def _normalize_changed_paths(
+    changed_paths: list[Path], *, include_tests: bool
+) -> set[str]:
     normalized: set[str] = set()
     for path in changed_paths:
         if path.suffix != ".rs":
@@ -131,7 +126,9 @@ def _render_md(report: dict) -> str:
         lines.append("")
         lines.append("## Warnings")
         for item in report["stale_allowlist_entries"]:
-            lines.append(f"- stale allowlist entry `{item}` no longer matches an active duplicate")
+            lines.append(
+                f"- stale allowlist entry `{item}` no longer matches an active duplicate"
+            )
 
     if report["violations"]:
         lines.append("")
@@ -148,8 +145,14 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument("--head-ref", default="HEAD", help="Head ref used with --since-ref")
-    parser.add_argument("--include-tests", action="store_true", help="Include test files in duplicate detection")
+    parser.add_argument(
+        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
+    )
+    parser.add_argument(
+        "--include-tests",
+        action="store_true",
+        help="Include test files in duplicate detection",
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -158,10 +161,10 @@ def main() -> int:
     args = _build_parser().parse_args()
     try:
         if args.since_ref:
-            _validate_ref(args.since_ref)
-            _validate_ref(args.head_ref)
+            guard.validate_ref(args.since_ref)
+            guard.validate_ref(args.head_ref)
         changed_paths, _base_map = list_changed_paths_with_base_map(
-            _run_git,
+            guard.run_git,
             args.since_ref,
             args.head_ref,
         )

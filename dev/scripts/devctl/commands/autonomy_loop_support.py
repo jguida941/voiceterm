@@ -64,7 +64,11 @@ def write_validation_error(
         "errors": errors,
         "rounds": [],
     }
-    output = json.dumps(report, indent=2) if args.format == "json" else render_markdown(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else render_markdown(report)
+    )
     write_output(output, args.output)
     if args.json_output:
         write_output(json.dumps(report, indent=2), args.json_output)
@@ -132,7 +136,11 @@ def emit_controller_report(
     report["summary_json"] = str(summary_json_path)
     report["summary_md"] = str(summary_md_path)
 
-    output = json.dumps(report, indent=2) if args.format == "json" else render_markdown_fn(report)
+    output = (
+        json.dumps(report, indent=2)
+        if args.format == "json"
+        else render_markdown_fn(report)
+    )
     write_output(output, args.output)
     if args.json_output:
         write_output(json.dumps(report, indent=2), args.json_output)

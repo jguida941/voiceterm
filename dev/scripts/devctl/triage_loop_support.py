@@ -18,11 +18,13 @@ from .triage_loop_render import (
 try:
     from dev.scripts.checks.coderabbit_gate_support import (
         is_ci_environment as _is_ci_environment,
+    )
+    from dev.scripts.checks.coderabbit_gate_support import (
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 except ModuleNotFoundError:
+    from checks.coderabbit_gate_support import is_ci_environment as _is_ci_environment
     from checks.coderabbit_gate_support import (
-        is_ci_environment as _is_ci_environment,
         looks_like_connectivity_error as _looks_like_connectivity_error,
     )
 
@@ -41,11 +43,17 @@ def mode_fix_command(mode: str, fix_command: str | None) -> str | None:
 
 
 def default_mp_proposal_path() -> str:
-    return str(Path(tempfile.gettempdir()) / "devctl-triage-loop-master-plan-proposal.md")
+    return str(
+        Path(tempfile.gettempdir()) / "devctl-triage-loop-master-plan-proposal.md"
+    )
 
 
 def is_non_blocking_local_connectivity_error(message: str) -> bool:
-    return bool(message) and _looks_like_connectivity_error(message) and not _is_ci_environment()
+    return (
+        bool(message)
+        and _looks_like_connectivity_error(message)
+        and not _is_ci_environment()
+    )
 
 
 def preflight_github_connectivity(run_capture_fn) -> str | None:

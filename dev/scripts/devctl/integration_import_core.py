@@ -20,7 +20,11 @@ def run_git_capture(args: list[str], *, cwd: Path) -> tuple[int, str, str]:
         )
     except OSError as exc:
         return 127, "", str(exc)
-    return completed.returncode, (completed.stdout or "").strip(), (completed.stderr or "").strip()
+    return (
+        completed.returncode,
+        (completed.stdout or "").strip(),
+        (completed.stderr or "").strip(),
+    )
 
 
 def append_audit_log(path: Path, payload: dict[str, Any]) -> None:
@@ -69,7 +73,9 @@ def list_profiles_payload(
                 profile_rows.append(
                     {
                         "profile": profile_name,
-                        "description": str(profile_cfg.get("description") or "").strip(),
+                        "description": str(
+                            profile_cfg.get("description") or ""
+                        ).strip(),
                         "mapping_count": mapping_count,
                     }
                 )
@@ -102,7 +108,9 @@ def collect_mapping_plan(
     destination_root = (repo_root / mapping_to).resolve()
     if not is_relative_to(destination_root, repo_root):
         return [], [f"destination mapping escapes repo root: {mapping_to}"]
-    if not any(is_relative_to(destination_root, root.resolve()) for root in allowed_dest_roots):
+    if not any(
+        is_relative_to(destination_root, root.resolve()) for root in allowed_dest_roots
+    ):
         return [], [f"destination mapping is not allowlisted: {mapping_to}"]
 
     file_pairs: list[tuple[Path, Path]] = []

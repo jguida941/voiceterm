@@ -92,7 +92,9 @@ class IntegrationsImportCommandTests(unittest.TestCase):
         _policy_mock,
         write_output_mock,
     ) -> None:
-        rc = integrations_import.run(make_args(list_profiles=True, source=None, profile=None))
+        rc = integrations_import.run(
+            make_args(list_profiles=True, source=None, profile=None)
+        )
         self.assertEqual(rc, 0)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
@@ -102,18 +104,29 @@ class IntegrationsImportCommandTests(unittest.TestCase):
     def test_preview_mode_builds_import_plan_and_writes_audit_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
-            source_dir = root / "integrations" / "code-link-ide" / "ios" / "Sources" / "VoiceAgentCore"
+            source_dir = (
+                root
+                / "integrations"
+                / "code-link-ide"
+                / "ios"
+                / "Sources"
+                / "VoiceAgentCore"
+            )
             source_dir.mkdir(parents=True, exist_ok=True)
             source_file = source_dir / "AgentConnection.swift"
             source_file.write_text("struct AgentConnection {}", encoding="utf-8")
 
             with (
-                patch("dev.scripts.devctl.commands.integrations_import.REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.commands.integrations_import.REPO_ROOT", root
+                ),
                 patch(
                     "dev.scripts.devctl.commands.integrations_import.load_federation_policy",
                     return_value=sample_policy(),
                 ),
-                patch("dev.scripts.devctl.commands.integrations_import.write_output") as write_output_mock,
+                patch(
+                    "dev.scripts.devctl.commands.integrations_import.write_output"
+                ) as write_output_mock,
             ):
                 rc = integrations_import.run(make_args(apply=False, format="json"))
 
@@ -140,20 +153,33 @@ class IntegrationsImportCommandTests(unittest.TestCase):
     def test_apply_mode_writes_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
-            source_dir = root / "integrations" / "code-link-ide" / "ios" / "Sources" / "VoiceAgentCore"
+            source_dir = (
+                root
+                / "integrations"
+                / "code-link-ide"
+                / "ios"
+                / "Sources"
+                / "VoiceAgentCore"
+            )
             source_dir.mkdir(parents=True, exist_ok=True)
             source_file = source_dir / "AgentConnection.swift"
             source_file.write_text("struct AgentConnection {}", encoding="utf-8")
 
             with (
-                patch("dev.scripts.devctl.commands.integrations_import.REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.commands.integrations_import.REPO_ROOT", root
+                ),
                 patch(
                     "dev.scripts.devctl.commands.integrations_import.load_federation_policy",
                     return_value=sample_policy(),
                 ),
-                patch("dev.scripts.devctl.commands.integrations_import.write_output") as write_output_mock,
+                patch(
+                    "dev.scripts.devctl.commands.integrations_import.write_output"
+                ) as write_output_mock,
             ):
-                rc = integrations_import.run(make_args(apply=True, yes=True, format="json"))
+                rc = integrations_import.run(
+                    make_args(apply=True, yes=True, format="json")
+                )
 
             self.assertEqual(rc, 0)
             payload = json.loads(write_output_mock.call_args.args[0])
