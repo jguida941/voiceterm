@@ -191,8 +191,8 @@ impl CrosstermCapability {
 // ---------------------------------------------------------------------------
 
 /// Pinned framework versions for the current release.
-pub(crate) const PINNED_RATATUI_VERSION: &str = "0.26";
-pub(crate) const PINNED_CROSSTERM_VERSION: &str = "0.27";
+pub(crate) const PINNED_RATATUI_VERSION: &str = "0.30";
+pub(crate) const PINNED_CROSSTERM_VERSION: &str = "0.29";
 
 /// Snapshot of the framework capability baseline at the pinned versions.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -410,8 +410,8 @@ mod tests {
     #[test]
     fn current_snapshot_has_pinned_versions() {
         let snap = current_capability_snapshot();
-        assert_eq!(snap.ratatui_version, "0.26");
-        assert_eq!(snap.crossterm_version, "0.27");
+        assert_eq!(snap.ratatui_version, "0.30");
+        assert_eq!(snap.crossterm_version, "0.29");
     }
 
     #[test]
