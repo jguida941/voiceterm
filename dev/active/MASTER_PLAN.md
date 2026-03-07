@@ -6,7 +6,7 @@
 - `dev/active/INDEX.md` is the canonical active-doc registry and read-order map for agents.
 - `dev/active/theme_upgrade.md` is the consolidated Theme Studio specification + gate catalog + overlay visual research + redesign appendix, but not a separate execution tracker; implementation tasks stay in this file.
 - `dev/active/memory_studio.md` is the Memory + Action Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
-- `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-306`.
+- `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`.
 - `dev/active/autonomous_control_plane.md` is the autonomous loop + mobile control-plane execution spec; implementation tasks stay in this file under `MP-325..MP-338, MP-340`.
 - `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
 - `dev/active/naming_api_cohesion.md` is the naming/API cohesion execution spec; implementation tasks stay in this file under `MP-267`.
@@ -339,7 +339,7 @@ Mapped scopes:
 
 Mapped scopes:
 
-- `MP-306`, `MP-325..MP-329`, `MP-334`
+- `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-325..MP-329`, `MP-334`
 - `dev/active/devctl_reporting_upgrade.md`
 - `dev/active/autonomous_control_plane.md` (Phases 1-2/5/6)
 

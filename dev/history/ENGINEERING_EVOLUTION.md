@@ -3644,6 +3644,10 @@ The full technical showcase is consolidated above in Appendix G of this document
   `dev/active/ide_provider_modularization.md` active because it still carries
   deferred post-next-release `MP-346` backlog (`Step 3g`, `Step 3h`,
   AntiGravity readiness intake).
+- Re-scoped `dev/active/devctl_reporting_upgrade.md` to its actual live MP
+  coverage (`MP-297..MP-300`, `MP-303`, `MP-306`) instead of treating it as an
+  `MP-306`-only artifact, so the doc stays active for open tooling work
+  (`MP-297`, `MP-298`) rather than looking like stale closed-plan residue.
 - Synced maintainer guidance in `dev/guides/DEVELOPMENT.md` and
   `dev/scripts/README.md` to state the archive rule directly: archive only
   fully closed scopes; unfinished or deferred backlog stays active.

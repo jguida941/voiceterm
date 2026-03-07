@@ -1,6 +1,11 @@
 # Devctl Reporting Upgrade (User-Story Driven, Production-Ready)
 
-Status: Activated planning track (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-306)
+Status: active tooling roadmap (execution mirrored in `dev/active/MASTER_PLAN.md`; scoped here to `MP-297..MP-300`, `MP-303`, `MP-306`)
+
+Scope note (2026-03-07): this doc stays active because `MP-297` and `MP-298`
+remain open. Closed slices `MP-299`, `MP-300`, `MP-303`, and `MP-306` stay
+here as continuity/history, and broader roadmap sections below remain planning
+context until they are explicitly promoted in `MASTER_PLAN`.
 
 ## Purpose
 
