@@ -211,11 +211,15 @@ impl InputParser {
                         (is_csi_u, event)
                     };
                     if is_csi_u {
-                        self.esc_buffer = None;
                         if let Some(event) = event {
                             self.flush_pending(out);
                             out.push(event);
+                        } else {
+                            // Preserve unmapped CSI-u key reports for the wrapped CLI.
+                            // We only consume CSI-u sequences that map to VoiceTerm actions.
+                            self.pending.extend_from_slice(buffer);
                         }
+                        self.esc_buffer = None;
                     } else if let Some((kind, x, y)) = parse_mouse_event(buffer) {
                         // Mouse click across supported protocols (SGR, URXVT, X10).
                         self.esc_buffer = None;
@@ -435,12 +439,30 @@ mod tests {
     }
 
     #[test]
-    fn input_parser_drops_csi_u_sequences() {
+    fn input_parser_forwards_unmapped_csi_u_sequences() {
         let mut parser = InputParser::new();
         let mut out = Vec::new();
         parser.consume_bytes(b"\x1b[48;0;0u", &mut out);
         parser.flush_pending(&mut out);
-        assert!(out.is_empty());
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[48;0;0u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_escape_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[27u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[27u".to_vec())]);
+    }
+
+    #[test]
+    fn input_parser_forwards_unmapped_csi_u_ctrl_c_sequence() {
+        let mut parser = InputParser::new();
+        let mut out = Vec::new();
+        parser.consume_bytes(b"\x1b[99;5u", &mut out);
+        parser.flush_pending(&mut out);
+        assert_eq!(out, vec![InputEvent::Bytes(b"\x1b[99;5u".to_vec())]);
     }
 
     #[test]
