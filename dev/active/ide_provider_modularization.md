@@ -3,6 +3,10 @@
 **Status**: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-346`, `MP-354`)  |  **Last updated**: 2026-03-07 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
 
+Closure note (2026-03-07): `MP-354` is complete. This doc stays active because
+`MP-346` post-next-release backlog remains here (`Step 3g`, `Step 3h`, and
+AntiGravity readiness intake).
+
 ## Scope
 
 Create stable architecture boundaries so host IDE behavior and provider behavior

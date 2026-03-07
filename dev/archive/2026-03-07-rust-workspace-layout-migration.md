@@ -1,7 +1,10 @@
 # Rust Workspace Layout Migration (MP-339)
 
-Status: execution mirrored in `dev/active/MASTER_PLAN.md` (`MP-339`)
+**Status**: closed  |  **Last updated**: 2026-03-07 | **Owner:** Runtime/tooling architecture
 Execution plan contract: required
+
+Closure note: `MP-339` is complete and this file is the archived execution
+record for the Rust workspace path/layout migration.
 
 ## Scope
 

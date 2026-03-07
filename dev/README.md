@@ -22,18 +22,18 @@ Root shortcut: [`../DEV_INDEX.md`](../DEV_INDEX.md).
 4. [`dev/active/memory_studio.md`](active/memory_studio.md) -- Memory and action-system plan.
 5. [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md) -- autonomy loop and mobile control-plane plan.
 6. [`dev/active/loop_chat_bridge.md`](active/loop_chat_bridge.md) -- how loop output is handed to chat suggestions.
-7. [`dev/active/rust_workspace_layout_migration.md`](active/rust_workspace_layout_migration.md) -- Rust workspace path/layout migration plan.
-8. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
-9. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
-10. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
-11. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
-12. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
-13. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
-14. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
-15. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
-16. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
-17. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
-18. [`dev/history/README.md`](history/README.md) -- index for historical records.
+7. [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md) -- naming/API cohesion execution plan for `MP-267`.
+8. [`dev/active/ide_provider_modularization.md`](active/ide_provider_modularization.md) -- host/provider adapter modularization and compatibility-hardening plan for `MP-346`.
+9. [`dev/active/pre_release_architecture_audit.md`](active/pre_release_architecture_audit.md) -- canonical pre-release architecture/tooling findings + execution plan for `MP-347` and `MP-349`.
+10. [`dev/guides/MCP_DEVCTL_ALIGNMENT.md`](guides/MCP_DEVCTL_ALIGNMENT.md) -- durable architecture/rules for MCP as an optional read-only adapter.
+11. [`dev/integrations/EXTERNAL_REPOS.md`](integrations/EXTERNAL_REPOS.md) -- external repo links and import rules.
+12. [`dev/audits/README.md`](audits/README.md) -- where audit runs and evidence rules live.
+13. [`dev/audits/AUTOMATION_DEBT_REGISTER.md`](audits/AUTOMATION_DEBT_REGISTER.md) -- repeated manual work we still need to automate.
+14. [`dev/audits/METRICS_SCHEMA.md`](audits/METRICS_SCHEMA.md) -- audit metrics and chart definitions.
+15. [`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`](active/MULTI_AGENT_WORKTREE_RUNBOOK.md) -- parallel worktree orchestration for this cycle.
+16. [`dev/history/ENGINEERING_EVOLUTION.md`](history/ENGINEERING_EVOLUTION.md) -- why major design/process choices were made.
+17. [`dev/history/README.md`](history/README.md) -- index for historical records.
+18. [`dev/archive/2026-03-07-rust-workspace-layout-migration.md`](archive/2026-03-07-rust-workspace-layout-migration.md) -- closed record for the completed Rust workspace path/layout migration.
 19. [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) -- how the runtime is structured today.
 20. [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) -- build, test, and release commands.
 21. [`dev/adr/README.md`](adr/README.md) -- architecture decision records.

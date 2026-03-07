@@ -46,6 +46,10 @@ Use docs like this:
 - **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
 - **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- multi-agent worktree runbook for this cycle.
+- Closed execution plans move to `dev/archive/` only after their scoped work is
+  complete and `dev/active/INDEX.md` plus discovery docs are updated in the
+  same change. If a plan doc still holds unfinished or deferred backlog, keep
+  it under `dev/active/`.
 
 Start with `AGENTS.md` to pick your task class, then use this file for commands.
 

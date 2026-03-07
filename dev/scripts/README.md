@@ -18,6 +18,10 @@ For IDE/provider adapter modularization execution scope, use
 `dev/active/ide_provider_modularization.md`.
 For pre-release architecture/tooling remediation execution scope, use
 `dev/active/pre_release_architecture_audit.md`.
+Closed execution plans belong in `dev/archive/`, not `dev/active/`, once their
+scoped work is complete and registry/discovery docs are updated in the same
+change. If a plan doc still contains unfinished or deferred backlog, keep it
+active.
 For a quick lifecycle/check/push guide, see `dev/guides/DEVELOPMENT.md` sections
 `End-to-end lifecycle flow`, `What checks protect us`, and `When to push where`.
 For automation-first `devctl` routing and Ralph loop controls, see
@@ -373,7 +377,7 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
 | `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS bundle render gate | Verifies AGENTS rendered command-bundle section matches canonical output from `dev/scripts/devctl/bundle_registry.py`; supports `--write` to regenerate the section. |
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
-| `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
+| `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the required active set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with `MULTI_AGENT_WORKTREE_RUNBOOK.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_release_version_parity.py` | Release version parity gate | Ensures Cargo, PyPI, and macOS app plist versions match before tagging/publishing. |
 | `dev/scripts/checks/check_coderabbit_gate.py` | Workflow release gate helper | Verifies the latest run for a target workflow/branch+commit SHA is successful before release/publish steps proceed (`--workflow` override + optional `--wait-seconds`/`--poll-seconds` for asynchronous gate arrival). |

@@ -24,7 +24,7 @@ same execution path with minimal ambiguity.
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
-| Where is the Rust workspace path/layout migration execution plan? | `dev/active/rust_workspace_layout_migration.md` |
+| Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
 | Where is the IDE/provider adapter modularization execution plan? | `dev/active/ide_provider_modularization.md` |
 | Where is the pre-release architecture/tooling cleanup execution plan? | `dev/active/pre_release_architecture_audit.md` |

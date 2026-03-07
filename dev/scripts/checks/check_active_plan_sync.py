@@ -51,10 +51,6 @@ REQUIRED_REGISTRY_ROWS = {
         "authority": "mirrored in MASTER_PLAN",
     },
     "dev/active/loop_chat_bridge.md": {"role": "runbook", "authority": "supporting"},
-    "dev/active/rust_workspace_layout_migration.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
     "dev/active/naming_api_cohesion.md": {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
@@ -83,7 +79,6 @@ SPEC_RANGE_PATHS = [
     "dev/active/memory_studio.md",
     "dev/active/devctl_reporting_upgrade.md",
     "dev/active/autonomous_control_plane.md",
-    "dev/active/rust_workspace_layout_migration.md",
     "dev/active/naming_api_cohesion.md",
     "dev/active/ide_provider_modularization.md",
 ]

@@ -3631,4 +3631,21 @@ The full technical showcase is consolidated above in Appendix G of this document
   current support.
 - Updated `app/README.md` to reflect the Rust-first operator/control direction.
 
+### 2026-03-07 - Active Plan Archive Boundary Cleanup
+
+- Archived the fully closed Rust workspace migration execution plan as
+  `dev/archive/2026-03-07-rust-workspace-layout-migration.md` and removed it
+  from the active-doc registry.
+- Updated active-doc discovery/governance surfaces (`AGENTS.md`,
+  `dev/README.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`,
+  `dev/scripts/checks/check_active_plan_sync.py`) so only still-live plan docs
+  remain under `dev/active/`.
+- Closed `MP-354` in `dev/active/MASTER_PLAN.md` while explicitly keeping
+  `dev/active/ide_provider_modularization.md` active because it still carries
+  deferred post-next-release `MP-346` backlog (`Step 3g`, `Step 3h`,
+  AntiGravity readiness intake).
+- Synced maintainer guidance in `dev/guides/DEVELOPMENT.md` and
+  `dev/scripts/README.md` to state the archive rule directly: archive only
+  fully closed scopes; unfinished or deferred backlog stays active.
+
 </details>
