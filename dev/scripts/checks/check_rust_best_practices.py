@@ -45,6 +45,11 @@ DROPPED_SEND_RESULT_RE = re.compile(
 DROPPED_EMIT_RESULT_RE = re.compile(
     r"(?:let\s+_|\b_\s*=)\s*[^;\n]*\.\s*emit\s*\("
 )
+THREAD_SPAWN_RE = re.compile(r"\b(?:std::thread::spawn|thread::spawn)\s*\(")
+DETACHED_THREAD_ALLOW_RE = re.compile(
+    r"detached-thread:\s*allow\s+reason\s*=",
+    re.IGNORECASE,
+)
 ENV_MUTATION_RE = re.compile(r"\b(?:std::)?env::(?:set_var|remove_var)\s*\(")
 OPEN_OPTIONS_NEW_RE = re.compile(r"\b(?:std::fs::|fs::)?OpenOptions::new\s*\(\)")
 OPEN_OPTIONS_OPEN_RE = re.compile(r"\.\s*open\s*\(")
@@ -71,6 +76,17 @@ PERSISTENT_TOML_SCOPE_PATHS = {
     "rust/src/bin/voiceterm/onboarding.rs",
     "rust/src/bin/voiceterm/theme_studio/export_page.rs",
 }
+CUSTOM_TOML_PARSER_SCOPE_PATHS = {
+    "rust/src/bin/voiceterm/persistent_config.rs",
+    "rust/src/bin/voiceterm/onboarding.rs",
+}
+PARSER_FUNCTION_RE = re.compile(r"\bfn\s+(?P<name>parse_[A-Za-z0-9_]+)\s*\(")
+MANUAL_TOML_SPLIT_RE = re.compile(
+    r"split_once\(\s*'='\s*\)|split\(\s*'='\s*\)\.nth\(\s*\d+\s*\)"
+)
+MANUAL_TOML_VALUE_RE = re.compile(r"trim_matches\(\s*'\"'\s*\)|strip_prefix\(")
+FUNCTION_SIGNATURE_RE = re.compile(r"\bfn\s+[A-Za-z0-9_]+\s*\(")
+JOIN_HANDLE_RETURN_RE = re.compile(r"->\s*(?:std::thread::|thread::)?JoinHandle\s*<")
 METRIC_KEYS = (
     "allow_without_reason",
     "undocumented_unsafe_blocks",
@@ -82,10 +98,12 @@ METRIC_KEYS = (
     "unwrap_on_join_recv",
     "dropped_send_results",
     "dropped_emit_results",
+    "detached_thread_spawns",
     "env_mutation_calls",
     "suspicious_open_options",
     "float_literal_comparisons",
     "nonatomic_persistent_toml_writes",
+    "custom_persistent_toml_parsers",
 )
 
 
@@ -216,6 +234,85 @@ def _count_dropped_emit_results(text: str | None) -> int:
     return len(DROPPED_EMIT_RESULT_RE.findall(text))
 
 
+def _enclosing_function_returns_join_handle(
+    lines: list[str],
+    index: int,
+    lookahead: int = 12,
+) -> bool:
+    for probe in range(index, -1, -1):
+        if FUNCTION_SIGNATURE_RE.search(lines[probe]) is None:
+            continue
+        window = " ".join(
+            line.strip() for line in lines[probe : min(len(lines), probe + lookahead)]
+        )
+        return JOIN_HANDLE_RETURN_RE.search(window) is not None
+    return False
+
+
+def _has_detached_thread_allow(lines: list[str], index: int, lookback: int = 2) -> bool:
+    min_index = max(0, index - lookback)
+    for probe in range(index, min_index - 1, -1):
+        if DETACHED_THREAD_ALLOW_RE.search(lines[probe]):
+            return True
+    return False
+
+
+def _collect_spawn_statement(
+    lines: list[str],
+    *,
+    start_index: int,
+    start_column: int,
+    max_lines: int = 40,
+) -> str:
+    statement_parts: list[str] = []
+    depth = 0
+    for probe in range(start_index, min(len(lines), start_index + max_lines)):
+        code = lines[probe].split("//", 1)[0]
+        segment = code[start_column:] if probe == start_index else code
+        segment = STRING_LITERAL_RE.sub('""', segment)
+        statement_parts.append(segment)
+        top_level_semicolon = False
+        for char in segment:
+            if char in "([{":
+                depth += 1
+            elif char in ")]}":
+                depth = max(0, depth - 1)
+            elif char == ";" and depth == 0:
+                top_level_semicolon = True
+                break
+        if top_level_semicolon:
+            return "\n".join(statement_parts)
+        if depth == 0 and segment.strip().endswith((")", "})")):
+            return "\n".join(statement_parts)
+    return "\n".join(statement_parts)
+
+
+def _count_detached_thread_spawns(text: str | None) -> int:
+    if text is None:
+        return 0
+    lines = text.splitlines()
+    findings = 0
+    for index, raw_line in enumerate(lines):
+        code = raw_line.split("//", 1)[0]
+        match = THREAD_SPAWN_RE.search(code)
+        if match is None:
+            continue
+        if code[: match.start()].strip():
+            continue
+        if _enclosing_function_returns_join_handle(lines, index):
+            continue
+        if _has_detached_thread_allow(lines, index):
+            continue
+        statement = _collect_spawn_statement(
+            lines,
+            start_index=index,
+            start_column=match.start(),
+        ).strip()
+        if statement.endswith(";"):
+            findings += 1
+    return findings
+
+
 def _count_env_mutation_calls(text: str | None) -> int:
     if text is None:
         return 0
@@ -328,6 +425,46 @@ def _count_nonatomic_persistent_toml_writes(
     return findings
 
 
+def _function_window(text: str, start_index: int, max_lines: int = 40) -> str:
+    return "\n".join(text[start_index:].splitlines()[:max_lines])
+
+
+def _is_custom_toml_parser_scope(text: str | None, *, path: Path | None) -> bool:
+    relative_path = path.as_posix() if path is not None else ""
+    if relative_path in CUSTOM_TOML_PARSER_SCOPE_PATHS:
+        return True
+    if text is None:
+        return False
+    lowered = text.lower()
+    return ".toml" in lowered and "read_to_string" in text and "parse_" in text
+
+
+def _looks_like_custom_toml_parser(window: str) -> bool:
+    if "toml::from_str" in window:
+        return False
+    if MANUAL_TOML_SPLIT_RE.search(window):
+        return True
+    return "lines()" in window and (
+        MANUAL_TOML_VALUE_RE.search(window) is not None
+        or "parse_toml_value(" in window
+    )
+
+
+def _count_custom_persistent_toml_parsers(
+    text: str | None,
+    *,
+    path: Path | None,
+) -> int:
+    if text is None or not _is_custom_toml_parser_scope(text, path=path):
+        return 0
+    findings = 0
+    for match in PARSER_FUNCTION_RE.finditer(text):
+        window = _function_window(text, match.start())
+        if _looks_like_custom_toml_parser(window):
+            findings += 1
+    return findings
+
+
 def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, int]:
     if text is not None:
         text = strip_cfg_test_blocks(text)
@@ -346,10 +483,15 @@ def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, i
         "unwrap_on_join_recv": _count_unwrap_on_join_recv(text),
         "dropped_send_results": _count_dropped_send_results(text),
         "dropped_emit_results": _count_dropped_emit_results(text),
+        "detached_thread_spawns": _count_detached_thread_spawns(text),
         "env_mutation_calls": _count_env_mutation_calls(text),
         "suspicious_open_options": _count_suspicious_open_options(text),
         "float_literal_comparisons": _count_float_literal_comparisons(text),
         "nonatomic_persistent_toml_writes": _count_nonatomic_persistent_toml_writes(
+            text,
+            path=path,
+        ),
+        "custom_persistent_toml_parsers": _count_custom_persistent_toml_parsers(
             text,
             path=path,
         ),
@@ -519,12 +661,15 @@ def _render_md(report: dict) -> str:
         f"unwrap_on_join_recv {totals['unwrap_on_join_recv_growth']:+d}, "
         f"dropped_send_results {totals['dropped_send_results_growth']:+d}, "
         f"dropped_emit_results {totals['dropped_emit_results_growth']:+d}, "
+        f"detached_thread_spawns {totals['detached_thread_spawns_growth']:+d}, "
         f"env_mutation_calls {totals['env_mutation_calls_growth']:+d}, "
         f"suspicious_open_options {totals['suspicious_open_options_growth']:+d}, "
         "float_literal_comparisons "
         f"{totals['float_literal_comparisons_growth']:+d}, "
         "nonatomic_persistent_toml_writes "
-        f"{totals['nonatomic_persistent_toml_writes_growth']:+d}"
+        f"{totals['nonatomic_persistent_toml_writes_growth']:+d}, "
+        "custom_persistent_toml_parsers "
+        f"{totals['custom_persistent_toml_parsers_growth']:+d}"
     )
 
     if report["violations"]:
@@ -567,6 +712,10 @@ def _render_md(report: dict) -> str:
                 f"dropped_emit_results {item['base']['dropped_emit_results']} -> "
                 f"{item['current']['dropped_emit_results']} "
                 f"({growth['dropped_emit_results']:+d}), "
+                "detached_thread_spawns "
+                f"{item['base']['detached_thread_spawns']} -> "
+                f"{item['current']['detached_thread_spawns']} "
+                f"({growth['detached_thread_spawns']:+d}), "
                 f"env_mutation_calls {item['base']['env_mutation_calls']} -> "
                 f"{item['current']['env_mutation_calls']} "
                 f"({growth['env_mutation_calls']:+d}), "
@@ -581,7 +730,11 @@ def _render_md(report: dict) -> str:
                 "nonatomic_persistent_toml_writes "
                 f"{item['base']['nonatomic_persistent_toml_writes']} -> "
                 f"{item['current']['nonatomic_persistent_toml_writes']} "
-                f"({growth['nonatomic_persistent_toml_writes']:+d})"
+                f"({growth['nonatomic_persistent_toml_writes']:+d}), "
+                "custom_persistent_toml_parsers "
+                f"{item['base']['custom_persistent_toml_parsers']} -> "
+                f"{item['current']['custom_persistent_toml_parsers']} "
+                f"({growth['custom_persistent_toml_parsers']:+d})"
             )
     return "\n".join(lines)
 

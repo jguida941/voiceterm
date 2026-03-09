@@ -79,6 +79,7 @@ where
     R: io::Read + Send + 'static,
     F: FnMut(String) -> Option<String> + Send + 'static,
 {
+    // detached-thread: allow reason=reader thread owns the stream until EOF and communicates exclusively through the output channel.
     thread::spawn(move || {
         let reader = io::BufReader::new(source);
         for line in reader.lines().map_while(Result::ok) {

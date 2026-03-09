@@ -5,6 +5,7 @@ public struct VoiceTermMobileDashboardView: View {
     @State private var audienceMode: MobileAudienceMode
     @State private var selectedSection: MobileRelaySection
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var consoleLayout: ConsoleLayout = .split
 
     private let model: MobileRelayDashboardModel
 
@@ -179,6 +180,8 @@ public struct VoiceTermMobileDashboardView: View {
             narrativeCard(model.findings)
         case .agents:
             lanesBoard
+        case .console:
+            consoleBoard
         case .actions:
             VStack(alignment: .leading, spacing: 16) {
                 narrativeCard(model.actionsNarrative)
@@ -305,6 +308,103 @@ public struct VoiceTermMobileDashboardView: View {
         .background(cardBackground)
     }
 
+    private var consoleBoard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Lane Console")
+                        .font(.headline)
+                    Text("Read-only terminal-style view over the live review-channel bundle.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("Layout", selection: $consoleLayout) {
+                    ForEach(ConsoleLayout.allCases, id: \.self) { layout in
+                        Text(layout.label).tag(layout)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 190)
+            }
+
+            if model.consolePanes.isEmpty {
+                emptyState("No lane console data is present in the current bundle.")
+            } else if consoleLayout == .combined {
+                combinedConsoleCard
+            } else {
+                ForEach(model.consolePanes) { pane in
+                    consoleCard(pane)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground)
+    }
+
+    private var combinedConsoleCard: some View {
+        let combinedText = model.consolePanes.map { pane in
+            """
+            [\(pane.title.lowercased())]
+            \(audienceMode == .simple ? pane.simpleBody : pane.technicalBody)
+            """
+        }.joined(separator: "\n\n")
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Combined View")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(model.consolePanes.count) lanes")
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.white.opacity(0.08))
+                    .clipShape(Capsule())
+            }
+            consoleText(combinedText)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(consoleBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func consoleCard(_ pane: MobileRelayDashboardModel.ConsolePane) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(pane.title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(pane.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(pane.status.capitalized)
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.white.opacity(0.08))
+                    .clipShape(Capsule())
+            }
+            consoleText(audienceMode == .simple ? pane.simpleBody : pane.technicalBody)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(consoleBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func consoleText(_ value: String) -> some View {
+        Text(value)
+            .font(.system(.caption, design: .monospaced))
+            .foregroundStyle(.white.opacity(0.88))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textSelection(.enabled)
+    }
+
     private var technicalBoard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Technical")
@@ -370,6 +470,40 @@ public struct VoiceTermMobileDashboardView: View {
             .fill(.white.opacity(0.08))
             .overlay(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
+    }
+}
+
+private enum ConsoleLayout: String, CaseIterable {
+    case split
+    case combined
+
+    var label: String {
+        switch self {
+        case .split:
+            return "Split"
+        case .combined:
+            return "Combined"
+        }
+    }
+}
+
+private extension VoiceTermMobileDashboardView {
+    var consoleBackground: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.05, green: 0.07, blue: 0.11),
+                        Color(red: 0.02, green: 0.03, blue: 0.06),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(.white.opacity(0.08), lineWidth: 1)
             )
     }

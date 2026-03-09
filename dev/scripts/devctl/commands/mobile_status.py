@@ -65,30 +65,36 @@ def run(args) -> int:
         phone_input_path,
         label="phone status artifact",
     )
-    errors.extend(load_errors)
+    if load_errors:
+        warnings.extend(load_errors)
+        controller_payload = {}
 
     review_payload: dict[str, Any] = {}
     review_projection_files: dict[str, str] | None = None
-    if not errors:
-        try:
-            status_snapshot = refresh_status_snapshot(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-                review_channel_path=review_channel_path,
-                output_root=review_status_dir,
-            )
-            warnings.extend(status_snapshot.warnings)
-            review_projection_files = projection_paths_to_dict(
-                status_snapshot.projection_paths
-            )
-            review_full_path = Path(status_snapshot.projection_paths.full_path)
-            review_payload, load_errors = _load_payload(
-                review_full_path,
-                label="review status projection",
-            )
-            errors.extend(load_errors)
-        except (ValueError, OSError) as exc:
-            errors.append(str(exc))
+    try:
+        status_snapshot = refresh_status_snapshot(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            output_root=review_status_dir,
+        )
+        warnings.extend(status_snapshot.warnings)
+        review_projection_files = projection_paths_to_dict(
+            status_snapshot.projection_paths
+        )
+        review_full_path = Path(status_snapshot.projection_paths.full_path)
+        review_payload, load_errors = _load_payload(
+            review_full_path,
+            label="review status projection",
+        )
+        errors.extend(load_errors)
+    except (ValueError, OSError) as exc:
+        errors.append(str(exc))
+
+    if not controller_payload and not review_payload:
+        errors.append(
+            "no live mobile data sources were available; need phone-status or review-channel projections"
+        )
 
     merged_payload: dict[str, Any] = {}
     if not errors:

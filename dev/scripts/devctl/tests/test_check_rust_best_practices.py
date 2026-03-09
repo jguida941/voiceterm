@@ -42,6 +42,9 @@ pub unsafe fn raw() {
     let _ = tx.send("ignored");
     _ = tx.try_send("ignored again");
     let _ = sender.emit("ignored third");
+    thread::spawn(move || {
+        do_work();
+    });
     worker.join().unwrap();
     rx.recv().unwrap();
     rx.recv_timeout(timeout).expect("recv timeout");
@@ -63,10 +66,12 @@ pub unsafe fn raw() {
         self.assertEqual(metrics["expect_on_join_recv"], 1)
         self.assertEqual(metrics["dropped_send_results"], 2)
         self.assertEqual(metrics["dropped_emit_results"], 1)
+        self.assertEqual(metrics["detached_thread_spawns"], 1)
         self.assertEqual(metrics["env_mutation_calls"], 2)
         self.assertEqual(metrics["suspicious_open_options"], 1)
         self.assertEqual(metrics["float_literal_comparisons"], 1)
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_accepts_documented_unsafe_and_no_forget(self) -> None:
         text = """
@@ -87,10 +92,12 @@ pub unsafe fn documented() {
         self.assertEqual(metrics["expect_on_join_recv"], 0)
         self.assertEqual(metrics["dropped_send_results"], 0)
         self.assertEqual(metrics["dropped_emit_results"], 0)
+        self.assertEqual(metrics["detached_thread_spawns"], 0)
         self.assertEqual(metrics["env_mutation_calls"], 0)
         self.assertEqual(metrics["suspicious_open_options"], 0)
         self.assertEqual(metrics["float_literal_comparisons"], 0)
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_tracks_unsafe_impl_missing_safety_comment(self) -> None:
         text = """
@@ -126,11 +133,13 @@ mod tests {
         self.assertEqual(metrics["expect_on_join_recv"], 0)
         self.assertEqual(metrics["dropped_send_results"], 0)
         self.assertEqual(metrics["dropped_emit_results"], 0)
+        self.assertEqual(metrics["detached_thread_spawns"], 0)
         self.assertEqual(metrics["env_mutation_calls"], 0)
         self.assertEqual(metrics["suspicious_open_options"], 0)
         self.assertEqual(metrics["float_literal_comparisons"], 0)
         self.assertEqual(metrics["dropped_emit_results"], 0)
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_ignores_explicit_open_options_write_modes(self) -> None:
         text = """
@@ -159,6 +168,7 @@ fn open_explicit(path: &std::path::Path) {
         self.assertEqual(metrics["suspicious_open_options"], 0)
         self.assertEqual(metrics["float_literal_comparisons"], 0)
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_ignores_float_literal_comparisons_in_comments(self) -> None:
         text = """
@@ -172,7 +182,9 @@ fn describe(centered: f32) {
         """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["float_literal_comparisons"], 1)
+        self.assertEqual(metrics["detached_thread_spawns"], 0)
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_tracks_nonatomic_persistent_toml_writes(self) -> None:
         text = """
@@ -193,6 +205,7 @@ fn save_user_config(path: &std::path::Path, body: &str) {
             path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
         )
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 3)
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
 
     def test_count_metrics_ignores_tempfile_swap_for_persistent_toml_writes(self) -> None:
         text = """
@@ -215,6 +228,58 @@ fn save_user_config(path: &std::path::Path, body: &str) {
             path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
         )
         self.assertEqual(metrics["nonatomic_persistent_toml_writes"], 0)
+
+    def test_count_metrics_tracks_custom_persistent_toml_parsers(self) -> None:
+        text = """
+const CONFIG_FILE: &str = "config.toml";
+
+fn parse_toml_value(line: &str) -> Option<(&str, &str)> {
+    let line = line.trim();
+    let (key, rest) = line.split_once('=')?;
+    Some((key.trim(), rest.trim().trim_matches('"')))
+}
+
+fn parse_user_config(contents: &str) {
+    for line in contents.lines() {
+        let _ = parse_toml_value(line);
+    }
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
+        )
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 2)
+
+    def test_count_metrics_ignores_toml_crate_backed_parsers(self) -> None:
+        text = """
+fn parse_user_config(contents: &str) -> Result<Config, toml::de::Error> {
+    toml::from_str(contents)
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/persistent_config.rs"),
+        )
+        self.assertEqual(metrics["custom_persistent_toml_parsers"], 0)
+
+    def test_count_metrics_ignores_allowed_or_returned_thread_spawns(self) -> None:
+        text = """
+fn keep_handle() -> std::thread::JoinHandle<()> {
+    thread::spawn(move || {
+        do_work();
+    })
+}
+
+fn detached_but_documented() {
+    // detached-thread: allow reason=background reader owns the stream until EOF.
+    thread::spawn(move || {
+        do_more_work();
+    });
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["detached_thread_spawns"], 0)
 
     def test_build_parser_accepts_absolute_mode(self) -> None:
         parser = self.script._build_parser()

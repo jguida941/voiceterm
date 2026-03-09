@@ -136,6 +136,7 @@ def build_session_script(
         ")",
         'export REVIEW_CHANNEL_PROMPT="$PROMPT"',
     ]
+    lines.extend(_provider_shell_prelude(provider))
     if log_path is not None:
         lines.extend(
             [
@@ -168,6 +169,16 @@ def build_session_script(
     script_path.write_text("\n".join(lines), encoding="utf-8")
     script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
     return script_path
+
+
+def _provider_shell_prelude(provider: str) -> list[str]:
+    """Return provider-specific shell setup required before launch."""
+    if provider == "claude":
+        return [
+            "# Claude Code refuses nested launches when this marker is inherited.",
+            "unset CLAUDECODE || true",
+        ]
+    return []
 
 
 def _provider_args(

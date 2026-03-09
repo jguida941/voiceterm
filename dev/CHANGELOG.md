@@ -71,6 +71,15 @@ Note: Some historical entries reference internal documents that are not publishe
   (`AgentLaneData` plus lane builders) so each agent lane is classified as
   active/warning/stale/idle from parsed section keywords and timestamps.
 
+### Mobile App
+
+- Add a first-party iPhone/iPad app shell under `app/ios/VoiceTermMobileApp`
+  and a simulator sync script (`sync_live_bundle_to_simulator.sh`) so the
+  mobile client can load real `mobile-status` output from the local checkout.
+- Make `devctl mobile-status` fall back to review-channel live data when the
+  autonomy `phone-status` artifact is missing, so the mobile app still shows
+  real Codex/Claude/operator state instead of failing closed.
+
 ### Documentation
 
 - Align active plan docs (`MASTER_PLAN.md`, `INDEX.md`) with current execution

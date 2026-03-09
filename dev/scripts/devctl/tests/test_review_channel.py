@@ -448,6 +448,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 claude_script.read_text(encoding="utf-8"),
             )
             self.assertIn(
+                "unset CLAUDECODE || true",
+                claude_script.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 "script -q -F -t 0",
                 codex_script.read_text(encoding="utf-8"),
             )

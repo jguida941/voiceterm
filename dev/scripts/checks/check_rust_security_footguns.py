@@ -38,6 +38,7 @@ guard = GuardContext(REPO_ROOT)
 TODO_MACRO_RE = re.compile(r"\btodo!\s*\(")
 UNIMPLEMENTED_MACRO_RE = re.compile(r"\bunimplemented!\s*\(")
 DBG_MACRO_RE = re.compile(r"\bdbg!\s*\(")
+UNREACHABLE_MACRO_RE = re.compile(r"\bunreachable!\s*\(")
 SHELL_SPAWN_RE = re.compile(
     r"""\bCommand::new\s*\(\s*"(?:sh|bash|zsh|cmd|powershell|pwsh)"\s*\)""",
     re.IGNORECASE,
@@ -58,6 +59,11 @@ SYSCALL_ASSIGN_RE = re.compile(
 UNSIGNED_CAST_RE_TEMPLATE = r"\b{var}\s+as\s+(?:u(?:8|16|32|64|128)|usize)\b"
 SIGN_GUARD_RE_TEMPLATE = (
     r"(?:if|while|assert!)\s*[!(]*\s*{var}\s*(?:[<>!=]=?)\s*0\b"
+)
+HOT_PATH_PREFIXES = (
+    "rust/src/bin/voiceterm/",
+    "rust/src/audio/",
+    "rust/src/ipc/",
 )
 
 
@@ -99,12 +105,26 @@ def _count_pid_signed_wrap_casts(text: str) -> int:
     )
 
 
-def _count_metrics(text: str | None) -> dict[str, int]:
+def _is_hot_runtime_path(path: Path | None) -> bool:
+    if path is None:
+        return False
+    relative = path.as_posix()
+    return any(relative.startswith(prefix) for prefix in HOT_PATH_PREFIXES)
+
+
+def _count_unreachable_hot_path_calls(text: str | None, *, path: Path | None) -> int:
+    if text is None or not _is_hot_runtime_path(path):
+        return 0
+    return len(UNREACHABLE_MACRO_RE.findall(text))
+
+
+def _count_metrics(text: str | None, *, path: Path | None = None) -> dict[str, int]:
     if text is None:
         return {
             "todo_macro_calls": 0,
             "unimplemented_macro_calls": 0,
             "dbg_macro_calls": 0,
+            "unreachable_hot_path_calls": 0,
             "shell_spawn_calls": 0,
             "shell_control_flag_calls": 0,
             "permissive_mode_literals": 0,
@@ -117,6 +137,10 @@ def _count_metrics(text: str | None) -> dict[str, int]:
         "todo_macro_calls": len(TODO_MACRO_RE.findall(text)),
         "unimplemented_macro_calls": len(UNIMPLEMENTED_MACRO_RE.findall(text)),
         "dbg_macro_calls": len(DBG_MACRO_RE.findall(text)),
+        "unreachable_hot_path_calls": _count_unreachable_hot_path_calls(
+            text,
+            path=path,
+        ),
         "shell_spawn_calls": len(SHELL_SPAWN_RE.findall(text)),
         "shell_control_flag_calls": len(SHELL_CONTROL_FLAG_RE.findall(text)),
         "permissive_mode_literals": len(PERMISSIVE_MODE_RE.findall(text)),
@@ -154,6 +178,7 @@ def _render_md(report: dict) -> str:
         f"todo_macro_calls {totals['todo_macro_calls_growth']:+d}, "
         f"unimplemented_macro_calls {totals['unimplemented_macro_calls_growth']:+d}, "
         f"dbg_macro_calls {totals['dbg_macro_calls_growth']:+d}, "
+        f"unreachable_hot_path_calls {totals['unreachable_hot_path_calls_growth']:+d}, "
         f"shell_spawn_calls {totals['shell_spawn_calls_growth']:+d}, "
         f"shell_control_flag_calls {totals['shell_control_flag_calls_growth']:+d}, "
         f"permissive_mode_literals {totals['permissive_mode_literals_growth']:+d}, "
@@ -169,8 +194,8 @@ def _render_md(report: dict) -> str:
             "- Guidance: reduce risky patterns in changed files (prefer typed error paths, "
             "avoid shell `-c` execution paths, avoid permissive modes like `0o777`/`0o666`, "
             "avoid weak hashes such as MD5/SHA1, prefer checked/typed PID conversions over "
-            "`as i32`, and guard signed syscall return values before any cast to unsigned "
-            "types like `usize`)."
+            "`as i32`, avoid `unreachable!()` in runtime hot paths, and guard signed syscall "
+            "return values before any cast to unsigned types like `usize`)."
         )
         for item in report["violations"]:
             growth_bits = [
@@ -212,6 +237,7 @@ def main() -> int:
         "todo_macro_calls_growth": 0,
         "unimplemented_macro_calls_growth": 0,
         "dbg_macro_calls_growth": 0,
+        "unreachable_hot_path_calls_growth": 0,
         "shell_spawn_calls_growth": 0,
         "shell_control_flag_calls_growth": 0,
         "permissive_mode_literals_growth": 0,
@@ -238,8 +264,8 @@ def main() -> int:
             base_text = guard.read_text_from_ref(base_path, "HEAD")
             current_text = guard.read_text_from_worktree(path)
 
-        base = _count_metrics(base_text)
-        current = _count_metrics(current_text)
+        base = _count_metrics(base_text, path=base_path)
+        current = _count_metrics(current_text, path=path)
         growth = _growth(base, current)
 
         totals["todo_macro_calls_growth"] += growth["todo_macro_calls"]
@@ -247,6 +273,9 @@ def main() -> int:
             "unimplemented_macro_calls"
         ]
         totals["dbg_macro_calls_growth"] += growth["dbg_macro_calls"]
+        totals["unreachable_hot_path_calls_growth"] += growth[
+            "unreachable_hot_path_calls"
+        ]
         totals["shell_spawn_calls_growth"] += growth["shell_spawn_calls"]
         totals["shell_control_flag_calls_growth"] += growth["shell_control_flag_calls"]
         totals["permissive_mode_literals_growth"] += growth["permissive_mode_literals"]

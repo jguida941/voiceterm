@@ -1041,6 +1041,17 @@ Acceptance:
   over `VoiceTermMobileCore`, starts with built-in sample relay data, imports a
   real emitted `mobile-status` bundle from Files, persists the selected bundle
   folder, and builds cleanly for generic iOS via unsigned `xcodebuild`.
+- 2026-03-09: Fixed the first simulator usability regression in the iOS shell.
+  The import path now accepts either a bundle folder or `full.json`, and the
+  top control strip is stacked into larger phone-width tap targets so `Import
+  Bundle`, `Reload`, and `Use Sample Bundle` stay usable on narrow screens.
+- 2026-03-09: Added a real simulator live-data bridge instead of treating
+  sample/import as the only path. `devctl mobile-status` now falls back to
+  review-channel live data when the autonomy phone artifact is missing, the app
+  auto-detects `Documents/LiveBundle/` as a first-party live source, and
+  `app/ios/VoiceTermMobileApp/sync_live_bundle_to_simulator.sh` can push the
+  current repo-backed bundle into the booted simulator so the iPhone shell
+  shows real Codex/Claude/operator state.
 - 2026-03-09: Tightened the first-party phone client around the emitted mobile
   bundle contract instead of a one-off JSON reader. `app/ios/VoiceTermMobile`
   now loads `full.json` plus optional `compact.json` / `actions.json` from

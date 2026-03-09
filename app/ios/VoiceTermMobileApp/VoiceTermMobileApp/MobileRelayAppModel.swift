@@ -9,7 +9,7 @@ final class MobileRelayAppModel: ObservableObject {
     @Published private(set) var sourceDetail: String
     @Published private(set) var lastError: String?
 
-    private var importedDirectoryURL: URL?
+    private var importedBundleURL: URL?
 
     private static let bookmarkKey = "VoiceTermMobile.importedBundleBookmark"
 
@@ -18,72 +18,151 @@ final class MobileRelayAppModel: ObservableObject {
         self.sourceTitle = "Sample Bundle"
         self.sourceDetail = "Built-in preview data"
         self.lastError = nil
-        restoreImportedBundleIfPresent()
+        if !restoreImportedBundleIfPresent() {
+            _ = restoreLiveBundleIfPresent()
+        }
     }
 
     var hasImportedBundle: Bool {
-        importedDirectoryURL != nil
+        importedBundleURL != nil
     }
 
-    func importBundle(from directoryURL: URL) {
+    var hasLiveBundle: Bool {
+        liveBundleDirectoryURL != nil
+    }
+
+    var canReload: Bool {
+        hasImportedBundle || hasLiveBundle
+    }
+
+    @discardableResult
+    func importBundle(from selectionURL: URL) -> Bool {
         do {
-            let loadedBundle = try loadBundle(from: directoryURL)
+            let loadedBundle = try loadBundle(from: selectionURL)
             bundle = loadedBundle
-            importedDirectoryURL = directoryURL
+            importedBundleURL = normalizedImportedURL(for: selectionURL)
             sourceTitle = "Imported Bundle"
-            sourceDetail = directoryURL.lastPathComponent
+            sourceDetail = importedBundleURL?.lastPathComponent ?? selectionURL.lastPathComponent
             lastError = nil
-            try saveBookmark(for: directoryURL)
+            try saveBookmark(for: importedBundleURL ?? selectionURL)
+            return true
         } catch {
             lastError = error.localizedDescription
+            return false
         }
     }
 
-    func reload() {
-        guard let importedDirectoryURL else {
-            lastError = "No imported bundle is available yet."
-            return
+    @discardableResult
+    func reload() -> Bool {
+        if let importedBundleURL {
+            return importBundle(from: importedBundleURL)
         }
-        importBundle(from: importedDirectoryURL)
+        if hasLiveBundle {
+            return useLiveBundle()
+        }
+        lastError = "No imported or live bundle is available yet."
+        return false
     }
 
-    func useSampleBundle() {
+    @discardableResult
+    func useSampleBundle() -> Bool {
         bundle = MobileRelayPreviewData.sampleBundle()
-        importedDirectoryURL = nil
+        importedBundleURL = nil
         sourceTitle = "Sample Bundle"
         sourceDetail = "Built-in preview data"
         lastError = nil
         UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+        return true
+    }
+
+    @discardableResult
+    func useLiveBundle() -> Bool {
+        guard let liveBundleDirectoryURL else {
+            lastError = "No live repo bundle has been synced into the app yet."
+            return false
+        }
+        do {
+            bundle = try MobileRelayStore.loadBundle(from: liveBundleDirectoryURL)
+            importedBundleURL = nil
+            sourceTitle = "Live Repo Bundle"
+            sourceDetail = liveBundleDirectoryURL.lastPathComponent
+            lastError = nil
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
     }
 
     func recordImportError(_ error: Error) {
         lastError = error.localizedDescription
     }
 
-    private func restoreImportedBundleIfPresent() {
-        guard let directoryURL = resolvedBookmarkURL() else {
-            return
+    private func restoreImportedBundleIfPresent() -> Bool {
+        guard let importedBundleURL = resolvedBookmarkURL() else {
+            return false
         }
         do {
-            let loadedBundle = try loadBundle(from: directoryURL)
+            let loadedBundle = try loadBundle(from: importedBundleURL)
             bundle = loadedBundle
-            importedDirectoryURL = directoryURL
+            self.importedBundleURL = normalizedImportedURL(for: importedBundleURL)
             sourceTitle = "Imported Bundle"
-            sourceDetail = directoryURL.lastPathComponent
+            sourceDetail = self.importedBundleURL?.lastPathComponent ?? importedBundleURL.lastPathComponent
             lastError = nil
+            return true
         } catch {
             lastError = error.localizedDescription
+            return false
         }
     }
 
-    private func loadBundle(from directoryURL: URL) throws -> MobileRelayProjectionBundle {
-        let didAccess = directoryURL.startAccessingSecurityScopedResource()
+    @discardableResult
+    private func restoreLiveBundleIfPresent() -> Bool {
+        guard let liveBundleDirectoryURL else {
+            return false
+        }
+        do {
+            bundle = try MobileRelayStore.loadBundle(from: liveBundleDirectoryURL)
+            importedBundleURL = nil
+            sourceTitle = "Live Repo Bundle"
+            sourceDetail = liveBundleDirectoryURL.lastPathComponent
+            lastError = nil
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    private func loadBundle(from selectionURL: URL) throws -> MobileRelayProjectionBundle {
+        let didAccess = selectionURL.startAccessingSecurityScopedResource()
         defer {
             if didAccess {
-                directoryURL.stopAccessingSecurityScopedResource()
+                selectionURL.stopAccessingSecurityScopedResource()
             }
         }
-        return try MobileRelayStore.loadBundle(from: directoryURL)
+        return try MobileRelayStore.loadBundleSelection(from: selectionURL)
+    }
+
+    private func normalizedImportedURL(for selectionURL: URL) -> URL {
+        if selectionURL.hasDirectoryPath {
+            return selectionURL
+        }
+        return selectionURL.lastPathComponent == "full.json"
+            ? selectionURL.deletingLastPathComponent()
+            : selectionURL
+    }
+
+    private var liveBundleDirectoryURL: URL? {
+        guard let documentsURL = FileManager.default.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        let bundleURL = documentsURL.appendingPathComponent("LiveBundle", isDirectory: true)
+        let fullJSONURL = bundleURL.appendingPathComponent("full.json")
+        return FileManager.default.fileExists(atPath: fullJSONURL.path) ? bundleURL : nil
     }
 
     private func saveBookmark(for directoryURL: URL) throws {

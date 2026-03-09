@@ -216,12 +216,50 @@ class MobileStatusCommandTests(unittest.TestCase):
                 self.assertIn(key, projection_files)
                 self.assertTrue(Path(projection_files[key]).exists())
 
-    def test_command_fails_when_phone_input_missing(self) -> None:
+    def test_command_uses_review_only_live_data_when_phone_input_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            review_channel_path = root / "review_channel.md"
+            bridge_path = root / "code_audit.md"
+            review_status_dir = root / "review-status"
+            projection_dir = root / "mobile"
+            output_json = root / "report.json"
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            args = make_args(
+                phone_json=str(root / "missing.json"),
+                review_channel_path=str(review_channel_path),
+                bridge_path=str(bridge_path),
+                review_status_dir=str(review_status_dir),
+                emit_projections=str(projection_dir),
+                output=str(output_json),
+            )
+            rc = mobile_status.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_json.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertTrue(
+                any(
+                    "phone status artifact not found" in row
+                    for row in payload.get("warnings", [])
+                )
+            )
+            self.assertNotEqual(payload["view_payload"]["codex_status"], "unknown")
+            self.assertTrue(Path(payload["projection_files"]["full_json"]).exists())
+
+    def test_command_fails_when_all_live_inputs_are_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             output_json = root / "report.json"
             args = make_args(
                 phone_json=str(root / "missing.json"),
+                review_channel_path=str(root / "missing_review_channel.md"),
+                bridge_path=str(root / "missing_code_audit.md"),
+                review_status_dir=str(root / "missing-review-status"),
                 output=str(output_json),
             )
             rc = mobile_status.run(args)
@@ -231,7 +269,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertTrue(
                 any(
-                    "phone status artifact not found" in row
+                    "no live mobile data sources were available" in row
                     for row in payload.get("errors", [])
                 )
             )

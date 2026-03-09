@@ -38,6 +38,7 @@ fn demo() {
     todo!("ship later");
     unimplemented!("not ready");
     dbg!("debug");
+    unreachable!("hot path should not assume impossible states");
     let _ = Command::new("sh").arg("-c").arg("echo hi");
     let mode = 0o777;
     let current_pid = unsafe { libc::getpid() } as i32;
@@ -45,10 +46,14 @@ fn demo() {
     let _len = written as usize;
 }
 """
-        metrics = self.script._count_metrics(text)
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/bin/voiceterm/buttons.rs"),
+        )
         self.assertEqual(metrics["todo_macro_calls"], 1)
         self.assertEqual(metrics["unimplemented_macro_calls"], 1)
         self.assertEqual(metrics["dbg_macro_calls"], 1)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 1)
         self.assertEqual(metrics["shell_spawn_calls"], 1)
         self.assertEqual(metrics["shell_control_flag_calls"], 1)
         self.assertEqual(metrics["permissive_mode_literals"], 1)
@@ -63,6 +68,7 @@ fn demo() {
                     "todo_macro_calls": 0,
                     "unimplemented_macro_calls": 0,
                     "dbg_macro_calls": 0,
+                    "unreachable_hot_path_calls": 0,
                     "shell_spawn_calls": 0,
                     "shell_control_flag_calls": 0,
                     "permissive_mode_literals": 0,
@@ -86,12 +92,14 @@ mod tests {
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["todo_macro_calls"], 0)
         self.assertEqual(metrics["dbg_macro_calls"], 0)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
         self.assertTrue(
             self.script._has_positive_growth(
                 {
                     "todo_macro_calls": 0,
                     "unimplemented_macro_calls": 0,
                     "dbg_macro_calls": 0,
+                    "unreachable_hot_path_calls": 0,
                     "shell_spawn_calls": 1,
                     "shell_control_flag_calls": 0,
                     "permissive_mode_literals": 0,
@@ -114,6 +122,7 @@ fn pids(child: &std::process::Child) {
 """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["pid_signed_wrap_casts"], 3)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
 
     def test_pid_signed_wrap_casts_ignore_checked_conversion(self) -> None:
         text = """
@@ -123,6 +132,7 @@ fn checked(child: &std::process::Child) -> i32 {
 """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["pid_signed_wrap_casts"], 0)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
 
     def test_sign_unsafe_syscall_casts_ignores_guarded_write_results(self) -> None:
         text = """
@@ -141,6 +151,7 @@ fn guarded(fd: libc::c_int, data: &[u8]) -> usize {
 """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["sign_unsafe_syscall_casts"], 0)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
 
     def test_sign_unsafe_syscall_casts_detects_unguarded_read_result(self) -> None:
         text = """
@@ -153,3 +164,18 @@ fn unguarded(fd: libc::c_int, buffer: &mut [u8]) -> usize {
 """
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["sign_unsafe_syscall_casts"], 1)
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)
+
+    def test_unreachable_hot_path_calls_ignore_non_hot_paths(self) -> None:
+        text = """
+fn state_check(flag: bool) {
+    if flag {
+        unreachable!("devtools invariant");
+    }
+}
+"""
+        metrics = self.script._count_metrics(
+            text,
+            path=Path("rust/src/devtools/state.rs"),
+        )
+        self.assertEqual(metrics["unreachable_hot_path_calls"], 0)

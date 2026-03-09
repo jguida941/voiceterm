@@ -55,6 +55,7 @@ class OperatorConsoleSnapshot:
     codex_lane: AgentLaneData | None = None
     claude_lane: AgentLaneData | None = None
     operator_lane: AgentLaneData | None = None
+    projection_notice: str | None = None
 
 
 @dataclass(frozen=True)

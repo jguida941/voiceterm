@@ -71,6 +71,7 @@ fn wait_child_with_cancel(child: Child, cancel: &CancelToken) -> Result<Output, 
     const WAIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
     let pid = child.id();
     let (tx, rx) = mpsc::channel();
+    // detached-thread: allow reason=wait_with_output owns the child until exit and reports back through the channel.
     thread::spawn(move || {
         let result = child.wait_with_output();
         if tx.send(result).is_err() {

@@ -51,6 +51,7 @@ from app.operator_console.state.review_state import (
     find_review_state_path,
     load_pending_approvals,
 )
+from app.operator_console.state.session_trace_reader import load_live_session_trace
 from app.operator_console.state.snapshot_builder import (
     build_operator_console_snapshot,
 )
@@ -290,6 +291,48 @@ class StateModuleTests(unittest.TestCase):
         self.assertIn("ready", snapshot.codex_session_text)
         self.assertNotIn("Script started on", snapshot.codex_session_text)
         self.assertIn("source: review-channel projection + markdown bridge", snapshot.claude_session_text)
+
+    def test_load_live_session_trace_reconstructs_terminal_screen(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sessions_dir = root / "dev/reports/review_channel/latest/sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            (sessions_dir / "claude-conductor.json").write_text(
+                json.dumps(
+                    {
+                        "provider": "claude",
+                        "session_name": "claude-conductor",
+                        "capture_mode": "terminal-script",
+                        "prepared_at": "2026-03-09T12:24:29Z",
+                        "log_path": str(sessions_dir / "claude-conductor.log"),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (sessions_dir / "claude-conductor.log").write_text(
+                "Script started on 2026-03-09 12:24:29 +0000\n"
+                "\x1b[2J"
+                "\x1b[1;1HThis is a multi-agent conductor session"
+                "\x1b[2;1HLet me bootstrap by reading the required documents."
+                "\x1b[3;1H⏺ Reading 1 file… (ctrl+o to expand)"
+                "\x1b[4;1H✶ Doing… (35s · ↓ 839 tokens)"
+                "\x1b[5;1Hesc to interrupt"
+                "\x1b[4;1H✻ Doing… (36s · ↓ 840 tokens)"
+                "\x1b[3;1H⏺ Read 1 file (ctrl+o to expand)",
+                encoding="utf-8",
+            )
+
+            snapshot = load_live_session_trace(root, provider="claude")
+
+        self.assertIsNotNone(snapshot)
+        assert snapshot is not None
+        self.assertIn("This is a multi-agent conductor session", snapshot.tail_text)
+        self.assertIn("Let me bootstrap by reading the required documents.", snapshot.tail_text)
+        self.assertIn("⏺ Read 1 file (ctrl+o to expand)", snapshot.tail_text)
+        self.assertIn("✻ Doing… (36s · ↓ 840 tokens)", snapshot.tail_text)
+        self.assertIn("esc to interrupt", snapshot.tail_text)
+        self.assertNotIn("Script started on", snapshot.tail_text)
+        self.assertNotIn("\x1b", snapshot.tail_text)
 
     def test_record_operator_decision_writes_latest_and_timestamped_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

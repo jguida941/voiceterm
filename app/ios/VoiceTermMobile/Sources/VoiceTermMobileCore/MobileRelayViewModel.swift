@@ -19,6 +19,7 @@ public enum MobileRelaySection: String, CaseIterable, Codable, Hashable, Sendabl
     case instruction
     case findings
     case agents
+    case console
     case actions
     case technical
 
@@ -34,6 +35,8 @@ public enum MobileRelaySection: String, CaseIterable, Codable, Hashable, Sendabl
             return "Open Findings"
         case .agents:
             return "Agent Lanes"
+        case .console:
+            return "Terminal"
         case .actions:
             return "Safe Actions"
         case .technical:
@@ -86,6 +89,15 @@ public struct MobileRelayDashboardModel: Equatable, Sendable {
         public let guardText: String
     }
 
+    public struct ConsolePane: Equatable, Sendable, Identifiable {
+        public let id: String
+        public let title: String
+        public let subtitle: String
+        public let status: String
+        public let simpleBody: String
+        public let technicalBody: String
+    }
+
     public struct TechnicalFact: Equatable, Sendable, Identifiable {
         public let id: String
         public let label: String
@@ -100,6 +112,7 @@ public struct MobileRelayDashboardModel: Equatable, Sendable {
     public let findings: NarrativeCard
     public let actionsNarrative: NarrativeCard
     public let lanes: [LaneCard]
+    public let consolePanes: [ConsolePane]
     public let actions: [SafeActionCard]
     public let nextActions: [String]
     public let technicalFacts: [TechnicalFact]
@@ -155,6 +168,10 @@ public enum MobileRelayPresenter {
         let openFindings = compact?.openFindings?.trimmedNonEmpty
             ?? snapshot.reviewPayload.reviewState?.bridge?.openFindings?.trimmedNonEmpty
             ?? "No open findings recorded."
+        let claudeBridgeStatus = snapshot.reviewPayload.reviewState?.bridge?.claudeStatus?.trimmedNonEmpty
+            ?? "No Claude status recorded."
+        let claudeAck = snapshot.reviewPayload.reviewState?.bridge?.claudeAck?.trimmedNonEmpty
+            ?? "No Claude acknowledgment recorded."
         let nextActions = (
             compact?.nextActions
             ?? actions?.nextActions
@@ -162,6 +179,24 @@ public enum MobileRelayPresenter {
             ?? []
         ).compactMap(\.trimmedNonEmpty)
         let lanes = laneCards(from: snapshot)
+        let consolePanes = buildConsolePanes(
+            snapshot: snapshot,
+            compact: compact,
+            currentInstruction: currentInstruction,
+            openFindings: openFindings,
+            claudeBridgeStatus: claudeBridgeStatus,
+            claudeAck: claudeAck,
+            nextActions: nextActions,
+            phase: phase,
+            risk: risk,
+            pendingCount: pendingCount,
+            unresolvedCount: unresolvedCount,
+            planID: planID,
+            runID: runID,
+            lastPollUTC: lastPollUTC,
+            bridgeState: bridgeState,
+            worktreeHash: worktreeHash
+        )
         let safeActions = actionCards(from: actions)
 
         let sections = [
@@ -188,6 +223,12 @@ public enum MobileRelayPresenter {
                 title: "Agents",
                 caption: "Codex, Claude, and operator lanes",
                 badge: "\(lanes.count)"
+            ),
+            MobileRelayDashboardModel.SidebarItem(
+                section: .console,
+                title: "Terminal",
+                caption: "Combined or split lane console",
+                badge: "\(consolePanes.count)"
             ),
             MobileRelayDashboardModel.SidebarItem(
                 section: .actions,
@@ -281,6 +322,7 @@ public enum MobileRelayPresenter {
             findings: findingsCard,
             actionsNarrative: actionsNarrative,
             lanes: lanes,
+            consolePanes: consolePanes,
             actions: safeActions,
             nextActions: nextActions,
             technicalFacts: technicalFacts,
@@ -353,6 +395,144 @@ public enum MobileRelayPresenter {
                 ? "Guarded repo action. Review the command preview before running it."
                 : "Read-only repo action exposed through the shared mobile bundle."
         }
+    }
+
+    private static func buildConsolePanes(
+        snapshot: MobileRelaySnapshot,
+        compact: MobileCompactProjection?,
+        currentInstruction: String,
+        openFindings: String,
+        claudeBridgeStatus: String,
+        claudeAck: String,
+        nextActions: [String],
+        phase: String,
+        risk: String,
+        pendingCount: Int,
+        unresolvedCount: Int,
+        planID: String,
+        runID: String,
+        lastPollUTC: String,
+        bridgeState: String,
+        worktreeHash: String
+    ) -> [MobileRelayDashboardModel.ConsolePane] {
+        let registryByID = Dictionary(
+            uniqueKeysWithValues: (snapshot.reviewPayload.agentRegistry?.agents ?? []).map {
+                ($0.agentID?.trimmedNonEmpty ?? UUID().uuidString, $0)
+            }
+        )
+        let reviewByID = Dictionary(
+            uniqueKeysWithValues: (snapshot.reviewPayload.reviewState?.agents ?? []).map {
+                ($0.agentID?.trimmedNonEmpty ?? UUID().uuidString, $0)
+            }
+        )
+
+        func laneStatus(_ agentID: String, fallback: String) -> String {
+            reviewByID[agentID]?.status?.trimmedNonEmpty
+                ?? registryByID[agentID]?.jobState?.trimmedNonEmpty
+                ?? fallback
+        }
+
+        func laneSubtitle(_ agentID: String, fallback: String) -> String {
+            registryByID[agentID]?.laneTitle?.trimmedNonEmpty
+                ?? reviewByID[agentID]?.role?.trimmedNonEmpty
+                ?? fallback
+        }
+
+        func laneLocation(_ agentID: String) -> String {
+            var rows: [String] = []
+            if let branch = registryByID[agentID]?.branch?.trimmedNonEmpty {
+                rows.append("branch: \(branch)")
+            }
+            if let worktree = registryByID[agentID]?.worktree?.trimmedNonEmpty {
+                rows.append("worktree: \(worktree)")
+            }
+            return rows.joined(separator: "\n")
+        }
+
+        let codexStatus = laneStatus(
+            "codex",
+            fallback: compact?.codexStatus?.trimmedNonEmpty ?? "unknown"
+        )
+        let claudeStatus = laneStatus(
+            "claude",
+            fallback: compact?.claudeLaneStatus?.trimmedNonEmpty ?? "unknown"
+        )
+        let operatorStatus = laneStatus(
+            "operator",
+            fallback: compact?.operatorStatus?.trimmedNonEmpty ?? phase
+        )
+
+        let codexTechnical = [
+            "[codex]",
+            "status: \(codexStatus)",
+            "lane: \(laneSubtitle("codex", fallback: "review lane"))",
+            "bridge_state: \(bridgeState)",
+            "last_poll_utc: \(lastPollUTC)",
+            "worktree_hash: \(worktreeHash)",
+            "open_findings:",
+            openFindings,
+            laneLocation("codex"),
+        ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        let claudeTechnical = [
+            "[claude]",
+            "status: \(claudeStatus)",
+            "lane: \(laneSubtitle("claude", fallback: "implementation lane"))",
+            "current_instruction:",
+            currentInstruction,
+            "claude_status:",
+            claudeBridgeStatus,
+            "claude_ack:",
+            claudeAck,
+            laneLocation("claude"),
+        ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        let operatorTechnical = [
+            "[operator]",
+            "status: \(operatorStatus)",
+            "phase: \(phase)",
+            "risk: \(risk)",
+            "plan_id: \(planID)",
+            "run_id: \(runID)",
+            "pending_packets: \(pendingCount)",
+            "unresolved_items: \(unresolvedCount)",
+            "next_actions:",
+            nextActions.isEmpty ? "- none" : nextActions.map { "- \($0)" }.joined(separator: "\n"),
+            laneLocation("operator"),
+        ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        return [
+            MobileRelayDashboardModel.ConsolePane(
+                id: "codex-console",
+                title: "Codex",
+                subtitle: laneSubtitle("codex", fallback: "Architecture reviewer"),
+                status: codexStatus,
+                simpleBody: "Bridge is \(bridgeState). Codex is \(codexStatus). Findings: \(openFindings)",
+                technicalBody: codexTechnical
+            ),
+            MobileRelayDashboardModel.ConsolePane(
+                id: "claude-console",
+                title: "Claude",
+                subtitle: laneSubtitle("claude", fallback: "Implementation lane"),
+                status: claudeStatus,
+                simpleBody: "Claude is \(claudeStatus). Current focus: \(claudeBridgeStatus)",
+                technicalBody: claudeTechnical
+            ),
+            MobileRelayDashboardModel.ConsolePane(
+                id: "operator-console",
+                title: "Operator",
+                subtitle: laneSubtitle("operator", fallback: "Human approval lane"),
+                status: operatorStatus,
+                simpleBody: "Operator view: phase \(phase), risk \(risk), next step \(nextActions.first ?? "none")",
+                technicalBody: operatorTechnical
+            ),
+        ]
     }
 
     private static func simplifyInstruction(

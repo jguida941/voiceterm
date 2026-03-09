@@ -27,19 +27,45 @@ public enum MobileRelayStore {
         }
     }
 
+    public static func loadBundleSelection(from selectedURL: URL) throws -> MobileRelayProjectionBundle {
+        let resourceValues = try? selectedURL.resourceValues(forKeys: [.isDirectoryKey])
+        if resourceValues?.isDirectory == true || selectedURL.hasDirectoryPath {
+            return try loadBundle(from: selectedURL)
+        }
+        guard selectedURL.lastPathComponent == "full.json" else {
+            throw MobileRelayStoreError.invalidPayload(
+                "Select a bundle folder or the full.json file from an emitted mobile-status bundle."
+            )
+        }
+        return try loadBundle(
+            snapshotFileURL: selectedURL,
+            projectionDirectoryURL: selectedURL.deletingLastPathComponent()
+        )
+    }
+
     public static func loadBundle(from directoryURL: URL) throws -> MobileRelayProjectionBundle {
-        let snapshot = try loadSnapshot(from: directoryURL.appendingPathComponent("full.json"))
+        try loadBundle(
+            snapshotFileURL: directoryURL.appendingPathComponent("full.json"),
+            projectionDirectoryURL: directoryURL
+        )
+    }
+
+    private static func loadBundle(
+        snapshotFileURL: URL,
+        projectionDirectoryURL: URL
+    ) throws -> MobileRelayProjectionBundle {
+        let snapshot = try loadSnapshot(from: snapshotFileURL)
         let compact = try loadOptionalProjection(
             MobileCompactProjection.self,
-            from: directoryURL.appendingPathComponent("compact.json")
+            from: projectionDirectoryURL.appendingPathComponent("compact.json")
         )
         let alert = try loadOptionalProjection(
             MobileAlertProjection.self,
-            from: directoryURL.appendingPathComponent("alert.json")
+            from: projectionDirectoryURL.appendingPathComponent("alert.json")
         )
         let actions = try loadOptionalProjection(
             MobileActionsProjection.self,
-            from: directoryURL.appendingPathComponent("actions.json")
+            from: projectionDirectoryURL.appendingPathComponent("actions.json")
         )
         return MobileRelayProjectionBundle(
             snapshot: snapshot,

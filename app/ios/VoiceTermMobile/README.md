@@ -51,6 +51,10 @@ That keeps the phone UI aligned with:
   emitted bundle before falling back to on-the-fly merging
 - future notifier adapters
 
+If the autonomy `phone-status` artifact is missing, `mobile-status` now falls
+back to review-channel live data and still emits a usable phone bundle with a
+warning instead of failing closed.
+
 ## Verify
 
 ```bash

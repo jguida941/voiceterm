@@ -3803,4 +3803,20 @@ The full technical showcase is consolidated above in Appendix G of this document
   `dev/scripts/README.md` to state the archive rule directly: archive only
   fully closed scopes; unfinished or deferred backlog stays active.
 
+### 2026-03-09 - Launch Guard and Mobile Import Follow-up
+
+- Hardened `devctl review-channel` live launch scripts so generated Claude
+  conductor shells clear inherited `CLAUDECODE` markers before exec. This
+  prevents Terminal-launched review sessions from failing as forbidden nested
+  Claude Code launches when the operator starts them from an existing
+  Claude-owned shell.
+- Extended `check_rust_security_footguns.py` with hot-path `unreachable!()`
+  detection for runtime-owned Rust paths, keeping "impossible state" shortcuts
+  out of shipped overlay/audio/IPC code unless they are consciously removed or
+  reworked into typed error handling.
+- Improved the first-party iPhone control-plane shell so bundle import now
+  accepts either the emitted mobile-status folder or its `full.json` file, and
+  widened the narrow-phone control strip so import/reload/sample actions remain
+  usable without horizontal crowding.
+
 </details>

@@ -1115,15 +1115,23 @@ and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
 `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn`
 surfaces without `# Safety` docs, and `std::mem::forget`/`mem::forget` usage
-in changed Rust files, plus suppressed channel-send results,
+in changed Rust files, plus `Result<_, String>` surfaces, suppressed
+channel-send and event-emitter results, bare detached `thread::spawn(...)`
+statements without a nearby `detached-thread: allow reason=...` note,
 `unwrap()/expect()` on `join`/`recv` paths, and suspicious
 `OpenOptions::new().create(true)` chains that do not make overwrite semantics
 explicit via `append(true)`, `truncate(...)`, or `create_new(true)`, plus
-direct `==` / `!=` comparisons against float literals.
+direct `==` / `!=` comparisons against float literals, plus app-owned
+persistent TOML writes that still use direct overwrite helpers instead of a
+temp-file swap, plus hand-rolled persistent TOML parsers where the standard
+`toml` crate should be used instead.
 `check_rust_runtime_panic_policy.py` blocks non-regressive growth of runtime
 `panic!` call-sites unless the new panic path is explicitly allowlisted with
 `panic-policy: allow reason=...` rationale comments, and it supports
 `--absolute` for full-tree Rust panic audits.
+`check_rust_security_footguns.py` also blocks non-regressive growth of
+`unreachable!()` in runtime hot paths in addition to the existing shell-spawn,
+weak-crypto, permissive-mode, PID-cast, and syscall-cast checks.
 `check_guard_enforcement_inventory.py` blocks cataloged check scripts from
 drifting out of real bundle/workflow enforcement lanes unless they are
 explicitly marked helper-only, manual-only, or temporary advisory backlog

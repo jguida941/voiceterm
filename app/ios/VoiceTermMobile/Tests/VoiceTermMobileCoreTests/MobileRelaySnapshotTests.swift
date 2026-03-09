@@ -33,9 +33,10 @@ func buildsDashboardFromProjectionBundle() throws {
     let dashboard = MobileRelayPresenter.buildDashboard(from: bundle)
 
     #expect(dashboard.headline.contains("BLOCKED"))
-    #expect(dashboard.sections.count == 6)
+    #expect(dashboard.sections.count == 7)
     #expect(dashboard.metrics.count == 4)
     #expect(dashboard.lanes.count == 3)
+    #expect(dashboard.consolePanes.count == 3)
     #expect(dashboard.actions.count == 3)
     #expect(dashboard.actions.first?.title == "refresh-mobile-status")
     #expect(dashboard.technicalFacts.first?.value == "MP-340")
@@ -75,12 +76,59 @@ func loadsProjectionBundleFromDirectory() throws {
 }
 
 @Test
+func loadsProjectionBundleFromFullJSONSelection() throws {
+    let directoryURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: directoryURL,
+        withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+    let fullURL = directoryURL.appendingPathComponent("full.json")
+    try sampleFullPayload.write(
+        to: fullURL,
+        atomically: true,
+        encoding: .utf8
+    )
+    try sampleCompactPayload.write(
+        to: directoryURL.appendingPathComponent("compact.json"),
+        atomically: true,
+        encoding: .utf8
+    )
+
+    let bundle = try MobileRelayStore.loadBundleSelection(from: fullURL)
+
+    #expect(bundle.snapshot.controllerPayload.phase == "blocked")
+    #expect(bundle.compact?.headline?.contains("BLOCKED") == true)
+}
+
+@Test
+func rejectsNonBundleJSONSelection() throws {
+    let directoryURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: directoryURL,
+        withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+    let otherURL = directoryURL.appendingPathComponent("not-a-bundle.json")
+    try "{}".write(to: otherURL, atomically: true, encoding: .utf8)
+
+    #expect(throws: MobileRelayStoreError.self) {
+        try MobileRelayStore.loadBundleSelection(from: otherURL)
+    }
+}
+
+@Test
 func previewDataProvidesUsableDashboardBundle() {
     let bundle = MobileRelayPreviewData.sampleBundle()
     let dashboard = MobileRelayPresenter.buildDashboard(from: bundle)
 
-    #expect(dashboard.sections.count == 6)
+    #expect(dashboard.sections.count == 7)
     #expect(dashboard.lanes.count == 3)
+    #expect(dashboard.consolePanes.count == 3)
     #expect(dashboard.actions.count == 3)
     #expect(dashboard.sourceRunURL == "https://example.invalid/runs/99")
 }

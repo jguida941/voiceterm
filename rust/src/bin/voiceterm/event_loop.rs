@@ -581,7 +581,7 @@ fn write_or_queue_pty_input(
         return true;
     }
     if should_emit_user_input_activity(&deps.backend_label) {
-        let _ = deps.writer_tx.try_send(WriterMessage::UserInputActivity);
+        crate::writer::try_send_message(&deps.writer_tx, WriterMessage::UserInputActivity);
     }
     state.transcript_history.ingest_user_input_bytes(&bytes);
     if let Some(logger) = state.session_memory_logger.as_mut() {

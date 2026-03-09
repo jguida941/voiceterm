@@ -344,6 +344,7 @@ pub(super) fn handle_auth_command(state: &mut IpcState, provider_override: Optio
     let claude_cmd = state.claude_cmd.clone();
     let (auth_result_tx, auth_result_rx) = mpsc::channel();
 
+    // detached-thread: allow reason=auth flow runs asynchronously and reports completion through the stored receiver.
     thread::spawn(move || {
         let result = run_auth_flow(provider, &codex_cmd, &claude_cmd);
         if auth_result_tx.send(result).is_err() {

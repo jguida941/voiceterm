@@ -1323,6 +1323,13 @@ progressive disclosure, and 8px base grid spacing.
   is available. This keeps Terminal.app as the actual PTY owner while finally
   making the desktop session panes behave like near-live terminal viewers
   instead of more report text.
+- 2026-03-09: Closed the first live-tail readability regression after operator
+  testing. The desktop no longer treats `script(1)` typescripts as plain line
+  logs; `session_trace_reader.py` now replays a minimal ANSI terminal screen
+  from the captured stream and only falls back to line-based stripping for
+  simple logs, so the `Codex Session` / `Claude Session` panes render stable
+  visible screen content plus deeper readable history instead of spinner glyph
+  storms and partial cursor-repaint fragments.
 
 ## Audit Evidence
 
@@ -1333,6 +1340,12 @@ progressive disclosure, and 8px base grid spacing.
   - 2026-03-09 local run: pass (`76` tests) covering dry-run launch bundle
     metadata, session-trace script wrapping, and Operator Console preference
     for live tailed session logs over the bridge/registry fallback
+- `python3 -m py_compile app/operator_console/state/session_trace_reader.py app/operator_console/tests/state/test_state_modules.py`
+  - 2026-03-09 local run: pass after replacing raw line stripping with the
+    screen-replayed session-tail parser
+- `python3 -m pytest app/operator_console/tests/state/test_state_modules.py -q --tb=short`
+  - 2026-03-09 local run: pass (`44` tests) after adding regression coverage
+    for ANSI cursor-motion screen reconstruction in live session traces
 - `python3 -m py_compile app/operator_console/state/models.py app/operator_console/state/review_state.py app/operator_console/state/session_builder.py app/operator_console/state/snapshot_builder.py app/operator_console/views/main_window.py app/operator_console/views/ui_refresh.py app/operator_console/views/ui_pages.py app/operator_console/views/workbench_layout.py app/operator_console/tests/state/test_state_modules.py app/operator_console/tests/state/test_presentation_state.py app/operator_console/tests/views/test_ui_layout.py app/operator_console/tests/views/test_ui_layouts.py`
   - 2026-03-09 local run: pass after adding review-channel-projection-backed
     Codex/Claude session panes and rebalancing the Workbench/Monitor layouts
