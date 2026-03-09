@@ -11,9 +11,10 @@ import sys
 
 from ..common import build_env
 from ..config import REPO_ROOT
+from .process_cleanup import build_process_cleanup_report
 from ..process_sweep import (
     kill_processes,
-    scan_voiceterm_test_binaries,
+    scan_repo_hygiene_process_tree,
     split_orphaned_processes,
     split_stale_processes,
 )
@@ -26,6 +27,7 @@ from .check_phases import (
     run_test_build_phase,
 )
 from .check_process_sweep import (
+    cleanup_host_processes,
     cleanup_orphaned_voiceterm_test_binaries,
     parse_etime_seconds_for_compat,
 )
@@ -59,10 +61,19 @@ def _cleanup_orphaned_voiceterm_test_binaries(step_name: str, dry_run: bool) -> 
         step_name,
         dry_run=dry_run,
         repo_root=REPO_ROOT,
-        scanner=scan_voiceterm_test_binaries,
+        scanner=scan_repo_hygiene_process_tree,
         split_orphans=split_orphaned_processes,
         split_stale=split_stale_processes,
         killer=kill_processes,
+    )
+
+
+def _cleanup_host_processes(step_name: str, dry_run: bool) -> dict:
+    return cleanup_host_processes(
+        step_name,
+        dry_run=dry_run,
+        repo_root=REPO_ROOT,
+        cleanup_report_builder=build_process_cleanup_report,
     )
 
 
@@ -82,6 +93,10 @@ def run(args) -> int:
         total_quality_steps=count_quality_steps(args, settings),
     )
     process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
+    host_process_cleanup = (
+        getattr(args, "profile", None) in {"quick", "fast"}
+        and not getattr(args, "no_host_process_cleanup", False)
+    )
 
     if process_sweep_cleanup:
         ctx.steps.append(
@@ -115,6 +130,13 @@ def run(args) -> int:
             ctx.steps.append(
                 _cleanup_orphaned_voiceterm_test_binaries(
                     step_name="process-sweep-post",
+                    dry_run=args.dry_run,
+                )
+            )
+        if host_process_cleanup:
+            ctx.steps.append(
+                _cleanup_host_processes(
+                    step_name="host-process-cleanup-post",
                     dry_run=args.dry_run,
                 )
             )

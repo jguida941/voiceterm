@@ -13,7 +13,7 @@ use crate::status_line::StatusLineState;
 use crate::terminal::update_pty_winsize;
 use crate::theme::{style_pack_theme_lock, Theme};
 use crate::theme_picker::THEME_OPTIONS;
-use crate::writer::{set_status, WriterMessage};
+use crate::writer::{send_message_blocking, set_status, WriterMessage};
 
 pub(crate) fn cycle_theme(current: Theme, direction: i32) -> Theme {
     let len = THEME_OPTIONS.len();
@@ -44,7 +44,11 @@ pub(crate) fn apply_theme_selection(
     status_state: &mut StatusLineState,
 ) -> Theme {
     if let Some(locked_theme) = style_pack_theme_lock() {
-        let _ = writer_tx.send(WriterMessage::SetTheme(locked_theme));
+        send_message_blocking(
+            writer_tx,
+            WriterMessage::SetTheme(locked_theme),
+            "theme ops: apply locked theme",
+        );
         let status = format!("Theme locked by VOICETERM_STYLE_PACK_JSON ({locked_theme})");
         set_status(
             writer_tx,
@@ -59,7 +63,11 @@ pub(crate) fn apply_theme_selection(
 
     config.theme_name = Some(requested.to_string());
     let (resolved, note) = resolve_theme_choice(config, requested);
-    let _ = writer_tx.send(WriterMessage::SetTheme(resolved));
+    send_message_blocking(
+        writer_tx,
+        WriterMessage::SetTheme(resolved),
+        "theme ops: apply selected theme",
+    );
     let mut status = if resolved == Theme::None && requested != Theme::None {
         "Theme set: none".to_string()
     } else {
@@ -132,7 +140,11 @@ pub(crate) fn apply_theme_picker_index(
         return false;
     }
     *overlay_mode = OverlayMode::None;
-    let _ = writer_tx.send(WriterMessage::ClearOverlay);
+    send_message_blocking(
+        writer_tx,
+        WriterMessage::ClearOverlay,
+        "theme ops: clear overlay after selection",
+    );
     update_pty_winsize(
         session,
         terminal_rows,

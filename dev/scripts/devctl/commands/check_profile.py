@@ -20,6 +20,13 @@ MAINTAINER_LINT_CLIPPY_ARGS = [
     "dead_code",
 ]
 
+# Pedantic is useful for targeted lint-hardening sweeps, but it stays opt-in
+# until the repo-wide warning volume is low enough to make it actionable.
+PEDANTIC_CLIPPY_ARGS = [
+    "-W",
+    "clippy::pedantic",
+]
+
 # ---------------------------------------------------------------------------
 # Profile preset definitions (single source of truth).
 #
@@ -70,6 +77,19 @@ PROFILE_PRESETS: dict[str, dict[str, object]] = {
         "with_ci_release_gate": False,
     },
     "maintainer-lint": {
+        "skip_tests": True,
+        "skip_build": True,
+        "with_perf": False,
+        "with_mem_loop": False,
+        "with_mutants": False,
+        "with_mutation_score": False,
+        "mutation_score_report_only": False,
+        "with_wake_guard": False,
+        "with_ai_guard": False,
+        "with_clippy_high_signal": False,
+        "with_ci_release_gate": False,
+    },
+    "pedantic": {
         "skip_tests": True,
         "skip_build": True,
         "with_perf": False,
@@ -160,6 +180,17 @@ def resolve_profile_settings(args) -> tuple[dict, list[str]]:
                 "-D",
                 "warnings",
                 *MAINTAINER_LINT_CLIPPY_ARGS,
+            ]
+        elif profile == "pedantic":
+            clippy_cmd = [
+                "cargo",
+                "clippy",
+                "--workspace",
+                "--all-features",
+                "--",
+                "-D",
+                "warnings",
+                *PEDANTIC_CLIPPY_ARGS,
             ]
 
     return settings, clippy_cmd

@@ -4,6 +4,15 @@ impl WriterState {
     pub(super) fn dispatch_message(&mut self, message: WriterMessage) -> bool {
         match message {
             WriterMessage::PtyOutput(bytes) => self.handle_pty_output(bytes),
+            WriterMessage::TerminalBytes(bytes) => {
+                if let Err(err) = self.stdout.write_all(&bytes) {
+                    log_debug(&format!("terminal control write failed: {err}"));
+                }
+                if let Err(err) = self.stdout.flush() {
+                    log_debug(&format!("terminal control flush failed: {err}"));
+                }
+                true
+            }
             WriterMessage::Status { text } => {
                 self.pending.status = Some(text);
                 self.pending.enhanced_status = None;

@@ -10,13 +10,19 @@ import sys
 from pathlib import Path
 
 try:
-    from dev.scripts.checks.active_plan_contract import validate_execution_plan_contract
+    from dev.scripts.checks.active_plan_contract import (
+        EXECUTION_PLAN_MARKER,
+        validate_execution_plan_contract,
+    )
     from dev.scripts.checks.active_plan_snapshot import (
         latest_git_semver_tag,
         read_cargo_release_tag,
     )
 except ModuleNotFoundError:
-    from active_plan_contract import validate_execution_plan_contract
+    from active_plan_contract import (
+        EXECUTION_PLAN_MARKER,
+        validate_execution_plan_contract,
+    )
     from active_plan_snapshot import latest_git_semver_tag, read_cargo_release_tag
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -59,7 +65,30 @@ REQUIRED_REGISTRY_ROWS = {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
     },
-    "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md": {"role": "runbook"},
+    "dev/active/review_channel.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/host_process_hygiene.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/continuous_swarm.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/operator_console.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/pre_release_architecture_audit.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
+    "dev/active/slash_command_standalone.md": {
+        "role": "spec",
+        "authority": "mirrored in MASTER_PLAN",
+    },
     "dev/active/phase2.md": {"role": "reference", "authority": "reference-only"},
 }
 
@@ -79,8 +108,14 @@ SPEC_RANGE_PATHS = [
     "dev/active/memory_studio.md",
     "dev/active/devctl_reporting_upgrade.md",
     "dev/active/autonomous_control_plane.md",
+    "dev/active/host_process_hygiene.md",
+    "dev/active/continuous_swarm.md",
+    "dev/active/operator_console.md",
     "dev/active/naming_api_cohesion.md",
     "dev/active/ide_provider_modularization.md",
+    "dev/active/pre_release_architecture_audit.md",
+    "dev/active/review_channel.md",
+    "dev/active/slash_command_standalone.md",
 ]
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
@@ -133,6 +168,34 @@ def _expand_mp_ranges(text: str) -> set[str]:
         for value in range(start, end + 1):
             mp_ids.add(f"MP-{value:03d}")
     return mp_ids
+
+
+def _extract_scope_section(text: str) -> str:
+    match = re.search(r"^## Scope\s*$([\s\S]*?)(?=^##\s)", text, re.MULTILINE)
+    if match is None:
+        return ""
+    return match.group(1)
+
+
+def _resolve_spec_range_ids(spec_text: str, *, index_scope_ids: set[str]) -> set[str]:
+    mirror_marker = "execution mirrored in `dev/active/MASTER_PLAN.md`"
+    mirror_line = next(
+        (line for line in spec_text.splitlines() if mirror_marker in line),
+        "",
+    )
+    spec_range_ids = _expand_mp_ranges(mirror_line)
+    if spec_range_ids:
+        return spec_range_ids
+
+    scope_section = _extract_scope_section(spec_text)
+    spec_range_ids = _expand_mp_ranges(scope_section)
+    if spec_range_ids:
+        return spec_range_ids
+
+    if EXECUTION_PLAN_MARKER in spec_text and index_scope_ids:
+        return set(index_scope_ids)
+
+    return _expand_mp_ranges(spec_text)
 
 
 def _build_report() -> dict:
@@ -335,18 +398,24 @@ def _build_report() -> dict:
         if not spec_path.exists():
             continue
         spec_text = spec_path.read_text(encoding="utf-8")
-        if mirror_marker not in spec_text:
+        if (
+            mirror_marker not in spec_text
+            and EXECUTION_PLAN_MARKER not in spec_text
+        ):
             spec_missing_mirror_markers.append(relative)
         if not PHASE_HEADING_PATTERN.search(spec_text):
             spec_missing_phase_headings.append(relative)
         if relative not in master_plan_text:
             spec_missing_master_links.append(relative)
-        mirror_line = next(
-            (line for line in spec_text.splitlines() if mirror_marker in line), ""
+
+        index_row = registry_by_path.get(relative)
+        index_scope_ids = (
+            _expand_mp_ranges(index_row.get("mp_scope", "")) if index_row else set()
         )
-        spec_range_ids = _expand_mp_ranges(mirror_line)
-        if not spec_range_ids:
-            spec_range_ids = _expand_mp_ranges(spec_text)
+        spec_range_ids = _resolve_spec_range_ids(
+            spec_text,
+            index_scope_ids=index_scope_ids,
+        )
         if not spec_range_ids:
             spec_missing_ranges.append(relative)
             continue
@@ -358,10 +427,8 @@ def _build_report() -> dict:
                 f"{relative} -> missing in MASTER_PLAN: {', '.join(missing_from_master)}"
             )
 
-        index_row = registry_by_path.get(relative)
         if not index_row:
             continue
-        index_scope_ids = _expand_mp_ranges(index_row.get("mp_scope", ""))
         if not index_scope_ids:
             index_scope_missing.append(relative)
             continue
@@ -437,7 +504,7 @@ def _build_report() -> dict:
         errors.append(f"Required row mismatches: {'; '.join(required_row_mismatches)}")
     if spec_missing_mirror_markers:
         errors.append(
-            "Spec docs missing master-plan mirror marker: "
+            "Spec docs missing master-plan mirror marker or execution-plan contract marker: "
             + ", ".join(spec_missing_mirror_markers)
         )
     if spec_missing_phase_headings:

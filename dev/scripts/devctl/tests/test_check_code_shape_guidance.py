@@ -238,6 +238,28 @@ class CheckCodeShapeGuidanceTests(TestCase):
         )
         self.assertIsNone(violation)
 
+    def test_policy_for_path_uses_longest_prefix_override(self) -> None:
+        policy, source = self.script.policy_for_path(
+            Path("rust/src/bin/voiceterm/dev_command/broker/mod.rs")
+        )
+        self.assertIsNotNone(policy)
+        self.assertEqual(
+            source,
+            "path_override:rust/src/bin/voiceterm/dev_command/broker/mod.rs",
+        )
+        self.assertEqual(policy.soft_limit, 400)
+
+    def test_policy_for_path_prefers_exact_override_over_prefix_override(self) -> None:
+        policy, source = self.script.policy_for_path(
+            Path("rust/src/bin/voiceterm/dev_command/command_state.rs")
+        )
+        self.assertIsNotNone(policy)
+        self.assertEqual(
+            source,
+            "path_override:rust/src/bin/voiceterm/dev_command/command_state.rs",
+        )
+        self.assertEqual(policy.soft_limit, 500)
+
     def test_scan_rust_functions_reports_name_and_line_range(self) -> None:
         source = "\n".join(
             [
@@ -288,16 +310,23 @@ class CheckCodeShapeGuidanceTests(TestCase):
         self.assertEqual(violations[0]["function_name"], "oversized")
 
     def test_evaluate_function_shape_honors_active_exception_budget(self) -> None:
+        # Use the check_code_shape.py::main exception (always active, Python
+        # indentation-based scanner) to prove the mechanism works.
+        exc_key = "dev/scripts/checks/check_code_shape.py::main"
+        exc = self.script.FUNCTION_POLICY_EXCEPTIONS.get(exc_key)
+        self.assertIsNotNone(exc, f"expected active exception for {exc_key}")
+        # Build a Python function named `main` that exceeds the default policy
+        # but stays within the exception budget.
+        body_lines = exc.max_lines - 2  # function header + pass
         source = "\n".join(
-            ["pub(super) fn dispatch_message(&mut self) -> bool {"]
-            + ["    let _value = 1;"] * 250
-            + ["    true", "}"]
+            ["def main():"]
+            + ["    _value = 1"] * body_lines
         )
-        policy = self.script.FunctionShapePolicy(max_lines=220)
+        policy = self.script.FunctionShapePolicy(max_lines=exc.max_lines - 20)
         violations, exceptions_used = self.script._evaluate_function_shape(
-            path=Path("rust/src/bin/voiceterm/writer/state/dispatch.rs"),
+            path=Path("dev/scripts/checks/check_code_shape.py"),
             policy=policy,
-            policy_source="function_path_override:rust/src/bin/voiceterm/writer/state/dispatch.rs",
+            policy_source="function_path_override:dev/scripts/checks/check_code_shape.py",
             text=source,
             today=date(2026, 3, 4),
         )

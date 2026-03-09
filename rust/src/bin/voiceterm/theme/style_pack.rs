@@ -347,6 +347,37 @@ pub(crate) fn resolved_hud_border_set(theme: Theme) -> BorderSet {
     resolve_component_border_set(pack, pack.component_overrides.hud_border)
 }
 
+/// Resolve toast position from persisted payload + runtime overrides.
+///
+/// Returns `None` when neither the persisted pack nor the runtime override sets
+/// an explicit position, meaning the default rendering path applies.
+#[must_use]
+pub(crate) fn resolved_toast_position(theme: Theme) -> Option<ToastPositionOverride> {
+    resolved_style_pack(theme).surface_overrides.toast_position
+}
+
+/// Resolve startup style from persisted payload + runtime overrides.
+#[must_use]
+pub(crate) fn resolved_startup_style(theme: Theme) -> Option<StartupStyleOverride> {
+    resolved_style_pack(theme).surface_overrides.startup_style
+}
+
+/// Resolve toast severity display mode from persisted payload + runtime overrides.
+#[must_use]
+pub(crate) fn resolved_toast_severity_mode(theme: Theme) -> Option<ToastSeverityMode> {
+    resolved_style_pack(theme)
+        .component_overrides
+        .toast_severity_mode
+}
+
+/// Resolve banner style from persisted payload + runtime overrides.
+#[must_use]
+pub(crate) fn resolved_banner_style(
+    theme: Theme,
+) -> Option<super::style_schema::BannerStyleOverride> {
+    resolved_style_pack(theme).component_overrides.banner_style
+}
+
 /// Return locked base theme when runtime style-pack payload is valid.
 ///
 /// When present, Theme Studio payload owns the base palette and runtime theme

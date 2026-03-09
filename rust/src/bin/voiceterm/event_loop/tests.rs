@@ -11,9 +11,9 @@ use crate::buttons::{ButtonAction, ButtonRegistry};
 use crate::config::OverlayConfig;
 use crate::config::{HudStyle, LatencyDisplayMode};
 use crate::dev_command::{
-    DevCommandCompletion, DevCommandKind, DevCommandStatus, DevPanelCommandState, DevTerminalPacket,
+    DevCommandCompletion, DevCommandKind, DevCommandStatus, DevPanelState, DevTerminalPacket,
 };
-use crate::dev_panel::dev_panel_height;
+use crate::dev_panel::{dev_panel_active_footer, dev_panel_height, panel_inner_width, panel_width};
 use crate::event_state::{
     PromptRuntimeState, PtyBufferState, SettingsRuntimeState, ThemeStudioRuntimeState,
     UiRuntimeState,
@@ -36,6 +36,7 @@ use crate::voice_control::VoiceManager;
 use crate::voice_macros::VoiceMacros;
 use crate::wake_word::{WakeWordEvent, WakeWordRuntime};
 
+mod dev_panel_overlay;
 thread_local! {
     static HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
     static TERMINAL_SIZE_HOOK_CALLS: Cell<usize> = const { Cell::new(0) };
@@ -388,6 +389,7 @@ fn build_harness(
 
     let state = EventLoopState {
         config,
+        working_dir: ".".to_string(),
         status_state,
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
@@ -420,7 +422,7 @@ fn build_harness(
         session_stats: SessionStats::new(),
         dev_mode_stats: None,
         dev_event_logger: None,
-        dev_panel_commands: DevPanelCommandState::default(),
+        dev_panel_commands: DevPanelState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
             occlusion_detector: crate::prompt::PromptOcclusionDetector::new(false),
@@ -466,6 +468,7 @@ fn build_harness(
         last_toast_tick: now,
         last_theme_file_poll: now,
         last_terminal_geometry_poll: now,
+        last_review_poll: now,
         pending_terminal_geometry_sample: None,
     };
 
@@ -523,6 +526,16 @@ fn centered_settings_overlay_rel_x_to_screen_x(state: &EventLoopState, rel_x: us
     u16::try_from(x).expect("overlay x fits in u16")
 }
 
+fn centered_overlay_left_gutter_x(terminal_cols: u16, overlay_width: usize) -> u16 {
+    let cols = resolved_cols(terminal_cols) as usize;
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+    assert!(
+        centered_left > 1,
+        "test requires a centered overlay with a left gutter"
+    );
+    u16::try_from(centered_left.saturating_sub(1)).expect("overlay gutter x fits in u16")
+}
+
 fn settings_slider_click_x(state: &EventLoopState, slider_offset: usize) -> u16 {
     const SETTINGS_SLIDER_START_REL_X: usize = 2 + 1 + 1 + 15 + 1;
     centered_settings_overlay_rel_x_to_screen_x(
@@ -558,6 +571,42 @@ fn settings_overlay_footer_close_click(state: &EventLoopState) -> (u16, u16) {
         .next()
         .unwrap_or(&footer_title)
         .trim_end();
+    let close_len = crate::overlay_frame::display_width(close_prefix);
+    let close_start = 2usize.saturating_add(left_pad);
+    let rel_x = close_start.saturating_add(close_len.saturating_sub(1) / 2);
+    let x = centered_left.saturating_add(rel_x).saturating_sub(1);
+
+    (
+        u16::try_from(x).expect("footer close x fits in u16"),
+        footer_y,
+    )
+}
+
+fn dev_panel_footer_close_click(state: &EventLoopState) -> (u16, u16) {
+    let overlay_height = dev_panel_height() as u16;
+    let overlay_top_y = state
+        .ui
+        .terminal_rows
+        .saturating_sub(overlay_height)
+        .saturating_add(1);
+    let footer_y = overlay_top_y
+        .saturating_add(overlay_height.saturating_sub(1))
+        .saturating_sub(1);
+
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
+    let overlay_width = panel_width(cols);
+    let inner_width = panel_inner_width(cols);
+    let centered_left = cols.saturating_sub(overlay_width) / 2 + 1;
+
+    let footer_title =
+        dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols);
+    let title_len = crate::overlay_frame::display_width(&footer_title);
+    let left_pad = inner_width.saturating_sub(title_len) / 2;
+    let close_prefix = if let Some(prefix_end) = footer_title.find(" close") {
+        &footer_title[..prefix_end + " close".len()]
+    } else {
+        footer_title.as_str()
+    };
     let close_len = crate::overlay_frame::display_width(close_prefix);
     let close_start = 2usize.saturating_add(left_pad);
     let rel_x = close_start.saturating_add(close_len.saturating_sub(1) / 2);
@@ -634,7 +683,6 @@ fn flush_pending_pty_output_returns_true_when_empty() {
     let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     assert!(flush_pending_pty_output(&mut state, &deps));
 }
-
 #[test]
 fn flush_pending_pty_output_requeues_when_writer_is_full() {
     let (mut state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 1);
@@ -1063,7 +1111,7 @@ fn dev_panel_toggle_opens_overlay_when_dev_mode_enabled() {
     {
         WriterMessage::ShowOverlay { content, height } => {
             assert_eq!(height, dev_panel_height());
-            assert!(content.contains("Dev Tools"));
+            assert!(content.contains("Actions"));
         }
         other => panic!("unexpected writer message: {other:?}"),
     }
@@ -1116,190 +1164,6 @@ fn dev_panel_toggle_forwards_ctrl_d_when_dev_mode_disabled() {
     assert_eq!(state.ui.overlay_mode, OverlayMode::None);
     assert_eq!(state.pty_buffer.pending_input_bytes, 1);
     assert_eq!(state.pty_buffer.pending_input.front(), Some(&vec![0x04]));
-}
-
-#[test]
-fn dev_panel_arrow_navigation_moves_command_selection() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(0);
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(vec![0x1b, b'[', b'B']),
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(
-        state.dev_panel_commands.selected_command(),
-        DevCommandKind::Report
-    );
-}
-
-#[test]
-fn dev_panel_numeric_selection_supports_extended_command_set() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(0);
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::Bytes(vec![b'4']),
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(
-        state.dev_panel_commands.selected_command(),
-        DevCommandKind::LoopPacket
-    );
-}
-
-#[test]
-fn dev_panel_sync_requires_confirmation_before_run() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(5);
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::EnterKey,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(
-        state.dev_panel_commands.pending_confirmation(),
-        Some(DevCommandKind::Sync)
-    );
-    assert!(state.dev_panel_commands.running_request_id().is_none());
-}
-
-#[test]
-fn apply_terminal_packet_completion_stages_draft_text() {
-    let _guard = install_try_send_hook(hook_would_block);
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    let completion = DevCommandCompletion {
-        request_id: 7,
-        command: DevCommandKind::LoopPacket,
-        status: DevCommandStatus::Success,
-        duration_ms: 12,
-        summary: "packet ready".to_string(),
-        stdout_excerpt: None,
-        stderr_excerpt: None,
-        terminal_packet: Some(DevTerminalPacket {
-            packet_id: "pkt-123".to_string(),
-            source_command: "triage-loop".to_string(),
-            draft_text: "propose bounded remediation".to_string(),
-            auto_send: false,
-        }),
-    };
-
-    let message = dev_panel_commands::apply_terminal_packet_completion(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        &completion,
-    )
-    .expect("packet staging message");
-
-    assert!(message.contains("staged"));
-    assert!(state.status_state.insert_pending_send);
-    assert_eq!(
-        state.pty_buffer.pending_input_bytes,
-        "propose bounded remediation".len()
-    );
-}
-
-#[test]
-fn apply_terminal_packet_completion_auto_send_requires_runtime_guard() {
-    let _guard = install_try_send_hook(hook_would_block);
-    struct AutoSendOverrideReset;
-    impl Drop for AutoSendOverrideReset {
-        fn drop(&mut self) {
-            dev_panel_commands::set_dev_packet_auto_send_runtime_override(None);
-        }
-    }
-    let _reset = AutoSendOverrideReset;
-    dev_panel_commands::set_dev_packet_auto_send_runtime_override(Some(true));
-
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    let completion = DevCommandCompletion {
-        request_id: 8,
-        command: DevCommandKind::LoopPacket,
-        status: DevCommandStatus::Success,
-        duration_ms: 12,
-        summary: "packet ready".to_string(),
-        stdout_excerpt: None,
-        stderr_excerpt: None,
-        terminal_packet: Some(DevTerminalPacket {
-            packet_id: "pkt-456".to_string(),
-            source_command: "triage".to_string(),
-            draft_text: "all clear, continue".to_string(),
-            auto_send: true,
-        }),
-    };
-
-    let message = dev_panel_commands::apply_terminal_packet_completion(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        &completion,
-    )
-    .expect("packet auto-send message");
-
-    assert!(message.contains("auto-sent"));
-    assert!(!state.status_state.insert_pending_send);
-    assert_eq!(
-        state.pty_buffer.pending_input_bytes,
-        "all clear, continue".len() + 1
-    );
-    assert!(timers.last_enter_at.is_some());
-}
-
-#[test]
-fn dev_panel_second_sync_enter_without_broker_reports_unavailable() {
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = true;
-    state.ui.overlay_mode = OverlayMode::DevPanel;
-    state.dev_panel_commands.select_index(5);
-    let mut running = true;
-
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::EnterKey,
-        &mut running,
-    );
-    handle_input_event(
-        &mut state,
-        &mut timers,
-        &mut deps,
-        InputEvent::EnterKey,
-        &mut running,
-    );
-
-    assert!(running);
-    assert_eq!(state.dev_panel_commands.pending_confirmation(), None);
-    assert_eq!(state.dev_panel_commands.running_request_id(), None);
-    assert!(state
-        .current_status
-        .as_deref()
-        .is_some_and(|status| status.contains("broker unavailable")));
 }
 
 #[test]
@@ -3334,9 +3198,10 @@ fn run_event_loop_theme_picker_click_selects_theme_and_closes_overlay() {
         .terminal_rows
         .saturating_sub(theme_picker_height() as u16)
         .saturating_add(1);
+    let click_x = centered_theme_picker_rel_x_to_screen_x(&state, 3);
     input_tx
         .send(InputEvent::MouseClick {
-            x: 3,
+            x: click_x,
             y: overlay_top_y + THEME_PICKER_OPTION_START_ROW as u16 - 1,
         })
         .expect("queue theme option click");
@@ -4103,6 +3968,7 @@ fn settings_overlay_mouse_click_cycles_setting_value() {
     state.config.latency_display = LatencyDisplayMode::Short;
     state.status_state.latency_display = LatencyDisplayMode::Short;
     let latency_row = settings_overlay_row_y(&state, SettingsItem::Latency);
+    let click_x = centered_overlay_click_x(&state);
 
     let mut running = true;
     handle_input_event(
@@ -4110,7 +3976,7 @@ fn settings_overlay_mouse_click_cycles_setting_value() {
         &mut timers,
         &mut deps,
         InputEvent::MouseClick {
-            x: 3,
+            x: click_x,
             y: latency_row,
         },
         &mut running,
@@ -4244,6 +4110,7 @@ fn settings_overlay_mouse_click_selects_read_only_row_without_state_change() {
     state.ui.overlay_mode = OverlayMode::Settings;
     let initial_auto_voice = state.auto_voice_enabled;
     let backend_row = settings_overlay_row_y(&state, SettingsItem::Backend);
+    let click_x = centered_overlay_click_x(&state);
 
     let mut running = true;
     handle_input_event(
@@ -4251,7 +4118,7 @@ fn settings_overlay_mouse_click_selects_read_only_row_without_state_change() {
         &mut timers,
         &mut deps,
         InputEvent::MouseClick {
-            x: 3,
+            x: click_x,
             y: backend_row,
         },
         &mut running,
@@ -4272,13 +4139,17 @@ fn settings_overlay_mouse_click_close_row_closes_overlay() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.overlay_mode = OverlayMode::Settings;
     let close_row = settings_overlay_row_y(&state, SettingsItem::Close);
+    let click_x = centered_overlay_click_x(&state);
 
     let mut running = true;
     handle_input_event(
         &mut state,
         &mut timers,
         &mut deps,
-        InputEvent::MouseClick { x: 3, y: close_row },
+        InputEvent::MouseClick {
+            x: click_x,
+            y: close_row,
+        },
         &mut running,
     );
 
@@ -4291,13 +4162,17 @@ fn settings_overlay_mouse_click_quit_row_stops_event_loop() {
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.ui.overlay_mode = OverlayMode::Settings;
     let quit_row = settings_overlay_row_y(&state, SettingsItem::Quit);
+    let click_x = centered_overlay_click_x(&state);
 
     let mut running = true;
     handle_input_event(
         &mut state,
         &mut timers,
         &mut deps,
-        InputEvent::MouseClick { x: 3, y: quit_row },
+        InputEvent::MouseClick {
+            x: click_x,
+            y: quit_row,
+        },
         &mut running,
     );
 
@@ -4352,6 +4227,203 @@ fn settings_overlay_mouse_click_footer_outside_close_prefix_keeps_overlay_open()
 
     assert!(running);
     assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
+}
+
+#[test]
+fn centered_overlay_gutter_click_does_not_close_dev_panel_but_footer_close_still_works() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.config.dev_mode = true;
+    state.ui.terminal_cols = 120;
+    state.ui.terminal_rows = 40;
+    state.ui.overlay_mode = OverlayMode::DevPanel;
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
+    let gutter_x = centered_overlay_left_gutter_x(state.ui.terminal_cols, panel_width(cols));
+    let (_close_x, footer_y) = dev_panel_footer_close_click(&state);
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: gutter_x,
+            y: footer_y,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::DevPanel);
+
+    let (close_x, close_y) = dev_panel_footer_close_click(&state);
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: close_x,
+            y: close_y,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
+}
+
+#[test]
+fn centered_overlay_gutter_click_does_not_trigger_settings_action_but_centered_click_still_works() {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.overlay_mode = OverlayMode::Settings;
+    state.settings.menu.selected = 0;
+    state.config.latency_display = LatencyDisplayMode::Short;
+    state.status_state.latency_display = LatencyDisplayMode::Short;
+
+    let row = settings_overlay_row_y(&state, SettingsItem::Latency);
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
+    let gutter_x = centered_overlay_left_gutter_x(
+        state.ui.terminal_cols,
+        settings_overlay_width_for_terminal(cols),
+    );
+    let latency_index = SETTINGS_ITEMS
+        .iter()
+        .position(|item| *item == SettingsItem::Latency)
+        .expect("latency index");
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: gutter_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.settings.menu.selected, 0);
+    assert_eq!(
+        state.status_state.latency_display,
+        LatencyDisplayMode::Short
+    );
+
+    let click_x = centered_overlay_click_x(&state);
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick { x: click_x, y: row },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::Settings);
+    assert_eq!(state.settings.menu.selected, latency_index);
+    assert_ne!(
+        state.status_state.latency_display,
+        LatencyDisplayMode::Short
+    );
+}
+
+#[test]
+fn centered_overlay_gutter_click_does_not_trigger_theme_picker_action_but_centered_click_still_works(
+) {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.overlay_mode = OverlayMode::ThemePicker;
+    state.theme_studio.picker_selected = 2;
+    let initial_theme = state.theme;
+
+    let option_index = 0;
+    let row = theme_picker_overlay_row_y(&state, option_index);
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
+    let gutter_x = centered_overlay_left_gutter_x(
+        state.ui.terminal_cols,
+        theme_picker_total_width_for_terminal(cols),
+    );
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: gutter_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_studio.picker_selected, 2);
+
+    let interior_x = centered_theme_picker_rel_x_to_screen_x(&state, 3);
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: interior_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::None);
+    assert_ne!(state.theme, initial_theme);
+    assert_ne!(state.theme_studio.picker_selected, 2);
+}
+
+#[test]
+fn centered_overlay_gutter_click_does_not_trigger_theme_studio_action_but_centered_click_still_works(
+) {
+    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.terminal_cols = 120;
+    state.ui.overlay_mode = OverlayMode::ThemeStudio;
+    state.theme_studio.selected = 6;
+
+    let row = theme_studio_overlay_row_y(&state, 0);
+    let cols = resolved_cols(state.ui.terminal_cols) as usize;
+    let gutter_x = centered_overlay_left_gutter_x(
+        state.ui.terminal_cols,
+        theme_studio_total_width_for_terminal(cols),
+    );
+
+    let mut running = true;
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: gutter_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemeStudio);
+    assert_eq!(state.theme_studio.selected, 6);
+
+    let interior_x = centered_theme_studio_rel_x_to_screen_x(&state, 3);
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::MouseClick {
+            x: interior_x,
+            y: row,
+        },
+        &mut running,
+    );
+
+    assert!(running);
+    assert_eq!(state.ui.overlay_mode, OverlayMode::ThemePicker);
+    assert_eq!(state.theme_studio.selected, 0);
 }
 
 #[test]
@@ -5123,12 +5195,13 @@ fn insert_mode_with_pending_text_forwards_up_and_down_to_pty() {
 }
 
 #[test]
-fn up_and_down_navigate_hud_when_focus_already_active() {
+fn up_and_down_forward_to_pty_even_when_hud_focus_is_active() {
     let _hook = install_try_send_hook(hook_count_writes);
     let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
     state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
     let mut running = true;
 
+    // Up arrow with active HUD focus should pass through to PTY, not navigate HUD.
     handle_input_event(
         &mut state,
         &mut timers,
@@ -5136,7 +5209,15 @@ fn up_and_down_navigate_hud_when_focus_already_active() {
         InputEvent::Bytes(b"\x1b[A".to_vec()),
         &mut running,
     );
-    let focus_after_up = state.status_state.hud_button_focus;
+    assert!(running);
+    assert!(
+        state.status_state.hud_button_focus.is_none(),
+        "Up must clear HUD focus and forward to PTY"
+    );
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 1, "Up must write to PTY"));
+
+    // Set focus again to test Down arrow.
+    state.status_state.hud_button_focus = Some(ButtonAction::ToggleSendMode);
     handle_input_event(
         &mut state,
         &mut timers,
@@ -5144,11 +5225,66 @@ fn up_and_down_navigate_hud_when_focus_already_active() {
         InputEvent::Bytes(b"\x1b[B".to_vec()),
         &mut running,
     );
-
     assert!(running);
-    assert!(focus_after_up.is_some());
-    assert!(state.status_state.hud_button_focus.is_some());
-    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0));
+    assert!(
+        state.status_state.hud_button_focus.is_none(),
+        "Down must clear HUD focus and forward to PTY"
+    );
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 2, "Down must write to PTY"));
+}
+
+#[test]
+fn settings_overlay_up_down_navigates_menu_locally() {
+    // Proves open vertical overlays still consume Up/Down locally after the
+    // closed-HUD input ownership change that reserves Up/Down for the PTY.
+    let _hook = install_try_send_hook(hook_count_writes);
+    let (mut state, mut timers, mut deps, writer_rx, _input_tx) = build_harness("cat", &[], 8);
+    state.ui.overlay_mode = OverlayMode::Settings;
+    let initial_selected = state.settings.menu.selected;
+    while writer_rx.try_recv().is_ok() {}
+
+    let mut running = true;
+
+    // Down arrow should move selection within Settings, not forward to PTY.
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[B".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(
+        state.ui.overlay_mode,
+        OverlayMode::Settings,
+        "overlay must stay open"
+    );
+    assert_ne!(
+        state.settings.menu.selected, initial_selected,
+        "Down arrow must navigate Settings menu"
+    );
+    let after_down = state.settings.menu.selected;
+
+    // Up arrow should move back.
+    handle_input_event(
+        &mut state,
+        &mut timers,
+        &mut deps,
+        InputEvent::Bytes(b"\x1b[A".to_vec()),
+        &mut running,
+    );
+    assert!(running);
+    assert_eq!(
+        state.ui.overlay_mode,
+        OverlayMode::Settings,
+        "overlay must stay open"
+    );
+    assert_ne!(
+        state.settings.menu.selected, after_down,
+        "Up arrow must navigate Settings menu"
+    );
+    // No PTY writes: overlay consumed the arrows.
+    HOOK_CALLS.with(|calls| assert_eq!(calls.get(), 0, "overlay must not forward arrows to PTY"));
 }
 
 #[test]
@@ -6256,8 +6392,8 @@ fn non_interference_dev_panel_toggle_opens_panel_when_dev_mode_on() {
         WriterMessage::ShowOverlay { content, height } => {
             assert_eq!(height, dev_panel_height());
             assert!(
-                content.contains("Dev Tools"),
-                "overlay content should contain the Dev Tools header"
+                content.contains("Actions"),
+                "overlay content should contain the Actions header"
             );
         }
         other => panic!("expected ShowOverlay, got: {other:?}"),
@@ -6288,61 +6424,5 @@ fn non_interference_poll_dev_commands_is_noop_when_broker_absent() {
     assert_eq!(
         state.ui.overlay_mode, overlay_before,
         "overlay must not change when broker is absent"
-    );
-}
-
-#[test]
-fn non_interference_request_dev_command_rejected_when_dev_mode_off() {
-    // request_selected_dev_panel_command must short-circuit when dev_mode is off,
-    // leaving all command state untouched.
-    let (mut state, mut timers, mut deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-    state.config.dev_mode = false;
-    state.ui.overlay_mode = OverlayMode::DevPanel; // force overlay open
-    state.dev_panel_commands.select_index(0);
-
-    request_selected_dev_panel_command(&mut state, &mut timers, &mut deps);
-
-    assert!(
-        state.dev_panel_commands.running_request_id().is_none(),
-        "no dev command should be launched when dev_mode is off"
-    );
-    assert!(
-        state.current_status.is_none(),
-        "no status message should appear; the function should return immediately"
-    );
-}
-
-#[test]
-fn non_interference_default_harness_mirrors_non_dev_session() {
-    // Comprehensive invariant check: the default harness (no --dev flag)
-    // must mirror the production default where all dev surfaces are inert.
-    let (state, _timers, deps, _writer_rx, _input_tx) = build_harness("cat", &[], 8);
-
-    assert!(!state.config.dev_mode, "dev_mode must default to false");
-    assert!(!state.config.dev_log, "dev_log must default to false");
-    assert!(
-        state.config.dev_path.is_none(),
-        "dev_path must default to None"
-    );
-    assert!(
-        state.dev_mode_stats.is_none(),
-        "dev_mode_stats must be None"
-    );
-    assert!(
-        state.dev_event_logger.is_none(),
-        "dev_event_logger must be None"
-    );
-    assert!(
-        deps.dev_command_broker.is_none(),
-        "dev_command_broker must be None"
-    );
-    assert_eq!(
-        state.ui.overlay_mode,
-        OverlayMode::None,
-        "overlay must start as None"
-    );
-    assert!(
-        !state.status_state.dev_mode_enabled,
-        "status_state.dev_mode_enabled must be false"
     );
 }

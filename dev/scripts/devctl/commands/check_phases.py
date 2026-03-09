@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import List
 
-from ..common import pipe_output, run_cmd, should_emit_output, write_output
+from ..common import emit_output, pipe_output, run_cmd, should_emit_output, write_output
 from ..config import REPO_ROOT, SRC_DIR
 from ..steps import format_steps_md
 from .check_progress import emit_progress
@@ -22,6 +22,7 @@ from .check_support import (
     build_ai_guard_cmd,
     build_clippy_high_signal_collect_cmd,
     build_clippy_high_signal_guard_cmd,
+    build_clippy_pedantic_collect_cmd,
     maybe_emit_ai_guard_scaffold,
     resolve_perf_log_path,
 )
@@ -181,6 +182,15 @@ def run_setup_phase(ctx: CheckContext) -> None:
                     ctx,
                     "clippy-high-signal-guard",
                     build_clippy_high_signal_guard_cmd(),
+                    cwd=REPO_ROOT,
+                )
+            )
+        elif getattr(ctx.args, "profile", None) == "pedantic":
+            setup_specs.append(
+                _make_step_spec(
+                    ctx,
+                    "clippy",
+                    build_clippy_pedantic_collect_cmd(),
                     cwd=REPO_ROOT,
                 )
             )
@@ -367,9 +377,14 @@ def build_report_and_emit(ctx: CheckContext) -> int:
         else:
             output = json.dumps(report, indent=2)
         if ctx.args.output or ctx.args.format != "text":
-            write_output(output, ctx.args.output)
-        if ctx.args.pipe_command:
-            pipe_rc = pipe_output(output, ctx.args.pipe_command, ctx.args.pipe_args)
+            pipe_rc = emit_output(
+                output,
+                output_path=ctx.args.output,
+                pipe_command=ctx.args.pipe_command,
+                pipe_args=ctx.args.pipe_args,
+                writer=write_output,
+                piper=pipe_output,
+            )
             if pipe_rc != 0:
                 return pipe_rc
 

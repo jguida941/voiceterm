@@ -1,7 +1,7 @@
 # Memory + Action Studio Plan (Semantic Memory + Agent Overlay)
 
 Date: 2026-02-19
-Status: Queued product lane after Theme completion (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
+Status: Next primary product lane after Theme completion; active design/proof-path work is already underway for the operator-cockpit execution slice under `MP-233`, `MP-238`, and `MP-243` (execution mirrored in `dev/active/MASTER_PLAN.md` as MP-230..MP-255)
 Scope: Turn VoiceTerm memory from transcript snippets into a structured, AI-usable
 knowledge and action layer for Codex/Claude terminal workflows
 
@@ -63,8 +63,15 @@ structured memory substrate that is both human-auditable and machine-queryable.
 
 - Retrieval is deterministic but still basic; no intent planner, no semantic rerank, no graph boosts yet.
 - SQLite DDL contract exists, but runtime index remains in-memory vectors (no live SQLite read/write path).
-- Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) exist in types, but user-facing controls/persistence wiring are incomplete.
+- Live ingest now performs bounded deterministic metadata extraction for `MP-*`
+  refs, obvious repo file paths, and a small topic-tag allowlist, so runtime
+  `ByTopic` / `ByTask` retrieval is no longer blocked on empty metadata alone.
+  Richer semantic tags, symbols, contradiction metadata, and broader
+  query/export surfaces are still missing.
+- The Rust operator cockpit now exposes a dedicated read-only Memory tab with refresh-on-visible-tab wiring plus memory-ingest/review/boot-pack/handoff preview sections, but broader query/export views and dedicated browser navigation are still missing.
+- Memory modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) now restore from persistent config at startup, persist immediately from the dev-panel mode toggle path, and flow through runtime config snapshots, but broader trust/privacy controls and visible controls outside `--dev` remain incomplete.
 - Context-pack struct/output is present, but several required fields are still missing (`retrieval_plan`, `validation_report`, `source_mix`, contradiction metadata).
+- Review/control-plane interop is partially proven through the shared handoff prompt, but `context_pack_refs`, pack exports, and normalized packet-outcome ingestion are not wired yet.
 - Action policy logic exists, but action execution/audit is not yet integrated into overlay runtime flows.
 
 ### Missing for Product-Ready Persistent Memory
@@ -85,12 +92,13 @@ They fit inside existing MP scopes (no new MP IDs required).
 |---|---|---|
 | Memory receipts in overlay (`why this was injected`, `keep`, `forget`, `not now`) | Builds trust and gives users direct control over what persists. | `MP-233`, `MP-243`, `MP-247` |
 | Promotion pipeline (`event -> candidate -> validated card`) with explicit approval state | Keeps durable memory clean and reduces noisy auto-saves. | `MP-240` |
-| Adapter profiles for `codex`, `claude`, `gemini` with one canonical pack input | Prevents provider-specific drift while keeping deterministic provenance. | `MP-238`, `MP-242` |
+| Adapter profiles for `codex`, `claude`, `gemini` with one canonical pack input plus routed review/control-plane attachments | Prevents provider-specific drift while keeping deterministic provenance. | `MP-238`, `MP-242` |
 | Scope layers (`session`, `project`, optional `user`) with strict default to project scope | Improves reuse without leaking unrelated context across repos. | `MP-243` |
 | Negative memory controls (`never remember this`, topic/path denylist) | Makes privacy behavior obvious and lowers accidental retention risk. | `MP-243`, `MP-248` |
-| Retrieval usefulness telemetry (`accepted`, `ignored`, `wrong`) tied to evidence IDs | Lets ranking improve from real usage instead of offline scoring only. | `MP-237`, `MP-247` |
+| Retrieval usefulness telemetry (`accepted`, `ignored`, `wrong`) tied to evidence IDs and downstream review outcomes | Lets ranking improve from real usage instead of offline scoring only. | `MP-237`, `MP-247` |
 | Contradiction playbook (`auto-quarantine`, `show both`, `manual resolve`) | Avoids silently injecting conflicting memory claims. | `MP-240` |
 | Cold-start `repo_bootstrap_card` from docs + stable commands + guardrails | Makes first-run memory useful immediately, even before deep history exists. | `MP-232`, `MP-241` |
+| Review/control-plane interop (`context_pack_refs`, packet-to-memory ingest bridge, packet/task lookup) | Keeps review, memory, and operator surfaces on one auditable contract instead of parallel side channels. | `MP-238`, `MP-241`, `MP-243` |
 
 ### Execution Order Update (post-audit)
 
@@ -100,14 +108,97 @@ They fit inside existing MP scopes (no new MP IDs required).
 4. Land `MP-240` validated cards/units before widening retrieval influence on prompts.
 5. Add `MP-237` quality harness as a release blocker before enabling advanced compaction/automation tracks.
 
+### Immediate proving slice (2026-03-09)
+
+This is the master-aligned next execution slice for the current shipped code:
+
+1. Promote the existing operator-cockpit proof path by adding memory query/export views for `task_pack`, `session_handoff`, and the first `survival_index` preview on top of the shipped `boot_pack` snapshot.
+2. Finish `MP-243` runtime trust wiring by loading/saving memory mode through persistent config and surfacing clear capture/retrieval state beyond the current dev-only mode cycle.
+3. Finish the `MP-238` bridge by attaching packs through `context_pack_refs` and ingesting review/control packet outcomes as canonical memory events.
+4. Expand into the full Memory Browser / Action Center overlays only after the operator-cockpit proof can survive handoff, restart, and cross-agent review flows without hidden state.
+
+Progress note (2026-03-09):
+- The Rust Dev panel now includes a dedicated read-only Memory cockpit tab fed
+  by memory ingest state plus review/boot-pack/handoff preview data, with
+  refresh wired through the visible-tab path. This advances the operator
+  proof-path for `MP-233`, but `task_pack` / `session_handoff` /
+  `survival_index` export closure and `context_pack_refs` interop remain open.
+- The bounded `MP-243` persistence slice is now landed: startup restore uses
+  the persisted `memory_mode`, runtime config snapshots preserve/write that
+  mode explicitly, and the dev-panel `m` path saves the new mode immediately
+  so later snapshots reflect the configured state. Remaining `MP-243` closure
+  is now concentrated on trust/privacy UX beyond `--dev` (visible controls,
+  receipts, and negative-memory affordances).
+- Local proof-path revalidation is now green for the shipped Memory tab:
+  `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm -- --nocapture`
+  passes with the current cockpit slice, and the supporting Rust policy gates
+  (`check_rust_test_shape`, `check_rust_lint_debt`,
+  `check_rust_best_practices`, `check_structural_complexity`) also pass after
+  splitting the overloaded formatter test surface into focused modules.
+
 ### Maintainability Track (Python + Rust)
 
 - Add a `devctl memory` command group (`status`, `query`, `export-pack`, `validate`) so memory ops do not spread across unrelated scripts.
+- Keep `devctl memory` and `devctl review-channel` interop explicit:
+  review-channel posts should be able to attach memory packs by ref, and
+  memory queries should accept review packet/task refs instead of forcing raw
+  event-id discovery.
 - Keep Rust memory runtime focused on capture/index/retrieve; move report-heavy compile/export helpers to Python tooling where possible.
 - Keep one responsibility per module:
   - Rust runtime path: `ingest`, `retrieval`, `context_pack`, `governance`, `action_audit`
   - Python tooling path: audits, quality scoring, benchmark reports, release evidence aggregation
 - Prefer one shared scoring/config surface so retrieval weights are not duplicated across Rust and Python.
+
+### Operator Cockpit Proof Path (2026-03-08)
+
+Goal: prove that memory, review, control-plane, git/tooling artifacts, and
+safe action routing can work together incrementally inside the Rust operator
+surface instead of landing as disconnected subsystems.
+
+Principles:
+
+- use the shipped canonical memory event model and JSONL store now
+- treat the current in-memory index / SQLite contract as the proving substrate
+  rather than waiting for every later retrieval feature
+- expose memory read/query/export value in the operator cockpit before letting
+  memory steer writes or autonomous actions
+- route any memory-derived action suggestion through the same typed action
+  router and approval path as buttons and review packets
+
+Current shipped proof is intentionally narrower than the end-state:
+
+- live today: Control-tab memory status/mode visibility, a dedicated read-only
+  Memory tab backed by ingest/review/boot-pack/handoff previews, and
+  Boot-pack-backed Handoff prompt generation
+- not landed yet: operator-cockpit query/export views for `task_pack`,
+  `session_handoff`, and `survival_index`
+
+Piece-by-piece ladder:
+
+1. Memory visibility first
+   - show memory mode, event counts, last ingest/recovery status, and pack
+     availability inside `--dev`
+2. Read/query/export next
+   - surface `boot_pack`, `task_pack`, `session_handoff`, and
+     `survival_index` previews in the operator cockpit and handoff flows
+3. Cross-system linking
+   - ingest review/control/git/devctl outputs as canonical memory events and
+     attach memory packs by `context_pack_refs` from review/control packets
+4. Suggestion phase
+   - let memory help propose prompts, next slices, and candidate actions, but
+     keep execution gated by the shared policy engine
+5. Stronger persistence later
+   - promote live SQLite-backed query/index execution only after the first four
+     layers are stable and the current JSONL + index-contract path proves the
+     operator workflows end to end
+
+Required proving outputs:
+
+- operator-visible memory status page
+- handoff/resume bundle generation backed by canonical packs
+- review/control packet attachments that resolve back to memory evidence IDs
+- audit rows showing when memory influenced a suggestion vs when an action was
+  actually approved/executed
 
 ## Research Intake (2026-03-07): Nontraditional Memory Structures
 
@@ -756,6 +847,15 @@ All memory ingestion must normalize to one event schema:
 }
 ```
 
+Review/control-plane normalization rule:
+
+- `review_event` / `controller_state` artifacts must compile losslessly into
+  this envelope instead of defining competing near-duplicate headers.
+- Freeze explicit mappings for `event_id`, `session_id`, `project_id`,
+  `trace_id`, `source`, `event_type`, and `timestamp_utc -> ts`.
+- Keep routing fields such as `from_agent` / `to_agent` as additional metadata;
+  they do not replace the canonical envelope's `source`.
+
 ### Storage Layers
 
 1. Append log: `.voiceterm/memory/events.jsonl`  
@@ -918,8 +1018,27 @@ Always-on compiler outputs for agent workflows:
 1. `boot_pack`: tiny safe startup context (repo identity, core commands, operating rules)
 2. `task_pack(query)`: evidence-rich working set for the current request
 3. `handoff_pack`: what changed, what failed, what to do next with citations
+4. `survival_index`: continuously maintained compact recovery pack for new
+   sessions, compaction recovery, and cross-agent handoff (default compact
+   attachment only after `MS-G18` passes)
 
 These outputs are the default context contract for Codex/Claude adapters and MCP tools.
+
+Review/control-plane interop rules:
+
+- Review packets and controller artifacts may attach these outputs by ref
+  through `context_pack_refs`; they should not duplicate pack bodies inline.
+- Bridge-era markdown/JSON handoff bundles are transitional projections only;
+  `MP-238` does not count this path as closed until structured
+  `review_state` / `controller_state` artifacts emit and consume the same
+  pack references.
+- When memory capture is active, review outcomes (`packet_posted`,
+  `packet_acked`, `packet_dismissed`, `packet_applied`) must ingest as
+  normalized memory events so handoff/decision history survives compaction,
+  restart, and cross-agent relay.
+- Retrieval usefulness telemetry should incorporate explicit review outcomes
+  with reason-coded mappings instead of treating review resolution as invisible
+  to ranking.
 
 ## Overlay Surfaces (Memory + Actions)
 
@@ -1168,6 +1287,9 @@ Non-negotiable guardrails:
 - `assist`: capture + retrieval enabled (default)
 - `paused`: keep store immutable until resumed
 - `incognito`: ephemeral session; no durable writeback
+- Current implementation is a dev-panel runtime toggle only; closure requires
+  persisted config, startup restore, visible controls outside `--dev`, and
+  negative-control / receipt UX.
 
 ## Evaluation + Quality Metrics (Mandatory)
 
@@ -1398,6 +1520,7 @@ Integration requirement:
 - every `devctl` JSON output should map to canonical memory event types (`command_run`, `summary`, `decision`, `handoff`)
 - release-note artifacts must be stored as immutable artifact refs and linked to tasks/releases
 - change digests should emit both `*.json` (machine) and `*.md` (human) in `.voiceterm/memory/exports/`
+- temporary review/control-plane coordination must ingest cleanly too: today's `code_audit.md` bridge, and later `review_state` / `controller_state`, should compile into `session_handoff` and compaction-survival inputs so active blockers, decisions, and next action survive context compaction or agent handoff
 
 ### Git History Compilers (New Memory Outputs)
 
@@ -1630,8 +1753,11 @@ Iteration 1 acceptance:
 
 ### M6 Interop + Model Adapters
 
-- backend adapters for Codex/Claude context-pack injection formats
+- backend adapters for Codex/Claude context-pack injection formats, including
+  receiver-shaped review/control-plane handoff attachments
 - optional export/import for project memory snapshots
+- `devctl memory` / `devctl review-channel` interop for attach-by-ref and
+  packet/task lookup flows
 - read-only MCP remains default while action tools stay gated behind explicit safety evidence
 - staged action-tool MCP exposure after safety + isolation gates are green
 
@@ -1697,6 +1823,11 @@ Required adapter properties:
 - token-budget aware truncation
 - no hidden mutation of canonical evidence ordering without explicit policy
 - every tool response includes source IDs suitable for downstream citations
+- review/control-plane attachments pick the receiver adapter profile
+  (`canonical`, `codex`, `claude`, `gemini`) at projection time while the
+  canonical JSON pack remains the source of truth
+- `context_pack_refs` used by review/control-plane packets must resolve back to
+  canonical pack artifacts and evidence IDs without lossy rewriting
 
 ## Verification Bundle (per Memory PR)
 
@@ -1737,6 +1868,58 @@ python3 dev/scripts/checks/check_survival_index_recall.py  # Level 4-5 A/B recal
 17. What active-index GC thresholds keep retrieval quality high without dropping necessary minority signals?
 18. What symbolic dictionary scope should be default (`session`, `project`, or `task_pack` only)?
 19. Should symbolic compaction stay export-only first, or be allowed in live prompt injection once `MS-G17` is green?
+
+## Progress Log
+
+- 2026-03-09: Tightened the boot-pack proving substrate so summary fields stay
+  provenance-aligned under token pressure. `generate_boot_pack()` now derives
+  `active_tasks` and `recent_decisions` from the same budget-included evidence
+  slice it renders, so packs no longer mention trimmed-out tasks or decisions
+  that are absent from the actual evidence block.
+- 2026-03-09: Landed a bounded live-ingest metadata slice under the existing
+  retrieval/context-pack lane. `memory/ingest.rs` now auto-extracts normalized
+  `MP-*` task refs, obvious repo file-path entities, and a small deterministic
+  topic-tag set from transcript / PTY input / PTY output text before events hit
+  the index, so real runtime `ByTask` / `ByTopic` queries and `task_pack`
+  generation no longer depend on the manual low-level ingest path to populate
+  metadata.
+- 2026-03-09: Reconciled the Memory Studio spec with
+  `dev/active/MASTER_PLAN.md` and the adjacent MP-340 / MP-355 / MP-359 plan
+  docs so the memory lane now states the shipped proof path honestly. Current
+  live proof is limited to operator-cockpit memory mode/status visibility, the
+  read-only Memory tab fed by ingest/review/boot-pack/handoff previews, and
+  Boot-pack-backed handoff prompt generation; `task_pack`,
+  `session_handoff`, and `survival_index` query/export closure still remain
+  open along with persisted `memory_mode`, `context_pack_refs`, and packet-
+  outcome ingest.
+- 2026-03-09: Restored clean tracker ownership for the memory lane by fixing
+  the unrelated `MP-230` numbering collision in `MASTER_PLAN`; Memory Studio
+  now consistently owns `MP-230..MP-255` again across the index, tracker, and
+  spec surfaces.
+- 2026-03-09: Landed the bounded `MP-243` memory-mode persistence slice in the
+  runtime path: startup now restores the persisted mode instead of defaulting,
+  runtime config snapshots preserve/write `memory_mode`, and the dev-panel mode
+  toggle saves immediately so later snapshots reflect the configured state.
+  This closes the persistent-config/startup-restore sub-slice while leaving
+  broader trust/privacy UX outside `--dev` open.
+
+## Audit Evidence
+
+Scope note: this evidence block covers the plan-sync and tooling-doc checks for
+the 2026-03-09 memory-lane alignment slice. Broader repo-wide tooling/runtime
+failures remain tracked outside this spec.
+
+| Check | Evidence | Status |
+|---|---|---|
+| `python3 dev/scripts/checks/check_active_plan_sync.py` | `ok: True` after recording the 2026-03-09 Memory Studio progress/audit entries; registry/tracker/spec sync stayed clean (`active_markdown_files=19`, `registry_paths=19`). | done |
+| `python3 dev/scripts/checks/check_multi_agent_sync.py` | `ok: True` after the memory-lane plan-state update; required/master/coordination agent sets still match and no sync errors were reported. | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` after the memory-lane plan-state update; tooling-policy, active-plan sync, multi-agent sync, workflow-shell hygiene, and bundle/workflow parity all remained green. | done |
+| `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | `ok: True`; no orphaned/stale repo processes, cleanup target count `0`, and verify stayed green while one recent active Operator Console process was left running and reported as a warning instead of being killed. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory::context_pack:: -- --nocapture` | `14 passed`; verified the boot-pack budget-alignment fix so `active_tasks` / `recent_decisions` no longer leak trimmed-out retrieval results beyond the rendered evidence slice. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory:: -- --nocapture` | `109 passed`; verified the deterministic metadata extraction slice across ingest, retrieval, context-pack, governance/store/type regressions, plus the new task-pack proof from live-ingested `MP-*` refs. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm persistent_config::tests -- --nocapture` | `16 passed`; verified the persistent-config memory-mode path after the MP-243 startup/persistence slice landed. | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm memory_mode -- --nocapture` | `10 passed`; verified runtime memory-mode behavior and regression coverage after wiring persisted startup restore + immediate save. | done |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | passed after rerunning with host-process access when the initial guard-run follow-up hit sandboxed `ps`; final quick profile finished green. | done |
 
 ## Research References (2026-02-19)
 

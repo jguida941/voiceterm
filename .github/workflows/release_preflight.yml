@@ -174,23 +174,31 @@ jobs:
         run: |
           set -euo pipefail
           PREV_TAG="$(git describe --tags --abbrev=0)"
+          python3 dev/scripts/devctl.py docs-check --user-facing --strict --since-ref "${PREV_TAG}" --head-ref HEAD
+          python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref "${PREV_TAG}" --head-ref HEAD
+          python3 dev/scripts/devctl.py hygiene --strict-warnings
           python3 dev/scripts/devctl.py orchestrate-status --format md
           python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
-          python3 dev/scripts/devctl.py docs-check --strict-tooling --since-ref "${PREV_TAG}" --head-ref HEAD
-          python3 dev/scripts/devctl.py docs-check --user-facing --strict --since-ref "${PREV_TAG}" --head-ref HEAD
-          python3 dev/scripts/devctl.py hygiene --strict-warnings
           python3 dev/scripts/checks/check_agents_contract.py
+          python3 dev/scripts/checks/check_release_version_parity.py
+          python3 dev/scripts/checks/check_repo_url_parity.py
+          python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+          python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_bundle_registry_dry.py
+          python3 dev/scripts/checks/check_bundle_workflow_parity.py
+          python3 dev/scripts/checks/check_review_channel_bridge.py
+          python3 dev/scripts/checks/check_publication_sync.py
+          CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
+          CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
           python3 dev/scripts/checks/check_active_plan_sync.py
           python3 dev/scripts/checks/check_multi_agent_sync.py
-          python3 dev/scripts/checks/check_release_version_parity.py
           python3 dev/scripts/checks/check_cli_flags_parity.py
           python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
           python3 dev/scripts/checks/check_code_shape.py
+          python3 dev/scripts/checks/check_python_broad_except.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_python_subprocess_policy.py
           python3 dev/scripts/checks/check_workflow_shell_hygiene.py
           python3 dev/scripts/checks/check_workflow_action_pinning.py
-          python3 dev/scripts/checks/check_bundle_workflow_parity.py
-          CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
-          CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
           python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
           python3 dev/scripts/checks/check_compat_matrix.py
           python3 dev/scripts/checks/compat_matrix_smoke.py
@@ -221,3 +229,7 @@ jobs:
           python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --notes --dry-run --format md
           python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --pypi --verify-pypi --dry-run --format md
           python3 dev/scripts/devctl.py ship --version "${RELEASE_VERSION}" --homebrew --dry-run --format md
+
+      - name: Run host process cleanup verify
+        if: ${{ always() }}
+        run: python3 dev/scripts/devctl.py process-cleanup --verify --format md

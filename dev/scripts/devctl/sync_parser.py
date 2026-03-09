@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from .common import add_standard_output_arguments
+
 
 def add_sync_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register sync parser and arguments."""
@@ -33,7 +35,4 @@ def add_sync_parser(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Push local-ahead branches after fast-forward pull",
     )
-    sync_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    sync_cmd.add_argument("--output")
-    sync_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    sync_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+    add_standard_output_arguments(sync_cmd)

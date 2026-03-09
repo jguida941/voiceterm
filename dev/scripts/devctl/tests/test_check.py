@@ -65,7 +65,33 @@ def make_args(profile: str) -> SimpleNamespace:
         cargo_home=None,
         cargo_target_dir=None,
         no_process_sweep_cleanup=True,
+        no_host_process_cleanup=False,
     )
+
+
+def make_success_run_cmd_recorder(calls: list[dict[str, object]]):
+    """Return a `run_cmd` side effect that records successful invocations."""
+
+    def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+        calls.append(
+            {
+                "name": name,
+                "cmd": cmd,
+                "cwd": cwd,
+                "env": env,
+                "dry_run": dry_run,
+            }
+        )
+        return {
+            "name": name,
+            "cmd": cmd,
+            "cwd": str(cwd),
+            "returncode": 0,
+            "duration_s": 0.0,
+            "skipped": False,
+        }
+
+    return fake_run_cmd
 
 
 class CheckProfileTests(TestCase):
@@ -73,6 +99,11 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--profile", "maintainer-lint"])
         self.assertEqual(args.profile, "maintainer-lint")
+
+    def test_cli_accepts_pedantic_profile(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--profile", "pedantic"])
+        self.assertEqual(args.profile, "pedantic")
 
     def test_cli_accepts_ai_guard_profile(self) -> None:
         parser = build_parser()
@@ -119,6 +150,11 @@ class CheckProfileTests(TestCase):
         parser = build_parser()
         args = parser.parse_args(["check", "--no-process-sweep-cleanup"])
         self.assertTrue(args.no_process_sweep_cleanup)
+
+    def test_cli_accepts_no_host_process_cleanup_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["check", "--no-host-process-cleanup"])
+        self.assertTrue(args.no_host_process_cleanup)
 
     def test_cli_accepts_parallel_flags(self) -> None:
         parser = build_parser()
@@ -186,18 +222,7 @@ class CheckProfileTests(TestCase):
         mock_build_env.return_value = {}
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
 
         rc = check.run(make_args("maintainer-lint"))
         self.assertEqual(rc, 0)
@@ -221,6 +246,35 @@ class CheckProfileTests(TestCase):
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_pedantic_profile_uses_opt_in_pedantic_clippy_only(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+
+        rc = check.run(make_args("pedantic"))
+        self.assertEqual(rc, 0)
+
+        names = [call["name"] for call in calls]
+        self.assertIn("fmt-check", names)
+        self.assertIn("clippy", names)
+        self.assertNotIn("test", names)
+        self.assertNotIn("build-release", names)
+
+        clippy_cmd = next(call["cmd"] for call in calls if call["name"] == "clippy")
+        self.assertEqual(clippy_cmd[0:2], ["python3", "dev/scripts/collect_clippy_warnings.py"])
+        self.assertIn("--output-json", clippy_cmd)
+        self.assertIn("--output-lints-json", clippy_cmd)
+        self.assertIn("--extra-clippy-arg", clippy_cmd)
+        self.assertIn("clippy::pedantic", clippy_cmd)
+        self.assertNotIn("clippy::redundant_clone", clippy_cmd)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
     def test_with_wake_guard_adds_gate_step(
         self,
         mock_build_env,
@@ -229,18 +283,7 @@ class CheckProfileTests(TestCase):
         mock_build_env.return_value = {}
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("")
         args.with_wake_guard = True
         args.wake_soak_rounds = 7
@@ -277,18 +320,7 @@ class CheckProfileTests(TestCase):
         ]
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("release")
         args.skip_tests = True
         args.skip_build = True
@@ -305,6 +337,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("coderabbit-release-gate", names)
         self.assertIn("coderabbit-ralph-release-gate", names)
         self.assertIn("code-shape-guard", names)
+        self.assertIn("python-broad-except-guard", names)
+        self.assertIn("python-subprocess-policy-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -392,18 +426,7 @@ class CheckProfileTests(TestCase):
         ]
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("release")
         args.skip_fmt = True
         args.skip_clippy = True
@@ -433,18 +456,7 @@ class CheckProfileTests(TestCase):
         mock_build_env.return_value = {}
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("prepush")
         args.skip_tests = True
         args.skip_build = True
@@ -456,6 +468,8 @@ class CheckProfileTests(TestCase):
 
         names = [call["name"] for call in calls]
         self.assertIn("code-shape-guard", names)
+        self.assertIn("python-broad-except-guard", names)
+        self.assertIn("python-subprocess-policy-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -479,18 +493,7 @@ class CheckProfileTests(TestCase):
         mock_build_env.return_value = {}
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd, "cwd": cwd, "env": env})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("ci")
         args.skip_tests = True
         args.skip_fmt = True
@@ -501,6 +504,8 @@ class CheckProfileTests(TestCase):
 
         names = [call["name"] for call in calls]
         self.assertIn("code-shape-guard", names)
+        self.assertIn("python-broad-except-guard", names)
+        self.assertIn("python-subprocess-policy-guard", names)
         self.assertIn("duplicate-types-guard", names)
         self.assertIn("structural-complexity-guard", names)
         self.assertIn("rust-test-shape-guard", names)
@@ -579,18 +584,7 @@ class CheckProfileTests(TestCase):
         mock_build_env.return_value = {}
         calls = []
 
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
-            calls.append({"name": name, "cmd": cmd})
-            return {
-                "name": name,
-                "cmd": cmd,
-                "cwd": str(cwd),
-                "returncode": 0,
-                "duration_s": 0.0,
-                "skipped": False,
-            }
-
-        mock_run_cmd.side_effect = fake_run_cmd
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
         args = make_args("ai-guard")
         args.skip_fmt = True
         args.skip_clippy = True
@@ -604,6 +598,16 @@ class CheckProfileTests(TestCase):
 
         code_shape_cmd = next(
             call["cmd"] for call in calls if call["name"] == "code-shape-guard"
+        )
+        python_broad_except_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "python-broad-except-guard"
+        )
+        python_subprocess_policy_cmd = next(
+            call["cmd"]
+            for call in calls
+            if call["name"] == "python-subprocess-policy-guard"
         )
         duplicate_types_cmd = next(
             call["cmd"] for call in calls if call["name"] == "duplicate-types-guard"
@@ -652,6 +656,10 @@ class CheckProfileTests(TestCase):
 
         self.assertIn("--since-ref", code_shape_cmd)
         self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn("--since-ref", python_broad_except_cmd)
+        self.assertIn("--head-ref", python_broad_except_cmd)
+        self.assertIn("--since-ref", python_subprocess_policy_cmd)
+        self.assertIn("--head-ref", python_subprocess_policy_cmd)
         self.assertIn("--since-ref", duplicate_types_cmd)
         self.assertIn("--head-ref", duplicate_types_cmd)
         self.assertIn("--since-ref", structural_complexity_cmd)
@@ -802,7 +810,7 @@ class CheckProcessSweepTests(TestCase):
         self.assertIsNone(check._parse_etime_seconds("bad"))
 
     @patch("dev.scripts.devctl.commands.check.kill_processes")
-    @patch("dev.scripts.devctl.commands.check.scan_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.scan_repo_hygiene_process_tree")
     def test_cleanup_kills_orphaned_and_stale_voiceterm_test_binaries(
         self,
         scan_mock,
@@ -840,7 +848,7 @@ class CheckProcessSweepTests(TestCase):
         self.assertEqual(result["returncode"], 0)
 
     @patch("dev.scripts.devctl.commands.check.kill_processes")
-    @patch("dev.scripts.devctl.commands.check.scan_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.scan_repo_hygiene_process_tree")
     def test_cleanup_reports_warning_when_ps_unavailable(
         self, scan_mock, kill_mock
     ) -> None:
@@ -858,6 +866,169 @@ class CheckProcessSweepTests(TestCase):
         self.assertEqual(result["detected_stale_active"], 0)
         self.assertTrue(result["warnings"])
         self.assertEqual(result["returncode"], 0)
+
+    @patch("dev.scripts.devctl.commands.check.build_process_cleanup_report")
+    def test_quick_profile_runs_host_process_cleanup_by_default(
+        self,
+        cleanup_report_mock,
+    ) -> None:
+        cleanup_report_mock.return_value = {
+            "dry_run": False,
+            "warnings": [],
+            "errors": [],
+            "killed_pids": [],
+            "orphaned_count_pre": 0,
+            "stale_active_count_pre": 0,
+            "verify_ok": True,
+            "ok": True,
+        }
+        result = check._cleanup_host_processes(
+            "host-process-cleanup-post",
+            dry_run=False,
+        )
+
+        cleanup_report_mock.assert_called_once_with(dry_run=False, verify=True)
+        self.assertEqual(result["returncode"], 0)
+        self.assertTrue(result["verify_ok"])
+
+    @patch("dev.scripts.devctl.commands.check.build_report_and_emit", return_value=0)
+    @patch("dev.scripts.devctl.commands.check.run_specialized_phases")
+    @patch("dev.scripts.devctl.commands.check.run_test_build_phase")
+    @patch("dev.scripts.devctl.commands.check.run_setup_phase")
+    @patch("dev.scripts.devctl.commands.check._cleanup_host_processes")
+    @patch("dev.scripts.devctl.commands.check._cleanup_orphaned_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.build_env", return_value={})
+    def test_quick_profile_appends_host_process_cleanup_step(
+        self,
+        _build_env_mock,
+        sweep_mock,
+        host_cleanup_mock,
+        _run_setup_mock,
+        _run_test_build_mock,
+        _run_specialized_mock,
+        report_mock,
+    ) -> None:
+        sweep_mock.side_effect = [
+            {"name": "process-sweep-pre", "returncode": 0},
+            {"name": "process-sweep-post", "returncode": 0},
+        ]
+        host_cleanup_mock.return_value = {
+            "name": "host-process-cleanup-post",
+            "returncode": 0,
+        }
+
+        captured_steps: list[dict] = []
+
+        def fake_build_report(ctx):
+            captured_steps.extend(ctx.steps)
+            return 0
+
+        report_mock.side_effect = fake_build_report
+        args = make_args("quick")
+        args.no_process_sweep_cleanup = False
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        host_cleanup_mock.assert_called_once_with(
+            step_name="host-process-cleanup-post",
+            dry_run=False,
+        )
+        self.assertEqual(
+            [step["name"] for step in captured_steps],
+            [
+                "process-sweep-pre",
+                "process-sweep-post",
+                "host-process-cleanup-post",
+            ],
+        )
+
+    @patch("dev.scripts.devctl.commands.check.build_report_and_emit", return_value=0)
+    @patch("dev.scripts.devctl.commands.check.run_specialized_phases")
+    @patch("dev.scripts.devctl.commands.check.run_test_build_phase")
+    @patch("dev.scripts.devctl.commands.check.run_setup_phase")
+    @patch("dev.scripts.devctl.commands.check._cleanup_host_processes")
+    @patch("dev.scripts.devctl.commands.check._cleanup_orphaned_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.build_env", return_value={})
+    def test_fast_profile_appends_host_process_cleanup_step(
+        self,
+        _build_env_mock,
+        sweep_mock,
+        host_cleanup_mock,
+        _run_setup_mock,
+        _run_test_build_mock,
+        _run_specialized_mock,
+        report_mock,
+    ) -> None:
+        sweep_mock.side_effect = [
+            {"name": "process-sweep-pre", "returncode": 0},
+            {"name": "process-sweep-post", "returncode": 0},
+        ]
+        host_cleanup_mock.return_value = {
+            "name": "host-process-cleanup-post",
+            "returncode": 0,
+        }
+
+        captured_steps: list[dict] = []
+
+        def fake_build_report(ctx):
+            captured_steps.extend(ctx.steps)
+            return 0
+
+        report_mock.side_effect = fake_build_report
+        args = make_args("fast")
+        args.no_process_sweep_cleanup = False
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        host_cleanup_mock.assert_called_once_with(
+            step_name="host-process-cleanup-post",
+            dry_run=False,
+        )
+        self.assertEqual(captured_steps[-1]["name"], "host-process-cleanup-post")
+
+    @patch("dev.scripts.devctl.commands.check.build_report_and_emit", return_value=0)
+    @patch("dev.scripts.devctl.commands.check.run_specialized_phases")
+    @patch("dev.scripts.devctl.commands.check.run_test_build_phase")
+    @patch("dev.scripts.devctl.commands.check.run_setup_phase")
+    @patch("dev.scripts.devctl.commands.check._cleanup_host_processes")
+    @patch("dev.scripts.devctl.commands.check._cleanup_orphaned_voiceterm_test_binaries")
+    @patch("dev.scripts.devctl.commands.check.build_env", return_value={})
+    def test_quick_profile_respects_no_host_process_cleanup_flag(
+        self,
+        _build_env_mock,
+        sweep_mock,
+        host_cleanup_mock,
+        _run_setup_mock,
+        _run_test_build_mock,
+        _run_specialized_mock,
+        report_mock,
+    ) -> None:
+        sweep_mock.side_effect = [
+            {"name": "process-sweep-pre", "returncode": 0},
+            {"name": "process-sweep-post", "returncode": 0},
+        ]
+
+        captured_steps: list[dict] = []
+
+        def fake_build_report(ctx):
+            captured_steps.extend(ctx.steps)
+            return 0
+
+        report_mock.side_effect = fake_build_report
+        args = make_args("quick")
+        args.no_process_sweep_cleanup = False
+        args.no_host_process_cleanup = True
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 0)
+        host_cleanup_mock.assert_not_called()
+        self.assertEqual(
+            [step["name"] for step in captured_steps],
+            ["process-sweep-pre", "process-sweep-post"],
+        )
 
 
 class CheckParallelHelperTests(TestCase):

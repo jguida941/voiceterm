@@ -2,7 +2,7 @@
 
 import json
 
-from ..common import write_output
+from ..common import emit_output, write_output
 from ..time_utils import utc_timestamp
 
 COMMANDS = [
@@ -12,6 +12,8 @@ COMMANDS = [
     "mutation-score",
     "docs-check",
     "hygiene",
+    "publication-sync",
+    "review-channel",
     "sync",
     "integrations-sync",
     "integrations-import",
@@ -25,6 +27,10 @@ COMMANDS = [
     "orchestrate-status",
     "orchestrate-watch",
     "report",
+    "process-cleanup",
+    "process-audit",
+    "process-watch",
+    "guard-run",
     "compat-matrix",
     "mcp",
     "data-science",
@@ -36,6 +42,7 @@ COMMANDS = [
     "swarm_run",
     "autonomy-report",
     "phone-status",
+    "mobile-status",
     "controller-action",
     "autonomy-swarm",
     "mutation-loop",
@@ -49,7 +56,16 @@ COMMANDS = [
     "list",
 ]
 
-PROFILES = ["ci", "prepush", "release", "maintainer-lint", "quick", "fast", "ai-guard"]
+PROFILES = [
+    "ci",
+    "prepush",
+    "release",
+    "maintainer-lint",
+    "pedantic",
+    "quick",
+    "fast",
+    "ai-guard",
+]
 
 
 def run(args) -> int:
@@ -71,5 +87,11 @@ def run(args) -> int:
         for name in PROFILES:
             lines.append(f"- {name}")
         output = "\n".join(lines)
-    write_output(output, args.output)
+    emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+    )
     return 0

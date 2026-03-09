@@ -102,6 +102,44 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "runtime")
         addon_ids = {item["id"] for item in payload["risk_addons"]}
         self.assertIn("overlay-hud-controls", addon_ids)
+        overlay_addon = next(
+            item for item in payload["risk_addons"] if item["id"] == "overlay-hud-controls"
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
+            overlay_addon["commands"],
+        )
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_pty_session_changes_detect_unsafe_lifecycle_addon(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "rust/src/pty_session/pty.rs"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py check --profile ci"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        addon_ids = {item["id"] for item in payload["risk_addons"]}
+        self.assertIn("unsafe-ffi-lifecycle", addon_ids)
+        unsafe_addon = next(
+            item for item in payload["risk_addons"] if item["id"] == "unsafe-ffi-lifecycle"
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
+            unsafe_addon["commands"],
+        )
 
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
@@ -154,6 +192,30 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "tooling")
         reason_text = " ".join(payload["reasons"])
         self.assertIn("Unknown paths detected", reason_text)
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_active_plan_markdown_routes_to_tooling_lane(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/active/review_channel.md"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["lane"], "tooling")
+        self.assertEqual(payload["bundle"], "bundle.tooling")
 
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
@@ -227,3 +289,57 @@ class CheckRouterTests(unittest.TestCase):
             self.assertGreater(
                 len(commands), 0, msg=f"bundle `{bundle_name}` returned no commands"
             )
+
+    def test_bundle_contract_keeps_host_cleanup_in_non_docs_lanes(self) -> None:
+        cleanup_command = "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
+
+        runtime_commands, runtime_error = check_router._extract_bundle_commands(
+            "bundle.runtime"
+        )
+        tooling_commands, tooling_error = check_router._extract_bundle_commands(
+            "bundle.tooling"
+        )
+        release_commands, release_error = check_router._extract_bundle_commands(
+            "bundle.release"
+        )
+        docs_commands, docs_error = check_router._extract_bundle_commands("bundle.docs")
+
+        self.assertIsNone(runtime_error)
+        self.assertIsNone(tooling_error)
+        self.assertIsNone(release_error)
+        self.assertIsNone(docs_error)
+        self.assertIn(cleanup_command, runtime_commands)
+        self.assertIn(cleanup_command, tooling_commands)
+        self.assertIn(cleanup_command, release_commands)
+        self.assertNotIn(cleanup_command, docs_commands)
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_latency_changes_detect_direct_host_cleanup_addon(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "rust/src/audio/latency_tracker.rs"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py check --profile ci"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        addon_ids = {item["id"] for item in payload["risk_addons"]}
+        self.assertIn("performance-latency", addon_ids)
+        latency_addon = next(
+            item for item in payload["risk_addons"] if item["id"] == "performance-latency"
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py process-cleanup --verify --format md",
+            latency_addon["commands"],
+        )

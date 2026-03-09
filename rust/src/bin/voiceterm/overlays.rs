@@ -6,8 +6,10 @@ use crossbeam_channel::Sender;
 use voiceterm::devtools::DevModeSnapshot;
 
 use crate::config::OverlayConfig;
-use crate::dev_command::DevPanelCommandState;
-use crate::dev_panel::{dev_panel_height, format_dev_panel};
+use crate::dev_command::{DevPanelState, DevPanelTab};
+use crate::dev_panel::{
+    dev_panel_height, format_cockpit_page, format_dev_panel, format_review_surface,
+};
 use crate::help::{format_help_overlay, help_overlay_height};
 use crate::settings::{
     format_settings_overlay, settings_overlay_height, SettingsMenuState, SettingsView,
@@ -80,7 +82,7 @@ pub(crate) fn show_dev_panel_overlay(
     snapshot: Option<DevModeSnapshot>,
     dev_log_enabled: bool,
     dev_path: Option<&Path>,
-    commands: &DevPanelCommandState,
+    commands: &DevPanelState,
     cols: u16,
 ) {
     let content = format_dev_panel(
@@ -91,6 +93,29 @@ pub(crate) fn show_dev_panel_overlay(
         commands,
         cols as usize,
     );
+    let height = dev_panel_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_review_surface_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    theme: Theme,
+    commands: &DevPanelState,
+    cols: u16,
+) {
+    let content = format_review_surface(theme, commands, cols as usize);
+    let height = dev_panel_height();
+    let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
+}
+
+pub(crate) fn show_cockpit_page_overlay(
+    writer_tx: &Sender<WriterMessage>,
+    theme: Theme,
+    commands: &DevPanelState,
+    page: DevPanelTab,
+    cols: u16,
+) {
+    let content = format_cockpit_page(theme, commands, page, cols as usize);
     let height = dev_panel_height();
     let _ = try_send_message(writer_tx, WriterMessage::ShowOverlay { content, height });
 }
@@ -254,7 +279,7 @@ mod tests {
     #[test]
     fn show_dev_panel_overlay_sends_overlay() {
         let (writer_tx, writer_rx) = bounded(4);
-        let command_state = DevPanelCommandState::default();
+        let command_state = DevPanelState::default();
         show_dev_panel_overlay(
             &writer_tx,
             Theme::Coral,
@@ -268,7 +293,7 @@ mod tests {
         match message {
             Ok(WriterMessage::ShowOverlay { content, height }) => {
                 assert_eq!(height, dev_panel_height());
-                assert!(content.contains("Dev Tools"));
+                assert!(content.contains("Actions"));
             }
             Ok(other) => panic!("unexpected writer message: {other:?}"),
             Err(err) => panic!("missing overlay message: {err}"),

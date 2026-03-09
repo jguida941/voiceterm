@@ -97,7 +97,7 @@ pub(crate) fn with_terminal_color_env_overrides<T>(
 
 #[cfg(test)]
 pub(crate) fn default_overlay_config() -> crate::config::OverlayConfig {
-    use crate::config::{OverlayConfig, VoiceSendMode};
+    use crate::config::{CaptureOnceFormat, OverlayConfig, VoiceSendMode};
     use clap::Parser;
     use voiceterm::config::AppConfig;
 
@@ -109,6 +109,8 @@ pub(crate) fn default_overlay_config() -> crate::config::OverlayConfig {
         auto_voice: false,
         auto_voice_idle_ms: 1200,
         transcript_idle_ms: 250,
+        capture_once: false,
+        capture_once_format: CaptureOnceFormat::Text,
         voice_send_mode: VoiceSendMode::Auto,
         wake_word: false,
         wake_word_sensitivity: 0.55,

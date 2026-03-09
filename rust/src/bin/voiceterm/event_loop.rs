@@ -30,7 +30,8 @@ use crate::help::{
 };
 use crate::input::InputEvent;
 use crate::overlays::{
-    show_dev_panel_overlay, show_help_overlay, show_settings_overlay, show_theme_picker_overlay,
+    show_cockpit_page_overlay, show_dev_panel_overlay, show_help_overlay,
+    show_review_surface_overlay, show_settings_overlay, show_theme_picker_overlay,
     show_theme_studio_overlay, show_toast_history_overlay, show_transcript_history_overlay,
     OverlayMode,
 };
@@ -69,8 +70,10 @@ use crate::voice_control::{
 };
 use crate::writer::{set_status, WriterMessage};
 use dev_panel_commands::{
-    cancel_running_dev_panel_command, move_dev_panel_selection, poll_dev_command_updates,
-    request_selected_dev_panel_command, select_dev_panel_command_by_index,
+    cancel_running_dev_panel_command, copy_handoff_prompt_to_clipboard,
+    cycle_dev_panel_execution_profile, cycle_memory_mode, load_review, move_dev_panel_selection,
+    poll_dev_command_updates, poll_review, prev_dev_panel_tab, refresh_active_dev_panel_tab,
+    request_selected_dev_panel_command, select_dev_panel_command_by_index, toggle_dev_panel_tab,
 };
 use input_dispatch::{handle_input_event, handle_wake_word_detection};
 use output_dispatch::handle_output_chunk;

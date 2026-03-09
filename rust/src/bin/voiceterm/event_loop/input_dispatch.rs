@@ -78,14 +78,9 @@ pub(super) fn handle_input_event(
                 }
                 if let Some(keys) = parse_arrow_keys_only(&bytes) {
                     let preserve_caret = should_preserve_terminal_caret_navigation(state);
-                    let hud_focus_active = state.status_state.hud_button_focus.is_some();
                     let mut moved = false;
                     for key in keys {
-                        let direction = hud_navigation_direction_from_arrow(
-                            key,
-                            preserve_caret,
-                            hud_focus_active,
-                        );
+                        let direction = hud_navigation_direction_from_arrow(key, preserve_caret);
                         if direction != 0
                             && advance_hud_button_focus(
                                 &mut state.status_state,
@@ -435,15 +430,12 @@ fn should_send_staged_text_hotkey(state: &EventLoopState) -> bool {
     state.config.voice_send_mode == VoiceSendMode::Insert && state.status_state.insert_pending_send
 }
 
-fn hud_navigation_direction_from_arrow(
-    key: ArrowKey,
-    preserve_terminal_caret: bool,
-    hud_focus_active: bool,
-) -> i32 {
+fn hud_navigation_direction_from_arrow(key: ArrowKey, preserve_terminal_caret: bool) -> i32 {
+    // Only Left/Right navigate horizontal HUD buttons. Up/Down always pass
+    // through to the wrapped terminal so Claude/Cursor keeps input ownership.
+    // Vertical overlays (Settings, Review, etc.) handle their own Up/Down
+    // through the separate overlay input handler.
     match key {
-        // Keep up/down available for backend prompt menus unless HUD focus is active.
-        ArrowKey::Up if hud_focus_active => -1,
-        ArrowKey::Down if hud_focus_active => 1,
         ArrowKey::Left if !preserve_terminal_caret => -1,
         ArrowKey::Right if !preserve_terminal_caret => 1,
         _ => 0,
@@ -594,22 +586,23 @@ mod tests {
     }
 
     #[rstest]
-    #[case(ArrowKey::Left, false, false, -1)]
-    #[case(ArrowKey::Right, false, false, 1)]
-    #[case(ArrowKey::Left, true, false, 0)]
-    #[case(ArrowKey::Right, true, false, 0)]
-    #[case(ArrowKey::Up, false, true, -1)]
-    #[case(ArrowKey::Down, false, true, 1)]
-    #[case(ArrowKey::Up, false, false, 0)]
-    #[case(ArrowKey::Down, false, false, 0)]
+    #[case(ArrowKey::Left, false, -1)]
+    #[case(ArrowKey::Right, false, 1)]
+    #[case(ArrowKey::Left, true, 0)]
+    #[case(ArrowKey::Right, true, 0)]
+    // Up/Down always pass through to the terminal (direction 0), regardless of
+    // HUD focus state, so Claude/Cursor keeps vertical input ownership.
+    #[case(ArrowKey::Up, false, 0)]
+    #[case(ArrowKey::Down, false, 0)]
+    #[case(ArrowKey::Up, true, 0)]
+    #[case(ArrowKey::Down, true, 0)]
     fn hud_navigation_direction_from_arrow_matches_input_ownership_contract(
         #[case] key: ArrowKey,
         #[case] preserve_terminal_caret: bool,
-        #[case] hud_focus_active: bool,
         #[case] expected_direction: i32,
     ) {
         assert_eq!(
-            hud_navigation_direction_from_arrow(key, preserve_terminal_caret, hud_focus_active),
+            hud_navigation_direction_from_arrow(key, preserve_terminal_caret),
             expected_direction
         );
     }
@@ -629,12 +622,12 @@ mod tests {
             should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, true);
         assert!(preserve, "host={host}, provider={provider}");
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
             0,
             "host={host}, provider={provider}"
         );
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
             0,
             "host={host}, provider={provider}"
         );
@@ -655,12 +648,12 @@ mod tests {
             should_preserve_terminal_caret_navigation_for_input(VoiceSendMode::Insert, false);
         assert!(!preserve, "host={host}, provider={provider}");
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Left, preserve),
             -1,
             "host={host}, provider={provider}"
         );
         assert_eq!(
-            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve, false),
+            hud_navigation_direction_from_arrow(ArrowKey::Right, preserve),
             1,
             "host={host}, provider={provider}"
         );

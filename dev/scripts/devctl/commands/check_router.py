@@ -6,7 +6,7 @@ import json
 
 from ..bundle_registry import BUNDLE_AUTHORITY_PATH, get_bundle_commands
 from ..collect import collect_git_status
-from ..common import pipe_output, run_cmd, write_output
+from ..common import emit_output, pipe_output, run_cmd, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from .check_router_render import render_markdown
@@ -59,11 +59,16 @@ def run(args) -> int:
             if args.format == "json"
             else _render_md(report)
         )
-        write_output(output, args.output)
-        if args.pipe_command:
-            pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-            if pipe_rc != 0:
-                return pipe_rc
+        pipe_rc = emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
+            writer=write_output,
+            piper=pipe_output,
+        )
+        if pipe_rc != 0:
+            return pipe_rc
         return 1
 
     changed_paths = sorted({row["path"] for row in git_info.get("changes", [])})
@@ -127,9 +132,14 @@ def run(args) -> int:
         output = json.dumps(report, indent=2)
     else:
         output = _render_md(report)
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if ok else 1

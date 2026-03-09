@@ -267,6 +267,30 @@ fn parse_latency_display_mode(value: &str) -> Option<crate::config::LatencyDispl
     }
 }
 
+fn parse_memory_mode(value: &str) -> Option<crate::memory::MemoryMode> {
+    let normalized = value.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    crate::memory::MemoryMode::from_str(&normalized)
+}
+
+fn persisted_memory_mode_value() -> Option<String> {
+    load_user_config()
+        .memory_mode
+        .as_deref()
+        .and_then(parse_memory_mode)
+        .map(|mode| mode.as_str().to_string())
+}
+
+pub(crate) fn resolved_memory_mode(user_config: &UserConfig) -> crate::memory::MemoryMode {
+    user_config
+        .memory_mode
+        .as_deref()
+        .and_then(parse_memory_mode)
+        .unwrap_or_default()
+}
+
 /// Save user config to `~/.config/voiceterm/config.toml`.
 pub(crate) fn save_user_config(config: &UserConfig) {
     let Some(path) = config_file_path() else {
@@ -391,6 +415,17 @@ pub(crate) fn snapshot_from_runtime(
     status_state: &crate::status_line::StatusLineState,
     theme: crate::theme::Theme,
 ) -> UserConfig {
+    snapshot_from_runtime_with_memory_mode(config, status_state, theme, None)
+}
+
+/// Snapshot the current runtime state into a `UserConfig` for persistence,
+/// optionally forcing a specific memory mode writeback.
+pub(crate) fn snapshot_from_runtime_with_memory_mode(
+    config: &crate::config::OverlayConfig,
+    status_state: &crate::status_line::StatusLineState,
+    theme: crate::theme::Theme,
+    memory_mode: Option<crate::memory::MemoryMode>,
+) -> UserConfig {
     UserConfig {
         theme: Some(theme.to_string().to_ascii_lowercase()),
         hud_style: Some(status_state.hud_style.to_string().to_ascii_lowercase()),
@@ -421,7 +456,9 @@ pub(crate) fn snapshot_from_runtime(
                 .to_ascii_lowercase(),
         ),
         macros_enabled: Some(status_state.macros_enabled),
-        memory_mode: None, // Persisted separately when memory mode changes.
+        memory_mode: memory_mode
+            .map(|mode| mode.as_str().to_string())
+            .or_else(persisted_memory_mode_value),
     }
 }
 
@@ -535,6 +572,7 @@ wake_word_sensitivity = 0.70
 wake_word_cooldown_ms = 3000
 latency_display = "off"
 macros_enabled = true
+memory_mode = "paused"
 "#;
         let config = parse_user_config(content);
         assert_eq!(config.theme.as_deref(), Some("coral"));
@@ -551,6 +589,7 @@ macros_enabled = true
         assert_eq!(config.wake_word_cooldown_ms, Some(3000));
         assert_eq!(config.latency_display.as_deref(), Some("off"));
         assert_eq!(config.macros_enabled, Some(true));
+        assert_eq!(config.memory_mode.as_deref(), Some("paused"));
     }
 
     #[test]
@@ -595,6 +634,7 @@ macros_enabled = true
         assert_eq!(config.wake_word, reparsed.wake_word);
         assert_eq!(config.latency_display, reparsed.latency_display);
         assert_eq!(config.macros_enabled, reparsed.macros_enabled);
+        assert_eq!(config.memory_mode, reparsed.memory_mode);
     }
 
     #[test]
@@ -682,6 +722,7 @@ macros_enabled = true
         assert!(config.sensitivity_db.is_none());
         assert!(config.wake_word.is_none());
         assert!(config.macros_enabled.is_none());
+        assert!(config.memory_mode.is_none());
     }
 
     #[test]
@@ -740,5 +781,84 @@ macros_enabled = true
         };
         apply_user_config_to_status_state(&cfg, &mut status);
         assert!(status.macros_enabled);
+    }
+
+    #[test]
+    fn resolved_memory_mode_defaults_for_missing_and_invalid_values() {
+        assert_eq!(
+            resolved_memory_mode(&UserConfig::default()),
+            crate::memory::MemoryMode::Assist
+        );
+        assert_eq!(
+            resolved_memory_mode(&UserConfig {
+                memory_mode: Some("invalid".to_string()),
+                ..Default::default()
+            }),
+            crate::memory::MemoryMode::Assist
+        );
+        assert_eq!(
+            resolved_memory_mode(&UserConfig {
+                memory_mode: Some(" paused ".to_string()),
+                ..Default::default()
+            }),
+            crate::memory::MemoryMode::Paused
+        );
+    }
+
+    #[test]
+    fn snapshot_from_runtime_preserves_saved_memory_mode() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let _guard = env_lock();
+        let millis = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let dir = env::temp_dir().join(format!("voiceterm_memory_snapshot_test_{millis}"));
+        env::set_var(CONFIG_DIR_ENV, &dir);
+
+        save_user_config(&UserConfig {
+            memory_mode: Some("paused".to_string()),
+            ..Default::default()
+        });
+
+        let snapshot = snapshot_from_runtime(
+            &crate::config::OverlayConfig::parse_from(["voiceterm"]),
+            &crate::status_line::StatusLineState::new(),
+            crate::theme::Theme::Coral,
+        );
+        assert_eq!(snapshot.memory_mode.as_deref(), Some("paused"));
+
+        env::remove_var(CONFIG_DIR_ENV);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn snapshot_from_runtime_with_memory_mode_overrides_saved_value() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let _guard = env_lock();
+        let millis = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let dir = env::temp_dir().join(format!("voiceterm_memory_snapshot_override_test_{millis}"));
+        env::set_var(CONFIG_DIR_ENV, &dir);
+
+        save_user_config(&UserConfig {
+            memory_mode: Some("assist".to_string()),
+            ..Default::default()
+        });
+
+        let snapshot = snapshot_from_runtime_with_memory_mode(
+            &crate::config::OverlayConfig::parse_from(["voiceterm"]),
+            &crate::status_line::StatusLineState::new(),
+            crate::theme::Theme::Coral,
+            Some(crate::memory::MemoryMode::Incognito),
+        );
+        assert_eq!(snapshot.memory_mode.as_deref(), Some("incognito"));
+
+        env::remove_var(CONFIG_DIR_ENV);
+        let _ = fs::remove_dir_all(dir);
     }
 }

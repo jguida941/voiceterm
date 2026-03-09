@@ -1,4 +1,5 @@
 use super::*;
+use crate::scrollable::Scrollable;
 
 const THEME_STUDIO_HISTORY_LIMIT: usize = 64;
 const COLOR_PICKER_HEX_MAX_LEN: usize = 7;
@@ -74,6 +75,11 @@ pub(super) fn handle_theme_studio_enter_key(
             let theme = state.theme;
             let status = state.theme_studio.export_page.execute(theme, None);
             let _ = status; // status is rendered in the overlay redraw below
+            if let Some(bytes) = state.theme_studio.export_page.take_pending_clipboard_copy() {
+                let _ = deps
+                    .writer_tx
+                    .send(crate::writer::WriterMessage::TerminalBytes(bytes));
+            }
             render_theme_studio_overlay_for_state(state, deps);
         }
     }
@@ -338,8 +344,8 @@ fn handle_theme_studio_preview_bytes(state: &mut EventLoopState, bytes: &[u8]) -
     apply_vertical_arrow_navigation(
         bytes,
         state,
-        |state| state.theme_studio.preview_page.scroll_up(),
-        |state| state.theme_studio.preview_page.scroll_down(20, 10),
+        |state| state.theme_studio.preview_page.scroll_up(1),
+        |state| state.theme_studio.preview_page.scroll_down(1, 10),
     )
 }
 
@@ -488,93 +494,34 @@ fn apply_theme_studio_adjustment(
     }
 }
 
+/// Maps a `ThemeStudioItem` variant to its override field and cycle function,
+/// expanding each triple into an identical `apply_theme_studio_runtime_override_edit` arm.
+macro_rules! style_override_cycle {
+    ($state:expr, $direction:expr, $( $item:ident => $field:ident, $cycle_fn:path );+ $(;)?) => {
+        match theme_studio_item_at($state.theme_studio.selected) {
+            $( ThemeStudioItem::$item => {
+                apply_theme_studio_runtime_override_edit($state, |overrides| {
+                    overrides.$field = $cycle_fn(overrides.$field, $direction);
+                })
+            } )+
+            _ => false,
+        }
+    };
+}
+
 fn apply_theme_studio_runtime_style_adjustment(state: &mut EventLoopState, direction: i32) -> bool {
-    match theme_studio_item_at(state.theme_studio.selected) {
-        ThemeStudioItem::ColorsGlyphs => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.glyph_set_override = super::cycle_runtime_glyph_set_override(
-                    overrides.glyph_set_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::LayoutMotion => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.indicator_set_override = super::cycle_runtime_indicator_set_override(
-                    overrides.indicator_set_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressSpinner => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.progress_style_override = super::cycle_runtime_progress_style_override(
-                    overrides.progress_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ProgressBars => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.progress_bar_family_override =
-                    super::cycle_runtime_progress_bar_family_override(
-                        overrides.progress_bar_family_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::ThemeBorders => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.border_style_override = super::cycle_runtime_border_style_override(
-                    overrides.border_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::VoiceScene => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.voice_scene_style_override =
-                    super::cycle_runtime_voice_scene_style_override(
-                        overrides.voice_scene_style_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::ToastPosition => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.toast_position_override = super::cycle_runtime_toast_position_override(
-                    overrides.toast_position_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::StartupSplash => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.startup_style_override = super::cycle_runtime_startup_style_override(
-                    overrides.startup_style_override,
-                    direction,
-                );
-            })
-        }
-        ThemeStudioItem::ToastSeverity => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.toast_severity_mode_override =
-                    super::cycle_runtime_toast_severity_mode_override(
-                        overrides.toast_severity_mode_override,
-                        direction,
-                    );
-            })
-        }
-        ThemeStudioItem::BannerStyle => {
-            apply_theme_studio_runtime_override_cycle(state, direction, |overrides, direction| {
-                overrides.banner_style_override = super::cycle_runtime_banner_style_override(
-                    overrides.banner_style_override,
-                    direction,
-                );
-            })
-        }
-        _ => false,
-    }
+    style_override_cycle!(state, direction,
+        ColorsGlyphs    => glyph_set_override,              super::cycle_runtime_glyph_set_override;
+        LayoutMotion    => indicator_set_override,           super::cycle_runtime_indicator_set_override;
+        ProgressSpinner => progress_style_override,          super::cycle_runtime_progress_style_override;
+        ProgressBars    => progress_bar_family_override,     super::cycle_runtime_progress_bar_family_override;
+        ThemeBorders    => border_style_override,            super::cycle_runtime_border_style_override;
+        VoiceScene      => voice_scene_style_override,       super::cycle_runtime_voice_scene_style_override;
+        ToastPosition   => toast_position_override,          super::cycle_runtime_toast_position_override;
+        StartupSplash   => startup_style_override,           super::cycle_runtime_startup_style_override;
+        ToastSeverity   => toast_severity_mode_override,     super::cycle_runtime_toast_severity_mode_override;
+        BannerStyle     => banner_style_override,            super::cycle_runtime_banner_style_override
+    )
 }
 
 pub(super) fn apply_theme_studio_selection(
@@ -647,14 +594,6 @@ fn apply_theme_studio_runtime_override_edit(
     state.theme_studio.redo_history.clear();
     crate::theme::set_runtime_style_pack_overrides(next);
     true
-}
-
-fn apply_theme_studio_runtime_override_cycle(
-    state: &mut EventLoopState,
-    direction: i32,
-    edit: impl FnOnce(&mut crate::theme::RuntimeStylePackOverrides, i32),
-) -> bool {
-    apply_theme_studio_runtime_override_edit(state, |overrides| edit(overrides, direction))
 }
 
 fn theme_studio_undo_runtime_override_edit(state: &mut EventLoopState) -> bool {

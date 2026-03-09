@@ -1,6 +1,7 @@
 //! Overlay-mode input handling extracted from input dispatch.
 
 use super::*;
+use crate::scrollable::Scrollable;
 use crate::transcript_history::transcript_history_visible_rows;
 
 mod overlay_mouse;
@@ -25,10 +26,236 @@ fn dev_panel_index_from_ascii(byte: u8) -> Option<usize> {
         return None;
     }
     let index = digit.saturating_sub(1);
-    if index < crate::dev_command::DevCommandKind::ALL.len() {
+    if index < crate::dev_command::ActionCatalog::DEFAULT_LEN {
         Some(index)
     } else {
         None
+    }
+}
+
+fn render_dev_panel_if_visible(state: &EventLoopState, deps: &mut EventLoopDeps) {
+    if state.ui.overlay_mode == OverlayMode::DevPanel {
+        render_dev_panel_overlay_for_state(state, deps);
+    }
+}
+
+fn handle_dev_panel_enter(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    match state.dev_panel_commands.active_tab() {
+        crate::dev_command::DevPanelTab::Review => {
+            load_review(state, &deps.session);
+            render_dev_panel_overlay_for_state(state, deps);
+        }
+        crate::dev_command::DevPanelTab::Actions => {
+            request_selected_dev_panel_command(state, timers, deps);
+            render_dev_panel_if_visible(state, deps);
+        }
+        crate::dev_command::DevPanelTab::Ops
+        | crate::dev_command::DevPanelTab::Control
+        | crate::dev_command::DevPanelTab::Handoff
+        | crate::dev_command::DevPanelTab::Memory => {
+            refresh_active_dev_panel_tab(
+                state,
+                deps,
+                super::super::dev_panel_commands::RefreshMode::Force,
+            );
+            render_dev_panel_overlay_for_state(state, deps);
+        }
+    }
+}
+
+fn scroll_cockpit_page(
+    state: &mut EventLoopState,
+    page: crate::dev_command::DevPanelTab,
+    keys: &[ArrowKey],
+) -> bool {
+    let visible = crate::dev_panel::cockpit_visible_rows();
+    let total = crate::dev_panel::cockpit_content_line_count(&state.dev_panel_commands, page);
+    let max_offset = total.saturating_sub(visible);
+    let mut should_redraw = false;
+    for key in keys {
+        match key {
+            ArrowKey::Up | ArrowKey::Left => {
+                state.dev_panel_commands.cockpit_scroll_up(1);
+                should_redraw = true;
+            }
+            ArrowKey::Down | ArrowKey::Right => {
+                state.dev_panel_commands.cockpit_scroll_down(1, max_offset);
+                should_redraw = true;
+            }
+        }
+    }
+    should_redraw
+}
+
+fn handle_dev_panel_review_bytes(state: &mut EventLoopState, bytes: &[u8]) -> bool {
+    let mut should_redraw = false;
+    if let Some(keys) = parse_arrow_keys_only(bytes) {
+        let visible = crate::dev_panel::review_scroll_visible_rows(&state.dev_panel_commands);
+        let total = crate::dev_panel::review_content_line_count(
+            &state.dev_panel_commands,
+            state.ui.terminal_cols as usize,
+        );
+        let max_offset = total.saturating_sub(visible);
+        for key in keys {
+            match key {
+                ArrowKey::Up | ArrowKey::Left => {
+                    state.dev_panel_commands.review_mut().scroll_up(1);
+                    should_redraw = true;
+                }
+                ArrowKey::Down | ArrowKey::Right => {
+                    state
+                        .dev_panel_commands
+                        .review_mut()
+                        .scroll_down(1, max_offset);
+                    should_redraw = true;
+                }
+            }
+        }
+    } else if matches!(bytes, [b'r'] | [b'R']) {
+        state.dev_panel_commands.review_mut().toggle_view_mode();
+        should_redraw = true;
+    }
+    should_redraw
+}
+
+fn handle_dev_panel_actions_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    let mut should_redraw = false;
+    if let Some(keys) = parse_arrow_keys_only(bytes) {
+        for key in keys {
+            let moved = match key {
+                ArrowKey::Up | ArrowKey::Left => move_dev_panel_selection(state, -1),
+                ArrowKey::Down | ArrowKey::Right => move_dev_panel_selection(state, 1),
+            };
+            should_redraw |= moved;
+        }
+    } else if let [byte] = bytes {
+        match byte {
+            b'0'..=b'9' => {
+                if let Some(index) = dev_panel_index_from_ascii(*byte) {
+                    should_redraw |= select_dev_panel_command_by_index(state, index);
+                }
+            }
+            b'r' | b'R' => {
+                request_selected_dev_panel_command(state, timers, deps);
+                should_redraw = true;
+            }
+            b'x' | b'X' => {
+                cancel_running_dev_panel_command(state, timers, deps);
+                should_redraw = true;
+            }
+            b'p' | b'P' => {
+                cycle_dev_panel_execution_profile(state, timers, deps);
+                should_redraw = true;
+            }
+            _ => {}
+        }
+    }
+    should_redraw
+}
+
+fn handle_dev_panel_control_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    if let Some(keys) = parse_arrow_keys_only(bytes) {
+        return scroll_cockpit_page(state, crate::dev_command::DevPanelTab::Control, &keys);
+    }
+    if matches!(bytes, [b'm'] | [b'M']) {
+        cycle_memory_mode(state, timers, deps);
+        return true;
+    }
+    false
+}
+
+fn handle_dev_panel_memory_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    if let Some(keys) = parse_arrow_keys_only(bytes) {
+        return scroll_cockpit_page(state, crate::dev_command::DevPanelTab::Memory, &keys);
+    }
+    if matches!(bytes, [b'm'] | [b'M']) {
+        cycle_memory_mode(state, timers, deps);
+        refresh_active_dev_panel_tab(
+            state,
+            deps,
+            super::super::dev_panel_commands::RefreshMode::Force,
+        );
+        return true;
+    }
+    false
+}
+
+fn handle_dev_panel_handoff_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) -> bool {
+    if let Some(keys) = parse_arrow_keys_only(bytes) {
+        return scroll_cockpit_page(state, crate::dev_command::DevPanelTab::Handoff, &keys);
+    }
+    if matches!(bytes, [b'c'] | [b'C']) {
+        copy_handoff_prompt_to_clipboard(state, timers, deps);
+    }
+    false
+}
+
+fn handle_dev_panel_bytes(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+    bytes: &[u8],
+) {
+    if bytes == [0x1b] {
+        close_overlay(state, deps, false);
+        return;
+    }
+    if bytes == [0x09] {
+        toggle_dev_panel_tab(state, timers, deps);
+        render_dev_panel_if_visible(state, deps);
+        return;
+    }
+    if bytes == [0x1b, b'[', b'Z'] {
+        prev_dev_panel_tab(state, timers, deps);
+        render_dev_panel_if_visible(state, deps);
+        return;
+    }
+
+    let should_redraw = match state.dev_panel_commands.active_tab() {
+        crate::dev_command::DevPanelTab::Review => handle_dev_panel_review_bytes(state, bytes),
+        crate::dev_command::DevPanelTab::Actions => {
+            handle_dev_panel_actions_bytes(state, timers, deps, bytes)
+        }
+        crate::dev_command::DevPanelTab::Ops => parse_arrow_keys_only(bytes)
+            .map(|keys| scroll_cockpit_page(state, crate::dev_command::DevPanelTab::Ops, &keys))
+            .unwrap_or(false),
+        crate::dev_command::DevPanelTab::Control => {
+            handle_dev_panel_control_bytes(state, timers, deps, bytes)
+        }
+        crate::dev_command::DevPanelTab::Memory => {
+            handle_dev_panel_memory_bytes(state, timers, deps, bytes)
+        }
+        crate::dev_command::DevPanelTab::Handoff => {
+            handle_dev_panel_handoff_bytes(state, timers, deps, bytes)
+        }
+    };
+
+    if should_redraw {
+        render_dev_panel_if_visible(state, deps);
     }
 }
 
@@ -211,48 +438,11 @@ pub(super) fn handle_overlay_input_event(
             None
         }
         (OverlayMode::DevPanel, InputEvent::EnterKey) => {
-            request_selected_dev_panel_command(state, timers, deps);
-            if state.ui.overlay_mode == OverlayMode::DevPanel {
-                render_dev_panel_overlay_for_state(state, deps);
-            }
+            handle_dev_panel_enter(state, timers, deps);
             None
         }
         (OverlayMode::DevPanel, InputEvent::Bytes(bytes)) => {
-            if bytes == [0x1b] {
-                close_overlay(state, deps, false);
-            } else {
-                let mut should_redraw = false;
-                if let Some(keys) = parse_arrow_keys_only(&bytes) {
-                    for key in keys {
-                        let moved = match key {
-                            ArrowKey::Up | ArrowKey::Left => move_dev_panel_selection(state, -1),
-                            ArrowKey::Down | ArrowKey::Right => move_dev_panel_selection(state, 1),
-                        };
-                        should_redraw |= moved;
-                    }
-                } else if bytes.len() == 1 {
-                    match bytes[0] {
-                        b'0'..=b'9' => {
-                            if let Some(index) = dev_panel_index_from_ascii(bytes[0]) {
-                                should_redraw |= select_dev_panel_command_by_index(state, index);
-                            }
-                        }
-                        b'r' | b'R' => {
-                            request_selected_dev_panel_command(state, timers, deps);
-                            should_redraw = true;
-                        }
-                        b'x' | b'X' => {
-                            cancel_running_dev_panel_command(state, timers, deps);
-                            should_redraw = true;
-                        }
-                        _ => {}
-                    }
-                }
-
-                if should_redraw && state.ui.overlay_mode == OverlayMode::DevPanel {
-                    render_dev_panel_overlay_for_state(state, deps);
-                }
-            }
+            handle_dev_panel_bytes(state, timers, deps, &bytes);
             None
         }
         (OverlayMode::ThemeStudio, InputEvent::EnterKey) => {

@@ -149,10 +149,10 @@ Governance readiness:
 
 Phase A (runtime + docs):
 
-- [ ] Add `--capture-once` CLI/config wiring.
-- [ ] Implement one-shot capture execution path.
-- [ ] Add slash template assets for Claude/Codex.
-- [ ] Update user docs (`guides/USAGE.md`, `guides/CLI_FLAGS.md`).
+- [x] Add `--capture-once` CLI/config wiring.
+- [x] Implement one-shot capture execution path.
+- [x] Add slash template assets for Claude/Codex.
+- [x] Update user docs (`guides/USAGE.md`, `guides/CLI_FLAGS.md`).
 - [ ] Run `bundle.runtime` because runtime behavior changes.
 - [ ] Run risk add-on: `cd rust && cargo test --bin voiceterm`.
 
@@ -197,6 +197,18 @@ Closure gates:
   `Progress Log` and `Audit Evidence` sections; corrected in this revision.
 - 2026-03-06: Post-fix governance reruns are green for active-plan sync and
   strict-tooling docs checks.
+- 2026-03-09: Landed the Phase A standalone capture slice in the existing
+  `voiceterm` binary: added `--capture-once --format text`, a non-interactive
+  one-shot capture path wired through `main.rs`, slash templates under
+  `dev/templates/slash/`, and user docs updates in `guides/USAGE.md` and
+  `guides/CLI_FLAGS.md`.
+- 2026-03-09: Targeted validation is green for the new slice
+  (`cargo test --bin voiceterm capture_once` via `devctl guard-run`), but the
+  broader runtime gates remain blocked by unrelated branch state:
+  `check --profile ci` fails on pre-existing working-tree code-shape and
+  function-duplication violations, and `cargo test --bin voiceterm` currently
+  fails on the existing theme test
+  `theme::style_pack::tests::resolved_toast_severity_mode_returns_none_without_payload_or_override`.
 
 ## Audit Evidence
 
@@ -213,7 +225,26 @@ Current session:
 
 Phase implementation evidence placeholders:
 
-- Phase A command/output bundle: pending.
+- Phase A command/output bundle:
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm capture_once -- --nocapture`
+    - pass
+  - `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+    - pass
+  - `cargo clippy --manifest-path rust/Cargo.toml --bin voiceterm --tests -- -D warnings`
+    - fail due unrelated pre-existing warnings-as-errors in `src/legacy_ui.rs`,
+      `src/bin/voiceterm/dev_command/broker/mod.rs`,
+      `src/bin/voiceterm/dev_panel/mod.rs`,
+      `src/bin/voiceterm/wake_word.rs`, and
+      `src/bin/voiceterm/dev_command/action_catalog.rs`; after the local
+      type-alias follow-up, no `capture_once.rs` clippy violations remained
+      in the reported error set
+  - `python3 dev/scripts/devctl.py check --profile ci`
+    - fail due unrelated working-tree `code-shape-guard`,
+      `function-duplication-guard`, and existing clippy blockers outside the
+      slash-command slice
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm -- --nocapture`
+    - fail due existing unrelated runtime test
+      `theme::style_pack::tests::resolved_toast_severity_mode_returns_none_without_payload_or_override`
 - Phase B command/output bundle: pending.
 - Phase C release artifact evidence: pending.
 - Phase D hold-to-talk validation notes/screenshots/logs: pending.

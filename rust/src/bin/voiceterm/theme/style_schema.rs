@@ -110,7 +110,7 @@ pub(super) struct ComponentOverrides {
 /// Toast severity display mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum ToastSeverityMode {
+pub(crate) enum ToastSeverityMode {
     Theme,
     Icon,
     Label,
@@ -120,7 +120,7 @@ pub(super) enum ToastSeverityMode {
 /// Banner display style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum BannerStyleOverride {
+pub(crate) enum BannerStyleOverride {
     Theme,
     Full,
     Compact,
@@ -142,7 +142,7 @@ pub(super) enum ProgressBarFamily {
 /// Toast notification position in the terminal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum ToastPositionOverride {
+pub(crate) enum ToastPositionOverride {
     Theme,
     TopRight,
     BottomRight,
@@ -153,7 +153,7 @@ pub(super) enum ToastPositionOverride {
 /// Startup splash visual style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum StartupStyleOverride {
+pub(crate) enum StartupStyleOverride {
     Theme,
     Full,
     Minimal,

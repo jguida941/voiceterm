@@ -83,6 +83,7 @@ RISK_ADDONS = (
         "commands": (
             "python3 dev/scripts/devctl.py check --profile ci",
             "cd rust && cargo test --bin voiceterm",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
         ),
     },
     {
@@ -99,6 +100,7 @@ RISK_ADDONS = (
             "python3 dev/scripts/devctl.py check --profile prepush",
             "./dev/scripts/tests/measure_latency.sh --voice-only --synthetic",
             "./dev/scripts/tests/measure_latency.sh --ci-guard",
+            "python3 dev/scripts/devctl.py process-cleanup --verify --format md",
         ),
     },
     {
@@ -112,6 +114,7 @@ RISK_ADDONS = (
         "commands": (
             "bash dev/scripts/tests/wake_word_guard.sh",
             "python3 dev/scripts/devctl.py check --profile release",
+            "python3 dev/scripts/devctl.py process-cleanup --verify --format md",
         ),
     },
     {
@@ -125,6 +128,22 @@ RISK_ADDONS = (
         ),
         "commands": (
             "cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
+        ),
+    },
+    {
+        "id": "unsafe-ffi-lifecycle",
+        "label": "Unsafe/FFI lifecycle add-ons",
+        "tokens": (
+            "pty_session",
+            "terminal_restore",
+            "rust/src/stt.rs",
+        ),
+        "commands": (
+            "cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture",
+            "cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture",
+            "cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
         ),
     },
     {
@@ -140,6 +159,7 @@ RISK_ADDONS = (
             "cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture",
             "cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture",
             "cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture",
+            "python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel",
         ),
     },
     {

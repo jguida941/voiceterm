@@ -7,7 +7,13 @@ import shutil
 from pathlib import Path
 
 from ..collect import collect_ci_runs
-from ..common import confirm_or_abort, pipe_output, write_output
+from ..common import (
+    confirm_or_abort,
+    emit_output,
+    normalize_string_field,
+    pipe_output,
+    write_output,
+)
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 
@@ -108,22 +114,22 @@ def _normalize_ci_filters(args) -> dict[str, str]:
 
 def _run_matches_filters(run: dict, filters: dict[str, str]) -> bool:
     branch = filters.get("branch", "")
-    if branch and str(run.get("headBranch") or "").strip() != branch:
+    if branch and normalize_string_field(run, "headBranch") != branch:
         return False
 
     workflow = filters.get("workflow", "").lower()
     if workflow:
-        display = str(run.get("displayTitle") or "").strip().lower()
-        name = str(run.get("name") or "").strip().lower()
+        display = normalize_string_field(run, "displayTitle").lower()
+        name = normalize_string_field(run, "name").lower()
         if workflow not in display and workflow not in name:
             return False
 
     event = filters.get("event", "")
-    if event and str(run.get("event") or "").strip().lower() != event:
+    if event and normalize_string_field(run, "event").lower() != event:
         return False
 
     sha = filters.get("sha", "")
-    if sha and not str(run.get("headSha") or "").strip().lower().startswith(sha):
+    if sha and not normalize_string_field(run, "headSha").lower().startswith(sha):
         return False
 
     return True
@@ -320,9 +326,14 @@ def run(args) -> int:
     else:
         output = _render_md(report)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0 if ok else 1

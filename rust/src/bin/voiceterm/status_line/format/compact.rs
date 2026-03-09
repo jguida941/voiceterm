@@ -115,7 +115,11 @@ pub(super) fn format_compact(
         latency_history_ms: state.latency_history_ms.clone(),
         glyph_set: colors.glyph_set,
     };
-    let modules = registry.render_all(&hud_state, module_budget, " · ");
+    let modules = registry.render_all(
+        &hud_state,
+        module_budget,
+        &format!(" {} ", overlay_separator(colors.glyph_set)),
+    );
     let left = if modules.is_empty() {
         mode
     } else {
@@ -185,19 +189,25 @@ pub(super) fn format_left_compact(state: &StatusLineState, colors: &ThemeColors)
 
     if mode_label.is_empty() {
         format!(
-            "{}{} │ {:.0}dB",
-            mode_indicator, transition, state.sensitivity_db
+            "{}{} {} {:.0}dB",
+            mode_indicator,
+            transition,
+            inline_separator(colors.glyph_set),
+            state.sensitivity_db
         )
     } else {
         format!(
-            "{}{mode_label}{} │ {:.0}dB",
-            mode_indicator, transition, state.sensitivity_db
+            "{}{mode_label}{} {} {:.0}dB",
+            mode_indicator,
+            transition,
+            inline_separator(colors.glyph_set),
+            state.sensitivity_db
         )
     }
 }
 
 /// Format compact shortcuts with modern separator.
 pub(super) fn format_shortcuts_compact(colors: &ThemeColors) -> String {
-    let sep = format!(" {}·{} ", colors.dim, colors.reset);
+    let sep = colored_overlay_separator(colors);
     format_shortcuts_list(colors, SHORTCUTS_COMPACT, &sep)
 }

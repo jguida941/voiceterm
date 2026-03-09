@@ -166,7 +166,11 @@ impl ClaudeJob {
             ClaudeJobOutput::Pty { session } => {
                 // Send graceful Ctrl+C first; PtyCliSession::drop will escalate to
                 // SIGTERM → SIGKILL if the process ignores the interrupt.
-                let _ = session.send("\u{3}");
+                if let Err(err) = session.send("\u{3}") {
+                    log_debug(&format!(
+                        "ipc session: failed to send Ctrl+C to PTY Claude job: {err:#}"
+                    ));
+                }
             }
         }
     }

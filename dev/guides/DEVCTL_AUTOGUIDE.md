@@ -7,6 +7,7 @@ Use this with:
 
 - `AGENTS.md` for policy, required bundles, and release SOP
 - `dev/guides/DEVELOPMENT.md` for lifecycle flow and verification matrix
+- `dev/guides/AGENT_COLLABORATION_SYSTEM.md` for the current Codex/Claude collaboration flowchart and command-stack map
 - `dev/scripts/README.md` for full command inventory
 
 ## What It Controls
@@ -14,8 +15,9 @@ Use this with:
 `devctl` is the maintainer entrypoint for:
 
 1. Quality gates (`check`, `docs-check`, `hygiene`, security guards)
-   plus report-retention cleanup (`reports-cleanup`)
-2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `controller-action`, `autonomy-swarm`, `autonomy-benchmark`)
+   plus host-process/report-retention cleanup (`process-cleanup`,
+   `reports-cleanup`)
+2. Triage and reporting (`status`, `report`, `data-science`, `triage`, `triage-loop`, `mutation-loop`, `swarm_run`, `autonomy-report`, `phone-status`, `mobile-status`, `controller-action`, `review-channel`, `autonomy-swarm`, `autonomy-benchmark`)
 3. Release verification and distribution (`ship`, `release`, `pypi`, `homebrew`)
 4. Orchestration guardrails (`orchestrate-status`, `orchestrate-watch`)
 5. External federation guardrails (`integrations-sync`, `integrations-import`)
@@ -51,6 +53,43 @@ python3 dev/scripts/devctl.py triage --ci --no-cihub --emit-bundle \
   --bundle-dir .cihub/coderabbit --bundle-prefix tooling-pass --format md
 ```
 
+### Current review swarm bootstrap
+
+```bash
+# Dry-run first: validate the bridge is active and inspect generated launch scripts
+python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md
+
+# Read the current bridge-backed review status and refresh latest projections
+python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md
+
+# Live launch: open the Codex conductor terminal and the Claude conductor terminal
+python3 dev/scripts/devctl.py review-channel --action launch --format md
+
+# Planned anti-compaction rollover: relaunch fresh conductors before context gets bad
+python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md
+```
+
+Use this only for the current markdown-bridge cycle:
+
+1. It reads `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`,
+   `dev/active/review_channel.md`, and `code_audit.md`.
+2. Codex is the reviewer conductor for `AGENT-1..AGENT-8`.
+3. Claude is the coding conductor for `AGENT-9..AGENT-16`.
+4. Terminal.app launch defaults to `--terminal-profile auto-dark`, which picks
+   a known dark macOS Terminal profile when one is available.
+5. At 50% remaining context or lower, the active conductor should finish the
+   current atomic step and run `review-channel --action rollover` instead of
+   relying on compaction recovery summaries.
+6. `--action status` writes the latest bridge-backed projections under
+   `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`,
+   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`).
+7. `--action rollover` writes a handoff bundle under
+   `dev/reports/review_channel/rollovers/`, relaunches fresh conductors, and
+   waits up to the configured `--await-ack-seconds` window for visible rollover
+   ACK lines in `code_audit.md`.
+8. The launcher fails closed if `review_channel.md` no longer marks the
+   markdown bridge as the active operating mode.
+
 ### Release path
 
 ```bash
@@ -60,7 +99,9 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --prepare-release --verify --
 ```
 
 `release-gates` enforces same-SHA release policy checks (CodeRabbit triage,
-release-preflight, Ralph loop) before publish/tag flow.
+release-preflight, Ralph loop) before publish/tag flow. `ship --verify`
+aggregates its independent verify subchecks in parallel and then applies the
+same declared substep order when deciding the first failure to surface.
 
 ## Check Profile Picker
 
@@ -72,6 +113,7 @@ Use this table when you are not sure which `check` profile to run.
 | `prepush` | Perf/latency/parser/wake-word/memory-sensitive changes | CI profile plus perf smoke and memory loop checks. |
 | `ai-guard` | Large refactors or guard-only audit passes | Runs guard scripts without full test/build cycle for fast iteration. |
 | `maintainer-lint` | Strict lint review and debt cleanup passes | Clippy hardening lane (`redundant_clone`, closure method-call redundancy, wrap-cast and dead-code drift). |
+| `pedantic` | Intentional lint-hardening sweeps, usually after large refactors or as optional pre-release cleanup | Runs advisory `clippy::pedantic`, writes structured artifacts under `dev/reports/check/`, and intentionally stays out of required bundles or release gates. |
 | `release` | Release/tag readiness checks on `master` | Adds wake-word coverage, non-blocking mutation-score reminder output, and strict remote release gates. |
 | `fast` | Local fast sanity pass while iterating | Alias of `quick`; local-only lane, not a replacement for required pre-push bundles. |
 | `quick` | Local fast sanity pass while iterating | Minimal fmt/clippy path without full tests/build. |
@@ -81,6 +123,20 @@ Heavy-check placement policy:
 1. Keep strict/heavy validation in `prepush` and `release` profiles (plus CI/scheduled workflows).
 2. Keep `fast`/`quick` minimal for local iteration only.
 3. Never skip release/CI gates by substituting `fast`/`quick`.
+4. Run `pedantic` only when you explicitly want broader style/maintainability feedback; do not promote it into required merge/release flow without a deliberate lint-debt reduction project.
+
+### Pedantic advisory flow
+
+Use one deterministic path for pedantic lint review:
+
+1. Run `python3 dev/scripts/devctl.py check --profile pedantic`, or use `python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format md` when you want refresh + review in one command.
+2. Review the repo-owned summary with `python3 dev/scripts/devctl.py report --pedantic --format md`.
+3. Generate an AI-friendly cleanup packet with `python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --format md` (add `--pedantic-refresh` only when you intentionally want triage to regenerate the artifacts inline).
+4. Record promote/defer/ignore decisions in `dev/config/clippy/pedantic_policy.json`; do not make per-release ad hoc decisions from raw pedantic output.
+
+For full Rust guard audits with charts and hotspot summaries, use:
+
+`python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md`
 
 Current AI guard pack in `check`:
 
@@ -124,6 +180,34 @@ Safety model:
 1. cleanup is restricted to managed ephemeral run roots under `dev/reports/**`
 2. protected paths (`audits`, `data_science/latest`, queue/controller-state) are never deleted
 3. retention keeps the newest `--keep-recent` directories per managed root even if they are old
+
+## Host Process Hygiene
+
+Use this after raw `cargo test` runs, manual test-binary execution, manual
+tooling bundles, or any local PTY/runtime/process work that could leak host
+processes outside the repo sandbox.
+
+```bash
+# preferred AI path for raw cargo/test-binary commands
+python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm banner::tests -- --nocapture
+# raw cargo/test-binary follow-up; includes host-side cleanup by default
+python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel
+# manual tooling-bundle / pre-handoff host cleanup
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
+# Read-only fallback / diagnosis
+python3 dev/scripts/devctl.py process-audit --strict --format md
+# Periodic host watch during long-running leak reproduction
+python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md
+```
+
+Safety model:
+
+1. Prefer `guard-run` for AI-operated raw cargo/test-binary commands. It runs the command directly, forbids shell `-c` wrappers, and picks the right post-run hygiene follow-up automatically.
+2. `check --profile quick|fast` already calls `process-cleanup --verify` by default after raw cargo/test-binary follow-ups.
+3. Cleanup expands matched stale/orphaned roots to their full descendant tree so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are not left behind.
+4. Recent active processes are reported but skipped by default; `--verify` fails if anything blocking/stale is still alive after cleanup, and it now also fails immediately when a repo-related process is already detached (`PPID=1`) even if it has not aged into the orphan bucket yet.
+5. If verify is red only because current local work is still running, rerun `process-cleanup --verify --format md` once that work finishes; repeated passes can catch freshly detached orphans from the same live tree.
+6. `process-watch` is the bounded periodic version of the same host audit/cleanup path. Use it when reproducing leaks or when local work is expected to keep shedding host processes for more than one pass; it now exits zero once the host actually becomes clean even if earlier iterations were dirty.
 
 ## Optional MCP Adapter
 
@@ -331,6 +415,37 @@ Views:
 2. `compact`: small operator summary
 3. `trace`: terminal trace and draft context
 4. `actions`: loop next-actions plus guarded operator shortcuts
+
+## Mobile Status Read Surface
+
+Use `mobile-status` when you want one SSH-safe phone payload that already merges
+controller state with current Codex/Claude review state.
+
+```bash
+python3 dev/scripts/devctl.py mobile-status \
+  --phone-json dev/reports/autonomy/queue/phone/latest.json \
+  --review-status-dir dev/reports/review_channel/latest \
+  --view compact \
+  --emit-projections dev/reports/mobile/latest \
+  --format md \
+  --output /tmp/mobile-status.md \
+  --json-output /tmp/mobile-status.json
+```
+
+Views:
+
+1. `full`: merged raw controller + review payload
+2. `compact`: one small summary with current instruction, findings, worktree hash, and next actions
+3. `alert`: short ping-oriented severity + why summary
+4. `actions`: read-safe shortcuts plus guarded controller actions
+
+Projection bundle output (optional):
+
+1. `full.json`
+2. `compact.json`
+3. `alert.json`
+4. `actions.json`
+5. `latest.md`
 
 Projection bundle output (optional):
 

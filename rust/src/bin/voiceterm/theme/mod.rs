@@ -21,6 +21,7 @@ pub(crate) mod component_registry;
 pub(crate) mod dependency_baseline;
 mod detect;
 pub(crate) mod file_watcher;
+mod glyphs;
 mod palettes;
 #[cfg(feature = "theme_studio_v2")]
 #[allow(
@@ -47,9 +48,9 @@ pub(crate) mod theme_file;
 )]
 pub(crate) mod widget_pack;
 
-pub use borders::{BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_ROUNDED, BORDER_SINGLE};
-#[allow(unused_imports)]
-pub use borders::{BORDER_DOTTED, BORDER_NONE};
+pub use borders::{
+    BorderSet, BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
+};
 pub(crate) use color_value::palette_to_resolved;
 pub use colors::{GlyphSet, ProgressBarFamily, SpinnerStyle, ThemeColors, VoiceSceneStyle};
 pub use palettes::{
@@ -61,7 +62,15 @@ use self::{
     detect::is_warp_terminal,
     style_pack::{locked_style_pack_theme, resolve_theme_colors},
 };
-#[allow(unused_imports)]
+pub(crate) use glyphs::{
+    heartbeat_frames, hud_latency_icon, hud_queue_icon, inline_separator, meter_peak_marker,
+    meter_threshold_marker, mode_auto_icon, mode_insert_icon, mode_manual_icon,
+    mode_recording_icon, overlay_close_symbol, overlay_move_hint, overlay_row_marker,
+    overlay_separator, overlay_slider_knob, overlay_slider_track, processing_spinner_symbol,
+    progress_glyph_profile, pulse_dot_active, pulse_dot_inactive, severity_error_icon,
+    severity_info_icon, severity_success_icon, severity_warning_icon, transition_pulse_markers,
+    waveform_bars,
+};
 pub(crate) use runtime_overrides::{
     RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
     RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
@@ -73,35 +82,16 @@ pub(crate) use style_pack::clear_runtime_color_override;
 #[cfg(not(test))]
 pub(crate) use style_pack::set_runtime_color_override;
 pub(crate) use style_pack::{
-    resolved_hud_border_set, resolved_overlay_border_set, runtime_style_pack_overrides,
-    set_runtime_style_pack_overrides, set_runtime_theme_file_override,
+    resolved_banner_style, resolved_hud_border_set, resolved_overlay_border_set,
+    resolved_startup_style, resolved_toast_position, resolved_toast_severity_mode,
+    runtime_style_pack_overrides, set_runtime_style_pack_overrides,
+    set_runtime_theme_file_override,
 };
 #[cfg(test)]
 pub(crate) use style_schema::StylePackFieldId;
-
-/// Default processing spinner frames used by Theme Studio-resolved surfaces.
-pub(crate) const PROCESSING_SPINNER_BRAILLE: &[&str] =
-    &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-/// Dot-based processing spinner frames.
-pub(crate) const PROCESSING_SPINNER_DOTS: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
-/// Line-based processing spinner frames.
-pub(crate) const PROCESSING_SPINNER_LINE: &[&str] = &["-", "\\", "|", "/"];
-/// Block-based processing spinner frames.
-pub(crate) const PROCESSING_SPINNER_BLOCK: &[&str] = &["▖", "▘", "▝", "▗"];
-/// ASCII-safe spinner frames used when explicit animation styles are selected.
-pub(crate) const PROCESSING_SPINNER_ASCII: &[&str] = &[".", "o", "O", "o"];
-
-/// Waveform bars for HUD sparkline rendering.
-pub(crate) const WAVEFORM_BARS_UNICODE: &[char; 8] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-/// ASCII-safe waveform bars for fallback terminals.
-pub(crate) const WAVEFORM_BARS_ASCII: &[char; 8] = &['.', ':', '-', '=', '+', '*', '#', '@'];
-
-/// Resolved glyph profile for progress rendering surfaces.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ProgressGlyphProfile {
-    pub(crate) bar_filled: char,
-    pub(crate) bar_empty: char,
-}
+pub(crate) use style_schema::{
+    BannerStyleOverride, StartupStyleOverride, ToastPositionOverride, ToastSeverityMode,
+};
 
 /// Available color themes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -233,180 +223,6 @@ pub fn filled_indicator(symbol: &'static str) -> &'static str {
         "▷" => "▶",
         _ => symbol,
     }
-}
-
-/// Resolve processing indicator glyph for a frame, honoring theme/style-pack overrides.
-///
-/// If the active theme keeps the default processing indicator (`◐`), use the
-/// animated braille spinner family. If a style-pack override changed the
-/// processing indicator glyph, preserve that exact glyph and disable animation.
-#[must_use]
-pub(crate) fn processing_spinner_symbol(colors: &ThemeColors, frame: usize) -> &'static str {
-    match colors.spinner_style {
-        SpinnerStyle::Braille => match colors.glyph_set {
-            GlyphSet::Unicode => {
-                PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
-            }
-            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
-        },
-        SpinnerStyle::Dots => match colors.glyph_set {
-            GlyphSet::Unicode => PROCESSING_SPINNER_DOTS[frame % PROCESSING_SPINNER_DOTS.len()],
-            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
-        },
-        SpinnerStyle::Line => PROCESSING_SPINNER_LINE[frame % PROCESSING_SPINNER_LINE.len()],
-        SpinnerStyle::Block => match colors.glyph_set {
-            GlyphSet::Unicode => PROCESSING_SPINNER_BLOCK[frame % PROCESSING_SPINNER_BLOCK.len()],
-            GlyphSet::Ascii => PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()],
-        },
-        SpinnerStyle::Theme => {
-            if colors.indicator_processing == "◐" {
-                match colors.glyph_set {
-                    GlyphSet::Unicode => {
-                        PROCESSING_SPINNER_BRAILLE[frame % PROCESSING_SPINNER_BRAILLE.len()]
-                    }
-                    GlyphSet::Ascii => {
-                        PROCESSING_SPINNER_ASCII[frame % PROCESSING_SPINNER_ASCII.len()]
-                    }
-                }
-            } else {
-                colors.indicator_processing
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct GlyphTable<T: Copy> {
-    unicode: T,
-    ascii: T,
-}
-
-impl<T: Copy> GlyphTable<T> {
-    const fn new(unicode: T, ascii: T) -> Self {
-        Self { unicode, ascii }
-    }
-
-    const fn resolve(self, glyph_set: GlyphSet) -> T {
-        match glyph_set {
-            GlyphSet::Unicode => self.unicode,
-            GlyphSet::Ascii => self.ascii,
-        }
-    }
-}
-
-const HUD_QUEUE_ICON_TABLE: GlyphTable<&str> = GlyphTable::new("▤", "Q");
-const HUD_LATENCY_ICON_TABLE: GlyphTable<&str> = GlyphTable::new("◷", "T");
-const WAVEFORM_BARS_TABLE: GlyphTable<&[char; 8]> =
-    GlyphTable::new(WAVEFORM_BARS_UNICODE, WAVEFORM_BARS_ASCII);
-const OVERLAY_SEPARATOR_TABLE: GlyphTable<&str> = GlyphTable::new("·", "|");
-const INLINE_SEPARATOR_TABLE: GlyphTable<&str> = GlyphTable::new("│", "|");
-const OVERLAY_CLOSE_SYMBOL_TABLE: GlyphTable<char> = GlyphTable::new('×', 'x');
-const OVERLAY_MOVE_HINT_TABLE: GlyphTable<&str> = GlyphTable::new("↑/↓", "up/down");
-const OVERLAY_ROW_MARKER_TABLE: GlyphTable<&str> = GlyphTable::new("▸", ">");
-const OVERLAY_SLIDER_TRACK_TABLE: GlyphTable<char> = GlyphTable::new('─', '-');
-const OVERLAY_SLIDER_KNOB_TABLE: GlyphTable<char> = GlyphTable::new('●', 'o');
-
-/// Resolve HUD queue label glyph by selected icon pack.
-#[must_use]
-pub(crate) fn hud_queue_icon(glyph_set: GlyphSet) -> &'static str {
-    HUD_QUEUE_ICON_TABLE.resolve(glyph_set)
-}
-
-/// Resolve HUD latency label glyph by selected icon pack.
-#[must_use]
-pub(crate) fn hud_latency_icon(glyph_set: GlyphSet) -> &'static str {
-    HUD_LATENCY_ICON_TABLE.resolve(glyph_set)
-}
-
-/// Resolve sparkline waveform glyph set for meter/latency bars.
-#[must_use]
-pub(crate) fn waveform_bars(glyph_set: GlyphSet) -> &'static [char; 8] {
-    WAVEFORM_BARS_TABLE.resolve(glyph_set)
-}
-
-/// Resolve progress-glyph family for bars/spinners.
-#[must_use]
-pub(crate) fn progress_glyph_profile(colors: &ThemeColors) -> ProgressGlyphProfile {
-    match (colors.progress_bar_family, colors.glyph_set) {
-        (ProgressBarFamily::Theme | ProgressBarFamily::Bar, GlyphSet::Unicode) => {
-            ProgressGlyphProfile {
-                bar_filled: '█',
-                bar_empty: '░',
-            }
-        }
-        (ProgressBarFamily::Theme | ProgressBarFamily::Bar, GlyphSet::Ascii) => {
-            ProgressGlyphProfile {
-                bar_filled: '=',
-                bar_empty: '-',
-            }
-        }
-        (ProgressBarFamily::Compact, GlyphSet::Unicode) => ProgressGlyphProfile {
-            bar_filled: '■',
-            bar_empty: '·',
-        },
-        (ProgressBarFamily::Compact, GlyphSet::Ascii) => ProgressGlyphProfile {
-            bar_filled: '#',
-            bar_empty: '.',
-        },
-        (ProgressBarFamily::Blocks, GlyphSet::Unicode) => ProgressGlyphProfile {
-            bar_filled: '▓',
-            bar_empty: '░',
-        },
-        (ProgressBarFamily::Blocks, GlyphSet::Ascii) => ProgressGlyphProfile {
-            bar_filled: '#',
-            bar_empty: ' ',
-        },
-        (ProgressBarFamily::Braille, GlyphSet::Unicode) => ProgressGlyphProfile {
-            bar_filled: '⣿',
-            bar_empty: '⣀',
-        },
-        (ProgressBarFamily::Braille, GlyphSet::Ascii) => ProgressGlyphProfile {
-            bar_filled: '=',
-            bar_empty: '.',
-        },
-    }
-}
-
-/// Resolve overlay separator glyph (between footer controls).
-#[must_use]
-pub(crate) fn overlay_separator(glyph_set: GlyphSet) -> &'static str {
-    OVERLAY_SEPARATOR_TABLE.resolve(glyph_set)
-}
-
-/// Resolve inline separator glyph (used by startup/banner rows).
-#[must_use]
-pub(crate) fn inline_separator(glyph_set: GlyphSet) -> &'static str {
-    INLINE_SEPARATOR_TABLE.resolve(glyph_set)
-}
-
-/// Resolve overlay close button glyph.
-#[must_use]
-pub(crate) fn overlay_close_symbol(glyph_set: GlyphSet) -> char {
-    OVERLAY_CLOSE_SYMBOL_TABLE.resolve(glyph_set)
-}
-
-/// Resolve overlay move-hint glyph cluster.
-#[must_use]
-pub(crate) fn overlay_move_hint(glyph_set: GlyphSet) -> &'static str {
-    OVERLAY_MOVE_HINT_TABLE.resolve(glyph_set)
-}
-
-/// Resolve selection marker glyph used by overlay menu rows.
-#[must_use]
-pub(crate) fn overlay_row_marker(glyph_set: GlyphSet) -> &'static str {
-    OVERLAY_ROW_MARKER_TABLE.resolve(glyph_set)
-}
-
-/// Resolve slider track glyph used by settings rows.
-#[must_use]
-pub(crate) fn overlay_slider_track(glyph_set: GlyphSet) -> char {
-    OVERLAY_SLIDER_TRACK_TABLE.resolve(glyph_set)
-}
-
-/// Resolve slider knob glyph used by settings rows.
-#[must_use]
-pub(crate) fn overlay_slider_knob(glyph_set: GlyphSet) -> char {
-    OVERLAY_SLIDER_KNOB_TABLE.resolve(glyph_set)
 }
 
 impl std::fmt::Display for Theme {
@@ -558,100 +374,6 @@ mod tests {
         assert_eq!(filled_indicator("◇"), "◆");
         assert_eq!(filled_indicator("◎"), "◉");
         assert_eq!(filled_indicator("▶"), "▶");
-    }
-
-    #[test]
-    fn processing_spinner_symbol_uses_braille_for_default_processing_indicator() {
-        let colors = Theme::Codex.colors();
-        let indicator = processing_spinner_symbol(&colors, 3);
-        assert_eq!(indicator, PROCESSING_SPINNER_BRAILLE[3]);
-    }
-
-    #[test]
-    fn processing_spinner_symbol_preserves_theme_override_indicator() {
-        let mut colors = Theme::Codex.colors();
-        colors.indicator_processing = "~";
-        assert_eq!(processing_spinner_symbol(&colors, 5), "~");
-    }
-
-    #[test]
-    fn processing_spinner_symbol_honors_explicit_spinner_style() {
-        let mut colors = Theme::Codex.colors();
-        colors.spinner_style = SpinnerStyle::Line;
-        assert_eq!(processing_spinner_symbol(&colors, 2), "|");
-
-        colors.spinner_style = SpinnerStyle::Dots;
-        assert_eq!(processing_spinner_symbol(&colors, 1), "⣽");
-    }
-
-    #[test]
-    fn processing_spinner_symbol_falls_back_to_ascii_frames_for_ascii_glyph_set() {
-        let mut colors = Theme::Codex.colors();
-        colors.glyph_set = GlyphSet::Ascii;
-
-        // Theme-default spinner should stay ASCII-safe when the default
-        // processing indicator is active.
-        assert_eq!(processing_spinner_symbol(&colors, 0), ".");
-
-        colors.spinner_style = SpinnerStyle::Braille;
-        assert_eq!(processing_spinner_symbol(&colors, 2), "O");
-
-        colors.spinner_style = SpinnerStyle::Dots;
-        assert_eq!(processing_spinner_symbol(&colors, 1), "o");
-
-        colors.spinner_style = SpinnerStyle::Block;
-        assert_eq!(processing_spinner_symbol(&colors, 3), "o");
-    }
-
-    #[test]
-    fn hud_icons_follow_glyph_set() {
-        assert_eq!(hud_queue_icon(GlyphSet::Unicode), "▤");
-        assert_eq!(hud_queue_icon(GlyphSet::Ascii), "Q");
-        assert_eq!(hud_latency_icon(GlyphSet::Unicode), "◷");
-        assert_eq!(hud_latency_icon(GlyphSet::Ascii), "T");
-    }
-
-    #[test]
-    fn waveform_and_progress_profiles_follow_glyph_set() {
-        let unicode_colors = Theme::Codex.colors();
-        let unicode = progress_glyph_profile(&unicode_colors);
-        let mut ascii_colors = Theme::Codex.colors();
-        ascii_colors.glyph_set = GlyphSet::Ascii;
-        let ascii = progress_glyph_profile(&ascii_colors);
-        assert_eq!(waveform_bars(GlyphSet::Unicode)[0], '▁');
-        assert_eq!(waveform_bars(GlyphSet::Ascii)[0], '.');
-        assert_eq!(unicode.bar_filled, '█');
-        assert_eq!(ascii.bar_filled, '=');
-    }
-
-    #[test]
-    fn progress_profile_honors_explicit_family_override() {
-        let mut colors = Theme::Codex.colors();
-        colors.progress_bar_family = ProgressBarFamily::Compact;
-        let compact = progress_glyph_profile(&colors);
-        assert_eq!(compact.bar_filled, '■');
-
-        colors.progress_bar_family = ProgressBarFamily::Braille;
-        let braille = progress_glyph_profile(&colors);
-        assert_eq!(braille.bar_filled, '⣿');
-    }
-
-    #[test]
-    fn overlay_chrome_glyphs_follow_glyph_set() {
-        assert_eq!(inline_separator(GlyphSet::Unicode), "│");
-        assert_eq!(inline_separator(GlyphSet::Ascii), "|");
-        assert_eq!(overlay_separator(GlyphSet::Unicode), "·");
-        assert_eq!(overlay_separator(GlyphSet::Ascii), "|");
-        assert_eq!(overlay_close_symbol(GlyphSet::Unicode), '×');
-        assert_eq!(overlay_close_symbol(GlyphSet::Ascii), 'x');
-        assert_eq!(overlay_move_hint(GlyphSet::Unicode), "↑/↓");
-        assert_eq!(overlay_move_hint(GlyphSet::Ascii), "up/down");
-        assert_eq!(overlay_row_marker(GlyphSet::Unicode), "▸");
-        assert_eq!(overlay_row_marker(GlyphSet::Ascii), ">");
-        assert_eq!(overlay_slider_track(GlyphSet::Unicode), '─');
-        assert_eq!(overlay_slider_track(GlyphSet::Ascii), '-');
-        assert_eq!(overlay_slider_knob(GlyphSet::Unicode), '●');
-        assert_eq!(overlay_slider_knob(GlyphSet::Ascii), 'o');
     }
 
     #[test]

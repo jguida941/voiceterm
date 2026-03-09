@@ -10,7 +10,7 @@ use voiceterm::pty_session::PtyOverlaySession;
 
 use crate::buttons::ButtonRegistry;
 use crate::config::OverlayConfig;
-use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
+use crate::dev_command::{DevCommandBroker, DevPanelState};
 use crate::input::InputEvent;
 use crate::memory::MemoryIngestor;
 use crate::overlays::OverlayMode;
@@ -86,6 +86,10 @@ pub(crate) struct ThemeStudioRuntimeState {
 
 pub(crate) struct EventLoopState {
     pub(crate) config: OverlayConfig,
+    /// Working directory captured when VoiceTerm launched this session.
+    /// Dev-panel Git context uses this as the fallback when live shell cwd
+    /// lookup is unavailable.
+    pub(crate) working_dir: String,
     pub(crate) status_state: StatusLineState,
     pub(crate) auto_voice_enabled: bool,
     pub(crate) auto_voice_paused_by_user: bool,
@@ -99,7 +103,7 @@ pub(crate) struct EventLoopState {
     pub(crate) session_stats: SessionStats,
     pub(crate) dev_mode_stats: Option<DevModeStats>,
     pub(crate) dev_event_logger: Option<DevEventJsonlWriter>,
-    pub(crate) dev_panel_commands: DevPanelCommandState,
+    pub(crate) dev_panel_commands: DevPanelState,
     pub(crate) prompt: PromptRuntimeState,
     pub(crate) last_recording_duration: f32,
     pub(crate) meter_floor_started_at: Option<Instant>,
@@ -132,6 +136,7 @@ pub(crate) struct EventLoopTimers {
     pub(crate) last_toast_tick: Instant,
     pub(crate) last_theme_file_poll: Instant,
     pub(crate) last_terminal_geometry_poll: Instant,
+    pub(crate) last_review_poll: Instant,
     /// Pending terminal geometry sample awaiting stabilization before apply.
     pub(crate) pending_terminal_geometry_sample: Option<TerminalGeometrySample>,
 }

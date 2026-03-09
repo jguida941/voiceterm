@@ -1,0 +1,1350 @@
+# Review Channel + Shared Screen Plan
+
+Status: execution mirrored in `dev/active/MASTER_PLAN.md` (MP-355)
+Execution plan contract: required
+Owner lane: Control-plane/operator surfaces
+
+## Scope
+
+Build one shared review/control channel for Codex, Claude, and VoiceTerm
+operator surfaces so agents can coordinate through a visible, structured lane
+instead of ad-hoc chat copy/paste or hidden state.
+
+This plan covers:
+
+1. One canonical machine-readable review packet/event contract aligned to the
+   broader `controller_state` direction already tracked under MP-340.
+2. Multiple projections over that contract (`json`, `ndjson`, `md`,
+   overlay/terminal-packet views) using the same projection shape already used
+   by `phone-status`.
+3. One top-level `devctl review-channel` command surface with action-based
+   verbs for posting, reading, watching, acknowledging, and replaying review
+   packets in a way that fits the current flat `devctl` CLI architecture.
+4. A shared-screen VoiceTerm surface where the user can watch Codex, Claude,
+   and operator lanes together as one collaborative terminal-native
+   workflow rather than three disconnected panes.
+5. A phased path toward richer shared-session workflows without allowing unsafe
+   concurrent writes into one live terminal too early.
+
+This plan is an execution slice of the broader control-plane/operator-surface
+program in `dev/active/autonomous_control_plane.md`, but it is tracked
+separately because the schema, command surface, overlay UX, and guard model need
+their own phased delivery and iteration loop.
+
+## Execution Protocol (Required)
+
+1. Schema-affecting work must update `Cross-Plan Dependencies`, `Schema Draft`,
+   and `Integrity Model` in this file before code lands.
+2. MP-355 implementation must keep `dev/active/MASTER_PLAN.md` status aligned
+   with actual phase completion; hidden memory-only coordination is not
+   acceptable execution state.
+3. Any deviation from the current `devctl`-first control-plane model or the
+   current read-only MCP posture must be recorded here and in
+   `dev/active/autonomous_control_plane.md` before implementation.
+4. Multi-agent experiments for this track must capture packet samples,
+   projection outputs, and shared-screen evidence in repo-visible artifacts or
+   this file's `Progress Log` / `Audit Evidence`, not hidden side channels.
+5. The current operator-facing markdown loop should minimize required user
+   intervention: once scope is set, the reviewer/coder pair should continue
+   autonomously and ask the user only for ambiguous product intent,
+   destructive/external actions, credentials/auth, push/publish approval, or
+   required physical/manual validation. Routine review handoffs and next-slice
+   coordination belong in the bridge artifact plus reviewer chat pings, not as
+   repeated orchestration requests to the operator.
+6. In that autonomous mode, `MASTER_PLAN.md` remains the canonical tracker and
+   `INDEX.md` remains the router for loading the minimal required active docs.
+   Reviewer/coder agents should descend through that active-plan chain, update
+   the relevant active markdown authority as work progresses, and keep
+   executing until the current scoped checklist items and live review findings
+   are closed, rather than waiting for the operator to restate the next step.
+7. Until Phase 1 replaces the markdown bridge with structured artifacts,
+   `check_review_channel_bridge.py` must guard the `code_audit.md` bootstrap
+   contract, section layout, and operator-visible heartbeat requirements in
+   the same governance lane as the other plan-sync checks.
+8. For today's markdown bridge, "current slice accepted" is not a terminal
+   stop if scoped plan work remains. The reviewer must promote the next
+   highest-priority unchecked scoped plan item into the bridge and keep the
+   loop moving until the scoped plan is exhausted or a real blocker/approval
+   boundary is hit.
+
+## Locked Decisions
+
+1. `controller_state` remains the umbrella operator/control-plane contract for
+   MP-340. MP-355 may define `review_state` and `review_event`, but shared
+   fields must reuse MP-340 naming and semantics instead of inventing parallel
+   authority.
+2. Structured state/events are canonical. Markdown is a projection, not an
+   authority.
+3. The canonical write path is `devctl`. MCP may later expose additive
+   read-only snapshots for review-channel state, but Phase 0-2 do not add MCP
+   write tools or bypass `devctl` policy/validation.
+4. Initial shared-screen delivery uses separate PTY/session ownership per
+   agent. Shared visibility does not require shared live write ownership, but
+   the user-facing surface should still read as one collaborative terminal
+   workflow.
+5. Before true shared-write ownership exists, packet exchange, staged drafts,
+   current task state, and last-seen/apply state should make it obvious to the
+   operator that both agents are working inside one system and are aware of
+   each other's latest state.
+6. The end-state may include a guarded shared target session, but concurrent
+   free-form writes into one live terminal are out of scope until explicit
+   lock/lease, ack/apply, and audit controls are proven.
+7. Overlay integration must preserve the default VoiceTerm single-backend voice
+   path unless the user explicitly enters a review/monitor surface.
+8. Any agent-to-agent or agent-to-operator handoff must be packetized and
+   replayable; hidden memory-only coordination is not acceptable execution
+   state.
+9. Initial refresh for Rust review surfaces should use local artifact polling
+   and existing periodic task hooks rather than a new filesystem-watcher
+   dependency.
+
+## Cross-Plan Dependencies
+
+1. `dev/active/autonomous_control_plane.md` owns the umbrella
+   `controller_state` direction, phone/SSH parity, Rust Dev-panel parity,
+   operator action governance, and ADR backlog for MP-340.
+2. MP-355 owns review-specific packet semantics, inbox/ack/watch/history
+   behavior, shared-screen layout, and review-channel guard/test coverage.
+3. `ADR-0027` is the accepted authority for shared controller-state field
+   names and projection strategy across MP-340 and MP-355.
+4. `ADR-0028` is the accepted authority for agent relay packet semantics;
+   `review_event` must remain its concrete packetized realization rather than
+   a competing protocol.
+5. Shared fields must retain exact names and meanings across MP-340 and MP-355:
+   `event_id`, `session_id`, `project_id`, `trace_id`, `timestamp_utc`,
+   `source`, `event_type`, `plan_id`, `controller_run_id`, `from_agent`,
+   `to_agent`, `evidence_refs`, `confidence`, `requested_action`,
+   `idempotency_key`, `nonce`, `expires_at_utc`.
+6. MP-336 owns explicit `--monitor` / `--mode monitor` startup-mode routing.
+   MP-355 should attach to the existing `--dev` panel first or stage against
+   the future MP-336 monitor selector; it should not alter the default startup
+   voice path on its own.
+7. MP-356 host-process hygiene is required validation for any review-channel
+   work that increases concurrent PTY/session visibility or packet-to-PTY
+   staging behavior.
+8. `dev/active/memory_studio.md` owns durable recall, handoff, and
+   compaction-survival outputs. MP-355 review artifacts should compile cleanly
+   into `session_handoff` / survival-index inputs so active blockers, current
+   decisions, and next action survive context loss, session restart, or
+   cross-agent handoff without hidden side channels.
+9. Review packets may attach memory-produced context by reference only:
+   `task_pack`, `handoff_pack`, and `survival_index` stay canonical under
+   Memory Studio and are linked through `context_pack_refs` rather than copied
+   inline into review artifacts. Bridge-era markdown/JSON handoff bundles are
+   transitional projections only and do not count as this contract landing
+   until structured `review_state` / `controller_state` artifacts emit and
+   consume the same references.
+10. When memory capture is active, `packet_posted`, `packet_acked`,
+    `packet_dismissed`, and `packet_applied` must emit corresponding normalized
+    memory events through the existing ingest path so handoff/decision history
+    survives outside the review-channel artifact root.
+11. Provider-specific formatting of attached context belongs to Memory Studio
+    adapter profiles (`MP-238`); review-channel routing selects the target
+    backend/profile but does not invent a second pack format.
+12. Unified timeline/replay remains an MP-340 umbrella projection over
+    controller, review, and memory traces once Phase-1/2 artifacts are stable;
+    MP-355 must keep timestamps, trace ids, and header fields compatible with
+    that later merge view.
+
+## Transitional Markdown Bridge (Current Operating Mode)
+
+Until Phase 1 lands in code, the sanctioned live coordination bridge for the
+current Codex-reviewer / Claude-coder loop is the repo-root `code_audit.md`
+file. This is the temporary operating protocol for the work happening now, not
+an accident or an off-book workaround.
+
+Rules for the markdown bridge:
+
+1. `code_audit.md` is current-state coordination only. Keep live verdicts,
+   open findings, reviewer instructions, coder status/questions/acks, and the
+   latest non-audit worktree hash there; do not turn it into an endless chat
+   transcript dump.
+2. Codex owns reviewer-state sections (`Poll Status`, `Current Verdict`,
+   `Open Findings`, `Current Instruction For Claude`). Claude owns
+   coder-state sections (`Claude Status`, `Claude Questions`, `Claude Ack`).
+3. Codex polls non-`code_audit.md` worktree deltas every 2-3 minutes while
+   code is moving, or sooner after a meaningful code chunk / explicit user
+   request. Poll cadence is part of the protocol, not ad-hoc reviewer choice.
+4. Each meaningful reviewer update must record the latest reviewed non-audit
+   worktree hash so both agents know which state was actually reviewed.
+5. Reviewer findings must reference concrete files/checks/tests when possible
+   and must distinguish still-blocking items from accepted / resolved ones.
+6. Claude must acknowledge each live finding with short state markers such as
+   `fixed`, `acknowledged`, `needs-clarification`, `blocked`, or `deferred`.
+6.1 Multi-agent specialization is allowed, but bridge writes stay
+    conductor-owned: only one Codex conductor updates the Codex-owned bridge
+    sections and only one Claude conductor updates the Claude-owned bridge
+    sections. Specialist reviewer/fixer workers must report back to their
+    conductor instead of editing `code_audit.md` directly.
+7. The markdown bridge is a temporary projection path for today's workflow. It
+   does not replace the Phase-1 `review_event` / `review_state` artifact model;
+   once the real `devctl review-channel` path exists, `code_audit.md` should
+   become a projection/example or be retired.
+8. In the current operator-facing loop, each meaningful Codex reviewer write to
+   `code_audit.md` must also emit a concise operator-visible chat update that
+   summarizes the reviewed non-audit worktree hash, whether the blocker set
+   changed, and any new instruction for Claude. The chat ping is observability
+   for the human operator, not a second execution authority.
+8.1 While code is moving, Codex should also emit a lightweight operator-visible
+    heartbeat every five minutes even when the blocker set is unchanged so the
+    human can tell the loop is still alive.
+9. Until structured `review_event` / `review_state` artifacts land, the
+   markdown bridge contract itself must stay machine-checked so a fresh convo
+   can bootstrap safely from the attached `code_audit.md` file without relying
+   on hidden session memory.
+10. The bridge guard is conditional on the bridge being active. If repo-root
+    `code_audit.md` is absent, `check_review_channel_bridge.py` should treat
+    that as "bridge inactive" instead of failing clean checkouts or unrelated
+    branches.
+11. For truly hands-off checklist progression, the repo-native runner is
+    `devctl swarm_run --continuous`; the markdown bridge should mirror that
+    same next-step promotion behavior during live Codex/Claude sessions rather
+    than stopping at one accepted slice.
+12. Default multi-agent wakeups should be change-routed instead of brute-force:
+    the Codex conductor polls the full non-audit tree every 2-3 minutes while
+    specialist workers wake on owned-path changes or explicit conductor
+    re-review requests rather than every worker re-scanning the entire tree on
+    the same cadence.
+13. The transitional local bootstrap command is
+    `python3 dev/scripts/devctl.py review-channel --action launch`. It must:
+    stay bridge-gated, seed prompts that route both conductors back through
+    `AGENTS.md`, `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md`,
+    and be retired or migrated once the markdown bridge is inactive or the
+    overlay-native review launcher becomes canonical.
+
+Minimum bridge state:
+
+1. The current markdown bridge should always expose the equivalent of:
+   `state`, `task_id_or_scope`, `owner`, `last_reviewed_worktree_hash`,
+   `review_status`, `blockers`, `next_action`, and `last_poll_utc`, even if the
+   human-readable file spells those out through section names instead of one
+   literal key/value table.
+2. For the current `code_audit.md` projection, those fields map to:
+   `Poll Status` + `Current Verdict` + `Open Findings` + `Current Instruction
+   For Claude` + `Claude Ack` + header metadata (`Last Codex poll`, `Last
+   non-audit worktree hash`).
+3. The important property is not markdown vs JSON. The important property is
+   that the current coordination file behaves like a lightweight coordination
+   log with explicit current state, ownership, and next action instead of loose
+   notes.
+
+Temporary bridge state machine:
+
+1. The current operating loop should behave like:
+   `idle -> coding -> review_pending -> findings_posted -> claude_ack_pending
+   -> fix_in_progress -> verify_pending -> resolved -> next_slice_selected -> coding`
+   or `blocked` / `scope_exhausted`.
+2. `code_audit.md` does not need one literal `state=` line yet, but the live
+   sections must make that state inferable without rereading chat transcript or
+   hidden memory.
+3. Any reviewer update that moves the loop into `blocked` or `resolved` must
+   refresh `blockers`, `next_action`, `last_reviewed_worktree_hash`, and
+   `last_poll_utc` in the same write so both agents are looking at the same
+   current state.
+4. For the current human-observed loop, the reviewer should also expose
+   `last_poll_local` in the markdown header and repeat the same review summary
+   in chat so the operator can see reviewer activity without reopening the
+   markdown file.
+5. When the loop reaches `resolved` and scoped plan work still exists, the
+   reviewer must update `next_action` to the next unchecked scoped plan item
+   instead of leaving the bridge in a completed-but-idle state.
+
+Temporary bridge failure modes:
+
+1. Stale reads: reviewer comments applied to the wrong repo state. Current
+   guard path is reviewed-hash + poll timestamp recording on each meaningful
+   Codex update.
+2. Section clobbering: one agent overwrites the other's state. Current guard
+   path is strict section ownership inside `code_audit.md`.
+3. Blocking-state ambiguity: Claude cannot tell which findings are blockers vs
+   advisory notes. Current guard path is keeping only live blockers in
+   `Open Findings` and putting accepted direction in `Current Verdict`.
+4. Markdown/repo drift: the file says one thing while the repo says another.
+   Current guard path is reviewer updates citing concrete files/checks/tests
+   plus the latest reviewed non-audit worktree hash.
+5. Context-loss drift: active blockers disappear after compaction, session
+   restart, or agent handoff. The forward path is reducing this same state into
+   Phase-1 `review_state` / `controller_state` artifacts and memory-backed
+   `session_handoff` / survival-index inputs instead of inventing a separate
+   hidden memory channel.
+6. Completion stall: one accepted slice finishes and both agents stop even
+   though scoped plan work remains. Current guard path is explicit next-slice
+   promotion in `code_audit.md`, operator-visible reviewer chat pings, and the
+   repo-native fallback of `devctl swarm_run --continuous` for fully hands-off
+   plan progression.
+
+## Repo Wiring Constraints
+
+1. `review-channel` must ship as one flat top-level `devctl` command wired
+   through a dedicated parser module and command handler registration, then
+   listed in the command inventory. Do not grow `cli_parser_reporting.py`
+   further for MP-355; this track should use a dedicated parser file such as
+   `review_channel_parser.py` or a similarly isolated builder path.
+2. `review-channel` must receive an explicit audit-events area mapping on first
+   implementation day; do not let the command fall through to `misc`.
+3. Review-channel policy must extend the existing
+   `dev/config/control_plane_policy.json` contract. Do not add a second ad-hoc
+   policy file for actor routing, ack/apply permissions, or packet-staging
+   behavior.
+4. Any new review-channel guard must land in all three places together:
+   command/test code, `bundle_registry.py`, and the mirrored
+   `tooling_control_plane.yml` / `release_preflight.yml` workflow gates.
+5. Any new review-channel runtime artifact root must be added to protected-path
+   retention governance in the same implementation change.
+6. Any direct/raw `cargo test` usage for this track must be followed by
+   `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+   per repo process-hygiene policy.
+
+## Canonical Artifact Layout
+
+Phase-1 artifact layout should live under `dev/reports/review_channel/`:
+
+1. `state/latest.json`
+   latest reduced `review_state` snapshot.
+2. `events/trace.ndjson`
+   append-only `review_event` stream used for replay/history rebuild.
+3. `projections/latest/full.json`
+4. `projections/latest/compact.json`
+5. `projections/latest/trace.ndjson`
+6. `projections/latest/actions.json`
+7. `projections/latest/latest.md`
+8. `registry/agents.json`
+   local review-lane agent registry snapshot and script-backed job-board state.
+9. `history/<timestamp-or-label>/...`
+   optional dated replay bundles for debugging/demo evidence.
+
+Retention rule:
+
+1. `state/`, `events/`, `projections/`, and `registry/` are protected runtime
+   artifacts and must be added to the report-retention protected-path policy in
+   the same implementation change.
+2. Only dated `history/` bundles may be treated as managed ephemeral report
+   output for retention cleanup.
+
+## Schema Draft
+
+### Contract Relationship
+
+1. `review_event` is the append-only write authority.
+2. `review_state` is the latest reduced snapshot derived from the validated
+   event stream.
+3. `review_state` is a review-focused profile over the broader
+   `controller_state` direction, not a second competing control-plane root.
+
+### Shared Event Header Contract
+
+1. `review_event` headers must be losslessly normalizable into Memory Studio's
+   canonical event envelope and MP-340 controller audit fields.
+2. Phase 0 must freeze the normalization map:
+   `event_id -> event_id`, `session_id -> session_id`,
+   `project_id -> project_id`, `timestamp_utc -> ts` for memory ingest,
+   `source -> source`, `event_type -> event_type`, and
+   `trace_id -> trace_id`.
+3. `from_agent` and `to_agent` are routing fields, not substitutes for
+   `source`. `source` identifies the emitting subsystem/command path (for
+   example `review_channel`), while agent ids remain explicit payload fields.
+4. Review-specific fields may extend the header, but they must not force Memory
+   Studio or MP-340 to maintain a second parallel alias table for the same
+   semantics.
+
+### `review_state` Fields
+
+- `schema_version: int`
+  required; starts at `1`.
+- `command: "review-channel"`
+  required; matches current `devctl` reporting style.
+- `project_id: string`
+  required stable repo identity hash/path key shared with Memory Studio.
+- `timestamp: string`
+  required UTC ISO-8601 `Z` timestamp for snapshot generation time.
+- `ok: bool`
+  required reducer/projection health bit.
+- `review: object`
+  required; contains:
+  - `plan_id: string`
+  - `controller_run_id: string`
+  - `session_id: string`
+  - `surface_mode: string`
+  - `active_lane: string`
+  - `refresh_seq: int`
+- `agents: array<object>`
+  required; each row contains:
+  - `agent_id: string`
+  - `display_name: string`
+  - `role: string`
+  - `status: active|idle|waiting|offline`
+  - `capabilities: array<string>`
+  - `lane: codex|claude|review|operator`
+  - `session_ref: string?`
+  - `last_seen_utc: string?`
+  - `assigned_job: string?`
+  - `job_status: queued|reading|implementing|reviewing|blocked|waiting|done`
+  - `waiting_on: string?`
+  - `last_packet_id_seen: string?`
+  - `last_packet_id_applied: string?`
+  - `script_profile: string?`
+  - `editable_fields: array<string>?`
+- `packets: array<object>`
+  required; latest pending/recent review packet state with:
+  - `packet_id: string`
+  - `trace_id: string`
+  - `latest_event_id: string`
+  - `from_agent: string`
+  - `to_agent: string`
+  - `kind: finding|question|draft|action_request|approval_request|decision|system_notice`
+  - `summary: string`
+  - `body: string`
+  - `evidence_refs: array<string>`
+  - `confidence: number`
+  - `requested_action: string`
+  - `policy_hint: review_only|stage_draft|operator_approval_required|safe_auto_apply`
+  - `approval_required: bool`
+  - `status: pending|acked|dismissed|applied|expired`
+  - `acked_by: string?`
+  - `acked_at_utc: string?`
+  - `applied_at_utc: string?`
+  - `expires_at_utc: string?`
+  - `context_pack_refs: array<object>?`
+    optional attached memory context bundles:
+    - `pack_kind: task_pack|handoff_pack|survival_index`
+    - `pack_ref: string`
+    - `adapter_profile: canonical|codex|claude|gemini`
+    - `generated_at_utc: string?`
+  - `terminal_packet: object?`
+    optional; exact v1 shape mirrors Rust `DevTerminalPacket`:
+    - `packet_id: string`
+    - `source_command: string`
+    - `draft_text: string`
+    - `auto_send: bool`
+    no additional keys in Phase 1.
+- `queue: object`
+  required; summary counts by target/status plus `stale_packet_count`.
+- `warnings: array<string>`
+- `errors: array<string>`
+
+### `review_event` Fields
+
+- `schema_version: int`
+  required; starts at `1`.
+- `event_id: string`
+  required unique append identifier.
+- `session_id: string`
+  required stable review/session correlation id.
+- `project_id: string`
+  required stable repo identity hash/path key shared with Memory Studio.
+- `packet_id: string`
+  required stable packet identifier across transitions.
+- `trace_id: string`
+  required correlation id linking one review packet to later actions.
+- `timestamp_utc: string`
+  required UTC ISO-8601 `Z` timestamp.
+- `source: string`
+  required emitting subsystem/command path, for example `review_channel`.
+- `plan_id: string`
+- `controller_run_id: string`
+- `event_type: string`
+  required enum:
+  `packet_posted|packet_acked|packet_dismissed|packet_applied|packet_expired|projection_rebuilt|toast_emitted`
+- `from_agent: string`
+- `to_agent: string`
+- `kind: string`
+  same enum as `review_state.packets[*].kind`.
+- `summary: string`
+- `body: string`
+- `evidence_refs: array<string>`
+- `confidence: number`
+- `requested_action: string`
+- `policy_hint: string`
+  same enum as `review_state.packets[*].policy_hint`.
+- `approval_required: bool`
+- `status: string`
+  same enum as `review_state.packets[*].status`.
+- `context_pack_refs: array<object>?`
+  optional attached memory context bundles using the same shape as
+  `review_state.packets[*].context_pack_refs`.
+- `terminal_packet: object?`
+  optional; must align exactly with the current Rust `DevTerminalPacket`
+  staging contract:
+  - `packet_id: string`
+  - `source_command: string`
+  - `draft_text: string`
+  - `auto_send: bool`
+  no additional keys in Phase 1.
+- `idempotency_key: string`
+  required; stable duplicate-suppression key.
+- `nonce: string`
+  required replay-protection nonce.
+- `expires_at_utc: string`
+  required for pending packets.
+- `metadata: object`
+  optional extensibility bag for projection/debug fields only.
+
+### Example `review_event`
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "rev_evt_0001",
+  "session_id": "local-review",
+  "project_id": "sha256:/Users/jguida941/testing_upgrade/codex-voice",
+  "packet_id": "rev_pkt_0001",
+  "trace_id": "trace_20260308_codex_001",
+  "timestamp_utc": "2026-03-08T01:10:00Z",
+  "source": "review_channel",
+  "plan_id": "MP-355",
+  "controller_run_id": "mp355-r1",
+  "event_type": "packet_posted",
+  "from_agent": "claude",
+  "to_agent": "codex",
+  "kind": "finding",
+  "summary": "Refactor review-channel schema before Rust wiring",
+  "body": "Shared field names must align with controller_state and ADR-0028.",
+  "evidence_refs": ["dev/active/autonomous_control_plane.md#L337"],
+  "context_pack_refs": [
+    {
+      "pack_kind": "survival_index",
+      "pack_ref": ".voiceterm/memory/exports/survival_index.json",
+      "adapter_profile": "codex",
+      "generated_at_utc": "2026-03-08T01:09:40Z"
+    }
+  ],
+  "confidence": 0.88,
+  "requested_action": "review_only",
+  "policy_hint": "review_only",
+  "approval_required": false,
+  "status": "pending",
+  "idempotency_key": "e3e4f8d4f8d4a2b1c9aa0011",
+  "nonce": "29c2f0aee77f77cb65eaa7d3",
+  "expires_at_utc": "2026-03-08T01:15:00Z"
+}
+```
+
+### Example `review_state`
+
+```json
+{
+  "schema_version": 1,
+  "command": "review-channel",
+  "project_id": "sha256:/Users/jguida941/testing_upgrade/codex-voice",
+  "timestamp": "2026-03-08T01:10:01Z",
+  "ok": true,
+  "review": {
+    "plan_id": "MP-355",
+    "controller_run_id": "mp355-r1",
+    "session_id": "local-review",
+    "surface_mode": "dev-panel",
+    "active_lane": "review",
+    "refresh_seq": 1
+  },
+  "agents": [
+    {"agent_id": "codex", "display_name": "Codex", "role": "worker", "status": "active", "capabilities": ["implementation"], "lane": "codex"},
+    {"agent_id": "claude", "display_name": "Claude", "role": "reviewer", "status": "active", "capabilities": ["review", "planning"], "lane": "claude"},
+    {"agent_id": "operator", "display_name": "Operator", "role": "approver", "status": "waiting", "capabilities": ["approval"], "lane": "operator"}
+  ],
+  "packets": [
+    {
+      "packet_id": "rev_pkt_0001",
+      "trace_id": "trace_20260308_codex_001",
+      "latest_event_id": "rev_evt_0001",
+      "from_agent": "claude",
+      "to_agent": "codex",
+      "kind": "finding",
+      "summary": "Refactor review-channel schema before Rust wiring",
+      "body": "Shared field names must align with controller_state and ADR-0028.",
+      "evidence_refs": ["dev/active/autonomous_control_plane.md#L337"],
+      "context_pack_refs": [
+        {
+          "pack_kind": "survival_index",
+          "pack_ref": ".voiceterm/memory/exports/survival_index.json",
+          "adapter_profile": "codex",
+          "generated_at_utc": "2026-03-08T01:09:40Z"
+        }
+      ],
+      "confidence": 0.88,
+      "requested_action": "review_only",
+      "policy_hint": "review_only",
+      "approval_required": false,
+      "status": "pending"
+    }
+  ],
+  "queue": {"pending_total": 1, "pending_codex": 1, "stale_packet_count": 0},
+  "warnings": [],
+  "errors": []
+}
+```
+
+## Data Flow
+
+1. Agent or operator submits one review packet through
+   `python3 dev/scripts/devctl.py review-channel --action post ...`.
+2. The command validates required fields, policy hints, target ids, and
+   idempotency before writing one `review_event`.
+3. The event writer appends to `events/trace.ndjson`, then rebuilds
+   `state/latest.json` through one deterministic reducer.
+4. The reducer emits the standard projection bundle:
+   `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`.
+5. `devctl review-channel --action status|watch|inbox|history` reads only those
+   canonical artifacts; it never invents alternate state.
+6. Rust review surfaces poll the same artifacts and render Codex, Claude, and
+   Operator lanes from the same reduced state.
+7. Attached `context_pack_refs` travel as references only; canonical memory
+   packs stay in the Memory artifact roots and are not recopied into
+   review-channel state.
+8. When memory capture is active, `post`/`ack`/`dismiss`/`apply` must also emit
+   one normalized memory event through the existing ingest path so review
+   outcomes survive compaction, restart, and cross-agent handoff.
+9. Any packet-to-PTY staging uses the existing `terminal_packet` contract and
+   remains a separate ack/apply step with audit evidence; Phase 1-2 do not
+   inject silently into a live shared terminal.
+10. Optional MCP exposure, if added later, serves review-channel snapshots
+   through the existing additive `devctl mcp` adapter after the CLI/state
+   contract is stable; it does not become a parallel write authority.
+11. Every `devctl review-channel` invocation still emits the normal
+   `devctl_events.jsonl` audit record through the existing CLI wrapper; the
+   review-channel artifacts supplement that log and do not replace it.
+
+## Command Interface
+
+Phase-1 CLI shape:
+
+1. Add one flat top-level command registered as `review-channel`.
+2. Use `--action` to fit current `devctl` parser/handler architecture instead
+   of introducing nested subcommand trees as a side effect of MP-355.
+3. Mirror current `devctl` output conventions:
+   `--format`, `--output`, `--json-output`, `--pipe-command`, `--pipe-args`.
+
+Planned actions:
+
+1. `post`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action post \
+     --from-agent claude \
+     --to-agent codex \
+     --kind finding \
+     --summary "Refactor schema before Rust wiring" \
+     --body-file /tmp/review-body.md \
+     --evidence-ref dev/active/autonomous_control_plane.md#L337 \
+     --requested-action review_only \
+     --format md
+   ```
+
+2. `status`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action status \
+     --state-json dev/reports/review_channel/state/latest.json \
+     --view compact \
+     --emit-projections dev/reports/review_channel/projections/latest \
+     --format md
+   ```
+
+   Transitional bridge-backed slice now available:
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action status \
+     --terminal none \
+     --format md
+   ```
+
+   The current implementation writes latest projections under
+   `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`,
+   `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) while the
+   event-backed `state/latest.json` + `watch|inbox|history` path remains open.
+
+3. `watch`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action watch \
+     --target operator \
+     --follow \
+     --stale-minutes 30 \
+     --format md
+   ```
+
+4. `inbox`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action inbox \
+     --target codex \
+     --status pending \
+     --limit 20 \
+     --format json
+   ```
+
+5. `ack`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action ack \
+     --packet-id rev_pkt_0001 \
+     --ack-state acked \
+     --actor operator \
+     --format md
+   ```
+
+6. `history`
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action history \
+     --trace-id trace_20260308_codex_001 \
+     --limit 50 \
+     --format md
+   ```
+
+Exit codes:
+
+1. `0`
+   success.
+2. `1`
+   state/schema/projection or stale-state failure.
+3. `2`
+   CLI usage error or policy denial.
+
+## Visual Design
+
+Initial shared-screen target is a read-first three-lane layout with one shared
+status strip at the top and one shared process/timeline strip at the bottom:
+
+```text
++--------------------------------------------------------------------------------+
+| Current Slice: reducer fix     Branch: develop     Writer: Claude   q=exit     |
+| Shared Goal: Claude implements, Codex reviews, operator watches approvals      |
++--------------------------------+----------------------+-------------------------+
+| Claude Code                    | Shared Relay         | Codex Review            |
+| state: reading review packet   | pkt-184 posted       | state: reviewing diff   |
+| task: implement reducer fix    | pkt-184 acked        | verdict: 1 blocker      |
+| file: review_channel.py        | next: run tests      | waiting on patch        |
+| last seen: Codex finding #12   | approval: none       | last seen: Claude ack   |
+| last applied: pkt-183          | heartbeat: live      | last applied: pkt-182   |
+| draft: patch staged            | writer: session-local| note: retest after fix  |
++--------------------------------+----------------------+-------------------------+
+| Timeline: posted -> read -> acked -> implementing -> tests -> reviewed -> apply |
+| Next action: Claude patch + Codex re-review                                    |
++--------------------------------------------------------------------------------+
+```
+
+Collaborative-surface rules:
+
+1. The first shared screen should feel like one live collaboration surface, not
+   two unrelated terminals shown side by side.
+2. Each lane should expose enough packet/task context that the operator can see
+   what each agent is doing, what it most recently received from the other
+   side, and what remains staged vs applied.
+3. Cross-agent communication should appear in-context inside the shared
+   surface, so packet handoffs read as part of one terminal-native workflow
+   rather than an off-screen side channel.
+4. The surface must always show who currently owns write authority for any
+   shared target or, before Phase 4 lands, that write ownership is still
+   session-local and packet-mediated.
+5. The screen should also include an always-visible agent board summarizing all
+   active agents, their current jobs, current job status, and what or whom they
+   are waiting on, so the user can understand the whole swarm without opening a
+   second control tool.
+6. Any editable job/agent controls shown on screen must be thin projections over
+   typed repo-owned commands or typed registry updates; the UI must not invent
+   hidden job-routing logic outside `devctl` and the sanctioned artifact set.
+7. Preferred visual hierarchy is:
+   one shared goal/status strip, two actor lanes, a narrow relay/approval spine,
+   and one shared process timeline so the operator sees one workflow instead of
+   separate tools competing for attention.
+8. The actor lanes should expose both `last seen` and `last applied` markers so
+   the user can tell that Codex and Claude are mutually aware of each other's
+   latest state instead of merely running in parallel.
+
+Empty-state rules:
+
+1. Empty Codex/Claude lane shows session status plus last-seen timestamp.
+2. Empty Operator Bridge State lane shows "no pending review packets" plus the exact
+   `devctl review-channel --action post` example to seed the channel.
+3. Arrival of a new targeted packet while the normal voice overlay is active
+   should raise a toast only; it must not force a mode switch.
+
+## Keyboard Navigation
+
+Phase-2 keyboard contract:
+
+1. `Tab` / `Shift-Tab`
+   cycle active lane.
+2. `Up` / `Down` or `j` / `k`
+   move within packet list/history rows.
+3. `Enter`
+   expand selected packet body/evidence.
+4. `a`
+   acknowledge selected packet.
+5. `d`
+   dismiss selected packet.
+6. `p`
+   preview staged `terminal_packet` draft only.
+7. `r`
+   manual refresh.
+8. `q`
+   exit review surface and return to the prior overlay mode.
+
+Phase-3 voice contract:
+
+1. `next review`
+2. `ack review`
+3. `show me what Claude found`
+4. `open review lane`
+
+## Integrity Model
+
+1. Every artifact carries `schema_version`.
+2. Append-only event writes must be idempotent by `packet_id` +
+   `idempotency_key`.
+3. `state/latest.json` and projection files must be written through
+   temp-file-and-rename atomic replacement.
+4. `events/trace.ndjson` appends must flush immediately; on restart/rebuild,
+   the reducer may ignore only one trailing partial/corrupt line and must emit
+   a warning rather than silently truncating valid history.
+5. If `state/latest.json` is missing or stale, `status/watch/inbox/history`
+   must rebuild from the append-only event log before reporting success.
+6. Replay protection must reuse the current control-plane pattern:
+   `idempotency_key`, `nonce`, and `expires_at_utc`.
+7. Phase-1 event stream rotation should mirror the existing Rust memory JSONL
+   pattern unless there is a documented reason not to:
+   rotate at roughly 10 MB, keep one rotated backup (`trace.1.ndjson`), and
+   preserve deterministic replay order across current + rotated files.
+8. Pending packets older than the configured expiry window must surface as
+   stale in both `status/watch` output and the guard script.
+9. Packet staging is never auto-applied in Phase 1-2, even if a
+   `terminal_packet` is present.
+
+## Execution Checklist
+
+### Phase 0 - Schema + Architecture Design
+
+- [ ] Reconcile MP-355 with MP-340, `ADR-0027`, and `ADR-0028`, and record the
+      final ownership split in both active plan docs.
+- [ ] Freeze the shared event-header map with Memory Studio so
+      `review_event` can normalize losslessly into the canonical memory
+      envelope (`event_id`, `session_id`, `project_id`, `timestamp_utc -> ts`,
+      `source`, `event_type`, `trace_id`) without alias drift.
+- [ ] Freeze canonical artifact layout and protected-path expectations under
+      `dev/reports/review_channel/`.
+- [ ] Draft complete `review_state` and `review_event` schemas with field
+      names, types, required/optional status, enums, and example payloads.
+- [ ] Draft the local agent registry shape (`registry/agents.json`) with lane,
+      capabilities, status, and session reference fields.
+- [ ] Define the primary ingestion path as `devctl review-channel --action post`
+      with optional additive read-only MCP exposure later; do not add MCP write
+      tools in Phase 0/1.
+- [ ] Freeze the exact `terminal_packet` sub-object contract to the current Rust
+      `DevTerminalPacket` fields (`packet_id`, `source_command`, `draft_text`,
+      `auto_send`) so Phase 1 does not drift into an unbounded nested blob.
+- [ ] Define end-to-end data flow from agent post -> append-only event ->
+      reduced state -> projection bundle -> `devctl`/Rust render.
+- [ ] Define integrity semantics: atomic writes, idempotency, replay window,
+      crash recovery, and event-stream rotation.
+- [ ] Reuse the repo's existing JSONL rotation pattern where practical:
+      approximately 10 MB max file size with one rotated backup unless a
+      documented review-channel-specific reason requires a different limit.
+- [ ] Define initial CLI signatures, outputs, and exit codes for
+      `post|status|watch|inbox|ack|history`.
+- [ ] Define the `control_plane_policy.json` extension for review-channel
+      actor/target allowlists, ack/apply permissions, packet-staging rules, and
+      the default prohibition on auto-send promotion in early phases.
+- [ ] Freeze the cross-plan interop contract for `context_pack_refs`,
+      memory-event bridge rules (`packet_posted|packet_acked|packet_dismissed|
+      packet_applied`), and provider-profile selection so review routing reuses
+      Memory Studio pack/rendering authority instead of inventing a second
+      handoff channel.
+- [x] Keep the temporary markdown bridge machine-guarded until Phase 1 lands:
+      add `check_review_channel_bridge.py`, wire it into the same
+      tooling/release governance path as the other active-plan guards, and
+      require it to validate the `code_audit.md` bootstrap contract for fresh
+      Codex/Claude sessions.
+
+Acceptance:
+
+1. `review_channel.md` and `autonomous_control_plane.md` no longer disagree
+   about who owns schema and packet semantics.
+2. One engineer can implement Phase 1 without inventing missing fields or disk
+   layout details.
+3. The plan names every required guard/test/doc follow-up before code starts.
+
+### Phase 1 - Canonical Review Channel
+
+- [x] Land the first bridge-gated `devctl review-channel` surface as
+      `--action launch` for the current markdown-swarm cycle: read the merged
+      8+8 lane table, generate Codex/Claude conductor prompts that restate the
+      repo's `AGENTS.md`/`devctl` policy path, optionally open local
+      Terminal.app sessions, and fail closed once the markdown bridge is
+      inactive so this launcher cannot outlive the transitional bridge by
+      accident.
+- [ ] Add `devctl review-channel` command + parser/handler wiring using the
+      flat `--action` contract.
+- [ ] Register parser/command wiring in isolated files that do not further grow
+      `dev/scripts/devctl/cli_parser_reporting.py`; expected touchpoints include
+      `dev/scripts/devctl/cli.py`, a dedicated review-channel parser module, and
+      `dev/scripts/devctl/commands/listing.py`.
+- [ ] Implement `post`, `status`, `watch`, `inbox`, `ack`, `dismiss`,
+      `apply`, and `history` actions.
+- [ ] Expose the operator-facing typed action surface the thin GUI wrappers
+      need: `ack|dismiss|apply` for packet decisions plus the typed
+      pause/resume/stop/health hooks that future Operator Console buttons will
+      call instead of writing desktop-only placeholder artifacts.
+- [ ] Emit projection files from the same reduced state source:
+      `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, and
+      `latest.md`.
+- [ ] Add a terminal-packet projection for safe staging into a target PTY or
+      overlay draft lane using the existing `DevTerminalPacket` shape.
+- [ ] Allow packets to carry `context_pack_refs` for `task_pack`,
+      `handoff_pack`, and `survival_index`, keeping canonical pack bodies in
+      Memory Studio artifact roots.
+- [ ] When memory capture is active, emit normalized memory-ingest events for
+      `packet_posted`, `packet_acked`, `packet_dismissed`, and
+      `packet_applied` through the existing ingest path.
+- [ ] Add `check_review_channel.py` guard coverage for:
+      schema validation, shared-field parity against controller-state naming,
+      stale pending packets, projection consistency, and protected artifact-root
+      policy.
+- [ ] Extend `dev/scripts/devctl/audit_events.py` so `review-channel` maps to a
+      deliberate metrics area on day one.
+- [ ] Extend `dev/config/control_plane_policy.json` with the review-channel
+      section defined in Phase 0; do not create parallel policy config.
+- [ ] Emit a typed `registry/agents.json` view that includes current job,
+      job-state, waiting-on, last-packet-seen/applied, and script-profile
+      fields for each visible agent.
+- [ ] Extend `dev/scripts/devctl/reports_retention.py` protected paths for
+      `dev/reports/review_channel/`.
+- [ ] Wire `check_review_channel.py` into `dev/scripts/devctl/bundle_registry.py`
+      and the mirrored `.github/workflows/tooling_control_plane.yml` /
+      `.github/workflows/release_preflight.yml` gates.
+- [ ] Add targeted unit coverage for parser wiring, schema validation,
+      append-only event writing, projection rendering, `history`, and ack
+      semantics.
+- [ ] Land repo docs + command inventory updates in the same change:
+      `dev/scripts/README.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
+      `.github/workflows/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`,
+      `devctl list`, audit-event area mapping, and retention-policy updates.
+
+Acceptance:
+
+1. One posted packet can be rendered consistently as JSON, markdown, trace
+   stream, actions view, and terminal-packet projection.
+2. `devctl review-channel --action inbox --target codex` returns only targeted
+   pending packets with deterministic status fields.
+3. `check_review_channel.py` passes on a valid bundle and fails on schema drift,
+   stale pending packets, or projection mismatch.
+
+Expected Phase-1 tests:
+
+1. `python3 -m unittest dev.scripts.devctl.tests.test_review_channel`
+2. `python3 -m unittest dev.scripts.devctl.tests.test_check_review_channel`
+
+### Phase 2 - Read-First Shared Screen
+
+- [ ] Start with the existing Rust Dev-panel / overlay path instead of changing
+      the default startup mode. Expected touchpoints:
+      `rust/src/bin/voiceterm/dev_panel.rs`,
+      `rust/src/bin/voiceterm/overlays.rs`,
+      `rust/src/bin/voiceterm/event_state.rs`,
+      `rust/src/bin/voiceterm/event_loop/periodic_tasks.rs`,
+      `rust/src/bin/voiceterm/event_loop/dev_panel_commands.rs`,
+      and related `event_loop/tests.rs` coverage.
+- [ ] Show at least three visible lanes: `Codex`, `Claude`, and
+      `Operator Bridge State`.
+- [ ] Add a compact all-agents job board that stays visible above or alongside
+      the main lanes and shows every active agent, assigned job, current state,
+      waiting-on target, and freshness/heartbeat state.
+- [ ] Use the main visual hierarchy shown above: shared goal/status strip,
+      Claude lane, relay spine, Codex lane, then shared process timeline.
+- [ ] Keep the screen sourced from the canonical review/controller artifacts
+      rather than bespoke overlay-only state.
+- [ ] Render both a parsed review state and a raw artifact view:
+  - [ ] parsed current verdict/findings/instruction/ack/poll state
+  - [ ] raw `code_audit.md` / projection markdown view while the bridge is the
+        sanctioned temporary operator surface
+- [ ] Add polling-based refresh behavior that does not interfere with the
+      standard VoiceTerm overlay lifecycle.
+- [ ] Add a toast notification when a new review packet arrives during normal
+      voice mode.
+- [ ] Make the user-facing review surface read as one collaborative
+      terminal-native workspace even while Codex and Claude remain separate
+      PTY/session owners under the hood.
+- [ ] Keep per-agent PTY/session ownership separate in this phase.
+- [ ] Show peer-awareness cues in the shared screen:
+  - [ ] last packet received / last packet applied
+  - [ ] current task or draft intent
+  - [ ] current writer/target status for any staged terminal action
+  - [ ] shared-goal header and current-slice summary
+  - [ ] bottom-of-screen workflow timeline
+- [ ] Make agent/job details adjustable from the surface through typed controls
+      that call repo-owned scripts and command handlers rather than bespoke UI
+      business logic:
+  - [ ] update assigned job / priority
+  - [ ] pause or resume an agent
+  - [ ] request re-review or reroute a packet
+  - [ ] trigger launch / rollover / checks through existing `devctl` surfaces
+- [ ] Define empty-state rendering and keyboard navigation exactly as specified
+      above.
+- [ ] Add bounded operator edit/generate affordances inside the review surface:
+  - [ ] rewrite current instruction
+  - [ ] promote next scoped slice
+  - [ ] append operator note / request re-review
+  - [ ] generate fresh-conversation prompts / resume bundle
+  - [ ] preview staged `terminal_packet` output without blind auto-send
+- [ ] If a dedicated monitor selector is needed, coordinate with MP-336 instead
+      of introducing an MP-355-only startup flag.
+
+Acceptance:
+
+1. The user can watch both agent lanes and the current review queue on one
+   VoiceTerm screen.
+2. The shared screen is read-first and does not degrade the normal voice
+   overlay path.
+3. The same state is visible through both `devctl` and the Rust review surface.
+4. The operator can tell, from one screen, what each agent knows about the
+   other agent's latest work without opening a separate coordination tool.
+5. The operator can inspect and adjust agent jobs from that same screen, but
+   every adjustment is traceable to a typed command or typed artifact update.
+
+Expected Phase-2 tests:
+
+1. `cd rust && cargo test --bin voiceterm dev_panel`
+2. `cd rust && cargo test --bin voiceterm periodic_tasks`
+3. `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+
+### Phase 3 - Routed Review + Guarded Handoffs
+
+- [ ] Add per-target inbox filtering so packets can be routed to `codex`,
+      `claude`, or `operator`.
+- [ ] Add explicit `acked|dismissed|applied|expired` transitions and
+      stale-packet watch behavior.
+- [ ] Add policy-aware action hints so packets can express `review_only`,
+      `stage_draft`, `operator_approval_required`, or `safe_auto_apply`.
+- [ ] Route any `requested_action` through the same typed action catalog used by
+      overlay buttons and controller surfaces; review packets must not invent a
+      parallel raw-command bypass.
+- [ ] Allow packets to carry high-level intents (`push`, `run checks`,
+      `dispatch workflow`, `generate handoff`) that the planner resolves to a
+      concrete approved playbook, but only within the shared typed action
+      catalog.
+- [ ] Keep Git/GitHub/CI/script/memory requests typed and catalog-backed
+      (`git_push`, `gh_run_view`, `memory_export_pack`, etc.) rather than
+      arbitrary shell or arbitrary HTTP/API text emitted by an agent.
+- [ ] When a packet asks for a blocked or approval-gated action, surface the
+      full warning/precondition bundle back into the review lane so Claude,
+      Codex, and the operator can all see why the action stopped.
+- [ ] Add explicit operator-override/waiver recording for action requests whose
+      policy contract permits a bounded override; the waiver must stay visible
+      in packet history and audit refs.
+- [ ] `Unsafe Direct` remains operator-owned only: packets may request it or
+      explain why guarded mode is inconvenient, but they may not silently
+      switch execution profile or bypass the shared policy engine.
+- [ ] Reuse existing audit/event logging so every review-channel action is
+      traceable in `devctl_events.jsonl`.
+- [ ] Add review-channel status/watch outputs that integrate with orchestration
+      status surfaces. (`2026-03-09` partial: `review-channel --action status`
+      now writes bridge-backed latest projections under
+      `dev/reports/review_channel/latest/`; event-backed rebuild semantics plus
+      `watch|inbox|ack|dismiss|apply|history` remain open. A later same-day
+      launcher follow-up also writes per-session metadata + live transcript
+      logs under `dev/reports/review_channel/latest/sessions/` so desktop
+      read-only consumers can tail real conductor output without taking PTY
+      ownership away from Terminal.app.)
+- [ ] Add optional additive read-only MCP exposure for review snapshots only
+      after the `devctl` contract is stable; any write-capable MCP surface
+      requires an explicit policy change outside this phase.
+- [ ] If read-only MCP exposure lands, wire it through the existing
+      `devctl mcp` extension path: allowlist entry, `test_mcp.py` coverage, and
+      docs updates in `dev/scripts/README.md` + `dev/guides/DEVCTL_AUTOGUIDE.md`.
+- [ ] Add `trace_id` linking across review packets, acknowledgements, staged
+      PTY drafts, and resulting actions.
+- [ ] Add `devctl memory` / `devctl review-channel` interop:
+      `review-channel --action post` may attach a selected memory pack by ref,
+      and `devctl memory` should support queries by `packet_id`, `trace_id`, or
+      task ref without requiring raw event-id discovery.
+- [ ] Feed review outcomes back into memory usefulness telemetry with explicit
+      reason-coded mappings (`applied -> accepted`, `dismissed -> ignored|wrong`,
+      `acked-without-apply -> neutral`) instead of leaving review resolution
+      disconnected from retrieval quality learning.
+- [ ] Route cross-provider handoffs through Memory Studio adapter profiles so
+      packets sent from Claude to Codex (or later Gemini) attach the
+      receiver-shaped pack projection while the canonical JSON pack stays
+      unchanged.
+- [ ] Add conflict-resolution UX for competing agent recommendations.
+- [ ] Add typed agent-board actions so the operator can retask or tune agents
+      from the shared surface without bypassing script/policy ownership:
+  - [ ] `assign`
+  - [ ] `reprioritize`
+  - [ ] `pause-agent`
+  - [ ] `resume-agent`
+  - [ ] `request-rereview`
+  - [ ] `launch`
+  - [ ] `rollover`
+- [ ] Keep those actions as thin wrappers around repo-owned `devctl` handlers
+      and typed registry updates; the review surface may render and invoke them,
+      but it must not become an unscripted orchestration engine.
+
+Acceptance:
+
+1. One agent can watch/review another agent through the review channel with
+   explicit packet state transitions.
+2. Guarded PTY staging is possible without silent auto-injection.
+3. Operator-visible audit output can reconstruct who sent, acknowledged, and
+   applied each packet.
+4. The user can understand the full agent roster, current jobs, and operator
+   changes from one screen without losing typed-command/audit ownership.
+
+### Phase 4 - Deferred Shared Target Session
+
+- [ ] Design a shared target session mode with explicit writer lease/lock
+      semantics.
+- [ ] Require one active writer at a time for any shared live terminal target.
+- [ ] Require ack/apply semantics before cross-agent injection into a shared
+      target session.
+- [ ] Add collision handling, timeout recovery, and full audit evidence for
+      lease transitions.
+- [ ] Preserve the same single collaborative surface when lease-based shared
+      writing lands so the operator does not have to switch to a second
+      debugging-only UI to understand who is talking to whom.
+- [ ] Gate promotion of this phase on successful soak evidence from Phases 1-3.
+
+Acceptance:
+
+1. Shared-target-session mode never allows ambiguous simultaneous writers.
+2. The user can see which agent currently owns write authority.
+3. Every shared-session write is attributable and reversible at the workflow
+   level.
+4. Shared-write mode still reads as one collaborative terminal experience
+   instead of exposing raw lease mechanics without context.
+
+### Out Of Scope Until Later Phases
+
+- [ ] Full desktop GUI client resurrection.
+- [ ] Free-form concurrent writes from Codex and Claude into one live target
+      terminal.
+- [ ] Any release/tag/publish actions routed through the review channel without
+      separate controller-policy hardening.
+
+## 0) Current Execution Mode
+
+This merged section replaces the retired standalone multi-agent worktree
+runbook for the current markdown-swarm cycle.
+
+Coordination contract:
+
+1. `dev/active/review_channel.md` is the canonical static swarm plan: lane
+   ownership, worktree/branch map, signoff template, and governance policy live
+   here.
+2. `code_audit.md` is the only live cross-team coordination surface during the
+   active 8+8 run. Codex lanes post findings, poll summaries, and next actions
+   there; Claude lanes read it, acknowledge it, and code against it.
+3. `dev/active/MASTER_PLAN.md` remains the execution tracker for lane status.
+4. `AGENT-1..AGENT-8` are the Codex reviewer/auditor swarm.
+5. `AGENT-9..AGENT-16` are the Claude coding/fix swarm.
+6. When no fresh diff is ready for review, the Codex integration lane polls
+   every 5 minutes, reports status in chat, and resumes review as soon as
+   Claude work advances.
+
+Bootstrap workflow for the current live cycle:
+
+1. Dry-run the bridge-gated launcher first:
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action launch \
+     --terminal none \
+     --dry-run \
+     --format md
+   ```
+
+2. When the dry-run output looks correct, open the two conductor sessions:
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action launch \
+     --format md
+   ```
+
+3. The launched Codex conductor owns the `AGENT-1..AGENT-8` reviewer lanes and
+   Claude owns the `AGENT-9..AGENT-16` coding lanes. The conductors may fan out
+   specialist workers internally, but only the conductors update `code_audit.md`.
+4. Terminal.app launch defaults to the `auto-dark` profile selector on macOS so
+   the conductor windows come up on a dark profile when a known one is
+   available. Use `--terminal-profile default` only when you explicitly want to
+   keep Terminal.app unchanged.
+5. Before either conductor hits compaction, the active threshold is 50%
+   remaining context. At or below that line, the current conductor finishes the
+   atomic step, updates its owned `code_audit.md` sections, and triggers:
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action rollover \
+     --rollover-threshold-pct 50 \
+     --await-ack-seconds 180 \
+     --format md
+   ```
+
+6. `--action rollover` writes a repo-visible handoff bundle under
+   `dev/reports/review_channel/rollovers/`, relaunches fresh Codex/Claude
+   conductor sessions, and requires the new sessions to write exact rollover
+   ACK lines into `code_audit.md` before the retiring session exits.
+
+| Agent | Lane | Primary active docs | MP scope | Worktree | Branch |
+|---|---|---|---|---|---|
+| `AGENT-1` | Codex architecture contract review | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` | `MP-340, MP-355` | `../codex-voice-wt-a1` | `feature/a1-codex-architecture-review` |
+| `AGENT-2` | Codex clean-code and state-boundary review | `dev/active/review_channel.md` + runtime pack | `MP-267, MP-340, MP-355` | `../codex-voice-wt-a2` | `feature/a2-codex-clean-code-review` |
+| `AGENT-3` | Codex runtime and handoff review | `dev/active/review_channel.md`, `dev/active/memory_studio.md` + runtime pack | `MP-233, MP-238, MP-243, MP-340, MP-355` | `../codex-voice-wt-a3` | `feature/a3-codex-runtime-handoff-review` |
+| `AGENT-4` | Codex CI and workflow reviewer | `dev/active/review_channel.md` + tooling pack | `MP-297, MP-298, MP-303, MP-306, MP-355` | `../codex-voice-wt-a4` | `feature/a4-codex-ci-workflow-review` |
+| `AGENT-5` | Codex devctl and process-hygiene reviewer | `dev/active/devctl_reporting_upgrade.md`, `dev/active/host_process_hygiene.md` | `MP-297, MP-298, MP-300, MP-303, MP-306, MP-356` | `../codex-voice-wt-a5` | `feature/a5-codex-devctl-process-review` |
+| `AGENT-6` | Codex overlay and UX reviewer | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a6` | `feature/a6-codex-overlay-ux-review` |
+| `AGENT-7` | Codex guard and test reviewer | `dev/active/review_channel.md`, `dev/active/host_process_hygiene.md` + tooling pack | `MP-303, MP-355, MP-356` | `../codex-voice-wt-a7` | `feature/a7-codex-guard-review` |
+| `AGENT-8` | Codex integration and re-review loop | `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md` | `MP-340, MP-355, MP-356` | `../codex-voice-wt-a8` | `feature/a8-codex-integration-review` |
+| `AGENT-9` | Claude bridge push-safety fixes | `dev/active/review_channel.md` + tooling pack | `MP-303, MP-306, MP-355` | `../codex-voice-wt-a9` | `feature/a9-claude-bridge-push-safety` |
+| `AGENT-10` | Claude live Git-context fixes | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a10` | `feature/a10-claude-git-context-fixes` |
+| `AGENT-11` | Claude refresh, redraw, and footer fixes | `dev/active/review_channel.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a11` | `feature/a11-claude-refresh-redraw-fixes` |
+| `AGENT-12` | Claude broker and clipboard fixes | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a12` | `feature/a12-claude-broker-clipboard-fixes` |
+| `AGENT-13` | Claude handoff and bootstrap fixes | `dev/active/review_channel.md`, `dev/active/memory_studio.md` + runtime pack | `MP-233, MP-238, MP-243, MP-340, MP-355` | `../codex-voice-wt-a13` | `feature/a13-claude-handoff-bootstrap-fixes` |
+| `AGENT-14` | Claude workflow and publication-sync fixes | `dev/active/devctl_reporting_upgrade.md` + tooling pack | `MP-297, MP-298, MP-300, MP-303, MP-306` | `../codex-voice-wt-a14` | `feature/a14-claude-workflow-publication-fixes` |
+| `AGENT-15` | Claude clean-code refactors | `dev/active/naming_api_cohesion.md`, `dev/active/review_channel.md` + runtime/tooling packs | `MP-267, MP-340, MP-355` | `../codex-voice-wt-a15` | `feature/a15-claude-clean-code-refactors` |
+| `AGENT-16` | Claude proof and regression closure | `dev/active/review_channel.md`, `dev/active/host_process_hygiene.md` + runtime/tooling packs | `MP-303, MP-340, MP-355, MP-356` | `../codex-voice-wt-a16` | `feature/a16-claude-proof-regression-closure` |
+
+## 14) Orchestrator Instruction Log (Append-Only)
+
+All orchestrator-to-agent instructions must be logged here for governance, but
+the live reviewer/coder chatter and five-minute poll loop stay in
+`code_audit.md`.
+
+| UTC issued | Instruction ID | From | To | Summary | Due (UTC) | Ack token | Ack UTC | Status |
+|---|---|---|---|---|---|---|---|---|
+
+## 15) Shared Ledger (Append-Only)
+
+This ledger is the durable merge/readiness record for the swarm. Dynamic
+finding churn still belongs in `code_audit.md`.
+
+| UTC | Actor | Area | Worktree | Branch | Commit | MP scope | Verification summary | Status | Reviewer token | Next action |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+## 16) End-of-Cycle Signoff (Required)
+
+Complete this table only after all active swarm lanes are merged.
+
+| Signer | Date (UTC) | Result | Isolation verified | Bundle reference | Signature |
+|---|---|---|---|---|---|
+| `AGENT-1` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-2` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-3` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-4` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-5` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-6` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-7` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-8` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-9` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-10` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-11` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-12` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-13` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-14` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-15` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `AGENT-16` | `pending` | `pending` | `pending` | `pending` | `pending` |
+| `ORCHESTRATOR` | `pending` | `pending` | `pending` | `pending` | `pending` |
+
+## Progress Log
+
+| UTC | Actor | Action | Result | Next step |
+|---|---|---|---|---|
+| `2026-03-08T00:00:00Z` | `CODEX` | Initialized dedicated review-channel/shared-screen execution plan from active user request; split this scope out from the broader control-plane plan and locked the initial phase model (canonical structured state first, shared screen second, guarded shared-session later). | `in-progress` | Wire this plan into `INDEX` + `MASTER_PLAN`, then iterate schema and phase details with the user before implementation. |
+| `2026-03-08T00:20:00Z` | `CODEX` | Wired the new plan into `INDEX`, `MASTER_PLAN`, and discovery docs (`AGENTS.md`, `DEV_INDEX.md`, `dev/README.md`); ran active-plan governance checks. | `partial-pass` | Iterate the plan content with the user, then clear the unrelated strict-tooling blocker caused by pre-existing bundle/workflow parity drift in the in-flight publication-sync governance changes before merge. |
+| `2026-03-08T01:35:00Z` | `CODEX` | Refined MP-355 from a scope/checklist draft into an implementation-grade plan: added Phase 0 schema/architecture work, explicit MP-340/ADR dependency ownership, concrete schema draft fields/examples, artifact layout, `devctl`-first command interface, polling/shared-screen design, keyboard contract, and integrity/guard expectations; also aligned the MCP note to the current repo rule that MCP remains additive/read-only. | `in-progress` | Back-reference the refined ownership split in `autonomous_control_plane.md` and `MASTER_PLAN`, then run plan-governance checks. |
+| `2026-03-08T04:27:00Z` | `CODEX` | Extended the temporary markdown-bridge protocol so reviewer activity stays visible to the operator as well as Claude: each meaningful reviewer write to `code_audit.md` now also owes a concise chat ping, and the bridge header now carries both UTC and local poll time for the current human-observed loop. | `in-progress` | Keep the live watcher and reviewer writes aligned to this operator-visible contract until the structured review-channel artifact path replaces the markdown bridge. |
+| `2026-03-08T02:07:11Z` | `CODEX` | Incorporated the current markdown-based Codex<->Claude operating loop into the canonical MP-355 plan as a sanctioned temporary bridge: `code_audit.md` is now explicitly treated as the interim coordination projection with ownership, polling cadence, hash-tracking, and sunset rules while the real `devctl review-channel` infrastructure is still being built. | `in-progress` | Keep using `code_audit.md` for the live loop now, then replace it with the structured `review_event` / `review_state` path as Phase 1 implementation lands. |
+| `2026-03-08T02:16:38Z` | `CODEX` | Promoted the stronger protocol framing for the current markdown bridge: the active shared markdown file is now explicitly treated as a lightweight coordination log with minimum required current-state fields (`owner`, reviewed hash, poll time, blockers, next action) rather than loose notes. | `in-progress` | Keep the temporary bridge disciplined now, then preserve the same state semantics when migrating to structured `review_event` / `review_state` artifacts. |
+| `2026-03-08T02:25:00Z` | `CODEX` | Ran a second architecture/guard review against the live repo surfaces and folded the useful scratch-audit findings back into this canonical plan: tightened the exact `terminal_packet` v1 schema, added repo wiring constraints (dedicated parser module, audit-area mapping, bundle/workflow parity, policy ownership, retention updates), and recorded MCP-extension + post-`cargo test` hygiene expectations. The temporary scratch audit file was retired after promotion. | `in-progress` | Keep MP-355 implementation scoped to these repo-native constraints and avoid reintroducing MCP-first or cross-plan-bus scope creep during code landing. |
+| `2026-03-08T02:31:00Z` | `CODEX` | Folded the latest markdown-loop architecture note back into the canonical plan: the temporary `code_audit.md` bridge is now explicitly modeled as a lightweight coordination-log state machine with named failure modes (stale reads, section clobber, blocker ambiguity, markdown/repo drift, context-loss drift), and the plan now states that the same review state must later compile into control-plane and memory handoff/survival artifacts instead of remaining a standalone side channel. | `in-progress` | Keep the live markdown bridge disciplined for current Claude/Codex work, then preserve the exact same state fields when reducing into `review_state`, `controller_state`, and memory handoff outputs. |
+| `2026-03-08T03:08:00Z` | `CODEX` | Reconciled the plan with Memory Studio and MP-340 after a cross-plan architecture pass: added a shared event-header contract, `context_pack_refs` for memory-backed handoffs, capture-active memory-event emission for review outcomes, provider-aware pack routing, and a deferred unified timeline/replay dependency so MP-355 no longer reads like an isolated side protocol. | `in-progress` | Mirror the same contract in `autonomous_control_plane.md`, `memory_studio.md`, `MASTER_PLAN.md`, and the developer index, then rerun active-plan governance checks. |
+| `2026-03-08T03:34:00Z` | `CODEX` | Re-ran plan/tooling governance after the interop alignment patch. `check_active_plan_sync`, `check_multi_agent_sync`, `docs-check --strict-tooling`, `check_agents_contract`, and `check_bundle_workflow_parity` all pass. The remaining red checks are repo-pre-existing and unrelated to MP-355 wording (`hygiene --strict-warnings` / `check_publication_sync` stale external publication drift, `check_code_shape.py` growth in `dev/scripts/devctl/process_sweep.py`, and Rust allow-attr debt growth in `rust/src/bin/voiceterm/theme/mod.rs`). | `partial-pass` | Keep MP-355 doc state as-is; resolve the unrelated publication/code-shape/lint debt in their owning scopes before claiming a full bundle.tooling green run. |
+| `2026-03-08T04:55:00Z` | `CODEX` | Closed the remaining bootstrap-enforcement gap for the temporary markdown bridge: added `check_review_channel_bridge.py` plus unit coverage, wired it into bundle/workflow governance, and tightened the `code_audit.md` start rules so a fresh Codex or Claude conversation knows exactly which authority files to read and which live sections to start from. | `in-progress` | Keep using the markdown bridge for today’s reviewer/coder loop, but treat the new guard as the floor so fresh-convo repeatability no longer depends on hidden memory or manual reminder prompts. |
+| `2026-03-08T06:12:00Z` | `CODEX` | Tightened the markdown-bridge autonomy protocol after an operator review of loop stalls: the bridge now explicitly forbids stopping at a resolved slice when scoped plan work remains, adds `resolved -> next_slice_selected -> coding` semantics, documents `completion stall` as a named failure mode, and points to `devctl swarm_run --continuous` as the repo-native fully hands-off progression path. | `in-progress` | Keep reviewer writes promoting the next unchecked scoped plan item instead of idling at "all green," and use `swarm_run --continuous` when the execution mode should be script-driven rather than chat-driven. |
+| `2026-03-08T07:05:00Z` | `CODEX` | Aligned MP-355 with the broader operator-cockpit direction: review packets now explicitly route `requested_action` through the same typed command catalog and policy engine as overlay buttons, with warning/approval/waiver results surfaced back into the lane instead of letting agents bypass policy through freeform shell/API text. | `in-progress` | Keep Phase 3 implementation typed-action-first so Git/GitHub/CI/memory requests remain auditable and approval-aware across both button clicks and AI-issued requests. |
+| `2026-03-08T18:10:00Z` | `CODEX` | Landed `ADR-0027` and `ADR-0028` from the active cross-plan backlog, so MP-355 now cites accepted architectural authority for the shared controller envelope and relay-packet protocol instead of a pending placeholder. The same cleanup also made the markdown-bridge guard conditional on `code_audit.md` being present, which keeps clean checkouts and unrelated branches push-safe while preserving guard coverage when the bridge is active. | `in-progress` | Keep Phase 0/1 implementation aligned to the accepted ADRs, and retire the markdown bridge once the structured `review_event` / `review_state` path replaces it. |
+| `2026-03-08T18:21:48Z` | `CODEX` | Merged the standalone multi-agent worktree runbook into this MP-355 execution plan so the current scale-out cycle uses one static markdown swarm plan here and one live coordination bridge in `code_audit.md`. Defined the 16-lane 8+8 Codex-reviewer/Claude-coder swarm, moved the instruction/ledger/signoff templates into this file, and retired the old separate runbook path. | `in-progress` | Start the 8+8 swarm from `code_audit.md`, keep five-minute reviewer poll updates flowing in chat, and let the merged sync guard enforce parity against this file instead of a second runbook. |
+| `2026-03-08T18:15:33Z` | `CODEX` | Tightened the live markdown-bridge operating model for the current multi-agent reviewer/coder loop: bridge writes are now explicitly conductor-owned, specialist workers are read-only against `code_audit.md`, the operator heartbeat is locked to a five-minute cadence while code is moving, and specialist wakeups are change-routed instead of every worker polling the full tree blindly. | `in-progress` | Keep the current bridge disciplined under this conductor/specialist model, then preserve the same ownership and wakeup semantics when Phase 1 replaces the markdown bridge with structured `review_event` / `review_state` artifacts. |
+| `2026-03-08T18:46:05Z` | `CODEX` | Added the first bridge-gated `devctl review-channel` implementation slice: `--action launch` now reads the merged 8+8 lane table, emits Codex/Claude conductor launch scripts/prompts that explicitly route through `AGENTS.md` plus the repo-owned `devctl`/check surfaces, optionally opens local Terminal.app sessions, records a dedicated audit-events area mapping, and fails closed once the markdown bridge is inactive so the launcher cannot silently outlive the transitional bridge. | `in-progress` | Use the launcher for the current markdown swarm only, keep the retirement trigger explicit in backlog/docs, and evolve or remove it when overlay-native review launch becomes canonical. |
+| `2026-03-08T19:55:00Z` | `CODEX` | Hardened the launcher against context-loss drift: conductors now get a repo-owned `review-channel --action rollover` path with a 50% threshold, repo-visible handoff bundles, default dark Terminal.app profile selection, exact visible ACK lines for fresh Codex/Claude conductors, and structured failure reporting for terminal-launch errors. | `in-progress` | Exercise the live rollover loop in a real Codex/Claude session, then add the remaining peer-liveness and automatic next-task promotion guards tracked in `continuous_swarm.md`. |
+| `2026-03-09T05:40:00Z` | `CODEX` | Reconciled MP-355 wording with the current Memory Studio/runtime truth after a multi-agent docs/code audit: review-channel packets still only project bridge-era markdown/JSON handoff bundles today, so `context_pack_refs`, provider-shaped attachments, and packet-lifecycle memory ingest are now explicitly documented as not-landed until structured `review_state` / `controller_state` artifacts exist and are consumed by repo surfaces. | `in-progress` | Keep the bridge path explicit as transitional only, then prove the structured artifact path before counting memory-backed handoff attach-by-ref work as closed. |
+| `2026-03-08T20:35:00Z` | `CODEX` | Folded the current blunt architecture read back into repo-visible execution guidance: the collaboration system is now explicitly framed in maintainer docs as repo-visible, plan-scoped, role-separated, bounded, policy-gated, and CI-mirrored control-plane infrastructure rather than a retry-until-green loop, while the markdown bridge plus split state across plan/bridge/report artifacts are called out as the main current weakness. | `in-progress` | Keep Phase 0/1 focused on replacing the bridge authority with `dev/reports/review_channel/events/trace.ndjson` + `state/latest.json`, and retain markdown only as an operator-friendly projection once the structured path lands. |
+| `2026-03-08T23:40:18Z` | `CODEX` | Clarified the MP-355 user-facing target from the active operator discussion: even before true shared-write ownership exists, the review surface should read as one collaborative terminal-native workflow where Codex and Claude visibly talk through packets, share state, and expose peer awareness on one screen instead of looking like unrelated side-by-side terminals. | `in-progress` | Preserve separate PTY ownership plus packet/ack/apply safety in early phases, then only promote to lease-based shared-target writes once the visually unified collaborative surface is already proven. |
+| `2026-03-08T23:40:18Z` | `CODEX` | Extended the user-facing shared-surface target with an explicit all-agents job board and script-backed operator controls: the future review surface should show every active agent, current job, waiting-on state, and last packet activity, while any retask/customize action from the UI must remain a thin wrapper around typed repo-owned commands and typed registry state. | `in-progress` | Carry the agent-board fields into `review_state` / `registry/agents.json`, then stage Rust/shared-screen controls against existing `devctl` handlers instead of inventing hidden UI orchestration. |
+| `2026-03-09T05:12:00Z` | `CLAUDE` | Hardened the transitional launcher/bridge contract in the active dirty tree: `devctl review-channel` now rejects `--await-ack-seconds <= 0` for rollover so the fresh-session ACK path stays fail-closed, and `check_review_channel_bridge.py` now requires live `Last Reviewed Scope` plus a non-idle `Current Instruction For Claude` section whenever the markdown bridge is active. | `partial-pass` | Keep the bridge files tracked/staged when appropriate so the guard can move from expected-red untracked status to full green, then continue on the remaining bridge-contract and peer-freshness follow-up. |
+| `2026-03-09T05:46:00Z` | `CLAUDE` | Closed the remaining bounded Worker-A follow-up in the active dirty tree: `review-channel --action launch` now fails closed on untracked bridge files, stale reviewer poll state beyond the five-minute heartbeat contract, and idle/missing next-action bridge state; freshness now distinguishes `poll_due` vs `stale`; rollover ACK validation now requires the exact ACK line in the provider-owned section (`Poll Status` for Codex, `Claude Ack` for Claude) instead of raw substring search. `check_review_channel_bridge.py` now shares the same five-minute freshness limit, imports the shared live-state validator, and flags resolved verdicts that do not promote the next scoped task. | `partial-pass` | Keep the bridge files tracked/staged when appropriate so the direct launcher/guard proofs can move from expected-red untracked status to full green, then continue on the remaining governance-routing and Dev-panel/runtime honesty slices. |
+| `2026-03-09T06:05:00Z` | `CLAUDE` | Closed the bounded workflow-parity follow-up for the tooling lane: `check_bundle_workflow_parity.py` now parses per-job run scopes, requires the main tooling bundle sequence to stay in `docs-policy`, requires the operator-console pytest lane to stay in `operator-console-tests`, and fails on wrong-job or out-of-order regressions instead of only proving command text appears somewhere in YAML. | `partial-pass` | Keep the tooling workflow path filters and job split aligned with the canonical bundle shape, then continue on the remaining Dev-panel/runtime honesty and operator-console live-path proof slices. |
+| `2026-03-09T05:45:00Z` | `CODEX` | Landed the first bridge-backed read surface for MP-355: `devctl review-channel --action status` now writes repo-visible latest projections under `dev/reports/review_channel/latest/` (`review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, `registry/agents.json`) from the current lane table + `code_audit.md`, and rollover ACK detection now normalizes markdown list items correctly so visible ACK lines are actually observed in live relaunch tests. | `partial-pass` | Keep the transitional `status` slice stable, then implement the remaining typed/event-backed `watch|inbox|ack|dismiss|apply|history` path without overstating Phase-3 completion. |
+| `2026-03-09T07:21:00Z` | `CODEX` | Re-ran the Python review-channel validation from the operator side in the current dirty tree: `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q` passed (`31` tests), `review-channel --action status --terminal none --format md` passed and wrote the latest projection bundle, and both `launch`/`rollover` dry-runs failed closed exactly as intended because `code_audit.md` and `dev/active/review_channel.md` are still untracked bridge files in this checkout. | `partial-pass` | Keep the bridge files tracked/staged when the launcher path needs a green fresh-bootstrap proof, then continue on the event-backed `watch|inbox|ack|dismiss|apply|history` implementation path. |
+| `2026-03-09T07:35:00Z` | `CODEX` | Ran a second live multi-agent re-review against the current dirty-tree bridge state and synced the results back into repo-visible plan state. The zero-second ACK bypass is genuinely closed, `status` projections are still landing correctly, and the bridge guard now enforces `Last Reviewed Scope` plus a non-idle instruction, but MP-355 remains open: `launch` still does not invoke the full bridge guard before bootstrap, freshness enforcement is still split between the five-minute heartbeat contract and a looser guard threshold, some handoff parsing paths still fall back to overly broad whole-file matching, generated rollover prompts still hardcode the default ACK timeout instead of threading the selected value end-to-end, and `test_review_channel.py` still has a duplicate test name that shadows intended coverage. | `in-progress` | Keep the bridge findings mirrored into `code_audit.md` plus this plan, then close the remaining launch/freshness/ACK/coverage gaps before counting the markdown-bridge hardening slice as green. |
+| `2026-03-09T09:04:05Z` | `CODEX` | Closed the next fail-closed bridge-status gap from the live re-review. `validate_launch_bridge_state()` now blocks fresh bootstrap when `Claude Status` or `Claude Ack` is missing, review-channel status projections/report payloads now set `ok: false` whenever bridge liveness is `waiting_on_peer` or `stale`, and the review/mobile consumer path no longer reports Claude as `active` just because the rendered bridge field holds the `"(missing)"` sentinel. | `partial-pass` | Keep the bridge files tracked/staged when operator-side dry-run proofs need a green launcher path, then continue on the remaining handoff-parser breadth and ACK-timeout threading follow-ups. |
+| `2026-03-09T10:10:00Z` | `CODEX` | Added the first real live-session projection bridge for the desktop shell without changing PTY ownership: `review-channel --action launch|rollover` now writes per-session metadata plus live-flushed conductor transcript logs under `dev/reports/review_channel/latest/sessions/`, with script-wrapped Terminal launches preserving the existing Codex/Claude flow while giving repo-visible session tails to downstream read-only consumers. | `partial-pass` | Keep the launcher Codex/Claude-specific for the current swarm contract, then decide later whether MP-355 should generalize the same session-artifact format for more providers after the current review/event action surface is fully closed. |
+
+## Audit Evidence
+
+- Existing repo primitives this plan builds on:
+  - `devctl phone-status` multi-view projections (`full`, `compact`, `trace`,
+    `actions`, `latest.md`)
+  - `devctl controller-action` guarded operator actions
+  - `devctl loop-packet` packet generation and `terminal_packet` projection
+  - Rust Dev panel async command broker and packet-to-PTY staging path
+  - control-plane backlog already calling for one `controller_state` contract
+    plus reviewer-agent packet ingestion
+- Initial architectural constraints already verified:
+  - VoiceTerm remains terminal-overlay-first and currently assumes a single
+    backend PTY in normal operation
+  - shared-screen UX is practical before shared-write session ownership is
+    practical
+  - multiple human/machine projections are practical as long as structured
+    state stays canonical
+  - current repo MCP policy remains additive and read-only; `devctl` remains
+    the executable authority for write/policy paths
+- Pending implementation evidence:
+  - final schema draft embodied in code + parser validation
+  - command parser/handler coverage
+  - projection rendering coverage
+  - `check_review_channel.py` guard coverage
+  - Rust shared-screen render proof
+  - policy/audit evidence for ack/apply routing
+  - report-retention protected-path updates for any new review-channel roots
+- `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short`
+  - 2026-03-09 local run: pass (`33` tests) after adding launcher-emitted
+    session metadata/log artifacts and dry-run coverage for the new
+    `sessions/*.json` + `sessions/*.log` contract
+- Governance results for plan onboarding:
+  - `python3 dev/scripts/checks/check_active_plan_sync.py` -> pass
+  - `python3 dev/scripts/checks/check_multi_agent_sync.py` -> pass
+  - `python3 dev/scripts/devctl.py docs-check --strict-tooling` -> pass
+  - `python3 dev/scripts/checks/check_agents_contract.py` -> pass
+  - `python3 dev/scripts/checks/check_bundle_workflow_parity.py` -> pass
+  - `python3 dev/scripts/devctl.py hygiene --strict-warnings` -> blocked only
+- 2026-03-09 bridge-hardening evidence:
+  - `python3 -m unittest dev.scripts.devctl.tests.test_check_review_channel_bridge dev.scripts.devctl.tests.test_review_channel -q` -> pass (`38` tests)
+  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> pass (`26 passed`)
+  - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --dry-run --format json` -> pass
+  - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json` -> expected red in the current dirty tree because fresh conductor bootstrap fails closed while `code_audit.md` and `dev/active/review_channel.md` remain untracked; green rollover bundle generation stays covered by `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q`
+  - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --await-ack-seconds 0 --format json` -> expected fail-closed (`--await-ack-seconds must be greater than zero for rollover...`)
+  - `python3 dev/scripts/checks/check_review_channel_bridge.py --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 -m unittest dev.scripts.devctl.tests.test_check_bundle_workflow_parity -q` -> pass (`14` tests)
+  - `python3 dev/scripts/checks/check_bundle_workflow_parity.py` -> pass
+    by pre-existing external publication drift for `terminal-as-interface`
+  - Additional repo-pre-existing red guards during broader tooling pass:
+    `python3 dev/scripts/checks/check_publication_sync.py`,
+    `python3 dev/scripts/checks/check_code_shape.py`,
+    `python3 dev/scripts/checks/check_rust_lint_debt.py`,
+    `python3 dev/scripts/checks/check_rust_best_practices.py`
+- 2026-03-09 operator validation evidence:
+  - `python3 -m unittest dev.scripts.devctl.tests.test_review_channel -q` -> pass (`31` tests)
+  - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` -> pass; writes `review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, and `registry/agents.json` under `dev/reports/review_channel/latest/`
+  - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` -> warning only: bridge liveness is `stale` because `Last Codex poll` is older than the five-minute heartbeat contract
+  - `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format json` -> expected red while `code_audit.md` and `dev/active/review_channel.md` remain untracked in the active dirty tree
+  - `python3 dev/scripts/devctl.py review-channel --action rollover --terminal none --dry-run --format json` -> expected red for the same untracked-bridge guard in the active dirty tree
+- 2026-03-09 bridge-status fail-closed follow-up evidence:
+  - `python3 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short` -> pass (`33 passed`; covers launch rejection on missing Claude ACK/status plus degraded `ok` status in review projections)
+  - `python3 -m pytest dev/scripts/devctl/tests/test_mobile_status.py -q --tb=short` -> pass (`4 passed`; covers compact/mobile consumers after the Claude-lane status fix)

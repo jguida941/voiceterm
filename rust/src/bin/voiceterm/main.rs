@@ -16,6 +16,7 @@ mod audio_meter;
 mod banner;
 mod button_handlers;
 mod buttons;
+mod capture_once;
 mod cli_utils;
 mod color_mode;
 mod config;
@@ -39,6 +40,7 @@ mod persistent_config;
 mod prompt;
 mod provider_adapter;
 mod runtime_compat;
+mod scrollable;
 mod session_memory;
 mod session_stats;
 mod settings;
@@ -88,7 +90,7 @@ use crate::button_handlers::send_enhanced_status_with_buttons;
 use crate::buttons::ButtonRegistry;
 use crate::cli_utils::{list_input_devices, resolve_sound_flag, should_print_stats};
 use crate::config::{HudStyle, OverlayConfig};
-use crate::dev_command::{DevCommandBroker, DevPanelCommandState};
+use crate::dev_command::{DevCommandBroker, DevPanelState};
 use crate::event_loop::run_event_loop;
 use crate::event_state::{
     EventLoopDeps, EventLoopState, EventLoopTimers, PromptRuntimeState, PtyBufferState,
@@ -110,7 +112,7 @@ use crate::theme_ops::theme_index_from_theme;
 use crate::voice_control::{reset_capture_visuals, start_voice_capture, VoiceManager};
 use crate::voice_macros::VoiceMacros;
 use crate::wake_word::WakeWordRuntime;
-use crate::writer::{set_status, spawn_writer_thread, WriterMessage};
+use crate::writer::{send_message_blocking, set_status, spawn_writer_thread, WriterMessage};
 
 /// Max pending messages for the output writer thread.
 const WRITER_CHANNEL_CAPACITY: usize = 512;
@@ -237,9 +239,15 @@ fn join_thread_with_timeout(name: &str, handle: thread::JoinHandle<()>, timeout:
 }
 
 fn main() -> Result<()> {
-    let Some(loaded) = load_config_phase()? else {
+    let Some(mut loaded) = load_config_phase()? else {
         return Ok(());
     };
+    if loaded.config.capture_once {
+        validate_dev_mode_flags(&loaded.config)?;
+        loaded.config.app.validate()?;
+        init_logging(&loaded.config.app);
+        return capture_once::run_capture_once(&loaded.config);
+    }
     let runtime_inputs = prepare_runtime_phase(loaded)?;
     let mut runtime = build_state_phase(runtime_inputs);
     run_runtime_phase(&mut runtime);
@@ -457,7 +465,11 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
 
     let (writer_tx, writer_rx) = bounded(WRITER_CHANNEL_CAPACITY);
     let writer_handle = spawn_writer_thread(writer_rx);
-    let _ = writer_tx.send(WriterMessage::SetTheme(loaded.theme));
+    send_message_blocking(
+        &writer_tx,
+        WriterMessage::SetTheme(loaded.theme),
+        "runtime build: initial theme sync",
+    );
 
     let button_registry = ButtonRegistry::new();
     if terminal_rows > 0 && terminal_cols > 0 {
@@ -469,10 +481,14 @@ fn prepare_runtime_phase(mut loaded: LoadedConfigPhase) -> Result<RuntimeBuildIn
             initial_hud_style,
             false,
         );
-        let _ = writer_tx.send(WriterMessage::Resize {
-            rows: terminal_rows,
-            cols: terminal_cols,
-        });
+        send_message_blocking(
+            &writer_tx,
+            WriterMessage::Resize {
+                rows: terminal_rows,
+                cols: terminal_cols,
+            },
+            "runtime build: initial resize sync",
+        );
     }
 
     let (input_tx, input_rx) = bounded(INPUT_CHANNEL_CAPACITY);
@@ -538,6 +554,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
     let wake_word_rx = wake_word_runtime.receiver();
     let live_meter = voice_manager.meter();
     let auto_voice_enabled = config.auto_voice;
+    let persisted_memory_mode = persistent_config::resolved_memory_mode(&user_config);
 
     let mut status_state = StatusLineState::new();
     status_state.sensitivity_db = config.app.voice_vad_threshold_db;
@@ -560,7 +577,11 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
     };
     status_state.pipeline = Pipeline::Rust;
     status_state.mouse_enabled = true;
-    let _ = writer_tx.send(WriterMessage::EnableMouse);
+    send_message_blocking(
+        &writer_tx,
+        WriterMessage::EnableMouse,
+        "runtime build: enable mouse",
+    );
 
     let dev_mode_stats = config.dev_mode.then(DevModeStats::default);
     let session_memory_logger = if session_memory_enabled {
@@ -593,7 +614,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
             session_id,
             project_id,
             Some(&jsonl_path),
-            crate::memory::MemoryMode::default(),
+            persisted_memory_mode,
         ) {
             Ok(ingestor) => {
                 log_debug(&format!("memory ingestor ready: {}", jsonl_path.display()));
@@ -621,6 +642,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         .then(|| DevCommandBroker::spawn(PathBuf::from(&working_dir)));
     let mut state = EventLoopState {
         config,
+        working_dir,
         status_state,
         auto_voice_enabled,
         auto_voice_paused_by_user: false,
@@ -653,7 +675,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         session_stats: SessionStats::new(),
         dev_mode_stats,
         dev_event_logger,
-        dev_panel_commands: DevPanelCommandState::default(),
+        dev_panel_commands: DevPanelState::default(),
         prompt: PromptRuntimeState {
             tracker: prompt_tracker,
             occlusion_detector: build_prompt_occlusion_detector(&backend_label),
@@ -704,6 +726,7 @@ fn build_state_phase(inputs: RuntimeBuildInputs) -> RuntimeExecutionPhase {
         last_toast_tick: Instant::now(),
         last_theme_file_poll: Instant::now(),
         last_terminal_geometry_poll: Instant::now(),
+        last_review_poll: Instant::now(),
         pending_terminal_geometry_sample: None,
     };
     let mut deps = EventLoopDeps {
@@ -840,8 +863,16 @@ fn run_runtime_phase(runtime: &mut RuntimeExecutionPhase) {
 }
 
 fn shutdown_runtime_phase(runtime: RuntimeExecutionPhase) {
-    let _ = runtime.deps.writer_tx.send(WriterMessage::ClearStatus);
-    let _ = runtime.deps.writer_tx.send(WriterMessage::Shutdown);
+    send_message_blocking(
+        &runtime.deps.writer_tx,
+        WriterMessage::ClearStatus,
+        "runtime shutdown: clear status",
+    );
+    send_message_blocking(
+        &runtime.deps.writer_tx,
+        WriterMessage::Shutdown,
+        "runtime shutdown: writer shutdown",
+    );
     runtime.terminal_guard.restore();
     drop(runtime.deps);
     join_thread_with_timeout(

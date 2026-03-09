@@ -18,10 +18,11 @@ pub(crate) fn generate_boot_pack(
 ) -> ContextPack {
     let results = execute_query(index, &RetrievalQuery::Recent(100));
     let (included, used, trimmed) = trim_to_budget(&results, max_tokens);
+    let included_results: Vec<&super::retrieval::RetrievalResult<'_>> =
+        included.iter().filter_map(|&i| results.get(i)).collect();
 
-    let evidence: Vec<PackEvidence> = included
+    let evidence: Vec<PackEvidence> = included_results
         .iter()
-        .filter_map(|&i| results.get(i))
         .map(|r| PackEvidence {
             event_id: r.event.event_id.clone(),
             score: r.score,
@@ -33,7 +34,7 @@ pub(crate) fn generate_boot_pack(
     // Extract task refs and decisions from evidence.
     let mut active_tasks: Vec<String> = Vec::new();
     let mut recent_decisions: Vec<String> = Vec::new();
-    for r in &results {
+    for r in &included_results {
         for task in &r.event.task_refs {
             if !active_tasks.contains(task) {
                 active_tasks.push(task.clone());
@@ -213,6 +214,7 @@ pub(crate) fn default_token_budget() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::ingest::MemoryIngestor;
     use crate::memory::types::*;
 
     fn sample_index() -> MemoryIndex {
@@ -289,6 +291,25 @@ mod tests {
     }
 
     #[test]
+    fn generate_task_pack_from_ingested_mp_metadata() {
+        let mut ingestor = MemoryIngestor::new(
+            "sess_test".to_string(),
+            "proj_test".to_string(),
+            None,
+            MemoryMode::Assist,
+        )
+        .expect("create ingestor");
+        ingestor.ingest_user_input(
+            "Review MP-230 in rust/src/bin/voiceterm/memory/ingest.rs before updating docs",
+        );
+
+        let pack = generate_task_pack(ingestor.index(), "MP-230", "proj_test", 4096);
+        assert_eq!(pack.pack_type, ContextPackType::Task);
+        assert_eq!(pack.evidence.len(), 1);
+        assert!(pack.evidence[0].text_preview.contains("MP-230"));
+    }
+
+    #[test]
     fn generate_task_pack_by_text() {
         let idx = sample_index();
         let pack = generate_task_pack(&idx, "memory", "proj_test", 4096);
@@ -351,5 +372,52 @@ mod tests {
         let idx = sample_index();
         let pack = generate_boot_pack(&idx, "proj_test", 10); // tiny budget
         assert!(pack.token_budget.used <= 10);
+    }
+
+    #[test]
+    fn boot_pack_summary_only_reports_budgeted_evidence() {
+        let mut idx = MemoryIndex::new();
+        idx.insert(MemoryEvent {
+            event_id: "evt_old".to_string(),
+            session_id: "sess_test".to_string(),
+            project_id: "proj_test".to_string(),
+            ts: "2026-02-19T12:00:00.000Z".to_string(),
+            source: EventSource::PtyInput,
+            event_type: EventType::Decision,
+            role: EventRole::Assistant,
+            text: "older event with enough words to overflow the remaining budget".to_string(),
+            topic_tags: vec!["memory".to_string()],
+            entities: vec![],
+            task_refs: vec!["MP-999".to_string()],
+            artifacts: vec![],
+            importance: 0.8,
+            confidence: 1.0,
+            retrieval_state: RetrievalState::Eligible,
+            hash: None,
+        });
+        idx.insert(MemoryEvent {
+            event_id: "evt_new".to_string(),
+            session_id: "sess_test".to_string(),
+            project_id: "proj_test".to_string(),
+            ts: "2026-02-19T13:00:00.000Z".to_string(),
+            source: EventSource::PtyOutput,
+            event_type: EventType::Decision,
+            role: EventRole::Assistant,
+            text: "ship fix".to_string(),
+            topic_tags: vec!["memory".to_string()],
+            entities: vec![],
+            task_refs: vec!["MP-230".to_string()],
+            artifacts: vec![],
+            importance: 0.9,
+            confidence: 1.0,
+            retrieval_state: RetrievalState::Eligible,
+            hash: None,
+        });
+
+        let pack = generate_boot_pack(&idx, "proj_test", 4);
+        assert_eq!(pack.evidence.len(), 1);
+        assert_eq!(pack.evidence[0].event_id, "evt_new");
+        assert_eq!(pack.active_tasks, vec!["MP-230".to_string()]);
+        assert_eq!(pack.recent_decisions, vec!["ship fix".to_string()]);
     }
 }

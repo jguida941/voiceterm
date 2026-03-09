@@ -23,6 +23,10 @@ same execution path with minimal ambiguity.
 | Where is long-range phase-2 research context? | `dev/deferred/phase2.md` (bridge at `dev/active/phase2.md`) |
 | Where is the `devctl` reporting + CIHub integration roadmap? | `dev/active/devctl_reporting_upgrade.md` |
 | Where is the autonomous loop + mobile control-plane execution spec? | `dev/active/autonomous_control_plane.md` |
+| Where is the shared review-channel + dual-agent shared-screen execution plan? | `dev/active/review_channel.md` |
+| Where is the host-process hygiene + Activity Monitor automation plan? | `dev/active/host_process_hygiene.md` |
+| Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
+| Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the loop-output-to-chat coordination runbook? | `dev/active/loop_chat_bridge.md` |
 | Where is the completed Rust workspace path/layout migration record? | `dev/archive/2026-03-07-rust-workspace-layout-migration.md` |
 | Where is the naming/API cohesion execution plan? | `dev/active/naming_api_cohesion.md` |
@@ -34,7 +38,8 @@ same execution path with minimal ambiguity.
 | Where do we track repeated manual friction and automation debt? | `dev/audits/AUTOMATION_DEBT_REGISTER.md` |
 | Where is the baseline full-surface audit runbook/checklist? | `dev/audits/2026-02-24-autonomy-baseline-audit.md` |
 | Where are audit metrics definitions (AI vs script share, automation coverage, charts)? | `dev/audits/METRICS_SCHEMA.md` |
-| How do we run parallel multi-agent worktrees this cycle? | `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` |
+| How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
+| Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
@@ -126,6 +131,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
    - automating it as a guarded `devctl` command/workflow/check with tests, or
    - logging it as explicit debt in `dev/audits/AUTOMATION_DEBT_REGISTER.md`
      with owner, risk, and exit criteria.
+2.1 If `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
+    or `python3 dev/scripts/devctl.py process-audit --strict --format md`
+    finds a new leaked-process shape, extend the cleanup/audit automation in
+    the same MP scope before closure or log explicit debt with the missed
+    process shape and the guard path needed to catch it next time.
 3. "Cannot automate yet" is acceptable only with a documented reason and a
    guard path (checklist/runbook entry that prevents unsafe execution).
 4. When automation lands, update command/docs surfaces in the same change
@@ -172,9 +182,27 @@ When a bundle command fails mid-run:
    the active plan's progress log before continuing.
 5. **Never use `--no-verify`, `set +e`, or manual workarounds** to bypass a
    failing gate without an explicit waiver recorded in the checkpoint log.
-6. **After any direct/raw `cargo test` or manual test-binary run**, execute:
+6. **AI-operated raw `cargo test` / manual test-binary runs must prefer**
+   `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
+   so the post-run sweep happens automatically. If a direct/raw invocation has
+   already happened, immediately execute:
    `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
-   and confirm the `process-sweep-pre/process-sweep-post` steps report no orphaned/stale VoiceTerm test processes.
+   and confirm the `process-sweep-pre/process-sweep-post` plus
+   `host-process-cleanup-post` steps report no orphaned/stale repo-related host
+   processes. `quick` / `fast` now run host-side `process-cleanup --verify`
+   by default unless `--no-host-process-cleanup` is passed and explicitly
+   justified.
+7. **When host process access is available**, run:
+   `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
+   after manual tooling bundles and before handoff so
+   Activity Monitor-visible repo leftovers are cleaned and re-checked against the full host
+   process table. Use `python3 dev/scripts/devctl.py process-audit --strict --format md`
+   when a read-only host inspection is needed or cleanup must be intentionally skipped. If verify stays red only because recent active local work is still running, rerun the cleanup/audit once that local work finishes; freshly detached repo-related helpers now keep strict audit/verify red immediately even before they age into the orphan bucket.
+7.1 **When reproducing or watching long-running local host leaks**, run:
+    `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations <n> --interval-seconds <s> --format md`
+    so the host table is re-audited on a cadence until zero repo-related
+    processes remain; this watcher now exits zero once it actually recovers to
+    a clean host snapshot.
 
 ## Engineering quality contract (required)
 
@@ -193,9 +221,23 @@ For non-trivial Rust runtime/tooling changes, contributors must:
 3. Treat technical debt as explicit debt: `#[allow(...)]`, non-test
    `unwrap/expect`, and oversized files/functions require documented rationale
    and a follow-up MP item when not resolved immediately.
-4. Prefer consolidation over duplication: extract shared helpers instead of
-   repeating logic across overlays/themes/settings/status surfaces.
-5. Record references consulted in handoff for non-trivial Rust changes.
+4. Enforce function size limits: Rust functions must stay under **100 lines**,
+   Python functions under **150 lines** (`code_shape` guard). Existing
+   exceptions are tracked in `code_shape_policy.py` with expiry dates; new
+   oversized functions require a `FunctionShapeException` with owner, expiry,
+   and decomposition reason before merge.
+5. Prefer consolidation over duplication: extract shared helpers instead of
+   repeating logic across overlays/themes/settings/status surfaces. The
+   `function_duplication` guard blocks new identical function bodies (>= 6
+   lines) across different files; if you need the same logic in two places,
+   extract it to a shared module and import.
+6. Keep subprocess semantics explicit in repo-owned Python tooling/app code:
+   every `subprocess.run(...)` call must pass `check=` intentionally instead of
+   relying on the default.
+7. Broad Python exception handlers in repo-owned tooling/app code require an
+   explicit nearby rationale comment
+   (`broad-except: allow reason=...`) instead of silent fail-soft behavior.
+8. Record references consulted in handoff for non-trivial Rust changes.
 
 ## Branch policy (required)
 
@@ -257,6 +299,9 @@ When adding any new markdown file under `dev/active/`, this sequence is required
     `Execution Checklist`, `Progress Log`, and `Audit Evidence`.
 3. Update discovery links in `AGENTS.md`, `DEV_INDEX.md`, and `dev/README.md`
    if navigation/ownership changed.
+3.1 For new active-plan/check-script/devctl-command/app/workflow surfaces, run
+    `python3 dev/scripts/checks/check_architecture_surface_sync.py` before
+    closing the slice.
 4. Run `python3 dev/scripts/checks/check_active_plan_sync.py`.
 5. Run `python3 dev/scripts/checks/check_multi_agent_sync.py`.
 6. Run `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
@@ -304,7 +349,7 @@ When adding any new markdown file under `dev/active/`, this sequence is required
 
 - `AGENTS.md`
 - `dev/active/INDEX.md`
-- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
+- `dev/active/review_channel.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/guides/MCP_DEVCTL_ALIGNMENT.md`
 - `dev/scripts/README.md`
@@ -342,6 +387,7 @@ find . -maxdepth 1 -type f -name '--*'
 
 ```bash
 python3 dev/scripts/devctl.py check --profile ci
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
@@ -349,6 +395,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -373,6 +420,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -396,12 +444,18 @@ python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_repo_url_parity.py
+python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -414,6 +468,8 @@ python3 dev/scripts/checks/check_rust_best_practices.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
+python3 -m pytest app/operator_console/tests/ -q --tb=short
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
 
 ### `bundle.release`
@@ -427,7 +483,13 @@ python3 dev/scripts/devctl.py orchestrate-status --format md
 python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_release_version_parity.py
+python3 dev/scripts/checks/check_repo_url_parity.py
+python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+python3 dev/scripts/checks/check_architecture_surface_sync.py
+python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
+python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_publication_sync.py
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_active_plan_sync.py
@@ -435,6 +497,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -447,6 +510,7 @@ python3 dev/scripts/checks/check_rust_best_practices.py
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
 
 ### `bundle.post-push`
@@ -460,10 +524,12 @@ python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -474,7 +540,9 @@ python3 dev/scripts/checks/check_rust_test_shape.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_lint_debt.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_best_practices.py --since-ref origin/develop
 python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --since-ref origin/develop
+markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
 
 ## Runtime risk matrix (required add-ons)
@@ -482,7 +550,8 @@ find . -maxdepth 1 -type f -name '--*'
 - Overlay/input/status/HUD changes:
   - `python3 dev/scripts/devctl.py check --profile ci`
   - `cd rust && cargo test --bin voiceterm`
-  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+  - preferred AI/raw-test path: `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm`
+  - required post-run follow-up (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` (includes host-side `process-cleanup --verify` by default)
 - Performance/latency-sensitive changes:
   - `python3 dev/scripts/devctl.py check --profile prepush`
   - `./dev/scripts/tests/measure_latency.sh --voice-only --synthetic`
@@ -491,23 +560,28 @@ find . -maxdepth 1 -type f -name '--*'
   - `dev/scripts/tests/measure_latency.sh` now uses `set -u`-safe empty-array
     expansion so voice-only/CI synthetic modes do not raise `unbound variable`
     errors when optional arg arrays are empty
+  - when host process access is available: `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
 - Wake-word runtime/detection changes:
   - `bash dev/scripts/tests/wake_word_guard.sh`
   - `python3 dev/scripts/devctl.py check --profile release`
+  - when host process access is available: `python3 dev/scripts/devctl.py process-cleanup --verify --format md`
 - Threading/lifecycle/memory changes:
   - `cd rust && cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
-  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+  - preferred AI/raw-test path: `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --no-default-features legacy_tui::tests::memory_guard_backend_threads_drop -- --nocapture`
+  - required post-run follow-up (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` (includes host-side `process-cleanup --verify` by default)
 - Unsafe/FFI lifecycle changes:
   - Update `dev/security/unsafe_governance.md`
   - `cd rust && cargo test pty_session::tests::pty_cli_session_drop_terminates_descendants_in_process_group -- --nocapture`
   - `cd rust && cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture`
   - `cd rust && cargo test stt::tests::transcriber_restores_stderr_after_failed_model_load -- --nocapture`
-  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+  - preferred AI/raw-test path: `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test pty_session::tests::pty_overlay_session_drop_terminates_descendants_in_process_group -- --nocapture`
+  - required post-run follow-up (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` (includes host-side `process-cleanup --verify` by default)
 - Parser/ANSI boundary hardening changes:
   - `cd rust && cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture`
   - `cd rust && cargo test pty_session::tests::prop_find_osc_terminator_respects_bounds -- --nocapture`
   - `cd rust && cargo test pty_session::tests::prop_split_incomplete_escape_preserves_original_bytes -- --nocapture`
-  - required post-run sweep (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel`
+  - preferred AI/raw-test path: `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test pty_session::tests::prop_find_csi_sequence_respects_bounds -- --nocapture`
+  - required post-run follow-up (if `cargo test` was run directly): `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` (includes host-side `process-cleanup --verify` by default)
 - Mutation-hardening work:
   - `python3 dev/scripts/devctl.py mutation-score --threshold 0.80 --max-age-hours 72`
   - optional: `python3 dev/scripts/devctl.py mutants --module overlay`
@@ -770,11 +844,14 @@ Canonical tool: `python3 dev/scripts/devctl.py ...`
 
 Core commands:
 
-- `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `quick`, `fast`, `ai-guard`)
+- `check` (`ci`, `prepush`, `release`, `maintainer-lint`, `pedantic`, `quick`, `fast`, `ai-guard`)
   - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
   - Use `--parallel-workers <n>` to tune worker count, or `--no-parallel` to force sequential execution.
-  - Includes automatic orphaned/stale test-process cleanup before/after checks (`target/*/deps/voiceterm-*`, detached `PPID=1`, plus stale active runners aged `>=600s`).
+  - Includes automatic orphaned/stale repo-related process cleanup before/after checks (matched VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, and descendant PTY/helper children such as leaked `cat` harnesses or stale repo-cwd helpers; detached `PPID=1` and stale active runners aged `>=600s` are cleanup targets).
   - Use `--no-process-sweep-cleanup` only when a run must preserve in-flight test processes.
+  - `quick` / `fast` also run host-side `process-cleanup --verify --format md` by default; use `--no-host-process-cleanup` only when a live process tree must be preserved and the exception is recorded.
+  - `pedantic` is an advisory maintainer lane for intentional lint-hardening sweeps; it is opt-in and not part of required bundles or release gates.
+  - `check --profile pedantic` writes structured artifacts to `dev/reports/check/clippy-pedantic-summary.json` and `dev/reports/check/clippy-pedantic-lints.json`; consume them through `report --pedantic` or `triage --pedantic` instead of making ad hoc decisions from raw terminal output.
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
 - `check-router` (path-aware lane selector that maps changed files to `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`, reports required risk add-ons, and can execute the routed command set with `--execute`)
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
@@ -785,7 +862,11 @@ Core commands:
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
   - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
-- `hygiene` (archive/ADR/scripts governance plus orphaned/stale `target/debug/deps/voiceterm-*` test-process sweep, and report-retention drift warnings for stale managed `dev/reports/**` run artifacts; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
+- `hygiene` (archive/ADR/scripts governance plus orphaned/stale repo-related host-process sweep, including VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, and repo-cwd background helpers such as `python3 -m unittest`, direct `bash dev/scripts/...` wrappers, or `qemu/node/make` descendants that outlive their repo-owned parent; report-retention drift warnings for stale managed `dev/reports/**` run artifacts, and tracked external-publication drift warnings when watched repo paths outpace synced papers/sites; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
+- `process-cleanup` (host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup)
+- `process-audit` (host-side Activity Monitor equivalent for repo-related runtime/tooling process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast if `ps` is unavailable, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff)
+- `process-watch` (bounded periodic host-process monitor that reruns the same audit logic on a cadence, optionally performs orphan/stale cleanup before each pass, and stops only when zero repo-related host processes remain if `--stop-on-clean` is set)
+- `publication-sync` (tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and can record a new baseline after external publish)
 - `path-audit` (stale-reference scan for legacy check-script paths; excludes `dev/archive/`)
 - `path-rewrite` (auto-rewrite legacy check-script paths to canonical registry targets; use `--dry-run` first)
 - `sync` (branch-sync automation with clean-tree, remote-ref, and `--ff-only` pull guards; optional `--push` for ahead branches)
@@ -815,6 +896,7 @@ Core commands:
 - `autonomy-report` (builds a human-readable autonomy digest bundle from loop/watch artifacts under `dev/reports/autonomy/library/<label>` with summary markdown/json, copied sources, and optional matplotlib charts)
 - `phone-status` (renders iPhone/SSH-safe autonomy status projections from `dev/reports/autonomy/queue/phone/latest.json` with selectable views `full|compact|trace|actions` and optional projection bundle emission: `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
 - `controller-action` (policy-gated operator action surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch and mode writes are bounded by workflow/branch allowlists and autonomy mode gates, with optional dry-run and mode-state artifact output)
+- `review-channel` (current bridge-gated review-swarm bootstrap surface; `--action launch` reads `dev/active/review_channel.md` + `code_audit.md`, emits Codex/Claude conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, and fails closed when the markdown bridge is inactive; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `code_audit.md`)
 - `autonomy-swarm` (adaptive multi-agent orchestration wrapper with metadata-driven worker sizing, optional `--plan-only` allocation mode, bounded per-agent autonomy-loop fanout, default reserved `AGENT-REVIEW` lane for post-audit review when execution runs with more than one lane, per-run swarm summary bundles under `dev/reports/autonomy/swarms/<label>/`, and default post-audit digest bundles under `dev/reports/autonomy/library/<label>-digest/`; disable with `--no-post-audit` and/or `--no-reviewer-lane`; non-report modes require `--fix-command`)
 - `mutation-loop` (bounded mutation remediation loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; emits md/json/playbook bundles and supports policy-gated fix execution)
 - `failure-cleanup` (guarded cleanup for local failure triage bundles under `dev/reports/failures`; default path-root guard, optional `--allow-outside-failure-root` constrained to `dev/reports/**`, CI-green gating with optional `--ci-branch`/`--ci-workflow`/`--ci-event`/`--ci-sha` filters, plus `--dry-run` and confirmation)
@@ -830,11 +912,21 @@ Core commands:
 | Command | Run it when | Why |
 |---|---|---|
 | `python3 dev/scripts/devctl.py check --profile fast` | while iterating locally | fast local sanity lane (alias of `quick`); never a substitute for required pre-push bundles |
+| `python3 dev/scripts/devctl.py check --profile pedantic` | you are intentionally doing a broader lint-hardening sweep, usually after a large refactor or as optional pre-release cleanup | runs advisory `clippy::pedantic`, writes structured artifacts under `dev/reports/check/`, and stays out of required merge/release flow |
+| `python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format json` | you want one command that refreshes the advisory sweep and emits a structured repo-owned summary | reruns pedantic artifact generation, then reads those artifacts plus `dev/config/clippy/pedantic_policy.json` for review/AI consumption |
+| `python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md` | you want one readable Rust guard audit pack with charts, stats, and file hotspots | runs the Rust best-practices, lint-debt, and runtime-panic guards together, explains why the reported patterns are risky, and writes `.md` + `.json` bundle artifacts with optional matplotlib charts |
+| `python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --format md` | you want an AI-friendly pedantic cleanup packet without creating a second triage system | folds the saved pedantic artifacts into normal `triage` output and bundle files; add `--pedantic-refresh` only when you intentionally want triage to regenerate the artifacts inline |
 | `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` | before push when scope spans docs/runtime/tooling/release surfaces | auto-selects the stricter required lane, includes risk add-ons, and runs the routed bundle commands |
 | `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm ...` | an AI/dev session needs to run raw Rust tests or test binaries directly | runs the command without a shell wrapper, then automatically executes the required post-test hygiene follow-up so stale host processes do not accumulate |
+| `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel` | right after raw `cargo test` / manual test-binary runs | runs the fast post-test sweep plus host-side `process-cleanup --verify`, so stale repo-related host trees are cleaned before they contaminate later runs |
+| `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | after PTY/runtime tests, manual tooling bundles, or before handoff when host access is available | safely kills orphaned/stale repo-related host process trees, including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, then reruns strict host audit |
+| `python3 dev/scripts/devctl.py process-audit --strict --format md` | when you need read-only host diagnosis or cleanup was intentionally skipped | audits the real host process table for repo leftovers visible in Activity Monitor, including descendant PTY children and repo-cwd runtime/tooling helpers that would otherwise look generic |
+| `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md` | you are reproducing a host leak or running long-lived local work and want periodic checks instead of one final sweep | reruns the host audit/cleanup loop on a cadence and stops only after the host process table is clean |
 | `python3 dev/scripts/devctl.py check --profile release` | before release/tag validation on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local checks, with mutation-score surfaced as non-blocking reminder output |
 | `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
+| `python3 dev/scripts/devctl.py publication-sync --format md` | external paper/site content depends on repo evidence and you need drift visibility | reports watched-path changes since the last recorded sync and shows how to record a new baseline after publish |
 | `python3 dev/scripts/devctl.py data-science --format md` | you want one fresh telemetry + agent-sizing snapshot | summarizes command productivity, success/latency stats, and recommended swarm size from historical runs |
 | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` | you want current federated source pins (`code-link-ide`, `ci-cd-hub`) before import/sync work | gives auditable source SHA + status visibility in one command |
 | `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | you want to import reusable upstream surfaces safely | shows allowlisted source/profile mappings before any file writes |
@@ -843,6 +935,8 @@ Core commands:
 | `python3 dev/scripts/devctl.py autonomy-loop --plan-id <id> --branch-base develop --mode report-only --max-rounds 6 --max-hours 4 --max-tasks 24 --format json` | you want a bounded autonomy-controller run with checkpoint packets and queue artifacts | orchestrates triage-loop/loop-packet rounds with policy-gated stop reasons, run-scoped outputs, and phone-ready `latest.json`/`latest.md` status snapshots |
 | `python3 dev/scripts/devctl.py phone-status --view compact --format md` | you want one fast iPhone/SSH-safe controller snapshot from loop artifacts | loads `queue/phone/latest.json`, renders a compact/trace/actions/full view, and can emit controller-state projection files for downstream clients |
 | `python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --repo <owner/repo> --branch develop --dry-run --format md` | you want one guarded remote-control action surface without ad-hoc shell steps | validates policy allowlists/mode gates, then executes or previews bounded dispatch/pause/resume/status actions with auditable output |
+| `python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md` | you want to bootstrap the current Codex-reviewer / Claude-coder 8+8 markdown swarm from a fresh conversation | validates that the markdown bridge is still active, reads the merged lane table from `dev/active/review_channel.md`, generates conductor launch scripts, and shows the exact bootstrap before opening any terminals |
+| `python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md` | the active conductor is nearing compaction and needs a clean relaunch instead of relying on recovery summaries | writes a repo-visible handoff bundle, relaunches fresh Codex/Claude conductors, and waits for visible rollover ACK lines in `code_audit.md` before the retiring session exits |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run --format md` | you want measurable swarm tradeoff data before scaling live worker runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario productivity metrics/charts |
 | `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label> --format md` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, and appends progress/audit evidence to the plan doc |
 | `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label <label> --format md` | you want one operator-readable autonomy digest | assembles latest loop/watch artifacts into a dated bundle with markdown/json summary and chart outputs |
@@ -934,6 +1028,8 @@ Supporting scripts:
 - `dev/scripts/checks/check_agents_contract.py`
 - `dev/scripts/checks/check_agents_bundle_render.py`
 - `dev/scripts/checks/check_active_plan_sync.py`
+- `dev/scripts/checks/check_architecture_surface_sync.py`
+- `dev/scripts/checks/check_review_channel_bridge.py`
 - `dev/scripts/checks/check_multi_agent_sync.py`
 - `dev/scripts/checks/check_cli_flags_parity.py`
 - `dev/scripts/checks/check_release_version_parity.py`
@@ -977,6 +1073,16 @@ workflow actions stay pinned to immutable commits.
 `check_agents_bundle_render.py` blocks drift between AGENTS rendered bundle
 reference docs and canonical registry output; run with `--write` to regenerate
 the section from `dev/scripts/devctl/bundle_registry.py`.
+`check_architecture_surface_sync.py` blocks newly added active-plan docs,
+check scripts, devctl commands, app surfaces, and workflow files from landing
+without their owning authority wiring (index/plan/docs/bundle/workflow README
+references).
+`check_python_subprocess_policy.py` blocks repo-owned Python tooling and
+Operator Console code from calling `subprocess.run(...)` without an explicit
+`check=` keyword.
+`check_python_broad_except.py` blocks newly added `except Exception` /
+`except BaseException` handlers in repo-owned Python tooling/app code unless a
+nearby `broad-except: allow reason=...` comment documents the fail-soft path.
 `check_bundle_workflow_parity.py` blocks registry/workflow command-bundle drift
 by verifying `bundle.tooling` and `bundle.release` commands from
 `dev/scripts/devctl/bundle_registry.py` still appear in their owning workflows.
@@ -994,6 +1100,11 @@ large suites.
 `check_active_plan_sync.py` enforces active-doc index/spec parity, mirrored-spec
 phase heading and `MASTER_PLAN` link contracts, and `MASTER_PLAN` Status
 Snapshot release freshness (branch policy + release-tag consistency).
+`check_review_channel_bridge.py` enforces the temporary markdown review bridge
+contract so `code_audit.md` remains a valid fresh-conversation bootstrap
+artifact for the current Codex-reviewer / Claude-coder loop, including the
+required authority bootstrap order, section ownership, local+UTC heartbeat
+header, and operator-visible reviewer chat ping requirement.
 `check_multi_agent_sync.py` enforces dynamic multi-agent coordination parity
 between the `MASTER_PLAN` board and the runbook (lane/MP/worktree/branch alignment,
 instruction/ack protocol validation, lane-lock + MP-collision handoff checks,
@@ -1004,10 +1115,19 @@ and non-test `unwrap/expect` call-sites in changed Rust files.
 `check_rust_best_practices.py` blocks non-regressive growth of reason-less
 `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn`
 surfaces without `# Safety` docs, and `std::mem::forget`/`mem::forget` usage
-in changed Rust files.
+in changed Rust files, plus suppressed channel-send results,
+`unwrap()/expect()` on `join`/`recv` paths, and suspicious
+`OpenOptions::new().create(true)` chains that do not make overwrite semantics
+explicit via `append(true)`, `truncate(...)`, or `create_new(true)`, plus
+direct `==` / `!=` comparisons against float literals.
 `check_rust_runtime_panic_policy.py` blocks non-regressive growth of runtime
 `panic!` call-sites unless the new panic path is explicitly allowlisted with
-`panic-policy: allow reason=...` rationale comments.
+`panic-policy: allow reason=...` rationale comments, and it supports
+`--absolute` for full-tree Rust panic audits.
+`check_guard_enforcement_inventory.py` blocks cataloged check scripts from
+drifting out of real bundle/workflow enforcement lanes unless they are
+explicitly marked helper-only, manual-only, or temporary advisory backlog
+exemptions.
 `check_clippy_high_signal.py` enforces baseline ceilings for selected
 high-signal Clippy lints using lint-code histogram JSON from
 `collect_clippy_warnings.py`.
@@ -1093,6 +1213,7 @@ Include:
 
 - [ ] Mandatory SOP steps were completed.
 - [ ] Verification commands passed for scope.
+- [ ] When host process access was available and PTY/runtime tests, manual tooling bundles, or other orphan-risk local work ran, `python3 dev/scripts/devctl.py process-cleanup --verify --format md` passed or the limitation was recorded; if cleanup was intentionally skipped, `python3 dev/scripts/devctl.py process-audit --strict --format md` passed or the limitation was recorded.
 - [ ] Docs updated per governance checklist.
 - [ ] `dev/CHANGELOG.md` updated if behavior is user-facing.
 - [ ] `dev/active/MASTER_PLAN.md` updated.

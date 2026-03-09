@@ -20,7 +20,7 @@ from ..autonomy_benchmark_render import build_charts as _build_charts
 from ..autonomy_benchmark_render import render_markdown as _render_markdown
 from ..autonomy_benchmark_runner import leaders, run_scenario_payload
 from ..autonomy_run_helpers import collect_next_steps, derive_prompt
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_float, to_int
 
 try:
@@ -76,46 +76,73 @@ def _summarize_overall(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _validate_benchmark_args(args, *, plan_doc, index_doc, master_plan_doc) -> str | None:
+    for path in (plan_doc, index_doc, master_plan_doc):
+        if not path.exists():
+            return f"Error: missing required file: {path}"
+    if int(args.next_steps_limit) < 1:
+        return "Error: --next-steps-limit must be >= 1"
+    if int(args.agents) < 1:
+        return "Error: --agents must be >= 1"
+    if int(args.parallel_workers) < 1 or int(args.max_concurrent_swarms) < 1:
+        return "Error: parallel worker counts must be >= 1"
+    mode = str(args.mode)
+    fix_command = str(args.fix_command or "").strip()
+    if mode in {"plan-then-fix", "fix-only"} and not fix_command:
+        return (
+            "Error: --fix-command is required when --mode is plan-then-fix/fix-only "
+            "(otherwise no remediation can run)"
+        )
+    return None
+
+
+def _resolve_benchmark_repo(args) -> str | None:
+    repo = resolve_repo(args.repo)
+    if repo:
+        return repo
+    return fallback_repo_from_origin()
+
+
+def _resolve_benchmark_scenarios(args) -> tuple[list[int], list[str], list[str]]:
+    swarm_counts = parse_swarm_counts(str(args.swarm_counts))
+    if not swarm_counts:
+        return [], [], ["Error: --swarm-counts must contain at least one positive integer"]
+    tactics, tactic_warnings = parse_tactics(str(args.tactics))
+    if not tactics:
+        return [], tactic_warnings, ["Error: --tactics must contain at least one supported tactic"]
+    return swarm_counts, tactics, tactic_warnings
+
+
+def _render_benchmark_output(args, report: dict[str, Any]) -> str:
+    json_payload = json.dumps(report, indent=2)
+    return json_payload if args.format == "json" else _render_markdown(report)
+
+
 def run(args) -> int:
     """Run swarm-size/tactic benchmark matrix and emit tradeoff metrics."""
     plan_doc = resolve_path(str(args.plan_doc))
     index_doc = resolve_path(str(args.index_doc))
     master_plan_doc = resolve_path(str(args.master_plan_doc))
-    for path in (plan_doc, index_doc, master_plan_doc):
-        if not path.exists():
-            print(f"Error: missing required file: {path}")
-            return 2
+    validation_error = _validate_benchmark_args(
+        args,
+        plan_doc=plan_doc,
+        index_doc=index_doc,
+        master_plan_doc=master_plan_doc,
+    )
+    if validation_error:
+        print(validation_error)
+        return 2
 
-    if int(args.next_steps_limit) < 1:
-        print("Error: --next-steps-limit must be >= 1")
-        return 2
-    if int(args.agents) < 1:
-        print("Error: --agents must be >= 1")
-        return 2
-    if int(args.parallel_workers) < 1 or int(args.max_concurrent_swarms) < 1:
-        print("Error: parallel worker counts must be >= 1")
-        return 2
-    mode = str(args.mode)
-    fix_command = str(args.fix_command or "").strip()
-    if mode in {"plan-then-fix", "fix-only"} and not fix_command:
+    swarm_counts, tactics, tactic_warnings = _resolve_benchmark_scenarios(args)
+    if not swarm_counts or not tactics:
         print(
-            "Error: --fix-command is required when --mode is plan-then-fix/fix-only "
-            "(otherwise no remediation can run)"
+            "Error: --swarm-counts must contain at least one positive integer"
+            if not swarm_counts
+            else "Error: --tactics must contain at least one supported tactic"
         )
         return 2
 
-    swarm_counts = parse_swarm_counts(str(args.swarm_counts))
-    if not swarm_counts:
-        print("Error: --swarm-counts must contain at least one positive integer")
-        return 2
-    tactics, tactic_warnings = parse_tactics(str(args.tactics))
-    if not tactics:
-        print("Error: --tactics must contain at least one supported tactic")
-        return 2
-
-    repo = resolve_repo(args.repo)
-    if not repo:
-        repo = fallback_repo_from_origin()
+    repo = _resolve_benchmark_repo(args)
     if not repo:
         print(
             "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
@@ -185,7 +212,7 @@ def run(args) -> int:
         "tactics": tactics,
         "settings": {
             "mode": str(args.mode),
-            "fix_command_configured": bool(fix_command),
+            "fix_command_configured": bool(str(args.fix_command or "").strip()),
             "agents_per_swarm": int(args.agents),
             "parallel_workers_per_swarm": int(args.parallel_workers),
             "max_concurrent_swarms": int(args.max_concurrent_swarms),
@@ -214,17 +241,18 @@ def run(args) -> int:
     summary_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
     summary_md.write_text(_render_markdown(report), encoding="utf-8")
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else _render_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = _render_benchmark_output(args, report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
 
     return 0 if overall_ok else 1

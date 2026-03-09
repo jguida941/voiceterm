@@ -27,6 +27,7 @@ from .commands import (
     data_science,
     docs_check,
     failure_cleanup,
+    guard_run,
     homebrew,
     hygiene,
     integrations_import,
@@ -34,6 +35,7 @@ from .commands import (
     listing,
     loop_packet,
     mcp,
+    mobile_status,
     mutants,
     mutation_loop,
     mutation_score,
@@ -42,10 +44,15 @@ from .commands import (
     path_audit,
     path_rewrite,
     phone_status,
+    process_audit,
+    process_cleanup,
+    process_watch,
+    publication_sync,
     pypi,
     release,
     release_gates,
     release_notes,
+    review_channel,
     report,
     reports_cleanup,
     security,
@@ -70,6 +77,8 @@ from .loop_packet_parser import add_loop_packet_parser
 from .mutation_loop_parser import add_mutation_loop_parser
 from .orchestrate_parser import add_orchestrate_parsers
 from .path_audit_parser import add_path_audit_parser, add_path_rewrite_parser
+from .publication_sync_parser import add_publication_sync_parser
+from .review_channel_parser import add_review_channel_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
 from .security_parser import add_security_parser
 from .sync_parser import add_sync_parser
@@ -90,6 +99,8 @@ def build_parser() -> argparse.ArgumentParser:
         default_mutation_threshold=DEFAULT_MUTATION_THRESHOLD,
     )
     add_orchestrate_parsers(sub)
+    add_publication_sync_parser(sub)
+    add_review_channel_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
     add_cihub_setup_parser(sub)
@@ -120,6 +131,7 @@ COMMAND_HANDLERS = {
     "release-gates": release_gates.run,
     "ship": ship.run,
     "release-notes": release_notes.run,
+    "review-channel": review_channel.run,
     "homebrew": homebrew.run,
     "pypi": pypi.run,
     "status": status.run,
@@ -135,6 +147,11 @@ COMMAND_HANDLERS = {
     "swarm_run": autonomy_run.run,
     "autonomy-report": autonomy_report.run,
     "phone-status": phone_status.run,
+    "mobile-status": mobile_status.run,
+    "process-audit": process_audit.run,
+    "process-cleanup": process_cleanup.run,
+    "process-watch": process_watch.run,
+    "guard-run": guard_run.run,
     "autonomy-swarm": autonomy_swarm.run,
     "mutation-loop": mutation_loop.run,
     "list": listing.run,
@@ -142,6 +159,7 @@ COMMAND_HANDLERS = {
     "mcp": mcp.run,
     "path-audit": path_audit.run,
     "path-rewrite": path_rewrite.run,
+    "publication-sync": publication_sync.run,
     "cihub-setup": cihub_setup.run,
     "controller-action": controller_action.run,
     "hygiene": hygiene.run,

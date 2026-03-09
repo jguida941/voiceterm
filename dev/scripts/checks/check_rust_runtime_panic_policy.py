@@ -20,6 +20,7 @@ list_changed_paths_with_base_map = import_attr(
 )
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
+_list_all_rust_paths = import_attr("check_rust_best_practices", "_list_all_rust_paths")
 mask_rust_comments_and_strings = import_attr(
     "rust_check_text_utils", "mask_rust_comments_and_strings"
 )
@@ -126,6 +127,11 @@ def _render_md(report: dict) -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--absolute",
+        action="store_true",
+        help="Scan all tracked/untracked non-test Rust source files instead of changed paths.",
+    )
     parser.add_argument("--since-ref", help="Compare against this git ref")
     parser.add_argument(
         "--head-ref", default="HEAD", help="Head ref used with --since-ref"
@@ -136,22 +142,32 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _build_parser().parse_args()
+    if args.absolute and args.since_ref:
+        return emit_runtime_error(
+            "check_rust_runtime_panic_policy",
+            args.format,
+            "--absolute cannot be combined with --since-ref/--head-ref",
+        )
 
     try:
-        if args.since_ref:
-            guard.validate_ref(args.since_ref)
-            guard.validate_ref(args.head_ref)
-        changed_paths, base_map = list_changed_paths_with_base_map(
-            guard.run_git,
-            args.since_ref,
-            args.head_ref,
-        )
+        if args.absolute:
+            changed_paths = _list_all_rust_paths()
+            base_map: dict[Path, Path] = {}
+        else:
+            if args.since_ref:
+                guard.validate_ref(args.since_ref)
+                guard.validate_ref(args.head_ref)
+            changed_paths, base_map = list_changed_paths_with_base_map(
+                guard.run_git,
+                args.since_ref,
+                args.head_ref,
+            )
     except RuntimeError as exc:
         return emit_runtime_error(
             "check_rust_runtime_panic_policy", args.format, str(exc)
         )
 
-    mode = "commit-range" if args.since_ref else "working-tree"
+    mode = "absolute" if args.absolute else ("commit-range" if args.since_ref else "working-tree")
     files_considered = 0
     files_skipped_non_rust = 0
     files_skipped_tests = 0
@@ -169,7 +185,10 @@ def main() -> int:
         files_considered += 1
 
         base_path = base_map.get(path, path)
-        if args.since_ref:
+        if args.absolute:
+            base_text = None
+            current_text = guard.read_text_from_worktree(path)
+        elif args.since_ref:
             base_text = guard.read_text_from_ref(base_path, args.since_ref)
             current_text = guard.read_text_from_ref(path, args.head_ref)
         else:

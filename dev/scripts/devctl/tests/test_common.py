@@ -48,6 +48,15 @@ class RunCmdTests(TestCase):
         self.assertEqual(result["returncode"], 130)
         self.assertIn("interrupted", result.get("error", ""))
 
+    @patch(
+        "dev.scripts.devctl.common._run_without_live_output",
+        return_value=(0, "ok"),
+    )
+    def test_run_cmd_quiet_mode_uses_silent_runner(self, run_mock) -> None:
+        result = run_cmd("quiet", [sys.executable, "-c", "print('ok')"], live_output=False)
+        self.assertEqual(result["returncode"], 0)
+        run_mock.assert_called_once()
+
     @patch("builtins.print")
     @patch(
         "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
@@ -169,3 +178,52 @@ class PipeOutputTests(TestCase):
         run_mock.side_effect = OSError("boom")
         rc = common.pipe_output("payload", "cat", [])
         self.assertEqual(rc, 127)
+
+
+class EmitOutputTests(TestCase):
+    def test_emit_output_uses_injected_writer_and_piper(self) -> None:
+        writes: list[tuple[str, str | None]] = []
+        pipe_calls: list[tuple[str, str | None, list[str] | None]] = []
+
+        def writer(content: str, output_path: str | None) -> None:
+            writes.append((content, output_path))
+
+        def piper(
+            content: str,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+        ) -> int:
+            pipe_calls.append((content, pipe_command, pipe_args))
+            return 7
+
+        rc = common.emit_output(
+            "primary",
+            output_path="/tmp/out.md",
+            pipe_command="cat",
+            pipe_args=["--number"],
+            additional_outputs=[('{"ok": true}', "/tmp/out.json")],
+            writer=writer,
+            piper=piper,
+        )
+
+        self.assertEqual(rc, 7)
+        self.assertEqual(
+            writes,
+            [("primary", "/tmp/out.md"), ('{"ok": true}', "/tmp/out.json")],
+        )
+        self.assertEqual(pipe_calls, [("primary", "cat", ["--number"])])
+
+    def test_emit_output_skips_piper_when_pipe_command_missing(self) -> None:
+        writes: list[tuple[str, str | None]] = []
+
+        rc = common.emit_output(
+            "primary",
+            output_path=None,
+            pipe_command=None,
+            pipe_args=None,
+            writer=lambda content, output_path: writes.append((content, output_path)),
+            piper=lambda *_args: 9,
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(writes, [("primary", None)])

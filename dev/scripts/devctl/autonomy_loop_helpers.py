@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from .common import normalize_string_field
 from .config import REPO_ROOT
 
 POLICY_PATH = REPO_ROOT / "dev/config/control_plane_policy.json"
@@ -149,7 +150,7 @@ def terminal_trace(triage_report: dict[str, Any], max_lines: int) -> list[str]:
                 f"status={attempt.get('status')}"
             )
             lines.append(row)
-            message = str(attempt.get("message") or "").strip()
+            message = normalize_string_field(attempt, "message")
             if message:
                 lines.append(f"note={message}")
     if not lines:
@@ -162,7 +163,7 @@ def terminal_trace(triage_report: dict[str, Any], max_lines: int) -> list[str]:
 def packet_risk(
     loop_packet_report: dict[str, Any], triage_report: dict[str, Any]
 ) -> str:
-    risk = str(loop_packet_report.get("risk") or "").strip().lower()
+    risk = normalize_string_field(loop_packet_report, "risk").lower()
     if risk in {"low", "medium", "high"}:
         return risk
     unresolved = int(triage_report.get("unresolved_count") or 0)
@@ -288,7 +289,7 @@ def build_checkpoint_packet(
         "promotion_branch": branch_base,
         "risk": risk,
         "requires_approval": requires_approval,
-        "draft_text": str(terminal_packet.get("draft_text") or "").strip(),
+        "draft_text": normalize_string_field(terminal_packet, "draft_text"),
         "terminal_packet": terminal_packet,
         "proposed_actions": [
             str(row).strip()

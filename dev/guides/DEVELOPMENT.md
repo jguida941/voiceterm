@@ -45,7 +45,7 @@ Use docs like this:
 - **`dev/active/theme_upgrade.md`** -- Theme and overlay plan.
 - **`dev/active/ide_provider_modularization.md`** -- host/provider adapter modularization and compatibility plan (`MP-346`).
 - **`dev/active/loop_chat_bridge.md`** -- loop output to chat runbook (`MP-338`).
-- **`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`** -- multi-agent worktree runbook for this cycle.
+- **`dev/active/review_channel.md`** -- shared review-channel plan, merged markdown-swarm lane map, and multi-agent coordination contract for the current Codex/Claude cycle.
 - Closed execution plans move to `dev/archive/` only after their scoped work is
   complete and `dev/active/INDEX.md` plus discovery docs are updated in the
   same change. If a plan doc still holds unfinished or deferred backlog, keep
@@ -136,6 +136,7 @@ Latency guard note:
 | Federated repo links/import workflow (your other repos) | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |
 | Agent/process contracts | `python3 dev/scripts/checks/check_agents_contract.py` + `python3 dev/scripts/checks/check_agents_bundle_render.py` | `tooling_control_plane.yml` |
 | Active plan/index/spec sync | `python3 dev/scripts/checks/check_active_plan_sync.py` | `tooling_control_plane.yml` |
+| New active-plan/check/devctl/app/workflow surfaces | `python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` |
 
 ## Ralph/Wiggum Loop Model
 
@@ -175,16 +176,22 @@ Why this model is safe:
 | Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` (`check_code_shape.py` also audits stale loose path overrides via review-window policy) |
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
+| Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | AGENTS rendered bundle reference drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` (`--write` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| Python broad-except drift (new `except Exception` / `BaseException` without rationale) | `python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
+| Python subprocess policy drift (`subprocess.run(...)` missing explicit `check=`) | `python3 dev/scripts/checks/check_python_subprocess_policy.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Host/provider naming contract drift | `python3 dev/scripts/checks/check_naming_consistency.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Host/provider compatibility matrix drift | `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | MCP allowlist/contract drift for read-only adapter surface | `python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json` + `python3 -m unittest dev.scripts.devctl.tests.test_mcp` | `tooling_control_plane.yml` (unit test lane) |
 | Rust test-file shape drift (`*tests.rs` growth) | `python3 dev/scripts/checks/check_rust_test_shape.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Rust lint-debt growth (`#[allow]`, `#[allow(dead_code)]`, `unwrap/expect`, unchecked unwrap/expect, `panic!`) | `python3 dev/scripts/checks/check_rust_lint_debt.py` | `tooling_control_plane.yml` |
-| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `unsafe impl` safety rationale, `mem::forget`) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
+| Rust best-practices non-regression (`#[allow(reason)]`, `unsafe` docs, `unsafe impl` safety rationale, `mem::forget`, suppressed send/emit results, explicit `OpenOptions` create semantics, float literal equality checks) | `python3 dev/scripts/checks/check_rust_best_practices.py` | `tooling_control_plane.yml` |
 | Rust runtime panic policy drift (new unallowlisted runtime `panic!`) | `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Rust audit anti-pattern regressions | `python3 dev/scripts/checks/check_rust_audit_patterns.py` | `security_guard.yml` + `tooling_control_plane.yml` |
-| Rust security footgun regressions (`todo!/dbg!/unimplemented!`, shell spawns, weak crypto, permissive modes) | `python3 dev/scripts/checks/check_rust_security_footguns.py` | `tooling_control_plane.yml` |
+| Rust security footgun regressions (`todo!/dbg!/unimplemented!`, shell spawns, weak crypto, PID wrap casts, permissive modes, unguarded syscall-result unsigned casts) | `python3 dev/scripts/checks/check_rust_security_footguns.py` | `tooling_control_plane.yml` |
+| Rust/Python function length drift (Rust: 100 lines, Python: 150 lines) | `python3 dev/scripts/checks/check_code_shape.py` (function-level evaluation within code-shape guard) | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
+| Cross-file function body duplication (identical normalized bodies >= 6 lines) | `python3 dev/scripts/checks/check_function_duplication.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
+| New-file shared helper / command scaffold clones (advisory) | `python3 dev/scripts/checks/check_duplication_audit.py --check-shared-logic --since-ref origin/develop --head-ref HEAD --report-path /tmp/voiceterm-duplication.json --format md` | local/reporting surface for now; keep advisory until false-positive behavior is well-understood |
 | High-signal Clippy lint baseline drift | `python3 dev/scripts/collect_clippy_warnings.py --working-directory rust --output-lints-json /tmp/clippy-lints.json && python3 dev/scripts/checks/check_clippy_high_signal.py --input-lints-json /tmp/clippy-lints.json --format md` | `rust_ci.yml` |
 | Accidental root argument files | `find . -maxdepth 1 -type f -name '--*'` | `tooling_control_plane.yml` |
 
@@ -300,8 +307,18 @@ cd rust && cargo test
 # Overlay tests
 cd rust && cargo test --bin voiceterm
 
+# Preferred AI path for raw Rust tests/test binaries:
+python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm
+
 # Required after any direct/raw cargo test invocation:
+# includes host-side `process-cleanup --verify` by default
 python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel
+# Required after manual tooling bundles or before handoff when host process access is available:
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
+# Read-only host diagnosis when cleanup must be skipped:
+python3 dev/scripts/devctl.py process-audit --strict --format md
+# Periodic host watch when recent detached helpers keep verify red:
+python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md
 
 # Perf smoke (voice metrics)
 cd rust && cargo test --no-default-features legacy_tui::tests::perf_smoke_emits_voice_metrics -- --nocapture
@@ -358,7 +375,13 @@ rsync -a ~/.cargo/ /tmp/cargo-home/
 cd rust && CARGO_HOME=/tmp/cargo-home CARGO_TARGET_DIR=/tmp/cargo-target CARGO_NET_OFFLINE=true cargo mutants --timeout 300 -o mutants.out --json
 python3 ../dev/scripts/checks/check_mutation_score.py --glob "mutants.out/**/outcomes.json" --threshold 0.80 --max-age-hours 72
 
-# Mutation helper script (module filter + offline env)
+# Auto-target only changed .rs files (default when no flag given)
+python3 ../dev/scripts/mutants.py
+
+# Target specific files
+python3 ../dev/scripts/mutants.py --file src/pty_session/pty.rs,src/config/validation.rs
+
+# Target a predefined module group (offline env)
 python3 ../dev/scripts/mutants.py --module overlay --offline --cargo-home /tmp/cargo-home --cargo-target-dir /tmp/cargo-target
 
 # Summarize top paths with survived mutants
@@ -368,8 +391,10 @@ python3 ../dev/scripts/mutants.py --results-only --top 10
 python3 ../dev/scripts/mutants.py --results-only --plot --plot-scope dir --plot-top-pct 25
 ```
 
-`--results-only` auto-detects the most recent `outcomes.json` under `rust/mutants.out/`.
-`check_mutation_score.py` now prints the source path + age and supports
+The default mode (`--changed`) auto-detects `.rs` files changed vs `master` via `git diff`, so you
+only mutate what you touched. Baseline skip is on by default (the cargo-mutants sandbox baseline is
+unreliable). `--results-only` auto-detects the most recent `outcomes.json` under `rust/mutants.out/`.
+`check_mutation_score.py` prints the source path + age and supports
 `--max-age-hours` to fail on stale outcomes.
 Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if needed.
 
@@ -401,6 +426,11 @@ python3 dev/scripts/devctl.py check --profile prepush
 # Maintainer lint-hardening lane (strict clippy policy subset)
 python3 dev/scripts/devctl.py check --profile maintainer-lint
 
+# Optional advisory pedantic lane for intentional lint sweeps
+python3 dev/scripts/devctl.py check --profile pedantic
+python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format md
+python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --format md
+
 # AI guard lane (shape/isolation/matrix/naming + Rust quality/security guards)
 python3 dev/scripts/devctl.py check --profile ai-guard
 
@@ -413,8 +443,15 @@ python3 dev/scripts/devctl.py check --profile fast
 # Quick scope (fmt-check + clippy only; keep heavy checks in prepush/release lanes)
 python3 dev/scripts/devctl.py check --profile quick
 
-# Post-test process sweep (required after raw cargo/test-binary runs)
+# Preferred AI path for raw Rust tests/test binaries; auto-runs the required post-run sweep
+python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm banner::tests -- --nocapture
+
+# Post-test process sweep + host cleanup (required after raw cargo/test-binary runs)
 python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel
+# Host-side cleanup + verify (required after manual tooling bundles or before handoff when host access is available)
+python3 dev/scripts/devctl.py process-cleanup --verify --format md
+# Read-only host-side Activity Monitor equivalent
+python3 dev/scripts/devctl.py process-audit --strict --format md
 
 # Path-aware pre-push router (select lane + risk add-ons from changed paths)
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
@@ -438,7 +475,7 @@ python3 dev/scripts/devctl.py docs-check --strict-tooling
 # Post-commit docs check over a commit range (works on clean trees)
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 
-# Governance hygiene audit (archive + ADR + scripts docs + orphaned voiceterm test-process guard)
+# Governance hygiene audit (archive + ADR + scripts docs + orphaned repo-process guard)
 python3 dev/scripts/devctl.py hygiene
 # Optional: promote hygiene warnings to failures (CI governance/release default)
 python3 dev/scripts/devctl.py hygiene --strict-warnings
@@ -447,6 +484,10 @@ python3 dev/scripts/devctl.py hygiene --fix
 # Report-retention cleanup flow (run when hygiene warns about stale/heavy reports)
 python3 dev/scripts/devctl.py reports-cleanup --dry-run
 python3 dev/scripts/devctl.py reports-cleanup --max-age-days 30 --keep-recent 10 --yes
+# External paper/site drift for tracked publications
+python3 dev/scripts/devctl.py publication-sync --format md
+# After updating an external publication, record the new synced source ref
+python3 dev/scripts/devctl.py publication-sync --publication terminal-as-interface --record-source-ref HEAD --record-external-ref <external-site-commit> --format md
 
 # Audit metrics summary + charts (scientific audit-cycle evidence)
 python3 dev/scripts/audits/audit_metrics.py \
@@ -525,12 +566,16 @@ python3 dev/scripts/devctl.py ship --version X.Y.Z --pypi --verify-pypi --homebr
 
 # Generate a report (JSON/MD)
 python3 dev/scripts/devctl.py report --format json --output /tmp/devctl-report.json
+# Advisory pedantic summary from saved or freshly refreshed artifacts
+python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format json --output /tmp/devctl-pedantic-report.json
 
 # Include recent GitHub Actions runs (requires gh auth)
 python3 dev/scripts/devctl.py status --ci --format md
 
 # Bounded CodeRabbit medium/high loop with report/fix artifacts
 python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode plan-then-fix --max-attempts 3 --source-event workflow_dispatch --notify summary-and-comment --comment-target auto --emit-bundle --bundle-dir .cihub/coderabbit --bundle-prefix coderabbit-ralph-loop --mp-proposal --format md --output /tmp/coderabbit-ralph-loop.md --json-output /tmp/coderabbit-ralph-loop.json
+# Advisory pedantic triage packet from saved check artifacts
+python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --bundle-dir .cihub --bundle-prefix pedantic-triage --format md --output /tmp/devctl-pedantic-triage.md
 # Bounded mutation loop with report-only default and policy-gated fix mode
 python3 dev/scripts/devctl.py mutation-loop --repo owner/repo --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --emit-bundle --bundle-dir .cihub/mutation --bundle-prefix mutation-ralph-loop --format md --output /tmp/mutation-ralph-loop.md --json-output /tmp/mutation-ralph-loop.json
 # Bounded autonomy controller loop with checkpoint packet + queue artifacts
@@ -593,8 +638,13 @@ For substantive sessions, include this in the PR description or handoff summary:
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale `target/debug/deps/voiceterm-*` test binaries (`stale` = active for `>=600s`), and warns when managed `dev/reports/**` artifacts become stale/heavy; `--strict-warnings` promotes warnings to failures (used in CI governance/release lanes), and `--fix` removes detected `dev/scripts/**/__pycache__` directories.
+- `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale repo-related host process trees (matched `cargo test --bin voiceterm`, `voiceterm-*`, stress sessions, repo-runtime cargo/target trees, orphaned repo-tooling wrappers that execute `dev/scripts/**`, and repo-cwd background helpers such as `python3 -m unittest`, direct `bash dev/scripts/...` wrappers, or `qemu/node/make` descendants that outlive their repo-owned parent; `stale` = active for `>=600s`), warns when managed `dev/reports/**` artifacts become stale/heavy, and surfaces tracked external-publication drift when watched repo paths outpace synced papers/sites; `--strict-warnings` promotes warnings to failures (used in CI governance/release lanes), and `--fix` removes detected `dev/scripts/**/__pycache__` directories.
+- `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...` is the preferred AI path for raw Rust tests/test binaries. It rejects shell `-c` wrappers, runs the command directly, then automatically executes the required post-test hygiene follow-up (`check --profile quick --skip-fmt --skip-clippy --no-parallel` for runtime/test commands, `process-cleanup --verify` for lower-risk repo tooling commands).
+- `python3 dev/scripts/devctl.py process-cleanup --verify --format md` is the default host-side cleanup path for repo-related work. `check --profile quick|fast` already runs it by default after raw cargo/test-binary follow-ups; run it directly after manual tooling bundles and before handoff when host process access is available. It kills orphaned/stale repo-related process trees including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, skips recent active processes, reruns a strict host audit afterward, and should be rerun once any intentional local work finishes.
+- `python3 dev/scripts/devctl.py process-audit --strict --format md` is the read-only host-side Activity Monitor equivalent for repo-related work. Use it when cleanup must be skipped or when you need diagnosis without killing processes; unlike sandboxed sweeps, it fails hard if `ps` access is unavailable or if any blocking/stale repo-related process tree is still alive, including generic repo-cwd helpers that no longer mention `voiceterm` or `dev/scripts` in their command line.
+- `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md` is the bounded periodic monitor for long-running leak reproduction or repeated local host work. It reruns the same host audit/cleanup logic on a cadence and should be the default when one final cleanup pass is not enough.
 - `python3 dev/scripts/devctl.py reports-cleanup --dry-run` previews retention cleanup candidates when hygiene warns on report drift.
+- `python3 dev/scripts/devctl.py publication-sync --format md` reports watched-path drift for tracked external papers/sites and records a new baseline with `--record-source-ref HEAD` after the external publish is complete.
 - `python3 dev/scripts/checks/check_agents_contract.py`
 - `python3 dev/scripts/checks/check_agents_bundle_render.py`
 - `python3 dev/scripts/checks/check_active_plan_sync.py`
@@ -668,13 +718,16 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_code_shape.py` blocks Rust/Python source-file shape drift (new oversized files, oversized-file growth, and path-level hotspot growth budgets for Phase 3C decomposition targets).
 - `python3 dev/scripts/checks/check_rust_test_shape.py` blocks non-regressive growth of oversized Rust test hotspots (`tests.rs`, `tests/**`) with path-specific budgets for known large suites.
 - `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes (including `#[allow(dead_code)]`), non-test `unwrap/expect`, `unwrap_unchecked/expect_unchecked`, and `panic!` call-sites in changed Rust files; use `--report-dead-code` to inventory instances and `--fail-on-undocumented-dead-code` / `--fail-on-any-dead-code` for stricter policy modes.
-- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, and `std::mem::forget`/`mem::forget` usage in changed Rust files.
+- `python3 dev/scripts/checks/check_python_broad_except.py` blocks newly added broad Python handlers (`except Exception` / `except BaseException`) unless a nearby `broad-except: allow reason=...` comment makes the fail-soft behavior explicit.
+- `python3 dev/scripts/checks/check_python_subprocess_policy.py` blocks repo-owned Python tooling and Operator Console code from adding `subprocess.run(...)` calls without an explicit `check=` keyword, keeping subprocess failure handling intentional instead of relying on the default.
+- `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, `std::mem::forget`/`mem::forget` usage, suppressed `send(...)`/`try_send(...)` and `emit(...)` results, suspicious `OpenOptions::new().create(true)` chains that omit explicit overwrite semantics (`append(true)`, `truncate(...)`, or `create_new(true)`), and direct `==` / `!=` comparisons against float literals in changed Rust files.
 - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` blocks non-regressive growth of unallowlisted runtime `panic!` call-sites unless nearby rationale comments (`panic-policy: allow reason=...`) are present.
 - `python3 dev/scripts/checks/check_rust_audit_patterns.py` blocks reintroduction of known high-risk runtime audit anti-patterns across `rust/src/**`.
-- `python3 dev/scripts/checks/check_rust_security_footguns.py` blocks non-regressive growth of risky runtime patterns (`todo!/dbg!/unimplemented!`, shell-style spawns, permissive modes, weak-crypto references) while excluding `#[cfg(test)]` blocks.
+- `python3 dev/scripts/checks/check_rust_security_footguns.py` blocks non-regressive growth of risky runtime patterns (`todo!/dbg!/unimplemented!`, shell-style spawns, permissive modes, weak-crypto references, PID wrap-prone casts like `child.id() as i32` / `libc::getpid() as i32`, and syscall-return casts to unsigned types without a prior sign guard) while excluding `#[cfg(test)]` blocks.
 - `.github/workflows/rust_ci.yml` enforces a high-signal Clippy lint baseline by emitting lint-code histogram JSON (`collect_clippy_warnings.py --output-lints-json`) and running `check_clippy_high_signal.py`.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change and enforces markdown metadata-header normalization (`Status`/`Last updated`/`Owner`) plus workflow-shell hygiene (`check_workflow_shell_hygiene.py`).
 - `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
+- `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions.
 - `python3 dev/scripts/checks/check_agents_bundle_render.py` blocks AGENTS rendered bundle-reference drift against `dev/scripts/devctl/bundle_registry.py` and can regenerate the section with `--write`.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
@@ -737,7 +790,7 @@ For simple per-workflow intent/triggers, see `.github/workflows/README.md`.
 | Parser Fuzz Guard | `.github/workflows/parser_fuzz_guard.yml` | property-fuzz parser/ANSI-OSC boundary coverage |
 | Coverage Upload | `.github/workflows/coverage.yml` | rust coverage via `cargo llvm-cov` + Codecov upload (OIDC); runs on every push to `develop`/`master` to keep branch-head coverage current |
 | Docs Lint | `.github/workflows/docs_lint.yml` | markdown style/readability checks for key published docs |
-| Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift |
+| Lint Hardening | `.github/workflows/lint_hardening.yml` | maintainer lint-hardening profile (`devctl check --profile maintainer-lint`) with strict clippy subset for redundant clones/closures, risky wrap casts, and dead-code drift; broader `check --profile pedantic` remains local/advisory and intentionally stays out of required CI/release lanes |
 | CodeRabbit Triage Bridge | `.github/workflows/coderabbit_triage.yml` | normalizes CodeRabbit review/check signals into triage artifacts and blocks unresolved medium/high findings |
 | CodeRabbit Ralph Loop | `.github/workflows/coderabbit_ralph_loop.yml` | branch-scoped always-on (configurable) medium/high backlog loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`) and optional auto-fix command |
 | Autonomy Controller | `.github/workflows/autonomy_controller.yml` | bounded controller orchestration (`autonomy-loop`) with checkpoint packet/queue artifacts and optional PR promote step; scheduled runs are enabled only when `AUTONOMY_MODE` is set |

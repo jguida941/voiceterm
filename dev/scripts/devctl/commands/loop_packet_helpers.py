@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
 
+from ..common import read_json_object, resolve_repo_path
 from ..config import REPO_ROOT
 from ..status_report import build_project_report
 from ..triage_enrich import apply_defaults_to_issues, build_issue_rollup
@@ -24,13 +24,6 @@ DEFAULT_SOURCE_CANDIDATES = (
     str(SYSTEM_TMPDIR / "devctl-triage.ai.json"),
 )
 RISK_CONFIDENCE = {"low": 0.9, "medium": 0.65, "high": 0.45}
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if path.is_absolute():
-        return path
-    return REPO_ROOT / path
 
 
 def _truncate_chars(value: str, max_chars: int) -> str:
@@ -62,15 +55,10 @@ def _freshness_hours(timestamp: datetime, now_utc: datetime) -> float:
 
 
 def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        return None, str(exc)
-    except json.JSONDecodeError as exc:
-        return None, f"invalid JSON ({exc})"
-    if not isinstance(payload, dict):
-        return None, "expected top-level JSON object"
-    return payload, None
+    return read_json_object(
+        path,
+        missing_message="{path}: file does not exist",
+    )
 
 
 def _source_command(payload: dict[str, Any]) -> str:
@@ -87,7 +75,7 @@ def _discover_artifact_sources(
     warnings: list[str] = []
     checked_paths: list[str] = []
     for raw_path in source_paths:
-        path = _resolve_path(raw_path)
+        path = resolve_repo_path(raw_path, repo_root=REPO_ROOT)
         checked_paths.append(str(path))
         if not path.exists():
             continue

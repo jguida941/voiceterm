@@ -1,277 +1,166 @@
 //! Dev-panel command helpers extracted from the core event loop.
+//!
+//! Submodules split by concern:
+//! - `execution`: command dispatch, auto-send control, polling
+//! - `git_snapshot`: git status capture and porcelain parsing
+//! - `snapshots`: memory, handoff, and context snapshot builders
+//! - `clipboard`: OSC 52 clipboard operations
+//! - `review_loader`: review artifact loading and polling
+
+mod clipboard;
+mod execution;
+mod git_snapshot;
+mod ops_snapshot;
+mod review_loader;
+mod snapshots;
 
 use super::*;
-use std::sync::OnceLock;
+
+// Re-export all pub(super) items so callers in `event_loop` see them unchanged.
+pub(super) use clipboard::copy_handoff_prompt_to_clipboard;
+pub(super) use execution::{
+    cancel_running_dev_panel_command, cycle_dev_panel_execution_profile, move_dev_panel_selection,
+    poll_dev_command_updates, request_selected_dev_panel_command,
+    select_dev_panel_command_by_index,
+};
+pub(super) use review_loader::{load_review, poll_review};
+pub(super) use snapshots::cycle_memory_mode;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicU8, Ordering};
+pub(super) use execution::{
+    apply_terminal_packet_completion, set_dev_packet_auto_send_runtime_override,
+};
 
-fn parse_dev_packet_auto_send_runtime_flag(raw: &str) -> bool {
-    matches!(
-        raw.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on"
-    )
-}
-
-fn dev_packet_auto_send_runtime_env_enabled() -> bool {
-    let raw = std::env::var("VOICETERM_DEV_PACKET_AUTOSEND").unwrap_or_default();
-    parse_dev_packet_auto_send_runtime_flag(&raw)
-}
-
-static DEV_PACKET_AUTOSEND_RUNTIME_ENABLED: OnceLock<bool> = OnceLock::new();
-
-#[cfg(test)]
-static DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE: AtomicU8 = AtomicU8::new(0);
-
-fn dev_packet_auto_send_runtime_enabled() -> bool {
-    #[cfg(test)]
-    {
-        match DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE.load(Ordering::Relaxed) {
-            1 => return false,
-            2 => return true,
-            _ => {}
-        }
-    }
-    *DEV_PACKET_AUTOSEND_RUNTIME_ENABLED.get_or_init(dev_packet_auto_send_runtime_env_enabled)
-}
-
-#[cfg(test)]
-pub(super) fn set_dev_packet_auto_send_runtime_override(override_value: Option<bool>) {
-    let encoded = match override_value {
-        Some(false) => 1,
-        Some(true) => 2,
-        None => 0,
-    };
-    DEV_PACKET_AUTOSEND_RUNTIME_OVERRIDE.store(encoded, Ordering::Relaxed);
-}
-
-pub(super) fn apply_terminal_packet_completion(
+fn set_dev_status(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
-    completion: &crate::dev_command::DevCommandCompletion,
-) -> Option<String> {
-    let packet = completion.terminal_packet.as_ref()?;
-    if packet.draft_text.trim().is_empty() {
-        return Some(format!(
-            "Dev {} {} (empty packet draft)",
-            completion.command.label(),
-            completion.status.label()
-        ));
-    }
-    if !write_or_queue_pty_input(state, deps, packet.draft_text.clone().into_bytes()) {
-        return Some("Packet injection failed (PTY write error)".to_string());
-    }
-
-    let auto_send_requested = packet.auto_send;
-    let auto_send_enabled = auto_send_requested && dev_packet_auto_send_runtime_enabled();
-    if auto_send_enabled {
-        if !write_or_queue_pty_input(state, deps, vec![0x0d]) {
-            return Some("Packet auto-send failed (PTY write error)".to_string());
-        }
-        timers.last_enter_at = Some(Instant::now());
-        state.status_state.insert_pending_send = false;
-        state.status_state.recording_state = RecordingState::Responding;
-        return Some(format!(
-            "Packet {} auto-sent ({})",
-            packet.packet_id, packet.source_command
-        ));
-    }
-
-    state.status_state.insert_pending_send = true;
-    if auto_send_requested {
-        return Some(format!(
-            "Packet {} staged from {} (auto-send requested but runtime guard is OFF)",
-            packet.packet_id, packet.source_command
-        ));
-    }
-    Some(format!(
-        "Packet {} staged from {} (press Enter to send)",
-        packet.packet_id, packet.source_command
-    ))
-}
-
-pub(super) fn move_dev_panel_selection(state: &mut EventLoopState, delta: i32) -> bool {
-    let previous = state.dev_panel_commands.selected_command();
-    state.dev_panel_commands.move_selection(delta);
-    state.dev_panel_commands.selected_command() != previous
-}
-
-pub(super) fn select_dev_panel_command_by_index(state: &mut EventLoopState, index: usize) -> bool {
-    let previous = state.dev_panel_commands.selected_command();
-    state.dev_panel_commands.select_index(index);
-    state.dev_panel_commands.selected_command() != previous
-}
-
-pub(super) fn request_selected_dev_panel_command(
-    state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
+    deps: &EventLoopDeps,
+    text: &str,
+    clear_after: Option<Duration>,
 ) {
-    if !state.config.dev_mode {
-        return;
-    }
-
-    if state.dev_panel_commands.running_request_id().is_some() {
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Dev command already running",
-            Some(Duration::from_secs(2)),
-        );
-        return;
-    }
-
-    let command = state.dev_panel_commands.selected_command();
-    if command.is_mutating() && state.dev_panel_commands.pending_confirmation() != Some(command) {
-        state.dev_panel_commands.request_confirmation(command);
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Sync is mutating; press Enter again to confirm",
-            Some(Duration::from_secs(3)),
-        );
-        return;
-    }
-
-    state.dev_panel_commands.clear_pending_confirmation();
-    let Some(broker) = deps.dev_command_broker.as_mut() else {
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Dev command broker unavailable",
-            Some(Duration::from_secs(2)),
-        );
-        return;
-    };
-
-    match broker.run_command(command) {
-        Ok(request_id) => {
-            state
-                .dev_panel_commands
-                .register_launch(request_id, command);
-            let message = format!("Running devctl {}...", command.label());
-            set_status(
-                &deps.writer_tx,
-                &mut timers.status_clear_deadline,
-                &mut state.current_status,
-                &mut state.status_state,
-                &message,
-                Some(Duration::from_secs(2)),
-            );
-        }
-        Err(err) => {
-            let message = format!("Failed to queue dev command: {err}");
-            set_status(
-                &deps.writer_tx,
-                &mut timers.status_clear_deadline,
-                &mut state.current_status,
-                &mut state.status_state,
-                &message,
-                Some(Duration::from_secs(2)),
-            );
-        }
-    }
-}
-
-pub(super) fn cancel_running_dev_panel_command(
-    state: &mut EventLoopState,
-    timers: &mut EventLoopTimers,
-    deps: &mut EventLoopDeps,
-) {
-    state.dev_panel_commands.clear_pending_confirmation();
-    let Some(request_id) = state.dev_panel_commands.running_request_id() else {
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "No running dev command",
-            Some(Duration::from_secs(2)),
-        );
-        return;
-    };
-
-    let Some(broker) = deps.dev_command_broker.as_ref() else {
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            "Dev command broker unavailable",
-            Some(Duration::from_secs(2)),
-        );
-        return;
-    };
-
-    if let Err(err) = broker.cancel_command(request_id) {
-        let message = format!("Failed to cancel dev command: {err}");
-        set_status(
-            &deps.writer_tx,
-            &mut timers.status_clear_deadline,
-            &mut state.current_status,
-            &mut state.status_state,
-            &message,
-            Some(Duration::from_secs(2)),
-        );
-        return;
-    }
-
     set_status(
         &deps.writer_tx,
         &mut timers.status_clear_deadline,
         &mut state.current_status,
         &mut state.status_state,
-        "Cancelling dev command...",
-        Some(Duration::from_secs(2)),
+        text,
+        clear_after,
     );
 }
 
-pub(super) fn poll_dev_command_updates(
+pub(super) fn toggle_dev_panel_tab(
     state: &mut EventLoopState,
     timers: &mut EventLoopTimers,
     deps: &mut EventLoopDeps,
 ) {
-    let mut updates = Vec::new();
-    if let Some(broker) = deps.dev_command_broker.as_ref() {
-        while let Some(update) = broker.try_recv_update() {
-            updates.push(update);
+    state.dev_panel_commands.toggle_tab();
+    refresh_active_dev_panel_tab(state, deps, RefreshMode::Lazy);
+    let tab_label = state.dev_panel_commands.active_tab().label();
+    set_dev_status(state, timers, deps, tab_label, Some(Duration::from_secs(1)));
+}
+
+pub(super) fn prev_dev_panel_tab(
+    state: &mut EventLoopState,
+    timers: &mut EventLoopTimers,
+    deps: &mut EventLoopDeps,
+) {
+    state.dev_panel_commands.prev_tab();
+    refresh_active_dev_panel_tab(state, deps, RefreshMode::Lazy);
+    let tab_label = state.dev_panel_commands.active_tab().label();
+    set_dev_status(state, timers, deps, tab_label, Some(Duration::from_secs(1)));
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum RefreshMode {
+    Lazy,
+    Force,
+}
+
+/// Reload the review artifact if forced, or if no artifact and no error
+/// are cached yet. Shared gate used by both Control and Handoff refresh.
+fn maybe_reload_review(
+    state: &mut EventLoopState,
+    session: &voiceterm::pty_session::PtyOverlaySession,
+    force: bool,
+) {
+    if force
+        || (state.dev_panel_commands.review().artifact().is_none()
+            && state.dev_panel_commands.review().load_error().is_none())
+    {
+        review_loader::load_review(state, session);
+    }
+}
+
+fn refresh_control_snapshot(
+    state: &mut EventLoopState,
+    deps: &EventLoopDeps,
+    force_review_reload: bool,
+) {
+    maybe_reload_review(state, &deps.session, force_review_reload);
+    git_snapshot::refresh_git_snapshot(state, &deps.session);
+    snapshots::refresh_memory_snapshot(state);
+    snapshots::build_runtime_diagnostics_snapshot(state, deps);
+}
+
+fn refresh_handoff_sources(
+    state: &mut EventLoopState,
+    deps: &EventLoopDeps,
+    force_review_reload: bool,
+    force_git_reload: bool,
+) {
+    maybe_reload_review(state, &deps.session, force_review_reload);
+    if force_git_reload || state.dev_panel_commands.git_snapshot().is_none() {
+        git_snapshot::refresh_git_snapshot(state, &deps.session);
+    }
+}
+
+/// Refresh the active dev-panel tab from runtime state.
+/// `Lazy` keeps already-loaded review/git data when the operator is just
+/// cycling tabs. `Force` is used for explicit refresh/reopen paths so the
+/// rendered footer never promises freshness while still showing cached data.
+pub(super) fn refresh_active_dev_panel_tab(
+    state: &mut EventLoopState,
+    deps: &EventLoopDeps,
+    mode: RefreshMode,
+) {
+    match state.dev_panel_commands.active_tab() {
+        crate::dev_command::DevPanelTab::Review => {
+            if matches!(mode, RefreshMode::Force) {
+                review_loader::load_review(state, &deps.session);
+            } else {
+                maybe_reload_review(state, &deps.session, false);
+            }
         }
-    }
-
-    if updates.is_empty() {
-        return;
-    }
-
-    for update in updates {
-        if let crate::dev_command::DevCommandUpdate::Completed(completion) = &update {
-            let message = apply_terminal_packet_completion(state, timers, deps, completion)
-                .unwrap_or_else(|| {
-                    format!(
-                        "Dev {} {}",
-                        completion.command.label(),
-                        completion.status.label()
-                    )
-                });
-            set_status(
-                &deps.writer_tx,
-                &mut timers.status_clear_deadline,
-                &mut state.current_status,
-                &mut state.status_state,
-                &message,
-                Some(Duration::from_secs(3)),
+        crate::dev_command::DevPanelTab::Control => {
+            refresh_control_snapshot(state, deps, matches!(mode, RefreshMode::Force))
+        }
+        crate::dev_command::DevPanelTab::Ops => {
+            if matches!(mode, RefreshMode::Force)
+                || state.dev_panel_commands.ops_snapshot().is_none()
+            {
+                ops_snapshot::refresh_ops_snapshot(state);
+            }
+        }
+        crate::dev_command::DevPanelTab::Handoff => {
+            refresh_handoff_sources(
+                state,
+                deps,
+                matches!(mode, RefreshMode::Force),
+                matches!(mode, RefreshMode::Force),
             );
+            snapshots::refresh_handoff_snapshot(state);
         }
-        state.dev_panel_commands.apply_update(update);
-    }
-
-    if state.ui.overlay_mode == OverlayMode::DevPanel {
-        render_dev_panel_overlay_for_state(state, deps);
+        crate::dev_command::DevPanelTab::Memory => {
+            refresh_handoff_sources(
+                state,
+                deps,
+                matches!(mode, RefreshMode::Force),
+                matches!(mode, RefreshMode::Force),
+            );
+            snapshots::refresh_memory_snapshot(state);
+            snapshots::refresh_handoff_snapshot(state);
+            snapshots::refresh_memory_cockpit_snapshot(state);
+        }
+        crate::dev_command::DevPanelTab::Actions => {}
     }
 }

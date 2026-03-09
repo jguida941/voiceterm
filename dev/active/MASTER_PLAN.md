@@ -11,7 +11,8 @@
 - `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
 - `dev/active/naming_api_cohesion.md` is the naming/API cohesion execution spec; implementation tasks stay in this file under `MP-267`.
 - `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`, `MP-354`.
-- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the current-cycle parallel orchestration/reviewer protocol and must be refreshed per execution cycle.
+- `dev/active/review_channel.md` now carries the merged markdown-swarm lane plan,
+  instruction log, and signoff template for the current Codex/Claude parallel cycle.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-03-07)
@@ -25,6 +26,12 @@
   compatibility (`libexec/src/Cargo.toml` -> `libexec/rust/Cargo.toml`) plus
   Theme GA baseline execution (`MP-161`, `MP-162`, `MP-174`, `MP-166`,
   `MP-167`, `MP-173`).
+- Theme execution alignment update: the standalone `plan.md` scratch draft is
+  now merged into `dev/active/theme_upgrade.md` as the canonical execution
+  checklist for the current Theme tranche; immediate sequencing is helper-path
+  consolidation first, persisted style-pack routing closure second, Components
+  page activation third, and registry/CI parity closure after the
+  `theme_studio_v2` ownership boundary is made explicit.
 - Architecture tracker update: `MP-354` closure is complete; remaining
   IDE/provider work is the post-next-release `MP-346` backlog already retained
   in `dev/active/ide_provider_modularization.md` (`Step 3g`, `Step 3h`, and
@@ -33,9 +40,24 @@
   mode while Theme and Memory product lanes are completed in order.
 - Maintainer-doc clarity update: `dev/DEVELOPMENT.md` now includes an end-to-end lifecycle flowchart plus check/push routing sections while `AGENTS.md` remains the canonical policy router.
 - Tooling docs-governance update: `devctl docs-check --strict-tooling` now enforces markdown metadata-header normalization for `Status`/`Last updated`/`Owner` blocks via `check_markdown_metadata_header.py`.
+- External publication governance update: `devctl` is gaining a tracked
+  publication-sync surface so external papers/sites can declare watched source
+  paths, emit stale-publication drift reports, and surface hygiene warnings
+  when repo changes outpace synced public artifacts.
 - Loop architecture clarity update: `dev/ARCHITECTURE.md` and
   `dev/DEVELOPMENT.md` now document the custom repo-owned Ralph/Wiggum loop
   path and the federated-repo import model in simple flowchart form.
+- Continuous swarm hardening kickoff: `dev/active/continuous_swarm.md` now
+  tracks the local-first Codex-reviewer / Claude-coder continuation loop,
+  launcher modularization, peer-liveness guards, context-rotation handoff, and
+  the later proof-gated template-extraction path.
+- Desktop operator console prototype update:
+  `dev/active/operator_console.md` now tracks a bounded optional PyQt6
+  VoiceTerm Operator Console wrapper over the existing Rust runtime and
+  `devctl` control surfaces. The active plan now treats this as a repo-aware
+  desktop controller shell over typed repo-owned commands, workflow guidance,
+  and bounded AI assist, but still not as a replacement execution authority or
+  second control plane.
 - Loop comment transport hardening update: shared workflow-loop `gh` helpers now
   avoid invalid `--repo` usage for `gh api` calls so summary-and-comment mode
   can publish and upsert commit/PR comments reliably.
@@ -228,6 +250,12 @@
   and policy-gated (`--report-dead-code`, `--fail-on-undocumented-dead-code`)
   with all current `#[allow(dead_code)]` instances documented by explicit
   `reason` metadata.
+- MP-347 architecture-governance intake update (2026-03-08): post-release
+  DevCtl hardening backlog now explicitly includes an
+  `architecture_surface_sync` guard for changed/untracked paths plus a
+  duplicate/shared-logic candidate guard so new repo surfaces fail earlier
+  when they are not wired into authority docs, bundles, workflows, and
+  canonical shared-helper boundaries.
 - MP-346 formal closure (2026-03-05): Phase 6 governance gate closed;
   all release-scope structural/tooling/governance/testing conditions met
   for IDE-first matrix (4/4); post-release backlog (Gemini overlay,
@@ -271,8 +299,10 @@
 ## Multi-Agent Coordination Board
 
 This board remains the execution tracker for lane ownership/status.
-`dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` is the single coordination
-surface for instructions, ACKs, progress updates, and handoff evidence.
+`dev/active/review_channel.md` now holds the merged markdown-swarm lane plan,
+instruction log, shared ledger, and signoff template. `code_audit.md` is the
+only live cross-team reviewer/coder coordination surface during active swarm
+execution.
 
 Branch guards for all agents:
 
@@ -281,20 +311,31 @@ Branch guards for all agents:
 3. Rebase each active agent branch after every merge to `origin/develop`.
 4. Update this board before and after each execution batch.
 5. Keep `master` release-only (merge/tag/publish only).
-6. Shared hotspot files (`writer/state.rs`, `prompt_occlusion.rs`, `claude_prompt_detect.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`) require a claim row in `MULTI_AGENT_WORKTREE_RUNBOOK.md` Section 18 before edits when Theme (`MP-148..MP-182`), naming/API cohesion (`MP-267`), and MP-346 scopes overlap.
+6. Shared hotspot files (`writer/state.rs`, `prompt_occlusion.rs`,
+   `claude_prompt_detect.rs`, `theme/rule_profile.rs`,
+   `theme/style_pack.rs`) require an explicit claim in the merged
+   `review_channel.md` swarm ledger before edits when Theme
+   (`MP-148..MP-182`), naming/API cohesion (`MP-267`), and MP-346 scopes
+   overlap.
 
 | Agent | Lane | Active-doc scope | MP scope (authoritative) | Worktree | Branch | Status | Last update (UTC) | Notes |
 |---|---|---|---|---|---|---|---|---|
-| `AGENT-1` | Theme runtime visual pass | `dev/active/theme_upgrade.md` + runtime pack | `MP-161, MP-162, MP-174` | `../codex-voice-wt-a1` | `feature/a1-theme-runtime-surface` | `merged` | `2026-03-04T02:04:00Z` | `scaleout-20260224`; lane archived as merged for stale-watch closure in the current single-lane cycle. |
-| `AGENT-2` | Theme Studio control parity | `dev/active/theme_upgrade.md` + runtime pack | `MP-166` | `../codex-voice-wt-a2` | `feature/a2-theme-studio-parity` | `merged` | `2026-03-04T02:04:00Z` | `scaleout-20260224`; lane archived as merged for stale-watch closure in the current single-lane cycle. |
-| `AGENT-3` | Theme GA gates and advanced interactions | `dev/active/theme_upgrade.md` + docs | `MP-167, MP-173, MP-177, MP-178, MP-181` | `../codex-voice-wt-a3` | `feature/a3-theme-ga-gates` | `merged` | `2026-03-04T02:04:00Z` | `scaleout-20260224`; lane archived as merged for stale-watch closure in the current single-lane cycle. |
-| `AGENT-4` | Memory foundation and retrieval core | `dev/active/memory_studio.md` + runtime pack | `MP-231, MP-233, MP-234` | `../codex-voice-wt-a4` | `feature/a4-memory-foundations` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for memory ingestion/retrieval and context-pack foundation. |
-| `AGENT-5` | Memory compaction and quality gates | `dev/active/memory_studio.md` + tooling/docs | `MP-235, MP-243, MP-244` | `../codex-voice-wt-a5` | `feature/a5-memory-compaction` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for compaction workflow and quality/evidence harness. |
-| `AGENT-6` | Memory acceleration and rollout gates | `dev/active/memory_studio.md` + benchmark scripts | `MP-237, MP-250, MP-251, MP-252, MP-253, MP-254, MP-255` | `../codex-voice-wt-a6` | `feature/a6-memory-acceleration` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for acceleration prototypes and guarded rollout policy. |
-| `AGENT-7` | Autonomy service and phone adapter track | `dev/active/autonomous_control_plane.md` + tooling/docs | `MP-330, MP-331` | `../codex-voice-wt-a7` | `feature/a7-autonomy-service` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for mobile control-plane service scaffolding. |
-| `AGENT-8` | Autonomy guardrails and loop bridge | `dev/active/autonomous_control_plane.md`, `dev/active/loop_chat_bridge.md` | `MP-332, MP-336, MP-338` | `../codex-voice-wt-a8` | `feature/a8-autonomy-guardrails` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for policy/traceability hardening and loop handoff safety. |
-| `AGENT-9` | Tooling performance and maintainer UX | `dev/active/devctl_reporting_upgrade.md` + tooling pack | `MP-297, MP-298, MP-257` | `../codex-voice-wt-a9` | `feature/a9-tooling-hardening` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for `devctl` speed/readability improvements and docs clarity. |
-| `AGENT-10` | Runtime send/reliability fixes | `dev/active/MASTER_PLAN.md` + runtime/voice pack | `MP-301, MP-322, MP-323, MP-335` | `../codex-voice-wt-a10` | `feature/a10-runtime-reliability` | `planned` | `2026-02-24T06:21:38Z` | `scaleout-20260224`; lane initialized for send-intent, wake-word, and input-edit reliability fixes. |
+| `AGENT-1` | Codex architecture contract review | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` | `MP-340, MP-355` | `../codex-voice-wt-a1` | `feature/a1-codex-architecture-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for controller/review/memory contract boundaries. |
+| `AGENT-2` | Codex clean-code and state-boundary review | `dev/active/review_channel.md` + runtime pack | `MP-267, MP-340, MP-355` | `../codex-voice-wt-a2` | `feature/a2-codex-clean-code-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for duplication, ownership drift, and mixed-state violations. |
+| `AGENT-3` | Codex runtime and handoff review | `dev/active/review_channel.md`, `dev/active/memory_studio.md` + runtime pack | `MP-233, MP-238, MP-243, MP-340, MP-355` | `../codex-voice-wt-a3` | `feature/a3-codex-runtime-handoff-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for handoff, bootstrap, memory-bridge, and runtime correctness. |
+| `AGENT-4` | Codex CI and workflow reviewer | `dev/active/review_channel.md` + tooling pack | `MP-297, MP-298, MP-303, MP-306, MP-355` | `../codex-voice-wt-a4` | `feature/a4-codex-ci-workflow-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for CI/CD, bundle/workflow parity, and push-safety. |
+| `AGENT-5` | Codex devctl and process-hygiene reviewer | `dev/active/devctl_reporting_upgrade.md`, `dev/active/host_process_hygiene.md` | `MP-297, MP-298, MP-300, MP-303, MP-306, MP-356` | `../codex-voice-wt-a5` | `feature/a5-codex-devctl-process-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for `devctl`, cleanup/audit flow, and maintainer-surface correctness. |
+| `AGENT-6` | Codex overlay and UX reviewer | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a6` | `feature/a6-codex-overlay-ux-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for Control/Review/Handoff UX, hitboxes, redraw, and footer honesty. |
+| `AGENT-7` | Codex guard and test reviewer | `dev/active/review_channel.md`, `dev/active/host_process_hygiene.md` + tooling pack | `MP-303, MP-355, MP-356` | `../codex-voice-wt-a7` | `feature/a7-codex-guard-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Codex reviewer lane for guard coverage, regression tests, and audit evidence quality. |
+| `AGENT-8` | Codex integration and re-review loop | `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md` | `MP-340, MP-355, MP-356` | `../codex-voice-wt-a8` | `feature/a8-codex-integration-review` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; primary Codex merge/readiness lane that polls every 5 minutes when Claude is still coding. |
+| `AGENT-9` | Claude bridge push-safety fixes | `dev/active/review_channel.md` + tooling pack | `MP-303, MP-306, MP-355` | `../codex-voice-wt-a9` | `feature/a9-claude-bridge-push-safety` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for bridge-gate, workflow-order, and branch push-safety fixes. |
+| `AGENT-10` | Claude live Git-context fixes | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a10` | `feature/a10-claude-git-context-fixes` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for session-root Git context and repo-snapshot correctness. |
+| `AGENT-11` | Claude refresh, redraw, and footer fixes | `dev/active/review_channel.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a11` | `feature/a11-claude-refresh-redraw-fixes` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for Control/Handoff refresh honesty, error redraw, and footer-hitbox alignment. |
+| `AGENT-12` | Claude broker and clipboard fixes | `dev/active/review_channel.md`, `dev/active/autonomous_control_plane.md` + runtime pack | `MP-340, MP-355` | `../codex-voice-wt-a12` | `feature/a12-claude-broker-clipboard-fixes` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for broker shutdown cleanup/reporting and writer-routed clipboard behavior. |
+| `AGENT-13` | Claude handoff and bootstrap fixes | `dev/active/review_channel.md`, `dev/active/memory_studio.md` + runtime pack | `MP-233, MP-238, MP-243, MP-340, MP-355` | `../codex-voice-wt-a13` | `feature/a13-claude-handoff-bootstrap-fixes` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for fresh-prompt bootstrap docs, handoff packet context, and memory-compatible resume paths. |
+| `AGENT-14` | Claude workflow and publication-sync fixes | `dev/active/devctl_reporting_upgrade.md` + tooling pack | `MP-297, MP-298, MP-300, MP-303, MP-306` | `../codex-voice-wt-a14` | `feature/a14-claude-workflow-publication-fixes` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for publication-sync scope, workflow ordering, and tooling-gate rationalization. |
+| `AGENT-15` | Claude clean-code refactors | `dev/active/naming_api_cohesion.md`, `dev/active/review_channel.md` + runtime/tooling packs | `MP-267, MP-340, MP-355` | `../codex-voice-wt-a15` | `feature/a15-claude-clean-code-refactors` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for dedup, separation-of-concerns cleanup, and mixed-state untangling that reviewers flag. |
+| `AGENT-16` | Claude proof and regression closure | `dev/active/review_channel.md`, `dev/active/host_process_hygiene.md` + runtime/tooling packs | `MP-303, MP-340, MP-355, MP-356` | `../codex-voice-wt-a16` | `feature/a16-claude-proof-regression-closure` | `planned` | `2026-03-08T18:21:48Z` | `handoff=swarm-20260308-code-audit`; Claude coding lane for final guard green runs, regression proofs, and cross-lane verification closeout. |
 
 ## Strategic Direction
 
@@ -320,7 +361,7 @@ Mapped scopes:
 
 - `MP-333`, `MP-337`
 - `dev/active/INDEX.md`
-- `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md`
+- `dev/active/review_channel.md`
 
 ### Phase B - Runtime and Workspace Reliability Baseline
 
@@ -389,22 +430,22 @@ Mapped scopes:
 ## ADR Program Backlog (Cross-Plan, Pending)
 
 Create these ADRs in order so agents/dev do not lose architectural scope.
+Accepted authorities for unified controller state contract and agent relay
+packet protocol have landed (see `dev/adr/0027-*` and `dev/adr/0028-*`).
 
-1. `ADR-0027` Unified Controller State Contract:
-   schema + projections (`full/compact/trace/actions`) used by TUI and phone.
-2. `ADR-0028` Agent Relay Packet Protocol:
-   reviewer/assistant packet format, confidence model, and evidence refs.
-3. `ADR-0029` Operator Action Policy Model:
+Remaining backlog:
+
+1. `ADR-0029` Operator Action Policy Model:
    action classes, approval gates, replay/nonce rules, and deny semantics.
-4. `ADR-0030` Phone Adapter Architecture:
+2. `ADR-0030` Phone Adapter Architecture:
    SSH-first, push/SMS/chat adapters, auth boundaries, and fallback strategy.
-5. `ADR-0031` Rust Dev-Panel Control-Plane Boundary:
+3. `ADR-0031` Rust Dev-Panel Control-Plane Boundary:
    what stays runtime-local vs control-plane-fed; non-interference guarantees.
-6. `ADR-0032` Autonomous Loop Stage Machine:
+4. `ADR-0032` Autonomous Loop Stage Machine:
    triage/plan/fix/verify/review/promote transitions and stop conditions.
-7. `ADR-0033` Autonomy Metrics + Scientific Audit Method:
+5. `ADR-0033` Autonomy Metrics + Scientific Audit Method:
    KPI definitions, experiment protocol, and promotion criteria.
-8. `ADR-0034` Template Extraction Contract:
+6. `ADR-0034` Template Extraction Contract:
    what must be standardized before reuse across repositories.
 
 ## Phase 0 - Completed Release Stabilization (v1.0.51-v1.0.52)
@@ -588,10 +629,10 @@ Theme Studio mandatory verification bundle (per PR):
 ## Phase 2D - Visual Surface Expansion (Theme Studio Prerequisite)
 
 - [ ] MP-161 Execute a visual-first runtime pass before deep Studio editing: with MP-102 complete, promote MP-103, MP-106, MP-107, MP-108, and MP-109 from Backlog into active execution order with non-regression gates (in progress: toast-history overlay row-width accounting and title rendering were hardened so unicode/ascii glyph themes keep border alignment without stale right-edge artifacts).
-- [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship (in progress: schema/resolver now supports runtime visual overrides for border glyph sets, indicator glyph families, and glyph-set profile selection (`glyphs`: `unicode`/`ascii`) via style-pack payloads, including compact/full/minimal/hidden processing/responding indicator lanes in status rendering while preserving default processing spinner animation unless explicitly overridden).
+- [ ] MP-162 Extend `StylePack` schema/resolver so each runtime visual surface is style-pack addressable (widgets/graphs, toasts, voice-state scenes, command palette, autocomplete, dashboard surfaces), even before all Studio pages ship (in progress: schema/resolver now supports runtime visual overrides for border glyph sets, indicator glyph families, and glyph-set profile selection (`glyphs`: `unicode`/`ascii`) via style-pack payloads, including compact/full/minimal/hidden processing/responding indicator lanes in status rendering while preserving default processing spinner animation unless explicitly overridden; 2026-03-07 aligned next slice: persisted payload-driven runtime routing must close `surfaces.toast_position`, `surfaces.startup_style`, `components.toast_severity_mode`, and `components.banner_style`, not just runtime-only Theme Studio overrides. 2026-03-09 Codex re-review: the status-line ASCII separator leak is closed, but persisted payload-driven consumer proof is still incomplete for those startup/toast/banner fields; keep MP-162 open until consumer-level coverage lands, not just resolver wiring.)
 - [x] MP-163 Add explicit coverage tests/gates that fail if new visual runtime surfaces bypass theme resolver paths with hardcoded style constants (landed `theme::tests::runtime_sources_do_not_bypass_theme_resolver_with_palette_constants`, a source-policy gate that scans runtime Rust modules and fails when `THEME_*` palette or `BORDER_*` border constants are referenced outside theme resolver/style-ownership allowlist files).
-- [ ] MP-172 Add a styleable component registry and state-matrix contract for all renderable control surfaces (buttons, tabs, lists, tables, trees, scrollbars, modal/popup/tooltip, input/caret/selection) with schema + resolver + snapshot coverage.
-- [ ] MP-174 Migrate existing non-HUD visual surfaces into `StylePack` routing (startup splash/banner, help/settings/theme-picker chrome, calibration/mic-meter visuals, progress bars/spinners, icon/glyph sets) so no current visual path is left outside Theme Studio ownership (in progress: processing/progress spinner rendering paths now resolve through theme/style-pack indicators instead of hardcoded frame constants, glyph-family routing now drives HUD queue/latency/meter symbols + status-line waveform placeholders/pulse dots + progress bar/block/bounce glyphs, `components.progress_bar_family` now routes progress/meter glyph profiles through style-pack resolution, audio-meter calibration/waveform rendering resolves bar/wave/marker glyphs from the shared theme profile, overlay chrome/footer/slider glyphs across help/settings/theme-picker now route through the active glyph profile with footer close hit-testing parity for unicode/ascii separators, startup banner/footer separators now honor glyph-set overrides (`unicode`/`ascii`) across full/compact/minimal banner variants, explicit spinner-style overrides now fall back to ASCII-safe animation frames when glyph profile is ASCII, theme-switch interactions now surface explicit style-pack lock state (read-only/dimmed picker + locked status messaging) when schema payload `base_theme` is active, and component-level border routing now resolves `components.overlay_border` across overlay surfaces including transcript-history plus `components.hud_border` for Full-HUD `Theme` border mode through style-pack resolver paths.)
+- [ ] MP-172 Add a styleable component registry and state-matrix contract for all renderable control surfaces (buttons, tabs, lists, tables, trees, scrollbars, modal/popup/tooltip, input/caret/selection) with schema + resolver + snapshot coverage (2026-03-07 alignment note: `theme::component_registry` is still gated by `theme_studio_v2`; the next slice must make that boundary explicit and separate live vs planned registry inventory before registry-backed Studio or CI parity becomes authoritative).
+- [ ] MP-174 Migrate existing non-HUD visual surfaces into `StylePack` routing (startup splash/banner, help/settings/theme-picker chrome, calibration/mic-meter visuals, progress bars/spinners, icon/glyph sets) so no current visual path is left outside Theme Studio ownership (in progress: processing/progress spinner rendering paths now resolve through theme/style-pack indicators instead of hardcoded frame constants, glyph-family routing now drives HUD queue/latency/meter symbols + status-line waveform placeholders/pulse dots + progress bar/block/bounce glyphs, `components.progress_bar_family` now routes progress/meter glyph profiles through style-pack resolution, audio-meter calibration/waveform rendering resolves bar/wave/marker glyphs from the shared theme profile, overlay chrome/footer/slider glyphs across help/settings/theme-picker now route through the active glyph profile with footer close hit-testing parity for unicode/ascii separators, startup banner/footer separators now honor glyph-set overrides (`unicode`/`ascii`) across full/compact/minimal banner variants, explicit spinner-style overrides now fall back to ASCII-safe animation frames when glyph profile is ASCII, theme-switch interactions now surface explicit style-pack lock state (read-only/dimmed picker + locked status messaging) when schema payload `base_theme` is active, component-level border routing now resolves `components.overlay_border` across overlay surfaces including transcript-history plus `components.hud_border` for Full-HUD `Theme` border mode through style-pack resolver paths, and 2026-03-09 follow-up hardening routed the remaining status-line full/single-line/compact separators through glyph-aware helpers so ASCII packs stop leaking `│` / `·`; the remaining helper-routing follow-up is now toast severity icons, HUD mode glyphs, and audio-meter markers before introducing additional style-pack fields; post-slice cleanup landed: glyph tables/resolver helpers plus their focused tests extracted from `theme/mod.rs` into `theme/glyphs.rs`. 2026-03-09 Codex re-review confirmed the separator fix but keeps MP-174 open until the remaining helper-routing follow-up lands with focused proof.)
 - [x] MP-175 Add a framework capability matrix + parity gate for shipped framework versions (Ratatui widget/symbol families and Crossterm color/input/render capabilities, including synchronized updates + keyboard enhancement flags), and track upgrade deltas before enabling new Studio controls (landed `theme/capability_matrix.rs` with `RatatuiWidget`/`RatatuiSymbolFamily`/`CrosstermCapability` enums, `FrameworkCapabilitySnapshot` pinned at ratatui 0.30 + crossterm 0.29, `check_parity()` gate detecting unregistered widgets and unmapped symbols, `compute_upgrade_delta()` for version transition tracking, `theme_capability_compatible()` for theme/terminal validation, and 18 passing tests covering snapshot parity, delta detection, and breaking-change gates; TS-G09 + TS-G15 evidence).
 - [x] MP-176 Implement terminal texture/graphics capability track (`TextureProfile` + adapter policy): symbol-texture baseline for all terminals plus capability-gated Kitty/iTerm2 image paths with enforced fallback chain tests (landed `theme/texture_profile.rs` with `TextureTier` fallback chain (KittyGraphics > ITermInlineImage > Sixel > SymbolTexture > Plain), `SymbolTextureFamily` enum (shade/braille/block/line), `TextureProfile` with max/active tier + terminal detection, `TerminalId` enum covering Kitty/iTerm2/WezTerm/Foot/Mintty/VsCode/Cursor/JetBrains/Alacritty/Warp/Generic/Unknown, environment-based detection via TERM_PROGRAM/TERMINAL_EMULATOR/KITTY_WINDOW_ID/ITERM_SESSION_ID, `resolve_texture_tier()` enforcing fallback chain, and `texture_profile_with_override()` for style-pack tier overrides; 20 passing tests covering fallback ordering, tier resolution, terminal detection, and profile construction; TS-G09 + TS-G06 evidence).
 - [x] MP-179 Add dependency baseline strategy for Theme Studio ecosystem packs (Ratatui/Crossterm version pin policy + compatibility matrix + staged upgrade plan) so third-party widget adoption does not fragment resolver/studio parity (landed `theme/dependency_baseline.rs` with `DependencyPin` structs for ratatui 0.30 and crossterm 0.29, `CompatibilityEntry`/`CompatibilityStatus` matrix covering tui-textarea/tui-tree-widget/throbber-widgets-tui/tui-popup/tui-scrollview/tui-big-text/tui-prompts/ratatui-image/tuirealm with per-dep ratatui+crossterm compat status, `UpgradeStep` staged plan (crossterm 0.30 before ratatui 0.31), `check_crate_compatibility()`/`check_pack_compatibility()` policy gates blocking unknown/incompatible crates, and `validate_pin_against_cargo()` for CI pin verification; 19 passing tests covering pin validation, matrix queries, compatibility semantics, and upgrade ordering; TS-G15 evidence).
@@ -602,9 +643,9 @@ Theme Studio mandatory verification bundle (per PR):
 
 - [x] MP-164 Implement dedicated `Theme Studio` overlay mode entry points/navigation and remove deep theme editing from generic Settings flows (landed `OverlayMode::ThemeStudio` with dedicated renderer/state selection, routed `Ctrl+Y`/theme-button entrypoints and cross-overlay theme hotkey flows into Theme Studio, added keyboard/mouse navigation (`Enter` action routing to Theme Picker/close plus arrow/ESC handling), wired periodic resize rerender + PTY reserved-row budgeting for Theme Studio mode, and covered interaction/status-row updates with new event-loop/theme-studio/status-line regression tests; TS-G07 evidence: `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `cd rust && cargo test --bin voiceterm`).
 - [x] MP-165 Migrate legacy visual controls out of settings list (`SettingsItem::Theme`, `SettingsItem::HudStyle`, `SettingsItem::HudBorders`, `SettingsItem::HudPanel`, `SettingsItem::HudAnimate`) so Settings keeps non-theme runtime controls only (landed by removing those rows from `SETTINGS_ITEMS`, preserving quick visual controls via `Ctrl+Y`/`Ctrl+G` theme paths plus `Ctrl+U` HUD-style cycling outside Settings).
-- [ ] MP-166 Deliver Studio page control parity for all `StylePack` fields (tokens, layout, widgets, motion, behavior, notifications, command/discovery surfaces, voice-state scenes, startup/wizard/progress/texture surfaces, accessibility, keybinds, profiles) with undo/redo + rollback (in progress: Theme Studio now includes interactive visual-control rows for existing runtime styling (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`) plus live `StylePack` runtime overrides for `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, `Voice scene`, `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, all adjustable with Enter and Left/Right controls and live current-value labels; overlay rendering now uses settings-style `label + [ value ]` rows with selected-row highlighting, a dedicated `tip:` description row, wider studio-width clamps (`60..=82`), and footer hints that expose left/right adjustment controls; runtime style-pack override edit safety is now wired with dedicated `Undo edit`, `Redo edit`, and `Rollback edits` rows backed by bounded in-session history; Theme Studio input dispatch now routes through page-scoped helper handlers with shared global-key processing and focused runtime-style adjustment routing in `theme_studio_input.rs`, and home-page row rendering now uses structured row metadata with static tip ownership; deep multi-page style-pack parity (`tokens`, `layout/motion`, broader field mapping) remains pending).
+- [ ] MP-166 Deliver Studio page control parity for all `StylePack` fields (tokens, layout, widgets, motion, behavior, notifications, command/discovery surfaces, voice-state scenes, startup/wizard/progress/texture surfaces, accessibility, keybinds, profiles) with undo/redo + rollback (in progress: Theme Studio now includes interactive visual-control rows for existing runtime styling (`HUD style`, `HUD borders`, `Right panel`, `Panel animation`) plus live `StylePack` runtime overrides for `Glyph profile`, `Indicator set`, `Progress spinner`, `Progress bars`, `Theme borders`, `Voice scene`, `Toast position`, `Startup splash`, `Toast severity`, and `Banner style`, all adjustable with Enter and Left/Right controls and live current-value labels; overlay rendering now uses settings-style `label + [ value ]` rows with selected-row highlighting, a dedicated `tip:` description row, wider studio-width clamps (`60..=82`), and footer hints that expose left/right adjustment controls; runtime style-pack override edit safety is now wired with dedicated `Undo edit`, `Redo edit`, and `Rollback edits` rows backed by bounded in-session history; Theme Studio input dispatch now routes through page-scoped helper handlers with shared global-key processing and focused runtime-style adjustment routing in `theme_studio_input.rs`, and home-page row rendering now uses structured row metadata with static tip ownership; 2026-03-09 bounded Components-page slice landed: `components_page.rs` now drills down `group -> component -> state` over canonical `style_id` rows, cycles local preview property edits through `StyleResolver`-owned `ResolvedComponentStyle`, and stays scoped away from `theme_studio_input.rs` / `component_registry.rs`; deep multi-page style-pack parity (`tokens`, `layout/motion`, broader field mapping), live reachability/persistence wiring, and `dead_code` allowance removal remain pending; 2026-03-07 aligned next slice: Components page work must edit `ResolvedComponentStyle` keyed by `(style_id, state)` and must not introduce per-component `ThemeColors` maps).
 - [ ] MP-167 Run Theme Studio GA validation and docs lockstep updates (snapshot matrix, terminal compatibility matrix, architecture docs, user docs, troubleshooting guidance, changelog entry).
-- [ ] MP-173 Add CI policy gates for future visuals: fail if a new renderable component lacks style-ID registration, and fail if post-parity a style-pack field lacks Studio control mapping (in progress: framework capability parity now fails on any newly added Ratatui widget/symbol without registration/mapping coverage, component-registry tests now require exact inventory parity plus unique stable style IDs, and Theme Studio now enforces explicit style-pack field classification (`mapped` vs `deferred`) with the post-parity gate enabled (`STYLE_PACK_STUDIO_PARITY_COMPLETE = true`) so mapping tests now require zero deferred style-pack fields).
+- [ ] MP-173 Add CI policy gates for future visuals: fail if a new renderable component lacks style-ID registration, and fail if post-parity a style-pack field lacks Studio control mapping (in progress: framework capability parity now fails on any newly added Ratatui widget/symbol without registration/mapping coverage, component-registry tests now require exact inventory parity plus unique stable style IDs, and Theme Studio now enforces explicit style-pack field classification (`mapped` vs `deferred`) with the post-parity gate enabled (`STYLE_PACK_STUDIO_PARITY_COMPLETE = true`) so mapping tests now require zero deferred style-pack fields; 2026-03-07 aligned next slice: registry-backed CI gates must count live renderable components only after the MP-172 live/planned boundary is explicit).
 - [ ] MP-177 Add widget-pack extensibility parity (first-party plus allowlisted third-party widgets) so newly adopted widget families must register style IDs + resolver bindings + Studio controls before GA.
 - [ ] MP-178 Add Theme Studio element inspector parity so users can select any rendered element and jump directly to component/state style controls (with state preview and style-path tracing).
 - [ ] MP-181 Add advanced Studio interaction parity (resizable splits, drag/reorder, scrollview-heavy forms, large text/editor fields) with full keyboard fallback and capability-safe mouse behavior.
@@ -650,7 +691,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-158 Harden `devctl docs-check` policy enforcement so docs requirements are change-class aware and deprecated maintainer command references are surfaced as actionable failures.
 - [x] MP-159 Add a dedicated tooling CI quality lane for `devctl` command behavior and maintainer shell-script integrity (release, release-notes, PyPI, Homebrew helpers).
 - [x] MP-160 Canonicalize maintainer docs and macro/help surfaces to `devctl` first (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, maintainer macro packs, and `Makefile` help), keeping legacy wrappers documented as transitional adapters.
-- [x] MP-230 Expand docs-governance control plane and process traceability: enforce strict tooling docs checks plus conditional strict user-facing docs checks in CI, add markdown/image/CLI-flag integrity guards, block accidental root `--*` artifact files, and document handoff/source-of-truth workflow for both human and AI contributors.
+- [x] MP-302 Expand docs-governance control plane and process traceability: enforce strict tooling docs checks plus conditional strict user-facing docs checks in CI, add markdown/image/CLI-flag integrity guards, block accidental root `--*` artifact files, and document handoff/source-of-truth workflow for both human and AI contributors.
 - [x] MP-239 Reorganize `AGENTS.md` into an agent-first execution router (task classes, context packs, normal-push vs release workflows, branch sync policy, command bundles, and explicit autonomy/guardrail rules) so AI contributors can deterministically choose the right docs, tools, and checks for each task.
 - [x] MP-245 Refine `AGENTS.md` and `dev/DEVELOPMENT.md` into an index-first, user-story-driven execution system: add explicit start-up bootstrap steps, dirty-tree protocol, single-source command bundles, CI lane mapping by risk/path, release version-parity checks (`Cargo.toml` + `pyproject.toml` + macOS `Info.plist` + changelog) with a dedicated parity guard (`dev/scripts/checks/check_release_version_parity.py`), add an AGENTS-structure guard (`dev/scripts/checks/check_agents_contract.py`), and add an active-plan registry/sync guard (`dev/scripts/checks/check_active_plan_sync.py` + `dev/active/INDEX.md`) so SOP/router/bundle and active-doc discovery contracts fail early in local/CI governance checks.
 - [x] MP-256 Add an orphaned-test process guardrail to tooling governance by extending `devctl hygiene` to detect leaked `target/debug/deps/voiceterm-*` binaries (error on detached `PPID=1` candidates, warning on active runs), then harden `devctl check` with automatic pre/post orphaned-test cleanup sweeps so interrupted local runs do not accumulate stale test binaries across worktrees.
@@ -664,14 +705,48 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-292 Refactor `devctl` internals to reduce module size, remove command-output drift, and harden missing-binary behavior: extracted shared process-sweep helpers (`dev/scripts/devctl/process_sweep.py`) for `check`/`hygiene`, shared `check` profile normalization (`dev/scripts/devctl/commands/check_profile.py`), shared status/report payload+markdown rendering (`dev/scripts/devctl/status_report.py`), split ship orchestration from step/runtime helpers (`dev/scripts/devctl/commands/ship.py`, `dev/scripts/devctl/commands/ship_common.py`, `dev/scripts/devctl/commands/ship_steps.py`), extracted hygiene audit helpers (`dev/scripts/devctl/commands/hygiene_audits.py`), updated `run_cmd`/ship command checks to return structured failures instead of uncaught Python exceptions when required binaries are missing, and rewrote helper/module docstrings in plain language so junior developers and AI agents can quickly understand when/why each helper exists; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-293 Add a dedicated `devctl security` command so maintainers can run a local security gate aligned with CI policy: landed `dev/scripts/devctl/commands/security.py` (RustSec JSON capture + policy enforcement + optional `zizmor` workflow scan with `--require-optional-tools` strict mode), extracted security CLI parser wiring into `dev/scripts/devctl/security_parser.py` to keep `dev/scripts/devctl/cli.py` below code-shape growth limits, wired list output in `dev/scripts/devctl/commands/listing.py`, added regression coverage in `dev/scripts/devctl/tests/test_security.py`, expanded plain-language process-sweep context for interrupted/stalled test cleanup in `dev/scripts/devctl/process_sweep.py`, and updated maintainer/governance docs (`AGENTS.md`, `dev/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`); verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py security --dry-run --with-zizmor --require-optional-tools --format json`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-294 Consolidate engineering narrative docs into a single canonical history source by folding `dev/docs/TECHNICAL_SHOWCASE.md` and `dev/docs/LINKEDIN_POST.md` into appendices in `dev/history/ENGINEERING_EVOLUTION.md`, then retiring the duplicated `dev/docs/` source files so updates only target one document; verification evidence: `python3 dev/scripts/devctl.py docs-check --user-facing`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
-- [ ] MP-297 Execute a focused `devctl check` usability/performance hardening sequence from maintainer review findings in ordered slices:
+- [x] MP-297 Execute a focused `devctl check` usability/performance hardening sequence from maintainer review findings in ordered slices:
   - [x] `#5` failure-output diagnostics: `run_cmd` now streams subprocess output while preserving bounded failure excerpts for non-zero exits (`dev/scripts/devctl/common.py`), `check` prints explicit failed-step summaries with captured context (`dev/scripts/devctl/commands/check.py`), markdown reports include a dedicated failure-output section (`dev/scripts/devctl/steps.py`), and regression coverage/docs were updated (`dev/scripts/devctl/tests/test_common.py`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`); verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
   - [x] `#1` check-step parallelism: `devctl check` now runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and the test/build phase through deterministic parallel batches with stable report ordering (`dev/scripts/devctl/commands/check.py`), includes maintainer controls for sequential fallback and worker tuning (`--no-parallel`, `--parallel-workers` in `dev/scripts/devctl/cli.py`), and adds regression coverage for parser wiring, parallel-path selection, and ordered aggregation (`dev/scripts/devctl/tests/test_check.py`); verification evidence: `python3 -m unittest dev.scripts.devctl.tests.test_check`.
   - [x] `#7` profile-vs-flag conflict validation: extracted `validate_profile_flag_conflicts()` into `check_profile.py` with `PROFILE_PRESETS` single source of truth, added 12 regression tests in `test_check.py`.
   - [x] `#4` explicit progress feedback: extracted `count_quality_steps()` and `emit_progress()` into `check_progress.py` with serial `[N/M]` and parallel `[N-M/T]` formats, added 10 regression tests in `test_check.py`.
   - [x] `#2` runaway-process containment: `run_cmd` now starts child steps in isolated process groups and tears down the full subprocess tree on interrupt (`dev/scripts/devctl/common.py`), while process sweep now treats stale active `voiceterm-*` test runners as cleanup/error candidates in both `check` and `hygiene` (`dev/scripts/devctl/process_sweep.py`, `dev/scripts/devctl/commands/check.py`, `dev/scripts/devctl/commands/hygiene.py`); regression coverage added in `dev/scripts/devctl/tests/test_common.py`, `dev/scripts/devctl/tests/test_process_sweep.py`, `dev/scripts/devctl/tests/test_check.py`, and `dev/scripts/devctl/tests/test_hygiene.py`.
   - [x] `#8` ADR-reference + governance parity guard: `devctl hygiene` now flags stale ADR reference patterns (hard-coded ADR counts and wildcard ADR file ranges), validates ADR backlog parity between `MASTER_PLAN` and `autonomous_control_plane`, and enforces reserved-ID coverage for missing backlog ADR files, with regression coverage in `dev/scripts/devctl/tests/test_hygiene.py`; docs were normalized to index-based ADR references in `dev/active/theme_upgrade.md` and `dev/history/ENGINEERING_EVOLUTION.md`, and release/tooling workflows now run workflow-shell + IDE/provider isolation + compat-matrix schema/smoke + naming consistency checks in their governance bundles.
-- [ ] MP-298 Parallelize independent `devctl status`/`report` collection probes and `ship --verify` subchecks with deterministic aggregation so I/O-heavy control-plane workflows run faster without changing pass/fail policy semantics.
+  - [x] `#9` external publication drift governance: landed the tracked
+    publication registry (`dev/config/publication_sync_registry.json`),
+    `devctl publication-sync` report/record flow
+    (`dev/scripts/devctl/publication_sync.py`,
+    `dev/scripts/devctl/publication_sync_parser.py`,
+    `dev/scripts/devctl/commands/publication_sync.py`), hygiene warnings via
+    `dev/scripts/devctl/commands/hygiene.py` +
+    `dev/scripts/devctl/commands/hygiene_audits.py`, the explicit guard
+    `dev/scripts/checks/check_publication_sync.py`, release-preflight wiring,
+    and regression coverage in
+    `dev/scripts/devctl/tests/test_publication_sync.py` plus
+    `dev/scripts/devctl/tests/test_check_publication_sync.py`; verification
+    evidence: `python3 -m unittest dev.scripts.devctl.tests.test_publication_sync dev.scripts.devctl.tests.test_check_publication_sync`,
+    `python3 dev/scripts/devctl.py publication-sync --format json`,
+    `python3 dev/scripts/checks/check_publication_sync.py --report-only`.
+- [x] MP-298 Parallelize independent `devctl status`/`report` collection probes and `ship --verify` subchecks with deterministic aggregation so I/O-heavy control-plane workflows run faster without changing pass/fail policy semantics.
+  - [x] 2026-03-09 Rust-audit reporting slice: `devctl report` now has an optional
+    parallel-collected `--rust-audits` probe that aggregates the Rust
+    best-practices, lint-debt, and runtime-panic guards into one human-readable
+    Markdown section with risk/fix explanations, optional matplotlib charts via
+    `--with-charts`, deterministic report bundle emission (`--emit-bundle`),
+    and shared full-tree support after adding `--absolute` mode to
+    `check_rust_runtime_panic_policy.py`; targeted regression coverage added in
+    `test_report.py`, `test_status_report_parallel.py`,
+    `test_rust_audit_report.py`, and
+    `test_check_rust_runtime_panic_policy.py`.
+  - [x] 2026-03-09 `ship --verify` closure slice: independent verify subchecks
+    now run through deterministic parallel aggregation in
+    `dev/scripts/devctl/commands/ship_steps.py`, using quiet worker execution
+    plus ordered failure selection so the first failing declared substep still
+    determines the verify result even when workers complete out of order;
+    regression coverage added in `dev/scripts/devctl/tests/test_ship.py` and
+    `dev/scripts/devctl/tests/test_common.py`, with local proof via
+    `python3 -m unittest dev.scripts.devctl.tests.test_common dev.scripts.devctl.tests.test_ship`
+    and `python3 dev/scripts/devctl.py ship --version 1.1.1 --verify --dry-run --format json`.
 - [x] MP-299 Add a `devctl triage` workflow that emits both human-readable markdown and AI-friendly JSON, with optional CIHub ingestion: landed new command surface (`dev/scripts/devctl/commands/triage.py`) plus parser/command inventory wiring (`dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/listing.py`), optional `cihub triage` execution + artifact ingestion (`triage.json`, `priority.json`, `triage.md`) under configurable emit directories, and bundle emission mode (`--emit-bundle` writes `<prefix>.md` + `<prefix>.ai.json`) for project handoff/automation use; regression coverage/docs updated in `dev/scripts/devctl/tests/test_triage.py` and `dev/scripts/README.md`; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-300 Deepen `devctl triage` CIHub integration with actionable routing data: map `cihub` artifact records (`priority.json`, `triage.json`) into normalized issues (`category`, `severity`, `owner`, `summary`) via shared enrichment helpers (`dev/scripts/devctl/triage_enrich.py`), add configurable category-owner overrides (`--owner-map-file`) in parser wiring (`dev/scripts/devctl/triage_parser.py`), include rollup counts by severity/category/owner in report payload + markdown output (`dev/scripts/devctl/triage_support.py`), and extend regression coverage for severity/owner routing + owner-map overrides (`dev/scripts/devctl/tests/test_triage.py`) with docs updates in `dev/scripts/README.md`; verification evidence: `python3 -m unittest discover -s dev/scripts/devctl/tests -p 'test_*.py'`, `python3 dev/scripts/devctl.py triage --format md --no-cihub --emit-bundle --bundle-dir /tmp --bundle-prefix vt-triage-smoke --output /tmp/vt-triage-smoke.md`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, `python3 dev/scripts/checks/check_agents_contract.py`, `python3 dev/scripts/checks/check_release_version_parity.py`, `python3 dev/scripts/checks/check_cli_flags_parity.py`, `python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120`, `python3 dev/scripts/checks/check_code_shape.py`, `python3 dev/scripts/checks/check_rust_lint_debt.py`, `python3 dev/scripts/checks/check_rust_best_practices.py`, `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md DEV_INDEX.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`, `find . -maxdepth 1 -type f -name '--*'`.
 - [x] MP-306 Add proactive report-retention governance to the `devctl` control plane: landed `devctl reports-cleanup` with retention safeguards (`--max-age-days`, `--keep-recent`, protected-path exclusions, dry-run preview, confirmation/`--yes` delete path), wired `hygiene` to always surface stale report-growth warnings with direct cleanup guidance, and added parser/command/hygiene regression coverage plus maintainer docs updates (`dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`).
@@ -723,7 +798,7 @@ Theme Studio mandatory verification bundle (per PR):
 - [x] MP-262 Publish a full senior-level engineering audit baseline in `dev/archive/2026-02-20-senior-engineering-audit.md` with measured code-shape, lint-debt, CI hardening, and automation findings mapped to executable follow-up MPs.
 - [x] MP-263 Harden GitHub Actions supply-chain posture: pin third-party actions by commit SHA, define explicit least-privilege `permissions:` on every workflow, and add `concurrency:` groups where duplicate in-flight runs can race or waste minutes (landed by pinning all workflow action refs to 40-char SHAs across `.github/workflows/*.yml`, adding explicit `permissions:`/`concurrency:` blocks to every workflow, and narrowing write scope to job-level where badge-update pushes require `contents: write`).
 - [x] MP-264 Add repository ownership and dependency automation baseline by introducing `.github/CODEOWNERS` and `.github/dependabot.yml` (grouped update policies + review routing) so tooling/runtime changes always have accountable reviewers and timely dependency refresh cadence (landed with explicit ownership coverage for runtime/tooling/distribution paths and weekly grouped update policies for GitHub Actions, Cargo, and PyPI packaging surfaces).
-- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slices extract compact/minimal HUD helpers into `status_line/format/compact.rs`, then move single-line layout helpers into `status_line/format/single_line.rs`, reduce `theme/rule_profile.rs` by moving inline tests into `theme/rule_profile/tests.rs` (`922 -> 265`), and move writer-state test-only timing constants from `writer/state.rs` into `writer/state/tests.rs` so production writer modules remain runtime-focused; raised file-shape overrides were removed with focused runtime suites and clippy reruns green, and writer message routing remains split across `writer/state/dispatch.rs` plus `writer/state/dispatch_pty.rs` after retiring temporary dispatch/redraw/prompt complexity exceptions).
+- [ ] MP-265 Decompose oversized runtime modules with explicit shape budgets and staged extraction plans (top hotspots: `event_loop/input_dispatch.rs`, `status_line/format.rs`, `status_line/buttons.rs`, `theme/rule_profile.rs`, `theme/style_pack.rs`, `transcript_history.rs`; next maintainability-audit tranche should prioritize `event_loop.rs`, `main.rs`, `dev_command/{broker,review_artifact,command_state}.rs`, and `dev_panel/{review_surface,cockpit_page/mod}.rs`) while preserving non-regression behavior coverage (in progress: `dev/scripts/checks/check_code_shape.py` now enforces path-level non-growth budgets for the hotspot files so decomposition work is CI-measurable instead of policy-only; `event_loop/input_dispatch.rs` overlay-mode handling was extracted into `event_loop/input_dispatch/overlay.rs` + `event_loop/input_dispatch/overlay/overlay_mouse.rs`; prior slice extracted status-line right-panel formatting/animation helpers from `status_line/format.rs` into `status_line/right_panel.rs`; latest slices move minimal-HUD right-panel scene/waveform/pulse helpers from `status_line/buttons.rs` into `status_line/right_panel.rs` and extract queue/wake/latency badge formatting into `status_line/buttons/badges.rs`, reducing `status_line/buttons.rs` from 1059 to 801 lines while keeping focused status-line tests green; newest slices extract compact/minimal HUD helpers into `status_line/format/compact.rs`, then move single-line layout helpers into `status_line/format/single_line.rs`, reduce `theme/rule_profile.rs` by moving inline tests into `theme/rule_profile/tests.rs` (`922 -> 265`), and move writer-state test-only timing constants from `writer/state.rs` into `writer/state/tests.rs` so production writer modules remain runtime-focused; raised file-shape overrides were removed with focused runtime suites and clippy reruns green, and writer message routing remains split across `writer/state/dispatch.rs` plus `writer/state/dispatch_pty.rs` after retiring temporary dispatch/redraw/prompt complexity exceptions).
 - [ ] MP-266 Burn down Rust lint-debt hotspots by reducing `#[allow(...)]` surface area and non-test `unwrap/expect` usage, then add measurable gates/reporting so debt cannot silently regress (in progress: landed `dev/scripts/checks/check_rust_lint_debt.py` with working-tree + commit-range modes, wired governance bundles/docs references, and added tooling-control-plane CI enforcement so changed Rust files cannot add net-new lint debt without an explicit failure signal; latest slice removes 22 `#[allow(dead_code)]` suppressions by scoping PTY counter helper APIs/re-exports to tests in `pty_session/counters.rs` + `pty_session/mod.rs`, with full `devctl check --profile ci` and lifecycle matrix test coverage green).
 - [ ] MP-267 Run a naming/API cohesion pass across theme/event-loop/status/memory surfaces to remove ambiguous names, tighten public API intent, and consolidate duplicated helper logic into shared modules (`dev/active/naming_api_cohesion.md`; in progress: canonical `swarm_run` command naming now enforced in parser/dispatch/workflow/docs with no legacy alias in active command paths, duplicate triage/mutation policy engines consolidated into shared `loop_fix_policy.py` helper with tests, duplicated devctl numeric parsing consolidated into `dev/scripts/devctl/numeric.py` (`to_int`/`to_float`/`to_optional_float`) with callsite rewiring, Theme Studio list navigation consolidated under shared `theme_studio/nav.rs` with consistent `select_prev`/`select_next` naming across page state + input-dispatch call paths, and prompt-occlusion suppression transitions extracted into `event_loop/prompt_occlusion.rs` so output/input/periodic dispatchers share one runtime owner for suppression side effects).
 - [x] MP-268 Codify a Rust-reference-first engineering quality contract in `AGENTS.md` and `dev/DEVELOPMENT.md`, including mandatory official-doc reference pack links and handoff evidence requirements for non-trivial Rust changes.
@@ -749,18 +824,18 @@ Memory Studio execution gate: MP-230..MP-255 are governed by
 documented `MS-G*` pass evidence.
 
 - [x] MP-230 Establish canonical memory event schema + storage foundation (JSONL append log + SQLite index) for machine-usable local memory (`MS-G01`, `MS-G02`).
-- [ ] MP-231 Implement deterministic retrieval APIs (topic/task/time/semantic) with provenance-tagged ranking and bounded token budgets (`MS-G03`, `MS-G04`).
+- [ ] MP-231 Implement deterministic retrieval APIs (topic/task/time/semantic) with provenance-tagged ranking and bounded token budgets (`MS-G03`, `MS-G04`, `MS-G18`, `MS-G19`). Current proving substrate is the shipped in-memory index plus `boot_pack` / `task_pack`; a 2026-03-09 follow-up now auto-extracts bounded `MP-*` refs, repo file paths, and small topic tags on live ingest so `ByTask` / `ByTopic` retrieval and `task_pack` generation no longer depend on manually tagged events alone. The immediate next slice is scoring-trace + query/export closure in the operator cockpit before broader browser UX.
 - [x] MP-232 Ship context-pack generation (`context_pack.json` + `context_pack.md`) for AI boot/handoff workflows with explicit evidence references (`MS-G03`, `MS-G07`).
-- [ ] MP-233 Deliver Memory Browser overlay (filter/expand/scroll/replay-safe controls) with keyboard+mouse parity (`MS-G06`).
-- [ ] MP-234 Deliver Action Center overlay with policy-tiered command execution (read-only/confirm-required/blocked), preview/approval flow, and action-run audit logging (`MS-G05`, `MS-G06`).
-- [ ] MP-235 Add memory governance controls (retention, redaction hooks, per-project isolation) and regression tests for bounded growth/privacy invariants (`MS-G04`, `MS-G05`).
+- [ ] MP-233 Deliver Memory Browser overlay (filter/expand/scroll/replay-safe controls) with keyboard+mouse parity (`MS-G06`, `MS-G20`). Current proving path should surface memory status/query/export views inside the Rust operator cockpit first, then expand into the fuller Memory Browser once the cross-plan operator flow is stable. The shipped proof is broader now: Control-tab memory status, a dedicated read-only Memory cockpit tab backed by ingest/review/boot-pack/handoff previews, and the Boot-pack-backed Handoff preview are live, while `task_pack`, `session_handoff`, and `survival_index` query/export closure is still pending.
+- [ ] MP-234 Deliver Action Center overlay with policy-tiered command execution (read-only/confirm-required/blocked), preview/approval flow, and action-run audit logging (`MS-G05`, `MS-G06`). Action policy/catalog scaffolding already exists in `memory/action_audit.rs`; this scope still needs runtime approval flows, audit wiring, and convergence with the MP-340 typed action router so memory-derived suggestions, overlay buttons, and review-channel requests share one approval/waiver model instead of parallel executors.
+- [ ] MP-235 Add memory governance controls (retention, redaction hooks, per-project isolation) and regression tests for bounded growth/privacy invariants (`MS-G04`, `MS-G05`). Redaction plus retention-GC foundation is already shipped in `memory/governance.rs`; remaining scope is user-facing policy wiring, isolation profiles, and regression coverage.
 - [ ] MP-236 Complete docs + release readiness for Memory Studio (architecture/user docs/changelog + CI evidence bundle) (`MS-G07`, `MS-G08`).
 - [ ] MP-237 Add memory-evaluation harness and quality gates (`precision@k`, evidence coverage, deterministic pack snapshots, latency budgets) for release blocking (`MS-G03`, `MS-G04`, `MS-G08`).
-- [ ] MP-238 Add model-adapter interop for context packs (Codex/Claude-compatible pack rendering while preserving canonical JSON provenance) (`MS-G03`, `MS-G07`, `MS-G08`).
+- [ ] MP-238 Add model-adapter interop for context packs (Codex/Claude-compatible pack rendering while preserving canonical JSON provenance, including review-channel/controller handoff attachments) (`MS-G03`, `MS-G07`, `MS-G08`). Current runtime proof already builds a boot-pack-backed fresh bootstrap prompt in the Rust handoff cockpit, and the typed Rust action catalog now carries review launch/rollover plus pause/resume actions with JSON summary rendering, but bridge-era handoffs are still markdown/JSON bundle projections only; missing scope is structured `review_state` / `controller_state` artifacts, attach-by-ref `context_pack_refs`, provider-shaped review/control attachments, and packet-outcome ingest parity.
 - [ ] MP-240 Add validated Memory Cards as a derived-truth layer (decision/project_fact/procedure/gotcha/task_state/glossary) with evidence links, TTL policies, and branch-aware validation-before-injection (`MS-G03`, `MS-G09`).
 - [x] MP-241 Wire dev tooling and git intelligence into memory ingestion (`devctl status/report`, release-notes artifacts, git range summaries) and ship compiler outputs (`project_synopsis`, `session_handoff`, `change_digest`) in JSON+MD (`MS-G02`, `MS-G10`).
 - [ ] MP-242 Ship read-only MCP memory exposure (resources + tools for search/context packs/validation) with deterministic provenance payloads and policy-safe defaults (`MS-G03`, `MS-G11`).
-- [ ] MP-243 Add user memory-control modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) with UI/state persistence and regression coverage for trust/privacy invariants (`MS-G05`, `MS-G06`).
+- [ ] MP-243 Add user memory-control modes (`off`, `capture_only`, `assist`, `paused`, `incognito`) with UI/state persistence and regression coverage for trust/privacy invariants (`MS-G05`, `MS-G06`). Current implementation now spans the Rust Dev-panel Control + Memory tabs with runtime mode/status visibility and mode-cycling, and the 2026-03-09 persistence slice landed startup restore plus persistent-config load/save so the configured `memory_mode` no longer resets on boot and dev-panel mode changes persist immediately into later snapshots. Closure still requires visible controls outside `--dev` plus negative-control/receipt UX.
 - [ ] MP-244 Add sequence-aware action safety escalation so multi-command workflows increase policy tier when risk patterns combine (mutation + network + shell exec) and require explicit confirmation evidence (`MS-G05`, `MS-G11`).
 - [ ] MP-246 Implement repetition-mining over memory events/command runs to detect high-frequency scriptable workflows, with support+confidence thresholds and provenance-scored candidates (`MS-G03`, `MS-G10`, `MS-G12`).
 - [ ] MP-247 Ship automation suggestion flow that proposes script templates + `AGENTS.md` instruction patches + workflow snippets with preview/approve/reject UX (no auto-apply) and acceptance telemetry (`MS-G05`, `MS-G06`, `MS-G12`).
@@ -772,6 +847,16 @@ documented `MS-G*` pass evidence.
 - [ ] MP-253 Gate acceleration rollout behind non-inferiority quality checks, deterministic-evidence parity checks, and runtime fallback guarantees (`MS-G08`, `MS-G16`).
 - [ ] MP-254 Evaluate ZGraph-inspired symbolic compaction for memory units/context packs (pattern aliases for repeated paths/commands/errors), with reversible transforms and deterministic citation-equivalence checks (`MS-G03`, `MS-G15`, `MS-G17`).
 - [ ] MP-255 Gate any symbolic compaction rollout behind non-inferiority quality thresholds, round-trip parity fixtures, and explicit default-off operator guidance until `MS-G17` passes (`MS-G07`, `MS-G08`, `MS-G17`).
+
+2026-03-09 implementation alignment for the memory lane: the current runtime
+already ships JSONL-backed memory ingest/recovery, an in-memory retrieval
+index, operator-cockpit memory status/mode snapshots, and a boot-pack-backed
+handoff/bootstrap prompt. The master-aligned next slice is to turn that proof
+path into `MP-231`/`MP-238`/`MP-243` closure evidence by adding operator
+query/export views (`task_pack`, `session_handoff`, `survival_index` preview),
+persistent memory-mode load/save, and review/control `context_pack_refs` plus
+packet-outcome ingest before the full Memory Browser / Action Center overlays
+become the main product surface.
 
 ## Phase 3A - Mutation Hardening (Parallel Track)
 
@@ -818,7 +903,7 @@ documented `MS-G*` pass evidence.
 - [x] MP-146 Improve controls-row bracket styling so `[` `]` tokens track active theme colors and selected states use stronger contrast/readability (especially for arrow-mode focus visibility) (landed controls-row bracket tint routing so unfocused pills inherit active button highlight colors instead of always dim brackets, plus focused button emphasis via bold+info-bracket rendering for stronger keyboard focus visibility; covered by `status_line::buttons` regressions `format_button_brackets_track_highlight_color_when_unfocused`, `focused_button_uses_info_brackets_with_bold_emphasis`, and existing focus-bracket parity tests).
 - [x] MP-147 Fix Cursor-only mouse-mode scroll conflict: with mouse mode ON, chat/conversation scroll should still work in Cursor for both Codex and Claude backends; preserve current JetBrains behavior (works today in PyCharm/JetBrains), keep architecture/change scope explicitly Cursor-specific, and require JetBrains non-regression validation so the Cursor fix does not break JetBrains scrolling. (landed Cursor-specific scroll-safe mouse handling in writer mouse control: Cursor keeps wheel scrollback available while settings can remain `Mouse: ON - scroll preserved in Cursor`, while JetBrains and other terminals retain existing mouse behavior.) Regression note (2026-02-25): users still report Cursor touchpad/wheel scrolling failing while `Mouse` is ON, with scrollbar drag still working; follow-up tracked in `MP-344`.
 - [ ] MP-227 Explore low-noise progress-animation polish for task/status rows (inspired by Claude-style subtle shimmer/accent transitions during active thinking), including optional tiny accent pulses/color sweeps with strict readability/contrast bounds and no distraction under sustained usage; keep as post-priority visual refinement (not current execution scope).
-- [x] MP-153 Add a CI docs-governance lane that runs `python3 dev/scripts/devctl.py docs-check --user-facing --strict` for user-facing behavior/doc changes so documentation drift fails early (completed via MP-230 docs-policy lane hardening in `.github/workflows/tooling_control_plane.yml`).
+- [x] MP-153 Add a CI docs-governance lane that runs `python3 dev/scripts/devctl.py docs-check --user-facing --strict` for user-facing behavior/doc changes so documentation drift fails early (completed via MP-302 docs-policy lane hardening in `.github/workflows/tooling_control_plane.yml`).
 - [ ] MP-154 Add a governance consistency check for active docs + macro packs so removed workflows/scripts are not referenced in non-archive content.
 - [ ] MP-155 Add a single pre-release verification command/profile that aggregates CI checks, mutation threshold, docs-governance checks, and hygiene into one machine-readable report artifact.
 - [ ] MP-322 Investigate and fix wake-word + send intent "nothing to send" false negative: when using `Hey Claude, send` or `Hey Codex, send` voice commands, VoiceTerm sometimes reports "Nothing to send" even though there is staged text in the PTY input buffer; reproduce with both Claude and Codex backends, capture transcript decision traces (`voiceterm --logs --log-content`), verify send-intent detection timing relative to transcript staging, add targeted matcher/integration tests for the wake-tail send flow, and ensure the send intent checks for staged PTY content (not just VoiceTerm internal staged text state). Physical testing required alongside automated coverage.
@@ -835,17 +920,17 @@ documented `MS-G*` pass evidence.
 - [x] MP-333 Enforce active execution-plan traceability governance: non-trivial agent work must be anchored to a `dev/active/*.md` execution-plan doc (with checklist/progress/audit sections), and tooling guardrails must fail when contract markers/required sections drift (landed enforcement updates in `check_active_plan_sync.py` for required execution-plan docs + marker + required sections, plus AGENTS contract references).
 - [x] MP-334 Add external-repo federation bridge for reusable autonomy components: pin `code-link-ide` + `ci-cd-hub` in `integrations/`, provide one-command sync path, and document governed selective-import workflow for this repo template path. (landed submodule links + shell helper + `devctl integrations-sync`/`integrations-import` command surfaces, policy allowlists in `control_plane_policy.json` (`integration_federation`), destination-root guards, and JSONL audit logging for sync/import actions.)
 - [ ] MP-335 Fix wake word send intent not triggering in auto mode: when VoiceTerm is in auto-listen mode and actively listening, saying "Hey Codex send" (or "Hey Claude send") does not trigger the send action — the wake word is effectively ignored while the mic is already open. Expected behavior: the wake-word detector should remain active during auto-mode listening so that saying the send wake phrase finalizes and submits the current transcript. Distinct from MP-322 (which covers "nothing to send" false negatives when the wake word does fire); this issue is that the wake word never fires at all in auto mode. Reproduce by enabling auto mode, speaking a transcript, then saying "Hey Codex send" without pausing — observe that the message is not sent. Physical testing required.
-- [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path.
+- [ ] MP-336 Add `network-monitor-tui` to the external federation + dev-mode bridge scope: link a pinned `integrations/network-monitor-tui` source, define allowlisted import profile(s) for throughput/latency sampler primitives, expose a read-only metrics surface for `--dev` + phone status views without introducing remote-control side effects, and add isolated runtime mode flags (`--monitor` and/or `--mode monitor`) so monitor/tooling startup does not interfere with the default Whisper voice-overlay path. The future monitor entry path should open the same Rust operator cockpit used by `--dev`, not a second forked console.
 - [x] MP-337 Add repeat-to-automate governance and baseline scientific audit program: require repeated manual work to become guarded automation or explicit debt, add tracked `dev/audits/` runbook/register/schema artifacts, ship analyzer tooling (`dev/scripts/audits/audit_metrics.py`) that quantifies script-only vs AI-assisted vs manual execution share with optional chart outputs, and auto-emit per-command `devctl` audit events (`dev/reports/audits/devctl_events.jsonl`) for continuous trend data.
 - [ ] MP-338 Stand up a loop-output-to-chat coordination lane: maintain a dedicated runbook for loop suggestion handoff (`dev/active/loop_chat_bridge.md`), define dry-run/live-run evidence capture, and keep operator decisions/next actions append-only so loop guidance can be promoted safely into autonomous execution. (partial: added `devctl autonomy-report` dated digest bundles, upgraded `devctl autonomy-swarm` to one-command execution with default post-audit digest + reserved `AGENT-REVIEW` lane for live runs, added `devctl swarm_run` for guarded plan-scoped swarm + governance + plan-evidence append, added bounded continuous cycle support via `--continuous/--continuous-max-cycles` so runs keep advancing unchecked checklist items until `plan_complete`, `max_cycles_reached`, or `cycle_failed`, wired workflow-dispatch lane `.github/workflows/autonomy_run.yml`, and added `devctl autonomy-benchmark` matrix reports for plan-scoped swarm-size/tactic tradeoff evidence.)
-- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
+- [ ] MP-340 Deliver one-system operator surfaces + deterministic autonomy learning: keep Rust overlay as runtime primary, keep iPhone/SSH surfaces over one `controller_state` contract, and implement artifact-driven playbook learning (fingerprints, confidence, promotion/decay gates) so repeated loop tasks are reused safely with auditable evidence. This umbrella scope also owns the cross-plan contract that keeps Memory Studio (`MP-230..MP-255`), the review channel (`MP-355`), and controller surfaces on one shared event/header model, one provider-aware handoff path, and one future unified timeline/replay view rather than three parallel side channels. Current direction: grow the existing Rust Dev panel into a staged operator cockpit (`Control`, `Ops`, `Review`, `Actions`, `Handoff`, plus developer-oriented Git/GitHub/CI/script/memory views), then let `--monitor` reuse that same cockpit as a dedicated startup path. The first `Ops` slice is the Rust-first lane for host-process hygiene, triage summaries, and later external monitor adapters, so those readouts stay in the typed control surface instead of Theme Studio or a parallel ad hoc UI. Buttons may emit high-level intents and AI may resolve those intents to the correct approved playbook, but execution must still route through one typed action catalog plus shared policy/approval/waiver model rather than bypassing safety with raw shell/API execution. Current `phone-status` / `controller-action` payloads and Rust Dev-panel snapshot builders are still interim projections; `devctl mobile-status` is now the first merged SSH-safe phone shim that combines review + controller state, `app/ios/VoiceTermMobile` is the shared first-party client package over that payload, and `app/ios/VoiceTermMobileApp` is now the first generated iPhone/iPad app shell over the same emitted mobile bundle, but true MP-340 convergence still only happens once Rust, phone, review, and memory all read one emitted `controller_state` projection set with parity tests. Execution profiles should be explicit: `Guarded` by default, `AI-assisted Guarded` when the planner picks from the approved catalog, and a visible dev-only `Unsafe Direct` mode for local bypasses that stays red, noisy, and auditable rather than hidden. (2026-02-26 reset: retired the optional `app/pyside6` desktop command-center scaffold to keep operator execution Rust-first; all active scope now routes through Rust Dev panel + `devctl phone-status` + policy-gated `controller-action`. 2026-02-26 federation follow-up: completed fit-gap audit and added narrow import profiles for targeted `code-link-ide`/`ci-cd-hub` reuse instead of broad tree imports.)
 - [ ] MP-341 Runtime architecture hardening pass for product-grade boundaries: tighten `rust/src/lib.rs` public surface (remove legacy re-export drift and prefer internal/facade boundaries), replace stringly `VoiceJobMessage::Error(String)` with typed error categories at subsystem boundaries, harden command parsing (`CustomBackend` quoting-safe parsing), reduce global-side-effect risk in Whisper stderr suppression path, and modernize PyPI launcher distribution flow away from clone+local-build bootstrap toward verified binary delivery. (partial 2026-02-25: hardened SIGWINCH registration via `sigaction` + `SA_RESTART`, removed production `unreachable!()` fallback in Theme Studio non-home renderer path, and reduced silent PTY-output drop risk with explicit unexpected-branch diagnostics.)
 - [ ] MP-342 Increase push-to-talk startup grace by about 1 second to prevent early cutoff when users do not speak immediately after pressing PTT: currently first-press captures can end too quickly if there is a short delay before speech starts. Reproduce in Codex/Claude sessions, tune initial-silence/warmup handling for natural speech onset, add regression coverage for delayed speech starts, and verify no regressions for intentional short taps.
 - [ ] MP-343 Stabilize screenshot button reliability: screenshot capture currently succeeds intermittently and can stop unexpectedly after some successful attempts. Reproduce repeated capture attempts in active sessions, harden button-triggered capture lifecycle/error handling, add regression coverage for repeated runs, and verify physical behavior with screenshot evidence.
 - [ ] MP-344 Re-investigate Cursor mouse-mode scroll behavior and restore reliable wheel/touchpad scrolling when `Mouse` is ON: current reports indicate wheel/touchpad scrolling does not move chat history in Cursor while the draggable scrollbar still works. Document and preserve current workaround (`Mouse` ON + drag scrollbar, or set `Mouse` OFF for touchpad/wheel scrolling and use keyboard button focus with `Enter`), reproduce on Codex/Claude sessions, harden input-mode handling, and add regression coverage for Cursor-specific scroll paths. Scientific baseline seeded on 2026-02-25 via `devctl autonomy-benchmark` run `mp342-344-baseline-matrix-20260225` (covers `MP-342/MP-343/MP-344`; artifacts under `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/`); live control-vs-swarm A/B run captured via `mp342-344-live-baseline-matrix-20260225` plus graph bundle `dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/`. 2026-03-05 backlog clarification: keep this scoped as post-next-release work unless it becomes a release blocker.
 - [x] MP-345 Stand up a visible `data_science` telemetry workspace and continuous devctl metrics refresh so every devctl command contributes to long-run productivity/agent-sizing research: landed `data_science/README.md` workspace docs, new `devctl data-science` command (`summary.{md,json}` + SVG charts), automatic post-command refresh hook in `dev/scripts/devctl/cli.py` (disable with `DEVCTL_DATA_SCIENCE_DISABLE=1`), and weighted agent recommendation scoring from swarm/benchmark history (`success`, `tasks/min`, `tasks/agent`) under `dev/reports/data_science/latest/`; docs/history updated in `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVCTL_AUTOGUIDE.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
 - [x] MP-346 Execute IDE/provider modularization and compatibility hardening so host-specific behavior (`cursor`, `jetbrains`, `other`) and provider-specific behavior (`codex`, `claude`, `gemini`) are isolated behind explicit adapters, validated by matrix tests, and protected by God-file/code-shape/tooling governance gates (`dev/active/ide_provider_modularization.md`). (2026-03-02 docs scope: published explicit user-facing IDE compatibility matrix in README/USAGE with aligned links in QUICK_START + guides so only verified hosts are advertised as supported. 2026-03-02 audit triage scope added: dependency-policy gate hardening, guard-script coverage closure, adapter-contract completion inventory, and cross-plan shared-file ownership gates. 2026-03-02 exhaustive audit intake triage added: Dependabot/CODEOWNERS path-contract repair, active-plan sync required-row expansion, failure-triage watchlist coverage, current `bytes` RustSec remediation decision, Gemini/docs wording parity, plus CI baseline hardening gaps (MSRV/feature-matrix/macOS runtime lane + `cargo doc` gate) and governance tracker drift fixes. 2026-03-02 seventh-pass audit scope added: explicit host/runtime policy mapping for rolling detector + output redraw and 3 additional RuntimeProfile cross-product decisions, plus check-script signal hardening (`check_rust_audit_patterns`, `check_release_version_parity`, stale code-shape override detection). 2026-03-02 post-review blocker cleanup landed: `check_active_plan_sync.py` shape-budget recovery, `check_ide_provider_isolation.py` docs inventory registration, dedicated `check_agents_contract.py` test coverage, refreshed path-audit aggregate reporting, Gemini backend wording parity across user/developer docs, a new `cargo doc --workspace --no-deps --all-features` gate in `rust_ci.yml`, and explicit `cargo deny` enforcement in security/release workflow lanes. 2026-03-02 dependency-policy remediation closure landed: transitive `bytes` moved to `1.11.1`, `rust/deny.toml` now documents crate-scoped license exceptions for current runtime dependencies plus explicit `RUSTSEC-2024-0436` (`paste`) ignore rationale, and local `cargo deny` gate rerun passes. 2026-03-02 phase-0 governance/tooling follow-up landed: Rust CI now includes explicit MSRV/feature-matrix/macOS runtime validation, failure triage initially expanded for broad watch coverage, `check_code_shape.py` enforces stale override review-window checks, tracker drift was resolved (`MASTER_PLAN` board + local backlog ID deconfliction), and cross-plan shared-hotspot ownership/freeze gates are now mandatory in the runbook + board policy. 2026-03-04 phase-1 incremental cleanup slice landed: status-line JetBrains+Claude single-line fallback routing now consumes canonical `runtime_compat` helper and writer render host detection now maps through canonical `detect_terminal_host()` ownership instead of duplicate local host sniffing logic. 2026-03-04 additional phase-1 host-enum unification landed: writer render/state paths now use canonical `TerminalHost` directly (removed `writer/render.rs` `TerminalFamily` enum and replaced state-side `TerminalFamily` references), with writer-focused plus full `cargo test --bin voiceterm` coverage rerun. 2026-03-04 CI signal hardening follow-up landed: failure-triage scope narrowed to high-signal failure conclusions, release publishers now wait for same-SHA CodeRabbit/Ralph + `Release Preflight` gates, and scheduled autonomy/watchdog/mutation-loop workflow-run behavior now defaults to opt-in mode controls to reduce non-actionable red runs. 2026-03-04 additional phase-1 host-routing cleanup landed for banner/color/theme paths: banner skip policy now routes through canonical `runtime_compat::is_jetbrains_terminal`, color truecolor inference now uses canonical `runtime_compat::detect_terminal_host` for JetBrains/Cursor signals, and `theme/detect.rs` Warp fallback now respects canonical host precedence with dedicated regression coverage. 2026-03-04 final phase-1 host-routing slice landed in `theme/texture_profile.rs`: Cursor/JetBrains identity now routes through canonical `runtime_compat::detect_terminal_host`, local parsing is limited to non-host capability IDs, and regression coverage now asserts host precedence plus Kitty/iTerm fallback markers. 2026-03-04 canonical host-cache contract slice landed: runtime host detection now owns `OnceLock<TerminalHost>` caching in `runtime_compat`, thread-local test override/reset coverage validates deterministic host injection, and writer render no longer duplicates host caching. 2026-03-04 host-cache panic-path hardening landed: `runtime_compat` test override scoping now restores prior thread-local host values via drop guard on unwind, with dedicated panic regression coverage. 2026-03-04 Phase-1.5 shared-helper extraction landed: duplicated HUD debug env parsing/preview helpers were removed from `writer/state.rs`, `event_loop/prompt_occlusion.rs`, and `terminal.rs` and replaced with a shared `hud_debug` module, with full `cargo test --bin voiceterm` rerun green. 2026-03-04 additional Phase-1.5 backend-detection cleanup landed: writer-state backend checks now route through canonical `runtime_compat::backend_family_from_env()` + `BackendFamily` enum matching instead of raw backend-label substring parsing, with full runtime suite rerun green. 2026-03-04 provider-contract scaffolding slice landed: new `provider_adapter` signature module defines `ProviderAdapter`/`PromptDetectionStrategy` and provider-policy enums/config so Phase-2+ extraction can target stable trait contracts; CI profile rerun is green after adding signature-only scaffolding. 2026-03-04 Phase-1.5 closure slice landed: ANSI stripping now routes through shared `ansi` utility, env-var locking in runtime tests now routes through shared `test_env` helper instead of duplicated per-module locks, and `claude_prompt_suppressed` was renamed to `prompt_suppressed` across runtime/test code with full runtime+bundle validation green. 2026-03-04 Phase-2a data-only host timing extraction landed: `runtime_compat::HostTimingConfig` now owns host timing values keyed by `TerminalHost`, and writer timing call sites route through config lookups while preserving characterization behavior and passing full runtime + bundle validation. 2026-03-04 Phase-2b preclear policy extraction landed: writer preclear decisioning now routes through typed `PreclearPolicy` + `PreclearOutcome` so preclear decision and post-preclear flag effects are centralized while preserving existing host/provider behavior and full runtime + bundle validation remained green. 2026-03-04 Phase-2c redraw policy extraction landed: writer output redraw decisioning now routes through typed `RedrawPolicy` + `RedrawPolicyContext` consuming `PreclearOutcome`, so scroll/non-scroll/destructive-clear redraw outcomes are centralized while preserving existing host/provider behavior and full runtime + bundle validation remained green. 2026-03-04 Phase-2d idle-gating timing extraction landed: `maybe_redraw_status` idle/quiet-window/repair-settle gating now routes through typed `IdleRedrawTimingContext` + `resolve_idle_redraw_timing` in `writer/timing.rs`, with full runtime + bundle validation remaining green. 2026-03-04 Phase-2e message-dispatch + runtime-profile extraction closure landed: WriterState now resolves and injects a typed RuntimeProfile at construction, handle_message is dispatch-only, and PTY handling routes through explicit preclear/redraw policy pipeline helpers plus state-update application helpers, and completed the writer-state decomposition target (`writer/state.rs` now 448 lines across dedicated `state/*` modules), so Step 2f is the next scope. 2026-03-04 post-closure governance audit added immediate Step-2f tightening scope: new Step 2f.1 (allowlist burn-down + shape-budget reset), Step 2f.2 (function-size guardrails for dispatcher/pipeline hotspots), and explicit Phase-4 compatibility-governance kickoff (`ide_provider_matrix.yaml`, `check_compat_matrix.py`, `compat_matrix_smoke.py`, `devctl compat-matrix`) directly after Step-2f closure. 2026-03-04 CP-013 closure landed: Step 2f/2f.1/2f.2 are now implemented with blocking isolation defaults, narrowed explicit allowlists, tightened shape budgets, function guardrails with owner/expiry exceptions, and the Phase-4 compatibility governance scaffold is active. 2026-03-04 post-CP-013 hardening slice landed: isolation scanner now catches host-enum + provider-backend helper coupling patterns without broad helper-name false positives, runtime mixed-condition callsites in writer render/dispatch/redraw were rerouted through runtime-profile and canonical compatibility helpers, prompt hotspots were reduced under hard limits (`prompt_occlusion.rs` 1143 and `claude_prompt_detect.rs` 623 via test-module extraction), and lint-debt guard now detects inner `#![allow(...)]` attributes with dedicated regression coverage. 2026-03-04 Phase-3a prompt strategy wiring landed: prompt detector construction now routes through provider adapters with Claude-owned strategy ownership plus temporary legacy-shim parity fallback; CI/runtime/docs governance bundle remains green. 2026-03-04 checkpoint/state sync: `CP-016` docs/state continuation sync is in progress; Step `3a.1` (legacy-shim retirement) is closed, Step `3c` is closed, Step `3b` is now closed (Steps `3e` and `3f` are closed), and Phase-5/Phase-6 closure gates (AntiGravity decision + ADR lock) remain pending. 2026-03-05 Phase-5 defer decision: AntiGravity moved to deferred scope until runtime host fingerprint evidence exists; active MP-346 host matrix scope is now `cursor`/`jetbrains`/`other`. 2026-03-05 Phase-6 governance closure landed: ADR `0035` and ADR `0036` are accepted and indexed, leaving IDE-first `CP-016` manual matrix closure (`4/4`) complete for release scope, with deferred `other`/`gemini` validation tracked as post-next-release backlog. 2026-03-04 additional CP-016 hardening landed: IPC lifecycle routing now delegates through a dedicated provider lifecycle adapter module and isolation guardrails now enforce file-scope coupling detection with explicit temporary allowlist debt for Step-3b hotspot files.)
-- [ ] MP-347 Add an execution router for pre-push checks and tighten dead-code debt governance across Rust runtime/tooling paths. (2026-03-05 PR-1 landed: added `devctl check --profile fast` as a compatibility alias of `quick` and updated command/docs surfaces. 2026-03-05 PR-2 landed: added `devctl check-router` with changed-path lane selection (`docs`, `runtime`, `tooling`, `release`), strict unknown-path escalation to tooling lane, risk-add-on detection from AGENTS risk-matrix signals, and optional `--execute` mode that runs routed bundle commands. 2026-03-05 dead-code governance slice landed: `check_rust_lint_debt.py` now inventories dead-code allows and supports policy flags (`--report-dead-code`, `--fail-on-undocumented-dead-code`, `--fail-on-any-dead-code`), AI guard runs now include dead-code reporting, and all current runtime dead-code allow attributes carry explicit rationale metadata. 2026-03-05 PR-3 landed: command bundles moved into canonical `dev/scripts/devctl/bundle_registry.py`; `check-router` and `check_bundle_workflow_parity.py` now consume registry commands and AGENTS bundle blocks are rendered/reference-only. 2026-03-05 PR-4 landed: heavy-check placement formalized in maintainer docs (`prepush`/`release`/CI remain strict; `fast`/`quick` stay local-only minimal lanes). 2026-03-05 PR-5 landed: AGENTS rendered bundle docs are now auto-validated/regenerable via `check_agents_bundle_render.py` and strict-tooling docs gate wiring. 2026-03-05 post-implementation architecture audit reopened remaining scope: current `check_code_shape.py` merge-blockers (`check_router.py` and `docs_check_support.py` growth), router/docs-governance taxonomy duplication, risk-add-on SSOT drift risk, and missing `jscpd` report evidence in `check_duplication_audit.py` must be resolved before re-closing this MP. 2026-03-05 phase-1 closure cleanup landed: shape blockers are resolved via check-router/docs-check decomposition, `check_duplication_audit.py` now emits explicit `status`/`blocked_by_tooling` evidence fields plus an explicit constrained-environment fallback (`--run-python-fallback`) while preserving `jscpd` as primary, canonical `jscpd` report evidence is refreshed (`dev/reports/duplication/jscpd-report.json`), and the closure non-regression command pack is green; remaining MP-347 follow-up is taxonomy/SSOT hardening. 2026-03-05 verification refresh: canonical helper ownership for duplication audit is now stable (`check_duplication_audit_support.py`), stale archive literals were removed from active docs/changelog, and the row `2331` non-regression pack rerun remains fully green. 2026-03-06 docs-IA intake update: Round 4 developer-information-architecture + active-directory hygiene audit is now tracked in `dev/active/pre_release_architecture_audit.md` (Phase 15) and remains open pending migration implementation. 2026-03-06 docs-index follow-up: reduced duplicate entrypoint drift by making `dev/README.md` the explicit canonical developer index and converting `DEV_INDEX.md` into a thin bridge page. 2026-03-06 guide-path migration follow-up: moved durable maintainer guides to `dev/guides/` with one-cycle bridge files at legacy paths and updated mapped coupling surfaces (`docs_check_policy`, `check_router_constants`, `tooling_control_plane.yml`, AGENTS/README entrypoints, and docs-check/path-rewrite tests).)
+- [ ] MP-347 Add an execution router for pre-push checks and tighten dead-code debt governance across Rust runtime/tooling paths. (2026-03-05 PR-1 landed: added `devctl check --profile fast` as a compatibility alias of `quick` and updated command/docs surfaces. 2026-03-05 PR-2 landed: added `devctl check-router` with changed-path lane selection (`docs`, `runtime`, `tooling`, `release`), strict unknown-path escalation to tooling lane, risk-add-on detection from AGENTS risk-matrix signals, and optional `--execute` mode that runs routed bundle commands. 2026-03-05 dead-code governance slice landed: `check_rust_lint_debt.py` now inventories dead-code allows and supports policy flags (`--report-dead-code`, `--fail-on-undocumented-dead-code`, `--fail-on-any-dead-code`), AI guard runs now include dead-code reporting, and all current runtime dead-code allow attributes carry explicit rationale metadata. 2026-03-05 PR-3 landed: command bundles moved into canonical `dev/scripts/devctl/bundle_registry.py`; `check-router` and `check_bundle_workflow_parity.py` now consume registry commands and AGENTS bundle blocks are rendered/reference-only. 2026-03-05 PR-4 landed: heavy-check placement formalized in maintainer docs (`prepush`/`release`/CI remain strict; `fast`/`quick` stay local-only minimal lanes). 2026-03-05 PR-5 landed: AGENTS rendered bundle docs are now auto-validated/regenerable via `check_agents_bundle_render.py` and strict-tooling docs gate wiring. 2026-03-05 post-implementation architecture audit reopened remaining scope: current `check_code_shape.py` merge-blockers (`check_router.py` and `docs_check_support.py` growth), router/docs-governance taxonomy duplication, risk-add-on SSOT drift risk, and missing `jscpd` report evidence in `check_duplication_audit.py` must be resolved before re-closing this MP. 2026-03-05 phase-1 closure cleanup landed: shape blockers are resolved via check-router/docs-check decomposition, `check_duplication_audit.py` now emits explicit `status`/`blocked_by_tooling` evidence fields plus an explicit constrained-environment fallback (`--run-python-fallback`) while preserving `jscpd` as primary, canonical `jscpd` report evidence is refreshed (`dev/reports/duplication/jscpd-report.json`), and the closure non-regression command pack is green; remaining MP-347 follow-up is taxonomy/SSOT hardening. 2026-03-05 verification refresh: canonical helper ownership for duplication audit is now stable (`check_duplication_audit_support.py`), stale archive literals were removed from active docs/changelog, and the row `2331` non-regression pack rerun remains fully green. 2026-03-06 docs-IA intake update: Round 4 developer-information-architecture + active-directory hygiene audit is now tracked in `dev/active/pre_release_architecture_audit.md` (Phase 15) and remains open pending migration implementation. 2026-03-06 docs-index follow-up: reduced duplicate entrypoint drift by making `dev/README.md` the explicit canonical developer index and converting `DEV_INDEX.md` into a thin bridge page. 2026-03-06 guide-path migration follow-up: moved durable maintainer guides to `dev/guides/` with one-cycle bridge files at legacy paths and updated mapped coupling surfaces (`docs_check_policy`, `check_router_constants`, `tooling_control_plane.yml`, AGENTS/README entrypoints, and docs-check/path-rewrite tests). 2026-03-08 maintainer-lint follow-up: add an explicit advisory `pedantic` `devctl check` profile, keep it out of required bundles and release gates, and document it as an opt-in lint-hardening sweep so agents use it intentionally instead of treating pedantic noise as mandatory release work. 2026-03-08 pedantic follow-up: keep pedantic on the existing `report`/`triage` architecture by having `check --profile pedantic` emit structured artifacts under `dev/reports/check/`, `report --pedantic` / `triage --pedantic` consume those artifacts through the shared project snapshot, support explicit inline regeneration via `--pedantic-refresh`, and use `dev/config/clippy/pedantic_policy.json` to record promote/defer/review decisions so AI classification is repo-owned instead of ad hoc per release. 2026-03-08 maintainability/IA follow-up: Phase-15 cleanup remains open for retiring temporary bridge entrypoints like `dev/ARCHITECTURE.md` and `dev/BACKLOG.md`, collapsing duplicate `dev/` entrypoints, and turning AGENTS trimming into a real post-release execution slice instead of a lingering note.)
 - [ ] MP-348 Investigate Codex composer/input-row occlusion after recent Codex CLI updates (reported 2026-03-05): during red/green diff-heavy output, IDE terminal sessions can show the backend input/composer row visually obscured near the HUD boundary. `Post-next-release only`; do not execute before release promotion unless explicitly reclassified as a blocker. Required evidence pack: one screenshot + `voiceterm --logs --codex` trace with terminal host/version, HUD style, terminal `rows/cols`, and overlap timing (`while working` vs `ready for input`). Initial code-audit hypothesis for follow-up validation: `terminal.rs` currently keeps Codex on a fixed v1.0.95 reserved-row budget (no extra safety-gap rows), and prompt-occlusion guard routing is presently Claude-only via `runtime_compat::backend_supports_prompt_occlusion_guard`, so Codex composer/card layout changes may bypass suppression and row-budget safeguards. Add targeted regression tests once logs confirm a deterministic repro.
 - [ ] MP-349 Investigate Cursor+Claude plan-mode history/HUD corruption + transient garbled terminal output (reported 2026-03-05): in Cursor terminal sessions, asking Claude to enter plan mode (especially with local/background agents) can cause the visible history region to disappear while HUD/status UI rows render over output; some lines show garbled characters/symbols during the bad state. Repro clue from physical testing: issue clears after terminal resize/readjust, suggesting geometry/redraw synchronization drift. `Post-next-release only`; do not execute before release promotion unless explicitly reclassified as a blocker. Required evidence pack: before/after resize screenshots, terminal host/version, provider/backend, HUD style/mode, terminal `rows/cols` before and after resize, `voiceterm --logs` trace with `VOICETERM_DEBUG_CLAUDE_HUD=1`, and a timestamped sequence (`plan request -> corruption -> resize/readjust -> recovery`). Initial code-audit hypotheses: stale geometry cache, missed full-repaint transition, or prompt/HUD reserved-row mismatch in Cursor non-rolling flow. Add deterministic regression tests after a stable log-backed repro is confirmed.
 - [x] MP-350 Keep `devctl` as primary control plane and add optional read-only
@@ -869,7 +954,11 @@ documented `MS-G*` pass evidence.
   (B) MCP server in Rust (`voiceterm-mcp`) exposing `voice_capture`,
   `voice_status`, `voice_mode_set` tools for both platforms, (C) Claude Code
   plugin packaging + Codex command file for native slash-menu UX. Execution
-  spec: `dev/active/slash_command_standalone.md`. Require manual validation of
+  spec: `dev/active/slash_command_standalone.md`. 2026-03-09 status: Phase A
+  implementation is landed locally (`--capture-once --format text`, slash
+  templates, user docs, targeted capture tests green), while full runtime
+  validation remains open because current branch-wide guard/test failures are
+  unrelated to the slash-command slice. Require manual validation of
   enable/disable/exit behavior before closure.
 - [ ] MP-353 Add a settings toggle for momentary push-to-talk hotkey behavior
   ("hold to talk") so manual voice can run as either the current toggle model
@@ -901,18 +990,355 @@ documented `MS-G*` pass evidence.
   normalization, and explicit `SECONDS_PER_DAY` age-math constants). MP-354 is
   closed; the doc stays active only because post-next-release `MP-346` backlog
   items remain deferred there. Phase-7 priority queue remains closed.
+- [ ] MP-355 Deliver a dedicated shared review-channel + staged shared-screen
+  execution slice: extend the MP-340 control-plane direction with one
+  review-focused packet/event contract (`review_event` append-only authority +
+  `review_state` latest snapshot), standard projections (`json`, `ndjson`,
+  `md`, `terminal_packet`), and a flat `devctl review-channel` action surface
+  (`post`, `status`, `watch`, `inbox`, `ack`, `history`); render a shared
+  VoiceTerm surface where Codex + Claude + operator lanes are visible
+  together as one collaborative terminal-native workflow, keep separate
+  PTY ownership in the initial phases while packets/staged drafts/peer
+  awareness stay visible on that same surface, add the structured
+  `check_review_channel.py` guard plus retention/audit integration in the same
+  tranche, and keep `check_review_channel_bridge.py` as the temporary
+  markdown-bridge guard while `code_audit.md` remains the active projection.
+  Defer true concurrent shared-target-session writing until lock/lease,
+  ack/apply, and audit guardrails are proven. Phase-0 design closure requires
+  explicit reconciliation with MP-340 plus `ADR-0027`/
+  `ADR-0028`, a lossless header mapping into Memory Studio's canonical event
+  envelope, and one
+  `context_pack_refs` contract for `task_pack` / `handoff_pack` /
+  `survival_index` attachments. Early phases must emit
+  `packet_posted|packet_acked|packet_dismissed|packet_applied` into the memory
+  ingest path when capture is active and keep provider-specific attachment
+  shaping routed through Memory adapter profiles instead of a review-only pack
+  format. Current
+  transitional operating mode uses repo-root `code_audit.md` as a sanctioned
+  coordination-log projection with explicit ownership, poll cadence, current-
+  state fields, and `check_review_channel_bridge.py` governance until the
+  structured artifact path lands, and the final artifact model must remain
+  compatible with memory/handoff compilation. Routed actions requested from the
+  review lane must go through the same typed command catalog and shared
+  approval/waiver engine used by operator buttons and controller surfaces; no
+  review-specific raw shell or raw API bypass is allowed. 2026-03-09 bridge-
+  hardening follow-up landed: rollover now rejects
+  `--await-ack-seconds <= 0` so fresh-session ACK stays fail-closed, and the
+  temporary `check_review_channel_bridge.py` guard now requires live
+  `Last Reviewed Scope` plus a non-idle `Current Instruction For Claude`
+  section whenever the markdown bridge is active. 2026-03-09 bridge-backed
+  status follow-up landed: `devctl review-channel --action status` now writes
+  current-latest projections under `dev/reports/review_channel/latest/`
+  (`review_state.json`, `compact.json`, `full.json`, `actions.json`,
+  `latest.md`, `registry/agents.json`), and rollover ACK detection now
+  normalizes markdown list items correctly so live visible ACK lines are
+  actually observed. 2026-03-09 launch/freshness follow-up landed: fresh
+  conductor bootstrap now fails closed on untracked bridge files, stale
+  reviewer polls beyond the five-minute heartbeat contract, and idle/missing
+  live next-action state; the bridge liveness model now distinguishes
+  `poll_due` vs `stale`, and rollover ACK validation now requires the exact ACK
+  line inside the provider-owned bridge section (`Poll Status` for Codex,
+  `Claude Ack` for Claude) instead of raw substring matches. 2026-03-09
+  workflow-parity follow-up landed: `check_bundle_workflow_parity.py` now
+  parses per-job run scopes, requires the tooling bundle sequence to stay in
+  `docs-policy`, and requires the operator-console pytest lane to stay in
+  `operator-console-tests` so wrong-job or out-of-order regressions fail
+  closed instead of passing on command-presence alone. Codex re-review later
+  the same day narrowed the bridge-hardening closure: `launch` still does not
+  invoke the full bridge guard before bootstrap, freshness enforcement is
+  still split between the five-minute heartbeat contract and a looser guard
+  threshold, generated rollover prompts still hardcode the default ACK
+  timeout instead of threading the selected value end-to-end, and one
+  duplicate `test_review_channel.py` name still shadows intended coverage.
+  Keep MP-355 open until those launch/freshness/ACK/coverage gaps are closed.
+  2026-03-09 operator
+  validation follow-up confirmed the current dirty-tree behavior: focused
+  `test_review_channel` coverage passed (`31` tests), `devctl review-channel
+  --action status --terminal none --format md` wrote the latest projection
+  bundle successfully, and `launch` / `rollover` dry-runs remain expected-red
+  while `code_audit.md` and `dev/active/review_channel.md` stay untracked
+  bridge files in this checkout. A later 2026-03-09 fail-closed follow-up also
+  closed the missing-`Claude Status` / missing-`Claude Ack` launch gap and
+  stopped degraded `waiting_on_peer` bridge states from reporting `ok: true`
+  or `claude.status == active` in review/mobile projections. A later same-day
+  launcher follow-up also writes per-session metadata plus live-flushed
+  conductor transcript logs under
+  `dev/reports/review_channel/latest/sessions/` so repo-owned desktop shells
+  can tail real session output without taking PTY ownership away from
+  Terminal.app. The remaining
+  event-backed
+  `watch|inbox|ack|dismiss|apply|history` path is still open.
+  Execution spec: `dev/active/review_channel.md`.
+- [ ] MP-356 Tighten host-process hygiene automation so local AI/dev runs stop
+  relying on manual Activity Monitor checks: add a dedicated host-side
+  `devctl process-audit`/`devctl process-cleanup` surface, make the shared
+  process sweep descendant-aware for leaked PTY child trees and orphaned-root
+  cleanup descendants, update `AGENTS.md`/dev docs so post-test and pre-handoff
+  host cleanup/audits are explicit, and close the remaining PTY lifeline
+  watchdog leak so `cargo test --bin voiceterm theme` no longer sheds orphaned
+  `voiceterm-*` helpers on the host. Follow-up widened the same audit/cleanup
+  path to catch orphaned repo-tooling wrapper trees (for example stale
+  `zsh -c python3 dev/scripts/...` roots with descendant helpers such as
+  `qemu-system-riscv64`), direct shell-script wrappers, repo-runtime
+  cargo/target trees from non-`--bin voiceterm` Rust tests, and repo-cwd
+  generic helpers (`python3 -m unittest`, `node`/`npm`, `make`/`just`,
+  `screen`/`tmux`, `qemu`, `cat`) that outlive their parent tree, while also
+  excluding the current audit command's own ancestor tree. Follow-up synthetic
+  leak repros tightened strict verification further: freshly detached
+  repo-related helpers (`PPID=1`, still younger than the orphan age gate) now
+  fail `process-audit --strict` / `process-cleanup --verify` immediately under
+  a dedicated `recent_detached` state, and `process-watch` now exits zero once
+  it actually recovers to a clean host instead of staying red because earlier
+  dirty iterations are preserved in history. `check --profile quick|fast` now
+  runs host-side cleanup/verify by default after raw cargo/test-binary
+  follow-ups, and routed docs/runtime/tooling/release/post-push bundle
+  authority ends with `process-cleanup --verify --format md` so the default
+  AI/dev lane re-runs strict host cleanup automatically. Verified 2026-03-08
+  with targeted PTY lifecycle tests, process-hygiene unit coverage, `cargo
+  test --bin voiceterm theme -- --nocapture`, the required post-run quick
+  sweep, strict host `process-audit`, live cleanup/verify of the orphaned
+  repo-tooling `zsh -> qemu` tree, and live `process-watch` recovery from fresh
+  synthetic repo-runtime + repo-tooling detached-orphan repros. Follow-up
+  tracing closed one more live gap on 2026-03-08: banner tests no longer
+  deadlock on nested env-lock acquisition, attached interactive helpers are no
+  longer reported as stale repo-tooling failures, and AI-operated raw Rust
+  tests now have a first-class `devctl guard-run` path that always executes
+  the required post-run hygiene follow-up. Execution spec:
+  `dev/active/host_process_hygiene.md`. 2026-03-09 Codex re-review reopened
+  follow-up hardening: orphaned non-allowlisted repo-cwd descendants can
+  still slip once the matched parent exits, tty-attached repo helpers
+  (`python3 -m pytest` / `python3 -m unittest`) are still under-classified,
+  and `guard-run --cwd <other-repo>` still audits/cleans this repo instead of
+  the target cwd. Re-close only after focused regression proof covers those
+  shapes.
+- [ ] MP-357 Fix Claude/Cursor IDE overlay disappearing on terminal resize and
+  when launching VoiceTerm in a terminal with pre-existing scrollback content:
+  the HUD/status-line overlay can vanish or fail to render after a window resize
+  event, and sessions started in terminals that already contain prior output
+  sometimes never show the overlay at all. Reproduce both paths (resize-triggered
+  disappearance and dirty-scrollback startup), capture `voiceterm --logs` traces
+  with terminal host/version, `rows/cols` before and after resize, and scrollback
+  line count at launch. Initial hypotheses: stale geometry cache not refreshed on
+  SIGWINCH, or initial row-budget calculation not accounting for existing
+  scrollback offset. Add deterministic regression coverage for both triggers
+  before closure. `Post-next-release only`; do not execute before release
+  promotion unless explicitly reclassified as a blocker.
+- [ ] MP-358 Harden the local-first continuous Codex-reviewer / Claude-coder
+  loop before any reusable template extraction: keep `MASTER_PLAN` plus the
+  relevant active-plan checklist as the canonical queue, require automatic
+  next-task promotion while scoped work remains, add peer-liveness/stale-peer
+  guardrails so neither side keeps working blindly after the other goes stale,
+  modularize and clean up the Python launcher/orchestration path with explicit
+  failure-report coverage, rotate both conductor terminals through repo-visible
+  handoff state once remaining context drops below 50%, and keep host-process
+  hygiene green during relaunch/rotation so stale local test or conductor
+  sessions do not accumulate detached repo processes. Only after this loop is
+  proven stable on VoiceTerm should the same path be carved into a reusable
+  toolkit/template. 2026-03-09 Codex re-review confirmed the report-level
+  liveness state machine and fail-closed zero-second ACK rejection, but the
+  launcher still does not prove the full bridge guard before bootstrap, the
+  2-3 minute poll / five-minute heartbeat contract is not fully enforced
+  end-to-end, and stale-peer recovery plus automatic next-task promotion
+  remain open. Execution spec: `dev/active/continuous_swarm.md`.
+- [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
+  the current review-channel workflow: keep Rust as the PTY/runtime owner,
+  keep `devctl review-channel` as the launcher/control surface, render Codex +
+  Claude + Operator Bridge State side by side from repo-visible artifacts, and
+  provide desktop launch/rollover plus operator decision capture without
+  introducing a second control plane. Phase 1.5 (information hierarchy)
+  landed: structured `KeyValuePanel` + `StatusIndicator` + toolbar dots
+  replace text dumps, `widgets.py` extracted, 67 tests passing. Phases 3-8
+  roadmap added: Approval Queue Center Stage, Agent Timeline, Guardrails /
+  Kill Switch, System Health, Diff Viewer, and Validation. Phase 2.6 now has
+  a concrete directory layout plan (`state/`, `views/`, `theme/`) to organize
+  modules before more panels land. The Activity tab now exposes card-based
+  agent summaries, typed quick actions (`review-channel --dry-run`,
+  `status --ci`, `triage --ci`, `process-audit --strict`), selectable
+  human-readable report topics, and staged Codex/Claude summary drafts with
+  explicit provenance while keeping command execution on the shared repo-owned
+  path. The next AI-assist tranche now explicitly includes an opt-in live
+  provider-backed `AI Summary` path for the selected report, with bounded
+  Codex/Claude execution, explicit provenance, repo-visible diagnostics, and a
+  staged-draft fallback when live provider access is unavailable. The next
+  operator-control tranche now
+  explicitly includes a one-click `Start Swarm` flow plus direct typed yes/no
+  and terminal-control buttons once the `review-channel` action surface grows
+  beyond `launch|rollover`, plus a first-class CI/CD status + workflow/log
+  visibility panel built on the existing `devctl` surfaces, push-linked run
+  history, and an allowlisted script/action palette with AI-assisted action
+  selection that still resolves to typed repo-owned commands. The same tranche
+  has now landed its first operator-visible pieces: `Start Swarm` exposes
+  JSON preflight -> live launch chaining with staged
+  preflight/launch/running/failure status on Home + Activity, shared busy-state
+  wiring, and command previews, and a new `Workbench` layout adds snap presets
+  over resizable lane/report/monitor panes. The same tranche
+  now explicitly includes a GUI swarm-planner surface that reuses
+  `autonomy-swarm` / `swarm_run` token-aware sizing logic and feedback signals
+  instead of inventing a desktop-only heuristic, plus a visible swarm
+  efficiency governor that logs the metrics and control decision behind every
+  hold/downshift/upshift/freeze/repurpose action. The same MP now also tracks
+  a layout-workbench path for snap-aware pane resizing/repositioning plus a
+  multi-theme registry meant to converge on Rust overlay theme/style-pack
+  semantics instead of becoming a desktop-only styling fork, with explicit
+  style-pack import/read parity first and export/write parity only after the
+  desktop mapping is proven round-trip-safe. The plan now also explicitly
+  includes a repo-aware Command Center, built-in `What this does / When to use
+  it / Before you run it / What it will execute / Success / Failure` guidance
+  surfaces, repo-state workflow modes (`Develop`, `Review`, `Swarm`,
+  `CI Triage`, `Release`, `Process Cleanup`, `Docs/Governance`), and an
+  integrated `Ask | Stage | Run` AI-help contract so the desktop app can
+  answer questions, stage commands or draft artifacts, and execute the same
+  typed repo-owned actions through both manual and AI-assisted paths. 2026-03-09 follow-up hardening
+  landed: the live app and theme editor now share one stylesheet compositor,
+  `bundle.tooling` now runs the operator-console suite in the canonical local
+  proof path, and the GUI launcher now uses `sys.executable` instead of a bare
+  `python3` shell assumption. The same tranche now also includes a fuller
+  left-anchored theme workbench with `Colors` / `Typography` / `Metrics`
+  pages, a real preview gallery, and tokenized typography/radius/padding
+  styling so the editor can theme more than just raw color swatches.
+  2026-03-09 theme-authority follow-up landed: `ThemeState` now carries
+  optional builtin `theme_id` identity, `ThemeEngine` is the single
+  builtin/custom/draft apply authority, the toolbar reflects draft/custom
+  state explicitly instead of keeping a parallel builtin-only truth, and
+  detail dialogs now use live engine colors. The same bounded fix also
+  repaired an accidental Operator Console import break in `views/widgets.py`
+  and the local proof path is green aside from the known bridge-guard
+  expected-red on untracked `code_audit.md` / `dev/active/review_channel.md`.
+  A later 2026-03-09 saved-theme compatibility fix hydrated legacy partial
+  `_last_theme.json` and custom preset payloads onto the current semantic
+  palette before apply, closing the PyQt6 startup crash on missing keys such
+  as `toolbar_bg`.
+  The first follow-up after that crash also moved the agent-detail diff pane
+  off fixed RGB highlight tints and back onto the live theme palette, closing
+  one of the remaining hardcoded desktop surfaces called out by MP-359.
+  A further same-day continuation split the editor into surface-scoped
+  `Surfaces` / `Navigation` / `Workflows` pages and expanded the in-editor
+  preview to cover toolbar/header chrome, nav + monitor tabs, approval queue,
+  diagnostics/log pane, diff pane, and representative empty/error states so
+  the next theme passes can touch more of the real shell without guessing.
+  The next bounded parity slice is now landed too: the desktop theme engine
+  can read canonical style-pack JSON payloads plus theme-file TOML metadata,
+  hydrate only the shared Rust `base_theme` onto the matching builtin desktop
+  palette, and surface provenance plus explicit `Not yet mapped` reporting for
+  Rust-only fields such as `overrides`, `surfaces`, `components`, and
+  non-`meta` theme-file sections. Export/write parity remains intentionally
+  open until that broader cross-surface contract is proven stable.
+  A follow-up bounded write slice is now in too: the desktop editor can export
+  canonical theme-file TOML and minimal style-pack JSON only when the current
+  state still maps exactly to a shared builtin `base_theme`, while lossy
+  desktop-only edits stay blocked with explicit messaging instead of fake
+  canonical files. The same slice split theme state/storage/overlay parity
+  helpers out of `theme_engine.py` so the coordinator no longer keeps growing
+  into another mixed-responsibility desktop god-file.
+  A further bounded cleanup then removed another obvious pocket of desktop-only
+  literals: agent-detail diff fallback colors now resolve from the shared
+  builtin semantic palette, and the theme-editor color swatch derives its own
+  border/hover chrome from the active swatch instead of fixed hardcoded
+  accent/border values. The broader remaining work is still the larger
+  hardcoded-surface sweep across the rest of the desktop shell.
+  The next same-day sweep narrowed that remaining shell work further by
+  removing shared stylesheet RGBA literals from menu hover/border and
+  scrollbar track chrome. Those values now derive from semantic theme colors
+  (`hover_overlay`, `menu_border_subtle`, `scrollbar_track_bg`) materialized
+  by the shared palette builder and exposed in the desktop editor, so later
+  cleanup can target only component-specific hardcoded pockets instead of
+  generic shell overlays. A final same-day cleanup then removed the last real
+  user-facing literal fallback still left in the live theme/view path:
+  `agent_detail.py` now falls back to the builtin semantic `text` color when a
+  supplied theme value is invalid instead of dropping to raw white, leaving
+  only seed data, example payload text, and generic contrast helpers as
+  remaining literal hits in the desktop theme tree. One more bounded helper
+  follow-up then removed those generic helper escapes from the live editor
+  path too: theme-editor swatch buttons now derive contrast text and
+  border/hover chrome from the active theme's `text`/`bg_top` colors instead
+  of raw black/white constants, so the remaining literal hits are limited to
+  palette seed data and example payload text rather than live component
+  chrome.
+  2026-03-09 screenshot-hardening follow-up landed: wrapped bridge panes now
+  avoid the misleading lower-left scrollbar-handle affordance on the common
+  read path, non-diff markdown is no longer painted as removal text in agent
+  detail dialogs, provider badges and broader tooltips are visible in the
+  chrome, in-window `Help` / `Developer` menus now explain the workflow
+  without kicking operators out to repo docs, and the theme editor import page
+  now explains current import/highlight semantics inline. 2026-03-09 home/read
+  follow-up landed too: the app now opens on a guided `Home` launchpad instead
+  of dropping directly into raw dashboards, and a shared `Read` mode switch
+  now flips report/footer wording between simple and technical modes while
+  feeding the same selected source report into staged AI drafts. A later
+  2026-03-09 density/mobile-parity follow-up replaced stale Home/Analytics
+  filler with repo-owned git/mutation/CI summaries plus read-only
+  `phone-status` parity over the same payload planned for iPhone-safe
+  surfaces, tightened sidebar/button density, and documented
+  `integrations/code-link-ide` as a future reference adapter rather than a
+  runtime dependency of the desktop shell. Next slice: expand
+  the editor into fuller page-scoped controls for text/borders/buttons/nav/
+  approvals/log panes, and push the remaining hardcoded desktop surfaces onto
+  the shared token/preview path so the console can theme nearly the full UI
+  without widening into a second control plane. Codex re-review later the same
+  day narrowed the current closure: the theme-authority split is resolved, but
+  live-launch portability/docs honesty, analytics/CI honesty, real
+  startup/mutating-path proof, launcher-script execution coverage, and
+  checklist/progress consistency remain open before MP-359 can be called
+  green. A further bounded Step-6 follow-up is now closed too: the approval
+  queue no longer vanishes when empty and instead keeps a visible `0 Pending`
+  zero-state so operators retain the center approval affordance even before
+  the larger `ApprovalSpine` card migration lands. Another same-day bounded
+  technical-density follow-up then made `Read -> Technical` visually real
+  instead of prose-only: the PyQt6 Home and Activity surfaces now switch to
+  denser terminal-style digest framing with smaller toolbar-first guidance and
+  monospace digest/read panes, addressing operator feedback that the shell was
+  still too banner-heavy for a command-center workflow. The next bounded
+  follow-up then moved the default shell back onto a card-first snap-aware
+  Workbench: visible preset pills returned, the three lane cards stay on
+  screen together, launcher/bridge/diagnostics now render side by side
+  instead of behind workbench tabs, and always-visible helper copy was
+  compacted so terminal surfaces dominate. The next operator-feedback slice
+  then restored explicit `Codex Session` and `Claude Session` panes backed by
+  the review-channel full projection's agent registry plus bridge state, and
+  the default Workbench now uses a top-row `Codex Session | Operator Spine |
+  Claude Session` split with raw logs/digests below so the shell shows what
+  each side is doing again without pretending those panes are live PTY
+  emulators. The next same-day cleanup then grouped that lower deck by job
+  instead of leaving every card visible at once: Workbench now uses
+  `Terminal`, `Stats`, `Approvals`, and `Reports` tabs so launcher streams,
+  repo stats, decision routing, and digest/draft work each live on one
+  focused surface. The next operator-feedback follow-up then pushed that idea
+  through the whole Workbench instead of keeping a fixed session strip above
+  it: `Sessions`, `Terminal`, `Stats`, `Approvals`, and `Reports` are now
+  full-page task tabs, so the streaming session row is its own focused page
+  and the workbench tabs sit at the top of the surface instead of in the
+  middle of the layout. The next same-day live-session follow-up then made
+  those `Codex Session` / `Claude Session` panes prefer real tailed launch
+  transcripts from `dev/reports/review_channel/latest/sessions/` whenever the
+  review-channel launcher has emitted them, while keeping the prior
+  full-projection bridge/registry digest as the honest fallback when no live
+  log exists yet. A same-day Theme Editor follow-up then repurposed the right
+  rail from an always-on preview gallery into `Quick Tune`, `Coverage`, and
+  optional `Preview` tabs, and restyled the operator toolbar action buttons
+  toward flatter dashboard/instrument-panel chrome.
+  (directory reorg) then Phase 3 (approval queue center stage), with `Start
+  Swarm`, typed control wiring, and CI visibility tracked in parallel.
+  Execution spec:
+  `dev/active/operator_console.md`.
 
-Control-plane program sequencing (maps to MP-330/331/332/336/338/340):
+Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355):
 
 1. Ship canonical multi-view controller state projections (`full/compact/trace/actions`) from one packet source.
 2. Add SSH-first/iPhone-safe read surfaces (`phone-status`) and Rust Dev-panel parity for run/agent/policy visibility.
-3. Keep desktop GUI clients deferred; route all operator actions through Rust
-   surfaces (`--dev`, `phone-status`, `controller-action`) and `devctl` APIs.
-4. Add guarded operator actions (`dispatch-report-only`, `pause`, `resume`, `refresh`) with full audit logging.
-5. Add reviewer-agent packet ingestion lane so loop-review feedback is machine-consumable, not manual copy/paste.
-6. Add charted KPI trend surfaces (loop throughput, unresolved trend, mutation trend, automation-vs-AI mix) for architect decisions.
-7. Add deterministic learning loop (`fingerprint -> playbook -> confidence -> guarded promote/decay`) with explicit evidence.
-8. Promote staged write controls only after replay protection + branch-protection-aware promotion guards are verified.
+3. Land the dedicated review-channel state/event contract and multi-format
+   projections as a review-focused profile over the broader
+   `controller_state` direction so reviewer/coder communication is packetized
+   instead of living in hidden chat state.
+4. Add a shared-screen VoiceTerm review surface that shows Codex, Claude, and
+   operator lanes together while keeping early PTY ownership separate.
+5. Keep desktop GUI clients non-canonical; allow only thin optional wrappers
+   over Rust surfaces (`--dev`, future shared-screen review UI),
+   `phone-status`, `controller-action`, and `devctl` APIs.
+6. Add guarded operator actions (`dispatch-report-only`, `pause`, `resume`, `refresh`) with full audit logging.
+7. Add reviewer-agent packet ingestion lane so loop-review feedback is machine-consumable, not manual copy/paste.
+8. Add charted KPI trend surfaces (loop throughput, unresolved trend, mutation trend, automation-vs-AI mix) for architect decisions.
+9. Add deterministic learning loop (`fingerprint -> playbook -> confidence -> guarded promote/decay`) with explicit evidence.
+10. Promote staged write controls and any true shared-session mode only after replay protection + branch-protection-aware promotion guards are verified.
 
 ## Deferred Plans
 

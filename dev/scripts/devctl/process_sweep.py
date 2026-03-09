@@ -1,206 +1,149 @@
-"""Shared process-sweep helpers used by `devctl check` and `devctl hygiene`.
-
-Why this exists:
-- `cargo test` runs can be interrupted (Ctrl+C, terminal close, crashed shell)
-- sometimes `cargo test` appears to "hang" and people force-stop it, which has
-  the same orphan-process risk as a normal interrupt
-- interrupted runs can leave detached `voiceterm-*` test binaries alive
-- interrupted runs can also leave detached `cargo test --bin voiceterm` runners alive
-- interrupted stress harness runs can leave detached `screen` sessions alive
-- both orphaned and stale long-running test processes can keep using CPU/memory
-  and make later runs flaky
-- `check` uses this to clean before/after runs; `hygiene` uses it to report leaks
-- this cleanup applies to local dev runs and AI-agent runs so one stuck test does
-  not silently impact everyone else sharing the repo/worktree
-- one shared implementation keeps the same cleanup/report rules for devs and AI
-"""
+"""Shared process-sweep facade used by `devctl check` and `devctl hygiene`."""
 
 from __future__ import annotations
 
 import os
-import re
 import signal
 import subprocess
-from typing import Pattern
+import re
 
-PROCESS_SWEEP_CMD = ["ps", "-axo", "pid=,ppid=,etime=,command="]
-DEFAULT_ORPHAN_MIN_AGE_SECONDS = 60
-DEFAULT_STALE_MIN_AGE_SECONDS = 600
-SECONDS_PER_DAY = 24 * 60 * 60
-# Match both full-path and basename launch styles:
-# - /tmp/.../target/debug/deps/voiceterm-deadbeef --test-threads=4
-# - voiceterm-deadbeef --nocapture
-VOICETERM_TEST_BINARY_RE = re.compile(r"(?:^|/|\s)voiceterm-[0-9a-f]{8,}(?:\s|$)")
-# Match raw and wrapped cargo test runners:
-# - cargo test --bin voiceterm
-# - /bin/zsh -c "... cargo test --bin voiceterm 2>&1 | tail -5"
-VOICETERM_CARGO_TEST_RE = re.compile(
-    r"\bcargo\s+test\b[^\n]*(?:^|\s)--bin\s+voiceterm(?:\s|$)"
+from .process_sweep_config import (
+    DEFAULT_ORPHAN_MIN_AGE_SECONDS,
+    DEFAULT_STALE_MIN_AGE_SECONDS,
+    PROCESS_CWD_LOOKUP_PREFIX,
+    PROCESS_SWEEP_CMD,
+    SECONDS_PER_DAY,
 )
-# Match leaked detached stress sessions:
-# - SCREEN -dmS vt_hud_stress_12345 bash -lc ...
-VOICETERM_STRESS_SCREEN_RE = re.compile(
-    r"(?:^|/|\s)(?:SCREEN|screen)\s+-dmS\s+vt_hud_stress_[0-9]+(?:\s|$)"
+from .process_sweep_core import (
+    build_skip_pid_set as _core_build_skip_pid_set,
+    collect_descendant_rows as _collect_descendant_rows,
+    command_executable_basename as _command_executable_basename,
+    command_executable_token as _command_executable_token,
+    expand_cleanup_target_rows,
+    extend_process_row_markdown,
+    format_process_rows,
+    is_interactive_shell_command as _is_interactive_shell_command,
+    is_repo_background_candidate as _is_repo_background_candidate,
+    kill_processes as _core_kill_processes,
+    merge_scanned_row_groups as _merge_scanned_row_groups,
+    normalize_repo_path as _normalize_repo_path,
+    parse_etime_seconds,
+    path_is_under_repo,
+    row_looks_backgrounded as _row_looks_backgrounded,
+    render_process_row_markdown,
+    select_matching_rows as _select_matching_rows,
+    split_orphaned_processes,
+    split_stale_processes,
 )
-VOICETERM_SWEEP_TARGET_RE = re.compile(
-    rf"(?:{VOICETERM_TEST_BINARY_RE.pattern})|(?:{VOICETERM_CARGO_TEST_RE.pattern})|(?:{VOICETERM_STRESS_SCREEN_RE.pattern})"
+from .process_sweep_scans import (
+    lookup_process_cwds as _core_lookup_process_cwds,
+    scan_matching_processes as _core_scan_matching_processes,
+    scan_process_rows as _core_scan_process_rows,
+    scan_repo_background_process_tree as _core_scan_repo_background_process_tree,
+    scan_repo_hygiene_process_tree as _core_scan_repo_hygiene_process_tree,
+    scan_repo_runtime_process_tree as _core_scan_repo_runtime_process_tree,
+    scan_repo_tooling_process_tree as _core_scan_repo_tooling_process_tree,
+    scan_voiceterm_test_process_tree as _core_scan_voiceterm_test_process_tree,
 )
 
 
-def parse_etime_seconds(raw: str) -> int | None:
-    """Convert `ps etime` text into seconds so age checks are easy."""
-    trimmed = raw.strip()
-    if not trimmed:
-        return None
+def _build_skip_pid_set(rows: list[dict], *, this_pid: int) -> set[int]:
+    return _core_build_skip_pid_set(rows, this_pid=this_pid, parent_pid=os.getppid())
 
-    days = 0
-    rest = trimmed
-    if "-" in trimmed:
-        day_part, rest = trimmed.split("-", 1)
-        if not day_part.isdigit():
-            return None
-        days = int(day_part)
 
-    chunks = rest.split(":")
-    if len(chunks) == 2:
-        mm, ss = chunks
-        if not (mm.isdigit() and ss.isdigit()):
-            return None
-        seconds = int(mm) * 60 + int(ss)
-    elif len(chunks) == 3:
-        hh, mm, ss = chunks
-        if not (hh.isdigit() and mm.isdigit() and ss.isdigit()):
-            return None
-        seconds = int(hh) * 3600 + int(mm) * 60 + int(ss)
-    else:
-        return None
+def _scan_process_rows(*, skip_pid: int | None = None) -> tuple[list[dict], list[str]]:
+    return _core_scan_process_rows(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
 
-    return days * SECONDS_PER_DAY + seconds
+
+def _lookup_process_cwds(rows: list[dict]) -> tuple[dict[int, str], list[str]]:
+    return _core_lookup_process_cwds(rows, run_cmd=subprocess.run)
 
 
 def scan_matching_processes(
-    command_regex: Pattern[str], *, skip_pid: int | None = None
+    command_regex: re.Pattern[str],
+    *,
+    skip_pid: int | None = None,
+    scope: str,
+    repo_cwd_candidate_regex: re.Pattern[str] | None = None,
 ) -> tuple[list[dict], list[str]]:
-    """Read `ps` output and return rows whose command matches `command_regex`."""
-    warnings: list[str] = []
-    try:
-        result = subprocess.run(
-            PROCESS_SWEEP_CMD,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError as exc:
-        warnings.append(f"Process sweep skipped: unable to execute ps ({exc})")
-        return [], warnings
+    return _core_scan_matching_processes(
+        command_regex,
+        skip_pid=skip_pid,
+        scope=scope,
+        repo_cwd_candidate_regex=repo_cwd_candidate_regex,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
 
-    if result.returncode != 0:
-        stderr = result.stderr.strip() if result.stderr else "unknown ps error"
-        warnings.append(
-            f"Process sweep skipped: ps returned {result.returncode} ({stderr})"
-        )
-        return [], warnings
 
-    this_pid = os.getpid() if skip_pid is None else skip_pid
-    rows: list[dict] = []
-    for line in result.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        parts = stripped.split(None, 3)
-        if len(parts) != 4:
-            continue
-        pid_raw, ppid_raw, etime, command = parts
-        if not (pid_raw.isdigit() and ppid_raw.isdigit()):
-            continue
-        if "ps -axo pid=,ppid=,etime=,command=" in command:
-            continue
-        if not command_regex.search(command):
-            continue
+def scan_voiceterm_test_process_tree(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    return _core_scan_voiceterm_test_process_tree(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
 
-        pid = int(pid_raw)
-        if pid == this_pid:
-            continue
 
-        elapsed = parse_etime_seconds(etime)
-        rows.append(
-            {
-                "pid": pid,
-                "ppid": int(ppid_raw),
-                "etime": etime,
-                "elapsed_seconds": elapsed if elapsed is not None else -1,
-                "command": command,
-            }
-        )
+def scan_repo_runtime_process_tree(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    return _core_scan_repo_runtime_process_tree(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
 
-    rows.sort(key=lambda row: row["elapsed_seconds"], reverse=True)
-    return rows, warnings
+
+def scan_repo_tooling_process_tree(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    return _core_scan_repo_tooling_process_tree(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
+
+
+def scan_repo_background_process_tree(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    return _core_scan_repo_background_process_tree(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
+
+
+def scan_repo_hygiene_process_tree(
+    *, skip_pid: int | None = None
+) -> tuple[list[dict], list[str]]:
+    return _core_scan_repo_hygiene_process_tree(
+        skip_pid=skip_pid,
+        run_cmd=subprocess.run,
+        current_pid=os.getpid(),
+        parent_pid=os.getppid(),
+    )
 
 
 def scan_voiceterm_test_binaries(
     *, skip_pid: int | None = None
 ) -> tuple[list[dict], list[str]]:
-    """Return process rows for VoiceTerm test processes and stress sessions."""
-    return scan_matching_processes(VOICETERM_SWEEP_TARGET_RE, skip_pid=skip_pid)
-
-
-def split_orphaned_processes(
-    rows: list[dict], *, min_age_seconds: int = DEFAULT_ORPHAN_MIN_AGE_SECONDS
-) -> tuple[list[dict], list[dict]]:
-    """Split rows into `orphaned` vs `active` using PPID=1 + minimum age."""
-    orphaned = [
-        row
-        for row in rows
-        if row["ppid"] == 1 and row["elapsed_seconds"] >= min_age_seconds
-    ]
-    active = [row for row in rows if row not in orphaned]
-    return orphaned, active
-
-
-def split_stale_processes(
-    rows: list[dict], *, min_age_seconds: int = DEFAULT_STALE_MIN_AGE_SECONDS
-) -> tuple[list[dict], list[dict]]:
-    """Split rows into `stale` vs `recent` using elapsed runtime age."""
-    stale = [
-        row
-        for row in rows
-        if row["elapsed_seconds"] >= 0 and row["elapsed_seconds"] >= min_age_seconds
-    ]
-    recent = [row for row in rows if row not in stale]
-    return stale, recent
+    return scan_voiceterm_test_process_tree(skip_pid=skip_pid)
 
 
 def kill_processes(
     rows: list[dict], *, kill_signal: int = signal.SIGKILL
 ) -> tuple[list[int], list[str]]:
-    """Best-effort kill for rows we already decided are safe to stop."""
-    killed_pids: list[int] = []
-    warnings: list[str] = []
-    for row in rows:
-        pid = row["pid"]
-        try:
-            os.kill(pid, kill_signal)
-            killed_pids.append(pid)
-        except ProcessLookupError:
-            continue
-        except PermissionError as exc:
-            warnings.append(f"pid={pid} permission denied ({exc})")
-        except OSError as exc:
-            warnings.append(f"pid={pid} kill failed ({exc})")
-    return killed_pids, warnings
-
-
-def format_process_rows(
-    rows: list[dict], *, line_max_len: int = 180, row_limit: int = 8
-) -> str:
-    """Render short process summaries for human-readable warnings/errors."""
-
-    def truncate(command: str) -> str:
-        if len(command) <= line_max_len:
-            return command
-        return command[: line_max_len - 3] + "..."
-
-    return "; ".join(
-        f"pid={row['pid']} ppid={row['ppid']} etime={row['etime']} cmd={truncate(row['command'])}"
-        for row in rows[:row_limit]
-    )
+    return _core_kill_processes(rows, kill_fn=os.kill, kill_signal=kill_signal)

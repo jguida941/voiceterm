@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from .loop_packet_helpers import (
     DEFAULT_SOURCE_CANDIDATES,
     RISK_CONFIDENCE,
@@ -91,11 +91,16 @@ def run(args) -> int:
             if args.format == "json"
             else _render_markdown(report)
         )
-        write_output(output, args.output)
-        if args.pipe_command:
-            pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-            if pipe_rc != 0:
-                return pipe_rc
+        pipe_rc = emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
+            writer=write_output,
+            piper=pipe_output,
+        )
+        if pipe_rc != 0:
+            return pipe_rc
         return 1
 
     freshness_hours = _freshness_hours(timestamp, now_utc)
@@ -117,11 +122,16 @@ def run(args) -> int:
             if args.format == "json"
             else _render_markdown(report)
         )
-        write_output(output, args.output)
-        if args.pipe_command:
-            pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-            if pipe_rc != 0:
-                return pipe_rc
+        pipe_rc = emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
+            writer=write_output,
+            piper=pipe_output,
+        )
+        if pipe_rc != 0:
+            return pipe_rc
         return 1
 
     risk, raw_draft, next_actions = _build_packet_body(
@@ -199,9 +209,14 @@ def run(args) -> int:
         if args.format == "json"
         else _render_markdown(report)
     )
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
     return 0

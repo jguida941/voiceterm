@@ -4,7 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-REQUIRED_EXECUTION_PLAN_DOCS = ["dev/active/autonomous_control_plane.md"]
+REQUIRED_EXECUTION_PLAN_DOCS = [
+    "dev/active/theme_upgrade.md",
+    "dev/active/autonomous_control_plane.md",
+    "dev/active/review_channel.md",
+    "dev/active/host_process_hygiene.md",
+    "dev/active/continuous_swarm.md",
+    "dev/active/operator_console.md",
+    "dev/active/loop_chat_bridge.md",
+    "dev/active/naming_api_cohesion.md",
+    "dev/active/ide_provider_modularization.md",
+    "dev/active/pre_release_architecture_audit.md",
+    "dev/active/slash_command_standalone.md",
+]
 EXECUTION_PLAN_MARKER = "Execution plan contract: required"
 EXECUTION_PLAN_REQUIRED_SECTIONS = [
     "## Scope",
@@ -49,6 +61,8 @@ def validate_execution_plan_contract(
         plan_text = plan_path.read_text(encoding="utf-8")
         if EXECUTION_PLAN_MARKER not in plan_text:
             continue
+        if relative not in registry_by_path and relative not in missing_rows:
+            missing_rows.append(relative)
         section_gaps = [
             section
             for section in EXECUTION_PLAN_REQUIRED_SECTIONS

@@ -1,5 +1,7 @@
 """Parser wiring for `devctl security` arguments."""
 
+from .common import add_standard_output_arguments
+
 
 def add_security_parser(sub) -> None:
     """Register the `security` command parser on the given subparser group."""
@@ -92,11 +94,6 @@ def add_security_parser(sub) -> None:
     security_cmd.add_argument("--offline", action="store_true")
     security_cmd.add_argument("--cargo-home")
     security_cmd.add_argument("--cargo-target-dir")
-    security_cmd.add_argument(
-        "--format", choices=["text", "json", "md"], default="text"
-    )
-    security_cmd.add_argument("--output")
-    security_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    security_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
+    add_standard_output_arguments(
+        security_cmd, format_choices=("text", "json", "md"), default_format="text"
     )

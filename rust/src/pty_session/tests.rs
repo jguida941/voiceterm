@@ -10,13 +10,13 @@ use proptest::prelude::*;
 use std::ffi::CString;
 use std::fs;
 use std::io::{self, ErrorKind};
-use std::mem;
-use std::mem::ManuallyDrop;
-use std::os::unix::io::RawFd;
-use std::ptr;
+use std::mem::{self, ManuallyDrop};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
+use std::{os::unix::io::RawFd, ptr};
+#[cfg(unix)]
+mod watchdog;
 
 fn pipe_pair() -> (RawFd, RawFd) {
     let mut fds = [0; 2];

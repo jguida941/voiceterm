@@ -1,6 +1,7 @@
 //! Core Codex request/event model that enforces bounded queues under load.
 
 use crate::lock_or_recover;
+use crate::log_debug;
 use anyhow::{Error, Result};
 use std::{
     collections::VecDeque,
@@ -351,7 +352,10 @@ impl EventSender {
 
     pub(super) fn emit(&self, event: CodexEvent) -> Result<(), BackendQueueError> {
         self.queue.push(event)?;
-        let _ = self.signal_tx.send(());
+        if self.signal_tx.send(()).is_err() {
+            log_debug("codex backend: event listener disconnected before UI wake signal");
+            return Err(BackendQueueError);
+        }
         Ok(())
     }
 }

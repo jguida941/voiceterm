@@ -64,6 +64,24 @@ fn validate_dev_mode_flags_accepts_dev_log_combo() {
 }
 
 #[test]
+fn startup_memory_mode_uses_persisted_user_config_value() {
+    let user_config = persistent_config::UserConfig {
+        memory_mode: Some("paused".to_string()),
+        ..Default::default()
+    };
+    let startup_mode = persistent_config::resolved_memory_mode(&user_config);
+    let ingestor = crate::memory::MemoryIngestor::new(
+        "startup-session".to_string(),
+        "startup-project".to_string(),
+        None,
+        startup_mode,
+    )
+    .expect("memory ingestor should initialize");
+
+    assert_eq!(ingestor.mode(), crate::memory::MemoryMode::Paused);
+}
+
+#[test]
 fn is_jetbrains_terminal_detects_and_rejects_expected_env_values() {
     with_jetbrains_env(&[], || {
         assert!(!runtime_compat::is_jetbrains_terminal());

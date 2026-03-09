@@ -59,9 +59,9 @@ class AuditScaffoldParserTests(TestCase):
 
 
 class AuditScaffoldCommandTests(TestCase):
-    @patch("dev.scripts.devctl.commands.audit_scaffold.write_output")
+    @patch("dev.scripts.devctl.commands.audit_scaffold.emit_output", return_value=0)
     def test_rejects_output_path_outside_reports_audits_root(
-        self, write_output_mock
+        self, emit_output_mock
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_root:
             root = Path(temp_root)
@@ -83,17 +83,17 @@ class AuditScaffoldCommandTests(TestCase):
                 rc = audit_scaffold.run(args)
 
         self.assertEqual(rc, 1)
-        payload = json.loads(write_output_mock.call_args.args[0])
+        payload = json.loads(emit_output_mock.call_args.args[0])
         self.assertFalse(payload["ok"])
         self.assertTrue(
             any("dev/reports/audits/" in error for error in payload["errors"])
         )
 
     @patch("dev.scripts.devctl.commands.audit_scaffold._run_guard")
-    @patch("dev.scripts.devctl.commands.audit_scaffold.write_output")
+    @patch("dev.scripts.devctl.commands.audit_scaffold.emit_output", return_value=0)
     def test_generates_scaffold_markdown_from_guard_findings(
         self,
-        write_output_mock,
+        emit_output_mock,
         run_guard_mock,
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_root:
@@ -277,6 +277,6 @@ class AuditScaffoldCommandTests(TestCase):
         self.assertIn("origin/develop..HEAD", generated_text)
         self.assertIn("check-ai-guard", generated_text)
         self.assertIn("code-shape-guard", generated_text)
-        payload = json.loads(write_output_mock.call_args.args[0])
+        payload = json.loads(emit_output_mock.call_args.args[0])
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["findings_detected"])

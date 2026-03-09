@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
 from ..phone_status_views import (
     render_report_markdown,
@@ -77,16 +77,17 @@ def run(args) -> int:
         "errors": errors,
     }
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_report_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = json_payload if args.format == "json" else render_report_markdown(report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 0 if report["ok"] else 1

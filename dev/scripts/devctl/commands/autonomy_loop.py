@@ -6,6 +6,7 @@ import hashlib
 import os
 
 from ..autonomy_loop_helpers import DEFAULT_REPLAY_WINDOW_SECONDS
+from ..common import normalize_string_field
 from ..autonomy_loop_helpers import allowed_branch as _allowed_branch
 from ..autonomy_loop_helpers import autonomy_policy as _autonomy_policy
 from ..autonomy_loop_helpers import iso_z as _iso_z
@@ -82,7 +83,7 @@ def run(args) -> int:
 
     requested_mode = str(args.mode)
     default_autonomy_mode = (
-        str(policy.get("autonomy_mode_default") or "read-only").strip() or "read-only"
+        normalize_string_field(policy, "autonomy_mode_default", "read-only") or "read-only"
     )
     runtime_autonomy_mode = _resolve_env_or_default(
         "AUTONOMY_MODE", default_autonomy_mode
@@ -102,10 +103,10 @@ def run(args) -> int:
 
     packet_root = _resolve_path(str(args.packet_out))
     queue_root = _resolve_path(str(args.queue_out))
-    policy_packet_root = str(autonomy_cfg.get("packet_root") or "").strip()
+    policy_packet_root = normalize_string_field(autonomy_cfg, "packet_root")
     if policy_packet_root:
         packet_root = _resolve_path(policy_packet_root)
-    policy_queue_root = str(autonomy_cfg.get("queue_root") or "").strip()
+    policy_queue_root = normalize_string_field(autonomy_cfg, "queue_root")
     if policy_queue_root:
         queue_root = _resolve_path(policy_queue_root)
 

@@ -1,6 +1,9 @@
 use super::*;
 use crate::status_line::layout::breakpoints;
 
+#[path = "../test_helpers.rs"]
+mod test_helpers;
+
 fn count_substring(haystack: &str, needle: &str) -> usize {
     haystack.match_indices(needle).count()
 }
@@ -209,12 +212,7 @@ fn minimal_right_panel_ribbon_shows_waveform() {
 
 #[test]
 fn meter_level_color_uses_exclusive_boundaries() {
-    let colors = Theme::Coral.colors();
-
-    assert_eq!(meter_level_color(-31.0, &colors), colors.success);
-    assert_eq!(meter_level_color(-30.0, &colors), colors.warning);
-    assert_eq!(meter_level_color(-19.0, &colors), colors.warning);
-    assert_eq!(meter_level_color(-18.0, &colors), colors.error);
+    test_helpers::assert_meter_level_color_boundaries_are_exclusive();
 }
 
 #[test]
@@ -1059,18 +1057,7 @@ fn latency_badge_hides_during_auto_recording_and_processing() {
 
 #[test]
 fn recording_indicator_color_pulses_with_theme_palette() {
-    for theme in [
-        Theme::Ansi,
-        Theme::Claude,
-        Theme::Codex,
-        Theme::TokyoNight,
-        Theme::Coral,
-        Theme::ChatGpt,
-    ] {
-        let colors = theme.colors();
-        let pulse = recording_indicator_color(&colors);
-        assert!(pulse == colors.recording || pulse == colors.dim);
-    }
+    test_helpers::assert_recording_indicator_color_pulses_with_theme_palette();
 }
 
 #[test]
@@ -1143,12 +1130,7 @@ fn minimal_right_panel_dots_without_meter_defaults_to_silent_level() {
 
 #[test]
 fn heartbeat_animation_truth_table() {
-    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, false));
-    assert!(scene_should_animate(VoiceSceneStyle::Theme, false, true));
-    assert!(!scene_should_animate(VoiceSceneStyle::Theme, true, false));
-    assert!(scene_should_animate(VoiceSceneStyle::Theme, true, true));
-    assert!(scene_should_animate(VoiceSceneStyle::Pulse, true, false));
-    assert!(!scene_should_animate(VoiceSceneStyle::Static, false, true));
+    test_helpers::assert_heartbeat_helpers_cover_truth_table();
 }
 
 #[test]

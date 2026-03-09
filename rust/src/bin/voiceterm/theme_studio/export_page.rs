@@ -23,6 +23,7 @@ pub(crate) struct ExportPageState {
     pub(crate) selected: usize,
     pub(crate) last_export_path: Option<String>,
     pub(crate) last_status: Option<String>,
+    pending_clipboard_copy: Option<Vec<u8>>,
 }
 
 /// Available actions on the export page.
@@ -64,6 +65,7 @@ impl ExportPageState {
             selected: 0,
             last_export_path: None,
             last_status: None,
+            pending_clipboard_copy: None,
         }
     }
 
@@ -88,6 +90,7 @@ impl ExportPageState {
 
     /// Execute the currently selected action.
     pub(crate) fn execute(&mut self, theme: Theme, colors: Option<&ResolvedThemeColors>) -> &str {
+        self.pending_clipboard_copy = None;
         let resolved;
         let colors = match colors {
             Some(c) => c,
@@ -136,16 +139,13 @@ impl ExportPageState {
     fn do_copy_clipboard(&mut self, theme: Theme, colors: &ResolvedThemeColors) -> &str {
         let name = format!("{theme}");
         let toml = export_theme_file(colors, Some(&name), Some(&name));
-
-        // OSC 52 clipboard: \x1b]52;c;<base64>\x07
-        use std::io::Write;
-        let encoded = base64_encode(toml.as_bytes());
-        let osc = format!("\x1b]52;c;{encoded}\x07");
-        let _ = std::io::stdout().write_all(osc.as_bytes());
-        let _ = std::io::stdout().flush();
-
+        self.pending_clipboard_copy = Some(crate::writer::osc52_copy_bytes(&toml));
         self.last_status = Some("Copied TOML to clipboard (OSC 52)".into());
         self.last_status_or_default()
+    }
+
+    pub(crate) fn take_pending_clipboard_copy(&mut self) -> Option<Vec<u8>> {
+        self.pending_clipboard_copy.take()
     }
 
     fn last_status_or_default(&self) -> &str {
@@ -153,31 +153,6 @@ impl ExportPageState {
             .as_deref()
             .unwrap_or("Theme Studio export status unavailable")
     }
-}
-
-/// Minimal base64 encoder (no external dependency needed).
-fn base64_encode(input: &[u8]) -> String {
-    const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
-    for chunk in input.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        out.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        out.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 {
-            out.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
 }
 
 #[cfg(test)]
@@ -190,6 +165,7 @@ mod tests {
         assert_eq!(page.selected, 0);
         assert_eq!(page.selected_action(), ExportAction::ExportToml);
         assert!(page.last_export_path.is_none());
+        assert!(page.pending_clipboard_copy.is_none());
     }
 
     #[test]
@@ -211,5 +187,21 @@ mod tests {
             assert!(!action.label().is_empty());
             assert!(!action.description().is_empty());
         }
+    }
+
+    #[test]
+    fn copy_to_clipboard_stages_writer_payload() {
+        let mut page = ExportPageState::new();
+        page.selected = 1;
+
+        let status = page.execute(Theme::Coral, None);
+
+        assert_eq!(status, "Copied TOML to clipboard (OSC 52)");
+        let payload = page
+            .take_pending_clipboard_copy()
+            .expect("copy action should stage OSC 52 bytes");
+        assert!(payload.starts_with(b"\x1b]52;c;"));
+        assert!(payload.ends_with(b"\x07"));
+        assert!(page.take_pending_clipboard_copy().is_none());
     }
 }

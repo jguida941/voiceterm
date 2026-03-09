@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..collect import collect_git_status
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 from ..path_audit import scan_legacy_path_references
@@ -85,7 +85,14 @@ def run(args) -> int:
     git_info = collect_git_status(since_ref, head_ref)
     if "error" in git_info:
         output = json.dumps({"error": git_info["error"]}, indent=2)
-        write_output(output, args.output)
+        emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=None,
+            pipe_args=None,
+            writer=write_output,
+            piper=pipe_output,
+        )
         return 2
 
     changed = {entry["path"] for entry in git_info.get("changes", [])}
@@ -271,7 +278,14 @@ def run(args) -> int:
     else:
         output = render_markdown_report(report)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        return pipe_output(output, args.pipe_command, args.pipe_args)
+    return_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if return_code != 0:
+        return return_code
     return 0 if ok else 1

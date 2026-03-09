@@ -4,7 +4,21 @@ from __future__ import annotations
 
 import argparse
 
-from .autonomy_status_parsers import add_autonomy_report_parser, add_phone_status_parser
+from .autonomy_status_parsers import (
+    add_autonomy_report_parser,
+    add_mobile_status_parser,
+    add_phone_status_parser,
+)
+from .cli_parser_builders_ops import (
+    add_audit_scaffold_parser,
+    add_docs_check_parser,
+    add_hygiene_parser,
+    add_list_parser,
+    add_report_parser,
+    add_status_parser,
+)
+from .cli_parser_hygiene import add_process_hygiene_parsers
+from .common import add_standard_output_arguments
 from .data_science_parser import add_data_science_parser
 
 
@@ -13,83 +27,24 @@ def add_reporting_parsers(
     *,
     default_ci_limit: int,
 ) -> None:
-    """Register status/report/list/audit-scaffold/hygiene parsers."""
-    # status
-    status_cmd = sub.add_parser("status", help="Summarize git + mutation status")
-    status_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
-    status_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
-    status_cmd.add_argument(
-        "--require-ci",
-        action="store_true",
-        help="Exit non-zero when CI fetch fails (implies --ci)",
-    )
-    status_cmd.add_argument("--format", choices=["json", "md", "text"], default="text")
-    status_cmd.add_argument(
-        "--dev-logs",
-        action="store_true",
-        help="Include guarded Dev Mode JSONL session summary",
-    )
-    status_cmd.add_argument(
-        "--dev-root",
-        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
-    )
-    status_cmd.add_argument(
-        "--dev-sessions-limit",
-        type=int,
-        default=5,
-        help="Maximum recent session files to scan when --dev-logs",
-    )
-    status_cmd.add_argument(
-        "--no-parallel",
-        action="store_true",
-        help="Run collection probes sequentially instead of in parallel",
-    )
-    status_cmd.add_argument("--output")
-    status_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    status_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
+    """Register reporting, tooling-status, and operational parsers."""
+    add_docs_check_parser(sub)
+    add_status_parser(sub, default_ci_limit=default_ci_limit)
+    add_report_parser(sub, default_ci_limit=default_ci_limit)
+    add_list_parser(sub)
+    add_process_hygiene_parsers(sub)
+    _add_compat_matrix_parser(sub)
+    _add_mcp_parser(sub)
+    add_data_science_parser(sub)
+    add_autonomy_report_parser(sub)
+    add_phone_status_parser(sub)
+    add_mobile_status_parser(sub)
+    _add_autonomy_swarm_parser(sub)
+    add_audit_scaffold_parser(sub)
+    add_hygiene_parser(sub)
 
-    # report
-    report_cmd = sub.add_parser("report", help="Generate a JSON/MD report")
-    report_cmd.add_argument(
-        "--ci", action="store_true", help="Include recent GitHub runs"
-    )
-    report_cmd.add_argument("--ci-limit", type=int, default=default_ci_limit)
-    report_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    report_cmd.add_argument(
-        "--dev-logs",
-        action="store_true",
-        help="Include guarded Dev Mode JSONL session summary",
-    )
-    report_cmd.add_argument(
-        "--dev-root",
-        help="Override dev-log root (default: $HOME/.voiceterm/dev)",
-    )
-    report_cmd.add_argument(
-        "--dev-sessions-limit",
-        type=int,
-        default=5,
-        help="Maximum recent session files to scan when --dev-logs",
-    )
-    report_cmd.add_argument(
-        "--no-parallel",
-        action="store_true",
-        help="Run collection probes sequentially instead of in parallel",
-    )
-    report_cmd.add_argument("--output")
-    report_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    report_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
 
-    # list
-    list_cmd = sub.add_parser("list", help="List devctl commands and profiles")
-    list_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    list_cmd.add_argument("--output")
-
+def _add_compat_matrix_parser(sub: argparse._SubParsersAction) -> None:
     compat_matrix_cmd = sub.add_parser(
         "compat-matrix",
         help="Validate IDE/provider compatibility matrix metadata and smoke coverage",
@@ -99,15 +54,10 @@ def add_reporting_parsers(
         action="store_true",
         help="Run schema/coverage validation only (skip runtime enum smoke checks)",
     )
-    compat_matrix_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    compat_matrix_cmd.add_argument("--output")
-    compat_matrix_cmd.add_argument(
-        "--pipe-command", help="Pipe report output to a command"
-    )
-    compat_matrix_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
+    add_standard_output_arguments(compat_matrix_cmd)
 
+
+def _add_mcp_parser(sub: argparse._SubParsersAction) -> None:
     mcp_cmd = sub.add_parser(
         "mcp",
         help="Read-only MCP adapter contract + stdio server for devctl surfaces",
@@ -125,18 +75,10 @@ def add_reporting_parsers(
         "--tool-args-json",
         help="JSON object string passed to --tool as arguments",
     )
-    mcp_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    mcp_cmd.add_argument("--output")
-    mcp_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    mcp_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+    add_standard_output_arguments(mcp_cmd)
 
-    add_data_science_parser(sub)
 
-    # autonomy-report + phone-status
-    add_autonomy_report_parser(sub)
-    add_phone_status_parser(sub)
-
-    # autonomy-swarm
+def _add_autonomy_swarm_parser(sub: argparse._SubParsersAction) -> None:
     autonomy_swarm_cmd = sub.add_parser(
         "autonomy-swarm",
         help="Run an adaptive autonomy swarm with metadata-driven agent sizing",
@@ -276,83 +218,5 @@ def add_reporting_parsers(
         default=True,
         help="Generate matplotlib charts in swarm bundle",
     )
-    autonomy_swarm_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    autonomy_swarm_cmd.add_argument("--output")
+    add_standard_output_arguments(autonomy_swarm_cmd)
     autonomy_swarm_cmd.add_argument("--json-output")
-    autonomy_swarm_cmd.add_argument(
-        "--pipe-command", help="Pipe report output to a command"
-    )
-    autonomy_swarm_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
-
-    # audit-scaffold
-    audit_cmd = sub.add_parser(
-        "audit-scaffold",
-        help="Generate Rust remediation scaffold from guard findings",
-    )
-    audit_cmd.add_argument(
-        "--since-ref", help="Optional base ref for changed-file guard scripts"
-    )
-    audit_cmd.add_argument(
-        "--head-ref",
-        default="HEAD",
-        help="Head ref used with --since-ref (default: HEAD)",
-    )
-    audit_cmd.add_argument(
-        "--source-guards",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Run guard scripts and embed findings in scaffold (default: enabled)",
-    )
-    audit_cmd.add_argument(
-        "--output-path",
-        default="dev/reports/audits/RUST_AUDIT_FINDINGS.md",
-        help="Scaffold output path (must be under dev/reports/audits/)",
-    )
-    audit_cmd.add_argument(
-        "--template-path",
-        default="dev/config/templates/rust_audit_findings_template.md",
-        help="Template markdown path",
-    )
-    audit_cmd.add_argument(
-        "--trigger",
-        default="manual",
-        help="Short trigger label (for example check-ai-guard or workflow lane name)",
-    )
-    audit_cmd.add_argument(
-        "--trigger-steps",
-        help="Comma-separated failing guard step names that triggered this scaffold",
-    )
-    audit_cmd.add_argument(
-        "--force", action="store_true", help="Overwrite existing scaffold file"
-    )
-    audit_cmd.add_argument(
-        "--yes", action="store_true", help="Skip overwrite confirmation"
-    )
-    audit_cmd.add_argument("--dry-run", action="store_true")
-    audit_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    audit_cmd.add_argument("--output")
-    audit_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    audit_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
-
-    # hygiene
-    hygiene_cmd = sub.add_parser(
-        "hygiene", help="Audit archive/ADR/scripts governance hygiene"
-    )
-    hygiene_cmd.add_argument(
-        "--fix",
-        action="store_true",
-        help="Remove detected dev/scripts/**/__pycache__ directories after audit",
-    )
-    hygiene_cmd.add_argument(
-        "--strict-warnings",
-        action="store_true",
-        help="Treat hygiene warnings as blocking failures",
-    )
-    hygiene_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    hygiene_cmd.add_argument("--output")
-    hygiene_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    hygiene_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )

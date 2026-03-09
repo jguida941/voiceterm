@@ -27,6 +27,21 @@ impl std::fmt::Display for VoiceSendMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub(crate) enum CaptureOnceFormat {
+    #[default]
+    Text,
+}
+
+impl std::fmt::Display for CaptureOnceFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            CaptureOnceFormat::Text => "text",
+        };
+        write!(f, "{label}")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub(crate) enum HudRightPanel {
     #[default]
     Ribbon,
@@ -132,6 +147,19 @@ pub(crate) struct OverlayConfig {
 
     #[command(flatten)]
     pub(crate) app: AppConfig,
+
+    /// Record once, print the transcript, and exit without launching the overlay.
+    #[arg(long = "capture-once", default_value_t = false)]
+    pub(crate) capture_once: bool,
+
+    /// Output format used by `--capture-once` (currently `text` only).
+    #[arg(
+        long = "format",
+        value_enum,
+        default_value_t = CaptureOnceFormat::Text,
+        requires = "capture_once"
+    )]
+    pub(crate) capture_once_format: CaptureOnceFormat,
 
     /// Regex used to detect the AI prompt line (overrides auto-detection)
     #[arg(long = "prompt-regex")]
@@ -309,6 +337,8 @@ mod tests {
         assert!(!cfg.wake_word);
         assert!((cfg.wake_word_sensitivity - DEFAULT_WAKE_WORD_SENSITIVITY).abs() < f32::EPSILON);
         assert_eq!(cfg.wake_word_cooldown_ms, DEFAULT_WAKE_WORD_COOLDOWN_MS);
+        assert!(!cfg.capture_once);
+        assert_eq!(cfg.capture_once_format, CaptureOnceFormat::Text);
         assert!(!cfg.image_mode);
         assert!(cfg.image_capture_command.is_none());
         assert!(!cfg.dev_mode);
@@ -344,6 +374,18 @@ mod tests {
             cfg.image_capture_command.as_deref(),
             Some("imagesnap -q \"$VOICETERM_IMAGE_PATH\"")
         );
+    }
+
+    #[test]
+    fn capture_once_parser_accepts_text_format() {
+        let cfg = OverlayConfig::parse_from(["test-app", "--capture-once", "--format", "text"]);
+        assert!(cfg.capture_once);
+        assert_eq!(cfg.capture_once_format, CaptureOnceFormat::Text);
+    }
+
+    #[test]
+    fn capture_once_format_requires_capture_once() {
+        assert!(OverlayConfig::try_parse_from(["test-app", "--format", "text"]).is_err());
     }
 
     #[test]
@@ -402,6 +444,11 @@ mod tests {
     fn voice_send_mode_display_labels_are_stable() {
         assert_eq!(VoiceSendMode::Auto.to_string(), "Auto");
         assert_eq!(VoiceSendMode::Insert.to_string(), "Insert");
+    }
+
+    #[test]
+    fn capture_once_format_display_labels_are_stable() {
+        assert_eq!(CaptureOnceFormat::Text.to_string(), "text");
     }
 
     #[test]

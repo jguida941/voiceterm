@@ -1,0 +1,424 @@
+"""Function-shape defaults, overrides, and temporary exceptions."""
+
+from __future__ import annotations
+
+try:
+    from code_shape_shared import FunctionShapeException, FunctionShapePolicy
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.code_shape_shared import (
+        FunctionShapeException,
+        FunctionShapePolicy,
+    )
+
+
+FUNCTION_LANGUAGE_DEFAULTS: dict[str, FunctionShapePolicy] = {
+    ".py": FunctionShapePolicy(max_lines=150),
+    ".rs": FunctionShapePolicy(max_lines=100),
+}
+
+
+FUNCTION_POLICY_OVERRIDES: dict[str, FunctionShapePolicy] = {
+    "rust/src/bin/voiceterm/writer/state/dispatch.rs": FunctionShapePolicy(
+        max_lines=220,
+    ),
+    "rust/src/bin/voiceterm/writer/state/redraw.rs": FunctionShapePolicy(
+        max_lines=220,
+    ),
+    "rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs": FunctionShapePolicy(
+        max_lines=260,
+    ),
+}
+
+
+FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
+    "dev/scripts/checks/check_code_shape.py::main": FunctionShapeException(
+        max_lines=210,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Main still handles CLI parsing and report output; helper split is pending.",
+    ),
+    "dev/scripts/checks/check_mutation_score.py::main": FunctionShapeException(
+        max_lines=210,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Main still handles policy + format branching; support split is pending.",
+    ),
+    "dev/scripts/checks/check_rust_lint_debt.py::main": FunctionShapeException(
+        max_lines=220,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Main still combines report modes and dead-code inventory logic.",
+    ),
+    "dev/scripts/checks/check_structural_complexity.py::main": FunctionShapeException(
+        max_lines=180,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Main still combines parser and output fallback handling.",
+    ),
+    "dev/scripts/checks/check_active_plan_sync.py::_build_report": FunctionShapeException(
+        max_lines=390,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Active-plan snapshot + parity report assembly is still in a single pipeline function.",
+    ),
+    "dev/scripts/checks/check_multi_agent_sync.py::_build_report": FunctionShapeException(
+        max_lines=310,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Cross-doc board/instruction/ledger reconciliation remains consolidated pending extraction.",
+    ),
+    "dev/scripts/devctl/cli_parser_release.py::add_release_parsers": FunctionShapeException(
+        max_lines=175,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Release parser wiring still enumerates release subcommands in one registration block.",
+    ),
+    "dev/scripts/devctl/commands/autonomy_loop.py::run": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Autonomy loop runner still owns orchestration and output packet wiring before final split.",
+    ),
+    "dev/scripts/devctl/commands/autonomy_run.py::run": FunctionShapeException(
+        max_lines=340,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Autonomy run command still combines policy resolution, lane execution, and reporting.",
+    ),
+    "dev/scripts/devctl/commands/hygiene_audits_adrs.py::audit_adrs": FunctionShapeException(
+        max_lines=170,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="ADR audit still performs collection, policy checks, and report shaping in one function.",
+    ),
+    "dev/scripts/devctl/commands/integrations_import.py::run": FunctionShapeException(
+        max_lines=220,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Integrations import run path still combines parsing, path audit, and write orchestration.",
+    ),
+    "dev/scripts/devctl/commands/loop_packet.py::run": FunctionShapeException(
+        max_lines=170,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Loop packet run path still combines read/merge/emit flows pending helper extraction.",
+    ),
+    "dev/scripts/devctl/commands/sync.py::run": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Sync command still owns branch audit and remediation routing in a single runner.",
+    ),
+    "dev/scripts/devctl/commands/triage_loop.py::run": FunctionShapeException(
+        max_lines=200,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 3",
+        reason="Triage loop command still bundles gate checks, branch prep, and loop dispatch flow.",
+    ),
+    "dev/scripts/devctl/commands/docs_check.py::run": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 2",
+        reason="Runner still combines policy checks and rendering before final split.",
+    ),
+    "dev/scripts/devctl/commands/docs_check_render.py::render_markdown_report": FunctionShapeException(
+        max_lines=230,
+        owner="MP-347",
+        expires_on="2026-05-15",
+        follow_up_mp="MP-347 Phase 2",
+        reason="Renderer still builds the full markdown packet in one place.",
+    ),
+    # ── Rust function exceptions (code-quality-audit 2026-03-09) ──────────
+    # 39 existing oversized Rust functions grandfathered with tracked budgets.
+    # Each has a 3-month expiry to drive decomposition into focused helpers.
+    "rust/src/audio/recorder.rs::record_for": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="record_for (104 lines): recording session lifecycle; split setup/teardown.",
+    ),
+    "rust/src/audio/recorder.rs::record_with_vad_impl": FunctionShapeException(
+        max_lines=190,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="record_with_vad_impl (177 lines): VAD loop with state machine; extract phase handlers.",
+    ),
+    "rust/src/bin/voiceterm/button_handlers.rs::handle_action": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handle_action (105 lines): dispatch table; extract per-action handlers.",
+    ),
+    "rust/src/bin/voiceterm/dev_command/broker/mod.rs::worker_loop": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="worker_loop (129 lines): background process orchestrator; extract poll/exit handlers.",
+    ),
+    "rust/src/bin/voiceterm/dev_panel/actions_page.rs::format_dev_panel": FunctionShapeException(
+        max_lines=130,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="format_dev_panel (117 lines): UI renderer; extract section builders.",
+    ),
+    "rust/src/bin/voiceterm/dev_panel/cockpit_page/mod.rs::control_page_lines": FunctionShapeException(
+        max_lines=250,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="control_page_lines (237 lines): assembles 10+ sections inline; extract section helpers.",
+    ),
+    "rust/src/bin/voiceterm/dev_panel/cockpit_page/mod.rs::handoff_page_lines": FunctionShapeException(
+        max_lines=160,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handoff_page_lines (142 lines): multiple handoff sections inline; extract per-section.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/input_dispatch.rs::handle_input_event": FunctionShapeException(
+        max_lines=260,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handle_input_event (250 lines): large dispatch match; extract event-group handlers.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/input_dispatch/overlay.rs::handle_overlay_input_event": FunctionShapeException(
+        max_lines=410,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handle_overlay_input_event (397 lines): overlay dispatch mega-function; extract per-overlay handlers.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/input_dispatch/overlay/overlay_mouse.rs::handle_overlay_mouse_click": FunctionShapeException(
+        max_lines=230,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handle_overlay_mouse_click (216 lines): handles 7 overlay modes; extract per-overlay mouse handlers.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/overlay_dispatch.rs::render_theme_studio_overlay_for_state": FunctionShapeException(
+        max_lines=130,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="render_theme_studio_overlay_for_state (116 lines): page-mode dispatch; extract per-page renderers.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/periodic_tasks.rs::run_periodic_tasks": FunctionShapeException(
+        max_lines=410,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="run_periodic_tasks (395 lines): monolithic orchestrator with 20 independent tasks inline.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/prompt_occlusion/detection.rs::evaluate_output_chunk_signals": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="evaluate_output_chunk_signals (106 lines): signal evaluation pipeline; extract signal-group helpers.",
+    ),
+    "rust/src/bin/voiceterm/event_loop/tests.rs::build_harness": FunctionShapeException(
+        max_lines=160,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="build_harness (150 lines): test harness builder; extract channel/state setup.",
+    ),
+    "rust/src/bin/voiceterm/input/parser.rs::consume_escape": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="consume_escape (105 lines): escape sequence parser; extract CSI/SS3 handlers.",
+    ),
+    "rust/src/bin/voiceterm/main.rs::load_config_phase": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="load_config_phase (106 lines): config loading pipeline; extract validation steps.",
+    ),
+    "rust/src/bin/voiceterm/main.rs::prepare_runtime_phase": FunctionShapeException(
+        max_lines=160,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="prepare_runtime_phase (144 lines): runtime setup; extract subsystem initialization.",
+    ),
+    "rust/src/bin/voiceterm/main.rs::build_state_phase": FunctionShapeException(
+        max_lines=340,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="build_state_phase (328 lines): state construction mega-function; extract per-module builders.",
+    ),
+    "rust/src/bin/voiceterm/memory/action_audit.rs::classify_command_policy": FunctionShapeException(
+        max_lines=290,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="classify_command_policy (276 lines): policy classification table; extract category matchers.",
+    ),
+    "rust/src/bin/voiceterm/settings/render.rs::format_settings_row": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="format_settings_row (124 lines): settings row renderer; extract field-type formatters.",
+    ),
+    "rust/src/bin/voiceterm/status_line/buttons.rs::format_button_row_with_positions": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="format_button_row_with_positions (129 lines): button layout engine; extract positioning logic.",
+    ),
+    "rust/src/bin/voiceterm/theme/component_registry.rs::build_default": FunctionShapeException(
+        max_lines=270,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="build_default (259 lines): registry builder; extract per-component builders.",
+    ),
+    "rust/src/bin/voiceterm/theme/theme_file.rs::export_theme_file": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="export_theme_file (109 lines): TOML export; extract section serializers.",
+    ),
+    "rust/src/bin/voiceterm/theme_studio/home_page.rs::theme_studio_row": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="theme_studio_row (106 lines): row renderer; extract field-type formatters.",
+    ),
+    "rust/src/bin/voiceterm/theme_studio/preview_page.rs::render": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="render (106 lines): preview page renderer; extract section builders.",
+    ),
+    "rust/src/bin/voiceterm/transcript_history/render.rs::format_transcript_history_overlay": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="format_transcript_history_overlay (110 lines): overlay renderer; extract layout helpers.",
+    ),
+    "rust/src/bin/voiceterm/voice_control/drain.rs::drain_voice_messages": FunctionShapeException(
+        max_lines=170,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="drain_voice_messages (153 lines): message drain loop; extract message-type handlers.",
+    ),
+    "rust/src/bin/voiceterm/voice_control/drain/message_processing.rs::handle_voice_message": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="handle_voice_message (122 lines): voice message dispatcher; extract per-type processing.",
+    ),
+    "rust/src/bin/voiceterm/voice_control/drain/message_processing.rs::update_last_latency": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="update_last_latency (101 lines): latency tracking; extract measurement/display logic.",
+    ),
+    "rust/src/bin/voiceterm/voice_control/navigation.rs::execute_voice_navigation_action": FunctionShapeException(
+        max_lines=220,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="execute_voice_navigation_action (205 lines): navigation dispatcher; extract per-action handlers.",
+    ),
+    "rust/src/bin/voiceterm/writer/state/chunk_analysis.rs::pty_chunk_starts_with_absolute_cursor_position": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="pty_chunk_starts_with_absolute_cursor_position (106 lines): cursor detection; extract CSI parsing.",
+    ),
+    "rust/src/bin/voiceterm/writer/state/chunk_analysis.rs::track_cursor_save_restore": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="track_cursor_save_restore (103 lines): cursor state tracker; extract save/restore handlers.",
+    ),
+    "rust/src/bin/voiceterm/writer/state/dispatch_pty.rs::analyze_pty_chunk": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="analyze_pty_chunk (125 lines): chunk analysis pipeline; extract detection steps.",
+    ),
+    "rust/src/bin/voiceterm/writer/state/policy.rs::resolve": FunctionShapeException(
+        max_lines=140,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="resolve (128 lines): policy resolution cascade; extract priority-group evaluators.",
+    ),
+    "rust/src/bin/voiceterm/writer/timing.rs::resolve_idle_redraw_timing": FunctionShapeException(
+        max_lines=130,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="resolve_idle_redraw_timing (118 lines): timing heuristics; extract state-based timers.",
+    ),
+    "rust/src/codex/pty_backend/job_flow.rs::run_codex_job": FunctionShapeException(
+        max_lines=120,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="run_codex_job (102 lines): job lifecycle; extract setup/run/cleanup phases.",
+    ),
+    "rust/src/config/validation.rs::validate_voice_pipeline_bounds": FunctionShapeException(
+        max_lines=130,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="validate_voice_pipeline_bounds (115 lines): bounds validation; extract per-field validators.",
+    ),
+    "rust/src/ipc/session/event_processing/claude.rs::process_claude_events": FunctionShapeException(
+        max_lines=130,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="process_claude_events (119 lines): event processor; extract per-event-type handlers.",
+    ),
+    "rust/src/legacy_tui/state.rs::run_python_transcription": FunctionShapeException(
+        max_lines=160,
+        owner="code-quality-audit",
+        expires_on="2026-06-15",
+        follow_up_mp="function-decomposition-backlog",
+        reason="run_python_transcription (146 lines): legacy transcription bridge; extract subprocess management.",
+    ),
+}

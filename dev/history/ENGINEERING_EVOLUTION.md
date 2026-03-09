@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)  
 **Audience:** users and developers  
-**Last Updated:** 2026-03-07
+**Last Updated:** 2026-03-08
 
 ## At a Glance
 
@@ -45,6 +45,156 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-08 - Advisory pedantic lint lane and triage flow
+
+Fact: `devctl check` now has an explicit opt-in `pedantic` profile for broader
+Clippy sweeps. The profile runs `cargo clippy` with `clippy::pedantic`
+enabled, but it is documented as advisory-only and intentionally stays out of
+required bundles, CI, and release gates so maintainers and AI agents do not
+turn pedantic noise into mandatory pre-release churn. That lane now feeds the
+existing `report`/`triage` architecture through structured artifacts plus a
+repo-owned `dev/config/clippy/pedantic_policy.json`, and `report`/`triage`
+can refresh those artifacts inline with `--pedantic-refresh` instead of making
+release-time ad hoc decisions from raw terminal output.
+
+Evidence:
+- `dev/scripts/devctl/commands/check_profile.py`
+- `dev/scripts/devctl/clippy_pedantic.py`
+- `dev/scripts/devctl/commands/report.py`
+- `dev/scripts/devctl/commands/triage.py`
+- `dev/scripts/devctl/tests/test_check.py`
+- `dev/scripts/devctl/tests/test_report.py`
+- `dev/scripts/devctl/tests/test_triage.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/scripts/README.md`
+
+### 2026-03-08 - Agent collaboration explainer guide
+
+Fact: VoiceTerm now has a dedicated plain-language agent-collaboration explainer at
+`dev/guides/AGENT_COLLABORATION_SYSTEM.md` that ties together the current
+markdown-bridge `review-channel` bootstrap, the Codex/Claude conductor loop,
+the guarded `swarm_run` path, `autonomy-swarm` worker fanout,
+`autonomy-loop` bounded lane execution, the live artifact roots, and the
+current-versus-planned boundary for the future structured review channel. The
+guide frames swarm execution as one feature inside the broader agent
+collaboration system rather than the name of the whole model.
+
+Evidence:
+
+- `dev/guides/AGENT_COLLABORATION_SYSTEM.md`
+- `dev/scripts/README.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/README.md`
+- `DEV_INDEX.md`
+
+### 2026-03-08 - Continuous reviewer/coder swarm hardening plan
+
+Fact: VoiceTerm now tracks the local-first continuous Codex-reviewer /
+Claude-coder loop as its own active execution slice in
+`dev/active/continuous_swarm.md` instead of leaving launcher hardening,
+peer-liveness rules, context-rotation handoff, and later template extraction
+implicitly spread across the review-channel and broader autonomous-control
+docs. The direction is explicit: prove the loop on this repo first, keep
+`MASTER_PLAN` plus active-plan checklists as the canonical queue, use
+repo-visible bridge/handoff state instead of hidden memory, and only then
+consider extracting a reusable template/toolkit.
+
+Evidence:
+
+- `dev/active/continuous_swarm.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `AGENTS.md`
+- `DEV_INDEX.md`
+- `dev/README.md`
+
+### 2026-03-08 - VoiceTerm Operator Console reactivated as bounded prototype
+
+Fact: VoiceTerm reactivated desktop GUI work only as a bounded optional PyQt6
+VoiceTerm Operator Console over the existing Rust runtime and
+`devctl review-channel` flow. The new scope explicitly does not replace the
+Rust PTY engine or create another control plane: the desktop app is limited to
+shared-screen visibility, launch/rollover wrappers, and repo-visible operator
+decision capture.
+
+Evidence:
+
+- `dev/active/operator_console.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `AGENTS.md`
+- `DEV_INDEX.md`
+- `dev/README.md`
+
+### 2026-03-08 - Host process hygiene automation
+
+Fact: VoiceTerm now has dedicated host-side process cleanup/audit surfaces and
+a descendant-aware process sweep so local AI/dev runs can catch and reap
+Activity Monitor-visible leftovers instead of only matching top-level test
+binaries. The maintainer workflow now makes host cleanup plus strict host
+verification explicit after PTY/runtime tests when host process access is
+available, and the PTY lifeline watchdog now exits when its PTY parent dies
+even if the owning session has not dropped yet, preventing orphaned
+`voiceterm-*` helpers during repeated theme/event-loop test runs. The same
+host audit/cleanup path now also catches orphaned repo-tooling wrapper trees
+that execute `dev/scripts/**` or `scripts/**`, repo-runtime cargo/target trees
+from non-`--bin voiceterm` Rust tests, direct shell-script wrappers, and
+repo-cwd generic helpers (`python3 -m unittest`, `node`/`npm`, `make`/`just`,
+`screen`/`tmux`, `qemu`, `cat`) that drag along stale descendants outside the
+VoiceTerm regexes. `check --profile quick|fast` now includes host-side
+cleanup/verify by default after raw cargo/test-binary follow-ups, and routed
+docs/runtime/tooling/release/post-push bundles also run
+`process-cleanup --verify --format md` so host cleanup is part of the default
+AI/dev lane rather than a best-effort reminder. Synthetic host leak repros
+then tightened the semantics one more step: freshly detached repo-related
+helpers now fail strict audit/verify immediately under a `recent_detached`
+state instead of passing as advisory noise, and `process-watch` now returns
+success when it actually ages those leaks into cleanup and finishes with a
+clean host snapshot. Follow-up tracing that same day showed one remaining
+banner-test deadlock in dirty local work plus raw AI-launched `cargo test`
+runs that skipped the post-run sweep; banner tests now reuse shared env
+override helpers instead of nesting the env mutex, `devctl guard-run` gives
+AI sessions a no-shell raw-test path with automatic follow-up hygiene, and
+attached interactive helper readers such as a live `python3 -` session are no
+longer promoted into stale repo-tooling failures unless they detach/background.
+
+Evidence:
+
+- `dev/active/host_process_hygiene.md`
+- `dev/scripts/devctl/process_sweep.py`
+- `dev/scripts/devctl/commands/guard_run.py`
+- `dev/scripts/devctl/commands/process_cleanup.py`
+- `dev/scripts/devctl/commands/process_audit.py`
+- `dev/scripts/devctl/tests/test_guard_run.py`
+- `dev/scripts/devctl/tests/test_process_sweep.py`
+- `dev/scripts/devctl/tests/test_process_cleanup.py`
+- `dev/scripts/devctl/tests/test_process_audit.py`
+- `rust/src/bin/voiceterm/banner.rs`
+- `rust/src/bin/voiceterm/test_env.rs`
+- `rust/src/pty_session/pty.rs`
+- `rust/src/pty_session/tests.rs`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-03-07 - External publication-sync governance
+
+Fact: `devctl` now tracks external publication drift through a registry-backed
+publication-sync surface that compares watched repo paths against the last
+recorded synced source commit, emits paper/site drift reports, and surfaces
+publication warnings through `hygiene`.
+
+Evidence:
+
+- `dev/config/publication_sync_registry.json`
+- `dev/scripts/devctl/publication_sync.py`
+- `dev/scripts/devctl/publication_sync_parser.py`
+- `dev/scripts/devctl/commands/publication_sync.py`
+- `dev/scripts/checks/check_publication_sync.py`
+- `dev/scripts/devctl/tests/test_publication_sync.py`
 
 ### 2026-03-07 - Theme Studio input dispatch cleanup
 
@@ -3224,13 +3374,14 @@ With AGENTS.md, the AI doesn't make assumptions. It follows a decision tree. It 
 
 #### Key commands:
 
-**`devctl check --profile <profile>`** — Quality gate runner with 7 profiles:
+**`devctl check --profile <profile>`** — Quality gate runner with 8 profiles:
 - `ci`: format + clippy + tests (matches what CI runs)
 - `prepush`: ci + perf smoke + memory guard + AI guard
 - `release`: full suite including mutation score + wake-word soak
 - `quick`: format + clippy only (fast iteration)
 - `fast`: alias of `quick` for local iteration naming clarity
 - `maintainer-lint`: strict clippy subset for hardening
+- `pedantic`: optional advisory `clippy::pedantic` sweep for lint-hardening
 - `ai-guard`: code shape + lint debt + best practices non-regression
 
 **`devctl check-router`** — Path-aware lane routing:
@@ -3593,7 +3744,7 @@ For those who want the details, here's what the system looks like under the hood
 - Publish PyPI + Publish Homebrew (automated on release)
 
 **DevCtl commands:**
-- `check` (7 profiles: ci, prepush, release, quick, fast, maintainer-lint, ai-guard)
+- `check` (8 profiles: ci, prepush, release, quick, fast, maintainer-lint, pedantic, ai-guard)
 - `check-router` (path-aware lane selection + optional routed execution)
 - `docs-check` (user-facing and tooling doc governance)
 - `hygiene` (ADR, archive, script documentation auditing)

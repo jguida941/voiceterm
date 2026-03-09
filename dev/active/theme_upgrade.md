@@ -4,10 +4,181 @@ Date: 2026-02-23
 Status: Primary active product lane (execution mirrored in `dev/active/MASTER_PLAN.md` MP-099, MP-148..MP-151, MP-161..MP-167, MP-172..MP-182)  
 Scope: Canonical single source for Theme Studio architecture, overlay visual
 research, and active redesign details in one document.
+Execution plan contract: required
 
 `dev/active/MASTER_PLAN.md` remains the canonical execution tracker.
 Implementation starts only through linked MP items and must preserve existing
 HUD/theme behavior until non-regression gates pass.
+
+## Scope
+
+This document remains the canonical Theme Studio specification and now also
+carries the active execution-plan contract for the current implementation
+tranche covering `MP-161`, `MP-162`, `MP-166`, `MP-167`, `MP-172`, `MP-173`,
+and `MP-174`.
+
+Execution stays mirrored in `dev/active/MASTER_PLAN.md`. This file defines the
+scoped do-now contract so agents do not execute from ad hoc notes or stale
+scratch plans.
+
+Current tranche goals:
+
+1. Finish consolidating live runtime visual surfaces onto shared theme/icon
+   helper paths before introducing additional schema fields.
+2. Close persisted style-pack routing gaps for startup/toast/banner behavior.
+   Runtime-only Theme Studio overrides are not sufficient evidence for
+   `MP-162` or `MP-174`.
+3. Activate the Theme Studio Components page using the existing resolver model
+   (`ResolvedComponentStyle` keyed by `(style_id, state)`), not a whole-theme
+   `ThemeColors` map per component.
+4. Resolve the `theme_studio_v2` ownership boundary for
+   `theme::component_registry` before making registry-backed Studio or CI
+   parity authoritative.
+5. Keep execution sequential by default. Parallel Theme work is allowed only
+   after updating the merged markdown-swarm lane plan in
+   `dev/active/review_channel.md` and claiming any shared hotspot files listed
+   in `MASTER_PLAN`.
+
+## Execution Checklist
+
+- [x] Merge the standalone `plan.md` draft into canonical active-doc execution
+      state and correct stale assumptions against current code.
+- [x] `MP-174` / `TS-G03`, `TS-G05`, `TS-G06`: finish live-surface helper
+      consolidation for toast severity icons, HUD mode glyphs, pulse dots,
+      and audio-meter markers so current runtime surfaces stop bypassing shared
+      theme/icon helpers (closed: all four categories route through shared
+      glyph-aware helpers — `severity_*_icon`, `mode_recording_icon`,
+      `hud_queue_icon`, `hud_latency_icon`, `pulse_dot_active/inactive`,
+      `meter_peak_marker`, `meter_threshold_marker`).
+- [x] `MP-162` / `TS-G03`, `TS-G05`: make persisted style-pack payload fields
+      drive runtime behavior for `surfaces.toast_position`,
+      `surfaces.startup_style`, `components.toast_severity_mode`, and
+      `components.banner_style`, with explicit precedence tests relative to
+      runtime Theme Studio overrides (closed: payload-driven consumer tests
+      in `banner.rs` and `toast.rs` prove all four fields change rendered
+      output, and `style_pack/tests.rs` has explicit runtime-override-wins
+      precedence tests for all four fields).
+- [ ] `MP-166` / `TS-G05`, `TS-G07`, `TS-G08`: wire Components page navigation
+      and editing around `(style_id, state) -> ResolvedComponentStyle`, decide
+      the live-preview/persistence path, and remove the `dead_code` allowance
+      only after the page is fully reachable and test-covered (in progress:
+      the bounded 2026-03-09 slice now drills down `group -> component ->
+      state` over canonical `style_id` rows, cycles local preview properties
+      through `StyleResolver`, and keeps edits scoped away from
+      `theme_studio_input.rs` / `component_registry.rs`; live
+      reachability/persistence wiring and the temporary `dead_code` allowance
+      still remain).
+- [ ] `MP-172` / `TS-G04`, `TS-G06`: resolve the `theme_studio_v2` gate
+      boundary, classify registry inventory as live vs planned where needed,
+      and move the Components page from hardcoded inventory to canonical
+      registry metadata only after that ownership decision is settled.
+- [ ] `MP-173` / `TS-G03`, `TS-G05`, `TS-G15`: extend CI parity gates only
+      after the registry/live-surface boundary is explicit, so future checks
+      fail on unmapped live components and unmapped persisted style-pack fields
+      without counting planned-only registry scaffolding as regressions.
+- [ ] `MP-167` / `TS-G06`, `TS-G09`, `TS-G10`, `TS-G11`, `TS-G12`: close the
+      tranche with the Theme Studio verification bundle, snapshot matrix,
+      compatibility evidence, docs/changelog updates, and PR evidence captured
+      with `.github/PULL_REQUEST_TEMPLATE/theme_studio.md`.
+- [ ] Before any multi-agent split of the checklist above, update the merged
+      markdown-swarm lane plan in `dev/active/review_channel.md` and claim
+      shared hotspot files (`theme/style_pack.rs` and any other listed Theme
+      hotspots) before parallel edits start.
+
+## Progress Log
+
+- 2026-03-09: `MP-174` and `MP-162` closure verified. All four helper routing
+  categories (toast severity icons, HUD mode glyphs, pulse dots, audio-meter
+  markers) now route through shared glyph-aware functions. All four payload
+  consumer tests pass in `banner.rs` and `toast.rs`, and all four runtime-
+  override-wins precedence tests pass in `style_pack/tests.rs`. Full Rust test
+  suite green (1733 passed). Checkboxes marked complete.
+- 2026-03-09: Codex re-review narrowed the active `MP-162` / `MP-174` status.
+  The ASCII status-line separator leak is genuinely closed, but the persisted
+  payload-driven consumer proof is still incomplete for
+  `surfaces.startup_style`, `surfaces.toast_position`,
+  `components.toast_severity_mode`, and `components.banner_style`, and the
+  remaining helper-routing follow-up is still toast severity icons, HUD mode
+  glyphs, and audio-meter markers before this tranche can be called closed.
+- 2026-03-07: Merged the standalone `plan.md` scratch draft into this canonical
+  Theme Studio plan so execution state lives under `dev/active/` instead of an
+  ad hoc file.
+- 2026-03-07: Re-audited the draft against current code. Corrected the active
+  execution contract to reflect that:
+  - persisted payload-routing gaps are broader than `ComponentBannerStyle`
+    alone and include toast position, startup style, and toast severity mode;
+  - the Components page must edit `ResolvedComponentStyle` keyed by
+    `(style_id, state)` instead of storing `ThemeColors` per component;
+  - `theme::component_registry` remains behind the `theme_studio_v2` feature,
+    so registry-backed Studio/CI parity requires an explicit gate-boundary
+    decision before implementation;
+  - Theme phases are sequential by default unless the multi-agent runbook and
+    hotspot claims are updated first.
+- 2026-03-07: Governance verification for the merged plan is green:
+  `devctl docs-check --strict-tooling`, `devctl hygiene --strict-warnings`,
+  `check_active_plan_sync.py`, `check_multi_agent_sync.py`,
+  `devctl orchestrate-status --format md`, and
+  `check_agents_contract.py` all passed. `devctl orchestrate-watch` also passed
+  and reported only the pre-existing stale-agent warnings for archived/planned
+  lanes.
+- 2026-03-07: `theme/mod.rs` hotspot audit confirmed a real follow-up cleanup
+  candidate after the current `MP-174` helper-path slice lands: extract the
+  glyph tables/resolver helpers (spinner frames, waveform/progress glyph
+  helpers, separator/icon resolver tables, and their focused tests) into a
+  dedicated glyph module so the active theme API surface and glyph inventory
+  stop sharing one large hotspot file. **Landed**: `theme/glyphs.rs` has been
+  extracted and is present in the current tree.
+- 2026-03-09: Closed the remaining status-line separator leak under the active
+  `MP-162` / `MP-174` slice: full HUD, single-line full HUD, compact HUD, and
+  compact shortcuts now route their separators through the shared glyph-profile
+  helpers, with focused ASCII regression coverage added for the affected
+  renderers.
+- 2026-03-09: Landed the bounded `MP-166` Components-page slice. The page now
+  drills down `group -> component -> state` over canonical `style_id` rows,
+  renders per-state preview summaries, and cycles local preview properties via
+  `StyleResolver`-owned `ResolvedComponentStyle` edits instead of ad hoc page
+  logic or per-component `ThemeColors` state. This slice intentionally stayed
+  out of `theme_studio_input.rs` and `component_registry.rs`; the next
+  `MP-166` follow-up remains live reachability/persistence wiring plus removal
+  of the temporary `dead_code` allowance once the page is fully reachable.
+
+## Audit Evidence
+
+- Code refs validated during alignment:
+  - `rust/src/bin/voiceterm/theme/style_pack.rs`
+  - `rust/src/bin/voiceterm/theme/style_pack/apply.rs`
+  - `rust/src/bin/voiceterm/theme/style_resolver.rs`
+  - `rust/src/bin/voiceterm/theme/component_registry.rs`
+  - `rust/src/bin/voiceterm/theme_studio/components_page.rs`
+  - `rust/src/bin/voiceterm/event_loop/input_dispatch/overlay/theme_studio_input.rs`
+  - `rust/src/bin/voiceterm/toast.rs`
+  - `rust/src/bin/voiceterm/banner.rs`
+- Local preflight completed before governance checks:
+  - `cd rust && cargo check --bin voiceterm`
+  - `cd rust && cargo check --features theme_studio_v2 --bin voiceterm`
+- Governance verification completed after merge:
+  - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
+  - `python3 dev/scripts/devctl.py hygiene --strict-warnings`
+  - `python3 dev/scripts/checks/check_active_plan_sync.py`
+  - `python3 dev/scripts/checks/check_multi_agent_sync.py`
+  - `python3 dev/scripts/devctl.py orchestrate-status --format md`
+  - `python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md`
+  - `python3 dev/scripts/checks/check_agents_contract.py`
+- 2026-03-09 ASCII separator follow-up evidence:
+  - `rustfmt --check --edition 2021 rust/src/bin/voiceterm/status_line/format.rs rust/src/bin/voiceterm/status_line/format/compact.rs rust/src/bin/voiceterm/status_line/format/tests.rs` -> pass
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm status_line::format::tests:: -- --nocapture` -> blocked by the pre-existing parse error in `rust/src/bin/voiceterm/event_loop/tests.rs`; the touched formatter files remained `rustfmt`-clean and the new focused ASCII assertions landed in-tree
+- 2026-03-09 bounded `MP-166` slice evidence:
+  - `rustfmt --check --edition 2021 rust/src/bin/voiceterm/theme/style_resolver.rs rust/src/bin/voiceterm/theme_studio/components_page.rs` -> pass
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo check --bin voiceterm` -> guarded command passed; the local replayed cleanup step overlapped with concurrent focused proof commands, so follow-up cleanup was rerun after the proofs settled
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm theme::style_resolver::tests:: -- --nocapture` -> command passed (`13` tests); same local replay cleanup-overlap caveat
+  - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm theme_studio::components_page::tests:: -- --nocapture` -> command passed (`4` tests); same local replay cleanup-overlap caveat
+  - `python3 dev/scripts/devctl.py process-cleanup --verify --format md` -> verify ok after replay; the remaining active recent tooling process did not fail verification
+- Required per-PR Theme Studio verification bundle for this tranche:
+  - `python3 dev/scripts/devctl.py check --profile ci`
+  - `python3 dev/scripts/devctl.py docs-check --user-facing`
+  - `python3 dev/scripts/devctl.py hygiene`
+  - `cd rust && cargo test --bin voiceterm`
+  - capture `TS-G01..TS-G15` evidence in `.github/PULL_REQUEST_TEMPLATE/theme_studio.md`
 
 ## Product Goal
 

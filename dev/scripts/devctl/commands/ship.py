@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..time_utils import utc_timestamp
 from .ship_common import VERSION_RE, render_md, render_text
 from .ship_steps import STEP_HANDLERS
@@ -84,9 +84,14 @@ def run(args) -> int:
     else:
         output = render_text(report)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_code != 0:
+        return pipe_code
     return exit_code

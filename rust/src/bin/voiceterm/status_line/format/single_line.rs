@@ -1,4 +1,5 @@
 use crate::audio_meter::format_waveform;
+use crate::theme::inline_separator;
 
 use super::*;
 
@@ -6,7 +7,7 @@ pub(super) fn format_transition_suffix(state: &StatusLineState, colors: &ThemeCo
     if state.recording_state != RecordingState::Idle || state.transition_progress <= 0.0 {
         return String::new();
     }
-    let marker = transition_marker(state.transition_progress);
+    let marker = transition_marker(state.transition_progress, colors.glyph_set);
     if marker.is_empty() {
         String::new()
     } else {
@@ -36,6 +37,7 @@ pub(super) fn format_left_section(state: &StatusLineState, colors: &ThemeColors)
     };
 
     let sensitivity = format!("{:.0}dB", state.sensitivity_db);
+    let sep = inline_separator(colors.glyph_set);
 
     let duration_part = if let Some(dur) = state.recording_duration {
         format!(" {:.1}s", dur)
@@ -51,27 +53,27 @@ pub(super) fn format_left_section(state: &StatusLineState, colors: &ThemeColors)
                 colors,
             );
             let label = with_color(&mode_label, colors.recording, colors);
-            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+            format!("{indicator} {label} {sep} {sensitivity}{duration_part}")
         }
         RecordingState::Processing => {
             let indicator =
                 with_color(processing_mode_indicator(colors), colors.processing, colors);
             let label = with_color(&mode_label, colors.processing, colors);
-            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+            format!("{indicator} {label} {sep} {sensitivity}{duration_part}")
         }
         RecordingState::Responding => {
             let indicator = with_color(colors.indicator_responding, colors.info, colors);
             let label = with_color(&mode_label, colors.info, colors);
-            format!("{indicator} {label} │ {sensitivity}{duration_part}")
+            format!("{indicator} {label} {sep} {sensitivity}{duration_part}")
         }
         RecordingState::Idle => {
             let (idle_indicator, idle_color) = idle_mode_indicator(state.voice_mode, colors);
             let indicator = with_color(idle_indicator, idle_color, colors);
             if idle_color.is_empty() {
-                format!("{indicator} {mode_label} │ {sensitivity}{duration_part}")
+                format!("{indicator} {mode_label} {sep} {sensitivity}{duration_part}")
             } else {
                 let label = with_color(&mode_label, idle_color, colors);
-                format!("{indicator} {label} │ {sensitivity}{duration_part}")
+                format!("{indicator} {label} {sep} {sensitivity}{duration_part}")
             }
         }
     }
@@ -130,7 +132,12 @@ pub(super) fn format_message(
 }
 
 pub(super) fn format_shortcuts(colors: &ThemeColors) -> String {
-    let sep = format!(" {}│{} ", colors.dim, colors.reset);
+    let sep = format!(
+        " {}{}{} ",
+        colors.dim,
+        inline_separator(colors.glyph_set),
+        colors.reset
+    );
     format_shortcuts_list(colors, SHORTCUTS, &sep)
 }
 

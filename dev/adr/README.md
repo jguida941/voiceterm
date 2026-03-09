@@ -21,6 +21,13 @@ without re-litigating old context. Keep them short, factual, and specific.
 | [0035](0035-host-provider-boundary-ownership.md) | Host/Provider Boundary Ownership and Extension Policy | Accepted |
 | [0036](0036-compat-matrix-governance-ci-fail-policy.md) | Compatibility Matrix Governance and CI Fail Policy | Accepted |
 
+### Control Plane and Review Channel
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [0027](0027-unified-controller-state-contract.md) | Unified Controller State Contract | Accepted |
+| [0028](0028-agent-relay-packet-protocol.md) | Agent Relay Packet Protocol | Accepted |
+
 ### Voice Pipeline
 
 | ADR | Title | Status |
@@ -102,7 +109,7 @@ Use explicit metadata lines so hygiene checks can validate non-contiguous IDs:
 - Keep `next: NNNN` aligned to the next available file ID.
 
 Retired ADR IDs: `0018`, `0020` (proposal ADRs removed during MP-284 inventory reconciliation)
-Reserved ADR IDs: `0027-0034` (active autonomy/control-plane ADR backlog tracked in `MASTER_PLAN` + `autonomous_control_plane`)
+Reserved ADR IDs: `0029-0034` (active autonomy/control-plane ADR backlog tracked in `MASTER_PLAN` + `autonomous_control_plane`)
 
 ## Process
 

@@ -83,7 +83,8 @@ impl OverlayConfig {
 mod tests {
     use super::*;
     use crate::config::cli::{
-        HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode, VoiceSendMode,
+        CaptureOnceFormat, HudBorderStyle, HudRightPanel, HudStyle, LatencyDisplayMode,
+        VoiceSendMode,
     };
     use clap::Parser;
     use voiceterm::config::AppConfig;
@@ -97,6 +98,8 @@ mod tests {
             auto_voice: false,
             auto_voice_idle_ms: 1200,
             transcript_idle_ms: 250,
+            capture_once: false,
+            capture_once_format: CaptureOnceFormat::Text,
             voice_send_mode: VoiceSendMode::Auto,
             wake_word: false,
             wake_word_sensitivity: 0.55,

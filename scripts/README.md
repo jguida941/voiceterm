@@ -6,6 +6,7 @@ Scripts for installing and running VoiceTerm.
 |--------|---------|-------|
 | `install.sh` | One-time installer | `./scripts/install.sh` |
 | `start.sh` | Launch VoiceTerm | `./scripts/start.sh` |
+| `operator_console.sh` | Launch the optional desktop Operator Console | `./scripts/operator_console.sh --dev-log` |
 | `setup.sh` | Download Whisper models | `./scripts/setup.sh models --base` |
 | `macros.sh` | Macro pack wizard/installer | `./scripts/macros.sh wizard` |
 | `python_fallback.py` | Fallback STT pipeline | Used automatically |
@@ -38,6 +39,18 @@ automatically. Useful when running from the source repo without installing.
 
 ```bash
 ./scripts/start.sh
+```
+
+## operator_console.sh
+
+Launches the optional PyQt6 VoiceTerm Operator Console from a source checkout.
+If `PyQt6` is missing, the launcher attempts `python3 -m pip install PyQt6`
+for the current interpreter before opening the app.
+
+```bash
+./scripts/operator_console.sh
+./scripts/operator_console.sh --dev-log
+./scripts/operator_console.sh --theme coral
 ```
 
 ## setup.sh

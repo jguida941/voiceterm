@@ -11,9 +11,19 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import (
+        build_since_ref_format_parser,
+        emit_runtime_error,
+        import_attr,
+        utc_timestamp,
+    )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import (
+        build_since_ref_format_parser,
+        emit_runtime_error,
+        import_attr,
+        utc_timestamp,
+    )
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -35,6 +45,58 @@ SHELL_SPAWN_RE = re.compile(
 SHELL_CONTROL_FLAG_RE = re.compile(r"""\.arg\s*\(\s*"(?:-c|/C)"\s*\)""")
 PERMISSIVE_MODE_RE = re.compile(r"\b0o(?:777|666)\b")
 WEAK_CRYPTO_RE = re.compile(r"\b(?:md5|sha1)\b", re.IGNORECASE)
+CHILD_ID_SIGNED_CAST_RE = re.compile(r"\bchild\.id\s*\(\s*\)\s*as\s+i(?:16|32|64)\b")
+GETPID_SIGNED_CAST_RE = re.compile(r"\blibc::getpid\s*\(\s*\)\s*as\s+i(?:16|32|64)\b")
+GETPID_BLOCK_SIGNED_CAST_RE = re.compile(
+    r"unsafe\s*\{\s*libc::getpid\s*\(\s*\)\s*\}\s*as\s+i(?:16|32|64)\b"
+)
+SYSCALL_ASSIGN_RE = re.compile(
+    r"let\s+(?:mut\s+)?(?P<var>[A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=;]+)?=\s*[^;]*?"
+    r"libc::(?:read|write|recv|send|pread|pwrite)\s*\([^;]*?;",
+    re.DOTALL,
+)
+UNSIGNED_CAST_RE_TEMPLATE = r"\b{var}\s+as\s+(?:u(?:8|16|32|64|128)|usize)\b"
+SIGN_GUARD_RE_TEMPLATE = (
+    r"(?:if|while|assert!)\s*[!(]*\s*{var}\s*(?:[<>!=]=?)\s*0\b"
+)
+
+
+def _window_after_statement(text: str, start_index: int) -> str:
+    remaining = text[start_index:]
+    blank_line_index = remaining.find("\n\n")
+    if blank_line_index >= 0:
+        remaining = remaining[:blank_line_index]
+    lines = remaining.splitlines()
+    return "\n".join(lines[:20])
+
+
+def _count_sign_unsafe_syscall_casts(text: str) -> int:
+    findings = 0
+    for match in SYSCALL_ASSIGN_RE.finditer(text):
+        variable = match.group("var")
+        window = _window_after_statement(text, match.end())
+        cast_match = re.search(
+            UNSIGNED_CAST_RE_TEMPLATE.format(var=re.escape(variable)),
+            window,
+        )
+        if cast_match is None:
+            continue
+        prefix = window[: cast_match.start()]
+        if re.search(
+            SIGN_GUARD_RE_TEMPLATE.format(var=re.escape(variable)),
+            prefix,
+        ):
+            continue
+        findings += 1
+    return findings
+
+
+def _count_pid_signed_wrap_casts(text: str) -> int:
+    return (
+        len(CHILD_ID_SIGNED_CAST_RE.findall(text))
+        + len(GETPID_SIGNED_CAST_RE.findall(text))
+        + len(GETPID_BLOCK_SIGNED_CAST_RE.findall(text))
+    )
 
 
 def _count_metrics(text: str | None) -> dict[str, int]:
@@ -47,6 +109,8 @@ def _count_metrics(text: str | None) -> dict[str, int]:
             "shell_control_flag_calls": 0,
             "permissive_mode_literals": 0,
             "weak_crypto_refs": 0,
+            "pid_signed_wrap_casts": 0,
+            "sign_unsafe_syscall_casts": 0,
         }
     text = strip_cfg_test_blocks(text)
     return {
@@ -57,6 +121,8 @@ def _count_metrics(text: str | None) -> dict[str, int]:
         "shell_control_flag_calls": len(SHELL_CONTROL_FLAG_RE.findall(text)),
         "permissive_mode_literals": len(PERMISSIVE_MODE_RE.findall(text)),
         "weak_crypto_refs": len(WEAK_CRYPTO_RE.findall(text)),
+        "pid_signed_wrap_casts": _count_pid_signed_wrap_casts(text),
+        "sign_unsafe_syscall_casts": _count_sign_unsafe_syscall_casts(text),
     }
 
 
@@ -91,7 +157,9 @@ def _render_md(report: dict) -> str:
         f"shell_spawn_calls {totals['shell_spawn_calls_growth']:+d}, "
         f"shell_control_flag_calls {totals['shell_control_flag_calls_growth']:+d}, "
         f"permissive_mode_literals {totals['permissive_mode_literals_growth']:+d}, "
-        f"weak_crypto_refs {totals['weak_crypto_refs_growth']:+d}"
+        f"weak_crypto_refs {totals['weak_crypto_refs_growth']:+d}, "
+        f"pid_signed_wrap_casts {totals['pid_signed_wrap_casts_growth']:+d}, "
+        f"sign_unsafe_syscall_casts {totals['sign_unsafe_syscall_casts_growth']:+d}"
     )
 
     if report["violations"]:
@@ -100,7 +168,9 @@ def _render_md(report: dict) -> str:
         lines.append(
             "- Guidance: reduce risky patterns in changed files (prefer typed error paths, "
             "avoid shell `-c` execution paths, avoid permissive modes like `0o777`/`0o666`, "
-            "and avoid weak hashes such as MD5/SHA1)."
+            "avoid weak hashes such as MD5/SHA1, prefer checked/typed PID conversions over "
+            "`as i32`, and guard signed syscall return values before any cast to unsigned "
+            "types like `usize`)."
         )
         for item in report["violations"]:
             growth_bits = [
@@ -113,13 +183,7 @@ def _render_md(report: dict) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
-    )
-    parser.add_argument("--format", choices=("md", "json"), default="md")
-    return parser
+    return build_since_ref_format_parser(__doc__ or "")
 
 
 def main() -> int:
@@ -152,6 +216,8 @@ def main() -> int:
         "shell_control_flag_calls_growth": 0,
         "permissive_mode_literals_growth": 0,
         "weak_crypto_refs_growth": 0,
+        "pid_signed_wrap_casts_growth": 0,
+        "sign_unsafe_syscall_casts_growth": 0,
     }
 
     for path in changed_paths:
@@ -185,6 +251,10 @@ def main() -> int:
         totals["shell_control_flag_calls_growth"] += growth["shell_control_flag_calls"]
         totals["permissive_mode_literals_growth"] += growth["permissive_mode_literals"]
         totals["weak_crypto_refs_growth"] += growth["weak_crypto_refs"]
+        totals["pid_signed_wrap_casts_growth"] += growth["pid_signed_wrap_casts"]
+        totals["sign_unsafe_syscall_casts_growth"] += growth[
+            "sign_unsafe_syscall_casts"
+        ]
 
         if _has_positive_growth(growth):
             violations.append(

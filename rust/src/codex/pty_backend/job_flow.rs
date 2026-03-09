@@ -23,11 +23,23 @@ pub(super) struct JobContext {
     pub(super) working_dir: PathBuf,
 }
 
+fn emit_event_or_log(sender: &EventSender, event: CodexEvent, context: &str) -> bool {
+    if sender.emit(event).is_err() {
+        log_debug(&format!("CodexJobRunner: failed to emit {context} event"));
+        return false;
+    }
+    true
+}
+
 fn emit_canceled_event(sender: &EventSender, job_id: JobId, disable_pty: bool) {
-    let _ = sender.emit(CodexEvent {
-        job_id,
-        kind: CodexEventKind::Canceled { disable_pty },
-    });
+    emit_event_or_log(
+        sender,
+        CodexEvent {
+            job_id,
+            kind: CodexEventKind::Canceled { disable_pty },
+        },
+        "Canceled",
+    );
 }
 
 fn emit_fatal_event(
@@ -37,14 +49,18 @@ fn emit_fatal_event(
     message: String,
     disable_pty: bool,
 ) {
-    let _ = sender.emit(CodexEvent {
-        job_id,
-        kind: CodexEventKind::FatalError {
-            phase,
-            message,
-            disable_pty,
+    emit_event_or_log(
+        sender,
+        CodexEvent {
+            job_id,
+            kind: CodexEventKind::FatalError {
+                phase,
+                message,
+                disable_pty,
+            },
         },
-    });
+        "FatalError",
+    );
 }
 
 fn emit_recoverable_event(
@@ -54,14 +70,18 @@ fn emit_recoverable_event(
     message: String,
     retry_available: bool,
 ) {
-    let _ = sender.emit(CodexEvent {
-        job_id,
-        kind: CodexEventKind::RecoverableError {
-            phase,
-            message,
-            retry_available,
+    emit_event_or_log(
+        sender,
+        CodexEvent {
+            job_id,
+            kind: CodexEventKind::RecoverableError {
+                phase,
+                message,
+                retry_available,
+            },
         },
-    });
+        "RecoverableError",
+    );
 }
 
 fn emit_started_event(sender: &EventSender, job_id: JobId, mode: RequestMode) -> bool {
@@ -125,14 +145,18 @@ fn emit_finished_event(
     log_codex_job_timing(job_id, &stats, line_count, disable_pty, log_timings_enabled);
 
     let status = format!("Codex returned {line_count} lines.");
-    let _ = sender.emit(CodexEvent {
-        job_id,
-        kind: CodexEventKind::Finished {
-            lines,
-            status,
-            stats,
+    emit_event_or_log(
+        sender,
+        CodexEvent {
+            job_id,
+            kind: CodexEventKind::Finished {
+                lines,
+                status,
+                stats,
+            },
         },
-    });
+        "Finished",
+    );
 }
 
 enum PersistentSessionOutput {
@@ -232,7 +256,7 @@ pub(super) fn run_codex_job(
     #[cfg(test)]
     if let Some(events) = super::test_support::try_job_hook(&prompt, &cancel) {
         for kind in events {
-            let _ = sender.emit(CodexEvent { job_id, kind });
+            emit_event_or_log(sender, CodexEvent { job_id, kind }, "test-hook");
         }
         return outcome;
     }

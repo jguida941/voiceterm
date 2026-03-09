@@ -28,6 +28,7 @@ Related docs:
 - [Option D: macOS App (folder picker)](#option-d-macos-app-folder-picker)
 - [Option E: Manual run (no install)](#option-e-manual-run-no-install)
 - [Option F: Windows (WSL2 only)](#option-f-windows-wsl2-only)
+- [Optional: Operator Console (source checkout)](#optional-operator-console-source-checkout)
 - [After install: run in your project](#after-install-run-in-your-project)
 - [Optional: Macro Wizard](#optional-macro-wizard)
 - [See Also](#see-also)
@@ -212,6 +213,12 @@ To launch macro setup from install:
 ./scripts/install.sh --with-macros-wizard --macros-pack full-dev
 ```
 
+Optional desktop shared-screen wrapper from the same checkout:
+
+```bash
+./scripts/operator_console.sh --dev-log
+```
+
 ### PATH notes
 
 If `voiceterm` is not found, the installer used the first writable directory in
@@ -276,6 +283,22 @@ Use a Linux environment in WSL2:
    ```
 
 </details>
+
+## Optional: Operator Console (source checkout)
+
+This optional PyQt6 desktop wrapper is available from a source checkout only.
+It does not replace the Rust runtime or `devctl`; it is a thin shared-screen
+view over the current review-channel workflow.
+
+From the repo root:
+
+```bash
+./scripts/operator_console.sh
+./scripts/operator_console.sh --dev-log
+```
+
+If `PyQt6` is missing, the script attempts to install it for the current
+Python interpreter before launching the app.
 
 ## After install: run in your project
 

@@ -1,0 +1,383 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		169EF319C31806E1633139F7 /* VoiceTermMobileCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BF61FE99F02FC0B8F90A73 /* VoiceTermMobileCore */; };
+		192E296194CE4FF5A6B39BDE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6167CA7E095C091E2104254A /* LaunchScreen.storyboard */; };
+		B8F572CA3863A27AAE27C6F6 /* MobileRelayAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDB04BB5C4C6C513506B157 /* MobileRelayAppModel.swift */; };
+		F461C6E869D6A3821603C846 /* MobileRelayAppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065B1EB7A7AA19A03F2835F3 /* MobileRelayAppRootView.swift */; };
+		FA55514738B88ADE6922F0AF /* VoiceTermMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8691B42E35DF05F53B548981 /* VoiceTermMobileApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		065B1EB7A7AA19A03F2835F3 /* MobileRelayAppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileRelayAppRootView.swift; sourceTree = "<group>"; };
+		35213BADED2A38085D4BC4B9 /* VoiceTermMobile */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VoiceTermMobile; path = ../VoiceTermMobile; sourceTree = SOURCE_ROOT; };
+		5FB411B97D725E711FE9D0F1 /* VoiceTermMobileApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoiceTermMobileApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6167CA7E095C091E2104254A /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8691B42E35DF05F53B548981 /* VoiceTermMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTermMobileApp.swift; sourceTree = "<group>"; };
+		DFDB04BB5C4C6C513506B157 /* MobileRelayAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileRelayAppModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7B73139929E3FEC6C6452223 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				169EF319C31806E1633139F7 /* VoiceTermMobileCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3181492705CCC3CA85B97E36 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				35213BADED2A38085D4BC4B9 /* VoiceTermMobile */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		32558D8DB91F49E187E4103D /* VoiceTermMobileApp */ = {
+			isa = PBXGroup;
+			children = (
+				6167CA7E095C091E2104254A /* LaunchScreen.storyboard */,
+				DFDB04BB5C4C6C513506B157 /* MobileRelayAppModel.swift */,
+				065B1EB7A7AA19A03F2835F3 /* MobileRelayAppRootView.swift */,
+				8691B42E35DF05F53B548981 /* VoiceTermMobileApp.swift */,
+			);
+			path = VoiceTermMobileApp;
+			sourceTree = "<group>";
+		};
+		8B35F1ADBB209776AC41AAF3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5FB411B97D725E711FE9D0F1 /* VoiceTermMobileApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9473569B3E8E08173EEFF19B = {
+			isa = PBXGroup;
+			children = (
+				3181492705CCC3CA85B97E36 /* Packages */,
+				32558D8DB91F49E187E4103D /* VoiceTermMobileApp */,
+				8B35F1ADBB209776AC41AAF3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		84B5BACE4028AC3002E659E0 /* VoiceTermMobileApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ECB8364AEEDBD29DF1D6356A /* Build configuration list for PBXNativeTarget "VoiceTermMobileApp" */;
+			buildPhases = (
+				2C12F970FDA448B6BC76EA76 /* Sources */,
+				DFC07006F95A2A4C9CFC9697 /* Resources */,
+				7B73139929E3FEC6C6452223 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VoiceTermMobileApp;
+			packageProductDependencies = (
+				06BF61FE99F02FC0B8F90A73 /* VoiceTermMobileCore */,
+			);
+			productName = VoiceTermMobileApp;
+			productReference = 5FB411B97D725E711FE9D0F1 /* VoiceTermMobileApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C7A4FA16A246EAA6479165DB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					84B5BACE4028AC3002E659E0 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 69A6EBC7B43314C4F9882F68 /* Build configuration list for PBXProject "VoiceTermMobileApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9473569B3E8E08173EEFF19B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CB234DE42923E5901B701B0D /* XCLocalSwiftPackageReference "../VoiceTermMobile" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				84B5BACE4028AC3002E659E0 /* VoiceTermMobileApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DFC07006F95A2A4C9CFC9697 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				192E296194CE4FF5A6B39BDE /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2C12F970FDA448B6BC76EA76 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B8F572CA3863A27AAE27C6F6 /* MobileRelayAppModel.swift in Sources */,
+				F461C6E869D6A3821603C846 /* MobileRelayAppRootView.swift in Sources */,
+				FA55514738B88ADE6922F0AF /* VoiceTermMobileApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2320288A1D38532B8725326C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_GENERATION_MODE = GeneratedFile;
+				INFOPLIST_KEY_CFBundleDisplayName = "VoiceTerm Mobile";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = (
+					UIInterfaceOrientationPortrait,
+					UIInterfaceOrientationPortraitUpsideDown,
+					UIInterfaceOrientationLandscapeLeft,
+					UIInterfaceOrientationLandscapeRight,
+				);
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = (
+					UIInterfaceOrientationPortrait,
+					UIInterfaceOrientationLandscapeLeft,
+					UIInterfaceOrientationLandscapeRight,
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voiceterm.VoiceTermMobileApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5E7B3205EE3764B0E1E4BE79 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D5BADAA06427180B0AAE1F1C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E6210F4978C7D2A5350AF897 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_GENERATION_MODE = GeneratedFile;
+				INFOPLIST_KEY_CFBundleDisplayName = "VoiceTerm Mobile";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = (
+					UIInterfaceOrientationPortrait,
+					UIInterfaceOrientationPortraitUpsideDown,
+					UIInterfaceOrientationLandscapeLeft,
+					UIInterfaceOrientationLandscapeRight,
+				);
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = (
+					UIInterfaceOrientationPortrait,
+					UIInterfaceOrientationLandscapeLeft,
+					UIInterfaceOrientationLandscapeRight,
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voiceterm.VoiceTermMobileApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		69A6EBC7B43314C4F9882F68 /* Build configuration list for PBXProject "VoiceTermMobileApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5BADAA06427180B0AAE1F1C /* Debug */,
+				5E7B3205EE3764B0E1E4BE79 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		ECB8364AEEDBD29DF1D6356A /* Build configuration list for PBXNativeTarget "VoiceTermMobileApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2320288A1D38532B8725326C /* Debug */,
+				E6210F4978C7D2A5350AF897 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		CB234DE42923E5901B701B0D /* XCLocalSwiftPackageReference "../VoiceTermMobile" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../VoiceTermMobile;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		06BF61FE99F02FC0B8F90A73 /* VoiceTermMobileCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VoiceTermMobileCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = C7A4FA16A246EAA6479165DB /* Project object */;
+}

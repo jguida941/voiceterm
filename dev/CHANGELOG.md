@@ -12,6 +12,71 @@ Note: Some historical entries reference internal documents that are not publishe
 - Refactored Theme Studio input handling into page-scoped helpers so keyboard
   handling, picker edits, and style override adjustments follow one consistent
   dispatch path with no behavior change.
+- Fix Kitty CSI-u passthrough: unmapped Kitty-encoded key events now pass
+  through to the PTY instead of being silently dropped, restoring keybinding
+  parity with non-Kitty terminals.
+- Clarify CSI-u mapped/unmapped test contract with explicit coverage for both
+  recognized and unrecognized Kitty CSI-u sequences.
+
+### Architecture
+
+- Decompose `main()` into phased lifecycle functions (`load_config_phase`,
+  `prepare_runtime_phase`, `build_state_phase`, `run_runtime_phase`,
+  `shutdown_runtime_phase`) with typed intermediate structs
+  (`LoadedConfigPhase`, `RuntimeBuildInputs`, `RuntimeExecutionPhase`) so each
+  stage is independently testable and easier to reason about.
+- Extract `RuntimeVariant` enum into `runtime_compat` to replace scattered
+  terminal-host × backend-family match arms with a single dispatch type.
+- Extract `WriterAdapterState` into `writer/state/adapter_state.rs`, replacing
+  flat fields with per-variant state structs (`JetBrainsClaudeWriterState`,
+  `CursorClaudeWriterState`, `GenericWriterState`) so each host/provider
+  combination carries only the state it needs.
+- Move inline `main.rs` test module to standalone `main_tests.rs` for clearer
+  separation between production and test code.
+
+### Tooling
+
+- Modularize `mutants.py` (730-line monolith) into five focused modules:
+  `mutants_config.py` (module registry, shard parsing), `mutants_git.py`
+  (git-diff-based file targeting), `mutants_runner.py` (cargo-mutants
+  invocation), `mutants_results.py` (outcome parsing and rendering),
+  `mutants_plot.py` (hotspot visualization). The CLI entrypoint is now a thin
+  ~160-line dispatcher.
+- Add `--changed` git-aware targeting mode (default when no `--module`/`--file`
+  /`--all`) that uses `git merge-base` + `git diff` to auto-detect changed
+  `.rs` source files, enabling targeted mutation testing on only what changed.
+- Add `--file` flag for explicit workspace-relative file targeting and
+  `--baseline-skip` (on by default) to skip the unreliable sandbox baseline.
+- Eliminate duplicated logic in mutation tooling: reuse `REPO_ROOT`/`SRC_DIR`
+  from `devctl.config`, `find_latest_outcomes_file` from `devctl.common`,
+  timestamp helpers from `checks.check_mutation_score`, and summary constants
+  from `checks.mutation_outcome_parse`.
+- Extract shared Rust guard-script boilerplate (`SRC_DIR` resolution,
+  `count_in_directory`, `format_guard_result`) into `rust_guard_common.py`,
+  reducing duplication across 10+ guard checks.
+- Add `check_bootstrap.py` guard verifying `CLAUDE.md` bootstrap instructions
+  stay current.
+- Consolidate `time_utils.py` with canonical `utc_timestamp()` helper.
+
+### Operator Console
+
+- Upgrade Operator Console from text-dump panels to structured key-value views
+  with `StatusIndicator` dots (green/orange/red/gray) and `KeyValuePanel`
+  widgets that show structured data at a glance with a "View Raw" toggle for
+  full section text.
+- Add KPI header strip with `AgentSummaryCard` widgets for Codex (Reviewer),
+  Claude (Implementer), and Operator (Human) showing live status, last
+  activity, and a pending-approval count badge.
+- Add PyQt-free status-hint derivation across the Operator Console state layer
+  (`AgentLaneData` plus lane builders) so each agent lane is classified as
+  active/warning/stale/idle from parsed section keywords and timestamps.
+
+### Documentation
+
+- Align active plan docs (`MASTER_PLAN.md`, `INDEX.md`) with current execution
+  state, reconcile plan boundaries, and scope devctl reporting upgrade.
+- Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
+  mutation testing module structure and CLI flags.
 
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05

@@ -118,3 +118,9 @@ class CheckRustRuntimePanicPolicyTests(TestCase):
         metrics = self.script._count_metrics(text)
         self.assertEqual(metrics["unallowlisted_panic_calls"], 2)
         self.assertEqual(metrics["unallowlisted_panic_line_numbers"], [2, 6])
+
+    def test_build_parser_accepts_absolute_mode(self) -> None:
+        parser = self.script._build_parser()
+        args = parser.parse_args(["--absolute", "--format", "json"])
+        self.assertTrue(args.absolute)
+        self.assertEqual(args.format, "json")

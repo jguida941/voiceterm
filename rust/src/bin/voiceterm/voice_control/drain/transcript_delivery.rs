@@ -113,7 +113,11 @@ pub(super) fn handle_transcript_message<S: TranscriptSession>(
     super::auto_rearm::maybe_rearm_auto_after_transcript(transcript_mode, ctx);
 
     if ctx.sound_on_complete {
-        let _ = ctx.writer_tx.send(WriterMessage::Bell { count: 1 });
+        crate::writer::send_message_blocking(
+            ctx.writer_tx,
+            WriterMessage::Bell { count: 1 },
+            "transcript delivery: completion bell",
+        );
     }
 }
 

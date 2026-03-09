@@ -25,7 +25,7 @@ from ..autonomy_run_plan import update_plan_doc as _update_plan_doc
 from ..autonomy_run_plan import validate_plan_scope as _validate_plan_scope
 from ..autonomy_run_render import render_markdown as _render_markdown
 from ..autonomy_swarm_helpers import resolve_path, slug
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_int
 
 try:
@@ -342,16 +342,17 @@ def run(args) -> int:
     summary_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
     summary_md.write_text(_render_markdown(report), encoding="utf-8")
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else _render_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = json_payload if args.format == "json" else _render_markdown(report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 0 if overall_ok else 1

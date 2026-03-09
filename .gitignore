@@ -42,6 +42,7 @@ whisper_models/*.onnx
 !.github/badges/*.json
 !dev/config/control_plane_policy.json
 !dev/config/mcp_tools_allowlist.json
+!dev/config/publication_sync_registry.json
 
 # IDE
 .idea/
@@ -69,6 +70,7 @@ dev/reports/**
 # Test outputs
 test_output/
 *.test
+.hypothesis/
 
 # macOS
 .DS_Store
@@ -76,6 +78,9 @@ test_output/
 .LSOverride
 docs/Screenshot 2026-01-28 at 8.07.36 PM.png
 docs/Screenshot 2026-01-28 at 8.15.12 PM.png
+
+# Local iOS package build outputs
+app/ios/VoiceTermMobile/.build/
 
 # Credentials (important!)
 credentials.json
@@ -109,6 +114,13 @@ dev/active/DEV_MODE_PLAN.md
 
 # Local-only testing notes
 Testing_Guide.md
+
+# Local paper workspace copies for terminal-as-interface site
+/dev/paper.md
+/dev/paper_technical.md
+/dev/paper_appendix.md
+/dev/paper_assets/
+/dev/archive/2026-03-07-terminal-as-interface-paper.md
 
 # Local runtime memory artifacts
 .voiceterm/memory/

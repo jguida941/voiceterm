@@ -40,6 +40,8 @@ def _is_tooling_path(path: str) -> bool:
         return True
     if any(path.startswith(prefix) for prefix in TOOLING_PREFIXES):
         return True
+    if path.startswith("dev/active/") and path.endswith(".md"):
+        return True
     if path.startswith("dev/config/") and path.endswith(".md"):
         return True
     return False

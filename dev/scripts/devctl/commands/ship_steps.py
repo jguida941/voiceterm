@@ -6,6 +6,7 @@ small orchestrator.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from typing import Dict
 
@@ -17,6 +18,8 @@ from .release_prep import prepare_release_metadata
 from .ship_common import internal_env, make_step
 from .ship_release_steps import run_github_step, run_notes_step, run_tag_step
 from .ship_verify_pypi_step import run_verify_pypi_step
+
+VERIFY_MAX_WORKERS = 4
 
 
 def build_verify_checks(*, verify_docs: bool) -> list[tuple[str, list[str]]]:
@@ -61,6 +64,63 @@ def build_verify_checks(*, verify_docs: bool) -> list[tuple[str, list[str]]]:
     return checks
 
 
+def _verify_exception_result(name: str, cmd: list[str], exc: Exception) -> Dict:
+    """Return a structured failure result for unexpected worker exceptions."""
+    return {
+        "name": name,
+        "cmd": cmd,
+        "cwd": str(REPO_ROOT),
+        "returncode": 1,
+        "duration_s": 0.0,
+        "skipped": False,
+        "error": f"verify substep crashed: {exc}",
+    }
+
+
+def run_verify_checks(
+    checks: list[tuple[str, list[str]]],
+    *,
+    dry_run: bool,
+    max_workers: int = VERIFY_MAX_WORKERS,
+) -> list[Dict]:
+    """Run independent verify subchecks in parallel with stable result ordering."""
+    if not checks:
+        return []
+    if len(checks) <= 1 or max_workers <= 1:
+        return [
+            run_cmd(
+                name,
+                cmd,
+                cwd=REPO_ROOT,
+                dry_run=dry_run,
+                live_output=False,
+            )
+            for name, cmd in checks
+        ]
+
+    worker_count = min(max_workers, len(checks))
+    ordered_results: list[Dict | None] = [None] * len(checks)
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        futures = {
+            pool.submit(
+                run_cmd,
+                name,
+                cmd,
+                cwd=REPO_ROOT,
+                dry_run=dry_run,
+                live_output=False,
+            ): (index, name, cmd)
+            for index, (name, cmd) in enumerate(checks)
+        }
+        for future in as_completed(futures):
+            index, name, cmd = futures[future]
+            try:
+                ordered_results[index] = future.result()
+            except Exception as exc:  # pragma: no cover - broad-except: allow reason=parallel verification worker failures must be folded into ordered step results
+                ordered_results[index] = _verify_exception_result(name, cmd, exc)
+    return [result for result in ordered_results if result is not None]
+
+
 def run_prepare_release_step(args, context: Dict) -> Dict:
     """Auto-update release metadata files before verify/tag/publish steps."""
     try:
@@ -99,14 +159,25 @@ def run_verify_step(args, context: Dict) -> Dict:
 
     checks = build_verify_checks(verify_docs=bool(args.verify_docs))
 
-    for name, cmd in checks:
-        result = run_cmd(name, cmd, cwd=REPO_ROOT, dry_run=args.dry_run)
+    results = run_verify_checks(checks, dry_run=args.dry_run)
+    for result in results:
         if result["returncode"] != 0:
-            details = {"failed_substep": name}
+            details = {
+                "failed_substep": result["name"],
+                "parallelized": len(results) > 1,
+                "substep_count": len(results),
+            }
             if "error" in result:
                 details["reason"] = result["error"]
             return make_step("verify", False, result["returncode"], details=details)
-    return make_step("verify", True)
+    return make_step(
+        "verify",
+        True,
+        details={
+            "parallelized": len(results) > 1,
+            "substep_count": len(results),
+        },
+    )
 
 
 def run_pypi_step(args, context: Dict) -> Dict:

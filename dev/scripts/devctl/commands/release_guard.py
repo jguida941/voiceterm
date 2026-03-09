@@ -13,7 +13,13 @@ from ..script_catalog import check_script_cmd
 def check_release_version_parity(expected_version: str) -> Tuple[bool, Dict]:
     """Validate release metadata parity and match it against an expected version."""
     cmd = check_script_cmd("release_version_parity", "--format", "json")
-    result = subprocess.run(cmd, cwd=REPO_ROOT, text=True, capture_output=True)
+    result = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
     raw = (result.stdout or "").strip() or (result.stderr or "").strip()
     try:

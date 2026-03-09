@@ -133,10 +133,14 @@ pub(super) fn apply_prompt_suppression(
     state.ui.terminal_rows = crate::terminal::resolved_rows(state.ui.terminal_rows);
     state.ui.terminal_cols = crate::terminal::resolved_cols(state.ui.terminal_cols);
     if state.ui.terminal_rows != previous_rows || state.ui.terminal_cols != previous_cols {
-        let _ = deps.writer_tx.send(WriterMessage::Resize {
-            rows: state.ui.terminal_rows,
-            cols: state.ui.terminal_cols,
-        });
+        crate::writer::send_message_blocking(
+            &deps.writer_tx,
+            WriterMessage::Resize {
+                rows: state.ui.terminal_rows,
+                cols: state.ui.terminal_cols,
+            },
+            "prompt occlusion: geometry refresh",
+        );
     }
 
     state.status_state.prompt_suppressed = suppressed;
@@ -153,10 +157,12 @@ pub(super) fn apply_prompt_suppression(
         state.status_state.prompt_suppressed,
     );
     // Clear before redraw so anchor transitions do not leave stale frame lines.
-    let _ = deps.writer_tx.send(WriterMessage::ClearStatus);
-    let _ = deps
-        .writer_tx
-        .send(WriterMessage::EnhancedStatus(state.status_state.clone()));
+    crate::writer::send_message_blocking(
+        &deps.writer_tx,
+        WriterMessage::ClearStatus,
+        "prompt occlusion: clear status before redraw",
+    );
+    crate::writer::send_enhanced_status(&deps.writer_tx, &state.status_state);
     if claude_hud_debug_enabled() {
         log_debug(&format!(
             "[claude-hud-debug] suppression dispatch: ClearStatus + EnhancedStatus (suppressed={}, hud_style={:?}, rows={}, cols={})",

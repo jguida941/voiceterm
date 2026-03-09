@@ -1,9 +1,7 @@
-"""Shared helper functions used across devctl commands."""
+"""Shared command-runner helpers plus compatibility re-exports for devctl."""
 
 import os
 import queue
-import shlex
-import shutil
 import signal
 import subprocess
 import threading
@@ -12,18 +10,31 @@ from collections import deque
 from pathlib import Path
 from typing import Deque, List, Optional, Tuple
 
+from . import common_io as _common_io
+from .common_io import (
+    PIPE_OUTPUT_TIMEOUT_SECONDS,
+    add_standard_output_arguments,
+    build_env,
+    cmd_str,
+    confirm_or_abort,
+    display_path,
+    emit_output,
+    normalize_string_field,
+    pipe_output,
+    read_json_object,
+    resolve_repo_path,
+    should_emit_output,
+    write_output,
+)
 from .config import REPO_ROOT, SRC_DIR
 
 FAILURE_OUTPUT_MAX_LINES = 60
 FAILURE_OUTPUT_MAX_CHARS = 8000
 INTERRUPT_KILL_GRACE_SECONDS = 3.0
-PIPE_OUTPUT_TIMEOUT_SECONDS = 120.0
 LIVE_OUTPUT_TIMEOUT_SECONDS = 1800.0
 
-
-def cmd_str(cmd: List[str]) -> str:
-    """Render a command list as a printable string."""
-    return shlex.join(cmd)
+# Keep the shared module object visible so existing patch paths still work.
+shutil = _common_io.shutil
 
 
 def _trim_failure_output(output_tail: str) -> str:
@@ -155,6 +166,46 @@ def _run_with_live_output(
         process.stdout.close()
 
 
+def _run_without_live_output(
+    cmd: List[str],
+    cwd: Optional[Path],
+    env: Optional[dict],
+) -> Tuple[int, str]:
+    """Run a command quietly while retaining combined stdout/stderr text."""
+    effective_env = dict(os.environ if env is None else env)
+    effective_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    process = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        env=effective_env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    timeout_seconds = _resolve_live_output_timeout_seconds()
+    timeout = timeout_seconds if timeout_seconds > 0 else None
+    try:
+        output_text, _ = process.communicate(timeout=timeout)
+        return process.returncode or 0, output_text or ""
+    except subprocess.TimeoutExpired:
+        _terminate_subprocess_tree(process)
+        try:
+            output_text, _ = process.communicate(timeout=1)
+        except (subprocess.TimeoutExpired, ValueError):
+            output_text = ""
+        timeout_message = (
+            f"command timed out after {timeout_seconds:.0f}s: {cmd_str(cmd)}"
+        )
+        trimmed = (output_text or "").strip()
+        if trimmed:
+            return 124, "\n".join([trimmed, timeout_message])
+        return 124, timeout_message
+    except KeyboardInterrupt:
+        _terminate_subprocess_tree(process)
+        raise
+
+
 def _terminate_subprocess_tree(
     process: subprocess.Popen,
     *,
@@ -207,6 +258,7 @@ def run_cmd(
     cwd: Optional[Path] = None,
     env: Optional[dict] = None,
     dry_run: bool = False,
+    live_output: bool = True,
 ) -> dict:
     """Run one command and return a result dict instead of raising exceptions."""
     start = time.time()
@@ -222,7 +274,8 @@ def run_cmd(
         }
 
     try:
-        returncode, output_tail = _run_with_live_output(cmd, cwd=cwd, env=env)
+        runner = _run_with_live_output if live_output else _run_without_live_output
+        returncode, output_tail = runner(cmd, cwd=cwd, env=env)
     except KeyboardInterrupt:
         duration = time.time() - start
         return {
@@ -262,89 +315,6 @@ def run_cmd(
     return result
 
 
-def build_env(args) -> dict:
-    """Build env vars from common CLI flags (offline/cargo cache options)."""
-    env = os.environ.copy()
-    if getattr(args, "offline", False):
-        env["CARGO_NET_OFFLINE"] = "true"
-    if getattr(args, "cargo_home", None):
-        env["CARGO_HOME"] = os.path.expanduser(args.cargo_home)
-    if getattr(args, "cargo_target_dir", None):
-        env["CARGO_TARGET_DIR"] = os.path.expanduser(args.cargo_target_dir)
-    return env
-
-
-def write_output(content: str, output_path: Optional[str]) -> None:
-    """Write report output to a file, or print it to stdout."""
-    if output_path:
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-        print(f"Report saved to: {path}")
-    else:
-        print(content)
-
-
-def pipe_output(
-    content: str, pipe_command: Optional[str], pipe_args: Optional[List[str]]
-) -> int:
-    """Send report output to another command through stdin."""
-    if not pipe_command:
-        return 0
-    cmd = [pipe_command] + (pipe_args or [])
-    if not shutil.which(cmd[0]):
-        print(f"Pipe command not found: {cmd[0]}")
-        return 2
-    try:
-        result = subprocess.run(
-            cmd,
-            input=content,
-            text=True,
-            timeout=PIPE_OUTPUT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        print(
-            f"Pipe command timed out after {PIPE_OUTPUT_TIMEOUT_SECONDS:.0f}s: {cmd_str(cmd)}"
-        )
-        return 124
-    except OSError as exc:
-        print(f"Pipe command failed to start ({cmd_str(cmd)}): {exc}")
-        return 127
-    return result.returncode
-
-
-def should_emit_output(args) -> bool:
-    """Return True when the caller asked for formatted/output report text."""
-    return (
-        args.format != "text"
-        or bool(args.output)
-        or bool(getattr(args, "pipe_command", None))
-    )
-
-
-def confirm_or_abort(message: str, assume_yes: bool) -> None:
-    """Ask for yes/no confirmation unless `--yes` was provided."""
-    if assume_yes:
-        return
-    try:
-        reply = input(f"{message} [y/N] ").strip().lower()
-    except EOFError:
-        print(f"{message} [y/N] <non-interactive input unavailable>")
-        print("Aborted. Re-run with --yes for non-interactive usage.")
-        raise SystemExit(1)
-    if reply not in ("y", "yes"):
-        print("Aborted.")
-        raise SystemExit(1)
-
-
 def find_latest_outcomes_file() -> Optional[Path]:
     """Find the newest mutation `outcomes.json` file under `rust/mutants.out`."""
-    output_dir = SRC_DIR / "mutants.out"
-    primary = output_dir / "outcomes.json"
-    if primary.exists():
-        return primary
-    candidates = list(output_dir.rglob("outcomes.json"))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    return _common_io.find_latest_outcomes_file(src_dir=SRC_DIR)

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "publications": [
+    {
+      "id": "terminal-as-interface",
+      "title": "The Terminal as Interface",
+      "type": "github-pages",
+      "public_url": "https://jguida941.github.io/terminal-as-interface/",
+      "external_repo": "https://github.com/jguida941/terminal-as-interface.git",
+      "external_branch": "main",
+      "source_ref": "0dc01977e8f4bfc775abb35289d36912610d758e",
+      "external_ref": "87652e2",
+      "last_synced_at": "2026-03-07T00:00:00Z",
+      "notes": "Review this publication whenever VoiceTerm workflow policy, guard-script evidence, voice pipeline behavior, or repo history claims change.",
+      "watched_paths": [
+        "AGENTS.md",
+        "dev/CHANGELOG.md",
+        "dev/guides/DEVELOPMENT.md",
+        "dev/history/ENGINEERING_EVOLUTION.md",
+        "dev/audits/AUTOMATION_DEBT_REGISTER.md",
+        "guides/USAGE.md",
+        "dev/scripts/checks/",
+        "rust/src/audio/",
+        "rust/src/bin/voiceterm/voice_control/",
+        "rust/src/stt.rs",
+        "rust/src/bin/latency_measurement.rs"
+      ]
+    }
+  ]
+}

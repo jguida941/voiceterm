@@ -38,6 +38,7 @@ voiceterm --login --codex               # Run Codex login before starting
 voiceterm --login --claude              # Run Claude login before starting
 voiceterm --auto-voice                  # Hands-free mode
 voiceterm --auto-voice --wake-word --voice-send-mode insert  # Wake + voice submit
+voiceterm --capture-once --format text # One-shot standalone transcript capture
 voiceterm --image-mode                  # Persistent image mode for HUD [rec] (Ctrl+R stays voice)
 voiceterm --dev                         # Enable guarded deferred dev features (`DEV` badge)
 voiceterm --dev --dev-log              # Also persist dev events to JSONL files
@@ -57,6 +58,8 @@ voiceterm --session-memory              # Write user/backend chat memory to mark
 | `--auto-voice` | Start in auto-voice mode (hands-free) | off |
 | `--auto-voice-idle-ms <MS>` | Idle time before auto-voice triggers when prompt not detected | 1200 |
 | `--transcript-idle-ms <MS>` | Idle time before queued transcripts are injected into the terminal | 250 |
+| `--capture-once` | Record once, print the transcript, and exit without launching the overlay | off |
+| `--format <text>` | Output format for `--capture-once` | text |
 | `--voice-send-mode <auto\|insert>` | `auto` types text and presses Enter; `insert` types text and waits for Enter (or voice `send`) | auto |
 | `--wake-word` | Enable local wake-word listening (off by default) | off |
 | `--wake-word-sensitivity <0.0-1.0>` | Wake detector sensitivity | 0.55 |

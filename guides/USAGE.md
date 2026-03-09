@@ -54,6 +54,16 @@ voiceterm --auto-voice --wake-word --voice-send-mode insert
 Say your wake phrase, then speak your prompt. In `insert` mode, say `send`,
 `send message`, or `submit` to deliver without touching the keyboard.
 
+Standalone slash-command capture:
+
+```bash
+voiceterm --capture-once --format text
+```
+
+This records once, prints the transcript to stdout, and exits without starting
+the PTY overlay. Phase-A slash templates live under `dev/templates/slash/`
+for Codex and Claude installs.
+
 ## Backend Support
 
 | Backend | Run command | Status |

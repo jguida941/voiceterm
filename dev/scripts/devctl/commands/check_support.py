@@ -10,6 +10,8 @@ from ..script_catalog import check_script_cmd
 
 AI_GUARD_CHECKS = (
     ("code-shape-guard", "code_shape", ()),
+    ("python-broad-except-guard", "python_broad_except", ()),
+    ("python-subprocess-policy-guard", "python_subprocess_policy", ()),
     ("duplicate-types-guard", "duplicate_types", ()),
     ("structural-complexity-guard", "structural_complexity", ()),
     ("rust-test-shape-guard", "rust_test_shape", ()),
@@ -30,12 +32,15 @@ AI_GUARD_CHECKS = (
     ("rust-runtime-panic-policy-guard", "rust_runtime_panic_policy", ()),
     ("rust-audit-patterns-guard", "rust_audit_patterns", ()),
     ("rust-security-footguns-guard", "rust_security_footguns", ()),
+    ("function-duplication-guard", "function_duplication", ()),
 )
 
 AI_GUARD_STEP_NAMES = {name for name, _script_id, _extra_args in AI_GUARD_CHECKS}
 AI_GUARD_COMMIT_RANGE_SCRIPT_IDS = frozenset(
     {
         "code_shape",
+        "python_broad_except",
+        "python_subprocess_policy",
         "duplicate_types",
         "structural_complexity",
         "rust_test_shape",
@@ -44,10 +49,13 @@ AI_GUARD_COMMIT_RANGE_SCRIPT_IDS = frozenset(
         "rust_runtime_panic_policy",
         "rust_audit_patterns",
         "rust_security_footguns",
+        "function_duplication",
     }
 )
 
 CLIPPY_HIGH_SIGNAL_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-lints.json"
+CLIPPY_PEDANTIC_SUMMARY_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-summary.json"
+CLIPPY_PEDANTIC_LINTS_PATH = REPO_ROOT / "dev/reports/check/clippy-pedantic-lints.json"
 
 
 def build_ai_guard_cmd(
@@ -103,6 +111,32 @@ def build_clippy_high_signal_guard_cmd() -> list[str]:
         "--format",
         "md",
     )
+
+
+def build_clippy_pedantic_collect_cmd(
+    *,
+    summary_path: str | Path | None = None,
+    lints_path: str | Path | None = None,
+) -> list[str]:
+    """Build the pedantic clippy collection command."""
+    resolved_summary_path = str(summary_path or CLIPPY_PEDANTIC_SUMMARY_PATH)
+    resolved_lints_path = str(lints_path or CLIPPY_PEDANTIC_LINTS_PATH)
+    return [
+        "python3",
+        "dev/scripts/collect_clippy_warnings.py",
+        "--working-directory",
+        "rust",
+        "--output-json",
+        resolved_summary_path,
+        "--output-lints-json",
+        resolved_lints_path,
+        "--deny-warnings",
+        "--extra-clippy-arg=-W",
+        "--extra-clippy-arg",
+        "clippy::pedantic",
+        "--quiet-json-stream",
+        "--propagate-exit-code",
+    ]
 
 
 def maybe_emit_ai_guard_scaffold(

@@ -40,6 +40,9 @@ fn demo() {
     dbg!("debug");
     let _ = Command::new("sh").arg("-c").arg("echo hi");
     let mode = 0o777;
+    let current_pid = unsafe { libc::getpid() } as i32;
+    let written = unsafe { libc::write(0, std::ptr::null(), 0) };
+    let _len = written as usize;
 }
 """
         metrics = self.script._count_metrics(text)
@@ -50,6 +53,8 @@ fn demo() {
         self.assertEqual(metrics["shell_control_flag_calls"], 1)
         self.assertEqual(metrics["permissive_mode_literals"], 1)
         self.assertEqual(metrics["weak_crypto_refs"], 1)
+        self.assertEqual(metrics["pid_signed_wrap_casts"], 1)
+        self.assertEqual(metrics["sign_unsafe_syscall_casts"], 1)
 
     def test_has_positive_growth_only_for_positive_values(self) -> None:
         self.assertFalse(
@@ -62,6 +67,8 @@ fn demo() {
                     "shell_control_flag_calls": 0,
                     "permissive_mode_literals": 0,
                     "weak_crypto_refs": 0,
+                    "pid_signed_wrap_casts": 0,
+                    "sign_unsafe_syscall_casts": 0,
                 }
             )
         )
@@ -89,6 +96,60 @@ mod tests {
                     "shell_control_flag_calls": 0,
                     "permissive_mode_literals": 0,
                     "weak_crypto_refs": 0,
+                    "pid_signed_wrap_casts": 0,
+                    "sign_unsafe_syscall_casts": 0,
                 }
             )
         )
+
+    def test_pid_signed_wrap_casts_detect_child_and_getpid_variants(self) -> None:
+        text = """
+use libc;
+
+fn pids(child: &std::process::Child) {
+    let child_pid = child.id() as i32;
+    let current = unsafe { libc::getpid() } as i32;
+    let inline = unsafe { libc::getpid() as i32 };
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["pid_signed_wrap_casts"], 3)
+
+    def test_pid_signed_wrap_casts_ignore_checked_conversion(self) -> None:
+        text = """
+fn checked(child: &std::process::Child) -> i32 {
+    i32::try_from(child.id()).unwrap_or(i32::MAX)
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["pid_signed_wrap_casts"], 0)
+
+    def test_sign_unsafe_syscall_casts_ignores_guarded_write_results(self) -> None:
+        text = """
+use libc;
+
+fn guarded(fd: libc::c_int, data: &[u8]) -> usize {
+    let written = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
+    if written < 0 {
+        return 0;
+    }
+    if written == 0 {
+        return 0;
+    }
+    written as usize
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["sign_unsafe_syscall_casts"], 0)
+
+    def test_sign_unsafe_syscall_casts_detects_unguarded_read_result(self) -> None:
+        text = """
+use libc;
+
+fn unguarded(fd: libc::c_int, buffer: &mut [u8]) -> usize {
+    let read_len = unsafe { libc::read(fd, buffer.as_mut_ptr() as *mut libc::c_void, buffer.len()) };
+    read_len as usize
+}
+"""
+        metrics = self.script._count_metrics(text)
+        self.assertEqual(metrics["sign_unsafe_syscall_casts"], 1)

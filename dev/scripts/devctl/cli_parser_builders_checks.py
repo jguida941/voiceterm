@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from .common import add_standard_output_arguments
+
 
 def add_check_parser(
     sub: argparse._SubParsersAction,
@@ -23,6 +25,7 @@ def add_check_parser(
             "prepush",
             "release",
             "maintainer-lint",
+            "pedantic",
             "quick",
             "fast",
             "ai-guard",
@@ -125,17 +128,21 @@ def add_check_parser(
         help="Worker count for parallelizable check phases (default: 4)",
     )
     check_cmd.add_argument("--dry-run", action="store_true")
-    check_cmd.add_argument("--format", choices=["text", "json", "md"], default="text")
-    check_cmd.add_argument("--output", help="Write report to a file")
-    check_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    check_cmd.add_argument("--pipe-args", nargs="*", help="Extra args for pipe command")
+    add_standard_output_arguments(
+        check_cmd, format_choices=("text", "json", "md"), default_format="text"
+    )
     check_cmd.add_argument("--offline", action="store_true")
     check_cmd.add_argument("--cargo-home")
     check_cmd.add_argument("--cargo-target-dir")
     check_cmd.add_argument(
         "--no-process-sweep-cleanup",
         action="store_true",
-        help="Disable automatic orphaned voiceterm test-process cleanup before/after checks",
+        help="Disable automatic orphaned/stale repo-related process cleanup before/after checks",
+    )
+    check_cmd.add_argument(
+        "--no-host-process-cleanup",
+        action="store_true",
+        help="Disable the default host-side cleanup/verify step for quick/fast profiles",
     )
 
 
@@ -146,10 +153,29 @@ def add_mutants_parser(
 ) -> None:
     """Register the `mutants` command parser."""
     mutants_cmd = sub.add_parser("mutants", help="Run mutation testing helper")
+    mutants_cmd.add_argument(
+        "--changed",
+        action="store_true",
+        help="Auto-detect changed .rs files via git diff (default when no --module/--file/--all)",
+    )
+    mutants_cmd.add_argument(
+        "--base-branch",
+        default="master",
+        help="Base branch for --changed diff (default: master)",
+    )
+    mutants_cmd.add_argument(
+        "--file",
+        help="Target specific .rs files (comma-separated, workspace-relative)",
+    )
     mutants_cmd.add_argument("--all", action="store_true")
     mutants_cmd.add_argument("--module")
     mutants_cmd.add_argument("--timeout", type=int, default=default_mutants_timeout)
     mutants_cmd.add_argument("--shard", help="Run one shard, e.g. 1/8")
+    mutants_cmd.add_argument(
+        "--no-baseline-skip",
+        action="store_true",
+        help="Run the cargo-mutants baseline check (skipped by default)",
+    )
     mutants_cmd.add_argument("--results-only", action="store_true")
     mutants_cmd.add_argument("--json", action="store_true")
     mutants_cmd.add_argument("--offline", action="store_true")

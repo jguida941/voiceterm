@@ -28,6 +28,9 @@ const FLUSH_BUFFER_SIZE: usize = 50;
 
 /// Maximum time between flushes (seconds).
 const FLUSH_INTERVAL_SECS: u64 = 5;
+const MAX_TOPIC_TAGS: usize = 8;
+const MAX_TASK_REFS: usize = 8;
+const MAX_ENTITIES: usize = 8;
 
 /// Memory ingestion pipeline with dual-write to JSONL + in-memory index.
 #[derive(Debug)]
@@ -149,6 +152,9 @@ impl MemoryIngestor {
         if redacted_text.trim().is_empty() {
             return;
         }
+        let topic_tags = merge_topic_tags(topic_tags, &redacted_text);
+        let entities = merge_entities(entities, &redacted_text);
+        let task_refs = merge_task_refs(task_refs, &redacted_text);
 
         let event = MemoryEvent {
             event_id: generate_event_id(),
@@ -159,9 +165,9 @@ impl MemoryIngestor {
             event_type,
             role,
             text: redacted_text,
-            topic_tags: topic_tags.iter().map(ToString::to_string).collect(),
-            entities: entities.iter().map(ToString::to_string).collect(),
-            task_refs: task_refs.iter().map(ToString::to_string).collect(),
+            topic_tags,
+            entities,
+            task_refs,
             artifacts: vec![],
             importance: importance.clamp(0.0, 1.0),
             confidence: 1.0,
@@ -307,6 +313,236 @@ fn is_noise(text: &str) -> bool {
     false
 }
 
+fn merge_topic_tags(explicit: &[&str], text: &str) -> Vec<String> {
+    let mut merged = Vec::new();
+    for tag in explicit {
+        push_unique_normalized(&mut merged, normalize_topic_tag(tag), MAX_TOPIC_TAGS, false);
+    }
+    for tag in extract_topic_tags(text) {
+        push_unique_normalized(&mut merged, Some(tag), MAX_TOPIC_TAGS, false);
+    }
+    merged
+}
+
+fn merge_task_refs(explicit: &[&str], text: &str) -> Vec<String> {
+    let mut merged = Vec::new();
+    for task in explicit {
+        push_unique_normalized(&mut merged, normalize_task_ref(task), MAX_TASK_REFS, false);
+    }
+    for task in extract_task_refs(text) {
+        push_unique_normalized(&mut merged, Some(task), MAX_TASK_REFS, false);
+    }
+    merged
+}
+
+fn merge_entities(explicit: &[&str], text: &str) -> Vec<String> {
+    let mut merged = Vec::new();
+    for entity in explicit {
+        push_unique_normalized(&mut merged, normalize_entity(entity), MAX_ENTITIES, true);
+    }
+    for entity in extract_entities(text) {
+        push_unique_normalized(&mut merged, Some(entity), MAX_ENTITIES, true);
+    }
+    merged
+}
+
+fn push_unique_normalized(
+    values: &mut Vec<String>,
+    candidate: Option<String>,
+    limit: usize,
+    case_sensitive: bool,
+) {
+    let Some(candidate) = candidate else {
+        return;
+    };
+    if values.len() >= limit {
+        return;
+    }
+    let already_present = values.iter().any(|existing| {
+        if case_sensitive {
+            existing == &candidate
+        } else {
+            existing.eq_ignore_ascii_case(&candidate)
+        }
+    });
+    if !already_present {
+        values.push(candidate);
+    }
+}
+
+fn extract_topic_tags(text: &str) -> Vec<String> {
+    let lower = text.to_ascii_lowercase();
+    let mut tags = Vec::new();
+    maybe_add_topic(
+        &mut tags,
+        "memory",
+        &lower,
+        &[
+            "memory",
+            "boot pack",
+            "task pack",
+            "session handoff",
+            "survival index",
+        ],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "rust",
+        &lower,
+        &["rust", "cargo", ".rs", "cargo.toml"],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "python",
+        &lower,
+        &["python", "pytest", "pyqt", ".py", "pip "],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "testing",
+        &lower,
+        &["test", "tests", "pytest", "unittest", "cargo test"],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "docs",
+        &lower,
+        &["readme", "docs", "markdown", ".md"],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "git",
+        &lower,
+        &[
+            "git", "branch", "commit", "diff", "merge", "worktree", "rebase",
+        ],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "review",
+        &lower,
+        &["review", "approval", "approve", "deny", "review-channel"],
+    );
+    maybe_add_topic(
+        &mut tags,
+        "ci",
+        &lower,
+        &["github actions", "workflow", "ci", "checks", "pipeline"],
+    );
+    tags
+}
+
+fn maybe_add_topic(tags: &mut Vec<String>, topic: &str, text: &str, keywords: &[&str]) {
+    if tags.len() >= MAX_TOPIC_TAGS || tags.iter().any(|existing| existing == topic) {
+        return;
+    }
+    if keywords.iter().any(|keyword| text.contains(keyword)) {
+        tags.push(topic.to_string());
+    }
+}
+
+fn extract_task_refs(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut refs = Vec::new();
+    let mut i = 0;
+    while i + 3 < bytes.len() && refs.len() < MAX_TASK_REFS {
+        let previous_is_boundary = i == 0 || !is_task_ref_char(bytes[i - 1]);
+        if previous_is_boundary
+            && bytes[i].eq_ignore_ascii_case(&b'm')
+            && bytes[i + 1].eq_ignore_ascii_case(&b'p')
+            && bytes[i + 2] == b'-'
+        {
+            let start = i + 3;
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            let next_is_boundary = end == bytes.len() || !is_task_ref_char(bytes[end]);
+            if end > start && next_is_boundary {
+                push_unique_normalized(
+                    &mut refs,
+                    Some(format!("MP-{}", &text[start..end])),
+                    MAX_TASK_REFS,
+                    false,
+                );
+                i = end;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    refs
+}
+
+fn is_task_ref_char(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'-'
+}
+
+fn extract_entities(text: &str) -> Vec<String> {
+    let mut entities = Vec::new();
+    for raw in text.split_whitespace() {
+        if entities.len() >= MAX_ENTITIES {
+            break;
+        }
+        push_unique_normalized(&mut entities, normalize_entity(raw), MAX_ENTITIES, true);
+    }
+    entities
+}
+
+fn normalize_topic_tag(tag: &str) -> Option<String> {
+    let trimmed = trim_metadata_token(tag);
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_ascii_lowercase())
+}
+
+fn normalize_task_ref(task: &str) -> Option<String> {
+    let trimmed = trim_metadata_token(task);
+    let digits = trimmed.to_ascii_lowercase();
+    let suffix = digits.strip_prefix("mp-")?;
+    if suffix.is_empty() || !suffix.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    Some(format!("MP-{suffix}"))
+}
+
+fn normalize_entity(entity: &str) -> Option<String> {
+    let trimmed = trim_entity_token(entity);
+    if trimmed.is_empty() || trimmed.contains("://") {
+        return None;
+    }
+    let candidate = trimmed
+        .split('#')
+        .next()
+        .unwrap_or(trimmed)
+        .trim_end_matches(':');
+    if candidate.is_empty() || !looks_like_entity(candidate) {
+        return None;
+    }
+    Some(candidate.to_string())
+}
+
+fn trim_metadata_token(value: &str) -> &str {
+    value.trim_matches(|ch: char| {
+        !ch.is_ascii_alphanumeric() && !matches!(ch, '-' | '_' | '/' | '.')
+    })
+}
+
+fn trim_entity_token(value: &str) -> &str {
+    value.trim_matches(|ch: char| {
+        !ch.is_ascii_alphanumeric() && !matches!(ch, '/' | '.' | '_' | '-')
+    })
+}
+
+fn looks_like_entity(candidate: &str) -> bool {
+    const FILE_EXTENSIONS: &[&str] = &[
+        ".rs", ".py", ".md", ".json", ".toml", ".yaml", ".yml", ".txt", ".sh",
+    ];
+    let lower = candidate.to_ascii_lowercase();
+    candidate.contains('/') || FILE_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,6 +562,27 @@ mod tests {
         let recent = ing.index().recent(1);
         assert_eq!(recent[0].text, "hello world");
         assert_eq!(recent[0].event_type, EventType::VoiceTranscript);
+    }
+
+    #[test]
+    fn ingest_transcript_extracts_task_topic_and_entity_metadata() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        ing.ingest_transcript(
+            "Review MP-230 in rust/src/bin/voiceterm/memory/ingest.rs before updating dev/active/memory_studio.md",
+        );
+
+        let recent = ing.index().recent(1);
+        assert_eq!(recent[0].task_refs, vec!["MP-230".to_string()]);
+        assert!(recent[0].topic_tags.contains(&"review".to_string()));
+        assert!(recent[0].topic_tags.contains(&"rust".to_string()));
+        assert!(recent[0].topic_tags.contains(&"memory".to_string()));
+        assert!(recent[0].topic_tags.contains(&"docs".to_string()));
+        assert!(recent[0]
+            .entities
+            .contains(&"rust/src/bin/voiceterm/memory/ingest.rs".to_string()));
+        assert!(recent[0]
+            .entities
+            .contains(&"dev/active/memory_studio.md".to_string()));
     }
 
     #[test]
@@ -419,6 +676,49 @@ mod tests {
 
         let by_task = ing.index().by_task("MP-230", 10);
         assert_eq!(by_task.len(), 1);
+    }
+
+    #[test]
+    fn ingest_event_raw_merges_explicit_and_extracted_metadata() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        ing.ingest_event_raw(
+            EventSource::PtyInput,
+            EventType::CommandRun,
+            EventRole::User,
+            "Review MP-231 in rust/src/bin/voiceterm/memory/context_pack.rs",
+            0.8,
+            &["review", "docs"],
+            &["mp-230"],
+            &["dev/active/memory_studio.md"],
+        );
+
+        let event = ing.index().recent(1)[0].clone();
+        assert_eq!(
+            event.task_refs,
+            vec!["MP-230".to_string(), "MP-231".to_string()]
+        );
+        assert!(event.topic_tags.contains(&"review".to_string()));
+        assert!(event.topic_tags.contains(&"docs".to_string()));
+        assert!(event.topic_tags.contains(&"rust".to_string()));
+        assert!(event
+            .entities
+            .contains(&"dev/active/memory_studio.md".to_string()));
+        assert!(event
+            .entities
+            .contains(&"rust/src/bin/voiceterm/memory/context_pack.rs".to_string()));
+    }
+
+    #[test]
+    fn extracted_metadata_powers_task_and_topic_queries() {
+        let mut ing = make_ingestor(MemoryMode::Assist);
+        ing.ingest_user_input(
+            "cargo test rust/src/bin/voiceterm/memory/ingest.rs for MP-230 memory",
+        );
+
+        assert_eq!(ing.index().by_task("MP-230", 10).len(), 1);
+        assert_eq!(ing.index().by_topic("rust", 10).len(), 1);
+        assert_eq!(ing.index().by_topic("testing", 10).len(), 1);
+        assert_eq!(ing.index().by_topic("memory", 10).len(), 1);
     }
 
     #[test]

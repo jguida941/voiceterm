@@ -9,10 +9,23 @@ from ..config import REPO_ROOT
 def build_mutants_cmd(args) -> List[str]:
     """Build the mutants.py command line from args."""
     cmd = ["python3", "dev/scripts/mutants.py"]
+
+    # Targeting flags
+    if getattr(args, "changed", False):
+        cmd.append("--changed")
+    if getattr(args, "base_branch", None):
+        cmd.extend(["--base-branch", args.base_branch])
+    if getattr(args, "file", None):
+        cmd.extend(["--file", args.file])
     if args.all:
         cmd.append("--all")
     if args.module:
         cmd.extend(["--module", args.module])
+
+    # Baseline control
+    if getattr(args, "no_baseline_skip", False):
+        cmd.append("--no-baseline-skip")
+
     if args.timeout:
         cmd.extend(["--timeout", str(args.timeout)])
     if args.shard:

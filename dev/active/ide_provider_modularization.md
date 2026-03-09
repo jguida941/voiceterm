@@ -1663,7 +1663,7 @@ MP-346 is complete only when all conditions below are true:
     ledger state for `AGENT-1..3` and renaming local `dev/BACKLOG.md` IDs to
     `LB-*` to avoid canonical `MP-*` collisions,
   - added explicit cross-plan shared-hotspot ownership + conditional-freeze
-    governance in `MULTI_AGENT_WORKTREE_RUNBOOK.md` Section 7/18 and mirrored
+    governance in the merged markdown-swarm plan in `review_channel.md` and mirrored
     the gate in `MASTER_PLAN` branch-guard policy.
 - 2026-03-02: Phase-0 checkpoint/go decision closure:
   - captured `CP-004` packet at
@@ -2837,7 +2837,7 @@ Revalidation note for Python parser finding `P1`:
 | `nl -ba .github/workflows/failure_triage.yml` + workflow `name:` scan | confirms failure triage watchlist now includes `Swarm Run` and `publish_release_binaries` with name parity to workflow headers | done |
 | `nl -ba dev/scripts/checks/check_code_shape.py` + `nl -ba dev/scripts/checks/code_shape_policy.py` | confirms stale override review-window gate (`--stale-override-review-window-days`) and removal of stale overrides for `event_loop/input_dispatch.rs` + `status_line/buttons.rs` | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_check_code_shape_guidance` | validates stale-override evaluator coverage in addition to existing shape-evaluator branch tests | done |
-| `nl -ba dev/active/MASTER_PLAN.md` + `nl -ba dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` + `nl -ba dev/BACKLOG.md` | confirms board/ledger status sync, cross-plan shared-hotspot ownership/freeze gate activation, and local backlog ID deconfliction (`LB-*`) | done |
+| `nl -ba dev/active/MASTER_PLAN.md` + `nl -ba dev/active/review_channel.md` + `nl -ba dev/BACKLOG.md` | confirms board/ledger status sync, cross-plan shared-hotspot ownership/freeze gate activation, and local backlog ID deconfliction (`LB-*`) | done |
 | `cat dev/reports/mp346/checkpoints/20260302T155409Z-cp004/summary.md` + `exit_codes.env` | confirms CP-004 full checkpoint bundle pass with explicit `go (phase 0.5 only)` and retained phase-1+ `no-go` | done |
 | `cat dev/reports/mp346/checkpoints/20260302T162839Z-cp005/summary.md` + `exit_codes.env` | confirms CP-005 Phase-0.5 closure bundle pass with explicit `go (manual matrix execution)` and retained phase-1+ `no-go` pending manual matrix evidence | done |
 | `cat dev/reports/mp346/checkpoints/20260304T010010Z-cp006/summary.md` | confirms CP-006 operator manual-matrix attestation (`5/7` cells pass) plus explicit phase-1+ `go`; remaining `Other` host cells are sequenced to post-cleanup stabilization validation | done |

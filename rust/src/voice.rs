@@ -192,7 +192,9 @@ pub fn start_voice_job(
             meter,
         );
         capture_active_clone.store(false, Ordering::Relaxed);
-        let _ = tx.send(message);
+        if tx.send(message).is_err() {
+            log_debug("voice worker: receiver dropped before transcript delivery");
+        }
     });
 
     VoiceJob {

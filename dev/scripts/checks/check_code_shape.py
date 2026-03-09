@@ -457,7 +457,7 @@ def main() -> int:
             continue
 
         files_considered += 1
-        if policy_source and policy_source.startswith("path_override:"):
+        if policy_source and policy_source.startswith("path_"):
             files_using_path_overrides += 1
 
         current_text: str | None

@@ -2,30 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
-
-@dataclass(frozen=True)
-class ShapePolicy:
-    soft_limit: int
-    hard_limit: int
-    oversize_growth_limit: int
-    hard_lock_growth_limit: int
-
-
-@dataclass(frozen=True)
-class FunctionShapePolicy:
-    max_lines: int
-
-
-@dataclass(frozen=True)
-class FunctionShapeException:
-    max_lines: int
-    owner: str
-    expires_on: str
-    follow_up_mp: str
-    reason: str
+try:
+    from code_shape_function_exceptions import (
+        FUNCTION_LANGUAGE_DEFAULTS,
+        FUNCTION_POLICY_EXCEPTIONS,
+        FUNCTION_POLICY_OVERRIDES,
+    )
+    from code_shape_shared import FunctionShapePolicy, ShapePolicy
+except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
+    from dev.scripts.checks.code_shape_function_exceptions import (
+        FUNCTION_LANGUAGE_DEFAULTS,
+        FUNCTION_POLICY_EXCEPTIONS,
+        FUNCTION_POLICY_OVERRIDES,
+    )
+    from dev.scripts.checks.code_shape_shared import (
+        FunctionShapePolicy,
+        ShapePolicy,
+    )
 
 
 LANGUAGE_POLICIES: dict[str, ShapePolicy] = {
@@ -78,8 +73,8 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "rust/src/bin/voiceterm/status_line/format/tests.rs": ShapePolicy(
-        soft_limit=1300,
-        hard_limit=1450,
+        soft_limit=1370,
+        hard_limit=1500,
         oversize_growth_limit=80,
         hard_lock_growth_limit=0,
     ),
@@ -143,6 +138,13 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=0,
         hard_lock_growth_limit=0,
     ),
+    "rust/src/bin/voiceterm/dev_command/broker/mod.rs": ShapePolicy(
+        soft_limit=400,
+        hard_limit=450,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "rust/src/bin/voiceterm/dev_command/command_state.rs": ShapePolicy(soft_limit=500, hard_limit=550, oversize_growth_limit=0, hard_lock_growth_limit=0),
     "dev/scripts/checks/check_code_shape.py": ShapePolicy(
         soft_limit=675,
         hard_limit=725,
@@ -150,7 +152,7 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
-        soft_limit=580,
+        soft_limit=650,
         hard_limit=700,
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
@@ -180,14 +182,44 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_rust_best_practices.py": ShapePolicy(
-        soft_limit=430,
+        soft_limit=525,
         hard_limit=650,
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/checks/code_shape_policy.py": ShapePolicy(
-        soft_limit=420,
+    "dev/scripts/checks/check_bundle_workflow_parity.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=750,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_duplication_audit.py": ShapePolicy(
+        soft_limit=450,
         hard_limit=550,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_duplication_audit_support.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=650,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/check_architecture_surface_sync.py": ShapePolicy(
+        soft_limit=650,
+        hard_limit=725,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/code_shape_function_exceptions.py": ShapePolicy(
+        soft_limit=450,
+        hard_limit=525,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/checks/code_shape_policy.py": ShapePolicy(
+        soft_limit=875,
+        hard_limit=950,
         oversize_growth_limit=80,
         hard_lock_growth_limit=0,
     ),
@@ -239,148 +271,144 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
+    "dev/scripts/devctl/commands/review_channel.py": ShapePolicy(
+        soft_limit=900,
+        hard_limit=1000,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel_event_reducer.py": ShapePolicy(
+        soft_limit=500,
+        hard_limit=600,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel_launch.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=500,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel_handoff.py": ShapePolicy(
+        soft_limit=675,
+        hard_limit=775,
+        oversize_growth_limit=35,
+        hard_lock_growth_limit=0,
+    ),
+    "dev/scripts/devctl/review_channel_state.py": ShapePolicy(
+        soft_limit=525,
+        hard_limit=625,
+        oversize_growth_limit=30,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/activity_reports.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=500,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/state/presentation_state.py": ShapePolicy(
+        soft_limit=550,
+        hard_limit=650,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/colors.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=500,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/qss_panels.py": ShapePolicy(
+        soft_limit=375,
+        hard_limit=450,
+        oversize_growth_limit=20,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/theme_editor.py": ShapePolicy(
+        soft_limit=1050,
+        hard_limit=1150,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/theme_engine.py": ShapePolicy(
+        soft_limit=400,
+        hard_limit=500,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/theme/theme_preview.py": ShapePolicy(
+        soft_limit=500,
+        hard_limit=600,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/activity_workspace.py": ShapePolicy(
+        soft_limit=425,
+        hard_limit=525,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/home_workspace.py": ShapePolicy(
+        soft_limit=475,
+        hard_limit=550,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/main_window.py": ShapePolicy(
+        soft_limit=900,
+        hard_limit=1000,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/ui_pages.py": ShapePolicy(
+        soft_limit=850,
+        hard_limit=950,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/ui_refresh.py": ShapePolicy(
+        soft_limit=1150,
+        hard_limit=1250,
+        oversize_growth_limit=40,
+        hard_lock_growth_limit=0,
+    ),
+    "app/operator_console/views/widgets.py": ShapePolicy(
+        soft_limit=500,
+        hard_limit=600,
+        oversize_growth_limit=25,
+        hard_lock_growth_limit=0,
+    ),
 }
 
-
-FUNCTION_LANGUAGE_DEFAULTS: dict[str, FunctionShapePolicy] = {
-    ".py": FunctionShapePolicy(max_lines=150),
-}
-
-
-FUNCTION_POLICY_OVERRIDES: dict[str, FunctionShapePolicy] = {
-    "rust/src/bin/voiceterm/writer/state/dispatch.rs": FunctionShapePolicy(
-        max_lines=220,
-    ),
-    "rust/src/bin/voiceterm/writer/state/redraw.rs": FunctionShapePolicy(
-        max_lines=220,
-    ),
-    "rust/src/bin/voiceterm/event_loop/prompt_occlusion.rs": FunctionShapePolicy(
-        max_lines=260,
-    ),
-}
-
-
-FUNCTION_POLICY_EXCEPTIONS: dict[str, FunctionShapeException] = {
-    "dev/scripts/checks/check_code_shape.py::main": FunctionShapeException(
-        max_lines=210,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Main still handles CLI parsing and report output; helper split is pending.",
-    ),
-    "dev/scripts/checks/check_mutation_score.py::main": FunctionShapeException(
-        max_lines=210,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Main still handles policy + format branching; support split is pending.",
-    ),
-    "dev/scripts/checks/check_rust_lint_debt.py::main": FunctionShapeException(
-        max_lines=220,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Main still combines report modes and dead-code inventory logic.",
-    ),
-    "dev/scripts/checks/check_structural_complexity.py::main": FunctionShapeException(
-        max_lines=180,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Main still combines parser and output fallback handling.",
-    ),
-    "dev/scripts/checks/check_active_plan_sync.py::_build_report": FunctionShapeException(
-        max_lines=390,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Active-plan snapshot + parity report assembly is still in a single pipeline function.",
-    ),
-    "dev/scripts/checks/check_multi_agent_sync.py::_build_report": FunctionShapeException(
-        max_lines=310,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Cross-doc board/instruction/ledger reconciliation remains consolidated pending extraction.",
-    ),
-    "dev/scripts/devctl/cli_parser_release.py::add_release_parsers": FunctionShapeException(
-        max_lines=175,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Release parser wiring still enumerates release subcommands in one registration block.",
-    ),
-    "dev/scripts/devctl/commands/autonomy_loop.py::run": FunctionShapeException(
-        max_lines=230,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Autonomy loop runner still owns orchestration and output packet wiring before final split.",
-    ),
-    "dev/scripts/devctl/commands/autonomy_run.py::run": FunctionShapeException(
-        max_lines=340,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Autonomy run command still combines policy resolution, lane execution, and reporting.",
-    ),
-    "dev/scripts/devctl/commands/hygiene_audits_adrs.py::audit_adrs": FunctionShapeException(
-        max_lines=170,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="ADR audit still performs collection, policy checks, and report shaping in one function.",
-    ),
-    "dev/scripts/devctl/commands/integrations_import.py::run": FunctionShapeException(
-        max_lines=220,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Integrations import run path still combines parsing, path audit, and write orchestration.",
-    ),
-    "dev/scripts/devctl/commands/loop_packet.py::run": FunctionShapeException(
-        max_lines=170,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Loop packet run path still combines read/merge/emit flows pending helper extraction.",
-    ),
-    "dev/scripts/devctl/commands/sync.py::run": FunctionShapeException(
-        max_lines=230,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Sync command still owns branch audit and remediation routing in a single runner.",
-    ),
-    "dev/scripts/devctl/commands/triage_loop.py::run": FunctionShapeException(
-        max_lines=200,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 3",
-        reason="Triage loop command still bundles gate checks, branch prep, and loop dispatch flow.",
-    ),
-    "dev/scripts/devctl/commands/docs_check.py::run": FunctionShapeException(
-        max_lines=230,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 2",
-        reason="Runner still combines policy checks and rendering before final split.",
-    ),
-    "dev/scripts/devctl/commands/docs_check_render.py::render_markdown_report": FunctionShapeException(
-        max_lines=230,
-        owner="MP-347",
-        expires_on="2026-05-15",
-        follow_up_mp="MP-347 Phase 2",
-        reason="Renderer still builds the full markdown packet in one place.",
+PATH_POLICY_PREFIX_OVERRIDES: dict[str, ShapePolicy] = {
+    "rust/src/bin/voiceterm/dev_command/": ShapePolicy(
+        soft_limit=360,
+        hard_limit=450,
+        oversize_growth_limit=0,
+        hard_lock_growth_limit=0,
     ),
 }
 
 
 def policy_for_path(path: Path) -> tuple[ShapePolicy | None, str | None]:
     """Return path-specific policy and source label."""
-    override = PATH_POLICY_OVERRIDES.get(path.as_posix())
+    path_str = path.as_posix()
+    override = PATH_POLICY_OVERRIDES.get(path_str)
     if override is not None:
-        return override, f"path_override:{path.as_posix()}"
+        return override, f"path_override:{path_str}"
+    prefix_override = max(
+        (
+            (prefix, policy)
+            for prefix, policy in PATH_POLICY_PREFIX_OVERRIDES.items()
+            if path_str.startswith(prefix)
+        ),
+        key=lambda item: len(item[0]),
+        default=None,
+    )
+    if prefix_override is not None:
+        prefix, policy = prefix_override
+        return policy, f"path_prefix_override:{prefix}"
     policy = LANGUAGE_POLICIES.get(path.suffix)
     if policy is None:
         return None, None

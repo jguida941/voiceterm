@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 
-from ..common import confirm_or_abort, pipe_output, run_cmd, write_output
+from ..common import confirm_or_abort, emit_output, pipe_output, run_cmd, write_output
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT
 
@@ -220,10 +220,15 @@ def run(args) -> int:
     else:
         output = json.dumps(report, indent=2)
 
-    write_output(output, args.output)
-    if args.pipe_command:
-        pipe_rc = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_rc != 0:
-            return pipe_rc
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
 
     return 0 if report["ok"] else 1

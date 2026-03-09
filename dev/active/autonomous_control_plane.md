@@ -22,6 +22,11 @@ This plan covers:
 7. Deterministic learning so repeated loop work is reused through
    artifact-backed playbooks instead of hidden memory.
 
+Together with `dev/active/memory_studio.md` and
+`dev/active/review_channel.md`, this is one local-first operator system:
+Memory supplies durable recall, Review supplies structured coordination, and
+the Control Plane supplies execution surfaces plus governance.
+
 ## Execution Protocol (Required)
 
 1. Every non-trivial agent run must be anchored to this file or another active
@@ -337,14 +342,41 @@ Execution model:
 Unified data contract backlog:
 
 - [ ] Add canonical `controller_state` payload schema with stable fields for:
+  - shared header (`event_id`, `session_id`, `project_id`, `trace_id`,
+    `timestamp_utc`, `source`, `event_type`),
   - run identity (`plan_id`, `controller_run_id`, branch, mode),
   - loop status (`phase`, `reason`, unresolved/hotspot score state),
   - agent relay messages (`from_agent`, `to_agent`, `recommendation`,
     `evidence_refs`, `confidence`),
   - operator actions (`requested_action`, `policy_result`, `approval_required`),
   - audit refs (`event_id`, `idempotency_key`, `nonce`, `expires_at`).
+- [ ] Keep MP-355 (`dev/active/review_channel.md`) as the review-focused schema
+      slice of this contract rather than a parallel authority: MP-340 retains
+      umbrella `controller_state` naming/projection ownership plus the pending
+      `ADR-0027`/`ADR-0028` backlog, while MP-355 owns the concrete
+      `review_event`/`review_state` packet details, inbox/ack/watch/history
+      semantics, and shared-screen layout. Shared fields must stay name- and
+      meaning-compatible across both plans.
+- [ ] Keep control-plane and review artifacts memory-compatible: the temporary
+      `code_audit.md` bridge today, and `review_state` / `controller_state`
+      later, must compile into Memory `session_handoff` / compaction-survival
+      inputs so current blockers, next action, and audit refs survive agent
+      restart or context loss without hidden memory-only coordination.
+- [ ] Freeze one shared event-header mapping with Memory Studio so
+      review/control artifacts normalize losslessly into the canonical memory
+      envelope instead of each subsystem inventing near-duplicate header names.
+- [ ] Add memory-backed handoff attachments: review/control packets may carry
+      `context_pack_refs` for `task_pack`, `handoff_pack`, and `survival_index`;
+      after `MS-G18` is green, `survival_index` becomes the default compact
+      cross-agent handoff attachment.
+- [ ] Route cross-provider handoffs through Memory adapter profiles
+      (`codex`, `claude`, `gemini`) so the receiving backend gets a
+      provider-shaped projection while canonical JSON provenance stays shared.
 - [ ] Emit multi-view projections from one source state:
   - `full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`.
+- [ ] Add a unified timeline/replay projection that merges controller,
+      review-channel, and memory traces into one time-sorted operator view once
+      the base Phase-1/2 artifacts are stable.
 - [ ] Add chart-ready metric snapshots:
   - loop throughput, cycle success rate, unresolved-count trend, mutation-score
     trend, script-only vs AI-assisted vs manual mix.
@@ -362,9 +394,61 @@ Operator experience backlog:
   - current controller phase/reason,
   - latest source run URL/SHA,
   - recent agent relay packets,
-  - policy denials and required approvals.
+  - policy denials and required approvals,
+  - all-agent job board state (job, status, waiting-on, freshness, owner).
+- [ ] Land an operator-cockpit MVP on top of the existing Rust Dev panel first,
+      then let MP-336 add a dedicated monitor startup path once the mode router
+      exists:
+  - [ ] `--dev` can open the cockpit immediately with read-first pages while
+        preserving the current voice-first default path when the user does not
+        opt in.
+  - [ ] `--monitor` / `--mode monitor` later route directly into the same
+        cockpit without booting normal audio/Whisper startup, but they must
+        reuse the same page/view models rather than fork a second UI.
+  - [ ] Control page reads the same controller projections already produced for
+        `phone-status` (`phase`, `reason`, unresolved count, next actions,
+        branch/run URL, pause/resume state, latest action result).
+  - [ ] Review page reads the sanctioned live review artifact for the current
+        phase: `code_audit.md` in the temporary bridge era, then
+        `review_state`/`review_event` projections once MP-355 Phase 1 lands.
+  - [x] Actions page exposes the existing safe operator verbs first
+        (`refresh-status`, `pause-loop`, `resume-loop`, `dispatch-report-only`)
+        and now also carries review launch dry-run/live plus rollover actions
+        with review/controller JSON summaries, before any broader write path is
+        added.
+  - [ ] Add an agent-board section that shows all active agents plus current
+        job, packet/activity freshness, waiting-on state, and current script
+        profile from the same typed registry/projection used by review-channel
+        surfaces.
+  - [ ] Handoff page renders generated fresh-conversation prompts, next-slice
+        packets, and resume bundles from current plan/review/controller state.
+  - [ ] Packet/application behavior stays staged-first: the overlay may preview
+        or draft packets for a PTY, but it must not bypass the current explicit
+        staging/confirmation rules.
+- [ ] Add developer-facing visibility on top of the operator cockpit so `--dev`
+      becomes a practical live-debug surface rather than only a command menu:
+  - [ ] raw artifact inspector for current `controller_state`, `phone-status`,
+        `code_audit.md`, and later `review_state` payloads
+  - [ ] change badges/toasts when review or controller artifacts update
+  - [ ] command/audit tail showing recent `devctl` actions, policy denials, and
+        packet/apply outcomes
+  - [ ] packet-draft preview lane with explicit `stage only` / `copy prompt`
+        affordances
+  - [ ] typed agent controls that call repo-owned handlers for retask/pause/
+        resume/rereview actions instead of embedding unscripted orchestration
+        logic in the UI
+  - [ ] geometry/runtime diagnostics (host, rows/cols, reserved-row state,
+        prompt suppression state, backend/provider identity)
+  - [ ] dev-log/session playback shortcuts using the existing dev-event JSONL
+        store
+  - [ ] throughput/latency mini-panels once MP-336 imports the
+        `network-monitor-tui` primitives
 - [ ] Add iPhone controller read-first surface parity with Rust Dev panel
-      fields, then stage guarded write controls.
+      fields, then stage guarded write controls. (`2026-03-09` partial:
+      added `devctl mobile-status` as the first merged SSH-safe read surface;
+      it refreshes bridge-backed review-channel state, combines it with
+      autonomy `phone-status`, and emits compact/full/alert/actions mobile
+      projections for future phone UI and notifier clients.)
 
 Autonomous loop orchestration backlog:
 
@@ -389,10 +473,11 @@ Acceptance criteria for this unified plan:
 
 ### 3.6 ADR Backlog (Required for Scope Control)
 
-These ADRs are required to keep AI + dev execution aligned as autonomy grows.
+Accepted control-plane ADRs for unified controller state contract and agent
+relay packet protocol have landed (see `dev/adr/0027-*` and `dev/adr/0028-*`).
 
-- [ ] `ADR-0027` Unified controller state contract (schema + projections).
-- [ ] `ADR-0028` Agent relay packet protocol (reviewer/assistant loop handoff).
+Remaining ADR backlog required to keep AI + dev execution aligned as autonomy grows:
+
 - [ ] `ADR-0029` Operator action policy model (approval + replay + deny semantics).
 - [ ] `ADR-0030` Phone adapter architecture (SSH-first + push/SMS/chat layering).
 - [ ] `ADR-0031` Rust Dev panel control-plane boundary (non-interference contract).
@@ -416,6 +501,9 @@ Goal: one control system, multiple clients, no behavior drift.
 Implementation scope:
 
 - [ ] Keep one canonical `controller_state` source artifact and API projection.
+      Current `phone-status` / `controller-action` payloads plus Rust Dev-panel
+      snapshot builders are interim projections only and do not satisfy this
+      closure target by themselves.
 - [ ] Rust `--dev` panel reads local `controller_state` projections directly.
 - [ ] Keep iPhone surfaces (SSH read + API/PWA) bound to the same projections.
 - [ ] Keep desktop GUI clients out of active scope unless a new MP reactivation
@@ -437,6 +525,251 @@ Acceptance:
 2. Action outcomes and denials are identical across clients.
 3. No client bypasses policy gates for workflow/shell actions.
 4. Operator can monitor and steer bounded loops from any client safely.
+
+### 3.7.1 Operator Cockpit MVP (`--dev` first, `--monitor` next)
+
+Goal: give the operator one in-repo cockpit for live review/control/handoff
+without waiting for the full long-range shared-screen stack.
+
+Implementation scope:
+
+- [ ] Reuse the existing Dev panel shell, broker, and periodic refresh loop as
+      the MVP host surface; do not invent a second Rust-side control console.
+- [ ] Add page/tab routing inside the Dev panel for `Control`, `Ops`,
+      `Review`, `Actions`, and `Handoff`.
+- [ ] Use the new `Ops` page as the Rust-first operational telemetry lane for
+      host-process hygiene, triage summaries, and future external monitor
+      adapters; do not bolt those readouts into Theme Studio or a parallel
+      control surface.
+- [ ] Keep the first delivery read-first by default, with guarded action rows
+      and explicit staged packet previews for any PTY-targeted output.
+- [ ] Make the cockpit read as one collaborative terminal-native system even
+      while Codex/Claude keep separate PTY ownership underneath: the operator
+      should be able to see packet handoffs, staged drafts, current target
+      state, and who is waiting on whom without leaving the shared surface.
+- [ ] Render both parsed and raw review artifacts:
+  - [ ] parsed view for current verdict/findings/instruction/ack/poll status
+  - [ ] raw markdown view for the literal `code_audit.md` bridge while it
+        remains the sanctioned temporary authority projection
+- [ ] Add controlled overlay editing only for bounded fields/actions:
+  - [ ] rewrite `Current Instruction For Claude`
+  - [ ] promote next unchecked scoped plan item
+  - [ ] append operator note / request re-review
+  - [ ] generate fresh-conversation prompts / resume bundle
+- [ ] Keep packet output staged into the existing terminal-draft path first;
+      no blind auto-send into live Codex/Claude sessions in the MVP.
+- [ ] When MP-336 lands, let `--monitor` / `--mode monitor` open this same
+      cockpit directly with voice/audio startup skipped.
+
+Acceptance:
+
+1. The user can stay inside VoiceTerm to see review state, controller state,
+   next-slice direction, handoff prompts, and cross-agent packet flow as one
+   collaborative surface.
+2. The MVP reuses existing Dev panel/broker/periodic-task primitives instead
+   of introducing a parallel control UI.
+3. Any instruction or packet emitted from the cockpit remains auditable and
+   staged before injection.
+
+### 3.7.2 Developer-Only Surface Backlog
+
+Goal: make `--dev` valuable for active debugging and operator trust-building,
+not just for autonomy control.
+
+Backlog:
+
+- [ ] Add a Git lane with read-first repo state that mirrors existing guarded
+      repo tooling instead of shelling out ad hoc:
+  - [ ] branch, dirty-tree, ahead/behind, changed-file, and recent-commit views
+  - [ ] diff/log/status summaries sourced from existing `devctl`/git report
+        helpers where possible
+  - [ ] commit-range summaries and release-note/change-digest previews for
+        current work
+- [ ] Add a guarded Git write lane only after read-first flows are stable:
+  - [ ] explicit stage/commit/push/sync actions with preview + confirm steps
+  - [ ] branch-policy, clean-tree, and local-validation gates preserved from
+        repo policy; push/publish/tag paths remain operator-approval-required
+  - [ ] no destructive git operations (`reset --hard`, checkout discards, etc.)
+        without a separate explicit policy decision
+- [ ] Add a GitHub/CI lane on top of the existing `gh` + workflow tooling:
+  - [ ] `gh auth status` and auth-health rendering first
+  - [ ] device-flow/login-helper guidance before any embedded auth UX attempt
+  - [ ] workflow/run status, failed-lane inspection, and guarded rerun/dispatch
+        affordances for approved workflows
+  - [ ] PR/release gate summaries and CI deep links using existing
+        `devctl status`, `orchestrate-status`, `orchestrate-watch`, and
+        release-gate outputs
+- [ ] Add an allowlisted script/catalog lane rather than arbitrary command
+      execution:
+  - [ ] surface catalogued `devctl` commands and approved Python/script
+        wrappers with labels, docs, mutating/read-only markers, and JSON output
+        expectations
+  - [ ] route execution through the existing Dev broker/packet path or a typed
+        successor, not through freeform `python3 <anything>` entry
+  - [ ] preserve dry-run and audit logging for any mutating action
+- [ ] Add a memory proving lane that uses the shipped foundations before more
+      advanced memory automation is turned on:
+  - [x] current memory mode/capture health/event-count/status
+  - [x] dedicated read-only Memory tab with visible-tab refresh plus
+        ingest/review/boot-pack/handoff preview sections
+  - [ ] on-demand `boot_pack`, `task_pack`, `session_handoff`, and
+        `survival_index` previews
+  - [ ] packet/handoff attachment by `context_pack_refs`
+  - [ ] read-only query/browse path before any memory-driven action suggestion
+        is allowed to steer write behavior
+- [ ] Add a live artifact explorer for the latest markdown/JSON projections and
+      protected runtime report roots.
+- [ ] Add command profiler rows showing last run duration, failure reason, and
+      recent stderr excerpts for brokered commands.
+- [ ] Add HUD/render diagnostics useful during overlay bugs:
+      prompt-occlusion state, reserved-row budget, geometry churn, repaint
+      counters, and backend-specific compatibility flags.
+- [ ] Add voice/debug diagnostics useful during capture bugs:
+      active voice mode, VAD state, meter summary, wake-word state, last
+      transcript/send decision reason.
+- [ ] Add packet and handoff tooling:
+      copy prompt, copy packet JSON/markdown, stage to draft, and inspect last
+      applied packet outcome.
+- [ ] Add retention-safe links/shortcuts into dev-session logs, memory/handoff
+      outputs, and autonomy digest bundles.
+- [ ] Add read-only throughput/latency charts after MP-336 imports the monitor
+      primitives.
+
+### 3.7.3 Staged Proof Plan For One Operator System
+
+Goal: prove the combined review/control/git/CI/script/memory architecture a
+piece at a time using existing repo primitives before expanding write power.
+
+Execution ladder:
+
+1. Read-only cockpit:
+   - controller/review status, git state, CI state, artifact explorer, memory
+     status, and generated handoff prompts
+2. Guarded action cockpit:
+   - existing safe controller actions plus allowlisted script/catalog actions
+     with preview, dry-run, and audit evidence
+3. Guarded repo-ops cockpit:
+   - staged commit/push/sync helpers, GitHub workflow dispatch/rerun helpers,
+     and CI drill-down under explicit approval/policy gates
+4. Memory-backed handoff cockpit:
+   - `session_handoff`, `task_pack`, and `survival_index` generation attached
+     into review/control packets and fresh-conversation prompts
+5. Advanced learning/automation:
+   - repetition mining, playbook proposals, and memory-informed suggestions
+     only after the first four stages are stable and auditable
+
+Delivery rules:
+
+- [ ] Favor typed/allowlisted actions over arbitrary shell access.
+- [ ] Favor generated packets/prompts/drafts over blind live-session injection.
+- [ ] Reuse existing Rust memory/runtime state and `devctl` JSON outputs before
+      inventing parallel artifact paths.
+- [ ] Any Git push, publish, login, or other external side effect remains
+      approval-gated even when launched from inside the cockpit.
+
+### 3.7.4 Typed Action Router (Buttons + AI Use The Same Execution Path)
+
+Goal: let the operator, Codex, Claude, and future control surfaces trigger the
+same repo-native automation without giving any surface unrestricted shell/API
+power.
+
+Core model:
+
+- [ ] Every button press, review packet, or AI suggestion that wants something
+      done becomes one typed `action_request` with structured params, not a raw
+      shell string.
+- [ ] The system may use an AI planner/resolver to map a high-level user intent
+      (`push`, `push release`, `check CI`, `run cleanup`, `generate handoff`)
+      onto the correct repo-native playbook, but the planner may only choose
+      from the approved command catalog and policy graph.
+- [ ] `action_request` resolves through one command catalog that maps intent to
+      canonical repo handlers:
+  - [ ] `devctl` commands
+  - [ ] approved git helpers
+  - [ ] approved GitHub/CI helpers
+  - [ ] approved memory/export/handoff compilers
+- [ ] The executor returns structured result payloads plus any staged
+      `terminal_packet`, warnings, and audit refs back into the same review /
+      controller / memory system.
+
+Initial request classes:
+
+- [ ] `git_status`, `git_diff`, `git_commit_prepare`, `git_push`
+- [ ] `gh_auth_status`, `gh_workflow_list`, `gh_run_view`, `gh_workflow_dispatch`
+- [ ] `ci_status`, `ci_watch`, `release_gates`
+- [ ] `memory_status`, `memory_query`, `memory_export_pack`, `memory_handoff`
+- [ ] `review_promote_next_slice`, `review_generate_prompt`, `review_stage_packet`
+
+Policy outcomes (shared across buttons and AI):
+
+- [ ] `safe_auto_apply`
+- [ ] `stage_draft`
+- [ ] `operator_approval_required`
+- [ ] `blocked`
+
+Required behavior:
+
+- [ ] Buttons and AI use the same policy/result path; a button must not bypass
+      the checks that would block the same request from an AI packet.
+- [ ] Overlay buttons may emit coarse intents (`push`, `commit`, `ship
+      release`, `run checks`) and let the planner choose the exact guarded
+      playbook, but the final execution plan must be shown in structured form
+      before the action runs.
+- [ ] GitHub/API access should ride through approved helpers (`gh`, workflow
+      dispatch, repo wrappers), not arbitrary model-issued HTTP calls.
+- [ ] If the operator or AI asks for `git push`, the system should derive the
+      right repo-native flow (`status`/validation/branch policy/push gate) and
+      explain blockers before any push occurs.
+- [ ] Warnings must be first-class results, not hidden stderr: the surface
+      should show what is wrong, why it is blocked/risky, and what approval or
+      fix is required next.
+- [ ] Execution should preserve pipeline visibility: selected playbook,
+      preflight checks, current step, warnings, final outcome, and audit refs
+      should all be visible in the overlay/review lane.
+
+### 3.7.5 Override + Waiver Model
+
+Goal: permit explicit human overrides without erasing the guardrails or the
+audit trail.
+
+Rules:
+
+- [ ] Expose explicit execution profiles inside the cockpit:
+  - [ ] `Guarded` (default): always run the canonical prechecks / policy gates
+        / approval flow for the selected action
+  - [ ] `AI-assisted Guarded`: AI/planner chooses the right approved playbook,
+        but the same guards still run unchanged
+  - [ ] `Unsafe Direct` (dev-only): skip selected non-critical checks for local
+        iteration, show a red warning state, and emit a stronger audit trail
+        that this action bypassed normal safety steps
+- [ ] Default behavior stays fail-closed: when policy says `blocked` or
+      `operator_approval_required`, no action runs silently.
+- [ ] A human operator may grant a bounded override only for actions whose
+      policy contract explicitly allows override.
+- [ ] `Unsafe Direct` must be an explicit session-scoped mode toggle chosen by
+      the human operator; agents may request it, but they may not silently
+      switch themselves into it.
+- [ ] The override flow must render:
+  - [ ] the command/action that would run
+  - [ ] the exact warnings / failed preconditions
+  - [ ] the risk tier and why it is risky
+  - [ ] the smallest approval scope available
+- [ ] Every override emits audit evidence with approver, rationale, timestamp,
+      affected action, and resulting outcome.
+- [ ] Some classes stay non-overridable until a future explicit policy change:
+  - [ ] destructive git cleanup
+  - [ ] release/tag/publish steps without release-lane gates
+  - [ ] arbitrary shell/python execution outside the allowlisted catalog
+  - [ ] arbitrary outbound API/HTTP calls outside the approved helper set
+
+Acceptance:
+
+1. The same request made by button, AI packet, or operator command yields the
+   same policy decision and the same warnings.
+2. Overrides are explicit, narrow, and fully auditable.
+3. The system remains script-first and policy-first rather than model-first.
+4. `Unsafe Direct` is visible, noisy, and intentionally worse than the guarded
+   path, not a hidden convenience bypass.
 
 ### 3.8 Claude Swarm Worker Mode + Codex Audit Observer
 
@@ -461,10 +794,59 @@ Execution model:
   - [ ] run `orchestrate-status` + `orchestrate-watch` cadence.
   - [ ] run sync guards and post-run digest (`autonomy-report`).
   - [ ] enforce policy denials/stop conditions before any promote actions.
-- [ ] Require every worker instruction/ack/progress to land in
-      `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` sections 14/15.
+- [ ] Require every worker instruction/ack/progress to land in the merged
+      `dev/active/review_channel.md` swarm tables and the live `code_audit.md`
+      bridge.
 - [ ] Treat any lane with missing ACK, stale updates, or failed required bundle
       as blocked until resolved.
+- [ ] Add a swarm-efficiency governor so fanout adapts to useful throughput
+      instead of raw lane count:
+  - [ ] capture normalized per-cycle metrics:
+    `lane_utilization_pct`, `acceptance_yield_pct`, `duplicate_work_pct`,
+    `stall_pct`, `review_backlog_pct`, and `token_pressure_pct`
+    (exact token usage when providers expose it, otherwise estimated from
+    prompt/completion metadata already tracked by the planner).
+  - [ ] compute one operator-readable `efficiency_score` from those metrics so
+    the system can explain why it is shrinking, holding, or expanding.
+  - [ ] downshift automatically when low-efficiency signals persist across
+    consecutive cycles instead of letting idle or duplicative workers keep
+    burning tokens.
+  - [ ] repurpose lanes intentionally rather than blindly deleting them:
+    convert weak coding lanes into review, audit, cleanup, or backlog triage
+    lanes when that increases throughput.
+  - [ ] freeze coding fanout to a minimal safe pair when review coverage is
+    stale or the review backlog is saturated.
+  - [ ] only upshift when review capacity, backlog depth, and token headroom
+    all remain healthy for multiple cycles.
+
+Swarm efficiency model:
+
+- `lane_utilization_pct = active_lane_time / reserved_lane_time`
+- `acceptance_yield_pct = accepted_outputs / total_outputs`
+- `duplicate_work_pct = duplicate_or_rejected_outputs / total_outputs`
+- `stall_pct = stalled_or_no_signal_lanes / total_lanes`
+- `review_backlog_pct = review_queue_items / active_lanes`
+- `token_pressure_pct = estimated_tokens_spent / token_budget`
+- `efficiency_score =
+  0.30 * acceptance_yield_pct +
+  0.20 * lane_utilization_pct +
+  0.15 * (1 - duplicate_work_pct) +
+  0.15 * (1 - stall_pct) +
+  0.10 * (1 - review_backlog_pct) +
+  0.10 * (1 - token_pressure_pct)`
+
+Default control policy:
+
+1. `efficiency_score < 0.35` for 2 consecutive cycles: downshift fanout by at
+   least 25% and reassign the weakest lanes to audit/backlog/review work.
+2. `efficiency_score < 0.20` or reviewer stale: pause new coding work and keep
+   only the minimal reviewer/coder recovery pair alive until signals recover.
+3. `efficiency_score > 0.75` for 2 consecutive cycles with healthy review headroom:
+   allow a bounded upshift if unchecked plan work still exists.
+4. High `duplicate_work_pct` should bias re-scope/reassignment before any
+   further upshift.
+5. High `token_pressure_pct` should bias smaller swarms even when raw backlog
+   remains large.
 
 Operator checklist (per run):
 
@@ -481,6 +863,8 @@ Acceptance:
 2. All worker actions are reconstructable from runbook + autonomy artifacts.
 3. Auditor can halt promotion safely when policy/gate evidence is incomplete.
 4. No worker runs outside tracked MP scope and branch/worktree boundaries.
+5. Swarm size changes are explainable from logged metrics rather than hidden
+   intuition or model whim.
 
 ## Phase 4 - Guardrails and Data Quality
 
@@ -652,6 +1036,95 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-03-09: Turned the phone-client scaffold into a real iOS app target.
+  `app/ios/VoiceTermMobileApp` now exists as an XcodeGen-backed SwiftUI shell
+  over `VoiceTermMobileCore`, starts with built-in sample relay data, imports a
+  real emitted `mobile-status` bundle from Files, persists the selected bundle
+  folder, and builds cleanly for generic iOS via unsigned `xcodebuild`.
+- 2026-03-09: Tightened the first-party phone client around the emitted mobile
+  bundle contract instead of a one-off JSON reader. `app/ios/VoiceTermMobile`
+  now loads `full.json` plus optional `compact.json` / `actions.json` from
+  `dev/reports/mobile/latest/`, builds a sectioned SwiftUI dashboard with
+  multi-agent lane cards and safe action cards, and stays explicitly aligned
+  with the same `mobile-status` projection bundle the PyQt6 console now
+  prefers before any on-the-fly fallback path.
+- 2026-03-09: Started the first first-party iPhone client scaffold against the
+  shared mobile relay contract. `app/ios/VoiceTermMobile` is now a bounded
+  Swift package that decodes the merged `mobile-status` full projection,
+  renders a read-first SwiftUI dashboard, and shows multiple agent lanes from
+  the same review/control payload the PyQt6 console already consumes.
+- 2026-03-09: Added `devctl mobile-status` as the first explicit phone-app
+  contract shim for MP-340. The new read-only command refreshes the latest
+  bridge-backed review-channel projections, merges them with autonomy
+  `phone-status`, emits compact/full/alert/actions mobile projections, and
+  gives SSH or future notifier/phone clients one canonical payload that
+  already includes Codex/Claude/review state plus controller state.
+- 2026-03-09: Recorded the current MP-340 convergence boundary after the
+  memory/review/control-plane doc audit. The plan now states explicitly that
+  today's `phone-status` / `controller-action` payloads and Rust Dev-panel
+  snapshot builders are interim projections only; true MP-340 closure still
+  requires one emitted `controller_state` projection set consumed with parity
+  across Rust, phone, review, and memory surfaces.
+- 2026-03-09: Revalidated the MP-340 Rust operator-cockpit proof path after
+  the memory-tab/action-catalog slice and the follow-up Rust test split. The
+  local guarded runtime path is green again (`cargo test --bin voiceterm`
+  under `devctl guard-run`), the Rust policy gates
+  (`check_rust_test_shape`, `check_rust_lint_debt`,
+  `check_rust_best_practices`, `check_structural_complexity`) all pass, and
+  the local governance/doc sync checks (`check_active_plan_sync`,
+  `check_multi_agent_sync`, `docs-check --strict-tooling`,
+  `process-cleanup --verify --format md`) are back in evidence for the
+  control-plane slice instead of being implied.
+- 2026-03-09: Landed the next Rust-first MP-340 cockpit slice. The Dev panel
+  now has a dedicated read-only Memory tab that refreshes with the visible-tab
+  path and renders memory-ingest plus review/boot-pack/handoff preview state
+  inside the same operator surface as `Control` / `Ops` / `Review` /
+  `Actions` / `Handoff`, keeping the memory proof path inside the one-system
+  control surface instead of spawning a parallel UI.
+- 2026-03-09: Expanded the typed Rust action catalog beyond the initial safe
+  controller subset. Review launch dry-run/live, review rollover, pause-loop,
+  and resume-loop now render through the same JSON-summary-backed operator path
+  as the existing controller actions, tightening MP-340's shared action-router
+  direction before any freer-form write surface is allowed.
+- 2026-03-08: Extended the swarm-control plan from simple token-aware sizing to
+  a governed efficiency model. MP-340/338 now explicitly tracks the metrics,
+  score, and control policy that should decide when to hold, downshift,
+  upshift, freeze to a recovery pair, or repurpose weak lanes into
+  review/audit/backlog work instead of letting idle swarms burn tokens.
+- 2026-03-08: Expanded the MP-340 operator-cockpit direction after a full
+  repo/plan review of the Dev panel, control-plane tooling, review bridge, and
+  memory foundations. The plan now explicitly stages Git/GitHub/CI/script lanes
+  as allowlisted operator surfaces, adds a memory proving lane on top of the
+  shipped JSONL + index-contract memory substrate, and locks a typed action
+  router so buttons, AI-issued requests, and future controller clients all hit
+  the same command catalog, warning surfaces, and approval/waiver policy path.
+- 2026-03-08: Added a concrete operator-cockpit MVP slice for MP-340/336/355
+  coordination after the live Codex/Claude loop exposed a visibility/control
+  gap: the plan now says the existing Rust Dev panel should grow into
+  `Control`/`Ops`/`Review`/`Actions`/`Handoff` pages first, then pick up a
+  dedicated `--monitor` entry path later without forking a second UI. The same
+  update also added a broader developer-only surface backlog (artifact
+  inspector, audit tail, geometry/runtime diagnostics, packet/handoff tools,
+  and monitor panels) so `--dev` becomes a practical operator/debug cockpit
+  rather than a narrow command launcher.
+- 2026-03-09: Started the first `Ops`-page implementation slice in the Rust
+  Dev panel so host-process hygiene (`process-audit` / `process-cleanup`) and
+  triage visibility can live beside `Control`/`Review`/`Actions`/`Handoff`
+  under the same typed action router. This keeps operational telemetry in the
+  Rust-first control surface instead of leaking into Theme Studio or a
+  separate ad hoc monitor UI.
+- 2026-03-08: Reconciled MP-340 with MP-355 and Memory Studio so the three
+  plans now share one event/header envelope, memory-backed context-pack refs,
+  provider-aware pack shaping, and a future unified timeline/replay direction
+  instead of drifting into separate state models.
+- 2026-03-08: Landed `ADR-0027` and `ADR-0028` so the active control-plane and
+  review-channel plans now point at accepted architectural authority for the
+  shared `controller_state` contract and the relay-packet protocol instead of
+  relying on a pending backlog placeholder.
+  active pillars read as one system instead of parallel plans: locked shared
+  event-header mapping, memory-backed `context_pack_refs`, provider-aware
+  handoff routing, and a deferred unified timeline/replay projection under the
+  umbrella controller contract.
 - 2026-02-25: Implemented triage-loop fix execution parity with mutation policy
   gates (new `triage_loop_policy.py`, `control_plane_policy.json`
   `triage_loop.allowed_fix_command_prefixes`, workflow env wiring for
@@ -741,6 +1214,10 @@ Acceptance:
 - 2026-02-24: Added deterministic learning-loop scope (fingerprints, playbook
   memory, guarded promotion/decay, `autonomy-learn` digest) so repeated work
   can be automated over time with explicit auditability.
+- 2026-03-08: Corrected MP-340/MP-355 doc wording so active plans stop citing
+  `ADR-0027`/`ADR-0028` as existing authority before those ADRs are actually
+  written; interim ownership stays in the active plan docs until the backlog
+  lands.
 - 2026-02-24: Added explicit Claude swarm worker mode + Codex audit-observer
   execution contract (up to 20 workers) with required runbook/guard cadence and
   stop conditions.
@@ -824,6 +1301,15 @@ Acceptance:
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --agents 4 --parallel-workers 4 --max-concurrent-swarms 20 --mode report-only --dry-run --run-label matrix-10-15-20-30-40-20260224-r2 --format md --output /tmp/autonomy-benchmark-latest-r2.md --json-output /tmp/autonomy-benchmark-latest-r2.json` | post-shape-refactor benchmark rerun passed with identical matrix totals and refreshed bundle/charts under `dev/reports/autonomy/benchmarks/matrix-10-15-20-30-40-20260224-r2/` (`swarms_total=460`, `swarms_ok=460`) (2026-02-24 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,3,5 --tactics uniform,specialized,research-first,test-first --agents 3 --parallel-workers 3 --max-concurrent-swarms 3 --mode report-only --dry-run --run-label mp342-344-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-baseline-matrix-20260225.json` | baseline-first runtime backlog benchmark completed for `MP-342/343/344` (`scenarios=12`, `swarms_total=36`, `swarms_ok=36`, `tasks_completed_total=108`) with scenario bundles under `dev/reports/autonomy/benchmarks/mp342-344-baseline-matrix-20260225/` (2026-02-25 local run) | done |
 | `python3 dev/scripts/devctl.py autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --question-file /tmp/mp342-344-benchmark-question.md --swarm-counts 1,5 --tactics research-first,specialized --agents 2 --parallel-workers 2 --max-concurrent-swarms 2 --mode report-only --run-label mp342-344-live-baseline-matrix-20260225 --format md --output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.md --json-output dev/reports/autonomy/mp342-344-live-baseline-matrix-20260225.json` | live A/B benchmark completed with explicit no-swarm control vs swarm variant (`scenarios=4`, `swarms_total=12`, `swarms_ok=12`, `tasks_completed_total=24`) under `dev/reports/autonomy/benchmarks/mp342-344-live-baseline-matrix-20260225/` (2026-02-25 local run) | done |
+| `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm -- --nocapture` | `ok: True`; `1731 passed` with quick post-run hygiene after the MP-340 memory/operator cockpit slice and adjacent dirty-tree coherence fixes needed to restore a fully compiling runtime surface (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_rust_test_shape.py --format md` | `ok: True` after splitting `status_line/format/tests.rs` into focused submodules so the Rust proof path stays shape-clean (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_rust_lint_debt.py --format md` | `ok: True` after the MP-340 action-router/broker follow-up (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_rust_best_practices.py --format md` | `ok: True` after replacing dropped-send / `Result<String, _>` debt in the shared control-plane broker path (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_structural_complexity.py --format md` | `ok: True` after splitting the Dev-panel overlay input handler into focused helpers (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_active_plan_sync.py` | `ok: True` after the MP-340 memory/operator proof-path sync update (2026-03-09 local run) | done |
+| `python3 dev/scripts/checks/check_multi_agent_sync.py` | `ok: True` after the MP-340 memory/operator proof-path sync update (2026-03-09 local run) | done |
+| `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` after the MP-340 / MP-359 proof-path doc updates (2026-03-09 local run) | done |
+| `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | `ok: True`; zero repo-related processes detected before/after cleanup (2026-03-09 local run) | done |
 | `python3 - <<'PY' ... -> dev/reports/autonomy/experiments/mp342-344-swarm-vs-solo-20260225/{summary.md,summary.json,*.svg}` | generated direct comparison table + SVG graphs for swarm (`swarm_count=5`) vs no-swarm control (`swarm_count=1`) across `research-first` and `specialized` tactics (2026-02-25 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_phone_status dev.scripts.devctl.tests.test_autonomy_report` | phone-status parser/command/projection bundle behavior covered and phone reason metric extraction fixed (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |
 | `python3 -m unittest dev.scripts.devctl.tests.test_controller_action` | controller-action parser/guard/action behavior covered (`refresh-status`, allowlist-reject, allowlist dry-run dispatch, pause-loop mode-file write) (`Ran 5 tests ... OK`, 2026-02-24 local run) | done |

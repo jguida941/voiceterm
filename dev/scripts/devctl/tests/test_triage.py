@@ -18,6 +18,11 @@ def make_args(**overrides):
         "dev_logs": False,
         "dev_root": None,
         "dev_sessions_limit": 5,
+        "pedantic": False,
+        "pedantic_refresh": False,
+        "pedantic_summary_json": None,
+        "pedantic_lints_json": None,
+        "pedantic_policy_file": None,
         "cihub": False,
         "no_cihub": True,
         "require_cihub": False,
@@ -62,6 +67,10 @@ class TriageParserTests(unittest.TestCase):
                 "--ci",
                 "--ci-limit",
                 "7",
+                "--pedantic",
+                "--pedantic-refresh",
+                "--pedantic-summary-json",
+                "/tmp/pedantic-summary.json",
                 "--cihub",
                 "--cihub-run",
                 "123",
@@ -81,6 +90,9 @@ class TriageParserTests(unittest.TestCase):
         self.assertEqual(args.command, "triage")
         self.assertTrue(args.ci)
         self.assertEqual(args.ci_limit, 7)
+        self.assertTrue(args.pedantic)
+        self.assertTrue(args.pedantic_refresh)
+        self.assertEqual(args.pedantic_summary_json, "/tmp/pedantic-summary.json")
         self.assertTrue(args.cihub)
         self.assertEqual(args.cihub_run, "123")
         self.assertEqual(args.cihub_repo, "owner/repo")
@@ -92,6 +104,87 @@ class TriageParserTests(unittest.TestCase):
 
 
 class TriageCommandTests(unittest.TestCase):
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_pedantic_snapshot_adds_issues_and_next_action(
+        self,
+        build_report_mock,
+        write_output_mock,
+    ) -> None:
+        build_report_mock.return_value = {
+            **minimal_project_report(),
+            "pedantic": {
+                "artifact_found": True,
+                "issues": [
+                    {
+                        "category": "quality",
+                        "severity": "medium",
+                        "source": "devctl.pedantic",
+                        "summary": "Pedantic promote candidate `clippy::redundant_else` observed 4 time(s); consider graduating it into `maintainer-lint` after cleanup.",
+                    }
+                ],
+            },
+        }
+        args = make_args(pedantic=True, format="json")
+
+        rc = triage.run(args)
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(
+            any(
+                issue["source"] == "devctl.pedantic"
+                for issue in payload["issues"]
+            )
+        )
+        self.assertTrue(
+            any(
+                "check --profile pedantic" in action
+                for action in payload["next_actions"]
+            )
+        )
+
+    @patch("dev.scripts.devctl.commands.triage.write_output")
+    @patch("dev.scripts.devctl.commands.triage.run_cmd")
+    @patch("dev.scripts.devctl.commands.triage.build_project_report")
+    def test_pedantic_refresh_runs_collector_before_triage(
+        self,
+        build_report_mock,
+        run_cmd_mock,
+        _write_output_mock,
+    ) -> None:
+        run_cmd_mock.return_value = {
+            "name": "pedantic-refresh",
+            "returncode": 1,
+            "skipped": False,
+        }
+        build_report_mock.return_value = {
+            **minimal_project_report(),
+            "pedantic": {
+                "artifact_found": True,
+                "issues": [],
+            },
+        }
+
+        triage.run(
+            make_args(
+                pedantic=True,
+                pedantic_refresh=True,
+                pedantic_summary_json="/tmp/pedantic-summary.json",
+                pedantic_lints_json="/tmp/pedantic-lints.json",
+                format="json",
+            )
+        )
+
+        run_cmd_mock.assert_called_once()
+        refresh_cmd = run_cmd_mock.call_args.args[1]
+        self.assertIn("/tmp/pedantic-summary.json", refresh_cmd)
+        self.assertIn("/tmp/pedantic-lints.json", refresh_cmd)
+        self.assertEqual(
+            build_report_mock.return_value["pedantic"]["refresh"]["name"],
+            "pedantic-refresh",
+        )
+
     @patch("dev.scripts.devctl.commands.triage.write_output")
     @patch("dev.scripts.devctl.commands.triage.build_project_report")
     def test_external_issue_file_is_ingested(

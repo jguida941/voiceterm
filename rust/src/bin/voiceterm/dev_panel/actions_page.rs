@@ -1,35 +1,23 @@
-//! Guarded Dev panel overlay that surfaces in-session developer stats.
+//! Actions page of the dev panel overlay — session stats, guard state, and the
+//! devctl command catalog.
 
 use std::path::Path;
 use std::time::Instant;
 
 use voiceterm::devtools::DevModeSnapshot;
 
-use crate::dev_command::{DevCommandKind, DevPanelCommandState};
+use super::{panel_width, value_line};
+use crate::dev_command::DevPanelState;
 use crate::overlay_frame::{
-    centered_title_line, display_width, frame_bottom, frame_separator, frame_top, section_line,
-    truncate_display,
+    centered_title_line, frame_bottom, frame_separator, frame_top, section_line,
 };
-use crate::theme::{
-    overlay_close_symbol, overlay_separator, resolved_overlay_border_set, Theme, ThemeColors,
-};
-
-const DEV_PANEL_MIN_WIDTH: usize = 52;
-const DEV_PANEL_MAX_WIDTH: usize = 92;
+use crate::theme::{overlay_close_symbol, overlay_separator, resolved_overlay_border_set, Theme};
 
 #[must_use]
-pub fn dev_panel_footer(colors: &ThemeColors) -> String {
+pub fn dev_panel_footer(colors: &crate::theme::ThemeColors) -> String {
     let close = overlay_close_symbol(colors.glyph_set);
     let sep = overlay_separator(colors.glyph_set);
-    format!("[{close}] close {sep} Enter run {sep} X cancel")
-}
-
-pub fn dev_panel_width_for_terminal(width: usize) -> usize {
-    width.clamp(DEV_PANEL_MIN_WIDTH, DEV_PANEL_MAX_WIDTH)
-}
-
-pub fn dev_panel_inner_width_for_terminal(width: usize) -> usize {
-    dev_panel_width_for_terminal(width).saturating_sub(2)
+    format!("[{close}] close {sep} Enter run {sep} X cancel {sep} P profile {sep} Tab next")
 }
 
 pub fn format_dev_panel(
@@ -37,13 +25,13 @@ pub fn format_dev_panel(
     stats: Option<DevModeSnapshot>,
     dev_log_enabled: bool,
     dev_path: Option<&Path>,
-    commands: &DevPanelCommandState,
+    commands: &DevPanelState,
     width: usize,
 ) -> String {
     let mut colors = theme.colors();
     colors.borders = resolved_overlay_border_set(theme);
     let borders = &colors.borders;
-    let content_width = dev_panel_width_for_terminal(width);
+    let content_width = panel_width(width);
     let snapshot = stats.unwrap_or(DevModeSnapshot {
         transcript_count: 0,
         empty_count: 0,
@@ -68,10 +56,16 @@ pub fn format_dev_panel(
     let now = Instant::now();
     let mut lines = vec![
         frame_top(&colors, borders, content_width),
-        centered_title_line(&colors, borders, "VoiceTerm - Dev Tools", content_width),
+        centered_title_line(&colors, borders, "VoiceTerm - Actions", content_width),
         frame_separator(&colors, borders, content_width),
         section_line(&colors, "Guard", content_width),
         value_line(&colors, "Guard mode", "ON (--dev)", content_width),
+        value_line(
+            &colors,
+            "Exec profile",
+            commands.execution_profile().label(),
+            content_width,
+        ),
         value_line(&colors, "Dev logging", dev_logging, content_width),
         value_line(&colors, "Log root", &dev_root, content_width),
         frame_separator(&colors, borders, content_width),
@@ -117,7 +111,7 @@ pub fn format_dev_panel(
         ),
     ];
 
-    for index in 0..DevCommandKind::ALL.len() {
+    for index in 0..commands.catalog().len() {
         lines.push(command_line(&colors, commands, index, content_width, now));
     }
 
@@ -144,62 +138,43 @@ pub fn format_dev_panel(
     lines.join("\n")
 }
 
-fn value_line(colors: &ThemeColors, label: &str, value: &str, width: usize) -> String {
-    let borders = &colors.borders;
-    let inner_width = width.saturating_sub(2);
-    let label_width = 17;
-    let value_width = inner_width.saturating_sub(label_width + 3);
-    let prefix = format!(" {:<label_width$} ", label, label_width = label_width);
-    let value = truncate_display(value, value_width);
-    let value_pad = " ".repeat(value_width.saturating_sub(display_width(&value)));
-    format!(
-        "{}{}{}{}{}{}{}{}{}{}",
-        colors.border,
-        borders.vertical,
-        colors.info,
-        prefix,
-        colors.reset,
-        value,
-        value_pad,
-        colors.border,
-        borders.vertical,
-        colors.reset
-    )
-}
-
 fn command_line(
-    colors: &ThemeColors,
-    commands: &DevPanelCommandState,
+    colors: &crate::theme::ThemeColors,
+    commands: &DevPanelState,
     index: usize,
     width: usize,
     now: Instant,
 ) -> String {
-    let command = DevCommandKind::ALL[index];
-    let marker = if commands.selected_command() == command {
+    let entry = &commands.catalog().entries()[index];
+    let marker = if commands.selected_index() == index {
         ">"
     } else {
         " "
     };
-    let label = format!("{marker} [{}] {}", index + 1, command.label());
-    let status = commands.status_for(command, now);
+    let cat = entry.category().marker();
+    let label = format!("{marker} [{cat}{}] {}", index + 1, entry.label());
+    let status = entry
+        .dev_command()
+        .map(|cmd| commands.status_for(cmd, now))
+        .unwrap_or_else(|| "n/a".to_string());
     value_line(colors, &label, &status, width)
-}
-
-pub fn dev_panel_height() -> usize {
-    // 23 fixed chrome lines (frame/title/separators/sections/stat rows/footer)
-    // plus one command row per DevCommandKind variant.
-    23 + DevCommandKind::ALL.len()
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
+    use voiceterm::devtools::DevModeSnapshot;
+
+    use crate::dev_command::DevPanelState;
+    use crate::dev_panel::dev_panel_height;
+    use crate::theme::Theme;
+
     use super::*;
 
     #[test]
     fn format_dev_panel_contains_guard_metrics_and_dev_tools() {
-        let command_state = DevPanelCommandState::default();
+        let command_state = DevPanelState::default();
         let panel = format_dev_panel(
             Theme::Coral,
             Some(DevModeSnapshot {
@@ -216,16 +191,18 @@ mod tests {
             96,
         );
 
-        assert!(panel.contains("Dev Tools"));
+        assert!(panel.contains("Actions"));
         assert!(panel.contains("Guard mode"));
         assert!(panel.contains("Transcript events"));
         assert!(panel.contains("240 ms"));
-        assert!(panel.contains("[1] status"));
+        assert!(panel.contains("[R1] status"));
+        assert!(panel.contains("Exec profile"));
+        assert!(panel.contains("Guarded"));
     }
 
     #[test]
     fn format_dev_panel_line_count_matches_height() {
-        let command_state = DevPanelCommandState::default();
+        let command_state = DevPanelState::default();
         let panel = format_dev_panel(Theme::Codex, None, false, None, &command_state, 96);
         assert_eq!(panel.lines().count(), dev_panel_height());
     }

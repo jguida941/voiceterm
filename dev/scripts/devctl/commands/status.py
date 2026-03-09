@@ -3,7 +3,7 @@
 import json
 import sys
 
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..metric_writers import append_metric
 from ..status_report import build_project_report, render_project_markdown
 
@@ -41,9 +41,16 @@ def run(args) -> int:
             f"[devctl status] warning: unable to persist metrics ({exc})",
             file=sys.stderr,
         )
-    write_output(output, args.output)
-    if args.pipe_command:
-        return pipe_output(output, args.pipe_command, args.pipe_args)
+    pipe_rc = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        writer=write_output,
+        piper=pipe_output,
+    )
+    if pipe_rc != 0:
+        return pipe_rc
 
     if getattr(args, "require_ci", False):
         ci_info = report.get("ci", {})

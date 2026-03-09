@@ -13,6 +13,7 @@ from pathlib import Path
 
 from check_duplication_audit_support import (
     derive_status,
+    find_shared_logic_candidates,
     render_markdown,
     run_python_fallback,
 )
@@ -78,6 +79,58 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=10.0,
         help="Fail when jscpd total percentage is above this value",
+    )
+    parser.add_argument(
+        "--check-shared-logic",
+        action="store_true",
+        help=(
+            "Scan newly added Python/tooling files for advisory shared-logic "
+            "candidates that should likely extend existing helpers/scaffolds."
+        ),
+    )
+    parser.add_argument(
+        "--since-ref",
+        help="Optional git base ref for new-file shared-logic scanning.",
+    )
+    parser.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Git head ref used with --since-ref (default: HEAD).",
+    )
+    parser.add_argument(
+        "--paths",
+        nargs="*",
+        help="Optional explicit repository-relative paths for shared-logic scanning.",
+    )
+    parser.add_argument(
+        "--shared-logic-min-overlap-lines",
+        type=int,
+        default=8,
+        help="Minimum normalized shared lines for helper-overlap warnings.",
+    )
+    parser.add_argument(
+        "--shared-logic-min-overlap-ratio",
+        type=float,
+        default=0.60,
+        help="Minimum helper-overlap ratio for advisory shared-logic warnings.",
+    )
+    parser.add_argument(
+        "--shared-logic-min-shared-imports",
+        type=int,
+        default=3,
+        help="Minimum shared project imports for orchestration-clone warnings.",
+    )
+    parser.add_argument(
+        "--shared-logic-min-import-ratio",
+        type=float,
+        default=0.75,
+        help="Minimum project-import overlap ratio for orchestration-clone warnings.",
+    )
+    parser.add_argument(
+        "--shared-logic-min-shared-markers",
+        type=int,
+        default=2,
+        help="Minimum shared runner markers for orchestration-clone warnings.",
     )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
@@ -182,6 +235,65 @@ def _run_jscpd(
     return True, None, "ok"
 
 
+def _normalize_candidate_paths(explicit_paths: list[str] | None) -> list[Path]:
+    if not explicit_paths:
+        return []
+    return sorted(Path(path) for path in explicit_paths)
+
+
+def _discover_new_paths(
+    *,
+    since_ref: str | None,
+    head_ref: str,
+) -> tuple[list[Path], list[str]]:
+    errors: list[str] = []
+    paths: set[Path] = set()
+    diff_cmd = ["git", "diff", "--name-only", "--diff-filter=A"]
+    if since_ref:
+        diff_cmd.extend([since_ref, head_ref])
+    else:
+        diff_cmd.append("HEAD")
+    diff_proc = subprocess.run(
+        diff_cmd,
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if diff_proc.returncode != 0:
+        errors.append(diff_proc.stderr.strip() or "git diff failed")
+    else:
+        paths.update(Path(line.strip()) for line in diff_proc.stdout.splitlines() if line.strip())
+
+    untracked_proc = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if untracked_proc.returncode != 0:
+        errors.append(untracked_proc.stderr.strip() or "git ls-files failed")
+    else:
+        paths.update(
+            Path(line.strip()) for line in untracked_proc.stdout.splitlines() if line.strip()
+        )
+    return sorted(paths), errors
+
+
+def _shared_logic_candidate_paths(args) -> tuple[list[Path], list[str]]:
+    explicit_paths = _normalize_candidate_paths(args.paths)
+    if explicit_paths:
+        return explicit_paths, []
+    return _discover_new_paths(since_ref=args.since_ref, head_ref=args.head_ref)
+
+
+def _should_require_duplication_report(args, report_path: Path) -> bool:
+    if args.check_shared_logic and not args.run_jscpd and not report_path.exists():
+        return False
+    return True
+
+
 def main() -> int:
     args = _build_parser().parse_args()
     now = datetime.now(timezone.utc)
@@ -192,6 +304,7 @@ def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     jscpd_status = "not_requested"
+    shared_logic_candidates: list[dict] = []
 
     if args.run_jscpd:
         ok, run_error, run_status = _run_jscpd(
@@ -220,12 +333,15 @@ def main() -> int:
             else:
                 errors.append(run_error)
 
-    payload, load_error = _load_report(report_path)
-    if load_error is not None:
-        errors.append(load_error)
-        payload = {}
-
+    report_required = _should_require_duplication_report(args, report_path)
     report_exists = report_path.exists()
+    payload: dict | None = {}
+    if report_required or report_exists:
+        payload, load_error = _load_report(report_path)
+        if load_error is not None:
+            errors.append(load_error)
+            payload = {}
+
     report_age_hours: float | None = None
     blocked_by_tooling = bool(
         jscpd_status == "missing_tool" and args.run_jscpd and not report_exists
@@ -241,13 +357,32 @@ def main() -> int:
 
     duplication_percent = _extract_duplication_percent(payload or {})
     duplicates_count = _extract_duplicates_count(payload or {})
-    if duplication_percent is None:
+    if report_exists and duplication_percent is None:
         warnings.append("jscpd report is missing `statistics.total.percentage`")
-    elif duplication_percent > args.max_duplication_percent:
+    elif (
+        duplication_percent is not None
+        and duplication_percent > args.max_duplication_percent
+    ):
         errors.append(
             "duplication percent exceeds threshold "
             f"({duplication_percent:.2f}% > {args.max_duplication_percent:.2f}%)"
         )
+
+    if args.check_shared_logic:
+        candidate_paths, discovery_errors = _shared_logic_candidate_paths(args)
+        errors.extend(discovery_errors)
+        if not discovery_errors:
+            shared_logic_candidates = find_shared_logic_candidates(
+                repo_root=REPO_ROOT,
+                candidate_paths=candidate_paths,
+                path_for_report=_path_for_report,
+                min_line_overlap=args.shared_logic_min_overlap_lines,
+                min_line_ratio=args.shared_logic_min_overlap_ratio,
+                min_shared_imports=args.shared_logic_min_shared_imports,
+                min_import_ratio=args.shared_logic_min_import_ratio,
+                min_shared_markers=args.shared_logic_min_shared_markers,
+            )
+            warnings.extend(item["summary"] for item in shared_logic_candidates)
 
     status = derive_status(
         errors=errors,
@@ -278,6 +413,9 @@ def main() -> int:
         "duplication_percent": duplication_percent,
         "max_duplication_percent": args.max_duplication_percent,
         "duplicates_count": duplicates_count,
+        "check_shared_logic": args.check_shared_logic,
+        "shared_logic_candidate_count": len(shared_logic_candidates),
+        "shared_logic_candidates": shared_logic_candidates,
         "errors": errors,
         "warnings": warnings,
     }

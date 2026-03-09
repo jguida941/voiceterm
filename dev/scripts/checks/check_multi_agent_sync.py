@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate multi-agent coordination parity between MASTER_PLAN and runbook."""
+"""Validate multi-agent coordination parity between MASTER_PLAN and review_channel."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MASTER_PLAN_PATH = REPO_ROOT / "dev/active/MASTER_PLAN.md"
-RUNBOOK_PATH = REPO_ROOT / "dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md"
+RUNBOOK_PATH = REPO_ROOT / "dev/active/review_channel.md"
 
 MASTER_BOARD_HEADING = "## Multi-Agent Coordination Board"
 RUNBOOK_BOARD_HEADING = "## 0) Current Execution Mode"
@@ -209,11 +209,11 @@ def _build_report() -> dict:
     if not master_agents:
         errors.append("MASTER_PLAN board must include at least one agent row.")
     if not runbook_agents:
-        errors.append("Runbook board must include at least one agent row.")
+        errors.append("review_channel board must include at least one agent row.")
 
     for table_name, agents in (
         ("MASTER_PLAN", master_agents),
-        ("Runbook", runbook_agents),
+        ("review_channel", runbook_agents),
     ):
         invalid_agents = sorted(
             agent for agent in agents if not AGENT_NAME_PATTERN.fullmatch(agent)
@@ -226,12 +226,12 @@ def _build_report() -> dict:
 
     if required - runbook_agents:
         errors.append(
-            "Runbook missing agent rows: "
+            "review_channel missing agent rows: "
             + ", ".join(_sorted_agents(required - runbook_agents))
         )
     if runbook_agents - required:
         errors.append(
-            "Runbook has unexpected agent rows: "
+            "review_channel has unexpected agent rows: "
             + ", ".join(_sorted_agents(runbook_agents - required))
         )
 
@@ -240,12 +240,12 @@ def _build_report() -> dict:
     expected_signers = required | {"ORCHESTRATOR"}
     if expected_signers - signoff_signers:
         errors.append(
-            "Runbook signoff table missing signers: "
+            "review_channel signoff table missing signers: "
             + ", ".join(_sorted_signers(expected_signers - signoff_signers))
         )
     if signoff_signers - expected_signers:
         errors.append(
-            "Runbook signoff table has unexpected signers: "
+            "review_channel signoff table has unexpected signers: "
             + ", ".join(_sorted_signers(signoff_signers - expected_signers))
         )
 
@@ -262,7 +262,7 @@ def _build_report() -> dict:
                 str(runbook_row.get(runbook_field, ""))
             ):
                 errors.append(
-                    f"{agent} mismatch: MASTER_PLAN {master_field!r} != runbook {runbook_field!r}."
+                    f"{agent} mismatch: MASTER_PLAN {master_field!r} != review_channel {runbook_field!r}."
                 )
 
         status = _normalize(str(master_row.get("Status", ""))).lower()
@@ -287,14 +287,14 @@ def _build_report() -> dict:
             ]
             if not matches:
                 errors.append(
-                    f"{agent} status is {status!r} but runbook ledger has no matching entries."
+                    f"{agent} status is {status!r} but review_channel ledger has no matching entries."
                 )
 
     # Lane lock guard: each agent lane must keep unique branch/worktree in both tables.
     for field in ("Branch", "Worktree"):
         for table_name, mapping in (
             ("MASTER_PLAN", master_by_agent),
-            ("runbook", runbook_by_agent),
+            ("review_channel", runbook_by_agent),
         ):
             seen: dict[str, list[str]] = {}
             for agent in _sorted_agents(required & set(mapping)):
@@ -392,7 +392,7 @@ def _build_report() -> dict:
     )
     if unknown_ledger_statuses:
         warnings.append(
-            "Runbook ledger includes unknown statuses: "
+            "review_channel ledger includes unknown statuses: "
             + ", ".join(unknown_ledger_statuses)
         )
 
@@ -435,10 +435,10 @@ def _build_report() -> dict:
         "command": "check_multi_agent_sync",
         "ok": not errors,
         "master_plan_path": str(MASTER_PLAN_PATH.relative_to(REPO_ROOT)),
-        "runbook_path": str(RUNBOOK_PATH.relative_to(REPO_ROOT)),
+        "coordination_path": str(RUNBOOK_PATH.relative_to(REPO_ROOT)),
         "required_agents": _sorted_agents(required),
         "master_agents": _sorted_agents(master_agents),
-        "runbook_agents": _sorted_agents(runbook_agents),
+        "coordination_agents": _sorted_agents(runbook_agents),
         "instruction_entries": len(instruction_rows),
         "ledger_entries": len(ledger_rows),
         "signoff_signers": _sorted_signers(signoff_signers),
@@ -455,13 +455,14 @@ def _render_md(report: dict) -> str:
         lines.append(f"- error: {report['error']}")
         return "\n".join(lines)
     lines.append(f"- master_plan: {report['master_plan_path']}")
-    lines.append(f"- runbook: {report['runbook_path']}")
+    lines.append(f"- coordination_doc: {report['coordination_path']}")
     lines.append("- required_agents: " + ", ".join(report.get("required_agents", [])))
     lines.append(
         "- master_agents: " + (", ".join(report.get("master_agents", [])) or "none")
     )
     lines.append(
-        "- runbook_agents: " + (", ".join(report.get("runbook_agents", [])) or "none")
+        "- coordination_agents: "
+        + (", ".join(report.get("coordination_agents", [])) or "none")
     )
     lines.append(f"- instruction_entries: {report.get('instruction_entries', 0)}")
     lines.append(f"- ledger_entries: {report.get('ledger_entries', 0)}")

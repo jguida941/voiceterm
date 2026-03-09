@@ -20,6 +20,8 @@ const STATUS_SEND_TIMEOUT_MS: u64 = 2;
 #[derive(Debug, Clone)]
 pub(crate) enum WriterMessage {
     PtyOutput(Vec<u8>),
+    /// Direct terminal-control bytes that must stay serialized with overlay/HUD output.
+    TerminalBytes(Vec<u8>),
     /// Simple status message (legacy format with auto-styled prefix)
     #[allow(
         dead_code,
@@ -146,6 +148,51 @@ pub(crate) fn try_send_message(writer_tx: &Sender<WriterMessage>, message: Write
     }
 }
 
+pub(crate) fn send_message_blocking(
+    writer_tx: &Sender<WriterMessage>,
+    message: WriterMessage,
+    context: &str,
+) -> bool {
+    match writer_tx.send(message) {
+        Ok(()) => true,
+        Err(err) => {
+            log_debug(&format!(
+                "{context}: writer channel disconnected before message delivery: {err}",
+            ));
+            false
+        }
+    }
+}
+
+pub(crate) fn osc52_copy_bytes(text: &str) -> Vec<u8> {
+    let encoded = base64_encode(text.as_bytes());
+    format!("\x1b]52;c;{encoded}\x07").into_bytes()
+}
+
+fn base64_encode(input: &[u8]) -> String {
+    const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
+        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        out.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        out.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            out.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(CHARS[(triple & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +262,11 @@ mod tests {
         tx.try_send(WriterMessage::PtyOutput(vec![1]))
             .expect("queue should accept prefill");
         assert!(!try_send_message(&tx, WriterMessage::ClearStatus));
+    }
+
+    #[test]
+    fn osc52_copy_bytes_encodes_expected_escape() {
+        let payload = osc52_copy_bytes("Hello, clipboard!");
+        assert_eq!(payload, b"\x1b]52;c;SGVsbG8sIGNsaXBib2FyZCE=\x07");
     }
 }

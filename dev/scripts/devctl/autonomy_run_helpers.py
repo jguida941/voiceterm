@@ -4,25 +4,19 @@ from __future__ import annotations
 
 import re
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .common import display_path
 from .config import REPO_ROOT
 from .numeric import to_int
+from .time_utils import utc_timestamp
 
 CHECKBOX_PATTERN = re.compile(r"^\s*-\s*\[\s\]\s+(?P<text>.+?)\s*$")
 
 
-def utc_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def repo_relative(path: Path) -> str:
-    try:
-        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
-    except ValueError:
-        return str(path)
+    return display_path(path, repo_root=REPO_ROOT)
 
 
 def fallback_repo_from_origin() -> str | None:

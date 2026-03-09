@@ -3,8 +3,8 @@
 use crate::config::{HudBorderStyle, HudStyle};
 use crate::status_style::StatusType;
 use crate::theme::{
-    resolved_hud_border_set, BorderSet, Theme, ThemeColors, BORDER_DOUBLE, BORDER_HEAVY,
-    BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
+    inline_separator, overlay_separator, resolved_hud_border_set, BorderSet, Theme, ThemeColors,
+    BORDER_DOUBLE, BORDER_HEAVY, BORDER_NONE, BORDER_ROUNDED, BORDER_SINGLE,
 };
 
 use super::animation::transition_marker;
@@ -26,7 +26,7 @@ use super::right_panel::{
 #[cfg(test)]
 use super::state::Pipeline;
 use super::state::{RecordingState, StatusBanner, StatusLineState, VoiceMode};
-use super::text::{display_width, truncate_display};
+use super::text::{display_width, truncate_display, with_color};
 #[cfg(test)]
 use crate::config::HudRightPanel;
 #[cfg(test)]
@@ -95,12 +95,23 @@ fn borderless_row(width: usize) -> String {
 }
 
 #[inline]
-fn with_color(text: &str, color: &str, colors: &ThemeColors) -> String {
-    if color.is_empty() {
-        text.to_string()
-    } else {
-        format!("{color}{text}{}", colors.reset)
-    }
+fn colored_inline_separator(colors: &ThemeColors) -> String {
+    format!(
+        "{}{}{}",
+        colors.dim,
+        inline_separator(colors.glyph_set),
+        colors.reset
+    )
+}
+
+#[inline]
+fn colored_overlay_separator(colors: &ThemeColors) -> String {
+    format!(
+        " {}{}{} ",
+        colors.dim,
+        overlay_separator(colors.glyph_set),
+        colors.reset
+    )
 }
 
 /// Format hidden mode strip - grey/obscure, only shows essential info when active.
@@ -237,7 +248,7 @@ fn format_full_single_line_banner(
     let duration_section = format_duration_section(state, colors);
     let meter_section = format_meter_section(state, colors);
     let message_section = format_full_hud_message(state, colors);
-    let sep = format!("{}│{}", colors.dim, colors.reset);
+    let sep = colored_inline_separator(colors);
     let mut status = [mode_section, duration_section, meter_section].join(&sep);
     if !message_section.is_empty() {
         status.push_str(&format!(" {sep} {message_section}"));
@@ -246,7 +257,7 @@ fn format_full_single_line_banner(
     let (controls_row, base_buttons) =
         format_full_controls_with_positions(state, colors, width, 1, 1);
     let controls_width = display_width(&controls_row);
-    let status_controls_sep = format!(" {}·{} ", colors.dim, colors.reset);
+    let status_controls_sep = colored_overlay_separator(colors);
     let status_controls_sep_width = display_width(&status_controls_sep);
 
     let right_panel = format_right_panel(state, colors, theme, width.saturating_sub(12));
@@ -415,7 +426,7 @@ fn format_main_row(
     let message_section = format_full_hud_message(state, colors);
 
     // Combine all sections
-    let sep = format!("{}│{}", colors.dim, colors.reset);
+    let sep = colored_inline_separator(colors);
     let content = [mode_section, duration_section, meter_section].join(&sep);
     let message_lane = if message_section.is_empty() {
         String::new()

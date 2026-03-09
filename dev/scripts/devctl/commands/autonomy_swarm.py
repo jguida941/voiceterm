@@ -18,7 +18,7 @@ from ..autonomy_swarm_helpers import (
 )
 from ..autonomy_swarm_post_audit import build_post_audit_payload as _post_audit_payload
 from ..autonomy_swarm_post_audit import run_post_audit_digest as _run_post_audit_digest
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 from ..numeric import to_int
 from .autonomy_swarm_core import AgentTask as _AgentTask
 from .autonomy_swarm_core import fallback_repo_from_origin as _fallback_repo_from_origin
@@ -31,22 +31,14 @@ except ModuleNotFoundError:
     from checks.coderabbit_ralph_loop_core import resolve_repo
 
 
-def run(args) -> int:
-    """Run an adaptive autonomy swarm and emit a human-readable report bundle."""
-    arg_error = _validate_args(args)
-    if arg_error:
-        print(arg_error)
-        return 2
-
+def _resolve_swarm_repo(args) -> str | None:
     repo = resolve_repo(args.repo)
-    if not repo:
-        repo = _fallback_repo_from_origin()
-    if not repo:
-        print(
-            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
-        )
-        return 2
+    if repo:
+        return repo
+    return _fallback_repo_from_origin()
 
+
+def _build_swarm_layout(args) -> tuple[datetime, str, Path, Path, Path]:
     now = datetime.now(timezone.utc)
     run_label = slug(
         str(args.run_label or now.strftime("%Y%m%d-%H%M%SZ")), fallback="swarm"
@@ -55,6 +47,115 @@ def run(args) -> int:
     swarm_dir = output_root / run_label
     chart_dir = swarm_dir / "charts"
     swarm_dir.mkdir(parents=True, exist_ok=True)
+    return now, run_label, output_root, swarm_dir, chart_dir
+
+
+def _run_worker_agents(
+    args,
+    *,
+    run_label: str,
+    swarm_dir: Path,
+    worker_agent_count: int,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    tasks = [
+        _AgentTask(
+            index=index,
+            name=f"AGENT-{index}",
+            output_dir=swarm_dir / f"AGENT-{index}",
+        )
+        for index in range(1, worker_agent_count + 1)
+    ]
+    worker_count = min(worker_agent_count, max(1, int(args.parallel_workers)))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = [
+            executor.submit(_run_one_agent, task, args, run_label) for task in tasks
+        ]
+        for future in futures:
+            rows.append(future.result())
+    rows.sort(key=lambda item: int(item.get("index") or 0))
+    return rows
+
+
+def _render_swarm_output(args, report: dict[str, Any]) -> str:
+    json_payload = json.dumps(report, indent=2)
+    return json_payload if args.format == "json" else render_swarm_markdown(report)
+
+
+def _build_swarm_report(
+    *,
+    args,
+    now: datetime,
+    output_root: Path,
+    swarm_dir: Path,
+    run_label: str,
+    rows: list[dict[str, Any]],
+    metadata: dict[str, Any],
+    warnings: list[str],
+    selected_agents: int,
+    requested_agents: int,
+    worker_agent_count: int,
+    reviewer_enabled: bool,
+    rationale: str,
+    score_components: dict[str, Any],
+    post_audit_payload: dict[str, Any],
+) -> dict[str, Any]:
+    ok_count = sum(1 for row in rows if bool(row.get("ok")))
+    resolved_count = sum(1 for row in rows if bool(row.get("resolved")))
+    overall_ok = all(bool(row.get("ok")) for row in rows) if rows else True
+    return {
+        "command": "autonomy-swarm",
+        "timestamp": now.isoformat().replace("+00:00", "Z"),
+        "ok": overall_ok,
+        "run_label": run_label,
+        "output_root": str(output_root),
+        "swarm_dir": str(swarm_dir),
+        "summary": {
+            "requested_agents": requested_agents,
+            "selected_agents": selected_agents,
+            "worker_agents": worker_agent_count,
+            "reviewer_lane": reviewer_enabled,
+            "executed_agents": len(rows),
+            "ok_count": ok_count,
+            "resolved_count": resolved_count,
+            "plan_only": bool(args.plan_only),
+        },
+        "metadata": metadata,
+        "score_components": score_components,
+        "allocation_rationale": rationale,
+        "execution": {
+            "mode": str(args.mode),
+            "fix_command_configured": bool(str(args.fix_command or "").strip()),
+            "branch_base": str(args.branch_base),
+            "parallel_workers": int(args.parallel_workers),
+            "max_rounds": int(args.max_rounds),
+            "max_hours": float(args.max_hours),
+            "max_tasks": int(args.max_tasks),
+            "loop_max_attempts": int(args.loop_max_attempts),
+            "dry_run": bool(args.dry_run),
+        },
+        "warnings": warnings,
+        "agents": rows,
+        "charts": [],
+        "post_audit": post_audit_payload,
+    }
+
+
+def run(args) -> int:
+    """Run an adaptive autonomy swarm and emit a human-readable report bundle."""
+    arg_error = _validate_args(args)
+    if arg_error:
+        print(arg_error)
+        return 2
+
+    repo = _resolve_swarm_repo(args)
+    if not repo:
+        print(
+            "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
+        )
+        return 2
+
+    now, run_label, output_root, swarm_dir, chart_dir = _build_swarm_layout(args)
 
     args.repo = repo
     metadata, warnings = collect_refactor_metadata(args)
@@ -82,22 +183,12 @@ def run(args) -> int:
 
     rows: list[dict[str, Any]] = []
     if not bool(args.plan_only):
-        tasks = [
-            _AgentTask(
-                index=index,
-                name=f"AGENT-{index}",
-                output_dir=swarm_dir / f"AGENT-{index}",
-            )
-            for index in range(1, worker_agent_count + 1)
-        ]
-        worker_count = min(worker_agent_count, max(1, int(args.parallel_workers)))
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = [
-                executor.submit(_run_one_agent, task, args, run_label) for task in tasks
-            ]
-            for future in futures:
-                rows.append(future.result())
-        rows.sort(key=lambda item: int(item.get("index") or 0))
+        rows = _run_worker_agents(
+            args,
+            run_label=run_label,
+            swarm_dir=swarm_dir,
+            worker_agent_count=worker_agent_count,
+        )
 
         if bool(args.post_audit):
             try:
@@ -140,46 +231,23 @@ def run(args) -> int:
             warnings=["post-audit skipped for --plan-only"],
         )
 
-    ok_count = sum(1 for row in rows if bool(row.get("ok")))
-    resolved_count = sum(1 for row in rows if bool(row.get("resolved")))
-    overall_ok = all(bool(row.get("ok")) for row in rows) if rows else True
-
-    report: dict[str, Any] = {
-        "command": "autonomy-swarm",
-        "timestamp": now.isoformat().replace("+00:00", "Z"),
-        "ok": overall_ok,
-        "run_label": run_label,
-        "output_root": str(output_root),
-        "swarm_dir": str(swarm_dir),
-        "summary": {
-            "requested_agents": requested_agents,
-            "selected_agents": selected_agents,
-            "worker_agents": worker_agent_count,
-            "reviewer_lane": reviewer_enabled,
-            "executed_agents": len(rows),
-            "ok_count": ok_count,
-            "resolved_count": resolved_count,
-            "plan_only": bool(args.plan_only),
-        },
-        "metadata": metadata,
-        "score_components": score_components,
-        "allocation_rationale": rationale,
-        "execution": {
-            "mode": str(args.mode),
-            "fix_command_configured": bool(str(args.fix_command or "").strip()),
-            "branch_base": str(args.branch_base),
-            "parallel_workers": int(args.parallel_workers),
-            "max_rounds": int(args.max_rounds),
-            "max_hours": float(args.max_hours),
-            "max_tasks": int(args.max_tasks),
-            "loop_max_attempts": int(args.loop_max_attempts),
-            "dry_run": bool(args.dry_run),
-        },
-        "warnings": warnings,
-        "agents": rows,
-        "charts": [],
-        "post_audit": post_audit_payload,
-    }
+    report = _build_swarm_report(
+        args=args,
+        now=now,
+        output_root=output_root,
+        swarm_dir=swarm_dir,
+        run_label=run_label,
+        rows=rows,
+        metadata=metadata,
+        warnings=warnings,
+        selected_agents=selected_agents,
+        requested_agents=requested_agents,
+        worker_agent_count=worker_agent_count,
+        reviewer_enabled=reviewer_enabled,
+        rationale=rationale,
+        score_components=score_components,
+        post_audit_payload=post_audit_payload,
+    )
 
     if bool(args.charts):
         chart_paths, chart_warning = build_swarm_charts(report, chart_dir)
@@ -192,16 +260,17 @@ def run(args) -> int:
     summary_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
     summary_md.write_text(render_swarm_markdown(report), encoding="utf-8")
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_swarm_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = _render_swarm_output(args, report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 0 if report["ok"] else 1

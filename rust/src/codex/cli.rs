@@ -73,7 +73,9 @@ fn wait_child_with_cancel(child: Child, cancel: &CancelToken) -> Result<Output, 
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         let result = child.wait_with_output();
-        let _ = tx.send(result);
+        if tx.send(result).is_err() {
+            log_debug("CodexJob: waiter result receiver dropped before child completion");
+        }
     });
 
     let mut cancel_requested_at: Option<Instant> = None;

@@ -45,6 +45,8 @@ class CollectClippyWarningsTests(unittest.TestCase):
         self.assertEqual(summary["status"], "success")
         self.assertEqual(summary["warnings"], 0)
         self.assertEqual(summary["exit_code"], 0)
+        self.assertEqual(summary["schema_version"], 1)
+        self.assertIn("generated_at", summary)
 
     def test_build_summary_failure_when_warnings_present(self) -> None:
         summary = self.collector.build_summary(exit_code=0, warning_count=2)
@@ -109,11 +111,31 @@ class CollectClippyWarningsTests(unittest.TestCase):
         self.assertIn("-D", command)
         self.assertIn("warnings", command)
 
+    def test_build_clippy_command_accepts_extra_args(self) -> None:
+        command = self.collector.build_clippy_command(
+            deny_warnings=True,
+            extra_args=["-W", "clippy::pedantic"],
+        )
+        self.assertEqual(command[-4:], ["-D", "warnings", "-W", "clippy::pedantic"])
+
+    def test_write_lints_json_includes_metadata_when_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "clippy-lints.json"
+            self.collector.write_lints_json(
+                output_path,
+                {"clippy::panic": 1},
+                command=["cargo", "clippy", "--", "-W", "clippy::pedantic"],
+                working_directory="rust",
+            )
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["working_directory"], "rust")
+        self.assertIn("command", payload)
+
     def test_main_propagates_exit_code_when_requested(self) -> None:
         with patch.object(
             self.collector,
             "run_clippy",
-            return_value=([], 101),
+            return_value=([], 101, ["cargo", "clippy"]),
         ):
             with patch.object(
                 self.collector.sys,

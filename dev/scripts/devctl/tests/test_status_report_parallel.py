@@ -29,6 +29,19 @@ FAKE_DEV_LOGS = {
     "parse_errors": 0,
     "latest_event_iso": "2026-02-23T00:00:00+00:00",
 }
+FAKE_PEDANTIC = {
+    "artifact_found": True,
+    "observed_lints": 2,
+    "top_promote_candidates": [{"lint": "clippy::redundant_else", "count": 4}],
+}
+FAKE_RUST_AUDITS = {
+    "mode": "absolute",
+    "ok": False,
+    "summary": {"total_violation_files": 2, "total_active_findings": 5},
+    "guards": [],
+    "categories": [],
+    "hotspots": [],
+}
 
 
 def _fake_git():
@@ -45,6 +58,14 @@ def _fake_ci(_limit=5):
 
 def _fake_dev_logs(**_kwargs):
     return dict(FAKE_DEV_LOGS)
+
+
+def _fake_pedantic(**_kwargs):
+    return dict(FAKE_PEDANTIC)
+
+
+def _fake_rust_audits(**_kwargs):
+    return dict(FAKE_RUST_AUDITS)
 
 
 class RunProbesSerialTests(unittest.TestCase):
@@ -197,6 +218,42 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertNotIn("ci", report)
         self.assertNotIn("dev_logs", report)
 
+    @patch(
+        "dev.scripts.devctl.status_report.collect_clippy_pedantic_summary",
+        side_effect=_fake_pedantic,
+    )
+    @patch(
+        "dev.scripts.devctl.status_report.collect_rust_audit_report",
+        side_effect=_fake_rust_audits,
+    )
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
+    @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
+    def test_pedantic_probe_can_be_enabled(
+        self,
+        _mock_git,
+        _mock_mutants,
+        _mock_rust_audits,
+        _mock_pedantic,
+    ) -> None:
+        report = build_project_report(
+            command="report",
+            include_ci=False,
+            ci_limit=5,
+            include_dev_logs=False,
+            dev_root=None,
+            dev_sessions_limit=5,
+            include_pedantic=True,
+            include_rust_audits=True,
+            parallel=False,
+        )
+        self.assertIn("pedantic", report)
+        self.assertEqual(report["pedantic"]["observed_lints"], 2)
+        self.assertIn("rust_audits", report)
+        self.assertEqual(report["rust_audits"]["summary"]["total_active_findings"], 5)
+
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
     @patch(
         "dev.scripts.devctl.status_report.collect_mutation_summary",
@@ -228,6 +285,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         "dev.scripts.devctl.status_report.collect_dev_log_summary",
         side_effect=_fake_dev_logs,
     )
+    @patch(
+        "dev.scripts.devctl.status_report.collect_rust_audit_report",
+        side_effect=_fake_rust_audits,
+    )
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
     @patch(
         "dev.scripts.devctl.status_report.collect_mutation_summary",
@@ -239,9 +300,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         _mock_git,
         _mock_mutants,
         _mock_ci,
+        _mock_rust_audits,
         _mock_dev_logs,
     ) -> None:
-        """All four probes in definition order."""
+        """All enabled probes stay in deterministic definition order."""
         report = build_project_report(
             command="status",
             include_ci=True,
@@ -249,11 +311,12 @@ class BuildProjectReportParallelTests(unittest.TestCase):
             include_dev_logs=True,
             dev_root="/tmp/dev",
             dev_sessions_limit=5,
+            include_rust_audits=True,
             parallel=True,
         )
         keys = list(report.keys())
         self.assertEqual(keys[:2], ["command", "timestamp"])
-        self.assertEqual(keys[2:], ["git", "mutants", "ci", "dev_logs"])
+        self.assertEqual(keys[2:], ["git", "mutants", "ci", "dev_logs", "rust_audits"])
 
 
 class ProbeExceptionTests(unittest.TestCase):

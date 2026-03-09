@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import os
 from collections import deque
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .audit_events import resolve_event_log_path
+from .common import read_json_object, resolve_repo_path
 from .config import REPO_ROOT
 from .data_science_aggregates import build_agent_metrics, build_event_metrics
 from .data_science_rendering import (
@@ -17,6 +17,7 @@ from .data_science_rendering import (
     write_data_science_charts,
 )
 from .numeric import to_float, to_int
+from .time_utils import utc_timestamp
 
 DEFAULT_OUTPUT_ROOT = "dev/reports/data_science"
 DEFAULT_SWARM_ROOT = "dev/reports/autonomy/swarms"
@@ -24,25 +25,13 @@ DEFAULT_BENCHMARK_ROOT = "dev/reports/autonomy/benchmarks"
 DEFAULT_MAX_EVENTS = 20_000
 DEFAULT_MAX_SWARM_FILES = 2_000
 DEFAULT_MAX_BENCHMARK_FILES = 500
-
-
-def _iso_utc() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _resolve_path(value: str) -> Path:
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path
-    return (REPO_ROOT / path).resolve()
+    return resolve_repo_path(value, repo_root=REPO_ROOT, resolve=True)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return payload if isinstance(payload, dict) else None
+    payload, _error = read_json_object(path)
+    return payload
 
 
 def _read_jsonl_tail(path: Path, *, max_rows: int) -> list[dict[str, Any]]:
@@ -175,7 +164,7 @@ def run_data_science_snapshot(
     agent_stats = build_agent_metrics(agent_rows)
 
     report = {
-        "generated_at": _iso_utc(),
+        "generated_at": utc_timestamp(),
         "trigger_command": trigger_command,
         "event_log": str(event_log),
         "event_stats": event_stats,

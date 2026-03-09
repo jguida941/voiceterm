@@ -1,10 +1,7 @@
 //! Overlay mouse interaction helpers extracted from input dispatch.
 
 use super::*;
-use crate::dev_panel::{
-    dev_panel_footer, dev_panel_height, dev_panel_inner_width_for_terminal,
-    dev_panel_width_for_terminal,
-};
+use crate::dev_panel::{dev_panel_active_footer, dev_panel_height, panel_inner_width, panel_width};
 use crate::transcript_history::transcript_history_visible_rows;
 
 pub(super) fn handle_overlay_mouse_click(
@@ -50,9 +47,9 @@ pub(super) fn handle_overlay_mouse_click(
 
     let (overlay_width, inner_width, footer_title) = match state.ui.overlay_mode {
         OverlayMode::DevPanel => (
-            dev_panel_width_for_terminal(cols),
-            dev_panel_inner_width_for_terminal(cols),
-            dev_panel_footer(&state.theme.colors()),
+            panel_width(cols),
+            panel_inner_width(cols),
+            dev_panel_active_footer(&state.theme.colors(), &state.dev_panel_commands, cols),
         ),
         OverlayMode::Help => (
             help_overlay_width_for_terminal(cols),
@@ -106,8 +103,6 @@ pub(super) fn handle_overlay_mouse_click(
         x_usize
             .saturating_sub(centered_overlay_left)
             .saturating_add(1)
-    } else if (1..=overlay_width).contains(&x_usize) {
-        x_usize
     } else {
         return;
     };
@@ -141,6 +136,12 @@ pub(super) fn handle_overlay_mouse_click(
     }
 
     if state.ui.overlay_mode == OverlayMode::ThemeStudio {
+        // Mouse selection only applies to the Home page — other pages have
+        // different layouts and fewer rows, so Home-page index math would
+        // map clicks to wrong items (or out-of-bounds).
+        if state.theme_studio.page != crate::theme_studio::StudioPage::Home {
+            return;
+        }
         let options_start = THEME_STUDIO_OPTION_START_ROW;
         let options_end = options_start.saturating_add(THEME_STUDIO_ITEMS.len().saturating_sub(1));
         if overlay_row >= options_start
@@ -221,8 +222,11 @@ pub(super) fn handle_overlay_mouse_click(
 }
 
 fn footer_close_prefix(footer_title: &str) -> &str {
-    let dot_split = footer_title.split('·').next().unwrap_or(footer_title);
-    dot_split.split('|').next().unwrap_or(dot_split).trim_end()
+    if let Some(prefix_end) = footer_title.find(" close") {
+        &footer_title[..prefix_end + " close".len()]
+    } else {
+        footer_title.trim_end()
+    }
 }
 
 const SETTINGS_SLIDER_LABEL_WIDTH: usize = 15;
@@ -315,8 +319,8 @@ mod tests {
     };
 
     #[test]
-    fn footer_close_prefix_extracts_close_label_before_dot_and_pipe() {
-        let footer = "[x] close | up/down move | Enter select · Click/Tap select";
+    fn footer_close_prefix_extracts_close_label_before_dynamic_suffixes() {
+        let footer = "[x] close | Tab next | r raw | Enter reload [2/4]";
         assert_eq!(footer_close_prefix(footer), "[x] close");
     }
 

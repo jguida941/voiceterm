@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from .common import add_standard_output_arguments
 from .reports_retention import (
     DEFAULT_REPORTS_ROOT_RELATIVE,
     DEFAULT_RETENTION_KEEP_RECENT,
@@ -40,9 +41,4 @@ def add_reports_cleanup_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Skip confirmation prompt before deletion",
     )
     cleanup_cmd.add_argument("--dry-run", action="store_true")
-    cleanup_cmd.add_argument("--format", choices=["json", "md"], default="md")
-    cleanup_cmd.add_argument("--output")
-    cleanup_cmd.add_argument("--pipe-command", help="Pipe report output to a command")
-    cleanup_cmd.add_argument(
-        "--pipe-args", nargs="*", help="Extra args for pipe command"
-    )
+    add_standard_output_arguments(cleanup_cmd)

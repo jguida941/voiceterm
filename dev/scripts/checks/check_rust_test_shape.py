@@ -11,9 +11,19 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from check_bootstrap import (
+        build_since_ref_format_parser,
+        emit_runtime_error,
+        import_attr,
+        utc_timestamp,
+    )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
-    from dev.scripts.checks.check_bootstrap import emit_runtime_error, import_attr, utc_timestamp
+    from dev.scripts.checks.check_bootstrap import (
+        build_since_ref_format_parser,
+        emit_runtime_error,
+        import_attr,
+        utc_timestamp,
+    )
 
 list_changed_paths_with_base_map = import_attr(
     "git_change_paths", "list_changed_paths_with_base_map"
@@ -128,13 +138,7 @@ def _render_md(report: dict) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--since-ref", help="Compare against this git ref")
-    parser.add_argument(
-        "--head-ref", default="HEAD", help="Head ref used with --since-ref"
-    )
-    parser.add_argument("--format", choices=("md", "json"), default="md")
-    return parser
+    return build_since_ref_format_parser(__doc__ or "")
 
 
 def main() -> int:

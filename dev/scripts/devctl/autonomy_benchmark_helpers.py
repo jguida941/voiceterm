@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .autonomy_swarm_helpers import resolve_path, slug
+from .common import display_path
 from .config import REPO_ROOT
 from .numeric import to_int
 
@@ -16,10 +17,7 @@ SUPPORTED_TACTICS = ("uniform", "specialized", "research-first", "test-first")
 
 
 def repo_relative(path: Path) -> str:
-    try:
-        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
-    except ValueError:
-        return str(path)
+    return display_path(path, repo_root=REPO_ROOT)
 
 
 def fallback_repo_from_origin() -> str | None:

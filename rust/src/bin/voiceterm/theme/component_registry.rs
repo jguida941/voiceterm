@@ -8,10 +8,21 @@
 
 #![allow(
     dead_code,
-    reason = "Theme Studio v2 component/state contracts are staged and partially feature-gated during incremental rollout."
+    reason = "Theme component registry is staged for Theme Studio parity work while runtime wiring stays incremental."
 )]
 
 use std::collections::HashMap;
+
+/// Whether a component is actively rendered by production code or registered
+/// for future use. CI gates should only enforce style-ID and Studio parity on
+/// `Live` components.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ComponentMaturity {
+    /// Component has a live rendering path in shipped production code.
+    Live,
+    /// Component is registered for forward planning; no production renderer yet.
+    Planned,
+}
 
 /// Stable identifiers for every renderable control surface.
 ///

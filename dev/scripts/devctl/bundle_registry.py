@@ -31,6 +31,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_cli_flags_parity.py",
     "python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120",
     "python3 dev/scripts/checks/check_code_shape.py",
+    "python3 dev/scripts/checks/check_python_subprocess_policy.py",
     "python3 dev/scripts/checks/check_workflow_shell_hygiene.py",
     "python3 dev/scripts/checks/check_workflow_action_pinning.py",
     "python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations",
@@ -45,11 +46,34 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "find . -maxdepth 1 -type f -name '--*'",
 )
 
-# Governance checks used by tooling and release bundles.
-_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
+_POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
+    {
+        "python3 dev/scripts/checks/check_code_shape.py",
+        "python3 dev/scripts/checks/check_python_subprocess_policy.py",
+        "python3 dev/scripts/checks/check_rust_test_shape.py",
+        "python3 dev/scripts/checks/check_rust_lint_debt.py",
+        "python3 dev/scripts/checks/check_rust_best_practices.py",
+        "python3 dev/scripts/checks/check_rust_runtime_panic_policy.py",
+    }
+)
+
+# Governance checks shared by tooling and release bundles.
+_SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_agents_contract.py",
     "python3 dev/scripts/checks/check_release_version_parity.py",
+    "python3 dev/scripts/checks/check_repo_url_parity.py",
+    "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
+    "python3 dev/scripts/checks/check_architecture_surface_sync.py",
+    "python3 dev/scripts/checks/check_bundle_registry_dry.py",
     "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
+    "python3 dev/scripts/checks/check_review_channel_bridge.py",
+)
+
+# Publication drift only blocks release lanes. Normal tooling/post-push work
+# still sees the warning via hygiene, but should not fail on unrelated external
+# site sync debt.
+_RELEASE_ONLY_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
+    "python3 dev/scripts/checks/check_publication_sync.py",
 )
 
 # Orchestration status commands used by tooling, release, and post-push bundles.
@@ -57,6 +81,30 @@ _ORCHESTRATE_COMMANDS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/devctl.py orchestrate-status --format md",
     "python3 dev/scripts/devctl.py orchestrate-watch --stale-minutes 120 --format md",
 )
+
+# Host-side cleanup/audit step for repo-related stale/orphan process trees.
+_HOST_PROCESS_HYGIENE_COMMAND: Final[str] = (
+    "python3 dev/scripts/devctl.py process-cleanup --verify --format md"
+)
+
+# Operator Console proof path for tooling changes touching the optional PyQt UI.
+_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = (
+    "python3 -m pytest app/operator_console/tests/ -q --tb=short"
+)
+
+
+def _compose_post_push_guard_checks() -> tuple[str, ...]:
+    """Reuse the canonical guard list while scoping diff-aware checks to origin/develop."""
+    commands: list[str] = []
+    for command in _GUARD_CHECKS:
+        if command in _POST_PUSH_DIFF_GUARD_COMMANDS:
+            commands.append(f"{command} --since-ref origin/develop")
+        else:
+            commands.append(command)
+    return tuple(commands)
+
+
+_POST_PUSH_GUARD_CHECKS: Final[tuple[str, ...]] = _compose_post_push_guard_checks()
 
 # ---------------------------------------------------------------------------
 # Bundle definitions (composed from shared layers)
@@ -74,6 +122,7 @@ BUNDLE_REGISTRY: Final[dict[str, tuple[str, ...]]] = {
     ),
     "bundle.runtime": (
         "python3 dev/scripts/devctl.py check --profile ci",
+        _HOST_PROCESS_HYGIENE_COMMAND,
         "python3 dev/scripts/devctl.py docs-check --user-facing",
         "python3 dev/scripts/devctl.py hygiene",
         *_GUARD_CHECKS,
@@ -87,8 +136,10 @@ BUNDLE_REGISTRY: Final[dict[str, tuple[str, ...]]] = {
         "python3 dev/scripts/devctl.py docs-check --strict-tooling",
         "python3 dev/scripts/devctl.py hygiene --strict-warnings",
         *_ORCHESTRATE_COMMANDS,
-        *_GOVERNANCE_CHECKS,
+        *_SHARED_GOVERNANCE_CHECKS,
         *_GUARD_CHECKS,
+        _OPERATOR_CONSOLE_TESTS_COMMAND,
+        _HOST_PROCESS_HYGIENE_COMMAND,
     ),
     "bundle.release": (
         "python3 dev/scripts/devctl.py check --profile release",
@@ -96,10 +147,12 @@ BUNDLE_REGISTRY: Final[dict[str, tuple[str, ...]]] = {
         "python3 dev/scripts/devctl.py docs-check --strict-tooling",
         "python3 dev/scripts/devctl.py hygiene --strict-warnings",
         *_ORCHESTRATE_COMMANDS,
-        *_GOVERNANCE_CHECKS,
+        *_SHARED_GOVERNANCE_CHECKS,
+        *_RELEASE_ONLY_GOVERNANCE_CHECKS,
         "CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master",
         "CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master",
         *_GUARD_CHECKS,
+        _HOST_PROCESS_HYGIENE_COMMAND,
     ),
     "bundle.post-push": (
         "git status",
@@ -109,21 +162,9 @@ BUNDLE_REGISTRY: Final[dict[str, tuple[str, ...]]] = {
         "python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop",
         "python3 dev/scripts/devctl.py hygiene",
         "python3 dev/scripts/checks/check_active_plan_sync.py",
-        "python3 dev/scripts/checks/check_multi_agent_sync.py",
-        "python3 dev/scripts/checks/check_cli_flags_parity.py",
-        "python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120",
-        "python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop",
-        "python3 dev/scripts/checks/check_workflow_shell_hygiene.py",
-        "python3 dev/scripts/checks/check_workflow_action_pinning.py",
-        "python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations",
-        "python3 dev/scripts/checks/check_compat_matrix.py",
-        "python3 dev/scripts/checks/compat_matrix_smoke.py",
-        "python3 dev/scripts/checks/check_naming_consistency.py",
-        "python3 dev/scripts/checks/check_rust_test_shape.py --since-ref origin/develop",
-        "python3 dev/scripts/checks/check_rust_lint_debt.py --since-ref origin/develop",
-        "python3 dev/scripts/checks/check_rust_best_practices.py --since-ref origin/develop",
-        "python3 dev/scripts/checks/check_rust_runtime_panic_policy.py --since-ref origin/develop",
-        "find . -maxdepth 1 -type f -name '--*'",
+        "python3 dev/scripts/checks/check_review_channel_bridge.py",
+        *_POST_PUSH_GUARD_CHECKS[1:],
+        _HOST_PROCESS_HYGIENE_COMMAND,
     ),
 }
 

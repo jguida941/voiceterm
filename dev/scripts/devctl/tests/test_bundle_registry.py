@@ -39,10 +39,18 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/devctl.py docs-check --strict-tooling",
             "python3 dev/scripts/devctl.py hygiene --strict-warnings",
             "python3 dev/scripts/checks/check_agents_contract.py",
+            "python3 dev/scripts/checks/check_bundle_registry_dry.py",
+            "python3 dev/scripts/checks/check_architecture_surface_sync.py",
             "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
+            "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
+            "python3 dev/scripts/checks/check_python_subprocess_policy.py",
+            "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
+            "python3 dev/scripts/checks/check_review_channel_bridge.py",
+            "python3 -m pytest app/operator_console/tests/ -q --tb=short",
         }
         self.assertTrue(required_commands.issubset(commands))
+        self.assertNotIn("python3 dev/scripts/checks/check_publication_sync.py", commands)
 
     def test_release_bundle_keeps_required_release_gates(self) -> None:
         commands = set(get_bundle_commands("bundle.release"))
@@ -51,9 +59,19 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/devctl.py docs-check --strict-tooling",
             "CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master",
             "CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master",
+            "python3 dev/scripts/checks/check_architecture_surface_sync.py",
+            "python3 dev/scripts/checks/check_bundle_registry_dry.py",
             "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
+            "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
+            "python3 dev/scripts/checks/check_publication_sync.py",
+            "python3 dev/scripts/checks/check_python_subprocess_policy.py",
+            "python3 dev/scripts/checks/check_repo_url_parity.py",
         }
         self.assertTrue(required_commands.issubset(commands))
+
+    def test_post_push_bundle_does_not_hard_block_on_publication_sync(self) -> None:
+        commands = set(get_bundle_commands("bundle.post-push"))
+        self.assertNotIn("python3 dev/scripts/checks/check_publication_sync.py", commands)
 
     def test_reference_renderer_includes_all_bundles(self) -> None:
         markdown = render_all_bundle_reference_markdown()

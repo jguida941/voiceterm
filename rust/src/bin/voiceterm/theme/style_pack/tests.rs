@@ -1,9 +1,13 @@
 use super::*;
 use crate::test_env::env_lock;
 use crate::theme::runtime_overrides::{
-    RuntimeBorderStyleOverride, RuntimeGlyphSetOverride, RuntimeIndicatorSetOverride,
-    RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride, RuntimeStylePackOverrides,
-    RuntimeVoiceSceneStyleOverride,
+    RuntimeBannerStyleOverride, RuntimeBorderStyleOverride, RuntimeGlyphSetOverride,
+    RuntimeIndicatorSetOverride, RuntimeProgressBarFamilyOverride, RuntimeProgressStyleOverride,
+    RuntimeStartupStyleOverride, RuntimeStylePackOverrides, RuntimeToastPositionOverride,
+    RuntimeToastSeverityModeOverride, RuntimeVoiceSceneStyleOverride,
+};
+use crate::theme::style_schema::{
+    BannerStyleOverride, StartupStyleOverride, ToastPositionOverride, ToastSeverityMode,
 };
 use crate::theme::{
     GlyphSet, ProgressBarFamily, SpinnerStyle, VoiceSceneStyle, BORDER_HEAVY, BORDER_NONE,
@@ -392,4 +396,309 @@ fn set_runtime_theme_file_override_clears_with_none() {
     let _guard = ThemeFileOverrideGuard::push(Some("/tmp/active.toml".into()));
     set_runtime_theme_file_override(None);
     assert_eq!(runtime_theme_file_override(), None);
+}
+
+// -- Persisted payload resolver precedence tests --
+
+#[test]
+fn resolved_toast_position_returns_none_without_payload_or_override() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+    std::env::remove_var(STYLE_PACK_SCHEMA_ENV);
+    std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN);
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(resolved_toast_position(Theme::Codex), None);
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_toast_position_reads_persisted_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":3,"profile":"test","base_theme":"codex","surfaces":{"toast_position":"top-right"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(
+        resolved_toast_position(Theme::Codex),
+        Some(ToastPositionOverride::TopRight),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_toast_position_runtime_override_wins_over_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":3,"profile":"test","base_theme":"codex","surfaces":{"toast_position":"top-right"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+        toast_position_override: Some(RuntimeToastPositionOverride::BottomCenter),
+        ..RuntimeStylePackOverrides::default()
+    });
+    assert_eq!(
+        resolved_toast_position(Theme::Codex),
+        Some(ToastPositionOverride::BottomCenter),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_banner_style_reads_persisted_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":4,"profile":"test","base_theme":"codex","components":{"banner_style":"compact"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(
+        resolved_banner_style(Theme::Codex),
+        Some(BannerStyleOverride::Compact),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_banner_style_runtime_override_wins_over_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":4,"profile":"test","base_theme":"codex","components":{"banner_style":"compact"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+        banner_style_override: Some(RuntimeBannerStyleOverride::Hidden),
+        ..RuntimeStylePackOverrides::default()
+    });
+    assert_eq!(
+        resolved_banner_style(Theme::Codex),
+        Some(BannerStyleOverride::Hidden),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+// -- resolved_startup_style precedence tests --
+
+#[test]
+fn resolved_startup_style_returns_none_without_payload_or_override() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+    std::env::remove_var(STYLE_PACK_SCHEMA_ENV);
+    std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN);
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(resolved_startup_style(Theme::Codex), None);
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_startup_style_reads_persisted_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":3,"profile":"test","base_theme":"codex","surfaces":{"startup_style":"minimal"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(
+        resolved_startup_style(Theme::Codex),
+        Some(StartupStyleOverride::Minimal),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_startup_style_runtime_override_wins_over_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":3,"profile":"test","base_theme":"codex","surfaces":{"startup_style":"minimal"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+        startup_style_override: Some(RuntimeStartupStyleOverride::Hidden),
+        ..RuntimeStylePackOverrides::default()
+    });
+    assert_eq!(
+        resolved_startup_style(Theme::Codex),
+        Some(StartupStyleOverride::Hidden),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+// -- resolved_toast_severity_mode precedence tests --
+
+#[test]
+fn resolved_toast_severity_mode_returns_none_without_payload_or_override() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+    std::env::remove_var(STYLE_PACK_SCHEMA_ENV);
+    std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN);
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(resolved_toast_severity_mode(Theme::Codex), None);
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_toast_severity_mode_reads_persisted_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":4,"profile":"test","base_theme":"codex","components":{"toast_severity_mode":"icon-and-label"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+    assert_eq!(
+        resolved_toast_severity_mode(Theme::Codex),
+        Some(ToastSeverityMode::IconAndLabel),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
+}
+
+#[test]
+fn resolved_toast_severity_mode_runtime_override_wins_over_payload() {
+    let _env = env_lock();
+    let prev_sp = std::env::var(STYLE_PACK_SCHEMA_ENV).ok();
+    let prev_oi = std::env::var(STYLE_PACK_TEST_ENV_OPT_IN).ok();
+
+    std::env::set_var(
+        STYLE_PACK_SCHEMA_ENV,
+        r#"{"version":4,"profile":"test","base_theme":"codex","components":{"toast_severity_mode":"icon-and-label"}}"#,
+    );
+    std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, "1");
+
+    let _guard = install_runtime_overrides(RuntimeStylePackOverrides {
+        toast_severity_mode_override: Some(RuntimeToastSeverityModeOverride::Label),
+        ..RuntimeStylePackOverrides::default()
+    });
+    assert_eq!(
+        resolved_toast_severity_mode(Theme::Codex),
+        Some(ToastSeverityMode::Label),
+    );
+
+    match prev_sp {
+        Some(v) => std::env::set_var(STYLE_PACK_SCHEMA_ENV, v),
+        None => std::env::remove_var(STYLE_PACK_SCHEMA_ENV),
+    }
+    match prev_oi {
+        Some(v) => std::env::set_var(STYLE_PACK_TEST_ENV_OPT_IN, v),
+        None => std::env::remove_var(STYLE_PACK_TEST_ENV_OPT_IN),
+    }
 }

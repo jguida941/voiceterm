@@ -65,6 +65,52 @@ class AuditEventsPayloadTests(unittest.TestCase):
         self.assertEqual(payload["execution_source"], "script_only")
         self.assertEqual(payload["argv"], ["check", "--profile", "ci"])
 
+    def test_review_channel_has_explicit_area_mapping(self) -> None:
+        args = SimpleNamespace(profile=None)
+        with patch.dict("os.environ", {}, clear=False):
+            payload = audit_events.build_audit_event_payload(
+                command="review-channel",
+                args=args,
+                returncode=0,
+                duration_seconds=0.5,
+                argv=["review-channel", "--action", "launch"],
+            )
+        self.assertEqual(payload["area"], "review_channel")
+        self.assertEqual(payload["step"], "devctl:review-channel")
+
+    def test_mobile_status_has_explicit_area_mapping(self) -> None:
+        args = SimpleNamespace(profile=None)
+        with patch.dict("os.environ", {}, clear=False):
+            payload = audit_events.build_audit_event_payload(
+                command="mobile-status",
+                args=args,
+                returncode=0,
+                duration_seconds=0.5,
+                argv=["mobile-status", "--view", "compact"],
+            )
+        self.assertEqual(payload["area"], "reporting")
+        self.assertEqual(payload["step"], "devctl:mobile-status")
+
+    def test_process_hygiene_commands_have_explicit_area_mapping(self) -> None:
+        args = SimpleNamespace(profile=None)
+        for command in (
+            "process-cleanup",
+            "process-audit",
+            "process-watch",
+            "guard-run",
+        ):
+            with self.subTest(command=command):
+                with patch.dict("os.environ", {}, clear=False):
+                    payload = audit_events.build_audit_event_payload(
+                        command=command,
+                        args=args,
+                        returncode=0,
+                        duration_seconds=0.5,
+                        argv=[command],
+                    )
+                self.assertEqual(payload["area"], "process_hygiene")
+                self.assertEqual(payload["step"], f"devctl:{command}")
+
     def test_emit_event_writes_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "events.jsonl"

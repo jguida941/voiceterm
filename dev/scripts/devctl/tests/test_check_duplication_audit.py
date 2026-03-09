@@ -55,6 +55,14 @@ class CheckDuplicationAuditTests(TestCase):
                 exit_code = self.script.main()
         return exit_code, json.loads(out.getvalue())
 
+    def _write_repo_temp_file(self, relative_path: str, text: str) -> Path:
+        path = REPO_ROOT / relative_path
+        self.assertFalse(path.exists(), f"temp test path already exists: {path}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        self.addCleanup(path.unlink)
+        return path
+
     def test_missing_report_fails(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             report_path = Path(temp_dir) / "missing.json"
@@ -297,6 +305,128 @@ class CheckDuplicationAuditTests(TestCase):
                 for err in report["errors"]
             )
         )
+
+    def test_shared_logic_helper_overlap_is_advisory_without_report(self) -> None:
+        helper_rel = "dev/scripts/devctl/_shared_logic_helper_support.py"
+        candidate_rel = "dev/scripts/_shared_logic_candidate.py"
+        helper_text = """
+from pathlib import Path
+
+def shared_helper(items):
+    lines = []
+    for item in items:
+        text = str(item).strip()
+        if not text:
+            continue
+        lines.append(text)
+    return "\\n".join(lines)
+"""
+        candidate_text = """
+from pathlib import Path
+
+def copied_helper(items):
+    lines = []
+    for item in items:
+        text = str(item).strip()
+        if not text:
+            continue
+        lines.append(text)
+    return "\\n".join(lines)
+"""
+        self._write_repo_temp_file(helper_rel, helper_text.strip() + "\n")
+        self._write_repo_temp_file(candidate_rel, candidate_text.strip() + "\n")
+
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
+            report_path = Path(temp_dir) / "missing.json"
+            exit_code, report = self._run(
+                "--report-path",
+                str(report_path),
+                "--check-shared-logic",
+                "--paths",
+                candidate_rel,
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ok_with_warnings")
+        self.assertEqual(report["shared_logic_candidate_count"], 1)
+        self.assertEqual(report["errors"], [])
+        self.assertEqual(report["shared_logic_candidates"][0]["heuristic"], "new-file-vs-shared-helper")
+
+    def test_shared_logic_orchestration_clone_is_reported(self) -> None:
+        existing_rel = "dev/scripts/devctl/commands/_shared_logic_existing_cmd.py"
+        candidate_rel = "dev/scripts/devctl/commands/_shared_logic_candidate_cmd.py"
+        existing_text = """
+import argparse
+import json
+
+from ..common import write_output
+from ..script_catalog import check_script_cmd
+from ..time_utils import utc_timestamp
+
+def run(args):
+    payload = {"command": "existing", "timestamp": utc_timestamp()}
+    output = json.dumps(payload, indent=2)
+    write_output(output, args.output)
+    return 0
+"""
+        candidate_text = """
+import argparse
+import json
+
+from ..common import write_output
+from ..script_catalog import check_script_cmd
+from ..time_utils import utc_timestamp
+
+def run(args):
+    payload = {"command": "candidate", "timestamp": utc_timestamp()}
+    output = json.dumps(payload, indent=2)
+    write_output(output, args.output)
+    return 0
+"""
+        self._write_repo_temp_file(existing_rel, existing_text.strip() + "\n")
+        self._write_repo_temp_file(candidate_rel, candidate_text.strip() + "\n")
+
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
+            report_path = Path(temp_dir) / "missing.json"
+            exit_code, report = self._run(
+                "--report-path",
+                str(report_path),
+                "--check-shared-logic",
+                "--paths",
+                candidate_rel,
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ok_with_warnings")
+        heuristics = {item["heuristic"] for item in report["shared_logic_candidates"]}
+        self.assertIn("orchestration-pattern-clone", heuristics)
+
+    def test_shared_logic_only_mode_stays_green_when_no_candidates_found(self) -> None:
+        candidate_rel = "dev/scripts/_shared_logic_unique_candidate.py"
+        candidate_text = """
+def unique_behavior():
+    values = ["alpha", "beta", "gamma"]
+    return ",".join(reversed(values))
+"""
+        self._write_repo_temp_file(candidate_rel, candidate_text.strip() + "\n")
+
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
+            report_path = Path(temp_dir) / "missing.json"
+            exit_code, report = self._run(
+                "--report-path",
+                str(report_path),
+                "--check-shared-logic",
+                "--paths",
+                candidate_rel,
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["shared_logic_candidate_count"], 0)
+        self.assertEqual(report["warnings"], [])
 
 
 if __name__ == "__main__":

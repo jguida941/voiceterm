@@ -2,10 +2,11 @@
 
 Status: active tooling roadmap (execution mirrored in `dev/active/MASTER_PLAN.md`; scoped here to `MP-297..MP-300`, `MP-303`, `MP-306`)
 
-Scope note (2026-03-07): this doc stays active because `MP-297` and `MP-298`
-remain open. Closed slices `MP-299`, `MP-300`, `MP-303`, and `MP-306` stay
-here as continuity/history, and broader roadmap sections below remain planning
-context until they are explicitly promoted in `MASTER_PLAN`.
+Scope note (2026-03-09): the currently promoted execution slices
+(`MP-297..MP-300`, `MP-303`, `MP-306`) are closed. This doc stays in
+`dev/active/` as the canonical roadmap/spec for the next reporting/control-
+plane promotion, but broader sections below remain planning context until they
+are explicitly promoted in `MASTER_PLAN`.
 
 ## Purpose
 
@@ -351,8 +352,9 @@ Execution order is fixed:
 
 Coordination model for this sprint:
 
-1. Use `dev/active/MULTI_AGENT_WORKTREE_RUNBOOK.md` as the only instruction,
-   ACK, progress, and handoff surface.
+1. Use the merged markdown-swarm plan in `dev/active/review_channel.md` plus
+   the live `code_audit.md` bridge as the only instruction, ACK, progress, and
+   handoff surfaces.
 2. Keep `dev/active/MASTER_PLAN.md` as the execution tracker.
 3. Run orchestrator loop every 30 minutes:
    - `python3 dev/scripts/devctl.py orchestrate-status --format md`
@@ -736,6 +738,44 @@ current MP scope.
 
 ## Change Log
 
+- 2026-03-09: Closed `MP-298` after finishing the last remaining gap on the
+  `ship --verify` path. `status` / `report` already had deterministic parallel
+  probe collection; `ship --verify` now also runs its independent release-gate,
+  release-check, hygiene, and optional docs subchecks through ordered parallel
+  aggregation, while quiet worker execution preserves a stable first-failure
+  decision in the declared substep order. Local proof used
+  `python3 -m unittest dev.scripts.devctl.tests.test_common dev.scripts.devctl.tests.test_ship`
+  plus `python3 dev/scripts/devctl.py ship --version 1.1.1 --verify --dry-run --format json`.
+- 2026-03-09: Closed the `MP-297` external publication-sync governance slice:
+  the repo now carries a tracked publication registry
+  (`dev/config/publication_sync_registry.json`), `devctl publication-sync`
+  report/record flow, hygiene integration for stale-publication warnings, the
+  explicit `check_publication_sync.py` guard, release-preflight wiring, and
+  focused regression coverage (`test_publication_sync.py`,
+  `test_check_publication_sync.py`). Local proof for this closure used
+  `python3 -m unittest dev.scripts.devctl.tests.test_publication_sync dev.scripts.devctl.tests.test_check_publication_sync`,
+  `python3 dev/scripts/devctl.py publication-sync --format json`, and
+  `python3 dev/scripts/checks/check_publication_sync.py --report-only`.
+- 2026-03-09: Added a first Rust-audit bundle slice on the existing
+  `devctl report` surface instead of creating another standalone audit tool:
+  `report --rust-audits` now aggregates `check_rust_best_practices.py`,
+  `check_rust_lint_debt.py`, and `check_rust_runtime_panic_policy.py` into one
+  human-readable Markdown section with per-signal risk/fix guidance, optional
+  matplotlib chart output via `--with-charts`, and deterministic `.md` + `.json`
+  bundle emission via `--emit-bundle`. The panic-policy guard also now supports
+  `--absolute` so full-tree audit bundles can use one mode across all three
+  Rust guard families.
+- 2026-03-08: Kept advisory pedantic lint review on the existing
+  `status/report/triage` architecture instead of creating a separate tool:
+  `check --profile pedantic` emits structured artifacts, `clippy_pedantic.py`
+  classifies them with repo-owned policy, and `report` / `triage` now support
+  `--pedantic` plus explicit `--pedantic-refresh` for one-command refresh +
+  summary/AI-bundle flows.
+- 2026-03-07: Added external publication-sync governance slice under
+  `MP-297` so `devctl` can track external site/paper drift against watched
+  repo source paths. Planned surface: tracked publication registry,
+  `devctl publication-sync` reporting + record-sync mode, hygiene warnings for
+  stale publications, and a standalone guard script for explicit gating.
 - 2026-02-23: Major revision. Added voice session data integration, trend
   tracking model, playbook remediation, AI-assisted triage, devctl doctor
   and devctl health commands, DORA-inspired metrics, Rich/Textual/PyQt6

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..autonomy_loop_helpers import iso_z, render_markdown, utc_now
-from ..common import pipe_output, write_output
+from ..common import emit_output, pipe_output, write_output
 
 
 def validate_args(args) -> str | None:
@@ -64,18 +64,19 @@ def write_validation_error(
         "errors": errors,
         "rounds": [],
     }
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_markdown(report)
+    json_payload = json.dumps(report, indent=2)
+    output = json_payload if args.format == "json" else render_markdown(report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 1
 
 
@@ -136,18 +137,19 @@ def emit_controller_report(
     report["summary_json"] = str(summary_json_path)
     report["summary_md"] = str(summary_md_path)
 
-    output = (
-        json.dumps(report, indent=2)
-        if args.format == "json"
-        else render_markdown_fn(report)
+    json_payload = json.dumps(report, indent=2)
+    output = json_payload if args.format == "json" else render_markdown_fn(report)
+    pipe_code = emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=args.pipe_command,
+        pipe_args=args.pipe_args,
+        additional_outputs=[(json_payload, args.json_output)] if args.json_output else None,
+        writer=write_output,
+        piper=pipe_output,
     )
-    write_output(output, args.output)
-    if args.json_output:
-        write_output(json.dumps(report, indent=2), args.json_output)
-    if args.pipe_command:
-        pipe_code = pipe_output(output, args.pipe_command, args.pipe_args)
-        if pipe_code != 0:
-            return pipe_code
+    if pipe_code != 0:
+        return pipe_code
     return 0
 
 
